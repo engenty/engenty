@@ -26,6 +26,7 @@ import type { KbRepoFactory } from "../../src/dal/contracts.js";
 import { enrichKbFromSettings } from "../../src/dal/shared.js";
 import { articleUpdateSchema } from "../../src/schema/articles.js";
 import { inboxItemCreateSchema } from "../../src/schema/inbox.js";
+import { kbSourceIngestConfigSchema } from "../../src/schema/sources.js";
 import { runKbSource } from "../../src/sources/source-runner.js";
 import { resolveKbIdForScopedRead } from "./kb-operation-target.js";
 
@@ -374,6 +375,8 @@ export function registerKbAiGatewayMethods(
       const faq = await repos.faqs.create(
         {
           ...rest,
+          answer_json: rest.answer_json ?? null,
+          answer_markdown: rest.answer_markdown ?? null,
           kb_id: kbId,
         },
         tag_ids,
@@ -459,7 +462,9 @@ export function registerKbAiGatewayMethods(
       }
       const category = await repos.categories.create({
         ...params,
+        description: params.description ?? null,
         kb_id: kbId,
+        parent_id: params.parent_id ?? null,
       });
       return { category_id: category.id, name: category.name };
     },
@@ -657,8 +662,17 @@ export function registerKbAiGatewayMethods(
       const nextSettings = settings ?? existing.settings;
       assertSourceAdapterRunReady(existing.adapter_id, nextSettings);
 
+      const ingest_config =
+        withTz.ingest_config === undefined
+          ? undefined
+          : kbSourceIngestConfigSchema.parse({
+              ...existing.ingest_config,
+              ...withTz.ingest_config,
+            });
+
       const updated = await repos.sources.update(source_id, {
         ...withTz,
+        ingest_config,
         settings,
         next_run_at:
           withTz.next_run_at === undefined
@@ -666,7 +680,6 @@ export function registerKbAiGatewayMethods(
               ? computeDocumentSourceNextRunAt({
                   ...existing,
                   ...withTz,
-                  settings: settings ?? existing.settings,
                 })
               : undefined
             : withTz.next_run_at,
@@ -704,16 +717,15 @@ export function registerKbAiGatewayMethods(
     handler: async (input, ctx) => {
       const repos = getRepo(ctx.auth);
       const { source_id, options } = kbSourceRunInputSchema.parse(input ?? {});
-      const opts = options ?? {};
       const runResult = await runKbSource(repos, source_id, {
         actorPrincipalId: ctx.auth?.principalId ?? null,
-        force: opts.force,
-        background: opts.background,
-        limit: opts.limit,
-        retrieve_images: opts.retrieve_images,
-        selected_item_keys: opts.selected_item_keys,
+        force: options?.force,
+        background: options?.background,
+        limit: options?.limit,
+        retrieve_images: options?.retrieve_images,
+        selected_item_keys: options?.selected_item_keys,
         storageService: server.getStorageService?.("files") ?? null,
-        trigger: opts.trigger ?? "manual",
+        trigger: options?.trigger ?? "manual",
       });
       return runResult;
     },
@@ -748,15 +760,12 @@ export function registerKbAiGatewayMethods(
     handler: async (input, ctx) => {
       const repos = getRepo(ctx.auth);
       const params = kbSourceItemsListInputSchema.parse(input ?? {});
-      const items = await repos.sources.listIndexedItemsPaginated(
-        params.source_id,
-        {
-          page: params.page,
-          page_size: params.page_size,
-          search: params.search,
-          status: params.status,
-        }
-      );
+      const items = await repos.sources.listItemsPaginated(params.source_id, {
+        page: params.page,
+        page_size: params.page_size,
+        search: params.search,
+        status: params.status,
+      });
       return items;
     },
   });
@@ -840,7 +849,6 @@ export function registerKbAiGatewayMethods(
       const { inbox_id, body } = kbInboxFetchSourceInputSchema.parse(
         input ?? {}
       );
-      const opts = body ?? {};
 
       const existing = await repos.inbox.getById(inbox_id);
       if (!existing) {
@@ -856,7 +864,7 @@ export function registerKbAiGatewayMethods(
       const hasRaw =
         Boolean(existing.raw_markdown?.trim()) ||
         Boolean(existing.raw_text?.trim());
-      if (hasRaw && !opts.force) {
+      if (hasRaw && !body?.force) {
         return {
           error: "Raw content already present; send force=true to replace",
         };
@@ -930,7 +938,7 @@ export function registerKbAiGatewayMethods(
       const { article_id } = kbArticleVersionsListInputSchema.parse(
         input ?? {}
       );
-      const list = await repos.articles.listVersions(article_id);
+      const list = await repos.versions.listArticleVersions(article_id);
       return { versions: list };
     },
   });
@@ -947,9 +955,13 @@ export function registerKbAiGatewayMethods(
       const repos = getRepo(ctx.auth);
       const { article_id, version_id } =
         kbArticleVersionRestoreInputSchema.parse(input ?? {});
-      const restored = await repos.articles.restoreVersion(
+      const version = Number.parseInt(version_id, 10);
+      if (!Number.isFinite(version) || version < 1) {
+        return { error: "Invalid version" };
+      }
+      const restored = await repos.articles.restoreFromVersion(
         article_id,
-        version_id,
+        version,
         ctx.auth ? { principalId: ctx.auth.principalId } : null
       );
       return { article: restored };
@@ -989,8 +1001,8 @@ export function registerKbAiGatewayMethods(
         article_id: params.article_id,
         filename: params.filename,
         storage_key: params.storage_key,
-        mime_type: params.mime_type ?? null,
-        size_bytes: params.size_bytes ?? null,
+        mime_type: params.mime_type ?? "application/octet-stream",
+        size_bytes: params.size_bytes ?? 0,
       });
       return { attachment };
     },

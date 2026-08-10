@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { NavigationSection } from "../../types/shell";
 import { useSecondaryNavLayout } from "./use-secondary-nav-layout";
 
 // Mock matchMedia
@@ -34,18 +35,18 @@ vi.mock("@engenty/ui-plugin-sdk", () => ({
   usePageHeader: () => pageHeaderState,
 }));
 
-const sectionsWithSecondary = [
+const sectionsWithSecondary: NavigationSection[] = [
   {
-    id: "section1",
+    id: "primary",
     label: "Section 1",
     items: [
       {
+        icon: () => null,
         id: "item1",
         label: "Item 1",
         to: "/test-path",
         children: [
           {
-            id: "child1",
             label: "Child 1",
             to: "/test-path/child",
           },
@@ -67,7 +68,7 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
     vi.useFakeTimers();
 
     const persistence = {
-      snapshot: { pinnedOpen: true },
+      snapshot: { pinnedOpen: true, v: 1 as const },
       pinnedHydrated: true,
       mergePinned: vi.fn(),
     };
@@ -120,7 +121,7 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
     pageHeaderState.secondaryNavAllowPinned = false;
 
     const persistence = {
-      snapshot: { pinnedOpen: true },
+      snapshot: { pinnedOpen: true, v: 1 as const },
       pinnedHydrated: true,
       mergePinned: vi.fn(),
     };
@@ -153,7 +154,7 @@ describe("useSecondaryNavLayout - suppressHoverViaClick", () => {
     pageHeaderState.secondaryNavHeaderSlot = "module-header";
 
     const persistence = {
-      snapshot: { pinnedOpen: false },
+      snapshot: { pinnedOpen: false, v: 1 as const },
       pinnedHydrated: true,
       mergePinned: vi.fn(),
     };

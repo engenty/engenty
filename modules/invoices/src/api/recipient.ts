@@ -21,7 +21,7 @@ interface EntityLike {
   legal_name?: string | null;
   phone?: string | null;
   tax_id?: string | null;
-  type?: "organisation" | "person" | "company";
+  type?: "organisation" | "person" | "company" | "individual";
   vat_id?: string | null;
 }
 

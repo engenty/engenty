@@ -54,12 +54,13 @@ export function parseKbTriageMetadata(
   if (!raw || typeof raw !== "object") {
     return null;
   }
-  const o = raw as Record<string, unknown>;
+  // Trusted server payload — only the `version` discriminant is checked here.
+  const o = raw as ParsedKbTriageMetadata;
   if (o.version === 2) {
-    return o as KbTriageMetadataV2;
+    return o;
   }
   if (o.version === 1) {
-    return o as KbTriageMetadataV1;
+    return o;
   }
   return null;
 }

@@ -14,6 +14,7 @@ import type {
   KbSourceItemSection,
   KbSourceItemStatus,
   KbSourceRun,
+  KbSourceStatus,
   KbTemplateBindingMode,
   KbTemplateContentMode,
   PaginatedResponse,
@@ -38,7 +39,7 @@ export interface KbSourceAdapterDescriptor {
     options?: Array<{ label: string; value: string }>;
     required?: boolean;
     row_layout?: "stack" | "inline_end";
-    type: "text" | "url" | "number" | "boolean" | "select";
+    type: "text" | "url" | "number" | "boolean" | "select" | "textarea";
   }>;
 }
 
@@ -95,6 +96,7 @@ export async function createKbSource(input: {
   name: string;
   schedule?: Record<string, unknown>;
   settings: Record<string, unknown>;
+  status?: KbSourceStatus;
 }): Promise<{ data: KbSource }> {
   return requestApiJson<{ data: KbSource }>(`${API}/sources`, {
     method: "POST",

@@ -101,7 +101,7 @@ export function ArticlePropertiesPanel({
     article.updated_by ?? article.created_by
   );
 
-  const mergedLayout = useMemo(
+  const mergedLayout = useMemo<ArticlePropertyDefinition[]>(
     () => [
       ...kbMergeArticlePropertyDefinitions(propertyDefinitions),
       ...(article.effective_template?.property_definitions ?? []).map(

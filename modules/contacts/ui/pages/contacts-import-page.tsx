@@ -4,8 +4,10 @@ import {
   type CSVImportWizardLabels,
   type CsvCleanupRequest,
   connectionImportSourcesForDomain,
+  type ImportFieldDefinition,
   ImportPageShell,
   type ImportRunProgress,
+  type ImportRunSummary,
   importPageContentClassName,
   type MatchByConfig,
 } from "@engenty/import";
@@ -229,7 +231,11 @@ export function ContactsImportPage() {
         labels={labels}
         matchByConfig={matchByConfig}
         matchByLabels={matchByLabels}
-        onAiMap={async (input) => {
+        onAiMap={async (input: {
+          csvHeaders: string[];
+          fieldDefinitions: ImportFieldDefinition[];
+          sampleRows: string[][];
+        }) => {
           const suggested = await suggestContactsImportMappings({
             csvHeaders: input.csvHeaders,
             fieldDefinitions: input.fieldDefinitions,
@@ -254,8 +260,8 @@ export function ContactsImportPage() {
             fieldDefinitions: input.fieldDefinitions,
           })
         }
-        onError={(message) => toast.error(message)}
-        onImportComplete={(summary) => {
+        onError={(message: string) => toast.error(message)}
+        onImportComplete={(summary: ImportRunSummary) => {
           if (progressToastId.current !== undefined) {
             toast.dismiss(progressToastId.current);
             progressToastId.current = undefined;
@@ -295,9 +301,9 @@ export function ContactsImportPage() {
         }}
         onImportProgress={handleProgress}
         onImportRow={handleImportRow}
-        onInfo={(message) => toast.message(message)}
+        onInfo={(message: string) => toast.message(message)}
         onMatchByConfigChange={setMatchByConfig}
-        onSuccess={(message) => toast.success(message)}
+        onSuccess={(message: string) => toast.success(message)}
         presetAdapter={{
           loadPresets: getContactsImportPresets,
           savePreset: saveContactsImportPreset,

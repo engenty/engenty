@@ -268,13 +268,16 @@ describe("mergePostgresChangesWithTenantFilter", () => {
 
 describe("subscribePostgresChanges", () => {
   it("subscribes and forwards postgres payloads as signals", () => {
-    let callback: ((payload: unknown) => void) | null = null;
+    // Held in an object property so the assignment inside the `on` closure is
+    // visible to the type checker at the call site below (a plain `let` stays
+    // narrowed to its `null` initializer).
+    const captured: { callback?: (payload: unknown) => void } = {};
     const channel: PostgresChangeRealtimeChannel = {
       on: vi.fn((event, _config, nextCallback) => {
         // A "system" error listener is also registered; only capture the
         // postgres_changes handler here.
         if (event === "postgres_changes") {
-          callback = nextCallback as (payload: unknown) => void;
+          captured.callback = nextCallback as (payload: unknown) => void;
         }
         return channel;
       }),
@@ -290,7 +293,7 @@ describe("subscribePostgresChanges", () => {
       onSignal,
     });
 
-    callback?.({
+    captured.callback?.({
       eventType: "UPDATE",
       new: { id: "task-1", tenant_id: "tenant-1" },
     });

@@ -138,9 +138,9 @@ export const HeadlineBlockSettingsDialog = ({
         <div className="min-w-0 flex-1">
           <DatePicker
             className="w-full"
-            onChange={setTimeframeFrom}
+            onChange={(value) => setTimeframeFrom(parseDate(value))}
             placeholder={t(`${pfx}.settings.pickDate`, "Pick date")}
-            value={timeframeFrom}
+            value={toIsoDate(timeframeFrom)}
           />
         </div>
       </div>
@@ -154,9 +154,9 @@ export const HeadlineBlockSettingsDialog = ({
         <div className="min-w-0 flex-1">
           <DatePicker
             className="w-full"
-            onChange={setTimeframeUntil}
+            onChange={(value) => setTimeframeUntil(parseDate(value))}
             placeholder={t(`${pfx}.settings.pickDate`, "Pick date")}
-            value={timeframeUntil}
+            value={toIsoDate(timeframeUntil)}
           />
         </div>
       </div>

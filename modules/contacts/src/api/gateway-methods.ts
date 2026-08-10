@@ -3,7 +3,7 @@ import {
   type PluginServerApi,
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
-import type { contactInputSchema } from "../schema/zod.js";
+import type { ContactInput } from "../schema/types.js";
 import {
   contactCreateInputSchema,
   contactIdParamsSchema,
@@ -41,7 +41,7 @@ export function registerContactsGatewayMethods(
         ...contactCreateDefaults,
         ...rest,
         created_by: parsed.created_by ?? ctx.auth?.principalId ?? "system",
-      } as z.infer<typeof contactInputSchema>;
+      } as ContactInput;
       const created = await repo.create(createInput);
       if (roles?.length) {
         for (const role of roles) {

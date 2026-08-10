@@ -54,7 +54,7 @@ export function InsertConvertedMarkdownDialog({
               "Paste the converted content as markdown into the article?"
             )}
           </DialogTitle>
-          <DialogDescription asChild>
+          <DialogDescription render={<div />}>
             <div className="flex flex-col gap-3 pt-1">
               <div className="space-y-2 text-left">
                 <Label className="text-foreground text-xs">

@@ -15,7 +15,8 @@
     "build": "tsup src/index.ts --format esm --clean",
     "dev": "tsup src/index.ts --format esm --watch",
     "test": "vitest run --root ../.. packages/search-index/src",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

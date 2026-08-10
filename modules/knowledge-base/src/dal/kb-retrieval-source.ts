@@ -42,11 +42,17 @@ export const KB_ARTICLE_SOURCE_TYPE = "kb.article";
 // this many terms; matches the legacy BM25-first UX.
 const FAST_PATH_MAX_TERMS = 2;
 
-/** Public filter surface of the synthesized tool — unchanged from v1. */
+/** Public filter surface of the synthesized tool — unchanged from v1.
+ *  Keep in sync with `kbArticlesSearchFiltersSchema` in `src/schema/shared.ts`. */
 export interface KbArticlesSearchFilters {
+  fts_fallback?: boolean;
   kb_id?: string;
+  match_threshold?: number | null;
+  max_vector_distance?: number | null;
   scope_id?: string | null;
   tenant_id?: string | null;
+  use_vector?: boolean;
+  verifier?: boolean;
 }
 
 export interface KbArticleSearchMatch extends KbSearchResult {

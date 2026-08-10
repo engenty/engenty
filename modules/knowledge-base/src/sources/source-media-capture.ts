@@ -218,9 +218,9 @@ export async function persistRetrievedStructure(args: {
   let retrievedSections = retrieved.sections;
   if (
     (!retrievedSections || retrievedSections.length === 0) &&
-    (retrieved.markdown || retrieved.text)
+    retrieved.markdown
   ) {
-    const textToChunk = retrieved.markdown || retrieved.text || "";
+    const textToChunk = retrieved.markdown;
     const doc = MDocument.fromMarkdown(textToChunk);
     const chunks = await doc.chunk({
       strategy: "recursive",

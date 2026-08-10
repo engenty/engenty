@@ -31,7 +31,7 @@ export function useInvoicesEditAgentUiSlice(invoice: InvoiceListItem | null) {
         invoice_id: invoice.id,
         invoice_status: invoice.status,
         invoice_number: invoice.number,
-        invoice_title: invoice.title,
+        invoice_title: invoice.title ?? null,
       },
     };
   }, [invoice]);
@@ -56,7 +56,7 @@ export function useInvoicesDetailAgentUiSlice(invoice: InvoiceListItem | null) {
         invoice_id: invoice.id,
         invoice_status: invoice.status,
         invoice_number: invoice.number,
-        invoice_title: invoice.title,
+        invoice_title: invoice.title ?? null,
       },
     };
   }, [invoice]);
@@ -73,7 +73,7 @@ export function useInvoicesListAgentUiSlice(input: {
     const preview = input.invoices.slice(0, 10).map((inv) => ({
       id: inv.id,
       label: invoiceLabel(inv),
-      title: inv.title,
+      title: inv.title ?? null,
       status: inv.status,
       invoice_number: inv.number,
     }));

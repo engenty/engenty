@@ -4,18 +4,22 @@
  */
 import type { ProjectWithPhasesAndTasks } from "./api.js";
 
-export interface ProjectSnapshotPhase {
+/**
+ * Kept as type aliases (not interfaces) so they get implicit index signatures
+ * and stay assignable to the `Record<string, JsonValue>` Agent UI page shape.
+ */
+export type ProjectSnapshotPhase = {
   tasks: { title: string; status: string }[];
   title: string;
-}
+};
 
-export interface ProjectSnapshot {
+export type ProjectSnapshot = {
   client_name: string | null;
   end_date: string | null;
   phases: ProjectSnapshotPhase[];
   start_date: string | null;
   title: string;
-}
+};
 
 /** Build a compact project snapshot for Agent UI state. */
 export function buildProjectSnapshot(

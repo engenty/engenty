@@ -118,7 +118,12 @@ export function ProjectsTasksDisplayDialog({
       setSortBy={setSortBy}
       setSortOrder={setSortOrder}
       setTableSize={setTableSize}
-      setViewMode={setViewMode}
+      setViewMode={(mode) => {
+        // viewModes below restricts the configurator to these two modes.
+        if (mode === "table" || mode === "kanban") {
+          setViewMode(mode);
+        }
+      }}
       sortBy={sortBy}
       sortOptions={sortOptions}
       sortOrder={sortOrder}

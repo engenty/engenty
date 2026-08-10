@@ -68,5 +68,5 @@ export const coordinatorAgentConfig: AgentConfig = {
   toolIds: COORDINATOR_TOOL_IDS,
   // Staff preset: /home (agent-scoped rw), /shared (tenant rw), /skills (ro).
   // No sandbox needed — Conductor only calls gateway operations.
-  workspace: { preset: "staff" },
+  workspace: { enabled: true, preset: "staff" },
 };

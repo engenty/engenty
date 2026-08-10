@@ -96,7 +96,7 @@ export function KbAddInTreeDialog(props: KbAddInTreeDialogProps) {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const createCategoryMutation = useCreateCategoryMutation();
+  const createCategoryMutation = useCreateCategoryMutation(kbId);
   const { data: categories = [] } = useQuery(categoriesQueryOptions(kbId));
 
   // Articles can never be turned into sub-categories.

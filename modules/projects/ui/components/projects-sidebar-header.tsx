@@ -13,7 +13,8 @@ import {
   sidebarColumnContentInsetEndClassName,
 } from "@engenty/ui-core";
 import { DockProjectsIcon } from "@engenty/ui-icons";
-import { Plus, Search, type Settings, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import { Link } from "react-router-dom";
 import type { ProjectsSidebarPrefs } from "../lib/use-projects-sidebar-prefs.js";
 import { ProjectsSidebarListSettings } from "./projects-sidebar-settings.js";
@@ -21,7 +22,7 @@ import { ProjectsSidebarListSettings } from "./projects-sidebar-settings.js";
 interface SidebarNavRowProps {
   active: boolean;
   createAriaLabel?: string;
-  icon?: typeof Settings;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   onCreate?: () => void;
   to: string;

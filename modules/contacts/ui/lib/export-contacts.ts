@@ -43,6 +43,11 @@ const DISPLAY_TO_EXPORT: Record<
     label: "Contact Name",
     getValue: (e) => e.contact_name || "",
   },
+  createdAt: {
+    key: "created_at",
+    label: "Created",
+    getValue: (e) => e.created_at || "",
+  },
   email: {
     key: "email",
     label: "Email",

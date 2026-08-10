@@ -560,7 +560,7 @@ export function ArticlesListPage() {
       )}
 
       {loading && viewMode === "cards" && (
-        <AdminListCardsView header={toolbarHeader} variant="card">
+        <AdminListCardsView header={toolbarHeader}>
           <div className={articleCardsGridWrapperClassName(tableSize)}>
             {Array.from({ length: 6 }, (_, i) => `sk-card-${i}`).map(
               (rowKey) => (
@@ -595,7 +595,7 @@ export function ArticlesListPage() {
       )}
 
       {!loading && articles.length > 0 && viewMode === "cards" && (
-        <AdminListCardsView header={toolbarHeader} variant="card">
+        <AdminListCardsView header={toolbarHeader}>
           <ArticlesCards
             articles={articles}
             onCardClick={(article) =>
@@ -615,11 +615,7 @@ export function ArticlesListPage() {
             {emptyArticlesContent}
           </AdminListTableView>
         ) : (
-          <AdminListCardsView
-            header={toolbarHeader}
-            pagination={pagination}
-            variant="card"
-          >
+          <AdminListCardsView header={toolbarHeader} pagination={pagination}>
             {emptyArticlesContent}
           </AdminListCardsView>
         ))}

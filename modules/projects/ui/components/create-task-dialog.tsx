@@ -91,6 +91,9 @@ export function CreateTaskDialog({
       await createTask(projectId, {
         ...data,
         phase_id: data.phase_id ?? null,
+        discipline: data.discipline ?? null,
+        hours: data.hours ?? null,
+        order_index: 0,
       });
       onOpenChange(false);
       onSuccess();

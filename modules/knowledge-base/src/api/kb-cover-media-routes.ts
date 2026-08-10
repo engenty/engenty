@@ -83,7 +83,9 @@ async function uploadCoverBytes(
 }
 
 export function registerKbCoverMediaRoutes(
-  api: Pick<PluginServerApi, "getStorageService" | "registerHttpRoute">,
+  api: Pick<PluginServerApi, "getStorageService" | "registerHttpRoute"> & {
+    config?: Record<string, unknown>;
+  },
   getRepo: (auth?: PluginAuthContext) => RepoFactory
 ) {
   api.registerHttpRoute({
@@ -264,7 +266,7 @@ export function registerKbCoverMediaRoutes(
       const tenantId = ctx.auth.tenantId;
       const modelId =
         process.env.AI_GATEWAY_IMAGE_MODEL?.trim() ||
-        (typeof api.config.aiImageModel === "string"
+        (typeof api.config?.aiImageModel === "string"
           ? api.config.aiImageModel.trim()
           : "") ||
         "openai/gpt-image-1";

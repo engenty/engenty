@@ -448,6 +448,7 @@ function KbHubChatPageContent(props: {
         autoScrollKey={session.activeThreadId ?? session.threadResetKey}
         bodyOnly
         cancelLabel={tc("copilot.cancel")}
+        closeLabel={tc("copilot.position.heading")}
         composerDockStyle
         composerLeadingControl={
           <KbChatKbScopeControl

@@ -83,10 +83,7 @@ export function ProjectDetailPageActions({
               <Link2 className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            onCloseAutoFocus={(e) => e.preventDefault()}
-          >
+          <DropdownMenuContent align="end" finalFocus={false}>
             <DropdownMenuItem onClick={onCopyLink}>
               <Copy className="mr-2 h-4 w-4" />
               Copy link

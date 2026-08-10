@@ -33,6 +33,10 @@ function art(
     updated_at: new Date().toISOString(),
     updated_by: null,
     custom_properties: {},
+    comments_mode: "inherit",
+    kb_id: "kb1",
+    template_id: null,
+    template_mode: "inherit",
   };
 }
 

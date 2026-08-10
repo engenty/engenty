@@ -4,11 +4,12 @@ import {
 } from "@engenty/app-shell";
 import { useMemo } from "react";
 
-interface KbListPreviewItem {
+/** Type alias (not interface) so it satisfies `JsonValue` via implicit index signature. */
+type KbListPreviewItem = {
   id: string;
   label: string;
   status?: string;
-}
+};
 
 function articleLabel(item: { id: string; title?: string | null }) {
   return item.title?.trim() || item.id;

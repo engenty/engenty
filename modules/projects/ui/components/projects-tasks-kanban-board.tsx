@@ -1,4 +1,5 @@
 import {
+  type CollisionDetection,
   closestCenter,
   DndContext,
   type DragEndEvent,
@@ -313,29 +314,17 @@ export function ProjectsTasksKanbanBoard({
     return () => cancelAnimationFrame(t);
   }, [itemsByStatus]);
 
-  const collisionDetection = useCallback(
-    (args: {
-      active: { id: unknown };
-      collisionRect: {
-        left: number;
-        top: number;
-        width: number;
-        height: number;
-      };
-      droppableContainers: Iterable<{ id: unknown }>;
-    }) => {
+  const collisionDetection = useCallback<CollisionDetection>(
+    (args) => {
       const pointerHits = pointerWithin(args);
       const hits =
         pointerHits.length > 0 ? pointerHits : rectIntersection(args);
       let overId = getFirstCollision(hits, "id") ?? null;
 
-      if (overId && columnIds.includes(overId)) {
-        const columnItems = itemsByStatus[overId] ?? [];
+      if (overId != null && columnIds.includes(String(overId))) {
+        const columnItems = itemsByStatus[String(overId)] ?? [];
         if (columnItems.length > 0) {
-          const containers = Array.from(
-            args.droppableContainers as Iterable<{ id: unknown }>
-          );
-          const filtered = containers.filter((c) =>
+          const filtered = args.droppableContainers.filter((c) =>
             columnItems.some((t) => t.id === c.id)
           );
           const closest = closestCenter({

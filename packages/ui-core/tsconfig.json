@@ -3,13 +3,7 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "types": ["node"],
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "@engenty/ui-core/*": ["./src/*"],
-      "@engenty/ai-core/browser": ["../ai-core/src/browser.ts"],
-      "@engenty/ai-core": ["../ai-core/src/index.ts"]
-    }
+    "outDir": "dist"
   },
   "include": ["src"]
 }

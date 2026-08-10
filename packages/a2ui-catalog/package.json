@@ -19,7 +19,8 @@
     "build": "tsup src/index.ts src/spec.ts --format esm --clean --external @engenty/ui-core",
     "dev": "tsup src/index.ts src/spec.ts --format esm --watch --external @engenty/ui-core",
     "test": "vitest run",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@a2ui/react": "0.10.2",

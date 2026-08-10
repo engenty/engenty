@@ -11,6 +11,7 @@ export interface ContactsListToolbarLabels {
   contactName: string;
   createdAt: string;
   delete: string;
+  descending: string;
   display: string;
   displayedColumns: string;
   displayName: string;

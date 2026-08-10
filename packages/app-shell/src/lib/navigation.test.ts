@@ -12,6 +12,9 @@ describe("navigation", () => {
     it("renders copilot apps in the primary sidebar top section", () => {
       const sections = buildNavigationSections({
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "contacts_menu",
@@ -50,6 +53,9 @@ describe("navigation", () => {
     it("renders projects and tasks in the primary sidebar top section", () => {
       const sections = buildNavigationSections({
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "projects_module_menu",
@@ -104,6 +110,9 @@ describe("navigation", () => {
     it("applies a persisted dock module order over category defaults", () => {
       const sections = buildNavigationSections({
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "invoices_module_menu",
@@ -155,6 +164,9 @@ describe("navigation", () => {
     it("orders modules section by plugin category then within-category order", () => {
       const sections = buildNavigationSections({
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "secrets_module_menu",
@@ -255,6 +267,9 @@ describe("navigation", () => {
       const EngentyIcon = () => null;
       const contributions = {
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "ai_ui_admin_menu",
@@ -334,6 +349,9 @@ describe("navigation", () => {
     it("shows Setup admin nav for superadmins only", () => {
       const contributions = {
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [],
         copilotApps: [],
         copilotContributions: [],
@@ -366,6 +384,9 @@ describe("navigation", () => {
     it("hides developer settings links unless developer mode is enabled", () => {
       const contributions = {
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [],
         copilotApps: [],
         copilotContributions: [],
@@ -423,6 +444,9 @@ describe("navigation", () => {
 
       const contributions = {
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [],
         copilotApps: [],
         copilotContributions: [],
@@ -494,6 +518,9 @@ describe("navigation", () => {
         buildNavigationSections(
           {
             routes: [],
+            backgroundComponents: [],
+            chatCommands: [],
+            tabs: [],
             adminMenuItems: [],
             copilotApps: [],
             copilotContributions: [],
@@ -590,6 +617,9 @@ describe("navigation", () => {
       const sections = buildNavigationSections(
         {
           routes: [],
+          backgroundComponents: [],
+          chatCommands: [],
+          tabs: [],
           adminMenuItems: [
             {
               id: "invoices_module_menu",
@@ -651,6 +681,9 @@ describe("navigation", () => {
     it("hides /admin/* consoles and the tenant General page from members", () => {
       const contributions = {
         routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
         adminMenuItems: [
           {
             id: "files_admin_menu",
@@ -842,6 +875,7 @@ describe("navigation", () => {
             {
               to: "/setup",
               label: "Setup",
+              icon: () => null,
               children: setupChildren,
             },
           ],

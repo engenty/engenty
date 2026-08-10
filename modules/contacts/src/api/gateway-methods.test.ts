@@ -1,4 +1,5 @@
 import type {
+  PluginGatewayContext,
   PluginGatewayMethod,
   PluginRegistrationReceipt,
   PluginServerApi,
@@ -23,6 +24,14 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
     tenant_id: "tenant-1",
     scope_id: "default",
     display_name: "Acme GmbH",
+    name_prefix: null,
+    first_name: null,
+    middle_name: null,
+    last_name: null,
+    name_suffix: null,
+    phonetic_name: null,
+    birth_name: null,
+    display_name_override: null,
     legal_name: "Acme GmbH",
     contact_name: "",
     email: null,
@@ -229,6 +238,18 @@ function makeMockApi() {
   const serverOperations: PluginServerOperation[] = [];
   const noopReceipt = (): PluginRegistrationReceipt => ({
     dispose: () => {},
+    id: "receipt-1",
+    kind: "test",
+    pluginId: "contacts",
+    sourceInfo: {
+      manifestId: "contacts",
+      manifestPath: "engenty.plugin.json",
+      pluginId: "contacts",
+      registrationKind: "test",
+      rootDir: ".",
+      source: "test",
+      sourceType: "module",
+    },
   });
   const api: PluginServerApi = {
     callGatewayMethod: async () => null,
@@ -238,6 +259,7 @@ function makeMockApi() {
       serverOperations.push(operation);
       return noopReceipt();
     },
+    registerSearchIndexProvider: () => noopReceipt(),
     registerAiRegistration: () => {},
     registerFeatureFlags: () => [],
     registerProfilePolicy: () => {},
@@ -250,6 +272,21 @@ function makeMockApi() {
   };
 
   return { api, gatewayMethods, serverOperations };
+}
+
+function makeGatewayContext(): PluginGatewayContext {
+  return {
+    auth: { tenantId: "tenant-1", scopeId: "default", principalId: "user-1" },
+    config: {},
+    logger: {
+      debug: () => {},
+      error: () => {},
+      info: () => {},
+      warn: () => {},
+    },
+    pluginConfig: {},
+    resolvePath: (p) => p,
+  };
 }
 
 function getOperation(
@@ -311,9 +348,7 @@ describe("registerContactsApi server operations", () => {
     const { api, serverOperations } = makeMockApi();
     registerContactsApi(api, makeRepo());
 
-    const ctx = {
-      auth: { tenantId: "tenant-1", scopeId: "default", principalId: "user-1" },
-    };
+    const ctx = makeGatewayContext();
     const created = (await getOperation(
       serverOperations,
       "contacts_create"
@@ -382,13 +417,7 @@ describe("registerContactsApi server operations", () => {
       "contacts_create"
     ).handler(
       { display_name: "Acme GmbH", type: "organisation", roles: ["client"] },
-      {
-        auth: {
-          tenantId: "tenant-1",
-          scopeId: "default",
-          principalId: "user-1",
-        },
-      }
+      makeGatewayContext()
     );
 
     expect(created).toMatchObject({

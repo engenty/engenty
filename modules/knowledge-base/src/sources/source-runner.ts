@@ -147,10 +147,10 @@ async function upsertInboxForRetrievedItem(
   let markdownText = retrieved.markdown;
   if (!markdownText && retrieved.raw_html) {
     const doc = MDocument.fromHTML(retrieved.raw_html);
-    markdownText = doc.chunks[0]?.text ?? "";
+    markdownText = doc.getText()[0] ?? "";
   } else if (markdownText) {
     const doc = MDocument.fromMarkdown(markdownText);
-    markdownText = doc.chunks[0]?.text ?? markdownText;
+    markdownText = doc.getText()[0] ?? markdownText;
   }
 
   const baseMetadata = {

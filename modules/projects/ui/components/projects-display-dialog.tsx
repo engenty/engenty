@@ -201,14 +201,17 @@ function ProjectsDisplayMenu(props: {
 }
 
 export function ProjectsTableToolbar(props: ProjectsTableToolbarProps) {
-  const columns: ColumnConfig<keyof ProjectsColumnVisibility>[] = [
+  const allColumns: ColumnConfig<keyof ProjectsColumnVisibility>[] = [
     { key: "title", label: props.labels.title, icon: User },
     { key: "client", label: props.labels.client, icon: User },
     { key: "startDate", label: props.labels.startDate, icon: Calendar },
     { key: "endDate", label: props.labels.endDate, icon: Calendar },
     { key: "tasks", label: props.labels.tasks, icon: ListTodo },
     { key: "team", label: props.labels.team, icon: User },
-  ].filter((column) => props.showTeamColumn !== false || column.key !== "team");
+  ];
+  const columns = allColumns.filter(
+    (column) => props.showTeamColumn !== false || column.key !== "team"
+  );
 
   const sortOptions = [
     { value: "title" as ProjectsSortColumn, label: props.labels.sortByTitle },

@@ -37,7 +37,22 @@ export function KbSidebarArticleTreeMenu({
   const [open, setOpen] = useState(false);
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
+    <Popover
+      onOpenChange={(next, eventDetails) => {
+        // Keep the popover open when the outside press lands inside a nested
+        // select dropdown (rendered in a portal outside the popover DOM).
+        if (
+          !next &&
+          eventDetails.reason === "outside-press" &&
+          eventDetails.event.target instanceof Element &&
+          eventDetails.event.target.closest('[data-slot="select-content"]')
+        ) {
+          return;
+        }
+        setOpen(next);
+      }}
+      open={open}
+    >
       <PopoverTrigger asChild>
         <Button
           aria-label={t("sidebar.tree_settings_aria")}
@@ -50,19 +65,7 @@ export function KbSidebarArticleTreeMenu({
           <ListFilter aria-hidden className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[280px] rounded-lg p-0"
-        onPointerDownOutside={(e) => {
-          const t = e.target;
-          if (
-            t instanceof Element &&
-            t.closest('[data-slot="select-content"]')
-          ) {
-            e.preventDefault();
-          }
-        }}
-      >
+      <PopoverContent align="start" className="w-[280px] rounded-lg p-0">
         <KbSidebarArticleTreeDefaultsFields
           layout="popover"
           prefs={prefs}

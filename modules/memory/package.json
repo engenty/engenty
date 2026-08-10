@@ -38,7 +38,8 @@
     "build": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts src/services/memory-doc.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --clean",
     "dev": "tsup src/plugin.ts src/dal/index.ts src/dal/contracts.ts src/dal/supabase.ts src/dal/memory-retrieval-source.ts src/schema/zod.ts src/api/index.ts src/api/gateway-methods.ts src/services/entity-ref.ts src/services/memory-doc.ts ai/registrar.ts ui/index.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/memory/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",

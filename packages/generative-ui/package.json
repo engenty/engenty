@@ -19,7 +19,8 @@
     "build": "tsup src/index.ts src/catalog.ts src/registry.tsx --format esm --clean --external @engenty/ui-core",
     "dev": "tsup src/index.ts src/catalog.ts src/registry.tsx --format esm --watch --external @engenty/ui-core",
     "test": "vitest run --root ../.. --passWithNoTests packages/generative-ui/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ui-core": "workspace:*",

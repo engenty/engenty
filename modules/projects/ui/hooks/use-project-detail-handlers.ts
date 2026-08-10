@@ -1,4 +1,4 @@
-import type { DragEndEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { useCallback, useState } from "react";
 import {
   createPhase,
@@ -45,7 +45,7 @@ export function useProjectDetailHandlers({
   const [activeTask, setActiveTask] = useState<PhaseTask | null>(null);
 
   const handleDragStart = useCallback(
-    (event: { active: { id: string } }) => {
+    (event: DragStartEvent) => {
       const activeId = event.active.id as string;
       let task = project?.general_tasks.find((t) => t.id === activeId);
       if (!task) {

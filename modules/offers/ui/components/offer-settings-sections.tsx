@@ -112,7 +112,7 @@ export function OfferSettingsRecipientSection({
   t: TFn;
   onChange: (patch: Partial<OfferListItem>) => void;
   onOpenClientDialog: () => void;
-  onRefreshClientSnapshot: () => Promise<void>;
+  onRefreshClientSnapshot: () => Promise<void> | void;
 }) {
   const selectedContact = offer.client_id
     ? entities.find((e) => e.id === offer.client_id)

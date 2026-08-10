@@ -4,6 +4,12 @@ import {
   ENGENTY_API_CATALOG_TOOL_ID,
 } from "../index.js";
 
+const execOptions = {
+  context: undefined,
+  messages: [],
+  toolCallId: "call-1",
+};
+
 describe("buildEngentyApiCatalogTool", () => {
   it("returns an error when tool access is unavailable", async () => {
     const tool = buildEngentyApiCatalogTool({
@@ -14,7 +20,10 @@ describe("buildEngentyApiCatalogTool", () => {
       tenantId: null,
     });
 
-    const result = await tool.execute?.({ query: "current user", limit: 5 });
+    const result = await tool.execute?.(
+      { query: "current user", limit: 5 },
+      execOptions
+    );
 
     expect(result).toEqual({ error: "Tool caller not available" });
   });
@@ -42,13 +51,16 @@ describe("buildEngentyApiCatalogTool", () => {
       tenantId: "tenant-1",
     });
 
-    const result = await tool.execute?.({
-      moduleId: "users",
-      pluginId: "core",
-      query: "current user",
-      readOnlyOnly: true,
-      strategy: "hybrid",
-    });
+    const result = await tool.execute?.(
+      {
+        moduleId: "users",
+        pluginId: "core",
+        query: "current user",
+        readOnlyOnly: true,
+        strategy: "hybrid",
+      },
+      execOptions
+    );
 
     expect(callGatewayMethod).toHaveBeenCalledWith(
       ENGENTY_API_CATALOG_TOOL_ID,

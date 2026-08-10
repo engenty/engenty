@@ -22,7 +22,8 @@
     "build": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --clean",
     "dev": "tsup src/plugin.ts ui/plugin.ts ui/file-manager.tsx --format esm --watch",
     "lint": "biome check .",
-    "test": "vitest run --root ../.. modules/files/"
+    "test": "vitest run --root ../.. modules/files/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-ui": "workspace:*",

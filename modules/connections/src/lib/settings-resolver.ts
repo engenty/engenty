@@ -20,7 +20,7 @@ export function createConnectionsSettingsResolver(
   supabase: unknown
 ): ConnectionsSettingsResolver {
   const clientEnv = createConnectorClientEnv(supabase, {
-    logger: (msg, err) => logger.warn(msg, err),
+    logger: (msg, err) => logger.warn(msg, { error: err }),
   });
   return { clientEnv };
 }

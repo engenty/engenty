@@ -339,14 +339,14 @@ export function registerKbGraphRagSearchOperation(
 
       // Resolve starting entities in context graph
       for (const artId of startingArticleIds) {
-        const entity = await api.getEntity({
+        const entity = (await api.getEntity({
           tenantId,
           externalRef: {
             module: "knowledge-base",
             entity: "article",
             id: artId,
           },
-        });
+        })) as { id: string } | null;
         if (entity) {
           entitiesMap.set(entity.id, entity);
           queue.push(entity.id);

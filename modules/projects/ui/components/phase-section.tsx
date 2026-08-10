@@ -15,7 +15,7 @@ import { TaskCard } from "./task-card.js";
 
 interface PhaseSectionProps {
   onAddTask?: (phaseId: string) => void;
-  onPhaseEdit?: (phase: ProjectPhase) => void;
+  onPhaseEdit?: (phase: ProjectPhase & { tasks: PhaseTask[] }) => void;
   onPhaseVisibilityToggle?: (phaseId: string, is_public: boolean) => void;
   onRefresh?: () => void;
   onTaskDelete?: (taskId: string) => void;

@@ -8,7 +8,7 @@ import type { ArticleReadingStyle } from "../hooks/use-article-reading-style.js"
 
 export interface ArticleReadingStyleSegmentProps {
   onChange: (style: ArticleReadingStyle) => void;
-  t: (key: string, defaultValue?: string) => string;
+  t: (key: string) => string;
   value: ArticleReadingStyle;
 }
 

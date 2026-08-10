@@ -1,6 +1,6 @@
 import { type JSONContent, jsonToMarkdown } from "@engenty/tiptap-editor";
 import { marked } from "marked";
-import type { Article } from "../../../src/schema/types.js";
+import type { Article } from "../../src/schema/types.js";
 
 const CLIPBOARD_MARKED_OPTS = { async: false as const, gfm: true };
 

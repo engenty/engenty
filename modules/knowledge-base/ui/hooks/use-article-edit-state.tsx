@@ -221,6 +221,9 @@ export function useArticleEditState() {
     if (!id || id === "new") {
       return;
     }
+    if (!article) {
+      return;
+    }
     if (kbSlugParam === slug && id === article.slug) {
       return;
     }

@@ -20,7 +20,7 @@ export interface NotificationTarget {
   user_id: string;
 }
 
-export interface MessageNotificationDispatch {
+export type MessageNotificationDispatch = {
   author_agent_key: string | null;
   author_user_id: string | null;
   conversation_id: string;
@@ -33,16 +33,16 @@ export interface MessageNotificationDispatch {
   /** Mention tokens folded to readable placeholders, whitespace collapsed. */
   text_preview: string;
   thread_ts: string | null;
-}
+};
 
-export interface ReadSyncDispatch {
+export type ReadSyncDispatch = {
   conversation_id: string;
   kind: "read";
   tenant_id: string;
   /** Read cursor: records for messages with ts <= this flip to seen. */
   up_to_ts: string;
   user_id: string;
-}
+};
 
 /** Notification preview: readable stand-ins for mention tokens, one line. */
 export function notificationPreview(text: string): string {

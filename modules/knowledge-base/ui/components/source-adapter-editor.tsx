@@ -97,14 +97,17 @@ function scheduleToFieldsValue(
         : defaultIntervalMinutes,
   } as Partial<DocumentSourceSchedule>);
   return {
-    cron_expression: n.cron_expression,
+    // `normalizeDocumentSourceSchedule` always sets these; its return type
+    // (`DocumentSourceSchedule`) keeps them optional, so re-apply its defaults.
+    cron_expression: n.cron_expression ?? null,
     enabled: n.enabled,
     interval_minutes: n.interval_minutes ?? defaultIntervalMinutes,
-    kind: n.kind,
+    kind: n.kind ?? "interval",
   };
 }
 
-export interface SourceAdapterDialogInput {
+/** Type alias (not interface) so it satisfies `Record<string, unknown>` mutation inputs. */
+export type SourceAdapterDialogInput = {
   adapter_id: KbSourceAdapterId;
   enabled: boolean;
   ignored_item_keys?: string[];
@@ -113,7 +116,7 @@ export interface SourceAdapterDialogInput {
   name: string;
   schedule: Record<string, unknown>;
   settings: Record<string, unknown>;
-}
+};
 
 export interface SourceAdapterEditorHandle {
   submit: () => void;

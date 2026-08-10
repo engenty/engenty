@@ -337,17 +337,24 @@ describe("KB GraphRAG Integration & Context Graph Registration", () => {
       });
 
       const handler = registeredOperation!.handler;
-      const res = await handler(
+      const res = (await handler(
         { query: "search terms", max_depth: 1 },
         {
-          auth: { tenantId: "tenant-1", scopeId: "default" },
+          auth: {
+            principalId: "user-1",
+            tenantId: "tenant-1",
+            scopeId: "default",
+          },
           config: {},
           dataDir: "",
           logger: {} as any,
           pluginConfig: {},
           resolvePath: (p) => p,
         }
-      );
+      )) as {
+        graph: { edges: unknown[]; nodes: Array<{ id: string }> };
+        message: string;
+      };
 
       expect(repos.articles.listPaginated).toHaveBeenCalledWith({
         kb_id: "kb-1",

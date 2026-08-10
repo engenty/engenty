@@ -11,7 +11,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarStack,
-  type Profile as AvatarStackProfile,
+  type AvatarStackProfile,
   Button,
   Checkbox,
   cn,

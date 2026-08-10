@@ -71,7 +71,7 @@ function indexHealthCacheKey(ctx: ToolExecutionContext): string {
   return [
     ctx.tenantId ?? "",
     ctx.userId ?? "",
-    ctx.orchestratorSessionId ?? "",
+    ctx.orchestratorThreadId ?? "",
   ].join("|");
 }
 

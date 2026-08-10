@@ -19,7 +19,8 @@
     "build": "tsup src/index.ts src/plugin.tsx --format esm --clean",
     "dev": "tsup src/index.ts src/plugin.tsx --format esm --watch",
     "test": "vitest run --root ../.. --passWithNoTests packages/audit-logs/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/app-shell": "workspace:*",

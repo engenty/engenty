@@ -7,6 +7,12 @@ import {
   type ChatThreadSearchToolDefinition,
 } from "../chat-thread-search-tool.js";
 
+const execOptions = {
+  context: undefined,
+  messages: [],
+  toolCallId: "call-1",
+};
+
 describe("buildChatThreadSearchTool", () => {
   it("calls index health at most once per cache key for repeated searches", async () => {
     const healthSpy = vi.fn().mockResolvedValue({
@@ -29,8 +35,12 @@ describe("buildChatThreadSearchTool", () => {
     });
 
     const ctx: ToolExecutionContext = {
+      action: "test",
       callGatewayMethod: call,
+      moduleId: "test",
       orchestratorThreadId: "sess-1",
+      scope: null,
+      scopeId: null,
       tenantId: "t1",
       userId: "u1",
     };
@@ -41,8 +51,8 @@ describe("buildChatThreadSearchTool", () => {
       throw new Error("expected execute");
     }
 
-    await exec({ query: "hello" }, {});
-    await exec({ query: "again" }, {});
+    await exec({ query: "hello" }, execOptions);
+    await exec({ query: "again" }, execOptions);
 
     expect(healthSpy).toHaveBeenCalledTimes(1);
     expect(searchSpy).toHaveBeenCalledTimes(2);
@@ -67,8 +77,12 @@ describe("buildChatThreadSearchTool", () => {
     });
 
     const ctx: ToolExecutionContext = {
+      action: "test",
       callGatewayMethod: call,
+      moduleId: "test",
       orchestratorThreadId: "sess-2",
+      scope: null,
+      scopeId: null,
       tenantId: "t1",
       userId: "u1",
     };
@@ -79,7 +93,7 @@ describe("buildChatThreadSearchTool", () => {
       throw new Error("expected execute");
     }
 
-    const out = await exec({ query: "x" }, {});
+    const out = await exec({ query: "x" }, execOptions);
     expect(out).toMatchObject({
       index_health: "degraded",
       index_ok: false,
@@ -109,8 +123,12 @@ describe("buildChatThreadSearchTool", () => {
       ...definition,
     }));
     const ctx: ToolExecutionContext = {
+      action: "test",
       callGatewayMethod: call,
+      moduleId: "test",
       orchestratorThreadId: "sess-mastra",
+      scope: null,
+      scopeId: null,
       tenantId: "t1",
       userId: "u1",
     };

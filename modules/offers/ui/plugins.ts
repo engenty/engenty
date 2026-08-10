@@ -1,4 +1,4 @@
-import type { EntityListItem } from "@engenty/contacts/ui";
+import type { ContactListItem } from "@engenty/contacts/ui";
 import type { EngentyPluginsApi } from "@engenty/ui-plugin-sdk";
 import type { ComponentType } from "react";
 
@@ -13,11 +13,12 @@ export type ContactChooserComponent = ComponentType<{
 
 export interface ContactsPluginApi {
   ContactChooser?: ContactChooserComponent;
-  getContact: (id: string, signal?: AbortSignal) => Promise<EntityListItem>;
+  getContact: (id: string, signal?: AbortSignal) => Promise<ContactListItem>;
   getContacts: (
     params?: { search?: string; pageSize?: number },
     signal?: AbortSignal
-  ) => Promise<EntityListItem[]>;
+  ) => Promise<ContactListItem[]>;
+  [key: string]: unknown;
 }
 
 /** Minimal view of the projects UI plugin API for the accepted-state handoff. */

@@ -18,7 +18,7 @@ const ORGANISATION_CONFIG = {
     roles: ContactRole[]
   ) => ({
     display_name: primaryValue,
-    type: "organisation",
+    type: "organisation" as const,
     reference_id: referenceId,
     legal_name: primaryValue || null,
     contact_name: primaryValue,

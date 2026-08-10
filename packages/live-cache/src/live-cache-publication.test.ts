@@ -4,13 +4,17 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
-const MODULE_REALTIME_MIGRATIONS: Array<{
+const MODULE_REALTIME_MIGRATION_SPECS: Array<{
   module: string;
   fileIncludes: string;
   tables: string[];
 }> = [
   // Closed modules (e.g. tasks) are validated in engenty-pro when present.
-].filter((spec) => fs.existsSync(path.join(repoRoot, "modules", spec.module)));
+];
+
+const MODULE_REALTIME_MIGRATIONS = MODULE_REALTIME_MIGRATION_SPECS.filter(
+  (spec) => fs.existsSync(path.join(repoRoot, "modules", spec.module))
+);
 
 describe("live cache publication guardrails", () => {
   it("core realtime migration publishes ai.agent_session", () => {

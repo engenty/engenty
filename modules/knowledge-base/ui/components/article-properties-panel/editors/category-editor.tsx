@@ -14,7 +14,11 @@ import {
 } from "@engenty/ui-core";
 import { Check, Folder, Pencil, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { Article, KbCategory } from "../../../../src/schema/types.js";
+import type {
+  Article,
+  ArticleUpdateInput,
+  KbCategory,
+} from "../../../../src/schema/types.js";
 import { buildCategoryDisplayPaths } from "../../../lib/category-display-paths.js";
 import {
   ArticlePropertyEmpty,
@@ -32,7 +36,7 @@ export function ArticleCategoryPropertyEditor({
   article: Article;
   categories: KbCategory[];
   disabled?: boolean;
-  onSave: (patch: Partial<Pick<Article, "category_id">>) => void;
+  onSave: (patch: Pick<ArticleUpdateInput, "category_id">) => void;
 }) {
   const { t } = useTranslation("kb");
   const [open, setOpen] = useState(false);

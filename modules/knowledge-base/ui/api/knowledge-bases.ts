@@ -49,6 +49,7 @@ export async function updateKb(
       | "description"
       | "is_default"
       | "article_property_definitions"
+      | "comments_mode"
       | "icon"
       | "cover"
       | "page_layout"

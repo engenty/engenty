@@ -40,14 +40,33 @@ export interface CommercialLineItemContent {
   [key: string]: unknown;
 }
 
-export type CommercialBlockContent =
-  | CommercialHeadlineContent
-  | CommercialSubheadingContent
-  | CommercialTextContent
-  | CommercialLineItemContent;
+/**
+ * Loose view over a block's content before its `type` is known: every
+ * canonical field is optional and unknown extra keys are allowed, so raw
+ * `Record<string, unknown>` payloads (e.g. `content_json` from the DB) remain
+ * assignable while field reads stay typed.
+ */
+export interface CommercialBlockContent {
+  amount?: number;
+  billing_type?: string | null;
+  content?: string | null;
+  cost_per_item?: number;
+  is_phase?: boolean;
+  item_total?: number;
+  line_item_subtype?: LineItemSubtype;
+  parent_id?: string | null;
+  position?: string | null;
+  position_manual?: boolean;
+  tax?: number;
+  timeframe_from?: string | null;
+  timeframe_until?: string | null;
+  title?: string;
+  unit?: string;
+  [key: string]: unknown;
+}
 
 export interface CommercialBlock {
-  content: CommercialBlockContent | Record<string, unknown>;
+  content: CommercialBlockContent;
   id: string;
   order_index: number;
   type: string;

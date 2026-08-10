@@ -508,7 +508,7 @@ export function CategoryDetailPage({
             <AlertDialogTitle>
               {t("sidebar.tree_delete_category_confirm")}
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
+            <AlertDialogDescription render={<div />}>
               <div className="space-y-2 text-muted-foreground text-sm">
                 {activeCategory.name ? (
                   <p className="line-clamp-2 font-medium text-foreground">

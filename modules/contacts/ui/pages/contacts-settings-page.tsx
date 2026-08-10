@@ -1,3 +1,4 @@
+import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import {
@@ -15,7 +16,6 @@ import { ContactLanguagesSection } from "../components/settings/contact-language
 import { IdFormatSection } from "../components/settings/id-format-section.js";
 import { RoleCategoriesSection } from "../components/settings/role-categories-section.js";
 import { useContactsSettingsAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
-import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import {
   useContactSettingsPageQuery,
   useSaveContactSettingsPageMutation,
@@ -39,6 +39,7 @@ const DEFAULT_CONTACT_SETTINGS: ContactSettings = {
 
 export function ContactsSettingsPage() {
   const { t } = useTranslation("contacts");
+  const { t: tCommon } = useTranslation("common");
   useContactsSettingsAgentUiSlice();
   const query = useContactSettingsPageQuery();
   const saveMutation = useSaveContactSettingsPageMutation();
@@ -86,8 +87,10 @@ export function ContactsSettingsPage() {
     );
   }, [settings, originalSettings, roleMenuConfig, originalRoleMenuConfig]);
 
-  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
-    useContactsModuleSecondaryShellNav();
+  // Settings pages carry the settings nav, not the contacts module nav (the
+  // contact list/roles rail is irrelevant while configuring the module).
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    useSettingsSecondaryShellNav(tCommon("navigation.settings"));
 
   const breadcrumbs = useMemo(
     () => [
@@ -115,7 +118,6 @@ export function ContactsSettingsPage() {
   usePageConfig({
     actions: pageActions,
     breadcrumbs,
-    secondaryNavAfterItems,
     secondaryNavHeaderSlot,
     topbarChrome: "contentBlend",
   });

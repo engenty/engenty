@@ -1,12 +1,13 @@
-import type { EntityCreateInput, EntityListItem } from "@engenty/contacts/ui";
+import type { ContactCreateInput, ContactListItem } from "@engenty/contacts/ui";
 import type { EngentyPluginsApi } from "@engenty/ui-plugin-sdk";
 
 export interface ContactsPluginApi {
-  createContact: (input: EntityCreateInput) => Promise<EntityListItem>;
+  createContact: (input: ContactCreateInput) => Promise<ContactListItem>;
   getContacts: (
     params?: { search?: string; pageSize?: number },
     signal?: AbortSignal
-  ) => Promise<EntityListItem[]>;
+  ) => Promise<ContactListItem[]>;
+  [key: string]: unknown;
 }
 
 let pluginsApi: EngentyPluginsApi | null = null;

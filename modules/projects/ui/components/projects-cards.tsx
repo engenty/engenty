@@ -58,7 +58,10 @@ function ProjectCard({
   const { t } = useTranslation("projects");
   const countsQuery = useProjectTaskCounts({ project_id: project.id });
   const counts = countsQuery.data ?? {};
-  const total = Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0);
+  const total = Object.values(counts).reduce(
+    (sum: number, n) => sum + (n ?? 0),
+    0
+  );
   const done = counts.done ?? 0;
   const cancelled = counts.cancelled ?? 0;
   const open = Math.max(0, total - done - cancelled);

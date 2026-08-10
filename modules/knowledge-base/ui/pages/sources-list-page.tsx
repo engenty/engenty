@@ -149,7 +149,10 @@ export function SourcesListPage() {
     () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
     [kbSlugParam, kbs]
   );
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId), [kbs, kbId]);
+  const kbSlug = useMemo(
+    () => (kbId ? slugFromKbId(kbs, kbId) : undefined),
+    [kbs, kbId]
+  );
 
   useEffect(() => {
     if (!kbsLoading && kbSlugParam && !kbId) {
@@ -732,7 +735,7 @@ export function SourcesListPage() {
       )}
 
       {!isLoading && rows.length > 0 && viewMode === "cards" && (
-        <AdminListCardsView header={toolbarHeader} variant="card">
+        <AdminListCardsView header={toolbarHeader}>
           <SourcesCards
             adapters={adapters}
             kbSlug={kbSlug}

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { KbRepoFactory } from "../dal/contracts.js";
 import type { Article } from "../schema/types.js";
 import { refreshKbArticleMetadata } from "./kb-article-metadata-refresh.js";
 
@@ -42,7 +43,10 @@ describe("refreshKbArticleMetadata", () => {
           articles: { update: vi.fn() },
           categories: { list: vi.fn() },
           templates: { getById: vi.fn() },
-        },
+        } as unknown as Pick<
+          KbRepoFactory,
+          "articles" | "categories" | "templates"
+        >,
         articleStub()
       )
     ).rejects.toThrow("Article is locked");

@@ -8,6 +8,7 @@ describe("articleSnapshotToRestorePatch", () => {
   it("maps snapshot fields back to an update patch", () => {
     const snapshot = articleToVersionSnapshot({
       category_id: "cat-1",
+      comments_mode: "inherit",
       content_json: { type: "doc", content: [] },
       content_markdown: "# Hello",
       created_at: "2026-01-01T00:00:00Z",
@@ -27,6 +28,8 @@ describe("articleSnapshotToRestorePatch", () => {
       sort_order: 2,
       status: "draft",
       summary: "Short",
+      template_id: null,
+      template_mode: "inherit",
       tenant_id: "tenant-1",
       title: "Hello",
       updated_at: "2026-01-01T00:00:00Z",

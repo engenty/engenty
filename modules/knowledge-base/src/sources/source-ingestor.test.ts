@@ -30,7 +30,9 @@ function baseRepos(overrides: {
         overrides.listSourceItemSections ?? vi.fn(async () => []),
     },
     inbox: {
-      getById: vi.fn(async () => null),
+      getById: vi.fn<() => Promise<Record<string, unknown> | null>>(
+        async () => null
+      ),
       update: vi.fn(async () => ({})),
     },
     articles: { create },

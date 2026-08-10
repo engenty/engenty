@@ -4,8 +4,10 @@ import {
   type CSVImportWizardLabels,
   type CsvCleanupRequest,
   connectionImportSourcesForDomain,
+  type ImportFieldDefinition,
   ImportPageShell,
   type ImportRunProgress,
+  type ImportRunSummary,
   importPageContentClassName,
 } from "@engenty/import";
 import { useQueryClient } from "@engenty/query-client";
@@ -203,7 +205,11 @@ export function SecretsImportPage() {
         connectionImport={connectionImport}
         fieldDefinitions={SECRETS_IMPORT_FIELDS}
         labels={labels}
-        onAiMap={async (input) => {
+        onAiMap={async (input: {
+          csvHeaders: string[];
+          fieldDefinitions: ImportFieldDefinition[];
+          sampleRows: string[][];
+        }) => {
           const suggested = await suggestSecretsImportMappings({
             csvHeaders: input.csvHeaders,
             fieldDefinitions: input.fieldDefinitions,
@@ -228,8 +234,8 @@ export function SecretsImportPage() {
             fieldDefinitions: input.fieldDefinitions,
           })
         }
-        onError={(message) => toast.error(message)}
-        onImportComplete={(summary) => {
+        onError={(message: string) => toast.error(message)}
+        onImportComplete={(summary: ImportRunSummary) => {
           if (progressToastId.current !== undefined) {
             toast.dismiss(progressToastId.current);
             progressToastId.current = undefined;
@@ -274,8 +280,8 @@ export function SecretsImportPage() {
         }}
         onImportProgress={handleProgress}
         onImportRow={handleImportRow}
-        onInfo={(message) => toast.message(message)}
-        onSuccess={(message) => toast.success(message)}
+        onInfo={(message: string) => toast.message(message)}
+        onSuccess={(message: string) => toast.success(message)}
         presetAdapter={{
           loadPresets: getSecretsImportPresets,
           savePreset: saveSecretsImportPreset,

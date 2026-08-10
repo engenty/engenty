@@ -418,7 +418,12 @@ export function KbScopedSettingsPage() {
           title={t("scoped_settings.comments_section_title")}
         >
           <KbCommentsModeFields
-            onChange={setCommentsMode}
+            onChange={(value) => {
+              // `showInherit={false}` — "inherit" is never offered here.
+              if (value !== "inherit") {
+                setCommentsMode(value);
+              }
+            }}
             showInherit={false}
             value={commentsMode}
           />

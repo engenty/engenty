@@ -158,7 +158,12 @@ export interface TemplateDataConfig {
   show_tax_per_item: boolean;
 }
 
-export interface OfferTemplateData {
+/**
+ * Kept as a type alias (not an interface) so it gets an implicit index
+ * signature and stays assignable to the `Record<string, unknown>` payload
+ * expected by the PDF-template server provider registry.
+ */
+export type OfferTemplateData = {
   config: TemplateDataConfig;
   content: TemplateDataGroup[];
   offer: TemplateDataOffer;
@@ -167,7 +172,7 @@ export interface OfferTemplateData {
   settings?: Record<string, unknown>;
   theme?: Record<string, unknown>;
   totals: TemplateDataTotals;
-}
+};
 
 function stripHtml(value: string | null | undefined): string {
   return (value ?? "")
@@ -521,7 +526,7 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
     }
   };
 
-  const ensureSection = (title: string | null) => {
+  const ensureSection = (title: string | null): TemplateDataSection => {
     sectionIndex += 1;
     if (currentSection) {
       flushLineItems();
@@ -535,7 +540,7 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
         subtotal_formatted: formatter.format(subtotal),
       });
     }
-    currentSection = {
+    const section: TemplateDataSection = {
       index: sectionIndex,
       title,
       content: [],
@@ -543,7 +548,11 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
       subtotal: 0,
       subtotal_formatted: "",
     };
+    currentSection = section;
+    return section;
   };
+
+  const isInPhaseGroup = () => currentGroup?.type === "phase";
 
   const timeframeFrom = formatOptionalDate(params.offer.offer_date);
   const timeframeUntil = formatOptionalDate(params.offer.valid_until);
@@ -558,10 +567,10 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
         ensureGroup("general", null);
         flushSection();
         const c = block.content_json as Record<string, unknown>;
-        ensureSection(String(c?.title ?? ""));
+        const section = ensureSection(String(c?.title ?? ""));
         const content = stripHtml(String(c?.content ?? c?.text ?? ""));
-        if (content && currentSection) {
-          currentSection.content.push({ type: "text", content });
+        if (content) {
+          section.content.push({ type: "text", content });
         }
         continue;
       }
@@ -585,18 +594,14 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
       const c = block.content_json as Record<string, unknown>;
       const isPhaseHeadline =
         block.type === "headline" && (c?.is_phase as boolean) === true;
-      if (
-        block.type === "headline" &&
-        !isPhaseHeadline &&
-        currentGroup?.type === "phase"
-      ) {
+      if (block.type === "headline" && !isPhaseHeadline && isInPhaseGroup()) {
         flushGroup();
       }
       ensureGroup("general", null);
       flushSection();
-      ensureSection(String(c?.title ?? ""));
+      const section = ensureSection(String(c?.title ?? ""));
       if (block.type === "headline" && c?.content) {
-        currentSection?.content.push({
+        section.content.push({
           type: "text",
           content: stripHtml(String(c.content)) || null,
         });
@@ -606,11 +611,9 @@ export function buildOfferTemplateData(params: BuildParams): OfferTemplateData {
 
     if (block.type === "text") {
       ensureGroup("general", null);
-      if (!currentSection) {
-        ensureSection(null);
-      }
+      const section = currentSection ?? ensureSection(null);
       const c = block.content_json as Record<string, unknown>;
-      currentSection?.content.push({
+      section.content.push({
         type: "text",
         content: stripHtml(String(c?.content ?? c?.text ?? "")) || null,
       });

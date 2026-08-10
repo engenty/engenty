@@ -244,7 +244,7 @@ export function TaskCard({
                       task.status === def.id && "rounded-md bg-muted"
                     )}
                   >
-                    {statusIconForDefinition(def, "h-4 w-4")}
+                    {statusIconForDefinition(def, "sm")}
                   </span>
                   <span className="truncate">{def.label}</span>
                 </DropdownMenuItem>

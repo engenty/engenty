@@ -19,6 +19,7 @@ export async function bootstrapManualSourceWithInbox(
         kb_manual_source: true,
         kb_source_id: source.id,
       },
+      original_storage_path: null,
       raw_markdown: md.length > 0 ? md : null,
       raw_text: null,
       source_type: "paste",

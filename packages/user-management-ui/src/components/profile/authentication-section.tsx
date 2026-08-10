@@ -42,7 +42,7 @@ function resolveStudioGatewayBaseUrl(explicit?: string): string {
 
 function identityProviderLabel(
   provider: string,
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   switch (provider) {
     case "email":

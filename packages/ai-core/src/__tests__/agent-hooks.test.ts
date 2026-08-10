@@ -26,7 +26,7 @@ const descriptor = (fn: () => string): AgentFnDescriptor => ({
 
 const contextWith = (
   entries: Record<string, unknown>,
-  persist = vi.fn(async () => {})
+  persist = vi.fn(async (_state: Record<string, unknown>) => {})
 ): AgentRenderContext & { persist: typeof persist } => {
   const snapshot = new Map(Object.entries(entries));
   return {

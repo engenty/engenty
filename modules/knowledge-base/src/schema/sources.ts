@@ -186,8 +186,9 @@ export type KbSourceInput = Pick<
   | "schedule"
   | "settings"
   | "status"
-  | "webhook_token_hash"
->;
+> & {
+  webhook_token_hash?: KbSource["webhook_token_hash"];
+};
 
 export type KbSourceUpdateInput = Partial<
   Pick<

@@ -32,6 +32,12 @@ interface ContactFormFieldsProps {
   t: (key: string) => string;
 }
 
+type ContactFormStringFieldName = {
+  [K in keyof ContactCreateFormValues]: ContactCreateFormValues[K] extends string
+    ? K
+    : never;
+}[keyof ContactCreateFormValues];
+
 export function ContactFormFields({
   form,
   t,
@@ -76,7 +82,7 @@ export function ContactFormFields({
   }, [form, typeOptions]);
 
   const row = (
-    name: keyof ContactCreateFormValues,
+    name: ContactFormStringFieldName,
     label: string,
     required = false
   ) => (

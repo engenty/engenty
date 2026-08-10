@@ -260,7 +260,7 @@ async function buildUpsert(
     entity: {
       type,
       externalRef: { module: "contacts", entity: "contact", id: contact.id },
-      name: contact.display_name,
+      name: contact.display_name ?? undefined,
       attributes: {
         display_name: contact.display_name,
         notes: contact.notes,

@@ -105,7 +105,9 @@ const PATCH_EMPTY_STRING_FIELDS: (keyof ContactInput)[] = ["contact_name"];
 
 /** Sanitizes only keys present in input. Use for partial PATCH to avoid clearing other fields. */
 export function sanitizePartialPatch(
-  input: Partial<ContactInput>
+  input: {
+    [K in keyof ContactInput]?: ContactInput[K] | null;
+  }
 ): Partial<ContactInput> {
   const result: Partial<ContactInput> = {};
   for (const [k, v] of Object.entries(input)) {

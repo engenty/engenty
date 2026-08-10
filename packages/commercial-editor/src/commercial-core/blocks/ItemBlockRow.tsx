@@ -146,7 +146,7 @@ export const ItemBlockRow = ({
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(
-      transform ? { ...transform, scaleX: 1, scaleY: 1 } : undefined
+      transform ? { ...transform, scaleX: 1, scaleY: 1 } : null
     ),
     transition,
     zIndex: isDragging ? 50 : undefined,

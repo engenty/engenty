@@ -16,7 +16,8 @@
     "build": "tsup src/index.ts --format esm --clean --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
     "dev": "tsup src/index.ts --format esm --watch --external @engenty/environment --external @engenty/i18n --external @engenty/ui-icons --external @ai-sdk/react",
     "test": "vitest run",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.61",

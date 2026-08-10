@@ -14,6 +14,10 @@ function makeMockRepo() {
       store = { ...store, ...input };
       return { ...store };
     },
+    merge: async (input: Record<string, unknown>) => {
+      store = { ...store, ...input };
+      return { ...store };
+    },
     _reset: () => {
       store = {};
     },

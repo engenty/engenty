@@ -38,7 +38,8 @@
     "build": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --clean",
     "dev": "tsup src/plugin.ts src/dal/supabase.ts src/dal/portal-supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/agents/projects-assist.ts ai/tools/load-project.ts ai/tools/load-projects-list.ts ai/tools/load-project-tasks.ts ai/tools/manage-project.ts ai/tools/manage-project-phase.ts ai/tools/manage-project-task.ts ui/index.ts ui/plugin.ts ui/public-plugin.ts ui/portal.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

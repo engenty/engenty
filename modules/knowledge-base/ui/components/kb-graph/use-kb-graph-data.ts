@@ -146,16 +146,11 @@ export function useKbGraphData(
         continue;
       }
       try {
-        g.addEdge(
-          from,
-          to,
-          {
-            kind: "inline",
-            size: 2.2,
-            color: "#a78bfa",
-          },
-          edgeKey
-        );
+        g.addEdgeWithKey(edgeKey, from, to, {
+          kind: "inline",
+          size: 2.2,
+          color: "#a78bfa",
+        });
       } catch {
         /* duplicate or invalid extremities */
       }
@@ -211,16 +206,11 @@ export function useKbGraphData(
         const v = sorted[i + 1].id;
         const edgeKey = `spine:${u}->${v}`;
         try {
-          g.addEdge(
-            u,
-            v,
-            {
-              kind: "spine",
-              size: 1.5,
-              color: "#64748b",
-            },
-            edgeKey
-          );
+          g.addEdgeWithKey(edgeKey, u, v, {
+            kind: "spine",
+            size: 1.5,
+            color: "#64748b",
+          });
         } catch {
           /* duplicate key / invalid */
         }

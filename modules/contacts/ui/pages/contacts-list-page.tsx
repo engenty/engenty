@@ -24,7 +24,10 @@ import { AddOrganisationDialog } from "../components/add-organisation-dialog.js"
 import { AddPersonDialog } from "../components/add-person-dialog.js";
 import { BulkEditRolesModal } from "../components/bulk-edit-roles-modal.js";
 import { ContactsBulkDeleteDialog } from "../components/contacts-bulk-delete-dialog.js";
-import type { ContactsSortColumn } from "../components/contacts-display-dialog.js";
+import type {
+  ContactsColumnVisibility,
+  ContactsSortColumn,
+} from "../components/contacts-display-dialog.js";
 import { ContactsExportMenu } from "../components/contacts-export-menu.js";
 import { ContactsListFilterBar } from "../components/contacts-list-filter-bar.js";
 import { ContactsListMain } from "../components/contacts-list-main.js";

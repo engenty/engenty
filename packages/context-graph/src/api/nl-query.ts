@@ -100,8 +100,8 @@ interface OntologyForPrompt {
   edgeTypes: {
     id: string;
     displayName: string;
-    subjectTypes: string[];
-    objectTypes: string[];
+    subjectTypes: readonly string[];
+    objectTypes: readonly string[];
   }[];
   entityTypes: { id: string; displayName: string }[];
 }

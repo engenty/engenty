@@ -33,7 +33,10 @@ describe("A2UI binder schema contract (zod 3)", () => {
         title: DynamicStringSchema.optional(),
       })
     );
-    expect(behavior.shape?.action).toEqual({ type: "ACTION" });
-    expect(behavior.shape?.title).toEqual({ type: "DYNAMIC" });
+    if (behavior.type !== "OBJECT") {
+      throw new Error(`expected an OBJECT behavior node, got ${behavior.type}`);
+    }
+    expect(behavior.shape.action).toEqual({ type: "ACTION" });
+    expect(behavior.shape.title).toEqual({ type: "DYNAMIC" });
   });
 });

@@ -1,5 +1,6 @@
 import {
   buildAgentUiPageBrief,
+  type JsonValue,
   useRegisterAgentUiSlice,
 } from "@engenty/app-shell";
 import { useMemo } from "react";
@@ -103,7 +104,7 @@ export function useContactsListAgentUiSlice(input: {
 export function useContactsEditAgentUiSlice(input: {
   draft: {
     dirty: boolean;
-    fields: Record<string, unknown>;
+    fields: Record<string, JsonValue>;
   };
   entity: ContactCopilotEntity | null;
   entityId: string | undefined;

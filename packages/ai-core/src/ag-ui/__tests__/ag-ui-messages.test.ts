@@ -189,8 +189,15 @@ describe("AG-UI session message mapping", () => {
       "assistant",
       "tool",
     ]);
-    expect(messages[0]?.toolCalls?.[0]?.id).toBe("tool-1");
-    expect(messages[1]?.toolCallId).toBe("tool-1");
+    const [assistantMessage, toolMessage] = messages;
+    if (
+      assistantMessage?.role !== "assistant" ||
+      toolMessage?.role !== "tool"
+    ) {
+      throw new Error("expected assistant and tool messages");
+    }
+    expect(assistantMessage.toolCalls?.[0]?.id).toBe("tool-1");
+    expect(toolMessage.toolCallId).toBe("tool-1");
   });
 
   it("emits tool result messages for completed dynamic-tool parts on assistant rows", () => {

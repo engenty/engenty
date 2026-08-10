@@ -540,7 +540,7 @@ export function FaqListPage() {
       )}
 
       {!loading && faqs.length > 0 && viewMode === "cards" && (
-        <AdminListCardsView header={toolbarHeader} variant="card">
+        <AdminListCardsView header={toolbarHeader}>
           <FaqsCards
             faqs={faqs}
             onCardClick={(faq) =>

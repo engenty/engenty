@@ -15,7 +15,8 @@
     "build": "tsup index.ts --format esm --clean",
     "dev": "tsup index.ts src/dal/index.ts src/api/index.ts src/schema/zod.ts src/types.ts --format esm --watch",
     "test": "vitest run -r ../.. packages/user-settings",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/plugin-sdk": "workspace:*",

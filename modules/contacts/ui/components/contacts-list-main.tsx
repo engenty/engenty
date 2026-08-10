@@ -34,7 +34,7 @@ export interface ContactsListMainProps {
   header?: ReactNode;
   isLoading: boolean;
   navigate: NavigateFunction;
-  onSelectAll: () => void;
+  onSelectAll: (checked: boolean | "indeterminate") => void;
   onSelectOne: (id: string, selected: boolean) => void;
   onSortChange: (column: ContactsSortColumn) => void;
   page: number;

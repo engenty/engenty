@@ -5,6 +5,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import type {
+  Editor,
   InlineBubbleMenuOptions,
   JSONContent,
 } from "@engenty/tiptap-editor";
@@ -13,7 +14,6 @@ import {
   RichEditorContent,
   useRichEditor,
 } from "@engenty/tiptap-editor";
-import type { Editor } from "@tiptap/core";
 import "@engenty/tiptap-editor/styles.css";
 import { cn } from "@engenty/ui-core";
 import { Pencil } from "lucide-react";

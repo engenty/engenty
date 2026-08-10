@@ -506,7 +506,7 @@ async function resolveItemIngestContent(
         const doc = isHtml
           ? MDocument.fromHTML(inbox.raw_text)
           : MDocument.fromText(inbox.raw_text);
-        markdown = doc.chunks[0]?.text ?? inbox.raw_text;
+        markdown = doc.getText()[0] ?? inbox.raw_text;
       }
     }
   }
@@ -522,7 +522,7 @@ async function resolveItemIngestContent(
 
   // Format the document markdown using MDocument
   const doc = MDocument.fromMarkdown(markdown);
-  markdown = doc.chunks[0]?.text ?? markdown;
+  markdown = doc.getText()[0] ?? markdown;
 
   if (isTitleUrlLike(title, sourceUrl ?? undefined)) {
     const improved = pickBetterPageTitle(

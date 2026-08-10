@@ -521,7 +521,7 @@ export function registerInvoicesHttpRoutes(
         await storage.savePdf(invoice.id, invoice.number, buffer);
       }
       const filename = `${invoice.number.replace(/[^a-zA-Z0-9._-]/g, "_")}.pdf`;
-      return new Response(buffer, {
+      return new Response(new Uint8Array(buffer), {
         status: 200,
         headers: {
           "content-type": "application/pdf",

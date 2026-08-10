@@ -46,13 +46,7 @@ export function ContactsListFilterBar({
               : roleAllLabel}
           </SelectValue>
         </ListFilterSelectTrigger>
-        <SelectContent
-          align="start"
-          avoidCollisions={false}
-          position="popper"
-          side="bottom"
-          sideOffset={4}
-        >
+        <SelectContent align="start" side="bottom" sideOffset={4}>
           <SelectItem value={ROLE_ALL_VALUE}>{roleAllLabel}</SelectItem>
           {options.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>

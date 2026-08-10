@@ -272,5 +272,8 @@ export function formValuesToCreateInput(
 export function formValuesToPatch(
   values: ContactCreateFormValues
 ): ContactUpdateInput {
-  return formValuesToCreateInput(values);
+  return {
+    ...formValuesToCreateInput(values),
+    contact_name: values.contact_name.trim(),
+  };
 }

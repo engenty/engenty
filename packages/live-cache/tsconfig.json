@@ -3,10 +3,7 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "outDir": "dist",
-    "moduleResolution": "bundler",
-    "paths": {
-      "@engenty/auth-ui": ["../auth-ui/src/index.ts"]
-    }
+    "moduleResolution": "bundler"
   },
   "include": ["src"]
 }

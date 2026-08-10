@@ -9,6 +9,7 @@ describe("registerTenantSettingsApi", () => {
     const server = {
       registerHttpRoute: vi.fn((route: { method: string; path: string }) => {
         registered.push({ method: route.method, path: route.path });
+        return undefined;
       }),
     };
     const repo = {

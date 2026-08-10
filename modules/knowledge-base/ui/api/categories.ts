@@ -52,7 +52,9 @@ export async function createCategory(input: {
 export interface UpdateCategoryInput {
   comments_mode?: KbCategory["comments_mode"];
   cover?: KbCover | null;
+  cover_inheritance?: KbCategory["cover_inheritance"];
   description?: string | null;
+  icon?: string | null;
   intro_json?: Record<string, unknown> | null;
   intro_markdown?: string | null;
   name?: string;

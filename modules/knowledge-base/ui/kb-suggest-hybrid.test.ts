@@ -24,8 +24,8 @@ import {
 describe("mergeKbHybridSuggestHits", () => {
   it("prefers FTS order and fills remaining slots from vector", () => {
     const fts: KbArticleSuggestHit[] = [
-      { id: "a", title: "A", headline: "ha" },
-      { id: "b", title: "B", headline: "hb" },
+      { id: "a", kb_id: "kb-1", rank: 2, title: "A", headline: "ha" },
+      { id: "b", kb_id: "kb-1", rank: 1, title: "B", headline: "hb" },
     ];
     const vec: KbSearchResult[] = [
       {
@@ -41,14 +41,14 @@ describe("mergeKbHybridSuggestHits", () => {
         score: 0.8,
       },
     ];
-    const merged = mergeKbHybridSuggestHits(fts, vec, 4);
+    const merged = mergeKbHybridSuggestHits("kb-1", fts, vec, 4);
     expect(merged.map((m) => m.id)).toEqual(["a", "b", "c"]);
   });
 
   it("respects limit", () => {
     const fts: KbArticleSuggestHit[] = [
-      { id: "1", title: "T1", headline: "" },
-      { id: "2", title: "T2", headline: "" },
+      { id: "1", kb_id: "kb-1", rank: 2, title: "T1", headline: "" },
+      { id: "2", kb_id: "kb-1", rank: 1, title: "T2", headline: "" },
     ];
     const vec: KbSearchResult[] = [
       {
@@ -58,11 +58,10 @@ describe("mergeKbHybridSuggestHits", () => {
         score: 1,
       },
     ];
-    expect(mergeKbHybridSuggestHits(fts, vec, 2)).toHaveLength(2);
-    expect(mergeKbHybridSuggestHits(fts, vec, 2).map((m) => m.id)).toEqual([
-      "1",
-      "2",
-    ]);
+    expect(mergeKbHybridSuggestHits("kb-1", fts, vec, 2)).toHaveLength(2);
+    expect(
+      mergeKbHybridSuggestHits("kb-1", fts, vec, 2).map((m) => m.id)
+    ).toEqual(["1", "2"]);
   });
 });
 
@@ -75,6 +74,8 @@ describe("suggestKbArticlesHybrid", () => {
   it("skips vector when FTS already fills the limit", async () => {
     const fts: KbArticleSuggestHit[] = Array.from({ length: 8 }, (_, i) => ({
       id: `a${i}`,
+      kb_id: "kb-1",
+      rank: 8 - i,
       title: "T",
       headline: "",
     }));
@@ -86,7 +87,7 @@ describe("suggestKbArticlesHybrid", () => {
 
   it("skips vector for short queries even when FTS is sparse", async () => {
     kbApiMocks.suggestKbArticles.mockResolvedValue([
-      { id: "a", title: "A", headline: "" },
+      { id: "a", kb_id: "kb-1", rank: 1, title: "A", headline: "" },
     ]);
     kbApiMocks.searchKb.mockResolvedValue({ results: [] });
     const hits = await suggestKbArticlesHybrid("kb-1", "ab", { limit: 8 });
@@ -96,7 +97,7 @@ describe("suggestKbArticlesHybrid", () => {
 
   it("calls vector when query is long, FTS sparse, and limit not met", async () => {
     kbApiMocks.suggestKbArticles.mockResolvedValue([
-      { id: "a", title: "A", headline: "" },
+      { id: "a", kb_id: "kb-1", rank: 1, title: "A", headline: "" },
     ]);
     const vecHit: KbSearchResult = {
       article_id: "b",

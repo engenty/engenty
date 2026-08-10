@@ -30,7 +30,8 @@
     "build": "tsup src/plugin.ts ai/registrar.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --clean",
     "dev": "tsup src/plugin.ts ai/registrar.ts src/dal/contracts.ts src/dal/supabase.ts src/schema/types.ts src/schema/zod.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",

@@ -27,12 +27,25 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import type { KbSettings } from "../../../src/schema/types.js";
 import { updateKbSettings } from "../../api.js";
 import { kbSettingsQueryOptions } from "../../queries.js";
 import { KbSettingsEmbeddingModelField } from "../kb-settings-embedding-model-field.js";
 import { runKbArticleReindex } from "./kb-article-reindex.js";
 import { KbSearchTestPanel } from "./kb-search-test-panel.js";
 import type { KbSettingsToolbarSaveSlot } from "./kb-settings-types.js";
+
+/** Mirrors the `chunk_strategy` enum in `kbSettingsSchema` (all Select options below). */
+const CHUNK_STRATEGIES: ReadonlyArray<KbSettings["chunk_strategy"]> = [
+  "recursive",
+  "markdown",
+  "semantic-markdown",
+  "sentence",
+  "token",
+  "character",
+  "html",
+  "json",
+];
 
 export function KbSettingsGeneralSection({
   setToolbarSaveSlot,
@@ -52,7 +65,9 @@ export function KbSettingsGeneralSection({
   const [vectorMinSimilarity, setVectorMinSimilarity] = useState(0.45);
   const [verifierMinQueryTerms, setVerifierMinQueryTerms] = useState(3);
   const [verifierMaxCandidates, setVerifierMaxCandidates] = useState(6);
-  const [chunkStrategy, setChunkStrategy] = useState<string>("recursive");
+  const [chunkStrategy, setChunkStrategy] = useState<
+    KbSettings["chunk_strategy"]
+  >("recursive");
   const [chunkMaxLength, setChunkMaxLength] = useState(1000);
   const [chunkOverlap, setChunkOverlap] = useState(100);
 
@@ -310,7 +325,12 @@ export function KbSettingsGeneralSection({
           labelFor="kb-chunk-strategy"
         >
           <Select
-            onValueChange={(v) => setChunkStrategy(v)}
+            onValueChange={(v) => {
+              const next = CHUNK_STRATEGIES.find((s) => s === v);
+              if (next) {
+                setChunkStrategy(next);
+              }
+            }}
             value={chunkStrategy}
           >
             <SelectTrigger className="w-full" id="kb-chunk-strategy">

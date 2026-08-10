@@ -12,6 +12,18 @@ import type {
 
 const noopReceipt = (): PluginRegistrationReceipt => ({
   dispose: () => {},
+  id: "receipt-1",
+  kind: "test",
+  pluginId: "invoices",
+  sourceInfo: {
+    manifestId: "invoices",
+    manifestPath: "engenty.plugin.json",
+    pluginId: "invoices",
+    registrationKind: "test",
+    rootDir: ".",
+    source: "test",
+    sourceType: "module",
+  },
 });
 
 export function makeTempDir(): string {
@@ -59,6 +71,7 @@ export function makeMockApi() {
       serverOperations.push(operation);
       return noopReceipt();
     },
+    registerSearchIndexProvider: () => noopReceipt(),
     registerAiRegistration: () => {},
     registerFeatureFlags: () => [],
     registerProfilePolicy: () => {},

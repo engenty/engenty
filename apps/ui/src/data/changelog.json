@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.121",
+    "timestamp": 1786384373,
+    "commits": [
+      {
+        "id": "ef10c5c",
+        "message": "add typecheck coverage to 34 packages, fix pre-existing errors",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.120",
-    "timestamp": 1786380891,
+    "timestamp": 1786380893,
     "commits": [
       {
         "id": "466f640",

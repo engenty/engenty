@@ -26,7 +26,8 @@
     "build": "tsup src/plugin.ts ui/plugin.ts ui/extensions.ts --format esm --clean",
     "dev": "tsup src/plugin.ts ui/plugin.ts ui/extensions.ts --format esm --watch",
     "test": "vitest run --root ../.. --passWithNoTests modules/connections/src/ modules/connections/ui/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-ui": "workspace:*",

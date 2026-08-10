@@ -24,7 +24,8 @@
     "provider:update": "tsx scripts/provider-update.ts",
     "embedding:update": "tsx scripts/embedding-provider-update.ts",
     "test": "vitest run --root ../.. packages/ai-core",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@11ty/gray-matter": "^2.1.0",

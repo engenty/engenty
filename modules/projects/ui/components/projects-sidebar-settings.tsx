@@ -119,7 +119,20 @@ export function ProjectsSidebarListSettings({
   const selectContentClassName = "z-[110]";
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (nextOpen || eventDetails.reason !== "outside-press") {
+          return;
+        }
+        const target = eventDetails.event.target;
+        if (
+          target instanceof Element &&
+          target.closest('[data-slot="select-content"]')
+        ) {
+          eventDetails.cancel();
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           aria-label={t("sidebar.listSettings", {
@@ -137,15 +150,6 @@ export function ProjectsSidebarListSettings({
       <PopoverContent
         align="start"
         className="z-[100] w-[320px] overflow-hidden rounded-lg p-0"
-        onPointerDownOutside={(event) => {
-          const target = event.target;
-          if (
-            target instanceof Element &&
-            target.closest('[data-slot="select-content"]')
-          ) {
-            event.preventDefault();
-          }
-        }}
       >
         <div className="space-y-1.5 p-2">
           <div className="font-medium text-muted-foreground text-xs">

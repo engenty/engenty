@@ -10,7 +10,10 @@ export interface ProjectTaskProgressSummary {
 export function summarizeProjectTaskCounts(
   counts: ProjectTaskCountsByStatus
 ): ProjectTaskProgressSummary {
-  const total = Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0);
+  const total = Object.values(counts).reduce(
+    (sum: number, n) => sum + (n ?? 0),
+    0
+  );
   const done = counts.done ?? 0;
   const cancelled = counts.cancelled ?? 0;
   const open = Math.max(0, total - done - cancelled);

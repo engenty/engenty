@@ -13,10 +13,7 @@ const metadataValueSchema = z.union([z.string(), z.number(), z.null()]);
 
 /** OpenAI structured output rejects `z.record` (`propertyNames` in JSON Schema). */
 export function buildRefreshOutputSchema(template: KbArticleTemplate | null) {
-  const propertyFields: Record<
-    string,
-    typeof metadataValueSchema | z.ZodOptional<typeof metadataValueSchema>
-  > = {};
+  const propertyFields: Record<string, typeof metadataValueSchema> = {};
   for (const def of template?.property_definitions ?? []) {
     propertyFields[def.key] = metadataValueSchema;
   }

@@ -30,7 +30,8 @@
     "build": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --clean",
     "dev": "tsup src/plugin.ts src/dal/index.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts ai/registrar.ts ai/company-profile-manager.ts ai/tools/load-company-profile.ts ai/tools/update-company-profile.ts ai/tools/set-company-logo.ts ai/tools/company-website-pages.ts ui/index.ts ui/plugin.ts --format esm --watch",
     "test": "vitest run --root ../.. modules/company-profile/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",

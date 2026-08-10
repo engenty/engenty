@@ -1,4 +1,3 @@
-import type { useTranslation } from "@engenty/i18n/ui";
 import type { KbCategoryCountDisplay } from "../../../src/schema/page-blocks.js";
 
 export function categoryCountNeedsArticles(
@@ -8,7 +7,7 @@ export function categoryCountNeedsArticles(
 }
 
 export function renderCategoryCountLabel(
-  t: ReturnType<typeof useTranslation>["t"],
+  t: (key: string, options?: { count?: number }) => string,
   direct: number,
   recursive: number,
   display: KbCategoryCountDisplay

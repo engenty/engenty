@@ -2,6 +2,7 @@ import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
+  type DragStartEvent,
   type useSensors,
 } from "@dnd-kit/core";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -29,7 +30,7 @@ interface ProjectPlanningTabProps {
   onAddTaskToPhase: (phaseId: string) => void;
   onBriefingSave?: (briefing: string | null) => void | Promise<void>;
   onDragEnd: (event: DragEndEvent) => void;
-  onDragStart: (event: { active: { id: string } }) => void;
+  onDragStart: (event: DragStartEvent) => void;
   onPhaseCreate: (title: string) => Promise<string | null>;
   onPhaseEdit: (phase: ProjectPhase & { tasks: PhaseTask[] }) => void;
   onPhaseFormOpen: () => void;

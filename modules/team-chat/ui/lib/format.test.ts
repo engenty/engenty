@@ -55,8 +55,8 @@ describe("mention rendering", () => {
 
 describe("authorColorClass", () => {
   it("is deterministic per author", () => {
-    expect(authorColorClass(USER)).toBe(authorColorClass(USER));
-    expect(authorColorClass(USER)).toMatch(/^text-/);
+    expect(authorColorClass(false)).toBe(authorColorClass(false));
+    expect(authorColorClass(false)).toMatch(/^text-/);
   });
 });
 

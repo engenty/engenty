@@ -14,7 +14,7 @@ interface HeadlineBlockProps {
   block: {
     id: string;
     type: string;
-    content: { title?: string; content?: string };
+    content: { title?: string; content?: string | null };
   };
   documentSettings?: {
     show_phase_index?: boolean;
@@ -203,7 +203,7 @@ export const HeadlineBlock = ({
                   className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-input/60 hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onOpenSettings();
+                    onOpenSettings?.();
                   }}
                   title={t("common.edit")}
                   type="button"

@@ -1,4 +1,4 @@
-import type { QueryClient } from "@engenty/query-client";
+import type { CopilotAssistantTurnFinishQueryClient } from "@engenty/ui-plugin-sdk";
 import { kbArticleKeys } from "./queries.js";
 
 const ARTICLE_UUID =
@@ -28,7 +28,7 @@ export function extractKbArticleIdFromPathname(
 
 /** After a KB copilot assistant turn, refresh article lists and any open article detail. */
 export async function invalidateKbDataAfterCopilotAssistantTurn(
-  queryClient: Pick<QueryClient, "invalidateQueries">,
+  queryClient: CopilotAssistantTurnFinishQueryClient,
   pathname: string
 ): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: kbArticleKeys.all });

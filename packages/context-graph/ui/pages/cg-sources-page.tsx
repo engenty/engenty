@@ -154,7 +154,7 @@ export function CgSourcesPage() {
   usePageConfig({
     breadcrumbs: [
       { label: "Admin" },
-      { label: "Context Graph", href: "/admin/context-graph" },
+      { label: "Context Graph", to: "/admin/context-graph" },
       { label: "Sources" },
     ],
     topbarChrome: "contentBlend",

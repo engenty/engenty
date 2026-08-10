@@ -58,6 +58,7 @@ describe("computeDocumentSourceNextRunAt", () => {
           schedule: {
             cron_expression: "0 9 * * *",
             enabled: false,
+            interval_minutes: null,
             kind: "cron",
             timezone: "UTC",
           },

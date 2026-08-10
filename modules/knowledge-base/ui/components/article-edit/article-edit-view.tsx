@@ -36,12 +36,13 @@ import { ArticleSourceTopline } from "../article-source-topline.js";
 import { ArticleSummaryInlineEditor } from "../article-summary-inline-editor.js";
 import { ArticleTemplateTopline } from "../article-template-topline.js";
 import { DocumentUpload } from "../document-upload.js";
+import type { useArticleEditState } from "../../hooks/use-article-edit-state.js";
 import { InsertConvertedMarkdownDialog } from "../insert-converted-markdown-dialog.js";
 import { KbEntityVersionsDialog } from "../kb-entity-versions-dialog.js";
 import { KbTagPicker } from "../kb-tag-picker.js";
 
 export interface ArticleEditViewProps {
-  state: any;
+  state: ReturnType<typeof useArticleEditState>;
 }
 
 export function ArticleEditView({ state }: ArticleEditViewProps) {

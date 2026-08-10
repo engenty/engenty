@@ -340,7 +340,10 @@ export function PhaseTimeline({
   };
 
   // Calculate effective project dates (explicit or derived from phases)
-  const getEffectiveProjectDates = useCallback(() => {
+  const getEffectiveProjectDates = useCallback((): {
+    end: Date | null;
+    start: Date | null;
+  } => {
     let earliest: Date | null = projectStartDate
       ? parseISO(projectStartDate)
       : null;

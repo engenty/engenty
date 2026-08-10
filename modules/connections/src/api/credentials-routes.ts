@@ -37,6 +37,10 @@ export function registerConnectionsCredentialsRoutes(
       if (!ctx.auth) {
         return hono.json({ error: "Unauthorized" }, 401);
       }
+      const ownerUserId = actorUserIdFromAuth(ctx.auth);
+      if (!ownerUserId) {
+        return hono.json({ error: "Unauthorized" }, 401);
+      }
       const connectorId = (ctx.params as { connectorId?: string })?.connectorId;
       const connector = connectorId
         ? getConnectorDefinition(connectorId)
@@ -87,7 +91,7 @@ export function registerConnectionsCredentialsRoutes(
         expiresAt: null,
         externalAccount: account.label,
         grantedScopes: [],
-        ownerUserId: actorUserIdFromAuth(ctx.auth),
+        ownerUserId,
         refreshToken: null,
         sharing: body.sharing,
         tenantId: ctx.auth.tenantId,

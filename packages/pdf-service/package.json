@@ -16,7 +16,8 @@
     "dev": "tsup src/index.ts --format esm --watch",
     "test": "vitest run --root ../.. packages/pdf-service/",
     "lint": "echo 'No lint yet'",
-    "fonts": "tsx scripts/fonts.ts"
+    "fonts": "tsx scripts/fonts.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

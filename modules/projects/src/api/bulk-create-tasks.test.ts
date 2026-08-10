@@ -1,8 +1,9 @@
+import type { PluginAuthContext } from "@engenty/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { registerProjectsApi } from "./index.js";
 import { makeMockApi, makeMockProjectRepo } from "./test-helpers.js";
 
-function operationContext(auth: unknown) {
+function operationContext(auth: PluginAuthContext) {
   return {
     auth,
     config: {},

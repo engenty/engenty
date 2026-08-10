@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@engenty/ui-core";
 import { MessageSquare } from "lucide-react";
-import type { Article } from "../../../src/schema/types.js";
+import type { Article } from "../../../../src/schema/types.js";
 import {
   ArticlePropertyShell,
   articlePropertyValueTriggerClassName,

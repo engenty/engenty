@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { MessageSquare } from "lucide-react";
-import type { Article } from "../../../src/schema/types.js";
+import type { Article } from "../../../../src/schema/types.js";
 import {
   ArticlePropertyShell,
   ArticlePropertyValueText,

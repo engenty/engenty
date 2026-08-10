@@ -60,6 +60,7 @@ export interface TaskTeamMember {
     id: string;
     full_name: string;
     avatar_url: string | null;
+    is_connected?: boolean;
   };
   task_id: string;
   user_id: string;

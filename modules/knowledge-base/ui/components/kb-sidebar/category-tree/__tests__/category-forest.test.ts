@@ -16,9 +16,10 @@ function makeCategory(
   partial: Partial<KbCategory> & { id: string }
 ): KbCategory {
   return {
+    comments_mode: "inherit",
     created_at: "2026-01-01T00:00:00Z",
     description: null,
-    id: partial.id,
+    icon: null,
     is_default: partial.is_default ?? false,
     kb_id: "kb-1",
     name: partial.name ?? partial.id,
@@ -45,13 +46,13 @@ function makeCategory(
 function makeArticle(partial: Partial<Article> & { id: string }): Article {
   return {
     category_id: partial.category_id ?? "cat-default",
+    comments_mode: "inherit",
     content_json: null,
     content_markdown: null,
     created_at: "2026-01-01T00:00:00Z",
     created_by: null,
     custom_properties: {},
     deleted_at: null,
-    id: partial.id,
     kb_id: "kb-1",
     locked_at: null,
     original_document_name: null,
@@ -64,6 +65,8 @@ function makeArticle(partial: Partial<Article> & { id: string }): Article {
     sort_order: partial.sort_order ?? 0,
     status: "draft",
     summary: null,
+    template_id: null,
+    template_mode: "inherit",
     tenant_id: "tenant-1",
     title: partial.title ?? partial.id,
     updated_at: "2026-01-01T00:00:00Z",

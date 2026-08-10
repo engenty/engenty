@@ -19,7 +19,10 @@ interface BulkEditRolesModalProps {
   onClose: () => void;
   onSuccess: () => void;
   open: boolean;
-  t: (key: string) => string;
+  t: (
+    key: string,
+    options?: { count?: number; defaultValue?: string }
+  ) => string;
 }
 
 export function BulkEditRolesModal({

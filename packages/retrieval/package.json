@@ -23,7 +23,8 @@
     "dev": "tsup src/index.ts src/mastra-splitter.ts --format esm --watch",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/search-index": "workspace:*",

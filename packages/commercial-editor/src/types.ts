@@ -1,30 +1,13 @@
-export type CommercialBlockType =
-  | "phase"
-  | "headline"
-  | "subheading"
-  | "text"
-  | "line_item";
-
-/** Canonical line-item content — the shape the editor, PDF and totals read. */
-export interface CommercialLineItemContent {
-  amount: number;
-  cost_per_item: number;
-  tax: number;
-  title: string;
-  unit: string;
-}
-
-export type CommercialBlockContent =
-  | { text: string }
-  | CommercialLineItemContent
-  | Record<string, unknown>;
-
-export interface CommercialBlock {
-  content: CommercialBlockContent | Record<string, unknown>;
-  id: string;
-  order_index: number;
-  type: string;
-}
+export type {
+  CommercialBlock,
+  CommercialBlockContent,
+  CommercialBlockType,
+  CommercialHeadlineContent,
+  CommercialLineItemContent,
+  CommercialSubheadingContent,
+  CommercialTextContent,
+  LineItemSubtype,
+} from "./commercial-core/types/blocks.js";
 
 export interface CommercialTotals {
   gross: number;

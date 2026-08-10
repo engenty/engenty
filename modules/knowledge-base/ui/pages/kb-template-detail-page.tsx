@@ -289,7 +289,15 @@ export function KbTemplateDetailPage() {
         toast.error(parsed.error.issues[0]?.message ?? saveFailedMessage);
         return;
       }
-      mutations.create.mutate(parsed.data, {
+      // The create schema keeps these nullable fields optional; the API client
+      // input requires them, so re-apply the payload's explicit nulls.
+      const createInput = {
+        ...parsed.data,
+        content_json: parsed.data.content_json ?? null,
+        content_markdown: parsed.data.content_markdown ?? null,
+        description: parsed.data.description ?? null,
+      };
+      mutations.create.mutate(createInput, {
         onSuccess: (created) => {
           if (!created?.id?.trim()) {
             toast.error(

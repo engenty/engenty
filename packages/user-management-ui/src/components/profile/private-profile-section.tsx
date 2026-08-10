@@ -1,10 +1,10 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Card, Input, Label } from "@engenty/ui-core";
 import type { UseFormReturn } from "react-hook-form";
-import type { UpdateProfileInput } from "../../lib/schemas.js";
+import type { UpdateUserProfileInput } from "../../lib/schemas.js";
 
 interface PrivateProfileSectionProps {
-  form: UseFormReturn<UpdateProfileInput>;
+  form: UseFormReturn<UpdateUserProfileInput>;
 }
 
 export function PrivateProfileSection({ form }: PrivateProfileSectionProps) {

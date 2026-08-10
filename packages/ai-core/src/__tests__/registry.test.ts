@@ -64,8 +64,11 @@ describe("ai-core registry", () => {
           name: "Contacts search routine",
           schedule: "0 * * * *",
           target: {
-            action_id: "contacts.search-action",
-            kind: "action",
+            kind: "task_template",
+            task_template: {
+              agent_type_key: "contacts.manager",
+              title: "Contacts search routine",
+            },
           },
         },
       ],
@@ -111,7 +114,7 @@ describe("ai-core registry", () => {
     ).toEqual(["contacts-search"]);
     expect(
       resolveRoutineDefinitionById("contacts.search-routine")?.target.kind
-    ).toBe("action");
+    ).toBe("task_template");
     expect(
       listRegisteredRoutines().some(
         (routine) => routine.id === "contacts.search-routine"
@@ -159,7 +162,13 @@ describe("ai-core registry", () => {
           module_id: "tasks",
           name: "Nightly tasks sweep",
           schedule: "0 3 * * *",
-          target: { action_id: "tasks.cleanup", kind: "action" },
+          target: {
+            kind: "task_template",
+            task_template: {
+              agent_type_key: "tasks.manager",
+              title: "Nightly tasks sweep",
+            },
+          },
         },
       ],
     });

@@ -12,7 +12,6 @@ function kb(
     comments_mode,
     article_property_definitions: [],
     cover: null,
-    cover_inheritance: "none",
     created_at: "",
     created_by: null,
     deleted_at: null,

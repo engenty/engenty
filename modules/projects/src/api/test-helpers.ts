@@ -4,6 +4,7 @@ import type {
   PluginRegistrationReceipt,
   PluginServerApi,
   PluginServerOperation,
+  PluginSourceInfo,
 } from "@engenty/plugin-sdk";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import {
@@ -87,6 +88,7 @@ export function makeMockProjectRepo() {
         tenant_id: "tenant-1",
         scope_id: "default",
         client_id: fields.client_id,
+        client_name: fields.client_name ?? null,
         lead_id: fields.lead_id ?? null,
         title: fields.title,
         briefing: fields.briefing ?? null,
@@ -247,11 +249,19 @@ export function makeMockProjectRepo() {
       phases.set(phaseId, updated);
       return updated;
     },
-    async deletePhase(projectId: string, phaseId: string): Promise<void> {
+    async deletePhase(projectId: string, phaseId: string): Promise<boolean> {
       const p = phases.get(phaseId);
       if (p && p.project_id === projectId) {
         phases.delete(phaseId);
       }
+      return true;
+    },
+    async updatePhaseVisibility(
+      projectId: string,
+      phaseId: string,
+      is_public: boolean
+    ): Promise<ProjectPhase | null> {
+      return this.updatePhase(projectId, phaseId, { is_public });
     },
     async createTask(
       projectId: string,
@@ -319,11 +329,19 @@ export function makeMockProjectRepo() {
       tasks.set(taskId, updated);
       return updated;
     },
-    async deleteTask(projectId: string, taskId: string): Promise<void> {
+    async deleteTask(projectId: string, taskId: string): Promise<boolean> {
       const t = tasks.get(taskId);
       if (t && t.project_id === projectId) {
         tasks.delete(taskId);
       }
+      return true;
+    },
+    async updateTaskVisibility(
+      projectId: string,
+      taskId: string,
+      is_public: boolean
+    ): Promise<PhaseTask | null> {
+      return this.updateTask(projectId, taskId, { is_public });
     },
     async getSettings(): Promise<ProjectSettings> {
       return { ...settingsState };
@@ -406,8 +424,21 @@ const defaultAuth = {
 export function makeMockApi() {
   const httpRoutes: PluginHttpRoute[] = [];
   const serverOperations: PluginServerOperation[] = [];
+  const mockSourceInfo: PluginSourceInfo = {
+    manifestId: "projects",
+    manifestPath: "engenty.plugin.json",
+    pluginId: "projects",
+    registrationKind: "test",
+    rootDir: ".",
+    source: "test",
+    sourceType: "module",
+  };
   const noopReceipt = (): PluginRegistrationReceipt => ({
     dispose: () => {},
+    id: randomUUID(),
+    kind: "test",
+    pluginId: "projects",
+    sourceInfo: mockSourceInfo,
   });
   const api: PluginServerApi = {
     callGatewayMethod: async () => null,
@@ -425,6 +456,7 @@ export function makeMockApi() {
     registerProfilePolicy: () => {},
     registerRoleProfiles: () => {},
     registerResultPolicy: () => {},
+    registerSearchIndexProvider: () => noopReceipt(),
     registerService: () => {},
     registerTestDataType: () => noopReceipt(),
     registerCli: () => {},

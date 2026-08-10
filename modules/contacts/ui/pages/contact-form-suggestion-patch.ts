@@ -54,6 +54,9 @@ export function applySuggestionPatchToContactFormValues(
     ...values,
     roles: [...values.roles],
   };
+  const patchTarget: {
+    [K in keyof ContactCreateFormValues]: ContactCreateFormValues[keyof ContactCreateFormValues];
+  } = nextValues;
 
   for (const [key, value] of Object.entries(patch)) {
     if (key.startsWith(ADD_ROLE_PREFIX)) {
@@ -78,7 +81,7 @@ export function applySuggestionPatchToContactFormValues(
       continue;
     }
 
-    nextValues[key] = value ?? "";
+    patchTarget[key] = value ?? "";
   }
 
   nextValues.roles = [...nextRoles];

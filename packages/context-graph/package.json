@@ -19,7 +19,8 @@
     "build": "tsup index.ts ui/plugin.tsx --format esm --clean",
     "dev": "tsup index.ts ui/plugin.tsx --format esm --watch",
     "test": "vitest run",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",

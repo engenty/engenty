@@ -18,7 +18,7 @@ const PERSON_CONFIG = {
     roles: ContactRole[]
   ) => ({
     display_name: primaryValue,
-    type: "person",
+    type: "person" as const,
     reference_id: referenceId,
     contact_name: primaryValue,
     ...(roles.length > 0 && { roles }),

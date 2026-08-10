@@ -654,11 +654,7 @@ export function FilesListPage() {
           </Empty>
         </div>
       ) : display.viewMode === "cards" ? (
-        <AdminListCardsView
-          contentClassName="p-3"
-          header={header}
-          variant="card"
-        >
+        <AdminListCardsView contentClassName="p-3" header={header}>
           <div
             aria-busy={isNavigating}
             className={

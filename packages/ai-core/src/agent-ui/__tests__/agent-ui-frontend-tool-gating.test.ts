@@ -87,7 +87,7 @@ describe("filterAgentUiFrontendToolsByTenant", () => {
       "leads.applyDraftPatch",
     ]);
     expect(
-      Object.keys(filtered?.state_snapshot.permissions?.frontend_tools ?? {})
+      Object.keys(filtered?.state_snapshot?.permissions?.frontend_tools ?? {})
     ).toEqual(["openCopilot", "leads.applyDraftPatch"]);
     expect(registry.diagnostics.map((diagnostic) => diagnostic.code)).toContain(
       "plugin.capability.plugin_tenant_disabled"

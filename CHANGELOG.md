@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.121] - 2026-08-10
+- FIXED Add typecheck coverage to 34 packages, fix pre-existing errors
+
 ## [0.1.120] - 2026-08-10
 - ADDED **[time-tracking]** One toolbar for the timesheet and the calendar
 - FIXED **[time-tracking]** Stop clipping the entry notes popover

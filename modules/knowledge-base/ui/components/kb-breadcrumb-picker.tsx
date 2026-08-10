@@ -19,7 +19,7 @@ export function kbPickerBreadcrumbSegment(props: {
   kbId: string;
   kbs: KnowledgeBase[];
   onSelect: (nextKbId: string) => void;
-  t: (key: string, defaultValue?: string) => string;
+  t: (key: string) => string;
 }): PageBreadcrumb | null {
   const { kbId, kbs, onSelect, t } = props;
   if (!kbId || kbs.length === 0) {

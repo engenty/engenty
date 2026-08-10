@@ -19,7 +19,8 @@
     "build": "tsup src/index.ts src/core.ts --format esm --clean",
     "dev": "tsup src/index.ts src/core.ts --format esm --watch",
     "test": "vitest run --root ../.. packages/pdf-templates/",
-    "lint": "echo 'No lint yet'"
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/api-client": "workspace:*",

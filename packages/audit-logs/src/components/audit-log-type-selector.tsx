@@ -71,7 +71,22 @@ export function AuditLogTypeSelector({
       : options.filter((t) => t.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
+    <Popover
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen && eventDetails.reason === "outside-press") {
+          const target = eventDetails.event.target as Element | null;
+          if (
+            target?.hasAttribute("cmdk-input") ||
+            target?.closest("[data-layout=type-selector-wrapper]")
+          ) {
+            eventDetails.cancel();
+            return;
+          }
+        }
+        setOpen(nextOpen);
+      }}
+      open={open}
+    >
       <Command
         className="h-auto overflow-visible bg-transparent"
         onKeyDown={handleKeyDown}
@@ -122,15 +137,6 @@ export function AuditLogTypeSelector({
         <PopoverContent
           align="start"
           className="w-(--anchor-width) p-0"
-          onInteractOutside={(e) => {
-            const target = e.target as Element;
-            if (
-              target.hasAttribute("cmdk-input") ||
-              target.closest("[data-layout=type-selector-wrapper]")
-            ) {
-              e.preventDefault();
-            }
-          }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <CommandInput

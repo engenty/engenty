@@ -30,7 +30,7 @@ describe("projects task consumer contract", () => {
       }
     );
 
-    expect(mapped.identifier).toBeUndefined();
+    expect(mapped).not.toHaveProperty("identifier");
     expect(mapped.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     );
@@ -91,7 +91,7 @@ describe("projects task consumer contract", () => {
       collaborator_user_ids: ["user-b"],
     });
     expect(task.title).toBe("Review budget");
-    expect(task.identifier).toBeUndefined();
+    expect(task).not.toHaveProperty("identifier");
   });
 
   it("uses tasks.list with project context filters for cross-project task views", async () => {

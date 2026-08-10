@@ -23,7 +23,8 @@
     "build": "tsup src/plugin.ts ai/registrar.ts --format esm --clean",
     "dev": "tsup src/plugin.ts ai/registrar.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@engenty/ai-core": "workspace:*",

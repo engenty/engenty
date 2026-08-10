@@ -380,7 +380,6 @@ export function registerKbSourceApi(
               ? computeDocumentSourceNextRunAt({
                   ...existing,
                   ...body,
-                  settings: settings ?? existing.settings,
                 })
               : undefined
             : body.next_run_at,

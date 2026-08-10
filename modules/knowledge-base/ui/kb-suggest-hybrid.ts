@@ -14,6 +14,7 @@ import {
 const MIN_CHARS_FOR_VECTOR_SUGGEST = 6;
 
 export function mergeKbHybridSuggestHits(
+  kbId: string,
   fts: KbArticleSuggestHit[],
   vector: KbSearchResult[],
   limit: number
@@ -42,6 +43,8 @@ export function mergeKbHybridSuggestHits(
     const snippet = row.chunk_text.replace(/\s+/g, " ").trim();
     out.push({
       id,
+      kb_id: kbId,
+      rank: row.score,
       title: row.title,
       headline: snippet.length > 220 ? `${snippet.slice(0, 220)}…` : snippet,
     });
@@ -109,5 +112,5 @@ export async function suggestKbArticlesHybrid(
   if (signal?.aborted) {
     return [];
   }
-  return mergeKbHybridSuggestHits(fts, vec, limit);
+  return mergeKbHybridSuggestHits(kbId, fts, vec, limit);
 }
