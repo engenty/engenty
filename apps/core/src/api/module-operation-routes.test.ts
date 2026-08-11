@@ -19,6 +19,7 @@ import {
 } from "../plugins/registry.js";
 import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
+import { createStaticGrantsService } from "../security/grants-service.js";
 import { createApiApp } from "./server.js";
 
 async function createToken(
@@ -41,6 +42,19 @@ async function createToken(
     .setIssuedAt()
     .setExpirationTime("10m")
     .sign(new TextEncoder().encode(secret));
+}
+
+/** Offline approval + grants so agent-token invokes never hit Supabase. */
+function offlineApiSeams() {
+  return {
+    approvalService: createApprovalService(createFakeApprovalDb().client),
+    // Wildcard → agent escalation abstains; the non-user high-risk gate still
+    // parks writes for approval (these fixtures use role: "agent").
+    grantsService: createStaticGrantsService({
+      capabilities: ["*"],
+      roleProfiles: ["agent.assistant"],
+    }),
+  };
 }
 
 function makeRegistry(): PluginRegistry {
@@ -671,6 +685,7 @@ describe("module operation routes", () => {
     expect(registry.plugins.some((plugin) => plugin.id === "core")).toBe(false);
     const token = await createToken(secret, { capabilities: [] });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry,
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -747,6 +762,7 @@ describe("module operation routes", () => {
     expect(registry.gatewayMethods).toHaveLength(0);
     const token = await createToken(secret, { capabilities: [] });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry,
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -866,6 +882,7 @@ describe("module operation routes", () => {
 
     const token = await createToken(secret, { capabilities: [] });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry,
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -973,6 +990,7 @@ describe("module operation routes", () => {
 
     const token = await createToken(secret, { capabilities: [] });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry,
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1000,6 +1018,7 @@ describe("module operation routes", () => {
       capabilities: ["module.contacts.read", "module.invoices.read"],
     });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1106,6 +1125,7 @@ describe("module operation routes", () => {
       capabilities: ["module.contacts.read", "module.invoices.read"],
     });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1188,6 +1208,7 @@ describe("module operation routes", () => {
       capabilities: ["module.contacts.read", "module.invoices.read"],
     });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1285,6 +1306,7 @@ describe("module operation routes", () => {
     invoices.dependencies = ["module.contacts"];
 
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry,
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1318,7 +1340,7 @@ describe("module operation routes", () => {
       capabilities: ["module.contacts.write"],
     });
     const app = createApiApp({
-      approvalService: createApprovalService(createFakeApprovalDb().client),
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1417,6 +1439,7 @@ describe("module operation routes", () => {
       moduleIds: ["invoices"],
     });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1485,7 +1508,7 @@ describe("module operation routes", () => {
       moduleIds: ["invoices", "contacts"],
     });
     const app = createApiApp({
-      approvalService: createApprovalService(createFakeApprovalDb().client),
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1557,6 +1580,7 @@ describe("module operation routes", () => {
       moduleIds: ["invoices", "contacts"],
     });
     const app = createApiApp({
+      ...offlineApiSeams(),
       registry: makeRegistry(),
       config: { securityJwtSecret: secret },
       dataDir: "/tmp",
@@ -1625,6 +1649,7 @@ describe("module operation routes", () => {
         capabilities: ["module.contacts.read"],
       });
       const app = createApiApp({
+        ...offlineApiSeams(),
         registry: makeRegistry(),
         config: { securityJwtSecret: secret },
         dataDir: "/tmp",
@@ -1656,6 +1681,7 @@ describe("module operation routes", () => {
         capabilities: ["module.contacts.read"],
       });
       const app = createApiApp({
+        ...offlineApiSeams(),
         registry: makeRegistry(),
         config: { securityJwtSecret: secret },
         dataDir: "/tmp",
@@ -1682,6 +1708,7 @@ describe("module operation routes", () => {
         capabilities: ["module.contacts.read"],
       });
       const app = createApiApp({
+        ...offlineApiSeams(),
         registry: makeRegistry(),
         config: { securityJwtSecret: secret },
         dataDir: "/tmp",
@@ -1707,6 +1734,7 @@ describe("module operation routes", () => {
 
     it("returns 401 without auth", async () => {
       const app = createApiApp({
+        ...offlineApiSeams(),
         registry: makeRegistry(),
         config: { securityJwtSecret: "secret" },
         dataDir: "/tmp",

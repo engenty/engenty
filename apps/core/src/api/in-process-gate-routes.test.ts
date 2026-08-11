@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createPluginRegistry } from "../plugins/registry.js";
 import { makePluginRecord } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
+import { createStaticGrantsService } from "../security/grants-service.js";
 import { createApiApp } from "./server.js";
 
 const SECRET = "test-security-secret";
@@ -112,6 +113,10 @@ function makeApp() {
 
   const app = createApiApp({
     approvalService: createApprovalService(createFakeApprovalDb().client),
+    grantsService: createStaticGrantsService({
+      capabilities: ["*"],
+      roleProfiles: ["agent.assistant"],
+    }),
     registry,
     config: { securityJwtSecret: SECRET },
     dataDir: "/tmp",

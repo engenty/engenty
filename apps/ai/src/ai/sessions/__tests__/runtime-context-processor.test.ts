@@ -8,7 +8,10 @@
 import { describe, expect, it } from "vitest";
 import { createRuntimeContextProcessor } from "../runtime-context-processor.js";
 
-type Msg = { content: unknown; role: string };
+interface Msg {
+  content: unknown;
+  role: string;
+}
 
 function message(role: string, text: string): Msg {
   return { content: { format: 2, parts: [{ text, type: "text" }] }, role };

@@ -49,7 +49,10 @@ import {
   type SecurityAuditLogAdapter,
 } from "../security/audit-adapter.js";
 import { createSupabaseAuthProvider } from "../security/auth-provider.js";
-import { createGrantsService } from "../security/grants-service.js";
+import {
+  createGrantsService,
+  type GrantsService,
+} from "../security/grants-service.js";
 import { registerAuthzRoutes } from "./routes/authz-routes.js";
 
 /** Service-role client for core's own tables (goal grants, approval store). */
@@ -139,6 +142,13 @@ export interface CreateApiAppParams {
   config?: Record<string, unknown>;
   dataDir: string;
   devPluginReloadEvents?: DevPluginReloadEventHub;
+  /**
+   * Override the grants resolver (tests use a static double). The default
+   * reads core.role_assignments; the always-on agent escalation policy calls
+   * it on every agent-driven op, so unit tests without a live Supabase must
+   * inject one or those invokes 500 on the store.
+   */
+  grantsService?: GrantsService;
   logger?: ApiLogger;
   registry: PluginRegistry;
   resolvePath: (p: string) => string;
@@ -264,10 +274,12 @@ export function createApiApp(params: CreateApiAppParams) {
         return { client, service: createApprovalService(dbFor) };
       })();
   const approvalService = approvals.service;
-  const grantsService = createGrantsService(config, {
-    getRegistry: () => params.registry.roleProfiles,
-    ...(getTenantDb ? { getDb: getTenantDb } : {}),
-  });
+  const grantsService =
+    params.grantsService ??
+    createGrantsService(config, {
+      getRegistry: () => params.registry.roleProfiles,
+      ...(getTenantDb ? { getDb: getTenantDb } : {}),
+    });
   const authProvider = createSupabaseAuthProvider(config, {
     grants: grantsService,
   });
@@ -285,21 +297,28 @@ export function createApiApp(params: CreateApiAppParams) {
   // deployment at all. A gate whose absent-default is fail-open, silently, is
   // not a gate. To let a specific agent do more, widen its role grants — that is
   // scoped, auditable, and per-tenant; disabling the control globally is not.
-  const escalationClient = createCoreServiceClient(config);
+  //
+  // When tests inject grantsService they are offline: skip the service-role
+  // client and treat goal grants as empty (unit tests do not exercise that path).
+  const escalationClient = params.grantsService
+    ? null
+    : createCoreServiceClient(config);
   const escalationPolicy = createAgentEscalationPolicy({
     resolveAgentCapabilities: (agentId, tenantId) =>
       grantsService
         .resolveGrants({ kind: "agent", id: agentId }, tenantId)
         .then((g) => g.capabilities),
-    listGoalGrantCapabilities: (tenantId, goalId, agentId) =>
-      listGoalGrantCapabilities(
-        getTenantDb?.({ tenantId }) ?? escalationClient,
-        {
-          tenantId,
-          goalId,
-          agentId,
-        }
-      ),
+    listGoalGrantCapabilities: async (tenantId, goalId, agentId) => {
+      const client = getTenantDb?.({ tenantId }) ?? escalationClient;
+      if (!client) {
+        return [];
+      }
+      return listGoalGrantCapabilities(client, {
+        tenantId,
+        goalId,
+        agentId,
+      });
+    },
   });
   if (!params.registry.profilePolicies) {
     params.registry.profilePolicies = [];

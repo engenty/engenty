@@ -29,6 +29,7 @@ import {
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
@@ -37,7 +38,6 @@ import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
-import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import {
   loadConnectionApprovalGrants,

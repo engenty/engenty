@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.126",
+    "timestamp": 1786489225,
+    "commits": [
+      {
+        "id": "b3f34dd",
+        "message": "keep agent-token API tests offline after escalation is always on",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.125",
-    "timestamp": 1786486188,
+    "timestamp": 1786486189,
     "commits": [
       {
         "id": "f6a0cac",

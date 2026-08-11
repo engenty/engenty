@@ -19,6 +19,19 @@ export interface GrantsService {
   ) => Promise<PrincipalGrants>;
 }
 
+/**
+ * In-memory grants double for unit tests that must not touch Supabase.
+ * Returns the same principal grants for every subject.
+ */
+export function createStaticGrantsService(
+  grants: PrincipalGrants
+): GrantsService {
+  return {
+    invalidate: () => undefined,
+    resolveGrants: async () => grants,
+  };
+}
+
 export interface CreateGrantsServiceDeps {
   cacheTtlMs?: number;
   /** Injectable for tests. */

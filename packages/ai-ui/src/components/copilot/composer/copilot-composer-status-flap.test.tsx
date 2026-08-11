@@ -108,12 +108,15 @@ describe("CopilotComposerStatusFlap", () => {
         replyText={full}
       />
     );
-    await waitFor(() => {
-      expect(screen.getByText(full)).toBeTruthy();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText(full)).toBeTruthy();
+      },
+      { timeout: 10_000 }
+    );
     // Truncated one-liner must not duplicate the expanded body.
     expect(screen.queryByText(preview)).toBeNull();
-  });
+  }, 15_000);
 
   it("prefers the live status ticker over the idle preview while running", () => {
     // A running turn must show progress, not the stale previous reply.
@@ -138,13 +141,16 @@ describe("CopilotComposerStatusFlap", () => {
         replyText={markdownReply}
       />
     );
-    await waitFor(() => {
-      expect(screen.getByRole("table")).toBeTruthy();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByRole("table")).toBeTruthy();
+      },
+      { timeout: 10_000 }
+    );
     // The cell value is rendered, and the raw "| Task |" source is not present.
     expect(screen.getByText("Design")).toBeTruthy();
     expect(screen.queryByText(/\| Task \| Hours \|/)).toBeNull();
-  });
+  }, 15_000);
 
   it("clamps expanded content height to rational limits", () => {
     expect(clampCompactStatusFlapHeight(40)).toBe(

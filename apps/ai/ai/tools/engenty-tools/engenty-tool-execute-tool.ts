@@ -198,7 +198,10 @@ async function settleCoreApprovalAndRetry(params: {
   choiceId?: string;
   // The NARROWED client: `client.ok` is already checked before the try block
   // whose catch calls this, but that narrowing does not survive into a helper.
-  client: Extract<ReturnType<typeof getCurrentEngentyToolsClient>, { ok: true }>;
+  client: Extract<
+    ReturnType<typeof getCurrentEngentyToolsClient>,
+    { ok: true }
+  >;
   err: EngentyCoreHttpError;
   input: Record<string, unknown>;
   operationId: string;
