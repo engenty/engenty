@@ -5,7 +5,10 @@
   },
   "actions": {
     "archive": "Archive",
-    "markProcessed": "Mark processed",
+    "classifyNow": "Classify messages",
+    "classifying": "Classifying…",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
     "settings": "Settings",
     "syncNow": "Sync now"
   },
@@ -17,9 +20,8 @@
   },
   "lanes": {
     "all": "All",
-    "new": "New",
-    "triaged": "Triaged",
-    "processed": "Processed",
+    "new": "Unread",
+    "read": "Read",
     "archived": "Archived"
   },
   "list": {
@@ -30,8 +32,8 @@
     "pageInfo": "{{from}}–{{to}} of {{total}}",
     "previous": "Previous",
     "resizeListPane": "Resize message list",
-    "unhandledCountTitle_one": "{{count}} unhandled message",
-    "unhandledCountTitle_other": "{{count}} unhandled messages"
+    "unhandledCountTitle_one": "{{count}} unread message",
+    "unhandledCountTitle_other": "{{count}} unread messages"
   },
   "search": {
     "noResults": "No messages match your search"
@@ -44,13 +46,53 @@
   },
   "thread": {
     "attachment": "Attachment",
+    "backToList": "Back to the message list",
     "cc": "Cc: {{cc}}",
     "emptyBody": "This message has no body.",
+    "hideList": "Hide the message list",
     "hideQuoted": "Hide quoted text",
+    "nextThread": "Next conversation",
     "notFound": "Thread not found",
     "openAttachment": "Open {{name}}",
+    "previousThread": "Previous conversation",
+    "showList": "Show the message list",
     "showQuoted": "Show quoted text",
-    "to": "To: {{to}}"
+    "to": "To: {{to}}",
+    "downloadAttachment": "Download",
+    "viewOptimized": "Conversation",
+    "viewOriginal": "Original"
+  },
+  "categories": {
+    "conversation": "Conversation",
+    "newsletter": "Newsletter",
+    "notification": "Notification",
+    "promotion": "Promotion",
+    "spam": "Spam"
+  },
+  "optimized": {
+    "collapseSummary": "Collapse status",
+    "copilotPrompt": "{{action}}\n\nContext: the mail thread \"{{subject}}\" I have open in the inbox.",
+    "emptyMessage": "(no content)",
+    "expandSummary": "Expand status",
+    "failedTitle": "Could not build the optimized view",
+    "fallbackDraftReply": "Draft a reply to the latest message",
+    "fallbackOpenPoints": "List what is still open",
+    "generating": "Distilling the conversation…",
+    "refresh": "Regenerate",
+    "summarize": "Summarize the status",
+    "summarizing": "Reading the thread…",
+    "summaryTitle": "Status"
+  },
+  "footer": {
+    "askPlaceholder": "Ask about this thread…",
+    "askSubmit": "Open in Copilot",
+    "discard": "Discard",
+    "modeAi": "AI",
+    "modeReply": "Reply",
+    "replyPlaceholder": "Write your reply…",
+    "send": "Send",
+    "subject": "Subject",
+    "to": "To"
   },
   "settings": {
     "autonomousOff": "Background access is off for this connection — the inbox cannot sync it.",
@@ -64,16 +106,28 @@
     "noAccounts": "No mail accounts connected",
     "noAccountsDescription": "Connect a Google account under Settings → Connections first.",
     "syncEnabled": "Sync",
-    "title": "Inbox settings"
+    "title": "Inbox settings",
+    "categoriesTitle": "Categories",
+    "categoriesDescription": "Configure which mail categories appear in the menu, their order, and the classifier rules for each.",
+    "categorySlug": "Slug",
+    "categoryTitle": "Label",
+    "categoryRule": "Classifier rule",
+    "categoryRuleHint": "Rules guide how the classifier assigns each message. Fixed categories cannot be deleted.",
+    "showInMenu": "Show in menu",
+    "addCategory": "Add category",
+    "saveCategories": "Save categories",
+    "saving": "Saving…"
   },
   "toasts": {
     "attachmentOpenFailed": "Could not open attachment: {{error}}",
+    "categoriesSaved": "Categories saved",
+    "copilotOpened": "Opened in Copilot",
+    "draftSaved": "Draft saved locally — sending isn’t available yet",
     "settingsFailed": "Saving settings failed: {{error}}",
     "status": {
       "archived": "Thread archived",
-      "new": "Marked as new",
-      "processed": "Marked processed",
-      "triaged": "Marked triaged"
+      "new": "Marked as unread",
+      "read": "Marked as read"
     },
     "statusFailed": "Updating status failed: {{error}}",
     "syncDone": "Sync finished — {{count}} new message(s)",
@@ -84,7 +138,8 @@
     "retry": "Retry"
   },
   "sidebar": {
-    "accounts": "Accounts"
+    "accounts": "Accounts",
+    "categories": "Categories"
   },
   "detail": {
     "placeholderTitle": "Select a conversation",

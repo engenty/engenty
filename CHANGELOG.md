@@ -4,6 +4,26 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.124] - 2026-08-11
+- ADDED **[inbox]** Split the thread view into assistant zone, conversation footer and reply composer
+- ADDED **[inbox]** Update message statuses and add dnd-kit dependencies
+- ADDED **[inbox]** Draw the list-pane toggle as a two-state icon
+- ADDED **[inbox]** Categories as list tabs, split runs to the bottom edge
+- ADDED **[inbox]** Full-width list view, linked breadcrumb, card list surface
+- ADDED **[inbox]** Lead with the mail, offer the conversation view only where it fits
+- ADDED **[inbox]** Split-view action bar for the thread pane
+- ADDED **[inbox]** Enhance thread digest and classification features
+- CHANGED **[inbox]** Two levels of chrome instead of three
+- DOCS **[inbox]** Record the split-view shell phase and worktree setup
+- FIXED **[ai]** Relay chat approvals to the decision request core filed
+- FIXED **[ai]** Correct the token accounting, and show what the numbers are made of
+- FIXED **[copilot]** Render decision choosers live in full-page and KB chats
+- FIXED **[inbox]** Dedicated classifier role, digests grants, alias-tolerant digest JSON
+- FIXED **[inbox]** Use tenant classifier settings and tolerate index-map output
+- OTHER Lint fixes
+- PERFORMANCE **[ai]** Stop rewriting the prompt cache prefix, and slim the always-on tool surface
+- PERFORMANCE **[ai]** Cut managed-skills seed/list to one manifest GET
+
 ## [0.1.123] - 2026-08-10
 - ADDED **[team-hr]** Move the holiday add/edit form into a modal
 - FIXED **[team]** Finish the typecheck pass for modules/team

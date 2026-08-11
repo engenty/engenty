@@ -52,6 +52,8 @@ export interface SessionRunTracker {
   cancel: (message?: string) => Promise<void>;
   complete: (input: {
     completionTokens?: number | null;
+    /** Last step's input tokens — window occupancy, not the billed total. */
+    contextPromptTokens?: number | null;
     errorCode?: string | null;
     errorMessage?: string | null;
     promptTokens?: number | null;
@@ -231,6 +233,7 @@ export function createSessionRunTracker(params: {
           status: input.status,
           promptTokens: input.promptTokens ?? null,
           completionTokens: input.completionTokens ?? null,
+          contextPromptTokens: input.contextPromptTokens ?? null,
           errorCode: input.errorCode ?? null,
           errorMessage: input.errorMessage ?? null,
         });

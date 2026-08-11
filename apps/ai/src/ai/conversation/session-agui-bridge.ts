@@ -9,13 +9,18 @@
 //   - usage via `usage_update`; failures via `error`.
 // Sub-agents (`subagent_*`) and approvals (`tool_approval_required`/`tool_suspended`)
 // are layered on in 3.1 / 3.2.
-import { type AGUIEvent, EventType } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  ENGENTY_USAGE_UPDATE_EVENT,
+  EventType,
+} from "@engenty/ag-ui-bridge";
 import {
   appendOrReplaceTranscriptToolPart,
   appendTextDeltaToTranscriptParts,
   buildRunningToolPart,
   toolResultPayloadToAssistantDynamicToolPart,
 } from "../sessions/transcript.js";
+import { accumulateSessionUsage, usageFromSession } from "./run-usage.js";
 import { buildUnresolvedToolCallResult } from "./unresolved-tool-call.js";
 
 /** The session event shapes we map (a subset of the full union). */
@@ -149,10 +154,21 @@ export class SessionAgUiConverter {
   // tool part after the run, same as the control plane (Mastra memory drops them).
   readonly #subAgentProgressLines = new Map<string, string[]>();
   #lastUsage: unknown = null;
+  #totalUsage: unknown = null;
 
-  /** The most recent `usage_update` payload, for token-usage recording. */
+  /**
+   * The most recent `usage_update` payload — ONE STEP's usage, because Mastra
+   * emits the event per `step-finish`. That makes it the right number for the
+   * context meter (the prompt the model last actually saw) and the wrong one
+   * for metering, which needs `totalUsage`.
+   */
   get lastUsage(): unknown {
     return this.#lastUsage;
+  }
+
+  /** Every step's usage summed: what the run is billed on. */
+  get totalUsage(): unknown {
+    return this.#totalUsage;
   }
 
   /** The assistant message id tool cards attach to (for nested progress events). */
@@ -600,9 +616,30 @@ export class SessionAgUiConverter {
         });
         break;
       }
-      case "usage_update":
+      case "usage_update": {
         this.#lastUsage = event.usage ?? null;
+        this.#totalUsage = accumulateSessionUsage(
+          this.#totalUsage,
+          event.usage ?? null
+        );
+        // Forward the RUN TOTAL to the client so the composer's usage line
+        // moves during the turn instead of sitting on the last finished run's
+        // number. Cumulative on purpose — see ENGENTY_USAGE_UPDATE_EVENT.
+        const total = usageFromSession(this.#totalUsage);
+        if (total) {
+          out.push({
+            name: ENGENTY_USAGE_UPDATE_EVENT,
+            type: EventType.CUSTOM,
+            value: {
+              cached_tokens: total.cached ?? 0,
+              input_tokens: total.input ?? 0,
+              output_tokens: total.output ?? 0,
+              reasoning_tokens: total.reasoning ?? 0,
+            },
+          } as AGUIEvent);
+        }
         break;
+      }
       default:
         break;
     }

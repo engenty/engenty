@@ -9,11 +9,7 @@ import { OPEN_DIALOG_TOOL as openDialogTool } from "./open-dialog/definition.js"
 import { SET_COPILOT_DOCK_MODE_TOOL as setCopilotDockModeTool } from "./set-copilot-dock-mode/definition.js";
 import { SET_SHELL_THEME_TOOL as setShellThemeTool } from "./shell-set-theme/definition.js";
 import { SHOW_ARTIFACT_TOOL as showArtifactTool } from "./show-artifact/definition.js";
-import {
-  DISMISS_UI_GUIDE_TOOL as dismissUiGuideTool,
-  SHOW_UI_GUIDE_TOOL as showUiGuideTool,
-  UPDATE_UI_GUIDE_TOOL as updateUiGuideTool,
-} from "./ui-guide/definition.js";
+import { SHOW_UI_GUIDE_TOOL as showUiGuideTool } from "./ui-guide/definition.js";
 
 // biome-ignore lint/performance/noBarrelFile: Public frontend-tool catalog entrypoint.
 export { CLOSE_COPILOT_TOOL } from "./close-copilot/definition.js";
@@ -43,8 +39,11 @@ export function getCopilotBaseFrontendTools(): FrontendToolDefinition[] {
     openDialogTool,
     focusFieldTool,
     showUiGuideTool,
-    updateUiGuideTool,
-    dismissUiGuideTool,
+    // updateUiGuideTool / dismissUiGuideTool are deliberately NOT here: they
+    // only apply while a guide is open, and the browser registers them for
+    // exactly that window (ui-guide/register.tsx). Listing them server-side
+    // would put their schemas back into every prompt, which is what the
+    // gating removes.
     offerFileDownloadsTool,
     showArtifactTool,
   ];

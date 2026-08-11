@@ -1,7 +1,121 @@
 [
   {
+    "version": "v0.1.124",
+    "timestamp": 1786465725,
+    "commits": [
+      {
+        "id": "6950a1b",
+        "message": "split the thread view into assistant zone, conversation footer and reply composer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "65b8165",
+        "message": "relay chat approvals to the decision request core filed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c1cbede",
+        "message": "correct the token accounting, and show what the numbers are made of",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c330867",
+        "message": "stop rewriting the prompt cache prefix, and slim the always-on tool surface",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "eeb508a",
+        "message": "render decision choosers live in full-page and KB chats",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3803377",
+        "message": "update message statuses and add dnd-kit dependencies",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5f57a41",
+        "message": "dedicated classifier role, digests grants, alias-tolerant digest JSON",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6a81416",
+        "message": "use tenant classifier settings and tolerate index-map output",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6e2fe31",
+        "message": "cut managed-skills seed/list to one manifest GET",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "222c598",
+        "message": "Lint fixes",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "f07d60a",
+        "message": "draw the list-pane toggle as a two-state icon",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "84a0ad7",
+        "message": "categories as list tabs, split runs to the bottom edge",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dde0451",
+        "message": "full-width list view, linked breadcrumb, card list surface",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "01ac877",
+        "message": "two levels of chrome instead of three",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "97369cf",
+        "message": "lead with the mail, offer the conversation view only where it fits",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "acbb3a5",
+        "message": "record the split-view shell phase and worktree setup",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "fcbaf62",
+        "message": "split-view action bar for the thread pane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f227f19",
+        "message": "enhance thread digest and classification features",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.123",
-    "timestamp": 1786393581,
+    "timestamp": 1786393584,
     "commits": [
       {
         "id": "0a51a88",

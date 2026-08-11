@@ -43,7 +43,8 @@ promise the reply will appear inside the original conversation.
    client. Call `gmail_send_message` only when the user explicitly said to send
    and has seen the final text.
 4. After a send/draft call, report the result (`draft_id` / `sent`) and update
-   triage: `inbox_set_status` → `processed` for the answered message(s).
+   mailbox status: `inbox_set_status` → `read` (or `archived` if the user wants
+   it out of the way) for the answered message(s).
 
 ## Rules
 

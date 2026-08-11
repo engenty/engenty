@@ -180,7 +180,10 @@ export interface ResumeConversationRunInput {
 interface ResumeConverter {
   getSubAgentProgressLines(): ReadonlyMap<string, string[]>;
   getTranscriptParts(): readonly unknown[];
+  /** The LAST step's usage — context-window occupancy. */
   readonly lastUsage: unknown;
+  /** Every step summed — what the resume is billed on. */
+  readonly totalUsage: unknown;
 }
 
 /**
@@ -310,17 +313,23 @@ function suspendedAgainLabel(suspended: SuspendedAgain): string {
  * controller carries there. A re-assembled agent has neither, so a post-restart
  * continuation dropped the tenant's persona AND the user's language mid-turn.
  *
- * `appendBodies` is the seam — `assembleDynamicAgent` joins it after the base
- * prompt, which is where the controller's per-run instructions land too.
+ * Two seams, not one: the persisted overrides ride `appendBodies` into the base
+ * prompt, while the runtime context is returned separately because it must NOT
+ * enter the system prompt — it is the volatile half, and the START lane now
+ * feeds it through an input processor so the cache prefix survives a navigation
+ * (see runtime-context-processor.ts).
  *
  * Best-effort by design: instructions are a quality degradation, while throwing
  * here would strand a recoverable interrupt.
  */
 async function resolveResumeInstructionExtras(
   input: ResumeConversationRunInput
-): Promise<AssembleInstructionExtras | undefined> {
+): Promise<{
+  instructionExtras?: AssembleInstructionExtras;
+  runtimeContextInstructions?: string;
+}> {
   if (!input.agentId) {
-    return;
+    return {};
   }
   try {
     const [
@@ -352,19 +361,16 @@ async function resolveResumeInstructionExtras(
         threadId: input.threadId,
       })
     ).trim();
-    if (!runtime) {
-      return extras;
-    }
     return {
-      ...extras,
-      appendBodies: [...(extras?.appendBodies ?? []), runtime],
+      ...(extras ? { instructionExtras: extras } : {}),
+      ...(runtime ? { runtimeContextInstructions: runtime } : {}),
     };
   } catch (error) {
     console.error(
       `[conversation-resume ${input.newRunId}] instruction extras failed:`,
       error
     );
-    return;
+    return {};
   }
 }
 
@@ -440,10 +446,12 @@ async function resumeFromSnapshot(
   // re-assembled agent has none of it, and the parked lane never notices
   // because its live Session still holds the originals. Best-effort: a
   // degraded continuation beats a stranded interrupt.
-  const instructionExtras = await resolveResumeInstructionExtras(input);
+  const { instructionExtras, runtimeContextInstructions } =
+    await resolveResumeInstructionExtras(input);
   try {
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       ...(instructionExtras ? { instructionExtras } : {}),
+      ...(runtimeContextInstructions ? { runtimeContextInstructions } : {}),
       mastra: input.mastra,
       ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
       // The parked lane's agent gets memory from its AgentController
@@ -961,7 +969,8 @@ export async function resumeConversationRun(
         runId: input.newRunId,
         scope: input.scope,
         threadId: input.threadId,
-        usage: converterRef.lastUsage,
+        // Per-step `usage_update` again: bill the whole resume, not its last step.
+        usage: converterRef.totalUsage,
         usageStore: input.usageStore,
       });
     }
@@ -996,10 +1005,12 @@ export async function resumeConversationRun(
     }
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {
-      const usage = usageFromSession(converterRef?.lastUsage);
+      const usage = usageFromSession(converterRef?.totalUsage);
+      const lastStep = usageFromSession(converterRef?.lastUsage);
       await tracker
         .complete({
           completionTokens: usage?.output ?? null,
+          contextPromptTokens: lastStep?.input ?? null,
           promptTokens: usage?.input ?? null,
           status:
             threadStatus === "waiting"

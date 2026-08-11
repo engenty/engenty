@@ -9,6 +9,8 @@ import { getInboxAttachment } from "../api.js";
 import { isImageAttachment } from "../lib/is-image-attachment.js";
 import { openInboxAttachmentFile } from "../lib/open-inbox-attachment.js";
 import { inboxKeys, useInboxAttachmentQuery } from "../queries.js";
+import type { LightboxTarget } from "./attachment-lightbox.js";
+import { AttachmentLightbox } from "./attachment-lightbox.js";
 
 function formatSize(size: number | null | undefined): string {
   if (!size) {
@@ -58,13 +60,14 @@ function ImageAttachmentPreview({
   attachment,
   className,
   messageId,
+  onZoom,
 }: {
   attachment: InboxAttachmentMeta;
   className?: string;
   messageId: string;
+  onZoom: (attachment: InboxAttachmentMeta) => void;
 }) {
   const { t } = useTranslation("inbox");
-  const { openAttachment } = useOpenInboxAttachment(messageId);
   const attachmentId = attachment.attachment_id;
   const query = useInboxAttachmentQuery(
     messageId,
@@ -109,9 +112,7 @@ function ImageAttachmentPreview({
     <button
       aria-label={t("thread.openAttachment", { name: label })}
       className={previewClassName}
-      onClick={() => {
-        void openAttachment(attachment);
-      }}
+      onClick={() => onZoom(attachment)}
       title={label}
       type="button"
     >
@@ -134,8 +135,8 @@ function FileAttachmentBadge({
   onOpen,
 }: {
   attachment: InboxAttachmentMeta;
-  openingId: string | null;
   onOpen: (attachment: InboxAttachmentMeta) => void;
+  openingId: string | null;
 }) {
   const { t } = useTranslation("inbox");
   const attachmentId = attachment.attachment_id;
@@ -177,6 +178,7 @@ export function MessageAttachments({
     (attachment) => !isImageAttachment(attachment)
   );
   const { openAttachment, openingId } = useOpenInboxAttachment(messageId);
+  const [zoomed, setZoomed] = useState<LightboxTarget | null>(null);
 
   if (attachments.length === 0) {
     return null;
@@ -184,6 +186,14 @@ export function MessageAttachments({
 
   return (
     <div className="flex shrink-0 flex-col gap-2 border-t pt-2">
+      <AttachmentLightbox
+        onOpenChange={(open) => {
+          if (!open) {
+            setZoomed(null);
+          }
+        }}
+        target={zoomed}
+      />
       {imageAttachments.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {imageAttachments.map((attachment, index) => (
@@ -191,6 +201,7 @@ export function MessageAttachments({
               attachment={attachment}
               key={attachment.attachment_id ?? `image-${index}`}
               messageId={messageId}
+              onZoom={(entry) => setZoomed({ attachment: entry, messageId })}
             />
           ))}
         </div>

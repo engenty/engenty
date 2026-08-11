@@ -8,11 +8,13 @@ import type { ProjectWithPhasesAndTasks } from "./api.js";
  * Kept as type aliases (not interfaces) so they get implicit index signatures
  * and stay assignable to the `Record<string, JsonValue>` Agent UI page shape.
  */
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for JsonValue index signature
 export type ProjectSnapshotPhase = {
   tasks: { title: string; status: string }[];
   title: string;
 };
 
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for JsonValue index signature
 export type ProjectSnapshot = {
   client_name: string | null;
   end_date: string | null;

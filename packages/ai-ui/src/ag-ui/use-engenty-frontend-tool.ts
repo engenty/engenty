@@ -34,6 +34,12 @@ export interface EngentyFrontendToolRenderProps {
 
 export interface UseEngentyFrontendToolOptions {
   /**
+   * False = withhold the tool from the agent for now. Its schema is in every
+   * model call while registered, so state-specific tools should register only
+   * in that state.
+   */
+  enabled?: boolean;
+  /**
    * Reserved for custom in-transcript UI. Register a matching `registerToolCallUi` card
    * and derive `status` from the lane `dynamic-tool` part (`output-available`, etc.).
    */
@@ -63,7 +69,7 @@ export function useEngentyFrontendTool(
     | FrontendToolDefinition
     | EngentyZodFrontendToolConfig<z.ZodType>,
   handler?: AgentUiFrontendToolHandler,
-  _options?: UseEngentyFrontendToolOptions
+  options?: UseEngentyFrontendToolOptions
 ): void {
   const isZod = isZodFrontendToolConfig(definitionOrConfig);
 
@@ -88,5 +94,10 @@ export function useEngentyFrontendTool(
     (input, request) => handlerRef.current(input, request),
     []
   );
-  useFrontendTool(definition, stableHandler);
+  useFrontendTool(definition, stableHandler, {
+    enabled:
+      (isZod
+        ? (definitionOrConfig as { enabled?: boolean }).enabled
+        : options?.enabled) !== false,
+  });
 }

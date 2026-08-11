@@ -830,6 +830,24 @@ export function createAiUsageStore(
       );
     },
 
+    async listUsageEventsByThread(params) {
+      // Oldest first: the drill-in reads as a timeline of model calls, and the
+      // interesting movement (each call re-sending a bigger prompt) only shows
+      // up in that direction. Capped because a long agentic thread can record
+      // hundreds of events and the panel plots every one of them.
+      const limit = params.limit ?? 200;
+      const { data, error } = await events(params.tenant_id)
+        .select("*")
+        .eq("tenant_id", params.tenant_id)
+        .eq("thread_id", params.thread_id)
+        .order("occurred_at", { ascending: true })
+        .limit(limit);
+      if (error) {
+        throw new Error(`usage events by thread select: ${error.message}`);
+      }
+      return ((data ?? []) as Record<string, unknown>[]).map(mapEvent);
+    },
+
     async summarizeUsageByThread(params) {
       const { data, error } = await events(params.tenant_id)
         .select(

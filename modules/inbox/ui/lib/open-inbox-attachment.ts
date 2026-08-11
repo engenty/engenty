@@ -13,6 +13,8 @@ function shouldOpenInNewTab(mimeType: string): boolean {
 
 export function openInboxAttachmentFile(params: {
   dataBase64: string;
+  /** Always save to disk, even for types that would preview in a tab. */
+  download?: boolean;
   filename: string | null;
   mimeType: string | null;
 }): void {
@@ -21,7 +23,7 @@ export function openInboxAttachmentFile(params: {
   const url = URL.createObjectURL(blob);
   const filename = params.filename?.trim() || "attachment";
 
-  if (shouldOpenInNewTab(mimeType)) {
+  if (!params.download && shouldOpenInNewTab(mimeType)) {
     window.open(url, "_blank", "noopener,noreferrer");
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return;

@@ -37,6 +37,7 @@ import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
+import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import {
   loadConnectionApprovalGrants,
@@ -668,6 +669,21 @@ export function registerThreadRunRoutes(
             });
           }
         }
+        // Card raised by core's 202: relay the answer to the request core
+        // filed. Approve, or the re-run's agent-forwarded invoke hits the same
+        // policy and the user's approval buys nothing; deny, or the request
+        // outlives its answer in the tenant's queue. Outside the grant branch
+        // above precisely because it also covers deny, and must land BEFORE
+        // the resume re-invokes.
+        if (grantContext?.approval_request_id) {
+          await persistCoreApprovalDecision({
+            accessToken: scopeAccessToken(scope.scope),
+            approvalRequestId: grantContext.approval_request_id,
+            coreBaseUrl: opts.coreBaseUrl,
+            decision: always ? "always" : once ? "once" : "deny",
+            subjectId: threadId,
+          });
+        }
         resumeData = {
           approved: once || always,
           ...(choice ? { choice_id: choice } : {}),
@@ -836,6 +852,21 @@ export function registerThreadRunRoutes(
               accessToken: scopeAccessToken(scope.scope),
             });
           }
+        }
+        // Card raised by core's 202: relay the answer to the request core
+        // filed. Approve, or the re-run's agent-forwarded invoke hits the same
+        // policy and the user's approval buys nothing; deny, or the request
+        // outlives its answer in the tenant's queue. Outside the grant branch
+        // above precisely because it also covers deny, and must land BEFORE
+        // the resume re-invokes.
+        if (hsGrantContext?.approval_request_id) {
+          await persistCoreApprovalDecision({
+            accessToken: scopeAccessToken(scope.scope),
+            approvalRequestId: hsGrantContext.approval_request_id,
+            coreBaseUrl: opts.coreBaseUrl,
+            decision: always ? "always" : once ? "once" : "deny",
+            subjectId: threadId,
+          });
         }
         // The gate already returned the Approve/Deny card as this tool call's
         // result; mark it resolved so the model reads a completed interaction and

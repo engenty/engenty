@@ -20,12 +20,7 @@ const INBOX_LIST_ACCOUNTS_TOOL_ID = "inbox_list_accounts";
 const INBOX_SYNC_NOW_TOOL_ID = "inbox_sync_now";
 const INBOX_UPDATE_SYNC_SETTINGS_TOOL_ID = "inbox_update_sync_settings";
 
-const inboxMessageStatusSchema = z.enum([
-  "new",
-  "triaged",
-  "processed",
-  "archived",
-]);
+const inboxMessageStatusSchema = z.enum(["new", "read", "archived"]);
 
 function defineInboxAi(options: InboxAiOptions) {
   const invoke = options.invokeInboxOperation;
@@ -37,7 +32,7 @@ function defineInboxAi(options: InboxAiOptions) {
       [INBOX_LIST_THREADS_TOOL_ID]: createTool({
         id: INBOX_LIST_THREADS_TOOL_ID,
         description:
-          "List synced inbox threads for triage lanes (new/triaged/processed/archived), optionally filtered by connection_id. Returns subjects, senders, snippets, and unhandled_count — often enough to summarize without opening threads. For content questions (“anything from Acme?”) prefer the catalog op inbox_message_search via engenty_tools_search / engenty_tool_execute instead of paging lists.",
+          "List synced inbox threads for mailbox lanes (new/read/archived), optionally filtered by connection_id. Returns subjects, senders, snippets, and unhandled_count (unread = status new) — often enough to summarize without opening threads. For content questions (“anything from Acme?”) prefer the catalog op inbox_message_search via engenty_tools_search / engenty_tool_execute instead of paging lists.",
         inputSchema: z.object({
           connection_id: z.string().optional(),
           limit: z.number().int().min(1).max(100).optional(),
@@ -58,7 +53,7 @@ function defineInboxAi(options: InboxAiOptions) {
       [INBOX_SET_STATUS_TOOL_ID]: createTool({
         id: INBOX_SET_STATUS_TOOL_ID,
         description:
-          "Bulk-set triage status on synced messages (message ids, not thread ids). Statuses: new, triaged, processed, archived. Affects only the synced copy — never the provider mailbox. Safe and reversible.",
+          "Bulk-set mailbox status on synced messages (message ids, not thread ids). Statuses: new (unread), read, archived. Affects only the synced copy — never the provider mailbox. Safe and reversible.",
         inputSchema: z.object({
           ids: z.array(z.string().min(1)).min(1).max(200),
           status: inboxMessageStatusSchema,

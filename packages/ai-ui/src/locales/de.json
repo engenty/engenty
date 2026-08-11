@@ -104,6 +104,10 @@
         "label": "Schnell (Routing)",
         "desc": "Supervisor-Delegation, Thread-Titel, Tool-Suche — häufig & günstig."
       },
+      "classifier": {
+        "label": "Klassifikation",
+        "desc": "Posteingangs-Kategorien und Anhangs-Triage — Einzelaufruf, geringe Latenz."
+      },
       "research": {
         "label": "Research",
         "desc": "Such- & Retrieval-Agenten, Workspace-Suche, Deep-Research-Fanouts — langer Kontext."

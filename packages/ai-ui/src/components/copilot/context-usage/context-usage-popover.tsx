@@ -4,6 +4,7 @@ import { cn, Popover, PopoverContent, PopoverTrigger } from "@engenty/ui-core";
 import { type ReactNode, useState } from "react";
 import {
   formatUsageCostMicros,
+  freshInputTokens,
   sumThreadUsageTokens,
   type ThreadUsageTotals,
 } from "../../../ag-ui/thread-usage/format-thread-usage.js";
@@ -19,6 +20,7 @@ import {
   type ThreadContextUsage,
 } from "./context-usage-model.js";
 import { PromptPreviewDialog } from "./prompt-preview-dialog.js";
+import { ThreadUsageDialog } from "./thread-usage-dialog.js";
 
 const BAR_CLASS: Record<ContextUsageLevel, string> = {
   critical: "bg-destructive",
@@ -58,6 +60,7 @@ export function ContextUsagePopover({
   // inside `PopoverContent` unmounts the moment the popover closes — which is
   // the same click that opens it.
   const [promptOpen, setPromptOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const ratio = contextUsage ? contextUsageRatio(contextUsage) : null;
   const level = contextUsage ? contextUsageLevel(contextUsage) : "normal";
@@ -66,6 +69,14 @@ export function ContextUsagePopover({
     ? formatUsageCostMicros(totals.cost_micros, totals.currency)
     : null;
   const canInspectPrompt = developerMode && Boolean(threadId);
+  // The usage drill-in reads RECORDED events, not a reconstruction: it exists
+  // in every build, so it is gated on having a thread and nothing else.
+  const openUsage = threadId
+    ? () => {
+        setPopoverOpen(false);
+        setUsageOpen(true);
+      }
+    : undefined;
 
   return (
     <>
@@ -165,30 +176,52 @@ export function ContextUsagePopover({
               </h4>
               <DetailRow
                 label="Input"
+                onInspect={openUsage}
                 value={formatTokenCount(totals.input_tokens)}
               />
-              <DetailRow
-                label="Output"
-                value={formatTokenCount(totals.output_tokens)}
-              />
+              {/* Indented sub-rows, because cached and reasoning are SLICES of
+                  the two lines above them, not further dimensions to add. */}
               {totals.cached_tokens > 0 ? (
                 <DetailRow
-                  label="Cached"
+                  indent
+                  label="from cache"
                   value={formatTokenCount(totals.cached_tokens)}
                 />
               ) : null}
+              {totals.cached_tokens > 0 ? (
+                <DetailRow
+                  indent
+                  label="fresh"
+                  value={formatTokenCount(freshInputTokens(totals))}
+                />
+              ) : null}
+              <DetailRow
+                label="Output"
+                onInspect={openUsage}
+                value={formatTokenCount(totals.output_tokens)}
+              />
               {totals.reasoning_tokens > 0 ? (
                 <DetailRow
-                  label="Reasoning"
+                  indent
+                  label="reasoning"
                   value={formatTokenCount(totals.reasoning_tokens)}
                 />
               ) : null}
               <DetailRow
                 label="All tokens"
+                onInspect={openUsage}
                 value={formatTokenCount(sumThreadUsageTokens(totals))}
               />
-              <DetailRow label="Runs" value={String(totals.event_count)} />
-              <DetailRow label="Cost" value={totalCost ?? "—"} />
+              <DetailRow
+                label="Runs"
+                onInspect={openUsage}
+                value={String(totals.event_count)}
+              />
+              <DetailRow
+                label="Cost"
+                onInspect={openUsage}
+                value={totalCost ?? "—"}
+              />
             </section>
           ) : null}
         </PopoverContent>
@@ -198,28 +231,40 @@ export function ContextUsagePopover({
         open={promptOpen}
         threadId={threadId ?? null}
       />
+      <ThreadUsageDialog
+        onOpenChange={setUsageOpen}
+        open={usageOpen}
+        threadId={threadId ?? null}
+      />
     </>
   );
 }
 
 function DetailRow({
+  indent,
   label,
   onInspect,
   value,
 }: {
+  /** Marks the row as a slice of the row above it. */
+  indent?: boolean;
   label: string;
-  /** Developer mode only: makes the row a link into the prompt breakdown. */
+  /** Makes the value a link into the matching drill-in. */
   onInspect?: () => void;
   value: string;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-2 text-xs">
-      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn("text-muted-foreground", indent && "pl-3 opacity-80")}
+      >
+        {label}
+      </span>
       {onInspect ? (
         <button
           className="rounded-sm tabular-nums underline decoration-dotted underline-offset-2 outline-none transition-colors hover:text-primary focus-visible:ring-1 focus-visible:ring-ring"
           onClick={onInspect}
-          title="Show what makes up this prompt"
+          title="Show the breakdown behind this number"
           type="button"
         >
           {value}

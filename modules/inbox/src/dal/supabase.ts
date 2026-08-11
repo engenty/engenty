@@ -3,9 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
 import type {
   InboxMessage,
+  InboxMessageCategory,
+  InboxMessageDigest,
   InboxMessageStatus,
   InboxSyncState,
   InboxThread,
+  InboxThreadDigest,
   InboxThreadListItem,
   InboxThreadsListParams,
   InboxThreadsListResult,
@@ -20,8 +23,10 @@ import {
   buildSnippet,
   mergeParticipants,
   rowToMessage,
+  rowToMessageDigest,
   rowToSyncState,
   rowToThread,
+  rowToThreadDigest,
 } from "./inbox-mappers.js";
 
 const SCHEMA = "module_inbox";
@@ -49,6 +54,8 @@ export function createInboxRepoSupabase(
   const threads = () => supabase.schema(SCHEMA).from("threads");
   const messages = () => supabase.schema(SCHEMA).from("messages");
   const syncState = () => supabase.schema(SCHEMA).from("sync_state");
+  const messageDigests = () => supabase.schema(SCHEMA).from("message_digests");
+  const threadDigests = () => supabase.schema(SCHEMA).from("thread_digests");
   const emit = options.emitInboxEvent ?? (() => undefined);
 
   const visibilityOr = userId
@@ -76,6 +83,7 @@ export function createInboxRepoSupabase(
       MAX_PAGE_SIZE
     );
     const { data, error } = await supabase.schema(SCHEMA).rpc("list_threads", {
+      p_category: params.category ?? null,
       p_connection_id: params.connection_id ?? null,
       p_limit: limit,
       p_offset: Math.max(params.offset ?? 0, 0),
@@ -96,6 +104,8 @@ export function createInboxRepoSupabase(
         (row) =>
           ({
             ...rowToThread(row),
+            latest_category:
+              (row.latest_category as InboxMessageCategory | null) ?? null,
             latest_from_email: (row.latest_from_email as string | null) ?? null,
             latest_from_name: (row.latest_from_name as string | null) ?? null,
             latest_snippet: (row.latest_snippet as string | null) ?? null,
@@ -161,6 +171,73 @@ export function createInboxRepoSupabase(
       throw new Error(`inbox message get failed: ${error.message}`);
     }
     return data ? rowToMessage(data as Record<string, unknown>) : null;
+  }
+
+  async function listUnclassifiedMessages(
+    limit: number
+  ): Promise<InboxMessage[]> {
+    let query = messages()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
+      .is("ai_category", null);
+    if (visibilityOr) {
+      query = query.or(visibilityOr);
+    }
+    const { data, error } = await query
+      .order("received_at", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    if (error) {
+      throw new Error(`inbox unclassified list failed: ${error.message}`);
+    }
+    return (data ?? []).map((row) =>
+      rowToMessage(row as Record<string, unknown>)
+    );
+  }
+
+  async function countUnclassifiedMessages(): Promise<number> {
+    let query = messages()
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
+      .is("ai_category", null);
+    if (visibilityOr) {
+      query = query.or(visibilityOr);
+    }
+    const { count, error } = await query;
+    if (error) {
+      throw new Error(`inbox unclassified count failed: ${error.message}`);
+    }
+    return count ?? 0;
+  }
+
+  async function setMessageCategories(
+    categories: Map<string, InboxMessageCategory>
+  ): Promise<number> {
+    let updated = 0;
+    // Per-category batch: one statement per distinct value, not per message.
+    const idsByCategory = new Map<InboxMessageCategory, string[]>();
+    for (const [id, category] of categories) {
+      const bucket = idsByCategory.get(category) ?? [];
+      bucket.push(id);
+      idsByCategory.set(category, bucket);
+    }
+    for (const [category, ids] of idsByCategory) {
+      let query = messages()
+        .update({ ai_category: category })
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .in("id", ids);
+      if (visibilityOr) {
+        query = query.or(visibilityOr);
+      }
+      const { data, error } = await query.select("id");
+      if (error) {
+        throw new Error(`inbox set category failed: ${error.message}`);
+      }
+      updated += (data ?? []).length;
+    }
+    return updated;
   }
 
   async function setMessageStatus(
@@ -283,6 +360,104 @@ export function createInboxRepoSupabase(
     if (error) {
       throw new Error(`inbox sync_state update failed: ${error.message}`);
     }
+  }
+
+  // ── digests (optimized thread view cache) ──────────────────────────────
+  // Visibility rides on the enclosing thread/message reads in the digest
+  // operation (repo methods above); rows here are keyed by ids the caller
+  // already proved it can see, plus the tenant/scope guard.
+
+  async function getThreadDigest(
+    threadId: string
+  ): Promise<InboxThreadDigest | null> {
+    const { data, error } = await threadDigests()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
+      .eq("thread_id", threadId)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`inbox thread_digest get failed: ${error.message}`);
+    }
+    return data ? rowToThreadDigest(data as Record<string, unknown>) : null;
+  }
+
+  async function listMessageDigests(
+    threadId: string
+  ): Promise<InboxMessageDigest[]> {
+    const { data, error } = await messageDigests()
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId)
+      .eq("thread_id", threadId);
+    if (error) {
+      throw new Error(`inbox message_digests list failed: ${error.message}`);
+    }
+    return (data ?? []).map((row) =>
+      rowToMessageDigest(row as Record<string, unknown>)
+    );
+  }
+
+  async function upsertMessageDigest(
+    digest: Omit<InboxMessageDigest, "created_at" | "updated_at"> & {
+      owner_user_id: string | null;
+    }
+  ): Promise<InboxMessageDigest> {
+    const { data, error } = await messageDigests()
+      .upsert(
+        {
+          attachments_json: digest.attachments_json,
+          category: digest.category,
+          content_md: digest.content_md,
+          digest_version: digest.digest_version,
+          message_id: digest.message_id,
+          model_id: digest.model_id,
+          owner_user_id: digest.owner_user_id,
+          scope_id: scopeId,
+          tenant_id: tenantId,
+          thread_id: digest.thread_id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "message_id" }
+      )
+      .select()
+      .single();
+    if (error) {
+      throw new Error(`inbox message_digest upsert failed: ${error.message}`);
+    }
+    return rowToMessageDigest(data as Record<string, unknown>);
+  }
+
+  async function upsertThreadDigest(
+    digest: Omit<InboxThreadDigest, "created_at" | "updated_at"> & {
+      owner_user_id: string | null;
+    }
+  ): Promise<InboxThreadDigest> {
+    const { data, error } = await threadDigests()
+      .upsert(
+        {
+          category: digest.category,
+          digest_version: digest.digest_version,
+          last_message_id: digest.last_message_id,
+          model_id: digest.model_id,
+          owner_user_id: digest.owner_user_id,
+          participants_json: digest.participants_json,
+          scope_id: scopeId,
+          suggested_actions: digest.suggested_actions,
+          summarized_message_count: digest.summarized_message_count,
+          summary_md: digest.summary_md,
+          tenant_id: tenantId,
+          thread_id: digest.thread_id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "thread_id" }
+      )
+      .select()
+      .single();
+    if (error) {
+      throw new Error(`inbox thread_digest upsert failed: ${error.message}`);
+    }
+    return rowToThreadDigest(data as Record<string, unknown>);
   }
 
   // ── inbound upsert (thread grouping) ───────────────────────────────────
@@ -454,9 +629,18 @@ export function createInboxRepoSupabase(
   }
 
   return {
+    digests: {
+      getThreadDigest,
+      listMessageDigests,
+      upsertMessageDigest,
+      upsertThreadDigest,
+    },
     messages: {
+      countUnclassified: countUnclassifiedMessages,
       getById: getMessageById,
       listByThread: listMessagesByThread,
+      listUnclassified: listUnclassifiedMessages,
+      setCategories: setMessageCategories,
       setStatus: setMessageStatus,
     },
     sync: { upsertInbound },

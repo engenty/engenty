@@ -171,6 +171,15 @@ export function createApprovalService(
       decision: ApprovalDecision;
       decidedBy: string;
       sessionId?: string;
+      /**
+       * Bind a non-session grant to a subject (task, trigger, goal — in chat
+       * the thread id, which is the run's goal). Without it a `policy` grant
+       * stands for the actor everywhere; with it the grant is spendable only
+       * by runs working under that subject. Approving "always, THIS chat"
+       * means exactly that, so the caller passes the thread. Narrowing only —
+       * a subject can never widen what the grant covers.
+       */
+      subjectId?: string;
     }): Promise<ApprovalRequest | null> {
       const decided = await decideApprovalRequest(dbFor(input.tenantId), {
         decidedAt: new Date().toISOString(),
@@ -199,7 +208,10 @@ export function createApprovalService(
           operationId: decided.operation_id,
           requestId: decided.id,
           scope,
-          subjectId: scope === "session" ? (input.sessionId ?? null) : null,
+          subjectId:
+            scope === "session"
+              ? (input.sessionId ?? null)
+              : (input.subjectId ?? null),
           tenantId: decided.tenant_id,
         });
       }

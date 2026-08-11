@@ -80,6 +80,12 @@ export {
   readAgUiOpenInterrupt,
   readAgUiOpenInterruptEventValue,
 } from "./engenty-open-interrupt.js";
+export type { EngentyUsageUpdatePayload } from "./engenty-usage-update.js";
+export {
+  ENGENTY_USAGE_UPDATE_EVENT,
+  readEngentyUsageUpdateEventValue,
+  sumEngentyUsageUpdateTokens,
+} from "./engenty-usage-update.js";
 export type {
   AgentUiContextLike,
   AgentUiRunContext,

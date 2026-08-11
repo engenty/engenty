@@ -472,22 +472,34 @@ export function useRegisterAgentUiSlice(
 
 export function useFrontendTool(
   definition: FrontendToolDefinition,
-  handler: AgentUiFrontendToolHandler
+  handler: AgentUiFrontendToolHandler,
+  options?: {
+    /**
+     * False = do not offer this tool to the agent right now. Every registered
+     * tool's full JSON Schema rides in EVERY model call, so a tool that is only
+     * meaningful in a particular state (a guide being open, a page being shown)
+     * is pure prompt weight the rest of the time. Registration is an effect, so
+     * flipping this attaches or detaches the tool for the next run.
+     */
+    enabled?: boolean;
+  }
 ): void {
   const ctx = useContext(AgentUiStateContext);
   if (!ctx) {
     throw new Error("useFrontendTool must be used within AgentUiStateProvider");
   }
   const { registerFrontendTool } = ctx;
+  const enabled = options?.enabled !== false;
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
-  useEffect(
-    () =>
-      registerFrontendTool(definition, (input, request) =>
-        handlerRef.current(input, request)
-      ),
-    [registerFrontendTool, definition]
-  );
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    return registerFrontendTool(definition, (input, request) =>
+      handlerRef.current(input, request)
+    );
+  }, [enabled, registerFrontendTool, definition]);
 }
 
 export function useRegisterAgentUiDialog(

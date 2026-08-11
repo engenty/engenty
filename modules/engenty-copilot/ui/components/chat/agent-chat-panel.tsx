@@ -129,7 +129,17 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     [draftRecovery.setDraft]
   );
 
+  // The LIVE stream value wins while set. `requestDecision` suspends the run
+  // natively, so its chooser exists ONLY in the open interrupt — the tool call
+  // has no output for the transcript path to read. Without the stream arm the
+  // full-page chat waited for the session-metadata refetch and, until then,
+  // rendered a generic spinning "Decision needed" row with no way to answer it
+  // (the drawer already resolved it this way — see copilot-drawer-body.tsx).
   const openInterrupt = useMemo(() => {
+    const fromStream = host.openInterruptFromStream;
+    if (fromStream && !isAgUiOpenInterruptExpired(fromStream)) {
+      return fromStream;
+    }
     if (
       !openInterruptFromSession ||
       isAgUiOpenInterruptExpired(openInterruptFromSession)
@@ -137,7 +147,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
       return null;
     }
     return openInterruptFromSession;
-  }, [openInterruptFromSession]);
+  }, [host.openInterruptFromStream, openInterruptFromSession]);
 
   const resumeOpenInterrupt = useCallback<CopilotOpenInterruptResumeInterrupt>(
     (feedback) => {

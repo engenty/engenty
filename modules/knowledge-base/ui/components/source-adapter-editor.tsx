@@ -107,6 +107,7 @@ function scheduleToFieldsValue(
 }
 
 /** Type alias (not interface) so it satisfies `Record<string, unknown>` mutation inputs. */
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for Record<string, unknown> mutation inputs
 export type SourceAdapterDialogInput = {
   adapter_id: KbSourceAdapterId;
   enabled: boolean;

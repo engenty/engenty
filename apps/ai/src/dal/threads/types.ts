@@ -68,6 +68,12 @@ export interface AgentRunRow {
   agent_id: string;
   cancelled_at: string | null;
   completion_tokens: number | null;
+  /**
+   * Input tokens of the run's LAST step — context-window occupancy. Null when
+   * the lane could not observe per-step usage; `prompt_tokens` (the sum across
+   * steps) is the fallback.
+   */
+  context_prompt_tokens: number | null;
   created_by_user_id: string | null;
   error_code: string | null;
   error_message: string | null;

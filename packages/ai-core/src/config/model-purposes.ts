@@ -18,6 +18,7 @@ import {
 } from "../usage/model-allow-list.js";
 import {
   DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
 } from "./model-defaults.js";
@@ -40,6 +41,7 @@ import { type ModelBindings, PURPOSE_TO_ROLE } from "./model-roles.js";
 export type AiModelPurpose =
   | "chat"
   | "routing"
+  | "classifier"
   | "research"
   | "planning_coding"
   | "safeguard";
@@ -48,6 +50,7 @@ export type AiModelPurpose =
 export const AI_MODEL_PURPOSES: readonly AiModelPurpose[] = [
   "chat",
   "routing",
+  "classifier",
   "research",
   "planning_coding",
   "safeguard",
@@ -78,6 +81,7 @@ interface PurposeSpec {
   tenantField:
     | "chat_model_id"
     | "coordinator_model_id"
+    | "classifier_model_id"
     | "research_model_id"
     | "planning_coding_model_id"
     | "safeguard_model_id";
@@ -100,6 +104,14 @@ export const AI_MODEL_PURPOSE_SPECS: Record<AiModelPurpose, PurposeSpec> = {
     defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
     envKeys: ["AI_ROUTING_MODEL", "AI_COORDINATOR_MODEL", "AI_CHAT_MODEL"],
     tenantField: "coordinator_model_id",
+  },
+  classifier: {
+    defaultModelId: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    // Inbox historically used AI_INBOX_DIGEST_MODEL; keep it ahead of the
+    // shared classifier seed so existing deploys keep their override when the
+    // binding table has not been populated yet.
+    envKeys: ["AI_INBOX_DIGEST_MODEL", "AI_CLASSIFIER_MODEL"],
+    tenantField: "classifier_model_id",
   },
   research: {
     defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,

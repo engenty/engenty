@@ -4,6 +4,7 @@ import { buildMessageSearchDocument } from "./message-embed.js";
 
 function makeMessage(overrides: Partial<InboxMessage> = {}): InboxMessage {
   return {
+    ai_category: null,
     attachments_json: [],
     body_html: null,
     body_text: null,

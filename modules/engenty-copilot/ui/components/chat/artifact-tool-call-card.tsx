@@ -24,13 +24,11 @@ export function matchesArtifactToolCall(ctx: {
   toolName: string;
 }): boolean {
   return (
-    (ctx.toolName === "artifact_create" ||
-      ctx.toolName === "artifact_update") &&
-    readArtifactId(ctx.output) !== null
+    ctx.toolName === "artifact_write" && readArtifactId(ctx.output) !== null
   );
 }
 
-/** Compact card for artifact_create / artifact_update: opens it in the pane. */
+/** Compact card for a successful artifact_write: opens it in the pane. */
 export function ArtifactToolCallCard(props: ToolCallCardProps) {
   const { t } = useTranslation("engenty-copilot");
   const artifactId = readArtifactId(props.output);

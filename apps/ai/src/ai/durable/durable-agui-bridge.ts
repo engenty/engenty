@@ -61,10 +61,22 @@ export class DurableAgUiConverter {
   // Token usage reported by the run's `finish` chunk, for metering + the
   // durable run row. Every resumed turn was previously unbilled.
   #lastUsage: unknown;
+  // Usage of the last `step-finish` chunk. Unlike the `finish` aggregate this
+  // is ONE step's prompt, which is what the context meter means by "how full
+  // is the window" — see ai.agent_run.context_prompt_tokens.
+  #lastStepUsage: unknown;
 
-  /** Token usage from the last `finish` chunk, or undefined if none arrived. */
-  get lastUsage(): unknown {
+  /** Aggregated token usage from the `finish` chunk — the run's billed total. */
+  get totalUsage(): unknown {
     return this.#lastUsage;
+  }
+
+  /**
+   * The LAST step's usage, for context-window occupancy. Falls back to the
+   * run aggregate when no `step-finish` arrived (single-step run: identical).
+   */
+  get lastUsage(): unknown {
+    return this.#lastStepUsage ?? this.#lastUsage;
   }
 
   /** The assistant turn so far, as durable message parts. */
@@ -342,8 +354,17 @@ export class DurableAgUiConverter {
         }
         break;
       }
+      case "step-finish": {
+        // One step's own usage (`output.usage`). The run's context occupancy is
+        // the last of these, NOT the `finish` aggregate, which sums every step.
+        const output = payload.output as { usage?: unknown } | undefined;
+        if (output?.usage !== undefined) {
+          this.#lastStepUsage = output.usage;
+        }
+        break;
+      }
       case "finish":
-        // Terminal chunk: token usage for metering and the durable run row.
+        // Terminal chunk: aggregated token usage for metering and the run row.
         if (payload.usage !== undefined) {
           this.#lastUsage = payload.usage;
         }

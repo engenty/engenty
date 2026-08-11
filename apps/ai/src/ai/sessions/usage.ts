@@ -21,6 +21,31 @@ function toUsageNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Input tokens of the generate call's LAST step — context-window occupancy.
+ *
+ * `totalUsage` sums every step, so it answers "what did this run cost", not
+ * "how full did the window get". A run that called three tools reports ~4×
+ * the prompt it actually last sent.
+ */
+export async function contextPromptTokensFromOutput(
+  value: unknown
+): Promise<number | null> {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const steps = await resolveUsageCandidate(
+    (value as { steps?: unknown }).steps
+  );
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return null;
+  }
+  const last = steps.at(-1) as
+    | { usage?: { inputTokens?: unknown } }
+    | undefined;
+  return toUsageNumber(last?.usage?.inputTokens);
+}
+
 export async function usageFromOutput(value: unknown): Promise<{
   cached?: number | null;
   input?: number | null;

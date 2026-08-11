@@ -104,6 +104,10 @@
         "label": "Fast (routing)",
         "desc": "Supervisor delegation, thread titles, tool search — frequent and cheap."
       },
+      "classifier": {
+        "label": "Classifier",
+        "desc": "Inbox category lanes and attachment triage — single-shot, low latency."
+      },
       "research": {
         "label": "Research",
         "desc": "Search & retrieval agents, workspace search, deep-research fan-outs — long context."

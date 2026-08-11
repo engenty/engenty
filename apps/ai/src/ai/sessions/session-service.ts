@@ -82,7 +82,7 @@ import type {
   UpdateAiThreadInput,
 } from "./types.js";
 import { scopeAccessToken } from "./types.js";
-import { usageFromOutput } from "./usage.js";
+import { contextPromptTokensFromOutput, usageFromOutput } from "./usage.js";
 
 // Session harness: Mastra Memory is the sole writer for user/assistant transcript
 // rows; this layer owns interrupts metadata, run tracking, usage, and AG-UI SSE.
@@ -1032,6 +1032,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
             thread_id: input.threadId,
           } satisfies ThreadMessageRow);
         await runTracker?.complete({
+          contextPromptTokens: await contextPromptTokensFromOutput(output),
           status: "completed",
           ...readUsageTokenCounts(
             usage

@@ -10,25 +10,18 @@ export const ENGENTY_CATALOG_TOOL_IDS = [
   "engenty_tools_search",
 ];
 
-// Tenant vault storage tools (Speicher) — paths outside agent workspace mounts.
-export const ENGENTY_VAULT_TOOL_IDS = [
-  "vault_delete_file",
-  "vault_download_file",
-  "vault_get_file_url",
-  "vault_list_files",
-  "vault_upload_file",
-];
+// Tenant vault storage (Speicher) — paths outside agent workspace mounts.
+//
+// ONE tool with an `action` discriminator, not the five granular ones: every
+// attached schema rides in every model call, and vault IO is a capability most
+// turns never touch. The granular tools still exist for agents that name them
+// (engenty.file-analyst) and are what `vault_files` dispatches to.
+export const ENGENTY_VAULT_TOOL_IDS = ["vault_files"];
 
 // Artifact tools — AI-generated documents rendered in the artifact panel.
 // Implementations live in apps/ai (createArtifactTools) and are resolved by the
 // builtin registry; these ids gate what the copilot model may call.
-export const ENGENTY_ARTIFACT_TOOL_IDS = [
-  "artifact_create",
-  "artifact_update",
-  "artifact_get",
-  "artifact_list",
-  "artifact_store",
-];
+export const ENGENTY_ARTIFACT_TOOL_IDS = ["artifact_write", "artifact_read"];
 
 // Object rendering — module entities shown in chat by reference (implemented
 // in apps/ai createShowObjectsTool, resolved by the builtin registry).

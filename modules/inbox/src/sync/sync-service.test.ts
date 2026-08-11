@@ -70,9 +70,20 @@ function fakeRepo(state: FakeRepoState): InboxRepo {
     updated_at: "",
   };
   return {
+    digests: {
+      getThreadDigest: () => Promise.resolve(null),
+      listMessageDigests: () => Promise.resolve([]),
+      upsertMessageDigest: () =>
+        Promise.reject(new Error("not used in sync tests")),
+      upsertThreadDigest: () =>
+        Promise.reject(new Error("not used in sync tests")),
+    },
     messages: {
+      countUnclassified: () => Promise.resolve(0),
       getById: () => Promise.resolve(null),
       listByThread: () => Promise.resolve([]),
+      listUnclassified: () => Promise.resolve([]),
+      setCategories: () => Promise.resolve(0),
       setStatus: () => Promise.resolve(0),
     },
     sync: {

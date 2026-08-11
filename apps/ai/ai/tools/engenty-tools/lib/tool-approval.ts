@@ -74,8 +74,14 @@ const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
  *     can persist a durable goal-scoped grant (core.agent_goal_grants).
  *   - `operation_ids` — bulk pre-approval (engenty_tools_preapprove): every
  *     operation this ONE card covers, so approving persists a grant for each.
+ *   - `approval_request_id` — the durable core.approval_requests row core filed
+ *     when it answered 202, so approving can decide THAT request and mint the
+ *     grant core's policy actually reads. Without it a chat approval only ever
+ *     wrote thread metadata, which core does not consult — core re-gated the
+ *     retry and the approved call never ran.
  */
 export interface ToolApprovalGrantContext {
+  approval_request_id?: string;
   operation_ids?: string[];
   secret_id?: string;
 }
@@ -156,9 +162,15 @@ export function parseToolApprovalGrantContext(
   }
   try {
     const parsed = JSON.parse(decodeURIComponent(segment)) as {
+      approval_request_id?: unknown;
       operation_ids?: unknown;
       secret_id?: unknown;
     };
+    const approvalRequestId =
+      typeof parsed.approval_request_id === "string" &&
+      UUID_REGEX.test(parsed.approval_request_id)
+        ? parsed.approval_request_id
+        : undefined;
     const secretId =
       typeof parsed.secret_id === "string" && UUID_REGEX.test(parsed.secret_id)
         ? parsed.secret_id
@@ -171,10 +183,13 @@ export function parseToolApprovalGrantContext(
           )
           .slice(0, TOOL_APPROVAL_MAX_BULK_OPERATIONS)
       : [];
-    if (!secretId && operationIds.length === 0) {
+    if (!(secretId || approvalRequestId) && operationIds.length === 0) {
       return null;
     }
     return {
+      ...(approvalRequestId
+        ? { approval_request_id: approvalRequestId }
+        : {}),
       ...(secretId ? { secret_id: secretId } : {}),
       ...(operationIds.length > 0 ? { operation_ids: operationIds } : {}),
     };

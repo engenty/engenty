@@ -28,7 +28,7 @@ module AI face so agents can:
   - `inbox_sync_settings_update` (toggle sync, backfill window per connection) — write
   - `inbox_attachment_get` (attachment **bytes** — for UI preview, not for agent context)
   - `inbox_sync_run` (all stream-capable accounts or one connection) — write
-- Triage statuses ([src/schema/zod.ts](src/schema/zod.ts)): `new | triaged | processed | archived`.
+- Mailbox statuses ([src/schema/zod.ts](src/schema/zod.ts)): `new | read | archived`.
 - Search: the central retrieval service **already synthesizes `inbox_message_search`**
   (see the `registerRetrievalSource` block in [src/plugin.ts](src/plugin.ts)). Do NOT
   build a search tool — reference the existing catalog op in skills/instructions.
@@ -83,7 +83,7 @@ action-oriented and mention when to prefer another tool):
 | --- | --- | --- | --- |
 | `inbox_list_threads` | `inbox_threads_list` | `{ account?, status?, limit?, cursor? }` — mirror `inboxThreadsListInputSchema` field names exactly (open [src/schema/zod.ts](src/schema/zod.ts) and copy) | Description: list/triage lanes; for content questions prefer `inbox_message_search` (catalog) |
 | `inbox_get_thread` | `inbox_thread_get` | `{ id }` | Returns thread + all messages; warn in description that bodies can be long — use after list/search, not for browsing |
-| `inbox_set_status` | `inbox_set_status` | `{ ids: string[], status: enum(new,triaged,processed,archived) }` | Bulk triage; reuse the same enum values |
+| `inbox_set_status` | `inbox_set_status` | `{ ids: string[], status: enum(new,read,archived) }` | Bulk mailbox status; reuse the same enum values |
 | `inbox_list_accounts` | `inbox_accounts_list` | `{}` | Accounts + sync state; the starting point for "is my email connected?" |
 | `inbox_sync_now` | `inbox_sync_run` | `{ connection_id? }` | Omit id = all stream-capable accounts |
 | `inbox_update_sync_settings` | `inbox_sync_settings_update` | `{ connection_id, sync_enabled?, backfill_days? }` | Owner-only for personal accounts (op enforces it — surface the error, don't pre-check) |
@@ -249,7 +249,7 @@ You are the Inbox Assistant for Engenty.
   Never say mail is missing without having searched this turn.
 - Prefer narrow reads: list or search first, then open a single thread with
   `inbox_get_thread`. Thread bodies can be long — do not open threads speculatively.
-- Triage lanes are `new → triaged → processed / archived`. Status changes via
+- Mailbox lanes are `new` (unread) → `read` → `archived`. Status changes via
   `inbox_set_status` are your main write; they are safe, reversible, and only
   affect the synced copy — they never touch mail at the provider.
 - When the page context (Agent UI) contains an `inbox_thread_snapshot` or a
@@ -285,11 +285,11 @@ mail categorized or cleaned up, or asks about a specific message or sender.
 
 ## Lanes
 
-Every synced message has one status; threads surface the latest message's status:
+Every synced message has one classic mailbox status; threads surface the latest
+message's status:
 
-- `new` — untouched since sync. The default triage queue.
-- `triaged` — seen and categorized; awaiting real handling.
-- `processed` — handled; kept for reference.
+- `new` — unread since sync (or marked unread again).
+- `read` — opened / acknowledged; still in the active mailbox.
 - `archived` — out of the way. Nothing here is deleted — statuses only affect
   the synced copy, never the provider mailbox.
 
@@ -440,7 +440,8 @@ promise the reply will appear inside the original conversation.
    client. Call `gmail_send_message` only when the user explicitly said to send
    and has seen the final text.
 4. After a send/draft call, report the result (`draft_id` / `sent`) and update
-   triage: `inbox_set_status` → `processed` for the answered message(s).
+   mailbox status: `inbox_set_status` → `read` (or `archived`) for the answered
+   message(s).
 
 ## Rules
 

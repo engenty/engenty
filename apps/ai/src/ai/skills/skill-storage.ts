@@ -9,6 +9,11 @@
 import { fileStorageTenantObjectKey } from "@engenty/file-storage";
 
 import type { EngentyCoreFileStorageClient } from "../workspace/core-file-storage-client.js";
+import {
+  clearManagedSkillSummariesCache,
+  getManagedSkillSummariesCache,
+  setManagedSkillSummariesCache,
+} from "./managed-skills-sync-state.js";
 import { invalidateModuleSkillHintTenant } from "./module-skill-hint-cache.js";
 import {
   buildSkillSummary,
@@ -20,8 +25,14 @@ import {
   serializeSkillMarkdown,
 } from "./skill-frontmatter.js";
 
-const SKILL_TIERS: SkillTier[] = ["managed", "custom"];
 const SKILL_MD = "SKILL.md";
+/** Tenant-scoped sync ledger for code-owned managed skills (one GET to skip N). */
+const MANAGED_SEED_MANIFEST = ".seed-manifest.json";
+
+export interface ManagedSeedManifest {
+  skills: Record<string, { sha: string; source: string }>;
+  version: 1;
+}
 
 export class SkillReadOnlyError extends Error {
   constructor(name: string) {
@@ -82,6 +93,16 @@ export function skillObjectKey(
     tier,
     name,
     ...segments
+  );
+}
+
+export function managedSeedManifestKey(tenantId: string): string {
+  return fileStorageTenantObjectKey(
+    tenantId,
+    "ai",
+    "skills",
+    "managed",
+    MANAGED_SEED_MANIFEST
   );
 }
 
@@ -156,19 +177,62 @@ export function createSkillStorage(options: CreateSkillStorageOptions) {
     };
   }
 
+  async function listTierSummaries(tier: SkillTier): Promise<SkillSummary[]> {
+    const names = await listSkillNames(tier);
+    const rows = await Promise.all(
+      names.map(async (name) => summarize(tier, name))
+    );
+    return rows.filter((row): row is SkillSummary => row !== null);
+  }
+
   return {
+    async readManagedSeedManifest(): Promise<ManagedSeedManifest | null> {
+      const bytes = await storage.download(managedSeedManifestKey(tenantId));
+      if (!bytes) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(decoder.decode(bytes)) as ManagedSeedManifest;
+        if (
+          parsed?.version !== 1 ||
+          !parsed.skills ||
+          typeof parsed.skills !== "object"
+        ) {
+          return null;
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    },
+
+    async writeManagedSeedManifest(
+      manifest: ManagedSeedManifest
+    ): Promise<void> {
+      await storage.upload(
+        managedSeedManifestKey(tenantId),
+        encoder.encode(`${JSON.stringify(manifest, null, 2)}\n`),
+        {
+          contentType: "application/json; charset=utf-8",
+          module: "ai",
+          upsert: true,
+        }
+      );
+    },
+
     async listSkills(): Promise<SkillSummary[]> {
-      const all: SkillSummary[] = [];
-      for (const tier of SKILL_TIERS) {
-        const names = await listSkillNames(tier);
-        for (const name of names) {
-          const summary = await summarize(tier, name);
-          if (summary) {
-            all.push(summary);
-          }
+      // Managed tier: prefer the post-seed in-memory catalog (built from code
+      // packs) so listing does not re-GET every SKILL.md. Custom still loads
+      // from storage, in parallel.
+      let managed = getManagedSkillSummariesCache(tenantId);
+      if (!managed) {
+        managed = await listTierSummaries("managed");
+        if (managed.length > 0) {
+          setManagedSkillSummariesCache(tenantId, managed);
         }
       }
-      return all;
+      const custom = await listTierSummaries("custom");
+      return [...managed, ...custom];
     },
 
     // Resolve a skill by name, custom tier first (a custom fork shadows the
@@ -283,7 +347,8 @@ export function createSkillStorage(options: CreateSkillStorageOptions) {
           }
         );
       }
-      // C6: managed seed writes also refresh the cached module hints.
+      // Catalog row may change; drop caches so the next list rebuilds.
+      clearManagedSkillSummariesCache(tenantId);
       invalidateModuleSkillHintTenant(tenantId);
     },
 

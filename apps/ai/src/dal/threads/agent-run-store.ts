@@ -15,6 +15,8 @@ export interface CreateAgentRunInput {
 
 export interface FinishAgentRunInput {
   completionTokens?: number | null;
+  /** Last step's input tokens — window occupancy, not the billed total. */
+  contextPromptTokens?: number | null;
   errorCode?: string | null;
   errorMessage?: string | null;
   finishedAt?: string;
@@ -134,7 +136,7 @@ export function createAgentRunStore(source: DbSource) {
       const { data, error } = await dbFor(params.tenantId)
         .from("agent_run")
         .select(
-          "id, model_id, prompt_tokens, completion_tokens, started_at, finished_at, status"
+          "id, model_id, prompt_tokens, context_prompt_tokens, completion_tokens, started_at, finished_at, status"
         )
         .eq("tenant_id", params.tenantId)
         .eq("thread_id", params.threadId)
@@ -150,6 +152,7 @@ export function createAgentRunStore(source: DbSource) {
       }
       const run = data as {
         completion_tokens: number | null;
+        context_prompt_tokens: number | null;
         finished_at: string | null;
         id: string;
         model_id: string | null;
@@ -157,6 +160,12 @@ export function createAgentRunStore(source: DbSource) {
         started_at: string;
         status: string;
       };
+      // Window occupancy is the LAST step's prompt. `prompt_tokens` sums every
+      // step of the agentic loop, so using it here reported a three-tool turn as
+      // ~4× the context it actually filled. Older rows have no per-step figure
+      // and keep the old (over-stated) behaviour rather than showing nothing.
+      const contextPromptTokens =
+        run.context_prompt_tokens ?? run.prompt_tokens;
 
       // Wall-clock for the run. Computed server-side from two timestamps that
       // share a clock; deriving it in the browser would subtract the server's
@@ -210,7 +219,7 @@ export function createAgentRunStore(source: DbSource) {
         modelDisplayName,
         modelId: run.model_id,
         outputPerMtokMicros,
-        promptTokens: run.prompt_tokens,
+        promptTokens: contextPromptTokens,
         runId: run.id,
         startedAt: run.started_at,
         status: run.status,
@@ -267,6 +276,9 @@ export function createAgentRunStore(source: DbSource) {
       }
       if (input.completionTokens !== undefined) {
         patch.completion_tokens = input.completionTokens;
+      }
+      if (input.contextPromptTokens !== undefined) {
+        patch.context_prompt_tokens = input.contextPromptTokens;
       }
       if (input.errorCode !== undefined) {
         patch.error_code = input.errorCode;

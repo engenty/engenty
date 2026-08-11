@@ -109,8 +109,12 @@ export {
   formatCostUsd,
   formatTokenCount,
   type ThreadContextUsage,
+  ThreadUsageDialog,
+  type ThreadUsageDialogProps,
+  type ThreadUsageEvent,
   threadContextUsageQueryKey,
   useCopilotContextUsage,
+  useThreadUsageEvents,
 } from "./components/copilot/context-usage/index.js";
 export {
   SubAgentRunFullPage,

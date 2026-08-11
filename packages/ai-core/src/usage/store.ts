@@ -75,6 +75,21 @@ export interface AiUsageStore {
   /** List pricing catalog (most recent valid_from first). */
   listModelPricing(): Promise<ModelPricingRecord[]>;
 
+  /**
+   * The individual events behind `summarizeUsageByThread` — one row per model
+   * call, oldest first. Powers the thread-usage drill-in, where the finding is
+   * the SHAPE of the spend (how many calls, how much of each prompt was a cache
+   * read) and a single summed row cannot show it.
+   *
+   * Optional: stores that predate the drill-in simply omit it, and the caller
+   * degrades to the summary.
+   */
+  listUsageEventsByThread?(params: {
+    tenant_id: string;
+    thread_id: string;
+    limit?: number;
+  }): Promise<UsageEventRecord[]>;
+
   /** List pricing rows that are referenced by recorded usage events. */
   listUsedModelPricing(): Promise<ModelPricingRecord[]>;
 

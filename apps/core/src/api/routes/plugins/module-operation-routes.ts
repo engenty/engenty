@@ -1607,8 +1607,16 @@ export function registerApprovalRoutes(params: {
     }
     const body = (await c.req.json().catch(() => ({}))) as {
       decision?: ApprovalDecision;
+      subject_id?: unknown;
     };
     const decision = body.decision;
+    // Optional subject binding (chat passes its thread id = the run's goal).
+    // Narrowing only: it restricts which runs may spend the grant, so no
+    // authorization check beyond the tenant scoping already done below.
+    const subjectId =
+      typeof body.subject_id === "string" && body.subject_id.length <= 128
+        ? body.subject_id
+        : undefined;
     if (
       decision !== "allow_once" &&
       decision !== "allow_session" &&
@@ -1629,6 +1637,7 @@ export function registerApprovalRoutes(params: {
       decision,
       decidedBy: authResult.auth.principalId,
       sessionId: authResult.auth.sessionId,
+      ...(subjectId ? { subjectId } : {}),
     });
     if (!decided) {
       return jsonApiError(c, 404, { message: "Approval request not found" });

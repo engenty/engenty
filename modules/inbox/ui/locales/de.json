@@ -5,7 +5,10 @@
   },
   "actions": {
     "archive": "Archivieren",
-    "markProcessed": "Als erledigt markieren",
+    "classifyNow": "Nachrichten klassifizieren",
+    "classifying": "Klassifiziere…",
+    "markRead": "Als gelesen markieren",
+    "markUnread": "Als ungelesen markieren",
     "settings": "Einstellungen",
     "syncNow": "Jetzt synchronisieren"
   },
@@ -17,9 +20,8 @@
   },
   "lanes": {
     "all": "Alle",
-    "new": "Neu",
-    "triaged": "Gesichtet",
-    "processed": "Erledigt",
+    "new": "Ungelesen",
+    "read": "Gelesen",
     "archived": "Archiviert"
   },
   "list": {
@@ -30,8 +32,8 @@
     "pageInfo": "{{from}}–{{to}} von {{total}}",
     "previous": "Zurück",
     "resizeListPane": "Breite der Nachrichtenliste anpassen",
-    "unhandledCountTitle_one": "{{count}} unbearbeitete Nachricht",
-    "unhandledCountTitle_other": "{{count}} unbearbeitete Nachrichten"
+    "unhandledCountTitle_one": "{{count}} ungelesene Nachricht",
+    "unhandledCountTitle_other": "{{count}} ungelesene Nachrichten"
   },
   "search": {
     "noResults": "Keine Nachrichten gefunden"
@@ -44,13 +46,53 @@
   },
   "thread": {
     "attachment": "Anhang",
+    "backToList": "Zurück zur Nachrichtenliste",
     "cc": "Cc: {{cc}}",
     "emptyBody": "Diese Nachricht hat keinen Inhalt.",
+    "hideList": "Nachrichtenliste ausblenden",
     "hideQuoted": "Zitierten Text ausblenden",
+    "nextThread": "Nächste Konversation",
     "notFound": "Konversation nicht gefunden",
     "openAttachment": "{{name}} öffnen",
+    "previousThread": "Vorherige Konversation",
+    "showList": "Nachrichtenliste einblenden",
     "showQuoted": "Zitierten Text anzeigen",
-    "to": "An: {{to}}"
+    "to": "An: {{to}}",
+    "downloadAttachment": "Herunterladen",
+    "viewOptimized": "Konversation",
+    "viewOriginal": "Original"
+  },
+  "categories": {
+    "conversation": "Konversation",
+    "newsletter": "Newsletter",
+    "notification": "Benachrichtigung",
+    "promotion": "Werbung",
+    "spam": "Spam"
+  },
+  "optimized": {
+    "collapseSummary": "Status einklappen",
+    "copilotPrompt": "{{action}}\n\nKontext: der E-Mail-Thread „{{subject}}“, den ich im Posteingang offen habe.",
+    "emptyMessage": "(kein Inhalt)",
+    "expandSummary": "Status ausklappen",
+    "failedTitle": "Optimierte Ansicht konnte nicht erstellt werden",
+    "fallbackDraftReply": "Entwirf eine Antwort auf die letzte Nachricht",
+    "fallbackOpenPoints": "Liste auf, was noch offen ist",
+    "generating": "Konversation wird aufbereitet…",
+    "refresh": "Neu erstellen",
+    "summarize": "Status zusammenfassen",
+    "summarizing": "Thread wird gelesen…",
+    "summaryTitle": "Status"
+  },
+  "footer": {
+    "askPlaceholder": "Frage zu diesem Thread…",
+    "askSubmit": "In Copilot öffnen",
+    "discard": "Verwerfen",
+    "modeAi": "KI",
+    "modeReply": "Antworten",
+    "replyPlaceholder": "Antwort schreiben…",
+    "send": "Senden",
+    "subject": "Betreff",
+    "to": "An"
   },
   "settings": {
     "autonomousOff": "Hintergrundzugriff ist für diese Verbindung deaktiviert — der Posteingang kann sie nicht synchronisieren.",
@@ -64,16 +106,28 @@
     "noAccounts": "Keine E-Mail-Konten verbunden",
     "noAccountsDescription": "Verbinde zuerst ein Google-Konto unter Einstellungen → Verbindungen.",
     "syncEnabled": "Sync",
-    "title": "Posteingang-Einstellungen"
+    "title": "Posteingang-Einstellungen",
+    "categoriesTitle": "Kategorien",
+    "categoriesDescription": "Lege fest, welche Kategorien im Menü erscheinen, in welcher Reihenfolge, und welche Regeln der Klassifizierer nutzt.",
+    "categorySlug": "Kürzel",
+    "categoryTitle": "Bezeichnung",
+    "categoryRule": "Klassifizierer-Regel",
+    "categoryRuleHint": "Regeln steuern, wie der Klassifizierer Nachrichten zuordnet. Feste Kategorien können nicht gelöscht werden.",
+    "showInMenu": "Im Menü anzeigen",
+    "addCategory": "Kategorie hinzufügen",
+    "saveCategories": "Kategorien speichern",
+    "saving": "Speichern…"
   },
   "toasts": {
     "attachmentOpenFailed": "Anhang konnte nicht geöffnet werden: {{error}}",
+    "categoriesSaved": "Kategorien gespeichert",
+    "copilotOpened": "In Copilot geöffnet",
+    "draftSaved": "Entwurf lokal gespeichert — Senden ist noch nicht verfügbar",
     "settingsFailed": "Speichern fehlgeschlagen: {{error}}",
     "status": {
       "archived": "Konversation archiviert",
-      "new": "Als neu markiert",
-      "processed": "Als erledigt markiert",
-      "triaged": "Als gesichtet markiert"
+      "new": "Als ungelesen markiert",
+      "read": "Als gelesen markiert"
     },
     "statusFailed": "Statusänderung fehlgeschlagen: {{error}}",
     "syncDone": "Synchronisierung abgeschlossen — {{count}} neue Nachricht(en)",
@@ -84,7 +138,8 @@
     "retry": "Erneut versuchen"
   },
   "sidebar": {
-    "accounts": "Konten"
+    "accounts": "Konten",
+    "categories": "Kategorien"
   },
   "detail": {
     "placeholderTitle": "Konversation auswählen",

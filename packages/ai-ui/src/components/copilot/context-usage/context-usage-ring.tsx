@@ -19,6 +19,13 @@ const ARC_CLASS: Record<ContextUsageLevel, string> = {
 
 export interface ContextUsageRingProps {
   className?: string;
+  /**
+   * Draw the empty track when there is nothing to measure yet, instead of
+   * rendering nothing. For the composer, where a fresh thread otherwise left a
+   * bare "0" on the line with no shape around it — which reads as broken.
+   * Still draws NO arc: an empty ring claims no denominator.
+   */
+  emptyPlaceholder?: boolean;
   /** Outer size in px. */
   size?: number;
   usage: ThreadContextUsage | null;
@@ -28,18 +35,40 @@ export interface ContextUsageRingProps {
  * Context-window fill as a small donut — the at-a-glance companion to the
  * numeric usage line.
  *
- * Renders nothing when the model's window is unknown: a ring with no
- * denominator would either sit permanently empty or need an invented one, and
- * both misinform. The numbers stay visible in that case; only the ring drops.
+ * Renders nothing when the model's window is unknown (unless asked for the
+ * placeholder): a ring with a filled arc but no denominator would either sit
+ * permanently empty or need an invented one, and both misinform.
  */
 export function ContextUsageRing({
   className,
+  emptyPlaceholder = false,
   size = 16,
   usage,
 }: ContextUsageRingProps) {
   const ratio = usage ? contextUsageRatio(usage) : null;
   if (!usage || ratio == null) {
-    return null;
+    if (!emptyPlaceholder) {
+      return null;
+    }
+    return (
+      <svg
+        aria-label="No token usage recorded yet"
+        className={cn("shrink-0", className)}
+        height={size}
+        role="img"
+        viewBox="0 0 16 16"
+        width={size}
+      >
+        <circle
+          className={TRACK_CLASS}
+          cx="8"
+          cy="8"
+          fill="none"
+          r="6"
+          strokeWidth="2.5"
+        />
+      </svg>
+    );
   }
 
   const level = contextUsageLevel(usage);

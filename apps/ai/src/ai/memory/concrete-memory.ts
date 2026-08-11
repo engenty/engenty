@@ -89,6 +89,16 @@ export function createEngentySessionMastraMemory(
         instructions: GENERATE_TITLE_INSTRUCTIONS,
       } as NonNullable<MemoryConfig["generateTitle"]>,
       workingMemory: {
+        // READ-ONLY to the model: the stored profile is still injected every
+        // run (Mastra's `WorkingMemory` input processor is gated on `enabled`
+        // alone), but `agentManaged: false` drops the `updateWorkingMemory`
+        // tool — 419 tokens, 81% of them schema, on EVERY model call.
+        //
+        // The trade: nothing writes the profile from inside a chat any more.
+        // That is the intended split — durable facts belong in `memory_save`,
+        // which is scoped, searchable and reviewable, where working memory was
+        // an unreviewed side-channel the model wrote on a whim.
+        agentManaged: false,
         enabled: true,
         // Per-user across all their chats (Mastra resourceId = engenty userId).
         scope: "resource",

@@ -215,6 +215,61 @@ export function registerThreadRoutes(
     }
   });
 
+  // The events BEHIND the thread's usage totals: one row per metered model
+  // call. Same read access as `/usage` — this is the identical data itemized,
+  // not a wider grant.
+  app.get(`${base}/:threadId/usage/events`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    if (!uuidString.safeParse(threadId).success) {
+      return c.json({ error: "agent_threads.invalidThreadId" }, 400);
+    }
+    const usageStore = opts.getUsageStore?.() ?? null;
+    if (!usageStore?.listUsageEventsByThread) {
+      return c.json({ error: "usage.unconfiguredDatabase" }, 503);
+    }
+    try {
+      await opts.aiService.threads.getThread({
+        scope: scope.scope,
+        threadId,
+      });
+      const events = await usageStore.listUsageEventsByThread({
+        tenant_id: scope.scope.tenantId,
+        thread_id: threadId,
+      });
+      return c.json({
+        events: events.map((event) => ({
+          cached_input_per_mtok_micros: event.cached_input_per_mtok_micros,
+          cached_tokens: event.cached_tokens,
+          cost_micros: event.cost_micros,
+          currency: event.currency,
+          feature: event.feature,
+          id: event.id,
+          input_per_mtok_micros: event.input_per_mtok_micros,
+          input_tokens: event.input_tokens,
+          model_id: event.model_id,
+          occurred_at: event.occurred_at,
+          output_per_mtok_micros: event.output_per_mtok_micros,
+          output_tokens: event.output_tokens,
+          reasoning_per_mtok_micros: event.reasoning_per_mtok_micros,
+          reasoning_tokens: event.reasoning_tokens,
+          run_id: event.run_id,
+        })),
+        thread_id: threadId,
+      });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "getThreadUsageEvents failed",
+        "agent_threads.getUsageEventsFailed",
+        err
+      );
+    }
+  });
+
   app.patch(`${base}/:threadId`, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {

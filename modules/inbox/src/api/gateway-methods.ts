@@ -4,22 +4,34 @@ import type {
 } from "@engenty/connections-sdk";
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InboxRepo } from "../dal/contracts.js";
 import {
   inboxAccountsListResultSchema,
   inboxAttachmentGetInputSchema,
   inboxAttachmentGetResultSchema,
+  inboxClassifyPendingInputSchema,
+  inboxClassifyPendingResultSchema,
   inboxSetStatusInputSchema,
   inboxSetStatusResultSchema,
   inboxSyncRunInputSchema,
   inboxSyncRunResultSchema,
   inboxSyncSettingsInputSchema,
   inboxSyncStateSchema,
+  inboxThreadChatInputSchema,
+  inboxThreadChatResultSchema,
   inboxThreadDetailSchema,
+  inboxThreadDigestGetInputSchema,
+  inboxThreadDigestResultSchema,
   inboxThreadGetInputSchema,
   inboxThreadsListInputSchema,
   inboxThreadsListResultSchema,
 } from "../schema/zod.js";
+import { loadInboxCategories } from "../services/inbox-categories.js";
+import { classifyInboxMessages } from "../services/message-classify.js";
+import { resolveInboxAiModel } from "../services/resolve-inbox-model.js";
+import { answerThreadQuestion } from "../services/thread-chat.js";
+import { ensureThreadDigest } from "../services/thread-digest.js";
 import type { InboxSyncDeps } from "../sync/sync-service.js";
 import { runInboxSync } from "../sync/sync-service.js";
 import { fetchInboxAttachment } from "./fetch-attachment.js";
@@ -42,8 +54,12 @@ function actingUserId(auth: PluginAuthContext | undefined): string | null {
 export interface RegisterInboxGatewayMethodsOptions {
   connectionsClient: ConnectionsModuleClient;
   getConnector: (connectorId: string) => ConnectorDefinition | undefined;
+  /** Tenant-locked DB handle factory (for ai.config reads). */
+  getDb: (auth: { tenantId: string }) => SupabaseClient;
   /** Repo bound to the caller (owner visibility applied). */
   repoForAuth: (auth: PluginAuthContext | undefined) => InboxRepo;
+  /** Service-role client — platform `ai.model_binding` has no tenant_id. */
+  serviceDb?: SupabaseClient | null;
   /** Service repo for the sync path (sees personal connections too). */
   serviceRepoFor: (tenantId: string) => InboxRepo;
   serviceTenantId?: never;
@@ -53,8 +69,29 @@ export function registerInboxGatewayMethods(
   api: PluginServerApi,
   options: RegisterInboxGatewayMethodsOptions
 ) {
-  const { connectionsClient, getConnector, repoForAuth, serviceRepoFor } =
-    options;
+  const {
+    connectionsClient,
+    getConnector,
+    getDb,
+    repoForAuth,
+    serviceDb,
+    serviceRepoFor,
+  } = options;
+
+  async function inboxModel(auth: PluginAuthContext | undefined) {
+    if (!auth) {
+      throw new Error("Inbox AI operations require an authenticated context");
+    }
+    return resolveInboxAiModel({ auth, getDb, serviceDb });
+  }
+
+  async function inboxCategoryItems(auth: PluginAuthContext | undefined) {
+    if (!auth) {
+      throw new Error("Inbox AI operations require an authenticated context");
+    }
+    const config = await loadInboxCategories({ auth, getDb });
+    return config.items;
+  }
 
   api.registerOperation({
     operationId: "inbox_threads_list",
@@ -94,9 +131,107 @@ export function registerInboxGatewayMethods(
   });
 
   api.registerOperation({
+    operationId: "inbox_thread_digest_get",
+    moduleId: "inbox",
+    summary:
+      "Get the optimized (AI-stripped) view of a thread: per-message digests, and — with include_summary — the thread status summary, participants and next actions",
+    requiredCapabilities: ["module.inbox.read"],
+    riskLevel: "low",
+    inputSchema: inboxThreadDigestGetInputSchema,
+    outputSchema: inboxThreadDigestResultSchema.nullable(),
+    handler: async (input, ctx) => {
+      const repo = repoForAuth(ctx.auth);
+      const parsed = inboxThreadDigestGetInputSchema.parse(input);
+      const thread = await repo.threads.getById(parsed.thread_id);
+      if (!thread) {
+        return null;
+      }
+      const messages = await repo.messages.listByThread(thread.id);
+      const [modelId, categoryItems] = await Promise.all([
+        inboxModel(ctx.auth),
+        inboxCategoryItems(ctx.auth),
+      ]);
+      return ensureThreadDigest({
+        categoryItems,
+        includeSummary: parsed.include_summary ?? false,
+        messages,
+        modelId,
+        refresh: parsed.refresh ?? false,
+        repo,
+        thread,
+      });
+    },
+  });
+
+  api.registerOperation({
+    operationId: "inbox_thread_chat",
+    moduleId: "inbox",
+    summary: "Ask a question about one thread, grounded in its digests",
+    requiredCapabilities: ["module.inbox.read"],
+    riskLevel: "low",
+    inputSchema: inboxThreadChatInputSchema,
+    outputSchema: inboxThreadChatResultSchema,
+    handler: async (input, ctx) => {
+      const repo = repoForAuth(ctx.auth);
+      const parsed = inboxThreadChatInputSchema.parse(input);
+      const thread = await repo.threads.getById(parsed.thread_id);
+      if (!thread) {
+        throw new Error("inbox: unknown thread");
+      }
+      const [messages, digests, modelId] = await Promise.all([
+        repo.messages.listByThread(thread.id),
+        repo.digests.listMessageDigests(thread.id),
+        inboxModel(ctx.auth),
+      ]);
+      const answer = await answerThreadQuestion({
+        digests,
+        history: parsed.history ?? [],
+        messages,
+        modelId,
+        question: parsed.question,
+        thread,
+      });
+      return { answer_md: answer };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "inbox_classify_pending",
+    moduleId: "inbox",
+    summary:
+      "Classify messages that have no category yet (feeds the inbox category lanes)",
+    requiredCapabilities: ["module.inbox.write"],
+    riskLevel: "low",
+    inputSchema: inboxClassifyPendingInputSchema,
+    outputSchema: inboxClassifyPendingResultSchema,
+    handler: async (input, ctx) => {
+      const repo = repoForAuth(ctx.auth);
+      const parsed = inboxClassifyPendingInputSchema.parse(input ?? {});
+      const pending = await repo.messages.listUnclassified(parsed.limit ?? 60);
+      if (pending.length === 0) {
+        return { classified: 0, remaining: 0 };
+      }
+      const [modelId, categoryItems] = await Promise.all([
+        inboxModel(ctx.auth),
+        inboxCategoryItems(ctx.auth),
+      ]);
+      const categories = await classifyInboxMessages(
+        pending,
+        modelId,
+        categoryItems
+      );
+      const classified = await repo.messages.setCategories(categories);
+      return {
+        classified,
+        remaining: await repo.messages.countUnclassified(),
+      };
+    },
+  });
+
+  api.registerOperation({
     operationId: "inbox_set_status",
     moduleId: "inbox",
-    summary: "Set the triage status of inbox messages",
+    summary: "Set the mailbox status of inbox messages (new | read | archived)",
     requiredCapabilities: ["module.inbox.write"],
     riskLevel: "low",
     inputSchema: inboxSetStatusInputSchema,

@@ -36,7 +36,7 @@ import { KbSearchTestPanel } from "./kb-search-test-panel.js";
 import type { KbSettingsToolbarSaveSlot } from "./kb-settings-types.js";
 
 /** Mirrors the `chunk_strategy` enum in `kbSettingsSchema` (all Select options below). */
-const CHUNK_STRATEGIES: ReadonlyArray<KbSettings["chunk_strategy"]> = [
+const CHUNK_STRATEGIES: readonly KbSettings["chunk_strategy"][] = [
   "recursive",
   "markdown",
   "semantic-markdown",
@@ -65,9 +65,8 @@ export function KbSettingsGeneralSection({
   const [vectorMinSimilarity, setVectorMinSimilarity] = useState(0.45);
   const [verifierMinQueryTerms, setVerifierMinQueryTerms] = useState(3);
   const [verifierMaxCandidates, setVerifierMaxCandidates] = useState(6);
-  const [chunkStrategy, setChunkStrategy] = useState<
-    KbSettings["chunk_strategy"]
-  >("recursive");
+  const [chunkStrategy, setChunkStrategy] =
+    useState<KbSettings["chunk_strategy"]>("recursive");
   const [chunkMaxLength, setChunkMaxLength] = useState(1000);
   const [chunkOverlap, setChunkOverlap] = useState(100);
 

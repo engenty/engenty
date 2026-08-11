@@ -39,3 +39,19 @@ export {
   PromptPreviewDialog,
   type PromptPreviewDialogProps,
 } from "./prompt-preview-dialog.js";
+export {
+  ThreadUsageDialog,
+  type ThreadUsageDialogProps,
+} from "./thread-usage-dialog.js";
+export {
+  fetchThreadUsageEvents,
+  type ThreadUsageEvent,
+  threadUsageEventsQueryKey,
+  useThreadUsageEvents,
+} from "./thread-usage-events-api.js";
+export {
+  cacheHitRatio,
+  largestRunInputTokens,
+  summarizeUsageEvents,
+  type ThreadUsageSummary,
+} from "./thread-usage-model.js";

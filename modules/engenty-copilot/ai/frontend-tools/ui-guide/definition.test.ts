@@ -13,14 +13,14 @@ describe("ui guide frontend tools catalog", () => {
     expect(DISMISS_UI_GUIDE_TOOL.name).toBe("dismiss_ui_guide");
   });
 
-  it("registers all three in the base catalog", () => {
+  it("puts only the guide ENTRY POINT in the always-on catalog", () => {
+    // `update_ui_guide` and `dismiss_ui_guide` apply only while a guide is
+    // open — `update_ui_guide` errors outright otherwise — so the browser
+    // registers them for exactly that window (ui-guide/register.tsx). Listing
+    // them here would put ~0.9k of schema back into every model call.
     const names = getCopilotBaseFrontendTools().map((tool) => tool.name);
-    expect(names).toEqual(
-      expect.arrayContaining([
-        "show_ui_guide",
-        "update_ui_guide",
-        "dismiss_ui_guide",
-      ])
-    );
+    expect(names).toContain("show_ui_guide");
+    expect(names).not.toContain("update_ui_guide");
+    expect(names).not.toContain("dismiss_ui_guide");
   });
 });

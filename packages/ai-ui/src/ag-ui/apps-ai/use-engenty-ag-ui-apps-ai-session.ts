@@ -14,10 +14,12 @@ import type {
 import {
   ENGENTY_EFFORT_RESOLVED_EVENT,
   ENGENTY_OPEN_INTERRUPT_EVENT,
+  ENGENTY_USAGE_UPDATE_EVENT,
   EventType,
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterruptEventValue,
   readEngentyEffortResolvedEventValue,
+  readEngentyUsageUpdateEventValue,
 } from "@engenty/ag-ui-bridge";
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
@@ -55,6 +57,10 @@ import {
   formatCopilotRunError,
   resolveAgUiRunErrorEventMessage,
 } from "../run-error-message.js";
+import {
+  clearLiveRunUsage,
+  publishLiveRunUsage,
+} from "../thread-usage/live-run-usage.js";
 import { appsAiThreadUsageQueryKey } from "../thread-usage/use-copilot-thread-usage.js";
 import { useSyncAgentUiRunState } from "../use-sync-agent-ui-run-state.js";
 import {
@@ -757,6 +763,15 @@ export function useEngentyAgUiAppsAiSession(
                 if (open) {
                   setOpenInterruptFromStream(open);
                 }
+              } else if (name === ENGENTY_USAGE_UPDATE_EVENT) {
+                // Per-step running total, so the composer's usage line moves
+                // during the turn instead of showing the previous run's number.
+                const usage = readEngentyUsageUpdateEventValue(
+                  (event as { value?: unknown }).value
+                );
+                if (usage) {
+                  publishLiveRunUsage(params.threadId, usage);
+                }
               } else if (
                 name === ENGENTY_EFFORT_RESOLVED_EVENT &&
                 options.hostKey
@@ -788,6 +803,9 @@ export function useEngentyAgUiAppsAiSession(
               submitInFlightRef.current = false;
               setSubmitStatus("ready");
               clearPendingSend();
+              // The server's recorded totals are the authority once the run is
+              // over; a stale live number beside them reads as two answers.
+              clearLiveRunUsage(params.threadId);
               invalidateQueries(params.threadId);
             }
             if (event.type === EventType.RUN_ERROR) {
@@ -810,6 +828,9 @@ export function useEngentyAgUiAppsAiSession(
               submitInFlightRef.current = false;
               setSubmitStatus("ready");
               clearPendingSend();
+              // The server's recorded totals are the authority once the run is
+              // over; a stale live number beside them reads as two answers.
+              clearLiveRunUsage(params.threadId);
               invalidateQueries(params.threadId);
               applyEventRef.current({
                 ...(event as Record<string, unknown>),

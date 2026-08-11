@@ -23,7 +23,7 @@ describe("registerUserSettingsApi", () => {
             operation: route.operation,
             path: route.path,
           });
-          return undefined;
+          return;
         }
       ),
     };

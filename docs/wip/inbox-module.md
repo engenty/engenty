@@ -45,7 +45,9 @@ A general, simplified email client inside engenty:
 
 - synced local message store across all connected mail accounts
 - account switcher/filter (personal + org mailboxes side by side)
-- triage states (`new → triaged → processed/archived`) as first-class data
+- triage states (`new → read → archived`) as first-class mailbox data; agent
+  processing progress is reserved for `message_routes` (per-consumer), not the
+  email status column
 - hybrid search over messages (UI + agent tool)
 - the substrate that routines and, later, the customer-care module process
 
@@ -105,10 +107,10 @@ heartbeat/event triggers    sync scheduling; triage routines (defer approvals)
 - `messages` — thread_id, `connection_id`, `provider_message_id` (unique per
   connection), from/to/cc, subject, `body_text`, `body_html`,
   `attachments_json` (metadata + content_id), `received_at`.
-  Triage: `status new|triaged|processed|archived`, `status_set_by`
+  Triage: classic mailbox `status new|read|archived`, `status_set_by`
   (user id | task/routine ref), machine hints `classification` +
-  `classification_reason` (nullable until triage model decided), user
-  override `user_classification`.
+  `classification_reason` (nullable; superseded in practice by `ai_category`),
+  user override `user_classification`.
 - `sync_state` — per `connection_id`: cursor, backfill window/progress,
   last_synced_at, last_error.
 - `message_routes` — per (message, consumer) status/retry rows. Ships empty

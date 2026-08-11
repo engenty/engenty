@@ -16,6 +16,7 @@ function makeRun(overrides: Partial<AgentRunRow> = {}): AgentRunRow {
     agent_id: "engenty.copilot",
     cancelled_at: null,
     completion_tokens: 8,
+    context_prompt_tokens: null,
     created_by_user_id: userId,
     error_code: null,
     error_message: null,

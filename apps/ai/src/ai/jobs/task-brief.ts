@@ -27,7 +27,7 @@ export interface TaskBriefSource {
 
 /** Files/outputs guidance attached to every task job (tools are always mounted). */
 const WORKSPACE_GUIDANCE = `## Workspace & outputs
-- Durable deliverables (documents, notes, tables) → \`artifact_create\` — they appear on the task and its goal/project with no extra step.
+- Durable deliverables (documents, notes, tables) → \`artifact_write\` — they appear on the task and its goal/project with no extra step.
 - Working files, scratch, and state the next run should find → \`workspace_write_file\` / \`workspace_read_file\` / \`workspace_list_files\`. A relative path (e.g. \`notes.md\`) resolves into your task workspace; the goal (when linked), routine (when linked), and shared commons folders are also reachable via their full \`tenants/…\` keys.`;
 
 function str(value: unknown): string {

@@ -5,6 +5,7 @@ import {
 import { useMemo } from "react";
 
 /** Type alias (not interface) so it satisfies `JsonValue` via implicit index signature. */
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for JsonValue index signature
 type KbListPreviewItem = {
   id: string;
   label: string;

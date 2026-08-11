@@ -106,7 +106,9 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
   registerInboxGatewayMethods(server, {
     connectionsClient,
     getConnector: getConnectorDefinition,
+    getDb,
     repoForAuth,
+    serviceDb,
     serviceRepoFor,
   });
 

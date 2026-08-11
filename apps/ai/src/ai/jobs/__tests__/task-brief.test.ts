@@ -46,7 +46,7 @@ describe("buildTaskBrief", () => {
       title: "One-shot",
     });
     expect(brief).toContain("## Workspace & outputs");
-    expect(brief).toContain("artifact_create");
+    expect(brief).toContain("artifact_write");
     expect(brief).toContain("workspace_list_files");
   });
 

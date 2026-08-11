@@ -6,7 +6,7 @@
   "module_id": "knowledge-base",
   "instruction_keys": ["knowledge-base.answers.agents"],
   "skills": ["kb-search-and-retrieve"],
-  "tools": ["knowledge_base_article_search", "kb_faqs_list"],
+  "tools": ["knowledge_base_article_search", "kb_faqs_list", "requestDecision"],
   "workspace": {
     "enabled": false
   }

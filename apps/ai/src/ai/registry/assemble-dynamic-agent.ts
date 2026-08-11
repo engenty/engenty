@@ -32,6 +32,7 @@ import {
   MEMORY_INSTRUCTIONS,
   MEMORY_SAVE_TOOL_ID,
 } from "../instructions/memory-instructions.js";
+import { createRuntimeContextProcessor } from "../sessions/runtime-context-processor.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
 import { gatewayFileDataMiddleware } from "./gateway-file-data-middleware.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";
@@ -70,6 +71,13 @@ export interface AssembleDynamicAgentOptions {
    * thread-state channel of their own).
    */
   resolveContext?: AgentResolveContext;
+  /**
+   * Per-run runtime context (route, selection, workspace, module list) for the
+   * ROOT agent. Injected as a tail message by an input processor rather than
+   * folded into the instructions — see runtime-context-processor.ts for why the
+   * system prompt is the wrong place for it.
+   */
+  runtimeContextInstructions?: string;
   // Skip attaching `config.subAgents` as Mastra `Agent.agents` (the in-process
   // subagent mechanism). Set by the conversation executor, which instead exposes
   // `agent-<alias>` delegation tools that spawn each sub-agent as its own child
@@ -221,6 +229,14 @@ async function assembleDynamicAgentWithAncestors(
     new TokenLimiterProcessor({ limit: 100_000 }),
     ...guardrailInput,
   ];
+  // LAST on purpose: the runtime context describes the request the model is
+  // about to answer, so the history limiter must never be the thing that drops
+  // it. Root agents only — a delegated child answers a task, not a UI state.
+  if (attachMemory && options.runtimeContextInstructions?.trim()) {
+    inputProcessors.push(
+      createRuntimeContextProcessor(options.runtimeContextInstructions)
+    );
+  }
 
   return new Agent({
     ...(config.backgroundTasks
@@ -256,9 +272,19 @@ async function assembleDynamicAgentWithAncestors(
     ...(outputProcessors.length > 0
       ? { outputProcessors: outputProcessors as OutputProcessorOrWorkflow[] }
       : {}),
-    tools: agentTools,
+    // Name-sorted: the tool block is ~40% of the prompt and sits in the
+    // provider's cache prefix, so its BYTES must be identical from turn to
+    // turn. Insertion order is not — the frontend half arrives in whatever
+    // order the browser registered its hooks, which varies by page.
+    tools: sortToolsByName(agentTools),
     ...(options.workspace ? { workspace: options.workspace } : {}),
   });
+}
+
+function sortToolsByName<T>(tools: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(tools).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  );
 }
 
 export function resolveAgentModel(

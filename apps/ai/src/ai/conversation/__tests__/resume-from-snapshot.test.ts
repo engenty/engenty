@@ -551,20 +551,27 @@ describe("the snapshot lane rebuilds the start lane's agent context", () => {
     );
   });
 
-  it("appends the run's language instruction so the reply keeps its language", async () => {
+  it("carries the run's language instruction so the reply keeps its language", async () => {
     // The single most visible symptom of this gap: a German user's
     // post-restart continuation came back in English.
+    //
+    // It rides `runtimeContextInstructions`, NOT `appendBodies`: the runtime
+    // context is the volatile half and goes to a tail message, because in the
+    // system prompt it invalidated the provider's cache prefix on every
+    // navigation. See runtime-context-processor.ts.
     await runAndCollect(
       baseInput({ routeContext: { ui_language: "de" } }) as never
     );
 
     const options = assembleDynamicAgent.mock.calls[0]?.[2] as {
       instructionExtras?: { appendBodies?: string[] };
+      runtimeContextInstructions?: string;
     };
-    const appended = (options?.instructionExtras?.appendBodies ?? []).join(
-      "\n"
-    );
-    expect(appended).toContain("German");
+    expect(options?.runtimeContextInstructions ?? "").toContain("German");
+    // And it must NOT have leaked back into the system prompt.
+    expect(
+      (options?.instructionExtras?.appendBodies ?? []).join("\n")
+    ).not.toContain("German");
   });
 
   it("still resumes when the instruction layers cannot be resolved", async () => {

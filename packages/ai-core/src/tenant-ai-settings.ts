@@ -27,10 +27,7 @@ export interface AiCapsConfig {
 export interface TenantAiSettings {
   caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
-  /**
-   * @deprecated Classifier had no runtime consumer; kept parse-tolerant for old
-   * stored blobs only. Not surfaced in the UI.
-   */
+  /** Fast single-shot classification (inbox lanes, attachment triage). */
   classifier_model_id?: string | null;
   /** Routing / supervisor model (stored as `coordinator_model_id` for legacy compat). */
   coordinator_model_id?: string | null;

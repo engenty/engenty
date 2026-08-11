@@ -26,6 +26,12 @@ vi.mock("./prompt-preview-api.js", () => ({
   useThreadPromptPreview: () => previewState,
 }));
 
+// The popover also mounts the thread-usage drill-in, whose hook reaches for the
+// EngentyAI provider this test does not stand up.
+vi.mock("./thread-usage-events-api.js", () => ({
+  useThreadUsageEvents: () => ({ error: null, events: null, isLoading: false }),
+}));
+
 const { ContextUsagePopover } = await import("./context-usage-popover.js");
 const { PromptPreviewDialog } = await import("./prompt-preview-dialog.js");
 

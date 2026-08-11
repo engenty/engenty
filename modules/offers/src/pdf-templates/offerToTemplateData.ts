@@ -163,6 +163,7 @@ export interface TemplateDataConfig {
  * signature and stays assignable to the `Record<string, unknown>` payload
  * expected by the PDF-template server provider registry.
  */
+// biome-ignore lint/style/useConsistentTypeDefinitions: type alias required for Record<string, unknown> PDF payload
 export type OfferTemplateData = {
   config: TemplateDataConfig;
   content: TemplateDataGroup[];

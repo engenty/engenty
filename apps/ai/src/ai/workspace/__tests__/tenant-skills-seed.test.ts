@@ -1,40 +1,58 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
-import type { SkillStorage } from "../../skills/skill-storage.js";
+import { beforeEach, describe, expect, it } from "vitest";
+import { resetManagedSkillsSyncStateForTests } from "../../skills/managed-skills-sync-state.js";
+import type {
+  ManagedSeedManifest,
+  SkillStorage,
+} from "../../skills/skill-storage.js";
 import {
   ensureTenantManagedSkillsSeed,
   type ManagedSkillPack,
+  syncTenantManagedSkills,
 } from "../tenant-skills-seed.js";
 
 function sha(content: string) {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
+function packMarkdown(name: string, source: string, body = "Body.") {
+  return [
+    "---",
+    `name: ${name}`,
+    "description: Search KB content.",
+    "engenty:",
+    `  source: ${source}`,
+    "---",
+    "",
+    `# ${name}`,
+    "",
+    body,
+  ].join("\n");
+}
+
 describe("tenant managed skills seed", () => {
+  beforeEach(() => {
+    resetManagedSkillsSyncStateForTests();
+  });
+
   it("rewrites unchanged managed skills when provenance source changes", async () => {
-    const skillMarkdown = [
-      "---",
-      "name: kb-search-and-retrieve",
-      "description: Search KB content.",
-      "engenty:",
-      "  source: module",
-      "---",
-      "",
-      "# KB Search",
-      "",
-      "Search knowledge base content.",
-    ].join("\n");
+    const skillMarkdown = packMarkdown("kb-search-and-retrieve", "module");
     const pack: ManagedSkillPack = {
       name: "kb-search-and-retrieve",
       skillMarkdown,
       source: "knowledge-base",
     };
     const writes: { name: string; skillMarkdown: string }[] = [];
+    const manifests: ManagedSeedManifest[] = [];
     const storage = {
+      readManagedSeedManifest: async () => null,
       readManagedProvenance: async () => ({
         installedSha: sha(skillMarkdown),
         source: "module",
       }),
+      writeManagedSeedManifest: async (manifest: ManagedSeedManifest) => {
+        manifests.push(manifest);
+      },
       writeManagedSkill: async (input: {
         name: string;
         skillMarkdown: string;
@@ -54,5 +72,101 @@ describe("tenant managed skills seed", () => {
     });
     expect(writes).toHaveLength(1);
     expect(writes[0]?.skillMarkdown).toContain("source: knowledge-base");
+    expect(manifests).toHaveLength(1);
+    expect(manifests[0]?.skills["kb-search-and-retrieve"]?.source).toBe(
+      "knowledge-base"
+    );
+  });
+
+  it("skips all per-skill IO when the seed manifest already matches", async () => {
+    const skillMarkdown = packMarkdown("contacts-search", "contacts");
+    const pack: ManagedSkillPack = {
+      name: "contacts-search",
+      skillMarkdown,
+      source: "contacts",
+    };
+    let provenanceReads = 0;
+    let skillWrites = 0;
+    let manifestWrites = 0;
+    const storage = {
+      readManagedSeedManifest: async (): Promise<ManagedSeedManifest> => ({
+        version: 1,
+        skills: {
+          "contacts-search": {
+            sha: sha(skillMarkdown),
+            source: "contacts",
+          },
+        },
+      }),
+      readManagedProvenance: async () => {
+        provenanceReads += 1;
+        return;
+      },
+      writeManagedSeedManifest: async () => {
+        manifestWrites += 1;
+      },
+      writeManagedSkill: async () => {
+        skillWrites += 1;
+      },
+    } as unknown as SkillStorage;
+
+    const result = await ensureTenantManagedSkillsSeed({
+      packs: [pack],
+      storage,
+      tenantId: "tenant-manifest-hit",
+    });
+
+    expect(result).toEqual({
+      skipped: ["contacts-search"],
+      written: [],
+    });
+    expect(provenanceReads).toBe(0);
+    expect(skillWrites).toBe(0);
+    expect(manifestWrites).toBe(0);
+  });
+
+  it("syncTenantManagedSkills skips storage after the first success in-process", async () => {
+    const skillMarkdown = packMarkdown("inbox-triage", "inbox");
+    const pack: ManagedSkillPack = {
+      name: "inbox-triage",
+      skillMarkdown,
+      source: "inbox",
+    };
+    let manifestReads = 0;
+    const storage = {
+      readManagedSeedManifest: async (): Promise<ManagedSeedManifest> => {
+        manifestReads += 1;
+        return {
+          version: 1,
+          skills: {
+            "inbox-triage": { sha: sha(skillMarkdown), source: "inbox" },
+          },
+        };
+      },
+      readManagedProvenance: async () => {
+        throw new Error("should not read provenance");
+      },
+      writeManagedSeedManifest: async () => {
+        throw new Error("should not write manifest");
+      },
+      writeManagedSkill: async () => {
+        throw new Error("should not write skill");
+      },
+    } as unknown as SkillStorage;
+
+    const first = await syncTenantManagedSkills({
+      packs: [pack],
+      storage,
+      tenantId: "tenant-process-hit",
+    });
+    const second = await syncTenantManagedSkills({
+      packs: [pack],
+      storage,
+      tenantId: "tenant-process-hit",
+    });
+
+    expect(first.skipped).toEqual(["inbox-triage"]);
+    expect(second.skipped).toEqual(["inbox-triage"]);
+    expect(manifestReads).toBe(1);
   });
 });

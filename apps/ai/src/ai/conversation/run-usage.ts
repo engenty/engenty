@@ -16,6 +16,31 @@ export interface RunUsage {
   reasoning?: number | null;
 }
 
+/**
+ * Fold one `usage_update` payload into a running total.
+ *
+ * Mastra's AgentController emits `usage_update` once per `step-finish`, carrying
+ * THAT STEP's usage — not a running total. Metering the last payload therefore
+ * billed a five-step turn as if it were one step. The accumulator keeps Mastra's
+ * own field names so the result stays a valid `TokenUsage` for
+ * `usageFromSession`.
+ */
+export function accumulateSessionUsage(total: unknown, step: unknown): unknown {
+  const stepUsage = usageFromSession(step);
+  if (!stepUsage) {
+    return total;
+  }
+  const current = usageFromSession(total);
+  const add = (a: number | null | undefined, b: number | null | undefined) =>
+    a == null && b == null ? null : (a ?? 0) + (b ?? 0);
+  return {
+    cachedInputTokens: add(current?.cached, stepUsage.cached),
+    completionTokens: add(current?.output, stepUsage.output),
+    promptTokens: add(current?.input, stepUsage.input),
+    reasoningTokens: add(current?.reasoning, stepUsage.reasoning),
+  };
+}
+
 /** Map a Mastra `TokenUsage` to the `recordAiUsage` usage shape. */
 export function usageFromSession(usage: unknown): RunUsage | null {
   if (!usage || typeof usage !== "object") {

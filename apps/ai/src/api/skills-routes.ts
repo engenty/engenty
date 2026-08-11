@@ -28,10 +28,7 @@ import {
   type SkillStorage,
 } from "../ai/skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
-import {
-  collectManagedSkillPacks,
-  ensureTenantManagedSkillsSeed,
-} from "../ai/workspace/tenant-skills-seed.js";
+import { syncTenantManagedSkills } from "../ai/workspace/tenant-skills-seed.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
@@ -75,12 +72,15 @@ function buildSkillProposalStore(
   });
 }
 
-async function ensureManagedSkillsForCatalog(storage: SkillStorage) {
+async function ensureManagedSkillsForCatalog(
+  scope: AiSessionScope,
+  storage: SkillStorage
+) {
   try {
-    const packs = await collectManagedSkillPacks();
-    if (packs.length > 0) {
-      await ensureTenantManagedSkillsSeed({ packs, storage });
-    }
+    await syncTenantManagedSkills({
+      storage,
+      tenantId: scope.tenantId,
+    });
   } catch (error) {
     logger.warn("managed_skills_catalog_seed_failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -136,7 +136,7 @@ export function registerSkillsRoutes(
       return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
-      await ensureManagedSkillsForCatalog(storage);
+      await ensureManagedSkillsForCatalog(resolved.scope, storage);
       const skills = await storage.listSkills();
       return c.json({ skills });
     } catch (err) {
@@ -333,11 +333,10 @@ export function registerSkillsRoutes(
         force?: boolean;
       };
       const force = body.force === true;
-      const packs = await collectManagedSkillPacks();
-      const result = await ensureTenantManagedSkillsSeed({
-        packs,
-        storage,
+      const result = await syncTenantManagedSkills({
         force,
+        storage,
+        tenantId: resolved.scope.tenantId,
       });
       return c.json(result);
     } catch (err) {
@@ -360,7 +359,7 @@ export function registerSkillsRoutes(
       return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
     }
     try {
-      await ensureManagedSkillsForCatalog(storage);
+      await ensureManagedSkillsForCatalog(resolved.scope, storage);
       const skill = await storage.getSkill(c.req.param("name"));
       if (!skill) {
         return c.json({ error: "agent_skills.notFound" }, 404);

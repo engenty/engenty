@@ -45,6 +45,9 @@ describe("seedBindings", () => {
     expect(seeded.find((b) => b.role === "router")?.modelId).toBe(
       DEFAULT_AI_CLASSIFIER_MODEL_ID
     );
+    expect(seeded.find((b) => b.role === "classifier")?.modelId).toBe(
+      DEFAULT_AI_CLASSIFIER_MODEL_ID
+    );
   });
 
   it("carries legacy env values across the upgrade", () => {
@@ -105,6 +108,53 @@ describe("resolvePurposeModel with bindings", () => {
     expect(resolvePurposeModel({ purpose: "safeguard", bindings }).source).toBe(
       "default"
     );
+  });
+
+  it("classifier uses the classifier binding, not model.low", () => {
+    const withLowAndClassifier = bindingsFromList([
+      {
+        gateway: "vercel",
+        modelId: "deepseek/deepseek-v4-flash",
+        role: "model.low",
+      },
+      {
+        gateway: "vercel",
+        modelId: "openai/gpt-5-nano",
+        role: "classifier",
+      },
+    ]);
+    expect(
+      resolvePurposeModel({
+        purpose: "classifier",
+        bindings: withLowAndClassifier,
+      })
+    ).toEqual({
+      purpose: "classifier",
+      value: "openai/gpt-5-nano",
+      source: "platform",
+    });
+  });
+
+  it("classifier ignores model.low when no classifier binding exists", () => {
+    const onlyLow = bindingsFromList([
+      {
+        gateway: "vercel",
+        modelId: "deepseek/deepseek-v4-flash",
+        role: "model.low",
+      },
+    ]);
+    // Unbound classifier role → env, then package default — never model.low.
+    expect(
+      resolvePurposeModel({
+        purpose: "classifier",
+        bindings: onlyLow,
+        readEnv: () => undefined,
+      })
+    ).toEqual({
+      purpose: "classifier",
+      value: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+      source: "default",
+    });
   });
 
   it("still honours a tenant pin above the binding", () => {

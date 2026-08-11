@@ -30,6 +30,10 @@ export const toolApprovalSuspendSchema = z.object({
   // covers, so approving can persist a durable goal-scoped grant. Never the
   // raw tool input (it may hold sensitive values and this lands in metadata).
   secret_id: z.string().uuid().optional(),
+  // The core.approval_requests row behind a 202 backstop card. Approving
+  // decides THAT request, which is what mints the grant core's own policy
+  // reads on the retry.
+  approval_request_id: z.string().uuid().optional(),
   title: z.string().optional(),
   // Bulk pre-approval (engenty_tools_preapprove): every operation this ONE
   // card covers — approving persists a grant for each. `operation_id` stays
@@ -234,6 +238,12 @@ function emptyToolInputResult(operationId: string, required: string[]) {
  * would drift on the next policy change.
  */
 export async function gateRequiresApproval(input: {
+  /**
+   * Set only on the core-202 backstop path: the durable approval request core
+   * filed. Rides the card so the approve hook can decide it in core — a chat
+   * grant that never reaches core leaves the retry gated by the same policy.
+   */
+  approvalRequestId?: string;
   body?: string;
   context: ToolRequestContextCarrier<ToolApprovalSuspendPayload> | undefined;
   operationId: string;
@@ -267,6 +277,9 @@ export async function gateRequiresApproval(input: {
       requires_approval: input.requiresApproval,
       risk_level: input.riskLevel,
       ...(input.secretId ? { secret_id: input.secretId } : {}),
+      ...(input.approvalRequestId
+        ? { approval_request_id: input.approvalRequestId }
+        : {}),
       ...(input.operationIds?.length
         ? { operation_ids: input.operationIds }
         : {}),
@@ -278,13 +291,17 @@ export async function gateRequiresApproval(input: {
     return undefined as never;
   }
   if (policy === "artifact") {
+    const grantContext = {
+      ...(input.secretId ? { secret_id: input.secretId } : {}),
+      ...(input.approvalRequestId
+        ? { approval_request_id: input.approvalRequestId }
+        : {}),
+    };
     return buildToolApprovalArtifact({
       operationId: input.operationId,
       requiresApproval: input.requiresApproval,
       riskLevel: input.riskLevel,
-      ...(input.secretId
-        ? { grantContext: { secret_id: input.secretId } }
-        : {}),
+      ...(Object.keys(grantContext).length > 0 ? { grantContext } : {}),
       ...(input.operationIds?.length
         ? { operationIds: input.operationIds }
         : {}),
@@ -444,12 +461,21 @@ export async function executeEngentyTool(
         // contract metadata or a policy only core can evaluate).
         return sandboxApprovalRequiredResult(operationId, "high");
       }
+      // Carry core's own request id onto the card. The approve hook decides it
+      // in core, which mints the grant `evaluatePolicy` spends on the retry —
+      // the thread-metadata grant it also writes is read by the pre-gate only.
+      const details = isRecord(err.details) ? err.details : {};
+      const approvalRequestId =
+        typeof details.approvalRequestId === "string"
+          ? details.approvalRequestId
+          : undefined;
       return gateRequiresApproval({
         context: executionContext,
         operationId,
         requiresApproval: true,
         riskLevel: "high",
         ...(gateSecretId ? { secretId: gateSecretId } : {}),
+        ...(approvalRequestId ? { approvalRequestId } : {}),
       });
     }
     return coreErrorToToolResult(err);

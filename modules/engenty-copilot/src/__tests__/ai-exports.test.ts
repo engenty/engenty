@@ -49,8 +49,6 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "openDialog",
       "focusField",
       "show_ui_guide",
-      "update_ui_guide",
-      "dismiss_ui_guide",
       "offer_file_downloads",
       "show_artifact",
     ]);
@@ -69,9 +67,14 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(skill).not.toContain("/mdl/files");
   });
 
-  it("instructs the copilot to persist durable user facts via updateWorkingMemory", () => {
-    expect(ENGENTY_INSTRUCTIONS).toContain("updateWorkingMemory");
-    expect(ENGENTY_INSTRUCTIONS).toContain("preferred_language");
+  it("routes durable user facts to memory_save, not the working-memory tool", () => {
+    // The profile is read-only to the model now (`agentManaged: false` drops
+    // `updateWorkingMemory`, 419 tokens of which 81% was schema); instructions
+    // that still told it to call that tool would be instructions to hallucinate.
+    expect(ENGENTY_INSTRUCTIONS).toContain("memory_save");
+    expect(ENGENTY_INSTRUCTIONS).not.toMatch(
+      /call \*\*updateWorkingMemory\*\*/
+    );
   });
 
   it("registers builtin playbook skills for records and artifacts", () => {

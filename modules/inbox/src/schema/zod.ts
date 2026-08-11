@@ -1,11 +1,13 @@
 import { z } from "@hono/zod-openapi";
 
-export const inboxMessageStatusSchema = z.enum([
-  "new",
-  "triaged",
-  "processed",
-  "archived",
-]);
+/** Free-text category slug (tenant catalog; not a fixed DB enum). */
+export const inboxMessageCategorySchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9_-]*$/);
+
+export const inboxMessageStatusSchema = z.enum(["new", "read", "archived"]);
 
 export const inboxAttachmentMetaSchema = z.object({
   attachment_id: z.string().nullable(),
@@ -31,6 +33,7 @@ export const inboxThreadSchema = z.object({
 });
 
 export const inboxMessageSchema = z.object({
+  ai_category: inboxMessageCategorySchema.nullable(),
   attachments_json: z.array(inboxAttachmentMetaSchema),
   body_html: z.string().nullable(),
   body_text: z.string().nullable(),
@@ -75,6 +78,7 @@ export const inboxSyncStateSchema = z.object({
 });
 
 export const inboxThreadListItemSchema = inboxThreadSchema.extend({
+  latest_category: inboxMessageCategorySchema.nullable(),
   latest_from_email: z.string().nullable(),
   latest_from_name: z.string().nullable(),
   latest_snippet: z.string().nullable(),
@@ -83,6 +87,7 @@ export const inboxThreadListItemSchema = inboxThreadSchema.extend({
 });
 
 export const inboxThreadsListInputSchema = z.object({
+  category: inboxMessageCategorySchema.optional(),
   connection_id: z.string().optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
@@ -149,6 +154,82 @@ export const inboxSyncRunResultSchema = z.object({
         .nullable(),
     })
   ),
+});
+
+export const inboxMessageDigestSchema = z.object({
+  attachments_json: z.array(inboxAttachmentMetaSchema),
+  category: inboxMessageCategorySchema,
+  content_md: z.string(),
+  created_at: z.string(),
+  digest_version: z.number(),
+  message_id: z.string(),
+  model_id: z.string().nullable(),
+  thread_id: z.string(),
+  updated_at: z.string(),
+});
+
+export const inboxDigestParticipantSchema = z.object({
+  email: z.string(),
+  name: z.string().nullable(),
+  role: z.string().nullable(),
+});
+
+export const inboxThreadDigestSchema = z.object({
+  category: inboxMessageCategorySchema,
+  created_at: z.string(),
+  suggested_actions: z.array(z.string()),
+  digest_version: z.number(),
+  last_message_id: z.string().nullable(),
+  model_id: z.string().nullable(),
+  participants_json: z.array(inboxDigestParticipantSchema),
+  summarized_message_count: z.number(),
+  summary_md: z.string(),
+  thread_id: z.string(),
+  updated_at: z.string(),
+});
+
+export const inboxThreadDigestGetInputSchema = z.object({
+  /**
+   * Also produce the thread-level status summary. Off by default — the summary
+   * costs an extra model call and is only wanted when someone asks for it.
+   */
+  include_summary: z.boolean().optional(),
+  /** Regenerate everything even when a fresh cache exists. */
+  refresh: z.boolean().optional(),
+  thread_id: z.string().min(1),
+});
+
+export const inboxThreadDigestResultSchema = z.object({
+  category: inboxMessageCategorySchema,
+  messages: z.array(inboxMessageDigestSchema),
+  thread: inboxThreadDigestSchema.nullable(),
+});
+
+export const inboxThreadChatInputSchema = z.object({
+  history: z
+    .array(
+      z.object({
+        content: z.string().min(1).max(8000),
+        role: z.enum(["user", "assistant"]),
+      })
+    )
+    .max(20)
+    .optional(),
+  question: z.string().min(1).max(4000),
+  thread_id: z.string().min(1),
+});
+
+export const inboxThreadChatResultSchema = z.object({
+  answer_md: z.string(),
+});
+
+export const inboxClassifyPendingInputSchema = z.object({
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
+export const inboxClassifyPendingResultSchema = z.object({
+  classified: z.number(),
+  remaining: z.number(),
 });
 
 export const inboxAttachmentGetInputSchema = z.object({

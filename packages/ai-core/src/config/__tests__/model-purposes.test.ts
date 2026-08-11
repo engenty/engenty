@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AI_MODEL_PURPOSES,
   DEFAULT_AI_CHAT_MODEL_ID,
+  DEFAULT_AI_CLASSIFIER_MODEL_ID,
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
   resolvePurposeModel,
@@ -53,6 +54,30 @@ describe("resolvePurposeModel provenance", () => {
     expect(
       resolvePurposeModel({ purpose: "planning_coding", readEnv: noEnv }).value
     ).toBe(DEFAULT_AI_PLANNING_CODING_MODEL_ID);
+    expect(
+      resolvePurposeModel({ purpose: "classifier", readEnv: noEnv }).value
+    ).toBe(DEFAULT_AI_CLASSIFIER_MODEL_ID);
+  });
+
+  it("classifier prefers AI_INBOX_DIGEST_MODEL over AI_CLASSIFIER_MODEL", () => {
+    expect(
+      resolvePurposeModel({
+        purpose: "classifier",
+        readEnv: (k) => {
+          if (k === "AI_INBOX_DIGEST_MODEL") {
+            return "inbox/digest";
+          }
+          if (k === "AI_CLASSIFIER_MODEL") {
+            return "shared/classifier";
+          }
+          return;
+        },
+      })
+    ).toEqual({
+      purpose: "classifier",
+      value: "inbox/digest",
+      source: "platform",
+    });
   });
 
   it("routing falls back through coordinator and chat env keys", () => {
@@ -73,10 +98,11 @@ describe("resolvePurposeModel provenance", () => {
     ).toBe(DEFAULT_AI_PLANNING_CODING_MODEL_ID);
   });
 
-  it("exposes the five tunable purposes in a stable order", () => {
+  it("exposes the tunable purposes in a stable order", () => {
     expect([...AI_MODEL_PURPOSES]).toEqual([
       "chat",
       "routing",
+      "classifier",
       "research",
       "planning_coding",
       "safeguard",

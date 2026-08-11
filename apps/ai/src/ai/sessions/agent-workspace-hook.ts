@@ -15,29 +15,22 @@ import { createSkillStorage } from "../skills/skill-storage.js";
 import type { EngentyWorkspaceMountSpec } from "../workspace/contracts.js";
 import { createEngentyCoreFileStorageClient } from "../workspace/core-file-storage-client.js";
 import { initEngentyAgentWorkspace } from "../workspace/loader.js";
-import {
-  collectManagedSkillPacks,
-  ensureTenantManagedSkillsSeed,
-} from "../workspace/tenant-skills-seed.js";
+import { syncTenantManagedSkills } from "../workspace/tenant-skills-seed.js";
 import { DEFAULT_SKILL_DISCOVERY_PATHS } from "../workspace/workspace-presets.js";
 import { type AiSessionScope, scopeAccessToken } from "./types.js";
 import { resolveEngentyWorkspaceRuntimeSpec } from "./workspace-runtime-spec.js";
 
 const logger = createLogger({ name: "ai.workspace.agent-hook" });
 
-// Guard for the read-only managed skills sync (modules + builtin): seeded once
-// per tenant per process. The seed itself is idempotent (writes only when
-// absent), so a missed/duplicate call is harmless.
-const seededSkillTenants = new Set<string>();
-
-// Best-effort, one-time sync of code-provided skills into the read-only managed
-// tier when the agent mounts `/skills`. Failures never block the run.
+// Best-effort sync of code-provided skills into the read-only managed tier when
+// the agent mounts `/skills`. Failures never block the run. Deduped per tenant
+// per process inside syncTenantManagedSkills (shared with the catalog routes).
 async function maybeSeedTenantManagedSkills(
   scope: AiSessionScope,
   skillDiscoveryPaths: string[]
 ): Promise<void> {
   const tenantId = scope.tenantId.trim();
-  if (seededSkillTenants.has(tenantId) || skillDiscoveryPaths.length === 0) {
+  if (skillDiscoveryPaths.length === 0) {
     return;
   }
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
@@ -45,12 +38,7 @@ async function maybeSeedTenantManagedSkills(
   if (!(coreBaseUrl && accessToken)) {
     return;
   }
-  seededSkillTenants.add(tenantId);
   try {
-    const packs = await collectManagedSkillPacks();
-    if (packs.length === 0) {
-      return;
-    }
     const storage = createSkillStorage({
       storage: createEngentyCoreFileStorageClient({
         coreBaseUrl,
@@ -58,9 +46,8 @@ async function maybeSeedTenantManagedSkills(
       }),
       tenantId,
     });
-    await ensureTenantManagedSkillsSeed({ packs, storage });
+    await syncTenantManagedSkills({ storage, tenantId });
   } catch (error) {
-    seededSkillTenants.delete(tenantId);
     logger.warn("tenant_managed_skills_seed_failed", {
       error: error instanceof Error ? error.message : String(error),
       tenant_id: tenantId,

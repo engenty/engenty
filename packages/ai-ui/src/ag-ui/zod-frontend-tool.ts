@@ -18,6 +18,11 @@ import type { z } from "zod";
 /** A frontend tool spec (zod schema + metadata) with a colocated browser handler. */
 export interface EngentyZodFrontendToolConfig<TSchema extends z.ZodType>
   extends EngentyFrontendToolSpec<TSchema> {
+  /**
+   * False = withhold from the agent for now (see
+   * `UseEngentyFrontendToolOptions.enabled`). Default true.
+   */
+  enabled?: boolean;
   /** Validated, typed args — no `readRecord`/manual validation. */
   handler: (
     input: z.infer<TSchema>,

@@ -12,19 +12,26 @@ import type {
   InboxSyncRunResult,
   InboxSyncState,
   InboxThreadDetail,
+  InboxThreadDigestResult,
   InboxThreadsListParams,
   InboxThreadsListResult,
 } from "../src/schema/types.js";
 
+export { INBOX_MESSAGE_CATEGORIES } from "../src/schema/categories.js";
 export type {
   InboxAccount,
   InboxAttachmentMeta,
+  InboxDigestParticipant,
   InboxMessage,
+  InboxMessageCategory,
+  InboxMessageDigest,
   InboxMessageStatus,
   InboxSyncRunResult,
   InboxSyncState,
   InboxThread,
   InboxThreadDetail,
+  InboxThreadDigest,
+  InboxThreadDigestResult,
   InboxThreadListItem,
   InboxThreadsListParams,
   InboxThreadsListResult,
@@ -61,6 +68,30 @@ export async function getInboxThread(
     "inbox_thread_get",
     { id },
     signal
+  );
+}
+
+export async function getInboxThreadDigest(
+  input: { include_summary?: boolean; refresh?: boolean; thread_id: string },
+  signal?: AbortSignal
+): Promise<InboxThreadDigestResult | null> {
+  return invokeTool<InboxThreadDigestResult | null>(
+    "inbox_thread_digest_get",
+    input,
+    signal
+  );
+}
+
+// Grounded thread Q&A lives on the `inbox_thread_chat` operation, which the
+// copilot calls as a tool — the UI has no client for it: thread questions go
+// through the copilot composer, not through a second chat box in the module.
+
+export async function classifyPendingInboxMessages(input: {
+  limit?: number;
+}): Promise<{ classified: number; remaining: number }> {
+  return invokeTool<{ classified: number; remaining: number }>(
+    "inbox_classify_pending",
+    input
   );
 }
 

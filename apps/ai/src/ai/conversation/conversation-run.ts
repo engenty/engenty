@@ -308,10 +308,27 @@ export async function startConversationRun(
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
     });
+    // Per-run runtime context (route, selection, workspace, modules). Built
+    // BEFORE assembly because it rides an input processor now: folded into the
+    // instructions it sat at the head of the provider's cache prefix, so every
+    // navigation re-billed the whole prompt. See runtime-context-processor.ts.
+    const runtimeInstructions = (
+      await buildSessionRuntimeInstructions({
+        agentId: input.agentId,
+        agentUi: input.agentUi,
+        routeContext: input.routeContext ?? null,
+        runContext: input.runContext,
+        scope: input.scope,
+        threadId: input.threadId,
+      })
+    ).trim();
     // Assemble WITHOUT memory — the Harness provides memory to its mode agents.
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
       instructionExtras,
+      ...(runtimeInstructions
+        ? { runtimeContextInstructions: runtimeInstructions }
+        : {}),
       // Same mastra singleton as session-service: suspend snapshots land in the
       // shared workflows store so parked frontend-tool resumes can reload them.
       ...(input.mastra ? { mastra: input.mastra } : {}),
@@ -369,21 +386,10 @@ export async function startConversationRun(
       );
     }
 
-    // The same runtime-context system message the control plane injects, set as
-    // the controller's per-run instructions (the controller is constructed per run).
-    const runtimeInstructions = (
-      await buildSessionRuntimeInstructions({
-        agentId: input.agentId,
-        agentUi: input.agentUi,
-        routeContext: input.routeContext ?? null,
-        runContext: input.runContext,
-        scope: input.scope,
-        threadId: input.threadId,
-      })
-    ).trim();
-    const instructions = [MASTRA_SESSION_NOTE, runtimeInstructions]
-      .filter(Boolean)
-      .join("\n\n");
+    // Controller instructions carry the STABLE note only. The volatile runtime
+    // context went to the agent's input processor above — anything here is
+    // merged into the run's system prompt, i.e. the cache prefix.
+    const instructions = MASTRA_SESSION_NOTE;
 
     // Construction recipe (top-level agent, thread binding, yolo rationale):
     // see createConversationSession.
@@ -704,7 +710,9 @@ export async function startConversationRun(
         runId: input.runId,
         scope: input.scope,
         threadId: input.threadId,
-        usage: converter.lastUsage,
+        // The RUN's tokens, not the last step's: `usage_update` fires per step,
+        // so metering `lastUsage` billed a multi-step turn as a single call.
+        usage: converter.totalUsage,
         usageStore: input.usageStore,
       });
     }
@@ -753,9 +761,13 @@ export async function startConversationRun(
       // requires_action: the turn ended awaiting human input — recovery must
       // NOT treat it as in-flight (the interrupt card re-renders from thread
       // metadata, not from an attached stream).
-      const usage = usageFromSession(converterRef?.lastUsage);
+      const usage = usageFromSession(converterRef?.totalUsage);
+      // Window occupancy is the LAST step's prompt; the row's prompt_tokens
+      // stays the run total so billing and the run feed keep their meaning.
+      const lastStep = usageFromSession(converterRef?.lastUsage);
       await tracker
         .complete({
+          contextPromptTokens: lastStep?.input ?? null,
           status:
             threadStatus === "waiting"
               ? "requires_action"

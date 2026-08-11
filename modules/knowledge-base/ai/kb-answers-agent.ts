@@ -10,6 +10,11 @@ export const KB_ANSWERS_AGENT_ID = "knowledge-base.answers";
 export const KB_ANSWERS_TOOL_IDS = [
   "knowledge_base_article_search",
   "kb_faqs_list",
+  // Asking the user to choose is read-only — it writes nothing and keeps the
+  // agent's scoped-retrieval contract. Resolved from the builtin registry
+  // (createBuiltinRegistryTools), and it degrades to the artifact when the run
+  // has no human channel, so headless callers of this agent cannot hang on it.
+  "requestDecision",
 ] as const;
 
 export const KB_ANSWERS_SKILL_IDS = ["kb-search-and-retrieve"] as const;

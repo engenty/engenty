@@ -43,7 +43,7 @@ describe("artifact tools", () => {
     const result = await runWithContext(
       { tenantId, orchestratorThreadId: threadId, userId: "u1" },
       () =>
-        tools.artifact_create.execute!(
+        tools.artifact_write.execute!(
           { type: "markdown", title: "T", content: "# hi" } as never,
           testToolContext()
         )
@@ -67,7 +67,7 @@ describe("artifact tools", () => {
 
     await expect(
       runWithContext({ tenantId }, () =>
-        tools.artifact_create.execute!(
+        tools.artifact_write.execute!(
           { type: "markdown", title: "T", content: "# hi" } as never,
           testToolContext()
         )
@@ -87,7 +87,7 @@ describe("artifact tools", () => {
     const result = await runWithContext(
       { tenantId, orchestratorThreadId: threadId, userId: "u1" },
       () =>
-        tools.artifact_update.execute!(
+        tools.artifact_write.execute!(
           {
             artifact_id: "a1",
             content: "x",
@@ -98,6 +98,67 @@ describe("artifact tools", () => {
         )
     );
 
-    expect(result).toEqual({ error: "version_conflict", current_version: 5 });
+    expect(result).toEqual({ current_version: 5, error: "version_conflict" });
+  });
+
+  // The verb is implied by the arguments now that five tools collapsed into
+  // two, so the argument combinations ARE the contract.
+  it("updates when an id is supplied and creates when it is not", async () => {
+    const store = fakeStore();
+    const tools = createArtifactTools({ store });
+
+    const updated = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () =>
+        tools.artifact_write.execute!(
+          {
+            artifact_id: "a1",
+            content: "x",
+            expected_version: 1,
+            summary: "s",
+          } as never,
+          testToolContext()
+        )
+    );
+
+    expect(updated).toEqual({ artifact_id: "a1", version: 2 });
+    expect(store.create).not.toHaveBeenCalled();
+  });
+
+  it("reports the missing field instead of guessing the verb", async () => {
+    const store = fakeStore();
+    const tools = createArtifactTools({ store });
+
+    const result = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () =>
+        tools.artifact_write.execute!(
+          { artifact_id: "a1", content: "x" } as never,
+          testToolContext()
+        )
+    );
+
+    expect(result).toEqual({ error: "expected_version_required" });
+    expect(store.addVersion).not.toHaveBeenCalled();
+  });
+
+  it("lists the chat's artifacts when read is given no id", async () => {
+    const store = fakeStore({
+      listByScope: vi.fn(async () => [
+        { current_version: 3, id: "a1", title: "T", type: "markdown" } as never,
+      ]),
+    });
+    const tools = createArtifactTools({ store });
+
+    const result = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () => tools.artifact_read.execute!({} as never, testToolContext())
+    );
+
+    expect(result).toEqual({
+      artifacts: [
+        { artifact_id: "a1", title: "T", type: "markdown", version: 3 },
+      ],
+    });
   });
 });

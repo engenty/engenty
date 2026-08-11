@@ -3,6 +3,7 @@ import {
   formatCompactTokenCount,
   formatCopilotUsageLine,
   formatUsageCostMicros,
+  freshInputTokens,
   sumThreadUsageTokens,
 } from "./format-thread-usage.js";
 
@@ -34,7 +35,9 @@ describe("format-session-usage", () => {
     ).toBe("0 tokens");
   });
 
-  it("sums usage dimensions", () => {
+  it("sums input and output only — cached and reasoning are slices of those", () => {
+    // Adding them back double-counted: a cache-heavy thread reported nearly
+    // twice the tokens it actually moved.
     expect(
       sumThreadUsageTokens({
         cached_tokens: 10,
@@ -45,6 +48,20 @@ describe("format-session-usage", () => {
         output_tokens: 50,
         reasoning_tokens: 5,
       })
-    ).toBe(165);
+    ).toBe(150);
+  });
+
+  it("reports the uncached part of the input", () => {
+    expect(
+      freshInputTokens({
+        cached_tokens: 70,
+        cost_micros: 100,
+        currency: "usd",
+        event_count: 1,
+        input_tokens: 100,
+        output_tokens: 50,
+        reasoning_tokens: 5,
+      })
+    ).toBe(30);
   });
 });

@@ -13,6 +13,7 @@ function makeListItem(
     created_at: "2026-01-01T00:00:00.000Z",
     id: "thread-1",
     last_message_at: "2026-01-02T00:00:00.000Z",
+    latest_category: null,
     latest_from_email: "ap@acme.com",
     latest_from_name: "AP",
     latest_snippet: "Please review the invoice.",
@@ -67,6 +68,7 @@ describe("buildInboxThreadSnapshot", () => {
       },
       messages: [
         {
+          ai_category: null,
           attachments_json: [],
           body_html: "<p>secret body</p>",
           body_text: "secret body",

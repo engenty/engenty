@@ -15,36 +15,60 @@ import {
 import {
   Archive,
   AtSign,
-  Check,
-  Eye,
+  Ban,
+  Bell,
   Inbox,
+  Mail,
+  MailOpen,
+  Megaphone,
+  MessagesSquare,
+  Newspaper,
   Settings,
-  Sparkles,
+  Tag,
 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import {
+  getCategoryTitleLabel,
+  type InboxCategoryItem,
+  visibleInboxCategories,
+} from "../api/inbox-categories-settings.js";
 import type { InboxAccount, InboxMessageStatus } from "../api.js";
-import { useInboxAccountsQuery } from "../queries.js";
+import { useInboxAccountsQuery, useInboxCategoriesQuery } from "../queries.js";
 
 const LANES: {
   icon: typeof Inbox;
   key: "all" | InboxMessageStatus;
 }[] = [
   { icon: Inbox, key: "all" },
-  { icon: Sparkles, key: "new" },
-  { icon: Eye, key: "triaged" },
-  { icon: Check, key: "processed" },
+  { icon: Mail, key: "new" },
+  { icon: MailOpen, key: "read" },
   { icon: Archive, key: "archived" },
 ];
 
-function laneTo(lane: string, account: string | null): string {
-  const params = new URLSearchParams();
-  if (lane !== "all") {
-    params.set("lane", lane);
+const FIXED_CATEGORY_ICONS: Record<string, typeof Inbox> = {
+  conversation: MessagesSquare,
+  newsletter: Newspaper,
+  notification: Bell,
+  promotion: Megaphone,
+  spam: Ban,
+};
+
+function inboxTo(params: {
+  account: string | null;
+  category: string | null;
+  lane: string;
+}): string {
+  const search = new URLSearchParams();
+  if (params.lane !== "all") {
+    search.set("lane", params.lane);
   }
-  if (account) {
-    params.set("account", account);
+  if (params.account) {
+    search.set("account", params.account);
   }
-  const qs = params.toString();
+  if (params.category) {
+    search.set("category", params.category);
+  }
+  const qs = search.toString();
   return `/mdl/inbox${qs ? `?${qs}` : ""}`;
 }
 
@@ -54,15 +78,24 @@ function accountLabel(account: InboxAccount): string {
   );
 }
 
+function categoryIcon(slug: string) {
+  return FIXED_CATEGORY_ICONS[slug] ?? Tag;
+}
+
 export function InboxSidebarPanel() {
   const { t } = useTranslation("inbox");
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const lane = searchParams.get("lane") ?? "all";
   const account = searchParams.get("account");
+  const category = searchParams.get("category");
   const onSettings = location.pathname.startsWith("/mdl/inbox/settings");
   const accountsQuery = useInboxAccountsQuery();
+  const categoriesQuery = useInboxCategoriesQuery();
   const accounts = accountsQuery.data?.accounts ?? [];
+  const categoryItems: InboxCategoryItem[] = categoriesQuery.data
+    ? visibleInboxCategories(categoriesQuery.data)
+    : [];
 
   return (
     <>
@@ -75,7 +108,7 @@ export function InboxSidebarPanel() {
                 <SidebarRow isActive={active} key={key}>
                   <SidebarRowButton asChild isActive={active}>
                     <Link
-                      to={laneTo(key, account)}
+                      to={inboxTo({ account, category, lane: key })}
                       {...shellSecondaryNavItemProps}
                     >
                       <Icon className="size-4" />
@@ -85,6 +118,46 @@ export function InboxSidebarPanel() {
                 </SidebarRow>
               );
             })}
+          </SidebarNavList>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      {/* Category lanes are a second, independent axis: they combine with the
+          status lane rather than replacing it. Clicking the active one clears
+          it, so there is no separate "all categories" row. */}
+      <SidebarGroup>
+        <SidebarNavSectionLabel>
+          {t("sidebar.categories")}
+        </SidebarNavSectionLabel>
+        <SidebarGroupContent>
+          <SidebarNavList>
+            {categoriesQuery.isLoading ? (
+              <Skeleton className="mx-2 h-6" />
+            ) : (
+              categoryItems.map((item) => {
+                const Icon = categoryIcon(item.slug);
+                const active = !onSettings && category === item.slug;
+                return (
+                  <SidebarRow isActive={active} key={item.slug}>
+                    <SidebarRowButton asChild isActive={active}>
+                      <Link
+                        to={inboxTo({
+                          account,
+                          category: active ? null : item.slug,
+                          lane,
+                        })}
+                        {...shellSecondaryNavItemProps}
+                      >
+                        <Icon className="size-4" />
+                        <span>
+                          {getCategoryTitleLabel(item.slug, item.title, t)}
+                        </span>
+                      </Link>
+                    </SidebarRowButton>
+                  </SidebarRow>
+                );
+              })
+            )}
           </SidebarNavList>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -102,7 +175,11 @@ export function InboxSidebarPanel() {
                   <SidebarRow isActive={active} key={entry.connection_id}>
                     <SidebarRowButton asChild isActive={active}>
                       <Link
-                        to={laneTo(lane, active ? null : entry.connection_id)}
+                        to={inboxTo({
+                          account: active ? null : entry.connection_id,
+                          category,
+                          lane,
+                        })}
                         {...shellSecondaryNavItemProps}
                       >
                         <AtSign className="size-4" />

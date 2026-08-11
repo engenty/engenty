@@ -124,11 +124,64 @@ describe("computeUsageCost", () => {
         created_at: "2026-01-01T00:00:00Z",
       },
     });
-    // 1000 * 1_000_000 / 1_000_000 = 1000 ; 500 * 4_000_000 / 1_000_000 = 2000 ;
-    // 200 * 100_000 / 1_000_000 = 20 ; total = 3020.
-    expect(cost.cost_micros).toBe(3020);
+    // The 200 cached tokens are part of the 1000 input tokens, so only 800 are
+    // charged at the input rate: 800 * 1 = 800 ; cached 200 * 0.1 = 20 ;
+    // output 500 * 4 = 2000 ; total = 2820.
+    expect(cost.cost_micros).toBe(2820);
     expect(cost.pricing_version_id).toBe("p1");
     expect(cost.currency).toBe("usd");
+  });
+
+  it("prices a cache hit once, not twice", () => {
+    // Regression: charging the full input plus the cached read on top billed a
+    // 75%-cached prompt at ~1.7× its real price.
+    const pricing = {
+      id: "p1",
+      model_id: "m",
+      currency: "usd",
+      input_per_mtok_micros: 1_000_000,
+      output_per_mtok_micros: 4_000_000,
+      cached_input_per_mtok_micros: 100_000,
+      reasoning_per_mtok_micros: 4_000_000,
+      valid_from: "2026-01-01T00:00:00Z",
+      valid_to: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const uncached = computeUsageCost({
+      pricing,
+      tokens: { cached: 0, input: 1000, output: 0, reasoning: 0 },
+    });
+    const fullyCached = computeUsageCost({
+      pricing,
+      tokens: { cached: 1000, input: 1000, output: 0, reasoning: 0 },
+    });
+
+    expect(uncached.cost_micros).toBe(1000);
+    // A fully cached prompt costs the cached rate and nothing else.
+    expect(fullyCached.cost_micros).toBe(100);
+  });
+
+  it("does not charge reasoning on top of the output it is part of", () => {
+    const cost = computeUsageCost({
+      pricing: null,
+      tokens: { cached: 0, input: 0, output: 100, reasoning: 100 },
+    });
+    // Catalog rows price reasoning at the output rate, so an all-reasoning
+    // completion costs exactly what 100 output tokens cost.
+    expect(cost.cost_micros).toBe(
+      computeUsageCost({
+        pricing: null,
+        tokens: { cached: 0, input: 0, output: 100, reasoning: 0 },
+      }).cost_micros
+    );
+  });
+
+  it("never charges a negative amount when a slice exceeds its base", () => {
+    const cost = computeUsageCost({
+      pricing: null,
+      tokens: { cached: 5000, input: 100, output: 0, reasoning: 0 },
+    });
+    expect(cost.cost_micros).toBeGreaterThanOrEqual(0);
   });
 
   it("falls back to conservative rates when no pricing row is provided", () => {

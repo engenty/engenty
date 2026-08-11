@@ -98,6 +98,39 @@ describe("DurableAgUiConverter", () => {
     ).toEqual([]);
   });
 
+  it("separates the billed total from the window occupancy", () => {
+    // `finish` carries the sum across steps (what the run costs); each
+    // `step-finish` carries one step's own prompt (how full the window got).
+    // Reading the sum as occupancy reported a three-step turn as ~3× the
+    // context it filled.
+    const converter = new DurableAgUiConverter();
+    converter.convert({
+      payload: { output: { usage: { inputTokens: 30_000 } } },
+      type: "step-finish",
+    });
+    converter.convert({
+      payload: { output: { usage: { inputTokens: 33_000 } } },
+      type: "step-finish",
+    });
+    converter.convert({
+      payload: { usage: { inputTokens: 63_000, outputTokens: 300 } },
+      type: "finish",
+    });
+
+    expect(converter.totalUsage).toMatchObject({ inputTokens: 63_000 });
+    expect(converter.lastUsage).toMatchObject({ inputTokens: 33_000 });
+  });
+
+  it("falls back to the run aggregate when no step usage arrived", () => {
+    const converter = new DurableAgUiConverter();
+    converter.convert({
+      payload: { usage: { inputTokens: 12_000 } },
+      type: "finish",
+    });
+
+    expect(converter.lastUsage).toMatchObject({ inputTokens: 12_000 });
+  });
+
   it("emits CUSTOM sub_agent.progress for nested agent-execution-event chunks", () => {
     const events = run([
       // A sub-agent delegation tool call (`agent-*`) opens the delegation.

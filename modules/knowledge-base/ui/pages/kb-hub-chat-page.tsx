@@ -10,6 +10,7 @@ import {
   CopilotPanelContent,
   type CopilotRouteContext,
   EngentyAgent,
+  isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
   resolveEngentyAiServiceBaseUrl,
   type SubmitMessage,
@@ -305,6 +306,26 @@ function KbHubChatPageContent(props: {
     [sessionDetailQuery.data?.metadata]
   );
 
+  // The LIVE stream value wins while set. `requestDecision` SUSPENDS the run
+  // (apps/ai native-request-decision.ts), so the chooser exists only in the open
+  // interrupt — the tool call has no output for the transcript path to read, and
+  // the persisted thread metadata only catches up after a refetch. Same
+  // three-way resolution as the drawer (copilot-drawer-body.tsx) and the
+  // full-page copilot chat.
+  const resolvedOpenInterrupt = useMemo(() => {
+    const fromStream = session.openInterruptFromStream;
+    if (fromStream && !isAgUiOpenInterruptExpired(fromStream)) {
+      return fromStream;
+    }
+    if (
+      openInterruptFromSession &&
+      !isAgUiOpenInterruptExpired(openInterruptFromSession)
+    ) {
+      return openInterruptFromSession;
+    }
+    return null;
+  }, [session.openInterruptFromStream, openInterruptFromSession]);
+
   useEffect(() => {
     if (hubLaunchKeyRef.current === hubLaunchKey) {
       return;
@@ -446,6 +467,7 @@ function KbHubChatPageContent(props: {
         artifactLoadFailedLabel={tc("copilot.artifactLoadFailed")}
         attachLabel={tc("copilot.position.sidebar")}
         autoScrollKey={session.activeThreadId ?? session.threadResetKey}
+        awaitingInterrupt={session.awaitingInterrupt}
         bodyOnly
         cancelLabel={tc("copilot.cancel")}
         closeLabel={tc("copilot.position.heading")}
@@ -480,10 +502,14 @@ function KbHubChatPageContent(props: {
         }}
         onPanelModeChange={() => {}}
         onStop={session.cancel}
+        openInterrupt={resolvedOpenInterrupt}
+        optimisticInterruptResults={session.optimisticInterruptResults}
         panelMode="docked"
+        pendingInterruptToolCallIds={session.pendingInterruptToolCallIds}
         pendingUserInsertIndex={session.pendingUserInsertIndex}
         pendingUserText={session.pendingUserText}
         positionMenu={<div aria-hidden className="hidden" />}
+        respond={session.respond}
         reviewPromptLabel={tc("copilot.reviewPrompt")}
         selectedCountLabel={tc("copilot.selected")}
         selectedSuggestions={{}}

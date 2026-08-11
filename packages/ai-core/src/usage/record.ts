@@ -38,7 +38,18 @@ export interface ResolvedUsageCost {
   reasoning_per_mtok_micros: number;
 }
 
-/** Compute snapshot cost from token counts and a pricing record (or fallback rates). */
+/**
+ * Compute snapshot cost from token counts and a pricing record (or fallback rates).
+ *
+ * `cached` and `reasoning` are SLICES, not extra dimensions: the AI SDK reports
+ * `inputTokenDetails.cacheReadTokens` as the cached part of `inputTokens`, and
+ * `outputTokenDetails.reasoningTokens` as the reasoning part of `outputTokens`.
+ * So each slice is priced at its own rate and REMOVED from the base dimension —
+ * charging the full input plus the cached read on top billed every cache hit
+ * twice, which on a cache-heavy chat (75% hit rate is normal) is most of the
+ * prompt. Catalog rows set the reasoning rate equal to the output rate, so the
+ * output side is unchanged by this split unless a model prices reasoning apart.
+ */
 export function computeUsageCost(params: {
   tokens: { input: number; output: number; cached: number; reasoning: number };
   pricing: ModelPricingRecord | null;
@@ -57,11 +68,21 @@ export function computeUsageCost(params: {
     pricing?.reasoning_per_mtok_micros ??
     FALLBACK_MODEL_PRICING.reasoning_per_mtok_micros;
 
+  // Clamped: a provider that reports a slice larger than its base dimension
+  // must not produce a negative charge.
+  const cachedTokens = Math.min(params.tokens.cached, params.tokens.input);
+  const freshInput = Math.max(0, params.tokens.input - cachedTokens);
+  const reasoningTokens = Math.min(
+    params.tokens.reasoning,
+    params.tokens.output
+  );
+  const textOutput = Math.max(0, params.tokens.output - reasoningTokens);
+
   const cost =
-    costFor(params.tokens.input, inputRate) +
-    costFor(params.tokens.output, outputRate) +
-    costFor(params.tokens.cached, cachedRate) +
-    costFor(params.tokens.reasoning, reasoningRate);
+    costFor(freshInput, inputRate) +
+    costFor(cachedTokens, cachedRate) +
+    costFor(textOutput, outputRate) +
+    costFor(reasoningTokens, reasoningRate);
 
   return {
     cost_micros: cost,

@@ -8,13 +8,23 @@ export interface ThreadUsageTotals {
   reasoning_tokens: number;
 }
 
+/**
+ * Every token the thread moved: input + output.
+ *
+ * `cached_tokens` and `reasoning_tokens` are NOT added. They are breakdowns,
+ * not extra dimensions — the AI SDK reports `inputTokenDetails.cacheReadTokens`
+ * as the cached SLICE of `inputTokens`, and `outputTokenDetails.reasoningTokens`
+ * as the reasoning slice of `outputTokens`. Adding them counted a large part of
+ * a cache-heavy thread twice and made the composer's headline read up to ~2×
+ * the tokens the thread actually used.
+ */
 export function sumThreadUsageTokens(usage: ThreadUsageTotals): number {
-  return (
-    usage.input_tokens +
-    usage.output_tokens +
-    usage.cached_tokens +
-    usage.reasoning_tokens
-  );
+  return usage.input_tokens + usage.output_tokens;
+}
+
+/** The part of `input_tokens` that was NOT served from the prompt cache. */
+export function freshInputTokens(usage: ThreadUsageTotals): number {
+  return Math.max(0, usage.input_tokens - usage.cached_tokens);
 }
 
 /** USD micros → display string (4 decimal places for sub-cent chat costs). */

@@ -822,7 +822,10 @@ describe("dynamic AI registry", () => {
     expect(agent.config.tools).toHaveProperty("engenty_tools_modules");
     expect(agent.config.tools).toHaveProperty("engenty_tools_search");
     expect(agent.config.tools).toHaveProperty("engenty_tool_execute");
-    expect(agent.config.tools).toHaveProperty("vault_list_files");
+    // One combined `vault_files` (action discriminator), not the five granular
+    // vault tools: schemas ride in every model call and vault IO is rare.
+    expect(agent.config.tools).toHaveProperty("vault_files");
+    expect(agent.config.tools).not.toHaveProperty("vault_list_files");
     expect(agent.config.agents.engenty_cli.config.tools).toHaveProperty(
       "engenty_tools_search"
     );

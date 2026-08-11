@@ -11,10 +11,11 @@ When you generate a **document the user will read, review, or iterate on** — m
 
 | Tool | Role |
 | --- | --- |
-| `artifact_create` | `{ type: "markdown" \| "html" \| "table", title, content }` → `{ artifact_id, version }`; panel opens |
-| `artifact_update` | `{ artifact_id, content, expected_version, summary }` — on `version_conflict`, `artifact_get` then retry with `current_version` |
+| `artifact_write` (create) | `{ type: "markdown" \| "html" \| "table", title, content }` → `{ artifact_id, version }`; panel opens |
+| `artifact_write` (update) | `{ artifact_id, content, expected_version, summary }` — on `version_conflict`, `artifact_read` then retry with `current_version` |
+| `artifact_write` (store) | add `store_to: { scope_type, scope_id }` to keep it on a task/project/goal |
+| `artifact_read` | `{ artifact_id }` reads one; no id lists this chat's artifacts |
 | `show_artifact` | Frontend — bring an artifact back into view |
-| `artifact_get` / `artifact_list` | Read one / list this chat's artifacts |
 
 Prefer an artifact over pasting a long document into chat, and over sandbox-write + `offer_file_downloads`, whenever the deliverable is meant to be **seen, read, or edited in the app**.
 

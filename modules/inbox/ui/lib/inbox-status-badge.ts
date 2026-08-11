@@ -6,12 +6,12 @@ export const INBOX_STATUS_BADGE_VARIANT: Record<
 > = {
   archived: "outline",
   new: "default",
-  processed: "secondary",
-  triaged: "secondary",
+  read: "secondary",
 };
 
-export function isInboxStatusUnhandled(
+/** Unread on the synced copy — classic mailbox "new". */
+export function isInboxStatusUnread(
   status: InboxMessageStatus | null | undefined
 ): boolean {
-  return status === "new" || status === "triaged";
+  return status === "new";
 }

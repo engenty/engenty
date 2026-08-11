@@ -110,6 +110,13 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
   },
   {
     declaredBy: null,
+    defaultModelId: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    label: "Classifier",
+    role: "classifier",
+    surface: "fixed",
+  },
+  {
+    declaredBy: null,
     defaultModelId: DEFAULT_AI_SAFEGUARD_MODEL_ID,
     label: "Safeguard",
     role: "safeguard",
@@ -139,6 +146,8 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
 export const PURPOSE_TO_ROLE: Readonly<Record<string, string>> = {
   chat: "model.medium",
   routing: "router",
+  // Dedicated fixed role — not model.low (graded chat effort is a different job).
+  classifier: "classifier",
   research: "research",
   planning_coding: "planning_coding",
   safeguard: "safeguard",
@@ -183,6 +192,7 @@ const ROLE_ENV_KEYS: Readonly<Record<string, readonly string[]>> = {
   "model.medium": ["AI_CHAT_MODEL"],
   "model.high": ["AI_CHAT_MODEL"],
   router: ["AI_ROUTING_MODEL"],
+  classifier: ["AI_CLASSIFIER_MODEL"],
   safeguard: ["AI_SAFEGUARD_MODEL"],
   planning_coding: ["AI_PLANNING_CODING_MODEL"],
   research: ["AI_RESEARCH_MODEL"],

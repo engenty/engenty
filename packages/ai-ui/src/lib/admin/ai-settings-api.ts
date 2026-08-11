@@ -28,7 +28,7 @@ export interface AiConfig {
   caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
   /**
-   * @deprecated No runtime consumer; kept parse-tolerant for old stored blobs.
+   * Fast single-shot classification (inbox lanes / attachment triage).
    */
   classifier_model_id?: string | null;
   /** Routing / supervisor model (`coordinator_model_id` in stored JSON for legacy compat). */
@@ -53,7 +53,6 @@ export const DEFAULT_CHAT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
 /** @deprecated Use {@link DEFAULT_ROUTING_MODEL}. */
 export const DEFAULT_COORDINATOR_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
 export const DEFAULT_ROUTING_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
-/** @deprecated Classifier is retired; kept for import compatibility. */
 export const DEFAULT_CLASSIFIER_MODEL = DEFAULT_AI_CLASSIFIER_MODEL_ID;
 
 /** API may return wrapped { ok, data: { name, type, value } } or legacy { name, type, value }. */
@@ -106,6 +105,7 @@ export async function saveAiConfig(config: AiConfig): Promise<void> {
         research_model_id: config.research_model_id ?? null,
         planning_coding_model_id: config.planning_coding_model_id ?? null,
         safeguard_model_id: config.safeguard_model_id ?? null,
+        classifier_model_id: config.classifier_model_id ?? null,
         doc_converter: config.doc_converter ?? null,
         realtime_voice: config.realtime_voice ?? null,
         caps: config.caps ?? null,

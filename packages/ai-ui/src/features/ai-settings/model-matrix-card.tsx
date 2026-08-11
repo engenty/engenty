@@ -17,6 +17,7 @@ type ModelField = Extract<
   keyof AiConfig,
   | "chat_model_id"
   | "coordinator_model_id"
+  | "classifier_model_id"
   | "research_model_id"
   | "planning_coding_model_id"
   | "safeguard_model_id"
@@ -32,6 +33,7 @@ interface PurposeRow {
 const PURPOSE_ROWS: PurposeRow[] = [
   { purpose: "chat", field: "chat_model_id", options: "chat" },
   { purpose: "routing", field: "coordinator_model_id", options: "routing" },
+  { purpose: "classifier", field: "classifier_model_id", options: "routing" },
   { purpose: "research", field: "research_model_id", options: "chat" },
   {
     purpose: "planning_coding",

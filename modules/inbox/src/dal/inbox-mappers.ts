@@ -1,10 +1,14 @@
 import type { InboundMessage } from "@engenty/connections-sdk";
 import type {
   InboxAttachmentMeta,
+  InboxDigestParticipant,
   InboxMessage,
+  InboxMessageCategory,
+  InboxMessageDigest,
   InboxMessageStatus,
   InboxSyncState,
   InboxThread,
+  InboxThreadDigest,
 } from "../schema/types.js";
 
 const SNIPPET_LENGTH = 200;
@@ -31,6 +35,7 @@ export function rowToThread(row: Record<string, unknown>): InboxThread {
 
 export function rowToMessage(row: Record<string, unknown>): InboxMessage {
   return {
+    ai_category: (row.ai_category as InboxMessageCategory | null) ?? null,
     attachments_json: Array.isArray(row.attachments_json)
       ? (row.attachments_json as InboxAttachmentMeta[])
       : [],
@@ -115,4 +120,44 @@ export function mergeParticipants(
     }
   }
   return Array.from(seen);
+}
+
+export function rowToMessageDigest(
+  row: Record<string, unknown>
+): InboxMessageDigest {
+  return {
+    attachments_json: Array.isArray(row.attachments_json)
+      ? (row.attachments_json as InboxAttachmentMeta[])
+      : [],
+    category: (row.category as InboxMessageCategory) ?? "conversation",
+    content_md: String(row.content_md ?? ""),
+    created_at: String(row.created_at),
+    digest_version: Number(row.digest_version ?? 1),
+    message_id: String(row.message_id),
+    model_id: (row.model_id as string | null) ?? null,
+    thread_id: String(row.thread_id),
+    updated_at: String(row.updated_at),
+  };
+}
+
+export function rowToThreadDigest(
+  row: Record<string, unknown>
+): InboxThreadDigest {
+  return {
+    category: (row.category as InboxMessageCategory) ?? "conversation",
+    created_at: String(row.created_at),
+    digest_version: Number(row.digest_version ?? 1),
+    last_message_id: (row.last_message_id as string | null) ?? null,
+    model_id: (row.model_id as string | null) ?? null,
+    participants_json: Array.isArray(row.participants_json)
+      ? (row.participants_json as InboxDigestParticipant[])
+      : [],
+    suggested_actions: Array.isArray(row.suggested_actions)
+      ? (row.suggested_actions as string[])
+      : [],
+    summarized_message_count: Number(row.summarized_message_count ?? 0),
+    summary_md: String(row.summary_md ?? ""),
+    thread_id: String(row.thread_id),
+    updated_at: String(row.updated_at),
+  };
 }

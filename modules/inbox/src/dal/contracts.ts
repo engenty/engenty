@@ -1,9 +1,12 @@
 import type { InboundMessage } from "@engenty/connections-sdk";
 import type {
   InboxMessage,
+  InboxMessageCategory,
+  InboxMessageDigest,
   InboxMessageStatus,
   InboxSyncState,
   InboxThread,
+  InboxThreadDigest,
   InboxThreadsListParams,
   InboxThreadsListResult,
 } from "../schema/types.js";
@@ -32,9 +35,29 @@ export interface InboxUpsertResult {
 }
 
 export interface InboxRepo {
+  digests: {
+    getThreadDigest(threadId: string): Promise<InboxThreadDigest | null>;
+    listMessageDigests(threadId: string): Promise<InboxMessageDigest[]>;
+    upsertMessageDigest(
+      digest: Omit<InboxMessageDigest, "created_at" | "updated_at"> & {
+        owner_user_id: string | null;
+      }
+    ): Promise<InboxMessageDigest>;
+    upsertThreadDigest(
+      digest: Omit<InboxThreadDigest, "created_at" | "updated_at"> & {
+        owner_user_id: string | null;
+      }
+    ): Promise<InboxThreadDigest>;
+  };
   messages: {
+    countUnclassified(): Promise<number>;
     getById(id: string): Promise<InboxMessage | null>;
     listByThread(threadId: string): Promise<InboxMessage[]>;
+    /** Messages without an `ai_category` yet, newest first. */
+    listUnclassified(limit: number): Promise<InboxMessage[]>;
+    setCategories(
+      categories: Map<string, InboxMessageCategory>
+    ): Promise<number>;
     setStatus(
       ids: string[],
       status: InboxMessageStatus,

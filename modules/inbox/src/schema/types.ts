@@ -1,4 +1,5 @@
-export type InboxMessageStatus = "new" | "triaged" | "processed" | "archived";
+/** Classic mailbox state on the synced copy (not provider labels). */
+export type InboxMessageStatus = "new" | "read" | "archived";
 
 export interface InboxAttachmentMeta {
   attachment_id: string | null;
@@ -24,6 +25,8 @@ export interface InboxThread {
 }
 
 export interface InboxMessage {
+  /** Digest/classifier category; null until the message has been classified. */
+  ai_category: InboxMessageCategory | null;
   attachments_json: InboxAttachmentMeta[];
   body_html: string | null;
   body_text: string | null;
@@ -68,6 +71,7 @@ export interface InboxSyncState {
 }
 
 export interface InboxThreadListItem extends InboxThread {
+  latest_category: InboxMessageCategory | null;
   /** Snippet + status of the latest message, for the list rows. */
   latest_from_email: string | null;
   latest_from_name: string | null;
@@ -77,6 +81,7 @@ export interface InboxThreadListItem extends InboxThread {
 }
 
 export interface InboxThreadsListParams {
+  category?: InboxMessageCategory;
   connection_id?: string;
   limit?: number;
   offset?: number;
@@ -91,6 +96,60 @@ export interface InboxThreadsListResult {
 export interface InboxThreadDetail {
   messages: InboxMessage[];
   thread: InboxThread;
+}
+
+/**
+ * What kind of mail a message is. Fixed defaults live in `categories.ts`;
+ * tenants may add custom slugs via `inbox.categories` settings. Stored as
+ * free text on `messages.ai_category` (no DB enum).
+ */
+export type InboxMessageCategory = string;
+
+/** One message reduced to its substance for the optimized thread view. */
+export interface InboxMessageDigest {
+  /** Attachments that survived triage (real documents/images only). */
+  attachments_json: InboxAttachmentMeta[];
+  category: InboxMessageCategory;
+  /** The message body stripped to content (markdown). */
+  content_md: string;
+  created_at: string;
+  digest_version: number;
+  message_id: string;
+  model_id: string | null;
+  thread_id: string;
+  updated_at: string;
+}
+
+export interface InboxDigestParticipant {
+  email: string;
+  name: string | null;
+  /** Short inferred role, e.g. "customer", "agency", "cc'd colleague". */
+  role: string | null;
+}
+
+/** Thread-level status summary for the optimized view header. */
+export interface InboxThreadDigest {
+  /** The thread's dominant category (from its messages). */
+  category: InboxMessageCategory;
+  created_at: string;
+  digest_version: number;
+  last_message_id: string | null;
+  model_id: string | null;
+  participants_json: InboxDigestParticipant[];
+  /** Up to 3 next actions, phrased as instructions for the thread chat. */
+  suggested_actions: string[];
+  summarized_message_count: number;
+  summary_md: string;
+  thread_id: string;
+  updated_at: string;
+}
+
+export interface InboxThreadDigestResult {
+  /** Derived from the message digests — available without a summary. */
+  category: InboxMessageCategory;
+  messages: InboxMessageDigest[];
+  /** Null unless a summary was asked for: summaries are opt-in, not automatic. */
+  thread: InboxThreadDigest | null;
 }
 
 /** One connected mail account (a connection) as shown in the inbox UI. */

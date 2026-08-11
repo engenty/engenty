@@ -648,8 +648,7 @@
     },
     "typeMessage": "Type a message…",
     "usage": {
-      "empty": "0 tokens",
-      "loading": "Loading usage…"
+      "tokens": "{{value}} tokens"
     },
     "voiceInput": {
       "start": "Start voice input",

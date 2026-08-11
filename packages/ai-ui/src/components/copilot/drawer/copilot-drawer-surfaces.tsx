@@ -366,7 +366,12 @@ export function CopilotDrawerSurfaceTree({
     const bottomContent = (
       <div
         aria-label="Copilot dock"
-        className="absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-visible px-3 pt-12 pb-4"
+        // The dock centres on the main content area. A page whose content is
+        // split (a list pane beside a detail pane) can set
+        // `--copilot-dock-inset-left` to the width it wants excluded, so the
+        // dock centres on the part being worked in rather than the whole page.
+        // Ignored below `md`, where such pages show one pane at a time.
+        className="absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-visible px-3 pt-12 pb-4 md:left-[var(--copilot-dock-inset-left,0px)]"
         data-copilot-speech-scope
         key={`bottom:${surfaceInstanceKey}`}
         role="region"
