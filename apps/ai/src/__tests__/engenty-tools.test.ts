@@ -104,6 +104,7 @@ function createTestClient(
   return {
     ok: true,
     client: {
+      decideApproval: async () => ({}),
       describeTool: async () => contactsListContract,
       getWorkspaceContext: async () => defaultWorkspaceContext,
       invokeTool: async <_TInput, TResult>() => ({}) as TResult,

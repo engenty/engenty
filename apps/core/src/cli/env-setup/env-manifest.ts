@@ -119,18 +119,6 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "Registers the agent escalation policy: an agent-driven operation whose required capabilities fall outside the agent's role grants ∪ its goal grants escalates to approval instead of running. Ship it on — the 2026-08-03 audit found this policy cited as a governing gate while being registered nowhere, so agent runs were left to the blanket escalation alone. Set to anything but `true` only to debug that policy.",
-    exampleValue: "true",
-    group: "API security",
-    key: "ENGENTY_AGENT_ESCALATION",
-    obtain: { kind: "manual" },
-    required: "optional",
-    scopes: ["root", "deploy"],
-    secret: false,
-  },
-
-  {
-    description:
       "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>` from `engenty service-token create --name ai-service`. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_SECRET",

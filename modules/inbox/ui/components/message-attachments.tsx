@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { InboxAttachmentMeta } from "../api.js";
 import { getInboxAttachment } from "../api.js";
+import { withoutDecorationAttachments } from "../lib/attachment-decoration.js";
 import { isImageAttachment } from "../lib/is-image-attachment.js";
 import { openInboxAttachmentFile } from "../lib/open-inbox-attachment.js";
 import { inboxKeys, useInboxAttachmentQuery } from "../queries.js";
@@ -168,19 +169,27 @@ function FileAttachmentBadge({
 
 export function MessageAttachments({
   attachments,
+  hideDecoration = true,
   messageId,
 }: {
   attachments: InboxAttachmentMeta[];
+  /** Drop signature logos / social icons (default). */
+  hideDecoration?: boolean;
   messageId: string;
 }) {
-  const imageAttachments = attachments.filter(isImageAttachment);
-  const fileAttachments = attachments.filter(
+  const visible = useMemo(
+    () =>
+      hideDecoration ? withoutDecorationAttachments(attachments) : attachments,
+    [attachments, hideDecoration]
+  );
+  const imageAttachments = visible.filter(isImageAttachment);
+  const fileAttachments = visible.filter(
     (attachment) => !isImageAttachment(attachment)
   );
   const { openAttachment, openingId } = useOpenInboxAttachment(messageId);
   const [zoomed, setZoomed] = useState<LightboxTarget | null>(null);
 
-  if (attachments.length === 0) {
+  if (visible.length === 0) {
     return null;
   }
 

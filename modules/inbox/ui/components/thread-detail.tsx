@@ -14,6 +14,7 @@ import {
 import { MailOpen, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { InboxMessage, InboxThreadDetail } from "../api.js";
+import { useAutoMarkThreadRead } from "../hooks/use-auto-mark-thread-read.js";
 import { INBOX_STATUS_BADGE_VARIANT } from "../lib/inbox-status-badge.js";
 import {
   useInboxAccountsQuery,
@@ -73,6 +74,7 @@ export function ThreadDetail({
   const refresh = useRefreshThreadDigestMutation();
   const digest = useInboxThreadDigestQuery(threadId, false).data;
   const [viewMode, setViewMode] = useState<ThreadViewMode>(readStoredViewMode);
+  useAutoMarkThreadRead(threadId, threadQuery.data);
   const accountEmailByConnection = useMemo(() => {
     const map = new Map<string, string>();
     for (const account of accountsQuery.data?.accounts ?? []) {

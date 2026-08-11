@@ -2,6 +2,10 @@ import { MessageResponse } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Card, cn } from "@engenty/ui-core";
 import type { InboxMessage, InboxMessageDigest } from "../api.js";
+import {
+  isUselessDigestContent,
+  normalizeDigestMarkdown,
+} from "../lib/digest-markdown.js";
 import { formatInboxRelativeTime } from "../lib/format-relative-time.js";
 import { CategoryTag } from "./category-tag.js";
 import { EmailMessageBody } from "./email-message-body.js";
@@ -46,7 +50,12 @@ export function DigestMessageRow({
 }) {
   const { i18n } = useTranslation("inbox");
   const senderKey = message.from_email ?? message.from_name ?? "?";
-  const content = digest?.content_md.trim();
+  const rawContent = normalizeDigestMarkdown(digest?.content_md ?? "");
+  // Stale/broken digests (e.g. model returned "...") — show the original until
+  // a refresh regenerates a usable bubble.
+  const content =
+    rawContent && !isUselessDigestContent(rawContent) ? rawContent : "";
+  const showOriginal = pending || !content;
   return (
     <div className={cn("flex gap-2.5", own && "flex-row-reverse")}>
       <span
@@ -83,11 +92,7 @@ export function DigestMessageRow({
             <CategoryTag category={digest.category} />
           ) : null}
         </div>
-        {content && !pending ? (
-          <div className={DIGEST_PROSE_CLASSES}>
-            <MessageResponse>{content}</MessageResponse>
-          </div>
-        ) : (
+        {showOriginal ? (
           <div className="mt-1">
             <EmailMessageBody message={message} />
             {message.attachments_json.length > 0 ? (
@@ -97,8 +102,12 @@ export function DigestMessageRow({
               />
             ) : null}
           </div>
+        ) : (
+          <div className={DIGEST_PROSE_CLASSES}>
+            <MessageResponse>{content}</MessageResponse>
+          </div>
         )}
-        {digest && !pending && digest.attachments_json.length > 0 ? (
+        {digest && !showOriginal && digest.attachments_json.length > 0 ? (
           <MessageAttachments
             attachments={digest.attachments_json}
             messageId={message.id}

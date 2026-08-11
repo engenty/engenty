@@ -346,6 +346,21 @@ export class EngentyCoreClient {
     );
   }
 
+  /**
+   * Answer an approval request core filed when it returned 202. Exposed as its
+   * own method rather than raw `request` so the tools port stays a list of
+   * intentional operations.
+   */
+  decideApproval(
+    requestId: string,
+    body: { decision: "allow_once" | "allow_policy"; subject_id?: string }
+  ) {
+    return this.request<unknown>(
+      `/api/security/approvals/${encodeURIComponent(requestId)}/decision`,
+      { body: JSON.stringify(body), method: "POST" }
+    );
+  }
+
   async getWorkspaceContext(): Promise<EngentyWorkspaceContext> {
     const token = this.options.accessToken;
     const cached = workspaceContextCache.get(token);

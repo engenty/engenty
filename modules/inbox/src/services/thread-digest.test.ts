@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { isLikelyDecorationAttachment } from "../lib/attachment-decoration.js";
+import {
+  isUselessDigestContent,
+  normalizeDigestMarkdown,
+  shouldFallbackToExtractedBody,
+  unescapeDigestEscapes,
+} from "../lib/digest-markdown.js";
 import type { InboxAttachmentMeta, InboxMessage } from "../schema/types.js";
 import {
   coerceMessageDigestOutput,
   dominantCategory,
   extractLatestBodyText,
   htmlToPromptMarkdown,
-  isLikelyDecorationAttachment,
-  normalizeDigestMarkdown,
+  parseJsonFromModelText,
 } from "./thread-digest.js";
 
 function makeAttachment(
@@ -94,14 +100,38 @@ describe("isLikelyDecorationAttachment", () => {
     });
     expect(isLikelyDecorationAttachment(photo)).toBe(false);
   });
+
+  it("drops social / QR filenames even without a content_id", () => {
+    expect(
+      isLikelyDecorationAttachment(
+        makeAttachment({
+          content_id: null,
+          filename: "you_9e0ce020.png",
+          mime_type: "image/png",
+          size: 2941,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLikelyDecorationAttachment(
+        makeAttachment({
+          content_id: null,
+          filename: "QR551c05de.png",
+          mime_type: "image/png",
+          size: 3368,
+        })
+      )
+    ).toBe(true);
+  });
 });
 
 describe("extractLatestBodyText", () => {
-  it("strips quoted history and tags from html bodies, keeping links", () => {
+  it("keeps only the latest reply — drops in-thread gmail quotes", () => {
     const message = makeMessage({
       body_html:
         '<div><p>Please check the <a href="https://example.com/page">page</a>.</p></div>' +
         '<div class="gmail_quote">On Tue, someone wrote: old stuff</div>',
+      subject: "Re: page",
     });
     const text = extractLatestBodyText(message);
     expect(text).toContain("Please check the");
@@ -109,14 +139,29 @@ describe("extractLatestBodyText", () => {
     expect(text).not.toContain("old stuff");
   });
 
-  it("strips quoted history from plain-text bodies", () => {
+  it("drops plain-text quoted reply history in a thread", () => {
     const message = makeMessage({
       body_text:
         "Danke, das passt so — wir melden uns nächste Woche.\n\nAm 21.07.2026 um 09:00 schrieb Valentin Todt:\n> alte Nachricht",
+      subject: "AW: Erinnerungsbüro",
     });
     expect(extractLatestBodyText(message)).toBe(
       "Danke, das passt so — wir melden uns nächste Woche."
     );
+  });
+
+  it("keeps forwarded bodies as blockquotes on WG:/FW: subjects", () => {
+    const message = makeMessage({
+      body_html: [
+        "<p>Bitte siehe unten.</p>",
+        '<hr><div id="divRplyFwdMsg"><b>Von:</b> Samy<br>Hi, preload setzen.</div>',
+      ].join(""),
+      subject: "WG: Erinnerungsbüro Seite + iPads",
+    });
+    const text = extractLatestBodyText(message);
+    expect(text).toContain("Bitte siehe unten");
+    expect(text).toContain("> ");
+    expect(text).toContain("preload setzen");
   });
 });
 
@@ -182,6 +227,51 @@ describe("normalizeDigestMarkdown", () => {
   it("leaves well-formed lists untouched", () => {
     const good = "- Erster Punkt\n- Zweiter Punkt";
     expect(normalizeDigestMarkdown(good)).toBe(good);
+  });
+
+  it('turns literal \\n / \\" artifacts into real newlines and quotes', () => {
+    expect(
+      normalizeDigestMarkdown(
+        'Auf TDS war preload <audio preload =\\" metadata \\">\\ngesetzt\\n\\npreload=\\"none\\"'
+      )
+    ).toBe(
+      'Auf TDS war preload <audio preload =" metadata ">\ngesetzt\n\npreload="none"'
+    );
+  });
+});
+
+describe("isUselessDigestContent / shouldFallbackToExtractedBody", () => {
+  it("treats ellipsis stubs as useless", () => {
+    expect(isUselessDigestContent("...")).toBe(true);
+    expect(isUselessDigestContent("…")).toBe(true);
+    expect(isUselessDigestContent("")).toBe(true);
+    expect(isUselessDigestContent("Hi Matthias, bitte preload setzen.")).toBe(
+      false
+    );
+  });
+
+  it("falls back when the model collapsed a long body to a stub", () => {
+    const body = "x".repeat(200);
+    expect(shouldFallbackToExtractedBody("...", body)).toBe(true);
+    expect(shouldFallbackToExtractedBody("ok", body)).toBe(true);
+    expect(
+      shouldFallbackToExtractedBody("Bitte preload none setzen. Danke!", body)
+    ).toBe(false);
+  });
+});
+
+describe("parseJsonFromModelText", () => {
+  it("parses bare JSON and fenced blocks", () => {
+    expect(parseJsonFromModelText('{"a":1}')).toEqual({ a: 1 });
+    expect(
+      parseJsonFromModelText('Here you go:\n```json\n{"body":"hi"}\n```')
+    ).toEqual({ body: "hi" });
+  });
+});
+
+describe("unescapeDigestEscapes", () => {
+  it("is a no-op when there are no escape sequences", () => {
+    expect(unescapeDigestEscapes("hello\nworld")).toBe("hello\nworld");
   });
 });
 

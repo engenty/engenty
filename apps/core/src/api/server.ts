@@ -52,23 +52,6 @@ import { createSupabaseAuthProvider } from "../security/auth-provider.js";
 import { createGrantsService } from "../security/grants-service.js";
 import { registerAuthzRoutes } from "./routes/authz-routes.js";
 
-/**
- * Phase 4 agent escalation policy. Was written as opt-in "until apps/ai
- * forwards agent/goal ids" — apps/ai has forwarded them since
- * `core-http-client.ts:274-277`, and the flag was never turned on anywhere, so
- * the policy that `policy.ts` names as the gate governing agent runs was
- * registered in no deployment at all (audit 2026-08-03, AUTH-03). It now ships
- * on: `ENGENTY_AGENT_ESCALATION` is in the env manifest and defaults to `true`
- * in both compose files. Kept as a flag so a deployment can still disable it
- * deliberately.
- */
-function isAgentEscalationEnabled(config: Record<string, unknown>): boolean {
-  return (
-    config.agentEscalationEnabled === true ||
-    process.env.ENGENTY_AGENT_ESCALATION === "true"
-  );
-}
-
 /** Service-role client for core's own tables (goal grants, approval store). */
 function createCoreServiceClient(config: Record<string, unknown>) {
   const client = createDatabaseAdapter(config);
@@ -289,36 +272,44 @@ export function createApiApp(params: CreateApiAppParams) {
     grants: grantsService,
   });
 
-  // Phase 4 — agent escalation-to-approval policy (goal-scoped). Registered
-  // behind a flag: inert until apps/ai forwards an agent/goal id. Default off so
-  // no behavior change until the AI service opts in.
-  if (isAgentEscalationEnabled(config)) {
-    const escalationClient = createCoreServiceClient(config);
-    const escalationPolicy = createAgentEscalationPolicy({
-      resolveAgentCapabilities: (agentId, tenantId) =>
-        grantsService
-          .resolveGrants({ kind: "agent", id: agentId }, tenantId)
-          .then((g) => g.capabilities),
-      listGoalGrantCapabilities: (tenantId, goalId, agentId) =>
-        listGoalGrantCapabilities(
-          getTenantDb?.({ tenantId }) ?? escalationClient,
-          {
-            tenantId,
-            goalId,
-            agentId,
-          }
-        ),
-    });
-    if (!params.registry.profilePolicies) {
-      params.registry.profilePolicies = [];
-    }
-    params.registry.profilePolicies.push({
-      pluginId: "core",
-      policy: escalationPolicy,
-      source: "core",
-      pluginConfig: {},
-    });
+  // Agent escalation-to-approval policy (goal-scoped): an agent-driven op whose
+  // required capabilities fall outside the agent's role grants ∪ its goal grants
+  // escalates to approval instead of running.
+  //
+  // Registered UNCONDITIONALLY. This was behind ENGENTY_AGENT_ESCALATION, which
+  // only the two compose files ever set — so any other way of running the images
+  // silently had no agent gating at all, and the flag's own history is the
+  // argument against it: written as opt-in "until apps/ai forwards agent/goal
+  // ids", never switched on, and the 2026-08-03 audit (AUTH-03) found the policy
+  // that `policy.ts` names as THE gate for agent runs registered in no
+  // deployment at all. A gate whose absent-default is fail-open, silently, is
+  // not a gate. To let a specific agent do more, widen its role grants — that is
+  // scoped, auditable, and per-tenant; disabling the control globally is not.
+  const escalationClient = createCoreServiceClient(config);
+  const escalationPolicy = createAgentEscalationPolicy({
+    resolveAgentCapabilities: (agentId, tenantId) =>
+      grantsService
+        .resolveGrants({ kind: "agent", id: agentId }, tenantId)
+        .then((g) => g.capabilities),
+    listGoalGrantCapabilities: (tenantId, goalId, agentId) =>
+      listGoalGrantCapabilities(
+        getTenantDb?.({ tenantId }) ?? escalationClient,
+        {
+          tenantId,
+          goalId,
+          agentId,
+        }
+      ),
+  });
+  if (!params.registry.profilePolicies) {
+    params.registry.profilePolicies = [];
   }
+  params.registry.profilePolicies.push({
+    pluginId: "core",
+    policy: escalationPolicy,
+    source: "core",
+    pluginConfig: {},
+  });
   const tenantPluginOverrides =
     params.tenantPluginOverrides ?? createTenantPluginOverridesDal(config);
   const securityAuditLog =

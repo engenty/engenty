@@ -125,5 +125,8 @@ export async function enqueueNotificationDispatch(
   ) {
     return;
   }
-  await queue.send(TEAM_CHAT_NOTIFICATION_QUEUE, dispatch);
+  // Spread, not the value itself: `send` takes `Record<string, unknown>`, and
+  // an interface gets no implicit index signature, so passing the dispatch
+  // directly does not typecheck. The spread's anonymous object type does.
+  await queue.send(TEAM_CHAT_NOTIFICATION_QUEUE, { ...dispatch });
 }

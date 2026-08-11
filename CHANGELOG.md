@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.125] - 2026-08-11
+- ADDED **[ai]** Implement core approval retry mechanism for user consent
+- FIXED **[inbox]** Harden conversation digests for Outlook mail
+- FIXED **[core]** Always register the agent escalation policy, and clear the red typecheck
+
 ## [0.1.124] - 2026-08-11
 - ADDED **[inbox]** Split the thread view into assistant zone, conversation footer and reply composer
 - ADDED **[inbox]** Update message statuses and add dnd-kit dependencies

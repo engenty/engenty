@@ -5,6 +5,7 @@ import type { InboxMessage } from "../api.js";
 import {
   splitQuotedEmailHtml,
   splitQuotedPlainText,
+  stripTrailingHtmlChrome,
 } from "../lib/email-reply-split.js";
 
 /**
@@ -25,7 +26,11 @@ export function EmailMessageBody({
   const parts = useMemo(() => {
     if (message.body_html) {
       const { latest, quoted } = splitQuotedEmailHtml(message.body_html);
-      return { kind: "html" as const, latest, quoted };
+      return {
+        kind: "html" as const,
+        latest: stripTrailingHtmlChrome(latest),
+        quoted,
+      };
     }
     if (message.body_text) {
       const { latest, quoted } = splitQuotedPlainText(message.body_text);

@@ -43,6 +43,11 @@ export interface NormalizedEngentyToolEntry {
 }
 
 export interface EngentyToolsClient {
+  /** Answer an approval request core filed alongside a 202 `approval_required`. */
+  decideApproval(
+    requestId: string,
+    body: { decision: "allow_once" | "allow_policy"; subject_id?: string }
+  ): Promise<unknown>;
   describeTool(toolId: string): Promise<EngentyToolContract>;
   getWorkspaceContext(): Promise<EngentyWorkspaceContext>;
   invokeTool<TInput, TResult>(toolId: string, input: TInput): Promise<TResult>;

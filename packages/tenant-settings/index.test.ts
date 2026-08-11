@@ -1,3 +1,4 @@
+import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import registerTenantSettingsPlugin, {
   registerTenantSettingsApi,
@@ -7,9 +8,11 @@ describe("registerTenantSettingsApi", () => {
   it("registers collection and per-name routes for /api/tenant-settings", () => {
     const registered: { method: string; path: string }[] = [];
     const server = {
-      registerHttpRoute: vi.fn((route: { method: string; path: string }) => {
+      // Typed as the real PluginHttpRoute returning the real receipt type: a
+      // narrower inline param is contravariantly incompatible with
+      // Pick<PluginServerApi, …>, and `void` is not the declared return.
+      registerHttpRoute: vi.fn((route: PluginHttpRoute): undefined => {
         registered.push({ method: route.method, path: route.path });
-        return;
       }),
     };
     const repo = {

@@ -1,12 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  Button,
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-  Skeleton,
-} from "@engenty/ui-core";
+import { Button, Skeleton } from "@engenty/ui-core";
 import { Sparkles } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -79,22 +72,45 @@ export function ThreadOptimizedView({
 
   if (digestQuery.isError && !digest) {
     return (
-      <div className="p-4">
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>{t("optimized.failedTitle")}</EmptyTitle>
-            <EmptyDescription className="break-words">
-              {String(digestQuery.error)}
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button
-            onClick={() => digestQuery.refetch()}
-            size="sm"
-            variant="outline"
-          >
-            {t("errors.retry")}
-          </Button>
-        </Empty>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="shrink-0 border-b bg-destructive/5 px-4 py-2">
+          <div className="mx-auto flex w-full max-w-[42rem] items-center gap-3">
+            <p className="min-w-0 flex-1 text-destructive text-sm">
+              {t("optimized.failedTitle")}
+            </p>
+            <Button
+              onClick={() => digestQuery.refetch()}
+              size="sm"
+              variant="outline"
+            >
+              {t("errors.retry")}
+            </Button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-[42rem] flex-col gap-4 p-4">
+            {detail.messages.map((message) => (
+              <DigestMessageRow
+                digest={undefined}
+                key={message.id}
+                message={message}
+                own={Boolean(
+                  message.from_email &&
+                    ownEmails.has(message.from_email.toLowerCase())
+                )}
+                pending
+              />
+            ))}
+          </div>
+        </div>
+        <ThreadConversationFooter
+          detail={detail}
+          mode={footerMode}
+          onAskCopilot={handOffToCopilot}
+          onModeChange={setFooterMode}
+          ownEmails={ownEmails}
+          subject={subject}
+        />
       </div>
     );
   }

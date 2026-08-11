@@ -1,7 +1,31 @@
 [
   {
+    "version": "v0.1.125",
+    "timestamp": 1786486188,
+    "commits": [
+      {
+        "id": "f6a0cac",
+        "message": "harden conversation digests for Outlook mail",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "57291fe",
+        "message": "implement core approval retry mechanism for user consent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "83c7c0a",
+        "message": "always register the agent escalation policy, and clear the red typecheck",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.124",
-    "timestamp": 1786465725,
+    "timestamp": 1786465728,
     "commits": [
       {
         "id": "6950a1b",

@@ -73,12 +73,13 @@ describe("evaluatePolicy", () => {
     // A working-tree change had widened the exemption to cover any
     // service-credential principal, agent or not, on the grounds that "the
     // agent escalation profile policy above" governs those runs instead. That
-    // policy is registered only behind ENGENTY_AGENT_ESCALATION, which was set
+    // policy was registered only behind ENGENTY_AGENT_ESCALATION, which was set
     // in no manifest and no compose file — so the replacement gate did not
     // exist in any deployment and the widening simply failed open.
     //
-    // Option A: keep this gate, and ship the flag on (env-manifest.ts +
-    // both deploy/docker-compose*.yaml) so the escalation policy is real too.
+    // Option A: keep this gate, and make the escalation policy real too. The
+    // flag has since been DELETED and that policy now registers
+    // unconditionally, precisely so it can never again be absent by default.
     // The approve → re-dispatch → 202 → blocked deadlock that motivated the
     // widening is a symptom of approvals living in three unsynced stores; it
     // gets fixed by the approval-store unification plan, NOT by deleting
@@ -123,7 +124,7 @@ describe("evaluatePolicy", () => {
     expect(decision.reason).toContain("module.tasks.write");
   });
 
-  describe("composed with the agent escalation policy (ENGENTY_AGENT_ESCALATION)", () => {
+  describe("composed with the agent escalation policy", () => {
     // Option A ships this policy registered. In isolation it is covered by
     // agent-escalation-policy.test.ts; what matters here is how the two gates
     // COMPOSE, because the AUTH-03 widening was justified by assuming this one

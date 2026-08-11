@@ -1,3 +1,4 @@
+import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { registerUserSettingsApi } from "./index.js";
 
@@ -9,23 +10,16 @@ describe("registerUserSettingsApi", () => {
       path: string;
     }[] = [];
     const server = {
-      registerHttpRoute: vi.fn(
-        (route: {
-          method: string;
-          operation?: {
-            operationId?: string;
-            requiredCapabilities?: string[];
-          };
-          path: string;
-        }) => {
-          registered.push({
-            method: route.method,
-            operation: route.operation,
-            path: route.path,
-          });
-          return;
-        }
-      ),
+      // Typed as the real PluginHttpRoute returning the real receipt type: a
+      // narrower inline param is contravariantly incompatible with
+      // Pick<PluginServerApi, …>, and `void` is not the declared return.
+      registerHttpRoute: vi.fn((route: PluginHttpRoute): undefined => {
+        registered.push({
+          method: route.method,
+          operation: route.operation,
+          path: route.path,
+        });
+      }),
     };
     const repo = {
       get: vi.fn(),

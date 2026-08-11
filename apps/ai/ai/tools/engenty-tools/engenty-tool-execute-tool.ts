@@ -177,6 +177,63 @@ function sandboxRequiresGrant(input: {
   );
 }
 
+/**
+ * Spend a consent the user already gave on the approval request core filed, then
+ * retry the invoke once.
+ *
+ * Two gates can fire for one operation: the AI pre-gate (contract
+ * `requiresApproval`) and core's own policy (escalation, connections). Each
+ * raised its own card, so a single `projects_create` asked the user twice — the
+ * pre-gate card, then core's 202 card — and answering the first bought nothing.
+ * Here the user has just answered the pre-gate card for THIS operation, so we
+ * decide core's request with that same answer instead of asking again.
+ *
+ * Deliberately narrow: same principal (the run's user token), same operation id,
+ * same turn, and core still records the decider and mints the grant, so nothing
+ * is bypassed — only the second question is. Returns null when there is no
+ * request id to decide or the retry still gates, letting the caller report a
+ * genuine policy mismatch.
+ */
+async function settleCoreApprovalAndRetry(params: {
+  choiceId?: string;
+  // The NARROWED client: `client.ok` is already checked before the try block
+  // whose catch calls this, but that narrowing does not survive into a helper.
+  client: Extract<ReturnType<typeof getCurrentEngentyToolsClient>, { ok: true }>;
+  err: EngentyCoreHttpError;
+  input: Record<string, unknown>;
+  operationId: string;
+}): Promise<{ data: unknown; ok: true } | null> {
+  const details = isRecord(params.err.details) ? params.err.details : {};
+  const approvalRequestId =
+    typeof details.approvalRequestId === "string"
+      ? details.approvalRequestId
+      : undefined;
+  if (!approvalRequestId) {
+    return null;
+  }
+  const ctx = getEngentyToolsRunContext();
+  // "Always (this chat)" elevates for the whole goal; "once" is spent on use.
+  // Same mapping the resume route uses, so both paths agree.
+  const always = params.choiceId === "approve_always";
+  try {
+    await params.client.client.decideApproval(approvalRequestId, {
+      decision: always ? "allow_policy" : "allow_once",
+      ...(always && ctx.goalId ? { subject_id: ctx.goalId } : {}),
+    });
+    const data = await params.client.client.invokeTool(
+      params.operationId,
+      params.input
+    );
+    return { data, ok: true };
+  } catch (retryErr) {
+    console.error(
+      `core approval settle+retry failed for ${params.operationId}`,
+      retryErr
+    );
+    return null;
+  }
+}
+
 function approvalDeniedResult(operationId: string) {
   return {
     ok: false as const,
@@ -349,6 +406,7 @@ export async function executeEngentyTool(
   // Grant context for the approval card (secrets_reveal only): captured out
   // here so the core-202 backstop in the catch block can carry it too.
   let gateSecretId: string | undefined;
+  let resolvedInputForRetry: Record<string, unknown> = {};
   try {
     const parsed = runInputSchema.parse(input);
     operationId = parsed.id;
@@ -412,6 +470,8 @@ export async function executeEngentyTool(
       });
     }
     const resolvedInput = injectRunContextFields(rawInput);
+    // Kept for the catch block's retry-after-settling-core path.
+    resolvedInputForRetry = resolvedInput;
     const data = await client.client.invokeTool(
       entry.tool.toolId,
       resolvedInput
@@ -430,8 +490,27 @@ export async function executeEngentyTool(
       operationId
     ) {
       if (resumedApproval?.approved) {
-        // The user just approved, yet core still gates — a policy mismatch, not
-        // something a re-prompt can fix. Surface it plainly.
+        // The user approved THIS operation moments ago (the AI pre-gate's card),
+        // and core is now gating the same operation for its own reason — the
+        // escalation policy, a connections policy. Two gates, one intent: asking
+        // again is asking the same question twice, which is exactly what the
+        // user saw in prod. Spend the consent that was already given on core's
+        // request and retry once. Not a bypass — same principal, same operation,
+        // same turn, and core still records who decided and mints the grant.
+        const retried = await settleCoreApprovalAndRetry({
+          client,
+          err,
+          input: resolvedInputForRetry,
+          operationId,
+          ...(resumedApproval.choice_id
+            ? { choiceId: resumedApproval.choice_id }
+            : {}),
+        });
+        if (retried) {
+          return retried;
+        }
+        // No request id to decide, or core gated again after the grant landed —
+        // a real policy mismatch a re-prompt cannot fix. Say so plainly.
         return approvalUnavailableResult(operationId);
       }
       if ((getEngentyToolsRunContext().approvalPolicy ?? "deny") === "defer") {

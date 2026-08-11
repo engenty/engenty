@@ -15,9 +15,9 @@
 // acting with no agent in the chain, which is unattended by definition and
 // would deadlock. An agent riding that service token still escalates: that is
 // the durable-approvals lane. Ahead of all of it, a registered profile policy
-// may decide first — the connections gate, and (since ENGENTY_AGENT_ESCALATION
-// ships on) the agent escalation policy, which escalates any operation whose
-// required capabilities fall outside the agent's role grants ∪ goal grants.
+// may decide first — the connections gate, and the agent escalation policy
+// (always registered), which escalates any operation whose required
+// capabilities fall outside the agent's role grants ∪ goal grants.
 // The pre-gate here is deliberately NARROWER than core's rule; when they
 // disagree, core's 202 wins. Keep this paragraph true — a 2026-08-03 audit
 // found it describing a rule the code no longer had.
@@ -187,9 +187,7 @@ export function parseToolApprovalGrantContext(
       return null;
     }
     return {
-      ...(approvalRequestId
-        ? { approval_request_id: approvalRequestId }
-        : {}),
+      ...(approvalRequestId ? { approval_request_id: approvalRequestId } : {}),
       ...(secretId ? { secret_id: secretId } : {}),
       ...(operationIds.length > 0 ? { operation_ids: operationIds } : {}),
     };

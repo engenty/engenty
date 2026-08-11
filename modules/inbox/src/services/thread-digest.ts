@@ -6,9 +6,17 @@
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { InboxRepo } from "../dal/contracts.js";
+import { isLikelyDecorationAttachment } from "../lib/attachment-decoration.js";
 import {
+  normalizeDigestMarkdown,
+  shouldFallbackToExtractedBody,
+} from "../lib/digest-markdown.js";
+import {
+  asMarkdownBlockquote,
   splitQuotedEmailHtml,
   splitQuotedPlainText,
+  stripTrailingHtmlChrome,
+  stripTrailingMailChrome,
 } from "../lib/email-reply-split.js";
 import {
   buildCategoryGuide,
@@ -32,59 +40,60 @@ export const CATEGORY_GUIDE = buildCategoryGuide(
   defaultInboxCategories().items
 );
 
-export const INBOX_DIGEST_VERSION = 7;
+export const INBOX_DIGEST_VERSION = 11;
 
 const MAX_BODY_CHARS = 12_000;
 const MAX_DIGEST_CHARS = 20_000;
-/** Inline/tiny images below this size are decoration unless the model objects. */
-const DECORATION_IMAGE_MAX_BYTES = 32 * 1024;
 
 /**
- * Deterministic pre-triage: obvious decoration never reaches the model.
- *
- * Signature logos, social icons and tracking pixels are small images the client
- * embedded inline (they carry a `content_id`); real pasted screenshots are
- * inline too but an order of magnitude larger — in observed mail 2–23 KB vs.
- * 55–250 KB. Matching the `cid:` reference in the body is not reliable (Gmail
- * rewrites ids), so inline + small is the rule.
- */
-export function isLikelyDecorationAttachment(
-  attachment: InboxAttachmentMeta
-): boolean {
-  const isImage = attachment.mime_type?.startsWith("image/") ?? false;
-  if (!isImage) {
-    return false;
-  }
-  const size = attachment.size ?? null;
-  const small = size === null || size <= DECORATION_IMAGE_MAX_BYTES;
-  if (attachment.content_id && small) {
-    return true;
-  }
-  if (small) {
-    const generatedName = /^(image\d*|logo\d*|icon\d*|banner\d*)\.\w+$/i;
-    const name = attachment.filename?.trim() ?? "";
-    if (!name || generatedName.test(name)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Latest (non-quoted) part of the body, as Markdown for the prompt. Structure
- * matters: the model is asked to preserve headings and lists, so it has to see
- * them in the first place.
+ * Conversation bubbles are a chat of *new* content. In-thread reply quotes
+ * ("Am … schrieb …") are dropped — those earlier messages already have their
+ * own bubbles. Real forwards (WG:/FW:/Fwd:) keep the forwarded body as a
+ * blockquote so content that never arrived as its own message is not lost.
  */
 export function extractLatestBodyText(message: InboxMessage): string {
+  const keepForward = isForwardSubject(message.subject);
   if (message.body_html) {
-    const { latest } = splitQuotedEmailHtml(message.body_html);
-    return htmlToPromptMarkdown(latest).slice(0, MAX_BODY_CHARS);
+    const { latest, quoted } = splitQuotedEmailHtml(message.body_html);
+    const latestMd = htmlToPromptMarkdown(stripTrailingHtmlChrome(latest));
+    if (keepForward && quoted) {
+      return joinLatestAndQuoted(latestMd, htmlToPromptMarkdown(quoted)).slice(
+        0,
+        MAX_BODY_CHARS
+      );
+    }
+    return stripTrailingMailChrome(latestMd).slice(0, MAX_BODY_CHARS);
   }
   if (message.body_text) {
-    const { latest } = splitQuotedPlainText(message.body_text);
-    return latest.slice(0, MAX_BODY_CHARS);
+    const { latest, quoted } = splitQuotedPlainText(message.body_text);
+    if (keepForward && quoted) {
+      return joinLatestAndQuoted(latest, quoted).slice(0, MAX_BODY_CHARS);
+    }
+    return stripTrailingMailChrome(latest).slice(0, MAX_BODY_CHARS);
   }
   return "";
+}
+
+/** Subject looks like a forward, not a plain reply. */
+export function isForwardSubject(subject: string | null | undefined): boolean {
+  if (!subject) {
+    return false;
+  }
+  return /^(?:(?:WG|FW|Fwd|FWD|Weitergeleitet|Transfert|TR)\s*:\s*)+/i.test(
+    subject.trim()
+  );
+}
+
+function joinLatestAndQuoted(latest: string, quoted: string): string {
+  const main = stripTrailingMailChrome(latest).trim();
+  const quotedBlock = asMarkdownBlockquote(stripTrailingMailChrome(quoted));
+  if (!quotedBlock) {
+    return main;
+  }
+  if (!main) {
+    return quotedBlock;
+  }
+  return `${main}\n\n${quotedBlock}`;
 }
 
 function decodeEntities(value: string): string {
@@ -191,18 +200,6 @@ export function htmlToPromptMarkdown(html: string): string {
   );
 }
 
-/**
- * A bullet whose text landed on the next line renders as an empty marker with
- * an orphaned paragraph. Applied to both the model's input and its output —
- * the model tends to mirror whatever structure it was handed.
- */
-export function normalizeDigestMarkdown(markdown: string): string {
-  return markdown
-    .replace(/^([ \t]*[-*])[ \t]*\n+(?=[ \t]*\S)/gm, "$1 ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 // Built with the plain `zod` instance — the operation schemas use
 // `@hono/zod-openapi`'s, and mixing the two breaks the AI SDK's JSON-Schema
 // conversion. Category is a free string constrained by the tenant allowlist
@@ -289,6 +286,63 @@ export function coerceMessageDigestOutput(
     keep_attachment_indexes,
   };
 }
+
+/** Pull a JSON value out of raw model text (fences, leading prose, etc.). */
+export function parseJsonFromModelText(text: string): unknown | null {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // continue
+  }
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+  if (fenced?.[1]) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch {
+      // continue
+    }
+  }
+  const start = trimmed.search(/[{[]/);
+  const endObj = trimmed.lastIndexOf("}");
+  const endArr = trimmed.lastIndexOf("]");
+  const end = Math.max(endObj, endArr);
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function repairMessageDigestFromErrorText(
+  text: string | undefined,
+  allowlist: readonly string[]
+): MessageDigestModelOutput | null {
+  if (!text?.trim()) {
+    return null;
+  }
+  return coerceMessageDigestOutput(parseJsonFromModelText(text), allowlist);
+}
+
+function deterministicMessageDigest(
+  message: InboxMessage,
+  body: string,
+  candidates: InboxAttachmentMeta[],
+  fallback: InboxMessageCategory
+): GeneratedMessageDigest {
+  return {
+    // Without the model we cannot triage — keep non-decoration candidates.
+    attachments: candidates,
+    category: message.ai_category ?? fallback,
+    content_md: normalizeDigestMarkdown(body).slice(0, MAX_DIGEST_CHARS),
+  };
+}
 const threadSummaryOutputSchema = z.object({
   participants: z.array(
     z.object({
@@ -358,25 +412,42 @@ export async function generateMessageDigest(
   if (!body.trim() && candidates.length === 0) {
     return { attachments: [], category: fallback, content_md: "" };
   }
-  const output = await runMessageDigestModel({
-    body,
-    candidates,
-    categoryItems,
-    message,
-    modelId,
-  });
+
+  let output: MessageDigestModelOutput | null = null;
+  try {
+    output = await runMessageDigestModel({
+      body,
+      candidates,
+      categoryItems,
+      message,
+      modelId,
+    });
+  } catch {
+    // Weak / overloaded models throw "No output generated" — never fail the
+    // conversation view for that; store the deterministic extract instead.
+    return deterministicMessageDigest(message, body, candidates, fallback);
+  }
+
   const keep = new Set(
     output.keep_attachment_indexes.filter(
       (index) => index >= 0 && index < candidates.length
     )
   );
+  let content_md = stripTrailingMailChrome(
+    normalizeDigestMarkdown(output.content_markdown)
+  ).slice(0, MAX_DIGEST_CHARS);
+  // Weak models sometimes return "..." or JSON-escaped stubs — keep the
+  // deterministic extract rather than an empty conversation bubble.
+  if (shouldFallbackToExtractedBody(content_md, body)) {
+    content_md = normalizeDigestMarkdown(body).slice(0, MAX_DIGEST_CHARS);
+  }
+  // Always re-strip: models often keep the brand block that sits *before* the
+  // legal disclaimer (Outlook HTML signatures).
+  content_md = stripTrailingMailChrome(content_md).slice(0, MAX_DIGEST_CHARS);
   return {
     attachments: candidates.filter((_, index) => keep.has(index)),
     category: output.category,
-    content_md: normalizeDigestMarkdown(output.content_markdown).slice(
-      0,
-      MAX_DIGEST_CHARS
-    ),
+    content_md,
   };
 }
 
@@ -402,9 +473,9 @@ async function runMessageDigestModel(input: {
     "Clean the message lightly — remove mail chrome, keep the writer's content and formatting intact.",
     "",
     "What to REMOVE (mail chrome only):",
-    '- Salutations and sign-offs ("Hi …,", "Best regards,", "Viele Grüße,", …).',
-    "- Signature blocks, contact footers, legal disclaimers, unsubscribe / tracking footers.",
-    "- Quoted earlier messages and reply chains (the body already excludes them when possible).",
+    '- Salutations and sign-offs ("Hi …,", "Best regards,", "Viele Grüße,", …) — optional; removing them is fine.',
+    '- EVERYTHING after the writer\'s sign-off and name: company brand lines (including spaced letters like "S A L Z …"), job title, postal address, phone, UID/DVR, social links, logos, and legal / confidentiality disclaimers.',
+    "- In-thread reply quotes are already removed from the Body — do not invent or restore them.",
     "",
     "What to KEEP (do not summarize, shorten, paraphrase, or rewrite):",
     "- Every substantive statement, question, request, date, name, number, and link.",
@@ -417,8 +488,15 @@ async function runMessageDigestModel(input: {
     "  · short paragraphs and line breaks that separate ideas — do NOT collapse the body into one dense paragraph",
     "  · topic labels the sender used to group points (e.g. `Magazin:`, `Archiv:`) become headings",
     "  · tables stay as Markdown tables when present",
+    "  · if the Body already contains a `>` blockquoted forward (WG:/FW: mail), keep that blockquote",
     "",
     "Prefer fidelity over neatness. If unsure whether something is substance or chrome, keep it.",
+    "",
+    "Hard rules for content_markdown:",
+    '- Never replace the body with "..." / "…" / "empty" / a single punctuation mark.',
+    "- Use real line breaks inside the JSON string — do NOT write the two characters \\n.",
+    '- Do NOT backslash-escape quotes inside Markdown (write preload="none", not preload=\\"none\\").',
+    "- Do not re-attach earlier replies from the same thread — this view is a chat of direct answers.",
     "",
     "Also pick which attachments are real content a human attached on purpose (documents, spreadsheets, real photos). Exclude signature logos, social-media icons, calendar/meeting boilerplate images, and decoration.",
     "",
@@ -448,23 +526,30 @@ async function runMessageDigestModel(input: {
       output: Output.object({ schema: outputSchema }),
       prompt,
     });
-    return output;
+    if (output) {
+      return output;
+    }
   } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error) && error.text) {
-      try {
-        const repaired = coerceMessageDigestOutput(
-          JSON.parse(error.text),
-          allowlist
-        );
-        if (repaired) {
-          return repaired;
-        }
-      } catch {
-        // fall through
+    if (NoObjectGeneratedError.isInstance(error)) {
+      const repaired = repairMessageDigestFromErrorText(error.text, allowlist);
+      if (repaired) {
+        return repaired;
       }
+    }
+    // Also try message text from generic AI errors ("No output generated").
+    const message =
+      error instanceof Error
+        ? // cause may carry the raw text on some providers
+          ((error as { text?: string }).text ??
+          (error.cause instanceof Error ? error.cause.message : undefined))
+        : undefined;
+    const repaired = repairMessageDigestFromErrorText(message, allowlist);
+    if (repaired) {
+      return repaired;
     }
     throw error;
   }
+  throw new Error("inbox digest model returned no output");
 }
 
 export interface GeneratedThreadSummary {
@@ -686,28 +771,32 @@ export async function ensureThreadDigest(
     threadDigest.summarized_message_count !== messages.length ||
     threadDigest.last_message_id !== lastMessageId;
   if (stale) {
-    const summary = await generateThreadSummary(
-      thread,
-      messages,
-      new Map(results.map((digest) => [digest.message_id, digest.content_md])),
-      modelId
-    );
-    threadDigest = await repo.digests.upsertThreadDigest({
-      category: threadCategory,
-      digest_version: INBOX_DIGEST_VERSION,
-      last_message_id: lastMessageId,
-      model_id: modelId,
-      owner_user_id: ownerUserId,
-      participants_json: summary.participants,
-      suggested_actions: summary.suggested_actions,
-      summarized_message_count: messages.length,
-      summary_md: summary.summary_md,
-      thread_id: thread.id,
-    });
+    try {
+      const summary = await generateThreadSummary(
+        thread,
+        messages,
+        new Map(
+          results.map((digest) => [digest.message_id, digest.content_md])
+        ),
+        modelId
+      );
+      threadDigest = await repo.digests.upsertThreadDigest({
+        category: threadCategory,
+        digest_version: INBOX_DIGEST_VERSION,
+        last_message_id: lastMessageId,
+        model_id: modelId,
+        owner_user_id: ownerUserId,
+        participants_json: summary.participants,
+        suggested_actions: summary.suggested_actions,
+        summarized_message_count: messages.length,
+        summary_md: summary.summary_md,
+        thread_id: thread.id,
+      });
+    } catch {
+      // Summary is optional — message digests alone are enough for the view.
+      threadDigest = null;
+    }
   }
 
-  if (!threadDigest) {
-    throw new Error("inbox digest: thread summary generation failed");
-  }
   return { category: threadCategory, messages: results, thread: threadDigest };
 }
