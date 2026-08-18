@@ -1,5 +1,23 @@
 [
   {
+    "version": "v0.1.129",
+    "timestamp": 1787071716,
+    "commits": [
+      {
+        "id": "00db866",
+        "message": "load closed packages optionally so public typecheck stays green",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "051dfc4",
+        "message": "add blue-green edge releases",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.128",
     "timestamp": 1787066241,
     "commits": [
