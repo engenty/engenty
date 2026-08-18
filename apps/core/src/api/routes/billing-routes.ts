@@ -1,5 +1,6 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createBillingDal, type InvoiceStatus } from "../../dal/billing.js";
+import { entitlements } from "../../lib/entitlements-runtime.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
 
@@ -15,6 +16,9 @@ export function registerBillingRoutes(params: {
   config: Record<string, unknown>;
   createDal?: typeof createBillingDal;
 }) {
+  if (!entitlements) {
+    return;
+  }
   const { app, config } = params;
   const dal = (params.createDal ?? createBillingDal)(config);
 

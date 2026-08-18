@@ -5,6 +5,7 @@
 import { Mastra } from "@mastra/core/mastra";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadRemoteAgentConfig } from "../load-engenty-remote.js";
 import {
   createRemoteChannelsAgent,
   extractExternalWorkspaceId,
@@ -82,22 +83,31 @@ describe("remote channels registration", () => {
     expect(res.status).toBe(404);
   });
 
-  it("builds the channel-bound agent with a slack webhook route", () => {
+  it("builds the channel-bound agent with a slack webhook route", async (ctx) => {
+    if (!(await loadRemoteAgentConfig())) {
+      ctx.skip();
+      return;
+    }
     enableWithDummyCreds();
-    const agent = createRemoteChannelsAgent();
-    const channels = agent.getChannels();
+    const agent = await createRemoteChannelsAgent();
+    expect(agent).toBeTruthy();
+    const channels = agent?.getChannels();
     expect(channels).toBeTruthy();
     const routes = channels?.getWebhookRoutes() ?? [];
     expect(routes.map((r) => r.path)).toContain(MASTRA_ROUTE_PATH);
   });
 
-  it("mounts the webhook route and rejects unsigned requests", async () => {
+  it("mounts the webhook route and rejects unsigned requests", async (ctx) => {
     // Heavyweight: this builds a real Mastra instance and mounts the
     // channel routes, which costs seconds. On a loaded machine the parallel
     // forks push it past the 10s global budget and it fails as a flake with
     // nothing actually wrong. Widened here rather than globally so a real
     // hang elsewhere still trips the default.
     enableWithDummyCreds();
+    if (!(await loadRemoteAgentConfig())) {
+      ctx.skip();
+      return;
+    }
     const app = new Hono();
     await registerRemoteChannels(app as never, { mastra: new Mastra({}) });
     const res = await app.request(WEBHOOK_PATH, {

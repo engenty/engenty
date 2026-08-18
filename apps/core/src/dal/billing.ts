@@ -1,5 +1,6 @@
-import { type BillingUsage, computeInvoiceLines } from "@engenty/entitlements";
 import { createClient } from "@supabase/supabase-js";
+import type { BillingUsage } from "../lib/entitlements-contract.js";
+import { requireEntitlements } from "../lib/entitlements-runtime.js";
 import { createPackagesDal, type PackagesDal } from "./packages.js";
 import { resolveSupabaseConfig } from "./supabase-config.js";
 
@@ -120,7 +121,7 @@ export function createBillingDal(
       userCount,
       aiCostMicros: usageOverride.aiCostMicros ?? 0,
     };
-    const computation = computeInvoiceLines(
+    const computation = requireEntitlements().computeInvoiceLines(
       pkg ?? { pricing: undefined },
       usage
     );

@@ -10,6 +10,8 @@
  * imports resolve to module source via vite aliases (see apps/ui/vite.config.ts).
  * That sanctioned path never appears in a package.json, so it is unaffected by
  * this check — the check only catches hard workspace `dependencies` edges.
+ * `optionalDependencies` are allowed: open apps may load a closed module at
+ * runtime when the package is present.
  *
  * Run via `pnpm boundaries:check`. Also asserted by a vitest guardrail so it runs
  * with `pnpm test`. Exits non-zero (and prints the offending edges) on violation.
@@ -23,12 +25,7 @@ import {
 
 const MODULE_DIR = "modules";
 const CONSUMER_DIRS = ["apps", "packages"];
-const DEP_FIELDS = [
-  "dependencies",
-  "devDependencies",
-  "peerDependencies",
-  "optionalDependencies",
-];
+const DEP_FIELDS = ["dependencies", "devDependencies", "peerDependencies"];
 
 /**
  * Legacy allowlist: consumer dir (workspace-relative) -> module packages it may

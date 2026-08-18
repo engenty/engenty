@@ -1,8 +1,8 @@
-import { computeInvoiceLines } from "@engenty/entitlements";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import type { BillingDal, InvoiceRecord } from "../dal/billing.js";
+import { entitlements } from "../lib/entitlements-runtime.js";
 import { registerBillingRoutes } from "./routes/billing-routes.js";
 
 async function signToken(capabilities: string[]) {
@@ -37,6 +37,10 @@ const teamPricing = {
 
 /** Stateful fake billing DAL that computes real totals via computeInvoiceLines. */
 function createStatefulDal(): BillingDal {
+  if (!entitlements) {
+    throw new Error("entitlements unavailable");
+  }
+  const { computeInvoiceLines } = entitlements;
   const store = new Map<string, InvoiceRecord>();
   let seq = 0;
   return {
@@ -92,7 +96,7 @@ const headers = async () => ({
   "content-type": "application/json",
 });
 
-describe("billing routes", () => {
+describe.skipIf(!entitlements)("billing routes", () => {
   it("gates invoices behind superadmin", async () => {
     const app = createApp();
     const nonAdmin = await signToken(["core.plugins.manage"]);

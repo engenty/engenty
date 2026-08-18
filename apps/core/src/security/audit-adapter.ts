@@ -17,11 +17,15 @@ export interface SecurityAuditLogAdapter {
   ): void;
 }
 
+export type PersistentAuditStore = ReturnType<typeof createAuditStoreSupabase>;
+
 export interface CreatePersistentAuditLogParams {
   config?: Record<string, unknown>;
   dataDir: string;
   maxRows?: number;
   onPushError?: (err: unknown) => void;
+  /** Injected in unit tests so CI never talks to PostgREST. */
+  store?: PersistentAuditStore;
 }
 
 /** No-op audit log for tests when Supabase is not available. */
@@ -48,9 +52,9 @@ export function createPersistentAuditLog(
     typeof dataDirOrParams === "string"
       ? { dataDir: dataDirOrParams, ...options }
       : dataDirOrParams;
-  const { config, maxRows, onPushError } = params;
+  const { config, maxRows, onPushError, store: injected } = params;
 
-  const store = createAuditStoreSupabase(config ?? {}, { maxRows });
+  const store = injected ?? createAuditStoreSupabase(config ?? {}, { maxRows });
 
   const onError =
     onPushError ??

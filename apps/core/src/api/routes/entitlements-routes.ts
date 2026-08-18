@@ -1,10 +1,7 @@
-import {
-  parseEntitlementOverride,
-  parseEntitlementPackagePatch,
-} from "@engenty/entitlements";
 import { createLogger } from "@engenty/telemetry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
+import { entitlements } from "../../lib/entitlements-runtime.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireSuperAdmin } from "./authz.js";
 
@@ -19,6 +16,12 @@ export function registerEntitlementsRoutes(params: {
   config: Record<string, unknown>;
   createDal?: typeof createPackagesDal;
 }) {
+  if (!entitlements) {
+    return;
+  }
+  const parseEntitlementOverride = entitlements.parseEntitlementOverride;
+  const parseEntitlementPackagePatch =
+    entitlements.parseEntitlementPackagePatch;
   const { app, config } = params;
   const dal = (params.createDal ?? createPackagesDal)(config);
   const logger = createLogger({ name: "entitlements" });

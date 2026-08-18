@@ -1,12 +1,9 @@
-import {
-  DEFAULT_ENTITLEMENT_PACKAGES,
-  type EntitlementOverride,
-  resolveEntitlements,
-} from "@engenty/entitlements";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import type { PackagesDal } from "../dal/packages.js";
+import type { EntitlementOverride } from "../lib/entitlements-contract.js";
+import { entitlements } from "../lib/entitlements-runtime.js";
 import { registerEntitlementsRoutes } from "./routes/entitlements-routes.js";
 
 async function signToken(capabilities: string[], tenantId = "tenant-1") {
@@ -28,7 +25,13 @@ async function signToken(capabilities: string[], tenantId = "tenant-1") {
 
 /** In-memory PackagesDal over the real authored catalog + resolver. */
 function createStatefulDal(): PackagesDal {
-  const catalog = DEFAULT_ENTITLEMENT_PACKAGES.map((pkg) => ({ ...pkg }));
+  if (!entitlements) {
+    throw new Error("entitlements unavailable");
+  }
+  const api = entitlements;
+  const catalog = api.DEFAULT_ENTITLEMENT_PACKAGES.map((pkg) => ({
+    ...pkg,
+  }));
   const assignment = new Map<string, string | null>();
   const overrideByTenant = new Map<string, EntitlementOverride>();
   const findPkg = (id: string | null) =>
@@ -54,14 +57,14 @@ function createStatefulDal(): PackagesDal {
       overrideByTenant.delete(tenantId);
     },
     getResolvedEntitlements: async (tenantId) =>
-      resolveEntitlements(
+      api.resolveEntitlements(
         findPkg(assignment.get(tenantId) ?? null),
         overrideByTenant.get(tenantId) ?? null
       ),
     getManageData: async (tenantId) => ({
       packageId: assignment.get(tenantId) ?? null,
       override: overrideByTenant.get(tenantId) ?? null,
-      resolved: resolveEntitlements(
+      resolved: api.resolveEntitlements(
         findPkg(assignment.get(tenantId) ?? null),
         overrideByTenant.get(tenantId) ?? null
       ),
@@ -103,7 +106,7 @@ const jsonHeaders = (token: string) => ({
   "content-type": "application/json",
 });
 
-describe("entitlements routes", () => {
+describe.skipIf(!entitlements)("entitlements routes", () => {
   it("gates the catalog behind superadmin", async () => {
     const app = createApp();
     const nonAdmin = await signToken(["core.plugins.manage"]);

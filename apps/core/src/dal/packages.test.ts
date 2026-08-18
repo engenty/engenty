@@ -1,8 +1,6 @@
-import {
-  type EntitlementPackage,
-  resolveEntitlements,
-} from "@engenty/entitlements";
 import { describe, expect, it } from "vitest";
+import type { EntitlementPackage } from "../lib/entitlements-contract.js";
+import { entitlements } from "../lib/entitlements-runtime.js";
 import { selectSeedablePackages, toTenantUsagePolicyRow } from "./packages.js";
 
 function pkg(id: string, version: number): EntitlementPackage {
@@ -55,7 +53,12 @@ describe("selectSeedablePackages", () => {
   });
 });
 
-describe("toTenantUsagePolicyRow", () => {
+describe.skipIf(!entitlements)("toTenantUsagePolicyRow", () => {
+  if (!entitlements) {
+    return;
+  }
+  const { resolveEntitlements } = entitlements;
+
   it("maps resolved entitlements to the ai.tenant_usage_policy columns", () => {
     const resolved = resolveEntitlements(pkg("team", 1), {
       aiUsagePolicy: {

@@ -52,18 +52,14 @@ const WORKSPACE_GLOBS = ["apps", "packages", "modules"] as const;
 
 /**
  * Debt, not permission. Each entry is an OPEN workspace package declaring a
- * `workspace:*` dependency on a CLOSED one — which means `pnpm install` fails
- * on the public mirror, because the dependency was filtered out of the
- * snapshot. Both also import the closed package from source, so removing the
- * manifest entry alone would not be enough; the integration has to move behind
- * the module/plugin loader (apps/ai) or into a pro-side package (apps/core).
+ * `workspace:*` dependency on a CLOSED one in dependencies/devDependencies/
+ * peerDependencies (optionalDependencies are allowed). That used to make
+ * `pnpm install` fail on the public mirror. Closed integrations now load
+ * through optionalDependencies plus a runtime import.
  *
  * Only ever shrink this list.
  */
-const KNOWN_OPEN_TO_CLOSED_DEPS = [
-  "apps/ai -> @engenty/engenty-remote",
-  "apps/core -> @engenty/entitlements",
-];
+const KNOWN_OPEN_TO_CLOSED_DEPS: string[] = [];
 
 interface WorkspacePackage {
   closed: boolean;

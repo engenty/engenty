@@ -1,12 +1,10 @@
-import {
-  DEFAULT_ENTITLEMENT_PACKAGES,
-  type EntitlementOverride,
-  type EntitlementPackage,
-  normalizeEntitlementPackage,
-  type ResolvedEntitlements,
-  resolveEntitlements,
-} from "@engenty/entitlements";
 import { createClient } from "@supabase/supabase-js";
+import type {
+  EntitlementOverride,
+  EntitlementPackage,
+  ResolvedEntitlements,
+} from "../lib/entitlements-contract.js";
+import { requireEntitlements } from "../lib/entitlements-runtime.js";
 import { resolveSupabaseConfig } from "./supabase-config.js";
 
 /**
@@ -92,7 +90,7 @@ interface PackageRow {
 }
 
 function rowToPackage(row: PackageRow): EntitlementPackage {
-  return normalizeEntitlementPackage({
+  return requireEntitlements().normalizeEntitlementPackage({
     id: row.id,
     version: row.version,
     label: row.label,
@@ -205,7 +203,8 @@ export function createPackagesDal(
   }
 
   async function syncCatalog(
-    catalog: readonly EntitlementPackage[] = DEFAULT_ENTITLEMENT_PACKAGES
+    catalog: readonly EntitlementPackage[] = requireEntitlements()
+      .DEFAULT_ENTITLEMENT_PACKAGES
   ): Promise<{ upserted: number }> {
     const { data, error } = await packages().select("id, version");
     if (error) {
@@ -232,7 +231,8 @@ export function createPackagesDal(
   }
 
   async function restoreDefaults(
-    catalog: readonly EntitlementPackage[] = DEFAULT_ENTITLEMENT_PACKAGES
+    catalog: readonly EntitlementPackage[] = requireEntitlements()
+      .DEFAULT_ENTITLEMENT_PACKAGES
   ): Promise<{ restored: number }> {
     const { error } = await packages().upsert(catalog.map(packageToRow), {
       onConflict: "id",
@@ -340,7 +340,7 @@ export function createPackagesDal(
     const packageId = await getTenantPackageId(tenantId);
     const pkg = packageId ? await getPackage(packageId) : null;
     const override = await getTenantOverride(tenantId);
-    return resolveEntitlements(pkg, override);
+    return requireEntitlements().resolveEntitlements(pkg, override);
   }
 
   async function applyAiUsagePolicy(tenantId: string): Promise<void> {
@@ -365,7 +365,7 @@ export function createPackagesDal(
     return {
       packageId,
       override,
-      resolved: resolveEntitlements(pkg, override),
+      resolved: requireEntitlements().resolveEntitlements(pkg, override),
     };
   }
 
@@ -383,7 +383,7 @@ export function createPackagesDal(
     if (!existing) {
       return null;
     }
-    const next = normalizeEntitlementPackage({
+    const next = requireEntitlements().normalizeEntitlementPackage({
       ...existing,
       ...(patch.label === undefined ? {} : { label: patch.label }),
       ...(patch.modules === undefined ? {} : { modules: patch.modules }),

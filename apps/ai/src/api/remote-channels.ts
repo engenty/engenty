@@ -18,10 +18,7 @@
 // delivered through the same Chat SDK instance.
 
 import { randomUUID } from "node:crypto";
-import {
-  ENGENTY_REMOTE_AGENT_ID,
-  remoteAgentConfig,
-} from "@engenty/engenty-remote/ai/remote";
+import type { AgentConfig } from "@engenty/ai-core";
 import { type QueueService, startQueueWorker } from "@engenty/queue";
 import { createLogger } from "@engenty/telemetry";
 import { Agent } from "@mastra/core/agent";
@@ -50,6 +47,10 @@ import { AI_BASE_PATH } from "../config/constants.js";
 import type { ThreadStore } from "../dal/threads/index.js";
 import { createSchedulerOperationInvoker } from "../scheduler/service-invoker.js";
 import { listTenantIds } from "../scheduler/tenants.js";
+import {
+  ENGENTY_REMOTE_AGENT_ID,
+  loadRemoteAgentConfig,
+} from "./load-engenty-remote.js";
 import { configuredRemoteChannelProviders } from "./remote-channels/providers/index.js";
 
 const logger = createLogger({ name: "remote-channels" });
@@ -772,7 +773,20 @@ export function createIdentityGateHandler(
  * web-chat threads (the agent is a process singleton; the memory is not).
  * Without `deps` (tests), messages stay in the global Mastra store.
  */
-export function createRemoteChannelsAgent(deps?: RemoteChannelDeps): Agent {
+export async function createRemoteChannelsAgent(
+  deps?: RemoteChannelDeps
+): Promise<Agent | null> {
+  const remoteAgentConfig = await loadRemoteAgentConfig();
+  if (!remoteAgentConfig) {
+    return null;
+  }
+  return buildRemoteChannelsAgent(remoteAgentConfig, deps);
+}
+
+function buildRemoteChannelsAgent(
+  remoteAgentConfig: AgentConfig,
+  deps?: RemoteChannelDeps
+): Agent {
   const gate = createIdentityGateHandler(deps);
   const adapters: Record<string, unknown> = {};
   for (const provider of configuredRemoteChannelProviders()) {
@@ -872,11 +886,17 @@ export async function registerRemoteChannels(
       "remote channels: no agent session store — channel threads will persist in the global Mastra store instead of tenant-scoped ai.thread"
     );
   }
-  const agent = createRemoteChannelsAgent(
+  const agent = await createRemoteChannelsAgent(
     input.threadStore
       ? { mastra: input.mastra, threadStore: input.threadStore }
       : undefined
   );
+  if (!agent) {
+    logger.warn(
+      "remote channels: @engenty/engenty-remote is not installed; skipping"
+    );
+    return;
+  }
   input.mastra.addAgent(agent);
   activeAgent = agent;
 

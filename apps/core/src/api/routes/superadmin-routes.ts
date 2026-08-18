@@ -2,10 +2,10 @@ import type {
   ApprovalDecision,
   createApprovalService,
 } from "@engenty/approvals-sdk";
-import { checkSeatLimit } from "@engenty/entitlements";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
+import { entitlements } from "../../lib/entitlements-runtime.js";
 import {
   createNoopAuditLog,
   type SecurityAuditLogAdapter,
@@ -88,7 +88,9 @@ export function registerSuperadminRoutes(params: {
       return null;
     }
     const current = (await getDal().listTenantMembers(tenantId)).length;
-    const decision = checkSeatLimit(current, appLimits);
+    const decision = entitlements
+      ? entitlements.checkSeatLimit(current, appLimits)
+      : { allowed: true, atLimit: false, current, limit: appLimits.maxUsers };
     if (decision.allowed) {
       return null;
     }
