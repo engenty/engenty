@@ -120,7 +120,9 @@
       "editAria": "Projektbeschreibung bearbeiten",
       "heading": "Briefing",
       "placeholder": "Klicken Sie, um eine kurze Projektbeschreibung oder Notizen hinzuzufügen…",
-      "placeholderIntro": "Einführung schreiben…"
+      "placeholderIntro": "Einführung schreiben…",
+      "addNotes": "Notizen hinzufügen",
+      "viewNotes": "Notizen anzeigen"
     },
     "clientInfo": {
       "contactPersonEmpty": "—",
@@ -132,6 +134,8 @@
       "addLink": "Kunde zuordnen"
     },
     "edit": "Bearbeiten",
+    "editTitle": "Titel bearbeiten",
+    "editTitleLabel": "Titel",
     "settings": "Einstellungen",
     "tabs": {
       "planning": "Übersicht",
@@ -160,7 +164,8 @@
       "searchPhases": "Phasen suchen…",
       "noPhaseMatch": "Keine passende Phase",
       "discipline": "Disziplin",
-      "disciplinePlaceholder": "z. B. Design, Technik",
+      "disciplinePlaceholder": "Disziplinen suchen…",
+      "disciplineEmpty": "Keine passende Disziplin",
       "hours": "Stunden",
       "hoursSuffix": "Std.",
       "visibleToClient": "Für Kunde sichtbar",
@@ -172,6 +177,25 @@
       "actionsMenu": "Aufgabenaktionen",
       "close": "Schließen",
       "expand": "Vollansicht öffnen"
+    },
+    "phaseForm": {
+      "actionsMenu": "Phasenaktionen",
+      "close": "Schließen",
+      "deleteDescription": "„{{title}}“ löschen? Das kann nicht rückgängig gemacht werden.",
+      "deleteTasks": "{{count}} Aufgaben in dieser Phase löschen",
+      "deleteTitle": "Diese Phase löschen?",
+      "editPhase": "Phase bearbeiten",
+      "endDate": "Enddatum",
+      "mainPhase": "Hauptphase",
+      "mainPhaseHint": "Kennzeichnet die zentrale Phase des Projekts. Sie wird in der Übersicht hervorgehoben.",
+      "moveTo": "Verschieben nach",
+      "save": "Speichern",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "startDate": "Startdatum",
+      "taskActionLegend": "Was soll mit den Aufgaben in dieser Phase geschehen?",
+      "titlePlaceholder": "Phasentitel",
+      "titleRequired": "Titel ist erforderlich",
+      "visibility": "Sichtbarkeit"
     },
     "dueDate": "Fälligkeitsdatum",
     "noGeneralTasks": "Noch keine allgemeinen Aufgaben",

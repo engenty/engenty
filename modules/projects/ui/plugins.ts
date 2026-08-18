@@ -11,6 +11,17 @@ export interface EntityOption {
 }
 
 // biome-ignore lint/style/useConsistentTypeDefinitions: must be a type alias (not an interface) to satisfy the `Record<string, unknown>` plugin-API generic constraint below
+export type CommercialDiscipline = {
+  name: string;
+  short: string;
+};
+
+// biome-ignore lint/style/useConsistentTypeDefinitions: must be a type alias (not an interface) to satisfy the `PluginMethodsRecord` plugin-API generic constraint below
+export type CommercialSettingsPluginApi = {
+  getDisciplines: (signal?: AbortSignal) => Promise<CommercialDiscipline[]>;
+};
+
+// biome-ignore lint/style/useConsistentTypeDefinitions: must be a type alias (not an interface) to satisfy the `Record<string, unknown>` plugin-API generic constraint below
 export type ContactsPluginApi = {
   createContact: (input: {
     display_name: string;
@@ -56,6 +67,12 @@ function getOptionalPluginApi<TMethods extends Record<string, unknown>>(
 
 export function getContactsPluginApi(): ContactsPluginApi | null {
   return getOptionalPluginApi<ContactsPluginApi>("contacts");
+}
+
+export function getCommercialSettingsPluginApi(): CommercialSettingsPluginApi | null {
+  return getOptionalPluginApi<CommercialSettingsPluginApi>(
+    "commercial-settings"
+  );
 }
 
 export function getTeamMembersPluginState(): {

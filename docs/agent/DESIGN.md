@@ -175,7 +175,7 @@ html {
 | `--r-pill` | 999px | Role/status pill badges |
 
 ### Form field radius rule
-All single-line text fields and aligned controls (`Input`, `Select`, `InputGroup`, `DatePicker`, `NumberStepper`) use **`rounded-[4px]`** and **`h-8 min-h-8`** (32px).
+All single-line text fields and aligned controls (`Input`, `Select`, `InputGroup`, `Combobox` / `ComboboxChips`, `DatePicker`, `NumberStepper`) use **`rounded-[4px]`** and **`h-8 min-h-8`** (32px). Wrapping chip inputs keep **`min-h-8`** and may grow vertically.
 Import constants from `@engenty/ui-core`:
 
 ```ts
@@ -463,6 +463,9 @@ Shows human-readable relative time ("4h ago", "2d ago", "just now") for `created
 
 ### Toolbar icon buttons
 `h-8 w-8 rounded-[4px] shadow-none` — matches the 32px field height standard.
+
+### Overflow / 3-dot menus
+Use Lucide **`MoreVertical`** (vertical kebab `⋮`). Do **not** use `MoreHorizontal`. Shared chrome (`TableRowActions`, `ListToolbar` overflow) already follows this.
 
 ### Animated icons (`@engenty/ui-icons`)
 

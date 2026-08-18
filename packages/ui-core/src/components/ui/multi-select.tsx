@@ -82,6 +82,8 @@ interface MultiSelectOption {
 	label: string;
 	/** The unique value associated with the option. */
 	value: string;
+	/** Optional secondary line (role, email). Never use the raw `value` for this. */
+	description?: string;
 	/** Optional icon component to display alongside the option. */
 	icon?: React.ComponentType<{ className?: string }>;
 	/** Whether this option is disabled */
@@ -105,6 +107,33 @@ interface MultiSelectGroup {
 	heading: string;
 	/** Options in this group */
 	options: MultiSelectOption[];
+}
+
+function optionDescription(option: MultiSelectOption): string | undefined {
+	const text = option.description?.trim();
+	return text ? text : undefined;
+}
+
+function optionMatchesQuery(option: MultiSelectOption, query: string): boolean {
+	const needle = query.toLowerCase();
+	return (
+		option.label.toLowerCase().includes(needle) ||
+		(optionDescription(option)?.toLowerCase().includes(needle) ?? false)
+	);
+}
+
+function MultiSelectOptionCopy({ option }: { option: MultiSelectOption }) {
+	const secondary = optionDescription(option);
+	return (
+		<span className="flex min-w-0 flex-col gap-0.5">
+			<span className="truncate font-medium">{option.label}</span>
+			{secondary ? (
+				<span className="truncate text-muted-foreground text-xs">
+					{secondary}
+				</span>
+			) : null}
+		</span>
+	);
 }
 
 /**
@@ -609,20 +638,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 				return options
 					.map((group) => ({
 						...group,
-						options: group.options.filter(
-							(option) =>
-								option.label
-									.toLowerCase()
-									.includes(searchValue.toLowerCase()) ||
-								option.value.toLowerCase().includes(searchValue.toLowerCase())
+						options: group.options.filter((option) =>
+							optionMatchesQuery(option, searchValue)
 						),
 					}))
 					.filter((group) => group.options.length > 0);
 			}
-			return options.filter(
-				(option) =>
-					option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-					option.value.toLowerCase().includes(searchValue.toLowerCase())
+			return options.filter((option) =>
+				optionMatchesQuery(option, searchValue)
 			);
 		}, [options, searchValue, searchable, isGroupedOptions]);
 
@@ -927,11 +950,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 															className={cn(
 																screenSize === "mobile" && "truncate"
 															)}
-															title={
-																option.value !== option.label
-																	? option.value
-																	: undefined
-															}>
+															title={optionDescription(option)}>
 															{option.label}
 														</span>
 														<div
@@ -1157,14 +1176,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 														}${option.disabled ? ", disabled" : ""}`}
 														className={cn(
 															"cursor-pointer",
-															option.value !== option.label && "items-start py-2",
+															optionDescription(option) && "items-start py-2",
 															option.disabled && "opacity-50 cursor-not-allowed"
 														)}
 														disabled={option.disabled}>
 														<div
 															className={cn(
 																"mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-																option.value !== option.label && "mt-0.5",
+																optionDescription(option) && "mt-0.5",
 																isSelected
 																	? "bg-primary text-primary-foreground"
 																	: "opacity-50 [&_svg]:invisible"
@@ -1178,16 +1197,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 																aria-hidden="true"
 															/>
 														)}
-														<span className="flex min-w-0 flex-col gap-0.5">
-															<span className="truncate font-medium">
-																{option.label}
-															</span>
-															{option.value !== option.label ? (
-																<span className="truncate font-mono text-muted-foreground text-xs">
-																	{option.value}
-																</span>
-															) : null}
-														</span>
+														<MultiSelectOptionCopy option={option} />
 													</CommandItem>
 												);
 											})}
@@ -1209,14 +1219,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 													}${option.disabled ? ", disabled" : ""}`}
 													className={cn(
 														"cursor-pointer",
-														option.value !== option.label && "items-start py-2",
+														optionDescription(option) && "items-start py-2",
 														option.disabled && "opacity-50 cursor-not-allowed"
 													)}
 													disabled={option.disabled}>
 													<div
 														className={cn(
 															"mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-															option.value !== option.label && "mt-0.5",
+															optionDescription(option) && "mt-0.5",
 															isSelected
 																? "bg-primary text-primary-foreground"
 																: "opacity-50 [&_svg]:invisible"
@@ -1230,16 +1240,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 															aria-hidden="true"
 														/>
 													)}
-													<span className="flex min-w-0 flex-col gap-0.5">
-														<span className="truncate font-medium">
-															{option.label}
-														</span>
-														{option.value !== option.label ? (
-															<span className="truncate font-mono text-muted-foreground text-xs">
-																{option.value}
-															</span>
-														) : null}
-													</span>
+													<MultiSelectOptionCopy option={option} />
 												</CommandItem>
 											);
 										})}

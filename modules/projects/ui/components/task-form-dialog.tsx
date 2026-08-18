@@ -20,13 +20,14 @@ import {
   SidePanelContent,
   SidePanelFooter,
 } from "@engenty/ui-core";
-import { Check, Clock, Eye, EyeOff, Layers, Tag } from "lucide-react";
+import { Check, Clock, Eye, EyeOff, Layers } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
 import { useSidePanelWidth } from "../hooks/use-side-panel-width.js";
 import { buildProjectTaskMemberOptions } from "../lib/project-team-members-ui.js";
 import { TASK_STATUS_KANBAN_DOT } from "../lib/task-status-styles.js";
+import { TaskDisciplineCombobox } from "./task-discipline-combobox.js";
 import { TaskFormPanelHeader } from "./task-form-panel-header.js";
 
 const TASK_FORM_WIDTH_KEY = "projects.taskFormWidth";
@@ -114,7 +115,6 @@ export function TaskFormDialog({
 
   const [statusOpen, setStatusOpen] = useState(false);
   const [phaseOpen, setPhaseOpen] = useState(false);
-  const [disciplineOpen, setDisciplineOpen] = useState(false);
   const [hoursOpen, setHoursOpen] = useState(false);
 
   useEffect(() => {
@@ -364,34 +364,11 @@ export function TaskFormDialog({
                 </Popover>
               ) : null}
 
-              {/* Discipline */}
-              <Popover
-                modal
-                onOpenChange={setDisciplineOpen}
-                open={disciplineOpen}
-              >
-                <PopoverTrigger asChild>
-                  <button className={pillClass} type="button">
-                    <Tag className="h-3 w-3 text-muted-foreground" />
-                    <span className={discipline ? "" : "text-muted-foreground"}>
-                      {discipline || t("detail.taskForm.discipline")}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-2">
-                  <Input
-                    onChange={(e) => setDiscipline(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        setDisciplineOpen(false);
-                      }
-                    }}
-                    placeholder={t("detail.taskForm.disciplinePlaceholder")}
-                    value={discipline}
-                  />
-                </PopoverContent>
-              </Popover>
+              <TaskDisciplineCombobox
+                onValueChange={setDiscipline}
+                triggerClassName={pillClass}
+                value={discipline}
+              />
 
               {/* Estimated hours */}
               <Popover modal onOpenChange={setHoursOpen} open={hoursOpen}>

@@ -14,6 +14,7 @@ For **visual** UI work, read **[DESIGN.md](../DESIGN.md)** before implementing:
 - Shell, breadcrumbs, secondary nav, data tables (`.ui-canvas-*`, `STICKY_HEADER_CLASS`)
 - **Elevated cards on `--paper`:** never `hover:bg-accent/*` — stay `bg-card`, deepen `--e-3` shadow in place + title underline
 - **No layout shift on hover:** no `translate` / `scale` / size changes on card hover — paint-only (shadow, color, underline); see DESIGN.md “Hover & motion”
+- **Overflow / 3-dot menus:** Lucide `MoreVertical` (`⋮`), never `MoreHorizontal`
 
 `DESIGN.md` **outranks** shadcn defaults, ad-hoc Tailwind, and external layout references when they conflict.
 

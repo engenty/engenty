@@ -1,7 +1,49 @@
 [
   {
+    "version": "v0.1.127",
+    "timestamp": 1787063907,
+    "commits": [
+      {
+        "id": "d178b8a",
+        "message": "pick disciplines and assignees with Combobox",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e6a11b0",
+        "message": "keep move-dialog date and project in the field",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1166bc3",
+        "message": "move hours when changing discipline",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "30261b0",
+        "message": "edit phases in a side panel and tidy overview chrome",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "441424e",
+        "message": "keep the notes modal on the row discipline",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "279d43b",
+        "message": "let the week grid scroll inside the shell",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.126",
-    "timestamp": 1786489225,
+    "timestamp": 1786489226,
     "commits": [
       {
         "id": "b3f34dd",

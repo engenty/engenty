@@ -34,28 +34,31 @@ export function GeneralTasksSection({
 }: GeneralTasksSectionProps) {
   const { t } = useTranslation("projects");
   const { setNodeRef } = useDroppable({ id: "general-tasks" });
+  const addTaskButton =
+    onAddTask && viewMode === "internal" ? (
+      <Button
+        className="h-auto justify-start px-3 py-1.5 pl-8 text-muted-foreground"
+        onClick={onAddTask}
+        size="sm"
+        type="button"
+        variant="ghost"
+      >
+        <Plus className="mr-1 h-4 w-4" />
+        {t("detail.addTask")}
+      </Button>
+    ) : null;
 
   return (
     <div className="mt-6 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-medium text-lg">{t("detail.generalTasks")}</h3>
-        {onAddTask && viewMode === "internal" && (
-          <Button
-            className="h-auto p-0"
-            onClick={onAddTask}
-            size="sm"
-            variant="link"
-          >
-            <Plus className="mr-1 h-4 w-4" />
-            {t("detail.addTask")}
-          </Button>
-        )}
-      </div>
+      <h3 className="font-medium text-lg">{t("detail.generalTasks")}</h3>
       <div className="min-h-[50px]" ref={setNodeRef}>
         {tasks.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t("detail.noGeneralTasks")}
-          </p>
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm">
+              {t("detail.noGeneralTasks")}
+            </p>
+            {addTaskButton}
+          </div>
         ) : (
           <SortableContext
             items={tasks.map((t) => t.id)}
@@ -76,6 +79,7 @@ export function GeneralTasksSection({
                   viewMode={viewMode}
                 />
               ))}
+              {addTaskButton}
             </div>
           </SortableContext>
         )}

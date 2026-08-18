@@ -555,6 +555,7 @@
     "collaborators": "Mitwirkende",
     "assigneeLoading": "Teammitglieder werden geladen…",
     "assigneeNoMembers": "Keine Teammitglieder verfügbar.",
+    "assigneeNoMatch": "Keine passenden Teammitglieder.",
     "assigneeTeamMembersUnavailable": "Aktiviere das Teammitglieder-Modul, um Personen zuzuweisen.",
     "agentTypeKeyPlaceholder": "Agent-Typ-Schlüssel (z. B. dynamic_supervisor)"
   },

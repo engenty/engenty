@@ -2,6 +2,14 @@ import { teamMemberCatalogUserId } from "@engenty/tasks/ui/assignee";
 import type { MultiSelectGroup, MultiSelectOption } from "@engenty/ui-core";
 import type { TeamMemberCatalogRow } from "../plugins.js";
 
+function memberSelectDescription(
+  member: TeamMemberCatalogRow
+): string | undefined {
+  const text =
+    member.position?.trim() || member.job_title?.trim() || member.email?.trim();
+  return text || undefined;
+}
+
 /** Project `team_member_ids` may use auth `user_id` or profile id when unlinked. */
 export function projectTeamMemberCatalogId(row: TeamMemberCatalogRow): string {
   return teamMemberCatalogUserId(row);
@@ -15,10 +23,14 @@ export function buildProjectTeamMemberAddOptions(
   return catalog
     .filter((member) => !currentMembers.has(projectTeamMemberCatalogId(member)))
     .sort((left, right) => left.full_name.localeCompare(right.full_name))
-    .map((member) => ({
-      value: projectTeamMemberCatalogId(member),
-      label: member.full_name,
-    }));
+    .map((member) => {
+      const description = memberSelectDescription(member);
+      return {
+        ...(description ? { description } : {}),
+        label: member.full_name,
+        value: projectTeamMemberCatalogId(member),
+      };
+    });
 }
 
 function memberMatchesProject(
@@ -47,10 +59,14 @@ export function buildProjectTaskMemberOptions(params: {
   const projectMembers = new Set(
     projectMemberIds.map((id) => id.trim()).filter(Boolean)
   );
-  const toOption = (member: TeamMemberCatalogRow) => ({
-    value: teamMemberCatalogUserId(member),
-    label: member.full_name,
-  });
+  const toOption = (member: TeamMemberCatalogRow) => {
+    const description = memberSelectDescription(member);
+    return {
+      ...(description ? { description } : {}),
+      label: member.full_name,
+      value: teamMemberCatalogUserId(member),
+    };
+  };
 
   if (projectMembers.size === 0) {
     return [...catalog]

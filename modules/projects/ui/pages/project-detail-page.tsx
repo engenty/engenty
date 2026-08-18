@@ -109,6 +109,7 @@ export function ProjectDetailPage() {
     handleDragEnd,
     handleDragStart,
     handlePhaseSubmit,
+    handlePhaseDelete,
     handlePhaseVisibilityToggle,
     handleProjectSettingsSave,
     handleTaskDelete,
@@ -387,9 +388,9 @@ export function ProjectDetailPage() {
         titleValue={titleValue}
         visibleTabs={visibleTabs}
       />
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div
-          className={`mx-auto space-y-4 p-page ${
+          className={`mx-auto space-y-4 px-page pt-2 pb-24 sm:pt-4 md:pt-5 ${
             // Contributed tabs (e.g. the files manager) are workspace tools — let
             // them use the full content width instead of the narrow reading
             // column used by the native tabs. The Gantt is the same kind of
@@ -439,6 +440,11 @@ export function ProjectDetailPage() {
               }}
               onTaskStatusChange={handleTaskStatusChange}
               onTaskVisibilityToggle={handleTaskVisibilityToggle}
+              onViewNotes={
+                visibleTabIds.includes("notes")
+                  ? () => setActiveTab("notes")
+                  : undefined
+              }
               project={project}
               projectId={id}
               sensors={sensors}
@@ -507,6 +513,7 @@ export function ProjectDetailPage() {
           />
 
           <PhaseFormDialog
+            onDelete={handlePhaseDelete}
             onOpenChange={(open) => {
               setPhaseFormOpen(open);
               if (!open) {
@@ -516,6 +523,16 @@ export function ProjectDetailPage() {
             onSubmit={handlePhaseSubmit}
             open={phaseFormOpen}
             phase={editingPhase}
+            projectName={project.title}
+            targetPhases={
+              project.phases
+                ?.filter((p) => p.id !== editingPhase?.id)
+                .map((p) => ({ id: p.id, title: p.title })) ?? []
+            }
+            taskCount={
+              project.phases?.find((p) => p.id === editingPhase?.id)?.tasks
+                .length ?? 0
+            }
           />
 
           <TaskFormDialog

@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import {
   createPhase,
   createTask,
+  deletePhase,
   deleteTask,
   type PhaseTask,
   type ProjectPhase,
@@ -13,6 +14,7 @@ import {
   updateTask,
   updateTaskVisibility,
 } from "../api.js";
+import type { PhaseDeleteConfirm } from "../components/phase-delete-dialog.js";
 import type { ProjectSettingsValues } from "../components/project-settings-panel.js";
 
 export interface UseProjectDetailHandlersParams {
@@ -176,6 +178,37 @@ export function useProjectDetailHandlers({
     [id, editingPhase, project?.phases?.length, loadProject]
   );
 
+  const handlePhaseDelete = useCallback(
+    async ({ taskAction, targetPhaseId }: PhaseDeleteConfirm) => {
+      if (!(id && editingPhase)) {
+        return;
+      }
+      const phaseTasks =
+        project?.phases.find((p) => p.id === editingPhase.id)?.tasks ?? [];
+      if (taskAction === "move") {
+        for (const task of phaseTasks) {
+          await updateTask(id, task.id, { phase_id: targetPhaseId });
+        }
+      } else {
+        for (const task of phaseTasks) {
+          await deleteTask(id, task.id);
+        }
+      }
+      await deletePhase(id, editingPhase.id);
+      setPhaseFormOpen(false);
+      setEditingPhase(null);
+      await loadProject();
+    },
+    [
+      id,
+      editingPhase,
+      project?.phases,
+      loadProject,
+      setPhaseFormOpen,
+      setEditingPhase,
+    ]
+  );
+
   const handleTaskSubmit = useCallback(
     async (data: {
       title: string;
@@ -282,6 +315,7 @@ export function useProjectDetailHandlers({
     handleDragEnd,
     handleDragStart,
     handlePhaseSubmit,
+    handlePhaseDelete,
     handlePhaseVisibilityToggle,
     handleProjectSettingsSave,
     handleTaskDelete,

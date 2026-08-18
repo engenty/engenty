@@ -56,18 +56,8 @@ export function PhaseSection({
   return (
     <div className="mt-6 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="group/phase flex items-center gap-2">
           <h3 className="font-medium text-lg">{phase.title}</h3>
-          {viewMode === "internal" && onPhaseEdit && (
-            <Button
-              className="h-8 w-8 p-0"
-              onClick={() => onPhaseEdit(phase)}
-              size="sm"
-              variant="ghost"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          )}
           {phase.is_main && <Badge variant="outline">Main</Badge>}
           {viewMode === "internal" && onPhaseVisibilityToggle && (
             <Button
@@ -88,15 +78,16 @@ export function PhaseSection({
               )}
             </Button>
           )}
-          {viewMode === "internal" && onAddTask && (
+          {viewMode === "internal" && onPhaseEdit && (
             <Button
-              className="h-auto p-0"
-              onClick={() => onAddTask(phase.id)}
+              aria-label={t("detail.edit")}
+              className="h-8 w-8 p-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/phase:opacity-100"
+              onClick={() => onPhaseEdit(phase)}
               size="sm"
-              variant="link"
+              type="button"
+              variant="ghost"
             >
-              <Plus className="mr-1 h-4 w-4" />
-              {t("detail.addTask")}
+              <Pencil className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -127,6 +118,18 @@ export function PhaseSection({
                 viewMode={viewMode}
               />
             ))}
+            {viewMode === "internal" && onAddTask ? (
+              <Button
+                className="h-auto justify-start px-3 py-1.5 pl-8 text-muted-foreground"
+                onClick={() => onAddTask(phase.id)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {t("detail.addTask")}
+              </Button>
+            ) : null}
           </div>
         </SortableContext>
       </div>

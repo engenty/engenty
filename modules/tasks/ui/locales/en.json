@@ -555,6 +555,7 @@
     "collaborators": "Collaborators",
     "assigneeLoading": "Loading team members…",
     "assigneeNoMembers": "No team members available.",
+    "assigneeNoMatch": "No matching team members.",
     "assigneeTeamMembersUnavailable": "Enable the Team Members module to assign users.",
     "agentTypeKeyPlaceholder": "Agent type key (e.g. dynamic_supervisor)"
   },

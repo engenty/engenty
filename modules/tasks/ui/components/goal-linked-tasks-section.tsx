@@ -33,7 +33,7 @@ import {
 import {
   Ban,
   Link2,
-  MoreHorizontal,
+  MoreVertical,
   Play,
   Plus,
   RotateCcw,
@@ -347,7 +347,7 @@ export function GoalLinkedTasksSection({
                       size="sm"
                       variant="ghost"
                     >
-                      <MoreHorizontal className="h-4 w-4" />
+                      <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">

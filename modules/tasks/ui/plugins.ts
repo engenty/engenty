@@ -1,6 +1,7 @@
 import type { EngentyPluginsApi } from "@engenty/ui-plugin-sdk";
 
 export interface TeamMemberCatalogRow {
+  email?: string | null;
   full_name: string;
   id: string;
   job_title?: string | null;

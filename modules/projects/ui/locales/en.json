@@ -103,7 +103,9 @@
       "editAria": "Edit project brief",
       "heading": "Brief",
       "placeholder": "Click to add a short project brief or notes…",
-      "placeholderIntro": "Write an introduction…"
+      "placeholderIntro": "Write an introduction…",
+      "addNotes": "Add notes",
+      "viewNotes": "View notes"
     },
     "clientInfo": {
       "contactPersonEmpty": "—",
@@ -115,6 +117,8 @@
       "addLink": "Link a client"
     },
     "edit": "Edit",
+    "editTitle": "Edit title",
+    "editTitleLabel": "Title",
     "settings": "Settings",
     "tabs": {
       "planning": "Overview",
@@ -143,7 +147,8 @@
       "searchPhases": "Search phases…",
       "noPhaseMatch": "No matching phase",
       "discipline": "Discipline",
-      "disciplinePlaceholder": "e.g. Design, Engineering",
+      "disciplinePlaceholder": "Search disciplines…",
+      "disciplineEmpty": "No matching discipline",
       "hours": "Hours",
       "hoursSuffix": "h",
       "visibleToClient": "Visible to client",
@@ -155,6 +160,25 @@
       "actionsMenu": "Task actions",
       "close": "Close",
       "expand": "Open full page"
+    },
+    "phaseForm": {
+      "actionsMenu": "Phase actions",
+      "close": "Close",
+      "deleteDescription": "Delete “{{title}}”? This cannot be undone.",
+      "deleteTasks": "Delete {{count}} tasks in this phase",
+      "deleteTitle": "Delete this phase?",
+      "editPhase": "Edit phase",
+      "endDate": "End date",
+      "mainPhase": "Main phase",
+      "mainPhaseHint": "Marks this as the project’s primary phase. It is highlighted on the overview.",
+      "moveTo": "Move to",
+      "save": "Save",
+      "saveFailed": "Failed to save",
+      "startDate": "Start date",
+      "taskActionLegend": "What should happen to tasks in this phase?",
+      "titlePlaceholder": "Phase title",
+      "titleRequired": "Title is required",
+      "visibility": "Visibility"
     },
     "dueDate": "Due date",
     "noGeneralTasks": "No general tasks yet",

@@ -53,6 +53,13 @@ export async function getCommercialSettings(signal?: AbortSignal) {
   });
 }
 
+export async function getDisciplines(signal?: AbortSignal) {
+  const settings = await getCommercialSettings(signal);
+  return (settings.disciplines ?? []).filter(
+    (row) => row.name.trim().length > 0
+  );
+}
+
 export async function setCommercialSettings(input: CommercialSettings) {
   return request<CommercialSettings>("/api/commercial-settings", {
     method: "PATCH",

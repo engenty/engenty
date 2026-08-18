@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.127] - 2026-08-18
+- ADDED **[projects]** Pick disciplines and assignees with Combobox
+- ADDED **[projects]** Edit phases in a side panel and tidy overview chrome
+- FIXED **[time-tracking]** Keep move-dialog date and project in the field
+- FIXED **[time-tracking]** Move hours when changing discipline
+- FIXED **[time-tracking]** Keep the notes modal on the row discipline
+- FIXED **[time-tracking]** Let the week grid scroll inside the shell
+
 ## [0.1.126] - 2026-08-11
 - FIXED **[core]** Keep agent-token API tests offline after escalation is always on
 

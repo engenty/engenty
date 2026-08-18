@@ -4,7 +4,11 @@ export type {
   TaxRate,
   Unit,
 } from "./api.js";
-export { getCommercialSettings, setCommercialSettings } from "./api.js";
+export {
+  getCommercialSettings,
+  getDisciplines,
+  setCommercialSettings,
+} from "./api.js";
 export {
   BUILT_IN_UNIT_KEYS,
   type BuiltInUnitDefinition,

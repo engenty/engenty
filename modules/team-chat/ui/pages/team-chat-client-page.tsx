@@ -24,7 +24,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import {
   LogOut,
   MessagesSquare,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
@@ -157,7 +157,7 @@ export function TeamChatClientPage() {
                 size="icon-sm"
                 variant="ghost"
               >
-                <MoreHorizontal className="size-4" />
+                <MoreVertical className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -183,7 +183,7 @@ export function TeamChatClientPage() {
               size="icon-sm"
               variant="ghost"
             >
-              <MoreHorizontal className="size-4" />
+              <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

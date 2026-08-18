@@ -12,7 +12,7 @@
     "ui.route.module.projects"
   ],
   "requires": ["module.tasks"],
-  "optional": ["module.contacts", "module.team"],
+  "optional": ["module.contacts", "module.team", "module.commercial-settings"],
   "capabilities": {
     "operations": true,
     "ai": true,

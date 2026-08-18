@@ -46,6 +46,7 @@ interface ProjectPlanningTabProps {
   onTaskEdit: (task: PhaseTask, phaseId?: string) => void;
   onTaskStatusChange: (taskId: string, status: string) => void;
   onTaskVisibilityToggle: (taskId: string, is_public: boolean) => void;
+  onViewNotes?: () => void;
   project: ProjectWithPhasesAndTasks;
   projectId: string;
   sensors: ReturnType<typeof useSensors>;
@@ -81,6 +82,7 @@ export function ProjectPlanningTab({
   onTaskVisibilityToggle,
   onBriefingSave,
   onPhaseVisibilityToggle,
+  onViewNotes,
   teamMembersCatalog,
   teamMembersEnabled,
   teamMembersError = null,
@@ -103,6 +105,7 @@ export function ProjectPlanningTab({
             briefing={project.briefing ?? null}
             disabled={viewMode === "external"}
             onSave={onBriefingSave}
+            onViewNotes={onViewNotes}
           />
         ) : null}
         {teamMembersEnabled ? (

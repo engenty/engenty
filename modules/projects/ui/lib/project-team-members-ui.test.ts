@@ -76,8 +76,26 @@ describe("project team member UI helpers", () => {
     ).toEqual([
       {
         heading: "In project",
-        options: [{ value: "u-1", label: "Bea Stone" }],
+        options: [{ label: "Bea Stone", value: "u-1" }],
       },
     ]);
+  });
+
+  it("uses position as the option description, not the user id", () => {
+    expect(
+      buildProjectTaskMemberOptions({
+        catalog: [
+          {
+            id: "tm-1",
+            user_id: "u-1",
+            full_name: "Bea Stone",
+            position: "Lead",
+          },
+        ],
+        projectMemberIds: [],
+        inProjectLabel: "In project",
+        otherTeamMembersLabel: "Other team members",
+      })
+    ).toEqual([{ description: "Lead", label: "Bea Stone", value: "u-1" }]);
   });
 });

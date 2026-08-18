@@ -4,7 +4,9 @@ import { Pencil } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 export interface ProjectTitleEditableProps {
+  editAriaLabel?: string;
   editingTitle: boolean;
+  editLabel?: string;
   onCancelTitle: () => void;
   onSaveTitle: () => void;
   onStartEditTitle: () => void;
@@ -14,12 +16,14 @@ export interface ProjectTitleEditableProps {
 }
 
 /**
- * Inline-editable project title for the `DetailPageHeader` title slot. Renders
- * inline (no own heading element) so it sits inside the header's `h1` and
- * inherits its typography — click the title or the pencil to edit in place.
+ * Inline-editable title: click the text or the hover pencil to edit in place.
+ * Used in the project `DetailPageHeader` (inherits `h1` type) and the phase
+ * side panel. Renders inline — no own heading element.
  */
 export function ProjectTitleEditable({
+  editAriaLabel,
   editingTitle,
+  editLabel,
   title,
   titleValue,
   onTitleChange,
@@ -29,13 +33,16 @@ export function ProjectTitleEditable({
 }: ProjectTitleEditableProps) {
   const { t } = useTranslation("projects");
   const ref = useRef<HTMLSpanElement>(null);
+  const titleValueRef = useRef(titleValue);
+  titleValueRef.current = titleValue;
 
   useEffect(() => {
     if (!(editingTitle && ref.current)) {
       return;
     }
-    if (ref.current.textContent !== titleValue) {
-      ref.current.textContent = titleValue;
+    const next = titleValueRef.current;
+    if (ref.current.textContent !== next) {
+      ref.current.textContent = next;
     }
     ref.current.focus();
     const range = document.createRange();
@@ -46,16 +53,18 @@ export function ProjectTitleEditable({
       sel.removeAllRanges();
       sel.addRange(range);
     }
-  }, [editingTitle, titleValue]);
+  }, [editingTitle]);
 
   if (editingTitle) {
     return (
       <span
-        aria-label={t("detail.editTitleLabel")}
+        aria-label={editAriaLabel ?? t("detail.editTitleLabel")}
         className="block min-w-[200px] outline-none focus:outline-none"
         contentEditable
         dir="ltr"
-        onBlur={onSaveTitle}
+        onBlur={() => {
+          window.setTimeout(onSaveTitle, 0);
+        }}
         onInput={(e) => onTitleChange(e.currentTarget.textContent ?? "")}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -84,7 +93,7 @@ export function ProjectTitleEditable({
         {title}
       </button>
       <Button
-        aria-label={t("detail.editTitle")}
+        aria-label={editLabel ?? t("detail.editTitle")}
         className="opacity-0 transition-opacity group-hover:opacity-100"
         onClick={onStartEditTitle}
         size="sm"

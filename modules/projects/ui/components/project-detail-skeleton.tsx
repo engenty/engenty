@@ -26,8 +26,8 @@ export function ProjectDetailSkeleton() {
         maxWidth="6xl"
         title={<Skeleton className="h-8 w-64 max-w-full" />}
       />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl space-y-6 p-page">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-6xl space-y-6 px-page pt-2 pb-24 sm:pt-4 md:pt-5">
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-[92%]" />
