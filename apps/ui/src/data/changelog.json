@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.1.128",
+    "timestamp": 1787066241,
+    "commits": [
+      {
+        "id": "b0811d2",
+        "message": "hide empty assignment rows after a project ends",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8b228cf",
+        "message": "require scopes in commit messages",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.127",
-    "timestamp": 1787063907,
+    "timestamp": 1787063908,
     "commits": [
       {
         "id": "d178b8a",

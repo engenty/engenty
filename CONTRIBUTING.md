@@ -32,8 +32,10 @@ pnpm test
 Fix formatting with `pnpm fix` when needed.
 
 Don't bump the version or edit `CHANGELOG.md` / `changelog.json` in a PR — those
-are generated at release time. Just write [Conventional Commits](https://www.conventionalcommits.org)
-(`feat:`, `fix:`, …); the changelog is built from them.
+are generated at release time. Write [Conventional Commits](https://www.conventionalcommits.org)
+as `type(scope): subject`, where the scope is the mainly affected module, package,
+or app. Use `global` for genuinely repository-wide changes and `ci`, `deploy`,
+or `release` for infrastructure. The changelog is built from these commits.
 
 ## Releasing (maintainers)
 

@@ -41,6 +41,8 @@ pnpm fix                 # auto-fix
 
 CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`).
 
+**Commit messages:** use `type(scope): subject`, with the scope naming the mainly affected module, package, or app (for example `fix(time-tracking): …`, `feat(ai-core): …`, or `docs(ui): …`). Use `global` for genuinely repository-wide changes. Infrastructure scopes such as `ci`, `deploy`, and `release` are also valid. Do not omit the scope.
+
 **Developing & releasing:** pick a work mode (main / branch / worktree / worktree + dedicated DB) and ship the one correct way — see the [`release` skill](./.claude/skills/release/SKILL.md) (`/release`). TL;DR: land on `main`, then `pnpm release` + `git push origin main --follow-tags` (the `v*` tag builds, deploys, and syncs the public repo; a plain `main` push runs CI only). Never hand-edit `CHANGELOG.md` / `changelog.json` / the version / tags.
 
 - **Local setup:** `pnpm engenty setup` — compose config.toml, migrations aggregate, UI catalog from **`engenty.plugins`**

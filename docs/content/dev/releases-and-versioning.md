@@ -107,8 +107,8 @@ Example: `feat(inbox): add label filters` → `- Added [inbox]: …`, patch;
 
 ### Scoped entries (module / area context)
 
-Put the module or area in the **Conventional Commit scope** — the part in
-parentheses:
+Every commit must include a **Conventional Commit scope** — the part in
+parentheses. Use the mainly affected module, package, or app:
 
 ```text
 feat(tasks): plugin list columns and group-by project
@@ -124,15 +124,16 @@ fix(ci): publish-open without checkout credential helper
 - Fixed [ci]: Publish-open without checkout credential helper
 ```
 
-If there is **no scope** (`feat: …`), the line stays `- Added: …` with no
-brackets.
+Legacy commits without a scope (`feat: …`) remain supported by the release
+tool and produce `- Added: …` with no brackets, but new commits must be scoped.
 
 **Scope naming (convention):**
 
 | Scope | Use for |
 |-------|---------|
 | Module id | `tasks`, `projects`, `contacts`, `time-tracking`, … — match `modules/<name>/` |
-| App / package | `ui`, `settings`, `ai`, `app-shell`, … |
+| App / package | `ui`, `settings`, `ai`, `ai-core`, `app-shell`, … |
+| Repository-wide | `global` — only for genuinely cross-cutting changes |
 | Infra | `ci`, `deploy`, `release` |
 
 `chore`, `ci`, `test`, `build`, and `style` commits are omitted from the

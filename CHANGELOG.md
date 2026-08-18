@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.128] - 2026-08-18
+- DOCS **[global]** Require scopes in commit messages
+- FIXED **[time-tracking]** Hide empty assignment rows after a project ends
+
 ## [0.1.127] - 2026-08-18
 - ADDED **[projects]** Pick disciplines and assignees with Combobox
 - ADDED **[projects]** Edit phases in a side panel and tidy overview chrome
