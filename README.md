@@ -15,6 +15,42 @@ Agents side by side with your team
 
 > engenty is early preview - we do not guarantee data migrations
 
+## Run it locally
+
+```bash
+git clone https://github.com/engenty/engenty.git
+cd engenty
+```
+
+**Prerequisites** — skip any step you already have:
+
+```bash
+# Node 24 (.nvmrc pins v24.14.0)
+nvm install
+nvm use
+corepack enable          # once per machine — pnpm 10.23 from package.json
+
+# Docker-compatible daemon so `docker info` succeeds
+# macOS: Docker Desktop, OrbStack, or Dory (pnpm can auto-start these)
+# Linux: Docker Engine — if the daemon is already running, you are done
+```
+
+The Supabase CLI ships as a workspace dependency. `pnpm install` is enough; do not install it globally.
+
+Then three commands:
+
+```bash
+pnpm install                 # deps + warm the workspace build
+pnpm engenty setup --local   # compose DB/UI artifacts, start Supabase, write .env.local
+pnpm dev                     # core + ui + ai + docs
+```
+
+Open **http://localhost:5173**. First visit is `/initial_setup` — create the administrator account and first workspace:
+
+![First-run setup — create the administrator account](docs/images/initial-setup.png)
+
+Copilot chat needs a [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) key (the env wizard asks). Everything else can come up without it. `setup --local` is safe to re-run.
+
 The Setup:
 
  * Based on **[Mastra](https://mastra.ai/)** as the agent framework
@@ -73,25 +109,10 @@ Each active module owns its own `supabase/migrations` and storage buckets (decla
 
 Built on **[i18next](https://www.i18next.com/)** (`@engenty/i18n`), namespaced per module — every module ships `en`/`de` locales, enforced by convention. Language is a persisted user/tenant setting, switchable at runtime.
 
-## Requirements
-
-- Node `>= 24.11` (`.nvmrc` pins the version; `nvm use`)
-- pnpm `10.23` (`corepack enable`)
-- A container runtime for the local Supabase database — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory). On first `pnpm dev` you're prompted to pick one; the choice is saved to `engenty.containerRuntime` in `package.json` and the app is auto-started on later runs.
-- [Supabase CLI](https://supabase.com/docs/guides/cli)
-
 ## Develop
 
-**First run** — one command sets everything up, then start the stack:
-
-```bash
-pnpm install                 # deps + build workspace packages
-pnpm engenty setup --local   # pick plugins → start Supabase → run migrations → write .env.local
-pnpm dev                     # runs core + ui + ai + docs together
-```
-
-Open **http://localhost:5173** — Vite serves the UI with hot reload and proxies
-`/api`, `/ai`, `/docs` to the other apps. `setup --local` is safe to re-run any time.
+Vite serves the UI on **http://localhost:5173** and proxies `/api`, `/ai`, `/docs`
+to the other apps.
 
 **Every day:**
 
@@ -170,6 +191,15 @@ Use the same browser origin as your env block (`pnpm dev:urls:localhost` vs
 
 `.env.example` is generated from the env manifest (`pnpm env:example:write`); `pnpm dev:env:check`
 validates your local env against it.
+
+## Production
+
+Self-host behind a single HTTPS domain with [Coolify](https://coolify.io/) and a
+Supabase project (cloud or self-hosted). That is a separate path from local
+`pnpm dev` — VPS, domain, TLS, and production secrets.
+
+Walkthrough: [docs/content/setup/coolify.md](docs/content/setup/coolify.md).
+Operator reference: [deploy/DEPLOY.md](deploy/DEPLOY.md).
 
 ## Release & ship
 

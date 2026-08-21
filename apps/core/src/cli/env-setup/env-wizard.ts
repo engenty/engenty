@@ -13,6 +13,7 @@ import {
   spinner,
   text,
 } from "@clack/prompts";
+import { resolveSupabaseCliBin } from "../db/supabase-cli-bin.js";
 import { renderScopeReport } from "./env-check.js";
 import {
   diffScope,
@@ -237,8 +238,10 @@ async function harvestSupabase(
   // Run supabase from the workspace root via spawnSync — same invocation the
   // db/setup commands use — to avoid PATH/cwd differences when the CLI runs
   // under `pnpm exec` from apps/core.
+  const supabaseBin = resolveSupabaseCliBin(state.workspaceRoot);
   const runner: CommandRunner = (command, args) => {
-    const result = spawnSync(command, [...args], {
+    const bin = command === "supabase" ? supabaseBin : command;
+    const result = spawnSync(bin, [...args], {
       cwd: state.workspaceRoot,
       encoding: "utf8",
       timeout: 30_000,

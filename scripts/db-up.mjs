@@ -32,6 +32,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveSupabaseCliBin } from "./lib/supabase-cli.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG_PATH = join(ROOT, "supabase", "config.toml");
@@ -111,7 +112,7 @@ function main() {
     `supabase start — lean${extras.length ? ` + ${extras.join(" + ")}` : ""}\n`
   );
 
-  const result = spawnSync("npx", ["supabase", "start"], {
+  const result = spawnSync(resolveSupabaseCliBin(ROOT), ["start"], {
     cwd: ROOT,
     stdio: "inherit",
   });

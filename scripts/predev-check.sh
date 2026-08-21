@@ -13,6 +13,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Workspace-vendored CLI (pnpm install). Prefer it over a random global binary.
+export PATH="${ROOT}/node_modules/.bin:${PATH}"
+
 SUPABASE_API="http://127.0.0.1:54321"
 # Shared across all engenty worktrees — only one predev may start/heal Supabase
 # or apply migrations at a time. Parallel `pnpm dev` is supported; they serialize
@@ -76,20 +79,13 @@ select_runtime_context() {
   fi
 }
 
-# The persisted choice lives in package.json under engenty.containerRuntime.
+# The persisted choice lives in gitignored `.engenty/container-runtime`.
 read_runtime_choice() {
-  node -e "try{process.stdout.write(require('${ROOT}/package.json').engenty?.containerRuntime||'')}catch(e){}" 2>/dev/null
+  node "${ROOT}/scripts/lib/container-runtime.mjs" read 2>/dev/null || true
 }
 
 write_runtime_choice() {
-  node -e "
-    const fs=require('fs');
-    const p='${ROOT}/package.json';
-    const j=JSON.parse(fs.readFileSync(p,'utf8'));
-    j.engenty=j.engenty||{};
-    j.engenty.containerRuntime='$1';
-    fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
-  " 2>/dev/null
+  node "${ROOT}/scripts/lib/container-runtime.mjs" write "$1"
 }
 
 prompt_runtime_choice() {
@@ -101,7 +97,7 @@ prompt_runtime_choice() {
 
   echo "" >&2
   echo "No container runtime configured for local dev." >&2
-  echo "Which one do you want to use? (saved to package.json → engenty.containerRuntime)" >&2
+  echo "Which one do you want to use? (saved to .engenty/container-runtime, not committed)" >&2
   echo "  1) Docker Desktop" >&2
   echo "  2) OrbStack" >&2
   echo "  3) Dory (Apple container stack — https://augani.github.io/dory)" >&2
@@ -124,8 +120,27 @@ prompt_runtime_choice() {
 ensure_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "" >&2
-    echo "docker CLI not found. Install a container runtime (Docker Desktop, OrbStack, or Dory) and ensure docker is on your PATH." >&2
-    echo "See: https://docs.docker.com/get-docker/" >&2
+    echo "docker CLI not found. Install a container engine and put docker on your PATH." >&2
+    echo "  macOS: Docker Desktop, OrbStack, or Dory — https://docs.docker.com/get-docker/" >&2
+    echo "  Linux: Docker Engine (or any Docker-compatible daemon). If it is already running, that is enough." >&2
+    exit 1
+  fi
+
+  # First-class case: the daemon is already up (Linux Docker Engine, CI,
+  # a Mac app the user started themselves). Do not prompt for a named runtime.
+  if docker info >/dev/null 2>&1; then
+    local runtime
+    runtime="$(read_runtime_choice)"
+    if [[ -n "$runtime" ]]; then
+      select_runtime_context "$runtime"
+    fi
+    return 0
+  fi
+
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    echo "" >&2
+    echo "The docker CLI is installed, but the daemon is not running." >&2
+    echo "Start it (e.g. sudo systemctl start docker) so \`docker info\` succeeds, then retry." >&2
     exit 1
   fi
 
@@ -141,20 +156,16 @@ ensure_docker() {
   label="$(runtime_label "$runtime")"
   app="$(runtime_app "$runtime")"
 
-  # Pin the CLI context so `docker info` here — and every other script that
-  # follows ~/.docker/config.json (pnpm supabase, db:*, snapshots) — talks to
-  # the chosen daemon rather than whatever happened to be active last.
   select_runtime_context "$runtime"
 
   if docker info >/dev/null 2>&1; then
     return 0
   fi
 
-  if [[ "$(uname -s)" == "Darwin" ]] && [[ -d "/Applications/${app}.app" ]]; then
+  if [[ -n "$app" ]] && [[ -d "/Applications/${app}.app" ]]; then
     echo "Docker daemon not reachable — starting ${label}..." >&2
     open -a "$app" >/dev/null 2>&1 || true
     for i in $(seq 1 120); do
-      # The context may only register after the app's first boot — retry it.
       select_runtime_context "$runtime"
       if docker info >/dev/null 2>&1; then
         echo "${label} is ready." >&2
@@ -167,8 +178,8 @@ ensure_docker() {
     done
   else
     echo "" >&2
-    echo "${label} does not appear to be installed at /Applications/${app}.app." >&2
-    echo "Install it, or reconfigure by editing engenty.containerRuntime in package.json." >&2
+    echo "${label} is not installed at /Applications/${app}.app." >&2
+    echo "Install it, start the daemon, or delete .engenty/container-runtime to pick again." >&2
   fi
 
   echo "" >&2
@@ -306,7 +317,7 @@ soft_heal_supabase_rest() {
 ensure_supabase() {
   if ! command -v supabase >/dev/null 2>&1; then
     echo "" >&2
-    echo "supabase CLI not found. Install: https://supabase.com/docs/guides/cli" >&2
+    echo "Supabase CLI not found in this workspace. Run: pnpm install" >&2
     exit 1
   fi
 
@@ -335,7 +346,7 @@ ensure_supabase() {
     echo "" >&2
     echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
     echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
-    echo "Or: supabase stop && supabase start --debug" >&2
+    echo "Or: pnpm supabase:stop && pnpm supabase:start -- --debug" >&2
     exit 1
   fi
 
@@ -388,7 +399,7 @@ ensure_supabase() {
   echo "" >&2
   echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
   echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
-  echo "Or: supabase stop && supabase start --debug" >&2
+  echo "Or: pnpm supabase:stop && pnpm supabase:start -- --debug" >&2
   exit 1
 }
 

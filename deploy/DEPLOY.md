@@ -28,7 +28,7 @@ and deploys. `--dry-run` walks the flow without writing anything.
 - Docker on the VPS (or local smoke)
 - [Coolify](https://coolify.io/) with a domain and TLS (production)
 - Supabase (self-hosted or cloud) reachable from the Engenty Docker network
-- Node.js `>=24.11.0` + [Supabase CLI](https://supabase.com/docs/guides/cli) on a machine that can run migrations
+- Node.js `>=24.11.0` + pnpm on a machine that can run migrations (`pnpm install` vendors the Supabase CLI)
 - Secrets: `ENGENTY_SECURITY_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `AI_GATEWAY_API_KEY`, optional `OPENAI_API_KEY`
 
 ---

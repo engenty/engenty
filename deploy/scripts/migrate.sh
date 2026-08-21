@@ -6,8 +6,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+# Workspace-vendored CLI (pnpm install). Prefer it over a random global binary.
+export PATH="${ROOT}/node_modules/.bin:${PATH}"
+
 if ! command -v supabase >/dev/null 2>&1; then
-  echo "supabase CLI is required. See https://supabase.com/docs/guides/cli" >&2
+  echo "Supabase CLI is not installed. Run: pnpm install" >&2
   exit 1
 fi
 

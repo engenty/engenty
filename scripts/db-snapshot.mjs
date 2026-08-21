@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { resolveSupabaseCliBin } from "./lib/supabase-cli.mjs";
 import { resolveSupabaseDbContainerName } from "./supabase-sync-lib.mjs";
 
 function resolveRepoRoot() {
@@ -55,9 +56,7 @@ function runSnapshot() {
     console.error(
       `Error: Supabase container "${containerName}" is not running.`
     );
-    console.error(
-      "Please start it first using 'pnpm supabase:start' or 'supabase start'."
-    );
+    console.error("Please start it first using 'pnpm supabase:start'.");
     process.exit(1);
   }
 
@@ -96,10 +95,23 @@ function runSnapshot() {
 
   console.log(`Dumping database data to ${snapshotFile}...`);
   try {
-    execSync(
-      `supabase db dump --local --data-only --schema "${schemas}" --file "${snapshotFile}"`,
-      { stdio: "inherit" }
+    const dump = spawnSync(
+      resolveSupabaseCliBin(root),
+      [
+        "db",
+        "dump",
+        "--local",
+        "--data-only",
+        "--schema",
+        schemas,
+        "--file",
+        snapshotFile,
+      ],
+      { cwd: root, stdio: "inherit" }
     );
+    if (dump.status !== 0) {
+      throw new Error("supabase db dump failed");
+    }
     console.log(`Database snapshot created successfully at ${snapshotFile}`);
   } catch (error) {
     console.error("Error dumping database:", error.message);
@@ -179,9 +191,7 @@ function runRestore() {
     console.error(
       `Error: Supabase container "${containerName}" is not running.`
     );
-    console.error(
-      "Please start it first using 'pnpm supabase:start' or 'supabase start'."
-    );
+    console.error("Please start it first using 'pnpm supabase:start'.");
     process.exit(1);
   }
 

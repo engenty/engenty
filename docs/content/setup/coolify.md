@@ -37,8 +37,8 @@ You'll need:
   (Let's Encrypt).
 - A **Supabase** instance — self-hosted or [Supabase Cloud](https://supabase.com/) —
   reachable from the server.
-- **Node.js `>=24.11.0`** and the [Supabase CLI](https://supabase.com/docs/guides/cli)
-  on the machine you'll run migrations from (this can be your laptop).
+- **Node.js `>=24.11.0`** and pnpm on the machine you'll run migrations from
+  (this can be your laptop). `pnpm install` vendors the Supabase CLI.
 - API keys: an `AI_GATEWAY_API_KEY` (Vercel AI Gateway) and credentials for your
   LLM provider.
 

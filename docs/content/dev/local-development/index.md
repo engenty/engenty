@@ -7,10 +7,24 @@ description: Clone, install, and run the Engenty stack locally.
 
 ## Prerequisites
 
-- **Node** ≥ 24.11 (an `.nvmrc` pins the exact version)
-- **pnpm** 10.x
-- **A container runtime** — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory) — for local Supabase (Postgres + auth). `pnpm dev` prompts for your pick on first run (see [Setup process](../setup-process#choosing-a-container-runtime)).
-- **[Supabase CLI](https://supabase.com/docs/guides/cli)**
+Skip any step you already have.
+
+```bash
+git clone https://github.com/engenty/engenty.git
+cd engenty
+
+# Node 24 (.nvmrc pins v24.14.0)
+nvm install
+nvm use
+corepack enable          # once per machine — pnpm 10.23 from package.json
+```
+
+**Container engine** so `docker info` succeeds:
+
+- **macOS** — Docker Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory). If the daemon is already running, that is enough. If it is not, `pnpm dev` can auto-start the app you pick (saved to gitignored `.engenty/container-runtime`).
+- **Linux** — Docker Engine or any Docker-compatible daemon. If it is already running, you are done; there is no macOS-app prompt.
+
+The **Supabase CLI** is a workspace dependency. `pnpm install` vendors it — do not install it separately.
 
 ## Setup
 
@@ -18,7 +32,7 @@ description: Clone, install, and run the Engenty stack locally.
 
 ```bash
 pnpm install
-pnpm engenty setup --local   # plugins (interactive) + Supabase + migrations + .env.local
+pnpm engenty setup --local   # compose artifacts + Supabase + migrations + .env.local
 pnpm dev
 ```
 

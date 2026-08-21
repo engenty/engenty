@@ -40,10 +40,6 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -54,7 +50,7 @@ jobs:
         run: pnpm run setup
 
       - name: Start local Supabase
-        run: supabase start -x studio,inbucket
+        run: pnpm supabase:start -- -x studio,inbucket
 
       - name: Apply migrations
         run: pnpm db:migrate
@@ -62,7 +58,7 @@ jobs:
       - name: Write local env
         run: |
           {
-            supabase status -o env \
+            pnpm exec supabase status -o env \
               | sed -n 's/^SERVICE_ROLE_KEY=/SUPABASE_SERVICE_ROLE_KEY=/p; s/^ANON_KEY=/SUPABASE_ANON_KEY=/p; s/^API_URL=/SUPABASE_URL=/p' \
               | tr -d '"'
             echo "ENGENTY_DEV_PASS=$ENGENTY_DEV_PASS"

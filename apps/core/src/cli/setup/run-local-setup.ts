@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import {
   runSupabaseCli,
@@ -53,26 +54,47 @@ function isDockerRunning(): boolean {
   return spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0;
 }
 
+function savedMacRuntimeApp(repoRoot: string): string | undefined {
+  const file = path.join(repoRoot, ".engenty", "container-runtime");
+  let runtime = "";
+  if (fs.existsSync(file)) {
+    runtime = fs.readFileSync(file, "utf8").trim();
+  }
+  if (runtime === "orbstack") {
+    return "OrbStack";
+  }
+  if (runtime === "dory") {
+    return "Dory";
+  }
+  if (runtime === "docker-desktop" || runtime === "docker" || runtime === "") {
+    return "Docker";
+  }
+  return;
+}
+
 /**
- * Ensure the Docker daemon is up (Supabase needs it). On macOS with Docker
- * Desktop installed, auto-start it and wait. Returns false if it can't be made
- * ready — the caller prints guidance and stops cleanly instead of crashing.
+ * Ensure the Docker daemon is up (Supabase needs it). If `docker info` already
+ * works — Linux Engine, CI, a Mac app the user started — that is enough.
+ * On macOS only, auto-start the saved app (Docker Desktop / OrbStack / Dory)
+ * and wait. Returns false if it can't be made ready.
  */
-async function ensureDockerReady(): Promise<boolean> {
+async function ensureDockerReady(repoRoot: string): Promise<boolean> {
   if (isDockerRunning()) {
     return true;
   }
-  if (
-    process.platform === "darwin" &&
-    fs.existsSync("/Applications/Docker.app")
-  ) {
-    console.log("Docker isn't running — starting Docker Desktop…");
-    spawnSync("open", ["-a", "Docker"], { stdio: "ignore" });
-    for (let i = 0; i < 30; i++) {
-      await sleep(2000);
-      if (isDockerRunning()) {
-        return true;
-      }
+  if (process.platform !== "darwin") {
+    return false;
+  }
+  const app = savedMacRuntimeApp(repoRoot);
+  if (!(app && fs.existsSync(`/Applications/${app}.app`))) {
+    return false;
+  }
+  console.log(`Docker isn't running — starting ${app}…`);
+  spawnSync("open", ["-a", app], { stdio: "ignore" });
+  for (let i = 0; i < 30; i++) {
+    await sleep(2000);
+    if (isDockerRunning()) {
+      return true;
     }
   }
   return isDockerRunning();
@@ -122,17 +144,25 @@ export async function runLocalSetup(params: {
   if (isSupabaseRunning()) {
     console.log("Local Supabase is already running.");
   } else {
-    if (!(await ensureDockerReady())) {
-      console.log(
-        `
+    if (!(await ensureDockerReady(params.repoRoot))) {
+      const dockerHint =
+        process.platform === "darwin"
+          ? `
 Docker isn't running, so local Supabase can't start.
 
-  1. Start Docker Desktop (https://docs.docker.com/desktop)
+  1. Start Docker Desktop, OrbStack, or Dory
   2. Re-run: pnpm engenty setup --local
+`
+          : `
+Docker isn't running, so local Supabase can't start.
 
+  1. Start your container engine so \`docker info\` succeeds
+     (Docker Engine, or any Docker-compatible daemon).
+  2. Re-run: pnpm engenty setup --local
+`;
+      console.log(`${dockerHint}
 Plugin selection and generated artifacts above are already done — this just
-finishes the database and .env.local steps.`
-      );
+finishes the database and .env.local steps.`);
       return;
     }
     console.log("Starting local Supabase (Docker)…");

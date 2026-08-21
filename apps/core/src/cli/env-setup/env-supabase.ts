@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { resolveSupabaseCliBinFromCwd } from "../db/supabase-cli-bin.js";
 
 export interface CommandResult {
   code: number;
@@ -13,23 +14,20 @@ export type CommandRunner = (
 
 const defaultRunner: CommandRunner = (command, args) =>
   new Promise((resolve) => {
-    execFile(
-      command,
-      [...args],
-      { timeout: 30_000 },
-      (error, stdout, stderr) => {
-        if (!error) {
-          resolve({ code: 0, stderr, stdout });
-          return;
-        }
-        const rawCode = (error as { code?: number | string }).code;
-        resolve({
-          code: typeof rawCode === "number" ? rawCode : 1,
-          stderr: stderr || error.message,
-          stdout,
-        });
+    const bin =
+      command === "supabase" ? resolveSupabaseCliBinFromCwd() : command;
+    execFile(bin, [...args], { timeout: 30_000 }, (error, stdout, stderr) => {
+      if (!error) {
+        resolve({ code: 0, stderr, stdout });
+        return;
       }
-    );
+      const rawCode = (error as { code?: number | string }).code;
+      resolve({
+        code: typeof rawCode === "number" ? rawCode : 1,
+        stderr: stderr || error.message,
+        stdout,
+      });
+    });
   });
 
 /** Parse `supabase status -o env` stdout: KEY="VALUE" lines (stderr noise ignored). */

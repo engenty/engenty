@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { findWorkspaceRootFrom } from "@engenty/environment/env";
+import { resolveSupabaseCliBin } from "./supabase-cli-bin.js";
 
 export function runSupabaseCli(
   args: readonly string[],
   params: { cwd?: string } = {}
 ): { ok: boolean; output: string } {
   const cwd = params.cwd ?? findWorkspaceRootFrom(process.cwd());
-  const result = spawnSync("supabase", [...args], {
+  const result = spawnSync(resolveSupabaseCliBin(cwd), [...args], {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -28,6 +29,9 @@ export function runSupabaseCliStreaming(
   params: { cwd?: string } = {}
 ): { ok: boolean } {
   const cwd = params.cwd ?? findWorkspaceRootFrom(process.cwd());
-  const result = spawnSync("supabase", [...args], { cwd, stdio: "inherit" });
+  const result = spawnSync(resolveSupabaseCliBin(cwd), [...args], {
+    cwd,
+    stdio: "inherit",
+  });
   return { ok: result.status === 0 };
 }

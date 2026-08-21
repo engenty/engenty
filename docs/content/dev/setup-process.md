@@ -28,7 +28,7 @@ idempotent and only prompts for plugins on a fresh workspace.
 | `pnpm install` | Installs deps, then **`postinstall`** warms the build | `postinstall` is best-effort and marker-gated — it never fails the install; the CLI rebuilds on demand if skipped. Skip with `ENGENTY_SKIP_INSTALL_BUILD=1`. |
 | `engenty setup` | **Regenerates derived artifacts** from `engenty.plugins` | Pure function of the manifest — see below. |
 | `engenty setup --local` | `setup` **plus** orchestration | Interactive plugin install (fresh only) → start the container runtime → start Supabase → apply migrations → init `.env.local`. Each step is skippable; non-interactive shells take safe defaults. |
-| `pnpm dev` | `dev:check` + `predev` + the stack | Auto-starts the [chosen container runtime](#choosing-a-container-runtime) and Supabase if needed, builds packages/modules, regenerates UI artifacts, then runs core/ui/ai/docs. |
+| `pnpm dev` | `dev:check` + `predev` + the stack | Auto-starts the [container runtime](#container-runtime--supabase-on-demand) if needed, then Supabase, builds packages/modules, regenerates UI artifacts, then runs core/ui/ai/docs. |
 
 ## What `engenty setup` regenerates
 
@@ -76,37 +76,26 @@ the needed packages before running. Plugins themselves are loaded from source vi
 
 ## Container runtime & Supabase, on demand
 
-Both `pnpm dev` (`predev-check.sh`) and `setup --local` will, on macOS, start the
-container runtime if it isn't running and wait for it, then start local Supabase
-if it isn't up. If the runtime can't be readied, you get a clear instruction and
-a clean exit (no stack trace) — start it and re-run.
+If `docker info` already succeeds — Linux Docker Engine, CI, a Mac app you
+started yourself — that is enough. `pnpm dev` (`predev-check.sh`) and
+`setup --local` will then start local Supabase if it isn't up.
 
-### Choosing a container runtime
+On **macOS**, if the daemon is down, `predev-check.sh` can auto-start Docker
+Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory)
+and wait. The choice is saved to gitignored **`.engenty/container-runtime`**
+(values: `docker-desktop`, `orbstack`, `dory`) — never `package.json`. Delete
+that file to be prompted again.
 
-The local Supabase stack needs a Docker-compatible engine. Three are supported:
+On **Linux**, there is no app to `open`. If the CLI is installed but the daemon
+is down, you get a clear instruction to start it (`systemctl start docker` or
+your distro equivalent) and a clean exit.
 
-- **Docker Desktop**
-- **[OrbStack](https://orbstack.dev)**
-- **[Dory](https://augani.github.io/dory)** — native to the Apple container stack
-
-The first time `pnpm dev` runs without a saved choice, `predev-check.sh` prompts
-you to pick one and records it under `engenty.containerRuntime` in `package.json`
-(values: `docker-desktop`, `orbstack`, `dory`). Later runs read that value and
-`open -a` the matching app, waiting for its Docker-compatible daemon.
-
-`predev-check.sh` also pins the matching **Docker CLI context** (`desktop-linux`,
-`orbstack`, or `dory`) via `docker context use`. Because that writes the global
-`~/.docker/config.json`, the choice is authoritative for **every** tool that
-follows the Docker context — not just `pnpm dev`, but `pnpm supabase`, `db:*`,
-snapshots, and a bare `docker` too. Switching the field and re-running `pnpm dev`
-re-points them all at the new daemon.
-
-This is a **per-machine preference** — it's not committed, and the field is
-deliberately namespaced under `engenty.` rather than `devEngines` (which is a
-package-manager-enforced schema for the JS runtime/package manager and would fail
-`install`/`run` if given a container-engine name). Non-interactive shells (CI)
-default to Docker Desktop. To switch runtimes, edit or delete the field and you'll
-be re-prompted.
+If a named macOS runtime is saved, `predev-check.sh` also pins the matching
+**Docker CLI context** (`desktop-linux`, `orbstack`, or `dory`) via
+`docker context use`. Because that writes the global `~/.docker/config.json`,
+the choice is authoritative for every tool that follows Docker context — not
+just `pnpm dev`, but `pnpm supabase`, `db:*`, snapshots, and a bare `docker`
+too.
 
 ## Environment
 
@@ -161,7 +150,7 @@ command behind.
 | Symptom | Cause / fix |
 |---------|-------------|
 | `Could not query the database for the schema cache` (queue/AI logs) | Supabase stack not fully up. `pnpm supabase:stop && pnpm db:up`, confirm `pnpm supabase:status` is healthy, then `pnpm dev`. |
-| `Cannot connect to the Docker daemon` | Docker not running. Start Docker Desktop and re-run (`setup --local` tries to start it for you on macOS). |
+| `Cannot connect to the Docker daemon` | Docker not running. Start the daemon so `docker info` succeeds and re-run (`setup --local` can auto-start Docker Desktop / OrbStack / Dory on macOS). |
 | CI `frozen-lockfile` fails after adding a module | The new workspace package isn't committed, or the lockfile is stale — commit it and run `pnpm install`. |
 | `2 need attention` in `env check` after setup | Supabase keys are still placeholders — re-run `pnpm dev:env:init` once Supabase is up. |
 | App returns `Unauthorized` for a valid login; PostgREST 504s; `docker stats` hangs | Not an auth bug — the container runtime is saturated, and auth is simply not answering in time. Usually several Supabase stacks running at once. Stop the ones you are not using (`pnpm supabase:stop` in that checkout — data is preserved) and start the rest with `pnpm db:up` so Studio and the log pipeline stay off. Confirm with `docker stats`: if Postgres is idle in `pg_stat_activity` while everything times out, it is the host, not the app. |
