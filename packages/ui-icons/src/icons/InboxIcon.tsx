@@ -16,13 +16,13 @@ export function DockInboxIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7"
         fill={dockBrandFill.amber}
-        fillOpacity={0.18}
+        fillOpacity={0.34}
         stroke="none"
       />
       <path
         d="M22 13h-4.5l-1.5 3h-8l-1.5-3H2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2z"
         fill={dockBrandFill.amber}
-        fillOpacity={0.26}
+        fillOpacity={0.49}
         stroke="none"
       />
       <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7" fill="none" />

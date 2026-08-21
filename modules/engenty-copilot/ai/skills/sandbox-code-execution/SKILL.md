@@ -13,7 +13,7 @@ Use the **sandbox workspace** at `/sandbox` for scripts, data files, and command
 2. Write inputs under `/sandbox/data/` using workspace file tools.
 3. Write scripts under `/sandbox/` (for example `count_a.py`).
 4. Run with `mastra_workspace_execute_command` — the user must approve shell commands in the UI.
-5. Offer generated files with the `offer_file_downloads` frontend tool (storage keys under the tenant sandbox prefix).
+5. Register generated files with `artifact_write { title, file: { key } }` (tenant storage keys, not `/sandbox` paths) so the user can preview and download them.
 6. To keep a result for the whole team (durable, shared across users and sessions), write it to `/shared`. `/sandbox` is per-session; `/shared` is the writable tenant-shared space (durable across users and sessions). On the production Docker sandbox both `/sandbox` and `/shared` are code-reachable, so a command can write directly to `/shared/…`. `/shared` is tenant-wide — treat concurrent writes as last-writer-wins and prefer unique filenames.
 
 ## Team member tasks

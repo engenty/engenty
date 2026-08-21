@@ -1,6 +1,6 @@
 // Structured execution report returned by the CLI Agent as its final message.
-// The copilot presents the `summary` to the user and calls offer_file_downloads
-// with any `artifacts` that need user access.
+// The copilot presents the `summary` to the user and registers any `artifacts`
+// that need user access with artifact_write { file }.
 
 import { z } from "zod";
 

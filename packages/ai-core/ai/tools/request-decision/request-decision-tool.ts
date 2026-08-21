@@ -36,6 +36,33 @@ export interface RequestDecisionToolDefinition {
   toModelOutput: () => { type: "text"; value: string };
 }
 
+/**
+ * How a resolved chooser reads to the MODEL when the run resumes.
+ *
+ * These sentences are also the ONLY trace of the user's answer once the run is
+ * over: resuming replaces the tool part's output with this string, so the
+ * artifact (and with it `choice_label`) is gone from storage. The UI reads the
+ * answer back out of it — which is why the prefixes live here, beside the
+ * contract, and not as literals at either end.
+ */
+export const DECISION_RESUME_PREFIXES = {
+  answered: "The user answered: ",
+  selected: "The user selected: ",
+} as const;
+
+/** The answer inside a persisted resume sentence, or null if it is not one. */
+export function readDecisionResumeAnswer(result: unknown): string | null {
+  if (typeof result !== "string") {
+    return null;
+  }
+  for (const prefix of Object.values(DECISION_RESUME_PREFIXES)) {
+    if (result.startsWith(prefix)) {
+      return result.slice(prefix.length).trim() || null;
+    }
+  }
+  return null;
+}
+
 export function createRequestDecisionArtifact(
   input: RequestDecisionInput
 ): RequestDecisionArtifact {

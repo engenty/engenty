@@ -7,7 +7,6 @@ import {
   useRegisterI18nSetLocaleFrontendTool,
 } from "./i18n-set-locale/register.js";
 import { useRegisterNavigateFrontendTool } from "./navigate/register.js";
-import { useRegisterOfferFileDownloadsFrontendTool } from "./offer-file-downloads/register.js";
 import { useRegisterOpenCopilotFrontendTool } from "./open-copilot/register.js";
 import { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
 import { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
@@ -15,7 +14,6 @@ import {
   type CopilotThemeMode,
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
-import { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";
 import { useRegisterUiGuideFrontendTools } from "./ui-guide/register.js";
 
 export interface RegisterCopilotFrontendToolsOptions {
@@ -35,8 +33,6 @@ export function useRegisterCopilotFrontendTools(
   useRegisterNavigateFrontendTool({
     openCopilotShell: options.openCopilotShell,
   });
-  useRegisterOfferFileDownloadsFrontendTool();
-  useRegisterShowArtifactFrontendTool();
   useRegisterOpenCopilotFrontendTool({
     openCopilotShell: options.openCopilotShell,
   });
@@ -76,11 +72,6 @@ export {
   type NavigateLike,
   runNavigateFrontendTool,
 } from "./navigate/run.js";
-export { useRegisterOfferFileDownloadsFrontendTool } from "./offer-file-downloads/register.js";
-export {
-  type OfferFileDownloadItem,
-  runOfferFileDownloadsFrontendTool,
-} from "./offer-file-downloads/run.js";
 export { useRegisterOpenCopilotFrontendTool } from "./open-copilot/register.js";
 export { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
 export { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
@@ -88,5 +79,4 @@ export {
   type CopilotThemeMode,
   useRegisterShellSetThemeFrontendTool,
 } from "./shell-set-theme/register.js";
-export { useRegisterShowArtifactFrontendTool } from "./show-artifact/register.js";
 export { useRegisterUiGuideFrontendTools } from "./ui-guide/register.js";

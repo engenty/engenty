@@ -2,15 +2,19 @@
 // Step 1: super-admin credentials; Step 2: first tenant details.
 // Only shown when `initial_setup_required` is true (gate check in parent).
 
-import { Button, Card, CardContent, Input, Label } from "@engenty/ui-core";
-import { AnimatedLoaderIcon } from "@engenty/ui-icons";
-import { Eye, EyeOff } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
 import {
+  Button,
+  Card,
+  CardContent,
   Engenty,
   EngentyLogoMark,
   EngentyWordmark,
-} from "../components/engenties";
+  Input,
+  Label,
+} from "@engenty/ui-core";
+import { AnimatedLoaderIcon } from "@engenty/ui-icons";
+import { Eye, EyeOff } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { getApiBaseUrl } from "../lib/api-client";
 import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
 import { createInitialAdmin } from "../lib/initial-setup";

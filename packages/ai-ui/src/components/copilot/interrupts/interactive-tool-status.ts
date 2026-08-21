@@ -1,3 +1,4 @@
+import { readDecisionResumeAnswer } from "@engenty/ai-core/browser";
 import { parseDecisionResolution } from "./decision-artifact.js";
 import { parseFeedbackResolution } from "./feedback-artifact.js";
 
@@ -23,7 +24,11 @@ export function getInteractiveToolStatus(input: {
   const fromOutput =
     toolName === "requestFeedback"
       ? parseFeedbackResolution(output)
-      : parseDecisionResolution(output);
+      : // A natively-suspended chooser resumes with a SENTENCE as its result, so
+        // the artifact carrying `choice_label` is gone from storage. Reading the
+        // sentence is what keeps a reloaded transcript from degrading every
+        // answered card to "Decision submitted".
+        (parseDecisionResolution(output) ?? readDecisionResumeAnswer(output));
   const resolvedLabel = (optimistic ?? fromOutput)?.trim() || null;
 
   if (resolvedLabel) {

@@ -364,7 +364,15 @@ export const taskReleaseInputRawSchema = z.object({
   agent_session_run_id: z.string().uuid().optional(),
   agent_run_id: z.string().uuid().optional(),
   outcome: z
-    .enum(["completed", "completed_quiet", "failed", "needs_approval"])
+    .enum([
+      "completed",
+      "completed_quiet",
+      "failed",
+      "needs_approval",
+      // The run stopped to ask a human something (TASK_BLOCKED) — distinct
+      // from needs_approval, where what is missing is a grant.
+      "needs_input",
+    ])
     .optional(),
   pending_approval_operation_ids: z.array(z.string().min(1)).max(64).optional(),
   // Entry statuses only — release must not park a task at done/cancelled/etc.

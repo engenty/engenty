@@ -13,7 +13,7 @@ function SkeletonKey({ cx, headFill }: { cx: number; headFill: string }) {
       <path
         d={bow}
         fill={headFill}
-        fillOpacity={0.88}
+        fillOpacity={0.9}
         fillRule="evenodd"
         stroke="none"
       />

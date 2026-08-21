@@ -88,10 +88,10 @@
   --moss-tint: var(--success-tint);
   --amber: var(--warning);
   --amber-tint: var(--warning-tint);
-  --rose: oklch(
-    from var(--raw-background) calc(0.64 - (0.05 * var(--contrast))) 0.2
-      var(--hue-danger)
-  );
+  /* Aliases --danger rather than repeating its formula, so rose picks up the
+     dark-mode override the way cobalt/moss/amber do through info/success/
+     warning. Spelled out, it stayed at its light-mode lightness in dark. */
+  --rose: var(--danger);
   --rose-tint: var(--danger-tint);
 
   /* Semantic Alerts */

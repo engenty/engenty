@@ -9,7 +9,7 @@ function frontendInterrupt() {
     kind: "frontend_tool" as const,
     title: "Offer downloads",
     tool_call_id: "call-1",
-    tool_name: "offer_file_downloads",
+    tool_name: "navigate",
   };
 }
 

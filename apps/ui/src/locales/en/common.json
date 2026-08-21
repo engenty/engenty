@@ -609,6 +609,7 @@
     "newChat": "New chat",
     "newChatPickAgent": "Choose agent for new chat",
     "newChatStartWithAgent": "Start with another agent",
+    "decisionAnswered": "Answer",
     "decisionCard": {
       "customPrefix": "Custom:",
       "inputPlaceholder": "Type option number or custom response…",
@@ -625,7 +626,9 @@
       "approveAlways": "Approve always (this chat)",
       "approveRun": "Approve for this run",
       "approveChat": "Approve for this chat",
-      "deny": "Deny"
+      "deny": "Deny",
+      "approved": "Approved",
+      "denied": "Denied"
     },
     "sidebar": {
       "title": "Chats",

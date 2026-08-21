@@ -49,5 +49,5 @@ Use `engenty_cli` when the task requires **actual code execution** in the sandbo
 
 `engenty_cli` always returns a structured execution report. When it does:
 1. Present the `summary` field to the user as your reply.
-2. If `artifacts` is non-empty, call `offer_file_downloads` with the artifact entries so the user gets download buttons.
+2. If `artifacts` is non-empty, register each one with `artifact_write { title, file: { key } }` so the user can preview and download it — never paste the storage key.
 3. If `status` is `"error"` or `"partial"`, relay the issue from `summary` and offer to retry or adjust.

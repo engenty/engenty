@@ -204,6 +204,29 @@ function makeTempDir(prefix: string): string {
 }
 
 describe("createApiApp", () => {
+  it("reports readiness without generating the OpenAPI document", async () => {
+    const app = createApiApp({
+      logger: noopApiLogger,
+      registry: makeRegistry(),
+      config: { securityJwtSecret: "test-security-secret" },
+      dataDir: "/tmp",
+      resolvePath: (p: string) => p,
+      auditLog: createNoopAuditLog(),
+      readiness: {
+        databaseConfigured: true,
+        databaseReachable: false,
+      },
+      tenantPluginOverrides: createTenantPluginOverrides(),
+    });
+
+    const unavailable = await app.request("/api/ready");
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({
+      database_reachable: false,
+      ready: false,
+    });
+  });
+
   it("mounts plugin HTTP routes", async () => {
     const securityJwtSecret = "test-security-secret";
     const token = await createApiToken(securityJwtSecret);
@@ -933,7 +956,7 @@ describe("startApiServer", () => {
     retry: 1,
   }, async () => {
     const dataDir = makeTempDir("engenty-core-start-test");
-    const { app, server } = await startApiServer({
+    const { app, beginDrain, server } = await startApiServer({
       logger: noopApiLogger,
       port: 0,
       dataDir,
@@ -947,6 +970,11 @@ describe("startApiServer", () => {
 
     const res = await app.request("/api/openapi.json");
     expect(res.status).toBe(200);
+
+    beginDrain();
+    const draining = await fetch(`http://127.0.0.1:${port}/api/ready`);
+    expect(draining.status).toBe(503);
+    expect(draining.headers.get("connection")).toBe("close");
 
     await new Promise<void>((resolve) => server.close(() => resolve()));
     fs.rmSync(dataDir, { recursive: true, force: true });

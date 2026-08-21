@@ -11,7 +11,7 @@ import {
   resolveCurrentPageModule,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
+import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
@@ -35,9 +35,11 @@ function buildFrontendToolInstructions(
   agentId: string,
   agentUi?: AgentUiProducerContext | null
 ): string {
-  const isChatbot = agentId?.startsWith("chatbot.") ?? false;
-  const tools = mergeFrontendToolDefinitions(agentUi?.frontend_tools, {
-    includeServerTools: !isChatbot,
+  // Same seam the executor registers from — otherwise the prompt teaches tools
+  // the model was never given, which is how a model ends up inventing one.
+  const tools = resolveFrontendToolsForAgent({
+    agentId,
+    clientTools: agentUi?.frontend_tools,
   });
   if (tools.length === 0) {
     return "";
@@ -53,11 +55,17 @@ function buildFrontendToolInstructions(
   const lines = [
     "Some of your tools run in the user's browser (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
     `Browser tools available now: ${toolNames}.`,
+  ];
+  // Gated on the tool actually being present: an agent without `navigate` that
+  // is told to navigate will improvise one.
+  if (tools.some((tool) => tool.name === "navigate")) {
     // Scoped to navigation on purpose. Read as a general discouragement, this
     // line helped push a model into inventing an "ask the user" tool of its own
     // — asking with requestDecision is correct everywhere else.
-    '- For page-opening/navigation requests, use the "navigate" tool with an internal path such as {"to":"/mdl/<moduleId>/<page>"}. When a likely page or module route is known, navigate instead of asking which page to open. If navigate errors, it lists the routes that actually exist — pick one of those rather than rephrasing. Report a page as open only when navigate returned it in "to"; when it returns "resolved_from", the path you asked for was a prefix and "to" is where the user actually landed.',
-  ];
+    lines.push(
+      '- For page-opening/navigation requests, use the "navigate" tool with an internal path such as {"to":"/mdl/<moduleId>/<page>"}. When a likely page or module route is known, navigate instead of asking which page to open. If navigate errors, it lists the routes that actually exist — pick one of those rather than rephrasing. Report a page as open only when navigate returned it in "to"; when it returns "resolved_from", the path you asked for was a prefix and "to" is where the user actually landed.'
+    );
+  }
   if (hasDomTools) {
     lines.push(
       "- Prefer browser_dom_snapshot over browser_screenshot. Scope root_selector from Current page dom_entry_points (main / list / detail / app_bar / sidebar / topbar). Fall back to main if a region selector is missing. Use browser_screenshot only for visual/layout questions the DOM cannot answer."

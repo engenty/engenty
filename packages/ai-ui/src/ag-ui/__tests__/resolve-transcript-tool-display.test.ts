@@ -199,7 +199,7 @@ describe("resolveTranscriptToolDisplay", () => {
     });
   });
 
-  it("uses the resolved choice label for requestDecision output", () => {
+  it("leads a requestDecision row with the QUESTION and trails the answer", () => {
     expect(
       resolveTranscriptToolDisplay({
         toolName: "requestDecision",
@@ -214,7 +214,102 @@ describe("resolveTranscriptToolDisplay", () => {
       })
     ).toEqual({
       resolvedToolName: "requestDecision",
-      displayLabel: "Yes, proceed",
+      displayLabel: "Confirm",
+      metadata: "Yes, proceed",
+    });
+  });
+
+  it("recovers question AND answer once the resume sentence replaced the output", () => {
+    // The native suspend resumes with a model-facing sentence as the tool
+    // result, so the artifact is gone from `output` on any later read.
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        input: {
+          choices: [{ id: "yes", label: "Yes, proceed" }],
+          title: "Delete the draft?",
+        },
+        output: "The user selected: Yes, proceed",
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: "Delete the draft?",
+      metadata: "Yes, proceed",
+    });
+  });
+
+  it("still falls back to Decision needed when nothing survived", () => {
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        input: { id: "team_list", input: {} },
+        output: { resolved: true },
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: "Decision needed",
+    });
+  });
+
+  it("names an answered tool approval by verdict and operation", () => {
+    // The gate rides the decision pipeline, so its rows arrive as
+    // `requestDecision` — but the user approved an operation, they did not
+    // answer a question. This used to read "Decision needed".
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        output: { approved: true, operation_id: "tasks_list" },
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: 'Approved "tasks_list"',
+    });
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        output: { approved: false, operation_id: "tasks_list" },
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: 'Denied "tasks_list"',
+    });
+  });
+
+  it("counts the rest of a bulk pre-approval in the row metadata", () => {
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        output: {
+          approved: true,
+          operation_id: "time_tracking_entries_create",
+          operation_ids: [
+            "time_tracking_entries_create",
+            "time_tracking_entries_update",
+            "time_tracking_entries_delete",
+          ],
+        },
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: 'Approved "time_tracking_entries_create"',
+      metadata: "+2 more",
+    });
+  });
+
+  it("leads an open approval row with the gate's own question", () => {
+    expect(
+      resolveTranscriptToolDisplay({
+        toolName: "requestDecision",
+        output: {
+          artifact_id: "tool-approval|tasks_list",
+          artifact_type: "decision",
+          choices: [{ id: "approve_once", label: "Approve once" }],
+          title: "Approve tasks_list?",
+        },
+      })
+    ).toEqual({
+      resolvedToolName: "requestDecision",
+      displayLabel: "Approve tasks_list?",
     });
   });
 

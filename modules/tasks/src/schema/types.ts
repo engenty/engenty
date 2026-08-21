@@ -132,7 +132,7 @@ export interface TaskRun {
   /** Stamped by the release path — authoritative, unlike the ai.* enrichment. */
   finished_at?: string | null;
   id: string;
-  /** completed | failed | needs_approval — stamped by the release path. */
+  /** completed | failed | needs_approval | needs_input — stamped by the release path. */
   outcome?: string | null;
   role: TaskRunRole;
   run_finished_at?: string | null;
@@ -171,8 +171,14 @@ export interface TaskCheckoutInput {
 
 export interface TaskReleaseInput {
   agent_session_run_id?: string;
-  /** Run outcome stamped onto the task_runs row (completed | completed_quiet | failed | needs_approval). */
-  outcome?: "completed" | "completed_quiet" | "failed" | "needs_approval";
+  /** Run outcome stamped onto the task_runs row. `needs_input` = the run asked
+   * a human a question (TASK_BLOCKED); `needs_approval` = it lacked a grant. */
+  outcome?:
+    | "completed"
+    | "completed_quiet"
+    | "failed"
+    | "needs_approval"
+    | "needs_input";
   /**
    * Operations the ending run still needs approval for. Always replaces the
    * task's pending set — a run that ended without asking clears it.

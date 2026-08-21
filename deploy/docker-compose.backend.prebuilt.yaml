@@ -1,0 +1,180 @@
+# Stable backend for blue/green edge deployments.
+#
+# Deploy this as a third Coolify application. It is deliberately not part of
+# the edge cutover: both edge colors use the fixed aliases on engenty-runtime.
+services:
+  engenty-core-worker:
+    image: ghcr.io/engenty/engenty-edge:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 15s
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_interval: 2s
+      start_period: 20s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8788/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      ENGENTY_CORE_PORT: 8788
+      ENGENTY_PROD_GATEWAY: "0"
+      ENGENTY_CORE_BACKGROUND_SERVICES_ENABLED: "true"
+      ENGENTY_CORE_SHUTDOWN_TIMEOUT_MS: "8000"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      ENGENTY_SERVER_LANE_PRIVATE_KEY: ${ENGENTY_SERVER_LANE_PRIVATE_KEY:-}
+      ENGENTY_SERVER_LANE_KEY_ID: ${ENGENTY_SERVER_LANE_KEY_ID:-}
+      GOTENBERG_URL: http://gotenberg:3000
+      CORS_ORIGIN: ${PUBLIC_APP_URL}
+      ENGENTY_UI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_API_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    networks:
+      - runtime
+
+  engenty-ai:
+    image: ghcr.io/engenty/engenty-ai:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 15s
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_interval: 2s
+      start_period: 20s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8790/ai/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8790
+      ENGENTY_CORE_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_CORS_ORIGINS: ${ENGENTY_CORS_ORIGINS}
+      ENGENTY_WORKSPACE_FS: remote
+      ENGENTY_WORKSPACE_FS_PROVIDER: supabase
+      ENGENTY_SANDBOX_PROVIDER: docker
+      ENGENTY_SANDBOX_DOCKER_IMAGE: ghcr.io/engenty/engenty-sandbox:${ENGENTY_BACKEND_RELEASE_TAG}
+      ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      ENGENTY_SERVER_LANE_PRIVATE_KEY: ${ENGENTY_SERVER_LANE_PRIVATE_KEY:-}
+      ENGENTY_SERVER_LANE_KEY_ID: ${ENGENTY_SERVER_LANE_KEY_ID:-}
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENGENTY_AI_SERVICE_SECRET: ${ENGENTY_AI_SERVICE_SECRET:-}
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    volumes:
+      - /opt/engenty/sandboxes:/opt/engenty/sandboxes
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      runtime:
+        aliases:
+          - engenty-ai
+
+  engenty-app-host:
+    image: ghcr.io/engenty/engenty-app-host:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_interval: 2s
+      start_period: 20s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8795/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      ENGENTY_APP_HOST_PORT: 8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    mem_limit: 3g
+    cpus: 2.0
+    pids_limit: 4096
+    volumes:
+      - /opt/engenty/app-host-data:/data
+    networks:
+      runtime:
+        aliases:
+          - engenty-app-host
+
+  engenty-sandbox:
+    image: ghcr.io/engenty/engenty-sandbox:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    command: ["true"]
+    restart: "no"
+    networks:
+      - runtime
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    networks:
+      runtime:
+        aliases:
+          - gotenberg
+
+  engenty-docs:
+    profiles:
+      - docs
+    image: ghcr.io/engenty/engenty-docs:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      NEXT_PUBLIC_DOCS_SITE_URL: ${PUBLIC_APP_URL}
+    networks:
+      runtime:
+        aliases:
+          - engenty-docs
+
+  engenty-studio:
+    profiles:
+      - studio
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.studio
+    restart: unless-stopped
+    environment:
+      MASTRA_STUDIO_BASE_PATH: /studio
+      MASTRA_SKIP_PEERDEP_CHECK: "1"
+      MASTRA_AI_HOST: engenty-ai
+    depends_on:
+      engenty-ai:
+        condition: service_healthy
+    networks:
+      runtime:
+        aliases:
+          - engenty-studio
+
+networks:
+  runtime:
+    external: true
+    name: engenty-runtime

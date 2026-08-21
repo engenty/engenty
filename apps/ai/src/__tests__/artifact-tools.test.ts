@@ -161,4 +161,69 @@ describe("artifact tools", () => {
       ],
     });
   });
+  it("registers a stored file as a file artifact from a typed handle", async () => {
+    const store = fakeStore();
+    const tools = createArtifactTools({ store });
+
+    const result = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () =>
+        tools.artifact_write.execute!(
+          {
+            title: "Q3 numbers",
+            file: { key: "tenants/t1/ai/workspace/q3.xlsx" },
+          } as never,
+          testToolContext()
+        )
+    );
+
+    expect(result).toEqual({ artifact_id: "a1", version: 1 });
+    // The type is implied by `file`, and the handle is built for the model —
+    // it never hand-writes the JSON.
+    expect(store.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "file",
+        content: JSON.stringify({
+          key: "tenants/t1/ai/workspace/q3.xlsx",
+          name: "q3.xlsx",
+        }),
+      })
+    );
+  });
+
+  it("show_artifact returns a presentation handle, and not_found instead of throwing", async () => {
+    const found = fakeStore({
+      get: vi.fn(async () => ({
+        artifact: { id: "a1", title: "Q3 Report", type: "markdown" },
+        version: { content: "# hi", version: 2 },
+      })) as never,
+    });
+    const tools = createArtifactTools({ store: found });
+
+    const handle = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () =>
+        tools.show_artifact.execute!(
+          { artifact_id: "a1" } as never,
+          testToolContext()
+        )
+    );
+    expect(handle).toEqual({
+      artifact_id: "a1",
+      mime_type: "text/markdown",
+      title: "Q3 Report",
+      type: "markdown",
+    });
+
+    const missing = createArtifactTools({ store: fakeStore() });
+    const notFound = await runWithContext(
+      { tenantId, orchestratorThreadId: threadId, userId: "u1" },
+      () =>
+        missing.show_artifact.execute!(
+          { artifact_id: "nope" } as never,
+          testToolContext()
+        )
+    );
+    expect(notFound).toEqual({ error: "not_found" });
+  });
 });

@@ -41,4 +41,33 @@ describe("request feedback tool", () => {
       body: "Please explain your changes.",
     });
   });
+  it("tells a run with no human channel that nobody was asked", async () => {
+    // The default wording ("Wait for the user's typed response") is a lie on a
+    // background run: nothing was shown and nobody can type. A model told to
+    // wait either stalls or invents an answer.
+    const tool = buildRequestFeedbackTool((definition) => definition, {
+      hasHumanChannel: () => false,
+    });
+
+    const output = await tool.execute({ title: "Which client?" });
+
+    expect(output).toEqual({
+      artifact_type: "feedback_unavailable",
+      question: "Which client?",
+      reason: "no_human_channel",
+    });
+    expect(tool.toModelOutput(output).value).toContain("no human channel");
+    expect(tool.toModelOutput(output).value).toContain("Do NOT wait");
+  });
+
+  it("keeps the chat behaviour when a human channel is present", async () => {
+    const tool = buildRequestFeedbackTool((definition) => definition, {
+      hasHumanChannel: () => true,
+    });
+
+    const output = await tool.execute({ title: "How did we do?" });
+
+    expect(output).toMatchObject({ artifact_type: "feedback" });
+    expect(tool.toModelOutput(output).value).toContain("Wait for the user");
+  });
 });

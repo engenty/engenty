@@ -1,0 +1,11 @@
+# One-shot pre-deploy migration job.
+#
+# Run this while the active edge remains online. Releases must use
+# expand/contract migrations so both edge revisions work throughout cutover.
+services:
+  engenty-migrate:
+    image: ghcr.io/engenty/engenty-migrate:${ENGENTY_RELEASE_TAG}
+    pull_policy: always
+    restart: "no"
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}

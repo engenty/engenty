@@ -384,16 +384,21 @@ export {
 export {
   buildRequestDecisionTool,
   createRequestDecisionArtifact,
+  DECISION_RESUME_PREFIXES,
   type RequestDecisionArtifact,
   type RequestDecisionInput,
   type RequestDecisionToolDefinition,
+  readDecisionResumeAnswer,
   requestDecisionChoiceSchema,
   requestDecisionInputSchema,
   requestDecisionToolDefinition,
 } from "./tools/request-decision-tool.js";
 export {
   buildRequestFeedbackTool,
+  buildRequestFeedbackToolDefinition,
   createRequestFeedbackArtifact,
+  isRequestFeedbackUnavailable,
+  NO_HUMAN_CHANNEL_FEEDBACK_MESSAGE,
   type RequestFeedbackArtifact,
   type RequestFeedbackInput,
   type RequestFeedbackToolDefinition,

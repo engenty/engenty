@@ -16,13 +16,13 @@ export function DockUsersIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
       />
       <circle
         cx="9"
         cy="7"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
         r="4"
       />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />

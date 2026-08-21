@@ -1,3 +1,4 @@
+import { useTranslation } from "@engenty/i18n/ui";
 import { RichEditor } from "@engenty/tiptap-editor/rich";
 import {
   Table,
@@ -10,6 +11,8 @@ import {
 import type { ComponentType } from "react";
 import { AppArtifactView } from "./app-artifact-view.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
+import { parseFileArtifactHandle } from "./file-artifact-handle.js";
+import { WorkFilePreview } from "./work-file-preview.js";
 
 /**
  * Renderer registry: artifact `type` → view component. Real content types
@@ -173,10 +176,42 @@ function MarkdownArtifactEditor({
   );
 }
 
+/**
+ * A `file` artifact renders the stored object it points at — the same preview
+ * the Files tab uses (text/json/markdown/csv/images/pdf, office via the core
+ * preview-pdf route, a "no preview" placard otherwise). Download lives on the
+ * pane header, so every file is reachable even when nothing can preview it.
+ */
+function FileArtifactView({ content }: ArtifactViewProps) {
+  const { t } = useTranslation("ai-ui");
+  const handle = parseFileArtifactHandle(content);
+  if (!handle) {
+    return (
+      <div className="min-h-0 flex-1 p-6 text-muted-foreground text-sm">
+        {t("workPanel.fileNoPreview")}
+      </div>
+    );
+  }
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <WorkFilePreview
+        entryKey={handle.key}
+        filename={handle.name}
+        labels={{
+          loading: t("workPanel.filePreviewLoading"),
+          noPreview: t("workPanel.fileNoPreview"),
+          truncated: t("workPanel.filePreviewTruncated"),
+        }}
+      />
+    </div>
+  );
+}
+
 registerArtifactRenderer("markdown", MarkdownArtifactView);
 registerArtifactRenderer("html", HtmlArtifactView);
 registerArtifactRenderer("table", TableArtifactView);
 // engenty Apps: a bridged, opaque-origin frame rather than a bare iframe —
 // see app-artifact-view.tsx.
 registerArtifactRenderer("app", AppArtifactView);
+registerArtifactRenderer("file", FileArtifactView);
 registerArtifactEditor("markdown", MarkdownArtifactEditor);

@@ -25,6 +25,28 @@ export interface TaskBriefSource {
   trigger_id?: unknown;
 }
 
+/**
+ * What this run IS, stated once. Without it a specialist reaches for the "ask
+ * the user…" habits its skills are written around — and the skills are right,
+ * for chat. Here nobody is watching: the ask tools say so when called, but by
+ * then the turn has already been spent planning around a question that will
+ * never be answered.
+ */
+const UNATTENDED_RUN_CONTRACT = `## This run is unattended
+No human is watching this run and nothing you display is seen. Do not ask
+questions in your reply, wait for input, or hand back a plan for approval —
+decide from the task, its comments and your tools. Presenting things (artifacts,
+objects) still works and is still worth doing — the artifact is attached to the
+work — but a panel opening is never part of your result.
+
+If something genuinely blocks you and only a person can unblock it, end your
+final message with:
+- \`TASK_BLOCKED: <the one thing you need, and from whom>\`
+
+That parks the task and puts your question in front of a human, who answers on
+the task and re-runs it. Use it for a real blocker, not for a preference you can
+decide yourself — a blocked task does no work until someone comes back to it.`;
+
 /** Files/outputs guidance attached to every task job (tools are always mounted). */
 const WORKSPACE_GUIDANCE = `## Workspace & outputs
 - Durable deliverables (documents, notes, tables) → \`artifact_write\` — they appear on the task and its goal/project with no extra step.
@@ -115,6 +137,8 @@ export function buildTaskBrief(task: TaskBriefSource): string {
       `Durable folder across runs: \`${routineWorkspace}\`. Read state left by previous runs; write what the next run should find. Use workspace_read_file / workspace_write_file with paths under this prefix (or the task workspace).`
     );
   }
+
+  lines.push("", UNATTENDED_RUN_CONTRACT);
 
   if (isRoutine) {
     lines.push("", ROUTINE_RUN_PROTOCOL);

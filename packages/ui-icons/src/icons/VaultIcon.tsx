@@ -15,7 +15,7 @@ export function DockVaultIcon(props: SVGProps<SVGSVGElement>) {
       <title>Vault</title>
       <rect
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
         height="18"
         rx="2.5"
         width="18"
@@ -26,7 +26,7 @@ export function DockVaultIcon(props: SVGProps<SVGSVGElement>) {
         cx="12"
         cy="12"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.34}
+        fillOpacity={0.65}
         r="4"
       />
       <path d="M12 9.5v3" />

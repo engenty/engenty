@@ -142,6 +142,13 @@ export {
   proposeUpdatesInputSchema,
   proposeUpdatesToolDefinition,
 } from "./tools/propose-updates.js";
+// Browser-safe on purpose: the copilot transcript has to read a resolved
+// chooser's answer back out of the model-facing resume sentence, which is all
+// that survives of it in storage.
+export {
+  DECISION_RESUME_PREFIXES,
+  readDecisionResumeAnswer,
+} from "./tools/request-decision-tool.js";
 export type {
   ModelPricingRecord,
   TenantUsagePolicyRecord,

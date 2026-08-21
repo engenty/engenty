@@ -150,6 +150,11 @@ export interface CreateApiAppParams {
    */
   grantsService?: GrantsService;
   logger?: ApiLogger;
+  readiness?: {
+    checkDatabase?: () => Promise<boolean>;
+    databaseConfigured: boolean;
+    databaseReachable: boolean;
+  };
   registry: PluginRegistry;
   resolvePath: (p: string) => string;
   tenantPluginOverrides?: TenantPluginOverridesDal;
@@ -203,6 +208,24 @@ export function createApiApp(params: CreateApiAppParams) {
       allowHeaders: ["authorization", "content-type"],
     })
   );
+
+  app.get("/api/ready", async (c) => {
+    const readiness = params.readiness ?? {
+      databaseConfigured: false,
+      databaseReachable: true,
+    };
+    const databaseReachable = readiness.checkDatabase
+      ? await readiness.checkDatabase()
+      : readiness.databaseReachable;
+    const ready = !readiness.databaseConfigured || databaseReachable === true;
+    return c.json(
+      {
+        database_reachable: databaseReachable,
+        ready,
+      },
+      ready ? 200 : 503
+    );
+  });
 
   app.use("*", async (c, next) => {
     const startedAt = Date.now();
@@ -706,6 +729,8 @@ export async function startApiServer(
   devReloadWatcher?: DevPluginReloadWatcher;
   server: ReturnType<typeof createServer>;
   registry: ReturnType<typeof loadPlugins>;
+  beginDrain: () => void;
+  closeAllConnections: () => void;
 }> {
   initEvlog();
   const dataDir = params.dataDir ?? path.resolve(process.cwd(), "data");
@@ -782,12 +807,19 @@ export async function startApiServer(
   }
 
   const tenantPluginOverrides = createTenantPluginOverridesDal(effectiveConfig);
+  const backgroundServicesEnabled = envBoolean(
+    effectiveConfig,
+    "coreBackgroundServicesEnabled",
+    "ENGENTY_CORE_BACKGROUND_SERVICES_ENABLED",
+    true
+  );
   const loadParams: LoadPluginsParams = {
     modulesDir: params.modulesDir ?? resolveModulesDir(),
     packagesDir: params.packagesDir ?? resolvePackagesDir(),
     dataDir,
     config: effectiveConfig,
     logger,
+    startRegisteredServices: backgroundServicesEnabled,
     tenantPluginOverrides,
   };
   const registry = loadPlugins(loadParams);
@@ -801,6 +833,18 @@ export async function startApiServer(
     devPluginReloadEvents,
     resolvePath,
     logger,
+    readiness: {
+      checkDatabase: async () => {
+        if (!(supabaseUrl && supabaseServiceRoleKey)) {
+          return true;
+        }
+        return (
+          await checkSupabaseReachable(supabaseUrl, supabaseServiceRoleKey)
+        ).ok;
+      },
+      databaseConfigured: Boolean(supabaseUrl && supabaseServiceRoleKey),
+      databaseReachable: supabaseReachable,
+    },
     tenantPluginOverrides,
   });
   // Dedicated env var (not bare PORT) so core and ai never collide on a shared
@@ -818,6 +862,7 @@ export async function startApiServer(
 
   return new Promise((resolve, reject) => {
     let devReloadWatcher: DevPluginReloadWatcher | undefined;
+    let draining = false;
     serve({
       fetch: app.fetch,
       port,
@@ -829,20 +874,36 @@ export async function startApiServer(
           res: import("node:http").ServerResponse
         ) => void
       ) => {
-        const listener = gateway
-          ? (
-              req: import("node:http").IncomingMessage,
-              res: import("node:http").ServerResponse
-            ) => {
-              gateway.maybeHandleRequest(req, res, requestListener);
-            }
-          : requestListener;
+        const listener = (
+          req: import("node:http").IncomingMessage,
+          res: import("node:http").ServerResponse
+        ) => {
+          if (draining) {
+            res.shouldKeepAlive = false;
+            res.writeHead(503, {
+              connection: "close",
+              "content-type": "application/json; charset=utf-8",
+              "retry-after": "1",
+            });
+            res.end('{"error":"server_draining"}');
+            return;
+          }
+          if (gateway) {
+            gateway.maybeHandleRequest(req, res, requestListener);
+            return;
+          }
+          requestListener(req, res);
+        };
         const s = createServer(
           opts as import("node:http").ServerOptions,
           listener
         );
         if (gateway) {
           s.on("upgrade", (req, socket, head) => {
+            if (draining) {
+              socket.destroy();
+              return;
+            }
             gateway.maybeHandleUpgrade(req, socket, head);
           });
         }
@@ -893,7 +954,7 @@ export async function startApiServer(
           }
 
           // Start queue worker if plugins registered any queue handlers
-          if (registry.queueHandlers.size > 0) {
+          if (backgroundServicesEnabled && registry.queueHandlers.size > 0) {
             try {
               const { createQueueService, startQueueWorker } = await import(
                 "@engenty/queue"
@@ -973,7 +1034,18 @@ export async function startApiServer(
             }
           }
 
-          resolve({ app, devReloadWatcher, server: s, registry });
+          resolve({
+            app,
+            beginDrain: () => {
+              draining = true;
+            },
+            closeAllConnections: () => {
+              s.closeAllConnections?.();
+            },
+            devReloadWatcher,
+            server: s,
+            registry,
+          });
         });
         return s;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

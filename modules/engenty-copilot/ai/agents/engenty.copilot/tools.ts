@@ -21,7 +21,15 @@ export const ENGENTY_VAULT_TOOL_IDS = ["vault_files"];
 // Artifact tools — AI-generated documents rendered in the artifact panel.
 // Implementations live in apps/ai (createArtifactTools) and are resolved by the
 // builtin registry; these ids gate what the copilot model may call.
-export const ENGENTY_ARTIFACT_TOOL_IDS = ["artifact_write", "artifact_read"];
+// `show_artifact` re-opens one that is no longer in view. It is a BACKEND tool
+// returning a presentation handle, not a frontend tool: the surface renders the
+// result (pane tab here, a link on a messaging channel, nothing headless), so a
+// run with no browser can call it without parking on a suspend nobody resumes.
+export const ENGENTY_ARTIFACT_TOOL_IDS = [
+  "artifact_write",
+  "artifact_read",
+  "show_artifact",
+];
 
 // Object rendering — module entities shown in chat by reference (implemented
 // in apps/ai createShowObjectsTool, resolved by the builtin registry).

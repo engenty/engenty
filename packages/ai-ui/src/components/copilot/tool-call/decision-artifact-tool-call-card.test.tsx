@@ -261,6 +261,149 @@ describe("DecisionArtifactToolCallCard", () => {
     });
   });
 
+  describe("answered tool approval", () => {
+    const approvalArtifact = {
+      artifact_id: "tool-approval|projects_list",
+      artifact_type: "decision",
+      body: "This action requires your approval before it runs.\n\nOperation: projects_list",
+      choices: [
+        { id: "approve_once", label: "Approve once" },
+        { id: "approve_always", label: "Approve always (this chat)" },
+        { id: "deny", label: "Deny" },
+      ],
+      interrupt_id: "tool-approval|projects_list",
+      title: "Approve projects_list?",
+    };
+
+    it("shows the final approval row the moment it is answered", () => {
+      // The optimistic label lands instantly; the server's `{approved,
+      // operation_id}` only after the run resumes. In between, the row used to
+      // render the whole question card with the picked option under it.
+      render(
+        <CopilotToolCallActionsProvider
+          optimisticInterruptResults={{
+            [TOOL_CALL_ID]: "Approve always (this chat)",
+          }}
+          respond={vi.fn()}
+        >
+          <DecisionArtifactToolCallCard
+            output={approvalArtifact}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.getByText("Approved")).toBeTruthy();
+      expect(screen.getByText("projects_list")).toBeTruthy();
+      expect(screen.queryByText("Approve projects_list?")).toBeNull();
+    });
+
+    it("shows a denial as a denial", () => {
+      render(
+        <CopilotToolCallActionsProvider
+          optimisticInterruptResults={{ [TOOL_CALL_ID]: "Deny" }}
+          respond={vi.fn()}
+        >
+          <DecisionArtifactToolCallCard
+            output={approvalArtifact}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.getByText("Denied")).toBeTruthy();
+    });
+
+    it("never reads an unrecognised answer as approval", () => {
+      // A custom typed answer is not one of the gate's options — guessing a
+      // verdict here would report an approval the user never gave.
+      render(
+        <CopilotToolCallActionsProvider
+          optimisticInterruptResults={{ [TOOL_CALL_ID]: "only for today" }}
+          respond={vi.fn()}
+        >
+          <DecisionArtifactToolCallCard
+            output={approvalArtifact}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.queryByText("Approved")).toBeNull();
+      expect(screen.getByText("Approve projects_list?")).toBeTruthy();
+    });
+
+    it("says what was approved instead of falling back to a generic row", () => {
+      // The resume overwrites the artifact with `{approved, operation_id}`, so
+      // the row used to land on the generic card labelled "Decision needed"
+      // with a raw `approved: true` behind the chevron.
+      render(
+        <CopilotToolCallActionsProvider respond={vi.fn()}>
+          <DecisionArtifactToolCallCard
+            output={{ approved: true, operation_id: "tasks_list" }}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.getByText("Approved")).toBeTruthy();
+      expect(screen.getByText("tasks_list")).toBeTruthy();
+      expect(screen.queryByText("Decision needed")).toBeNull();
+    });
+
+    it("says what was denied", () => {
+      render(
+        <CopilotToolCallActionsProvider respond={vi.fn()}>
+          <DecisionArtifactToolCallCard
+            output={{ approved: false, operation_id: "tasks_list" }}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.getByText("Denied")).toBeTruthy();
+    });
+
+    it("never offers buttons for an approval that is already answered", () => {
+      // The open interrupt naming this call is the NEXT approval in a parallel
+      // batch; borrowing its choices would offer buttons that resolve nothing.
+      render(
+        <CopilotToolCallActionsProvider
+          openInterrupt={{
+            artifact_id: "tool-approval|tasks_create",
+            choices: [{ id: "approve_once", label: "Approve once" }],
+            interrupt_id: "tool-approval|tasks_create",
+            kind: "decision",
+            title: "Approve tasks_create?",
+            tool_call_id: TOOL_CALL_ID,
+          }}
+          pendingInterruptToolCallIds={new Set([TOOL_CALL_ID])}
+          respond={vi.fn()}
+        >
+          <DecisionArtifactToolCallCard
+            output={{ approved: true, operation_id: "tasks_list" }}
+            state="completed"
+            toolCallId={TOOL_CALL_ID}
+            toolName="requestDecision"
+          />
+        </CopilotToolCallActionsProvider>
+      );
+
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(screen.getByText("Approved")).toBeTruthy();
+    });
+  });
+
   it("calls respond with the toolCallId and chosen option", async () => {
     const user = userEvent.setup();
     const respond = vi.fn();

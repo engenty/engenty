@@ -21,20 +21,5 @@ export function getFrontendToolInputValidationError(
       return "Only internal application paths are allowed.";
     }
   }
-  if (normalized === "offer_file_downloads") {
-    const record = readRecord(input);
-    const files = record?.files;
-    if (!Array.isArray(files) || files.length === 0) {
-      return 'offer_file_downloads requires input {"files":[{"key":"tenants/..."}]} with at least one file.';
-    }
-    for (const item of files) {
-      const fileRecord = readRecord(item);
-      const key =
-        typeof fileRecord?.key === "string" ? fileRecord.key.trim() : "";
-      if (!key) {
-        return "Each file entry requires a non-empty key.";
-      }
-    }
-  }
   return null;
 }

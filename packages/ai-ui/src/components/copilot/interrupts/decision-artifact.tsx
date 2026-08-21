@@ -126,27 +126,11 @@ export function resolveDecisionArtifactForToolCall(
   return decisionArtifactFromOpenInterrupt(open);
 }
 
-export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const raw = value as {
-    artifact_id?: unknown;
-    artifact_type?: unknown;
-    body?: unknown;
-    choices?: unknown;
-    interrupt_id?: unknown;
-    multi_select?: unknown;
-    title?: unknown;
-  };
-  if (
-    typeof raw.artifact_id !== "string" ||
-    raw.artifact_type !== "decision" ||
-    !Array.isArray(raw.choices)
-  ) {
-    return null;
-  }
-  const choices = raw.choices.flatMap((choice) => {
+/** Choice list, in the one shape the artifact and the tool arguments share. */
+function readDecisionChoices(
+  value: readonly unknown[]
+): DecisionArtifactChoice[] {
+  return value.flatMap((choice) => {
     if (!choice || typeof choice !== "object") {
       return [];
     }
@@ -168,6 +152,71 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
       },
     ];
   });
+}
+
+/**
+ * The chooser as the model ASKED for it, read off the tool's own arguments.
+ *
+ * Answering a chooser replaces the tool part's `output` with the resolution —
+ * a model-facing sentence for the native suspend, an `{approved}` record for a
+ * tool approval — so the artifact is gone from `output` by the time anyone
+ * reloads the thread. The arguments are not overwritten, and they carry the
+ * question verbatim; they simply lack the ids the artifact form adds, which is
+ * why `parseDecisionArtifact` rejects them.
+ */
+export function parseDecisionArtifactFromInput(
+  value: unknown,
+  toolCallId?: string
+): DecisionArtifact | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const raw = value as {
+    body?: unknown;
+    choices?: unknown;
+    multiSelect?: unknown;
+    title?: unknown;
+  };
+  if (typeof raw.title !== "string" || !raw.title.trim()) {
+    return null;
+  }
+  const choices = Array.isArray(raw.choices)
+    ? readDecisionChoices(raw.choices)
+    : [];
+  return {
+    // Answered rows are never interactive, so this id is display-only — there
+    // is no resume to key off it.
+    artifactId: toolCallId ?? raw.title,
+    ...(typeof raw.body === "string" && raw.body.trim()
+      ? { body: raw.body }
+      : {}),
+    choices,
+    ...(raw.multiSelect === true ? { multiSelect: true } : {}),
+    title: raw.title,
+  };
+}
+
+export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const raw = value as {
+    artifact_id?: unknown;
+    artifact_type?: unknown;
+    body?: unknown;
+    choices?: unknown;
+    interrupt_id?: unknown;
+    multi_select?: unknown;
+    title?: unknown;
+  };
+  if (
+    typeof raw.artifact_id !== "string" ||
+    raw.artifact_type !== "decision" ||
+    !Array.isArray(raw.choices)
+  ) {
+    return null;
+  }
+  const choices = readDecisionChoices(raw.choices);
   if (choices.length === 0) {
     return null;
   }
@@ -208,16 +257,37 @@ export function parseDecisionResolution(output: unknown): string | null {
   );
 }
 
+/**
+ * An answered chooser, as it reads later.
+ *
+ * The QUESTION is the point of this card, not the answer. It used to print the
+ * title and the chosen label only, so anything the agent put in `body` — which
+ * is where the substance of a question goes, the title being a headline —
+ * vanished the moment it was answered, leaving a bare "Ja" with nothing to
+ * attach it to. The answer is shown as an answer (labelled, indented) rather
+ * than as a second sentence of equal weight.
+ */
 export function DecisionArtifactResolvedCard(props: {
   artifact: DecisionArtifact;
   choiceLabel: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <section className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
       <p className="font-medium text-foreground/90 text-sm">
         {props.artifact.title}
       </p>
-      <p className="mt-1 text-muted-foreground text-sm">{props.choiceLabel}</p>
+      {props.artifact.body ? (
+        <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
+          {props.artifact.body}
+        </p>
+      ) : null}
+      <p className="mt-2 border-border/60 border-l-2 pl-2 text-foreground/80 text-sm">
+        <span className="text-muted-foreground text-xs uppercase tracking-wide">
+          {t("copilot.decisionAnswered")}
+        </span>
+        <span className="ml-2">{props.choiceLabel}</span>
+      </p>
     </section>
   );
 }

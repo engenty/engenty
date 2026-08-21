@@ -1,13 +1,20 @@
 "use client";
 
+import {
+  parseToolApprovalResolution,
+  resolveToolApprovalChoiceVerdict,
+} from "../../../ag-ui/tool-approval.js";
 import { useCopilotToolCallActions } from "../interrupts/copilot-tool-call-actions";
 import {
   DecisionArtifactCard,
   DecisionArtifactResolvedCard,
   parseDecisionArtifact,
+  parseDecisionArtifactFromInput,
   resolveDecisionArtifactForToolCall,
 } from "../interrupts/decision-artifact";
 import { getInteractiveToolStatus } from "../interrupts/interactive-tool-status";
+import { parseToolApprovalArtifactId } from "../interrupts/tool-approval-artifact-id";
+import { ToolApprovalResolvedCard } from "../interrupts/tool-approval-resolved-card";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 import { ToolCallGenericCard } from "./tool-call-generic-card";
 
@@ -24,11 +31,24 @@ export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
     optimisticInterruptResults,
     respond,
   } = useCopilotToolCallActions();
-  const artifact = resolveDecisionArtifactForToolCall(
+  // An ANSWERED tool approval: the resume overwrote the artifact with
+  // `{approved, operation_id}`, so there are no choices left to render and
+  // nothing below can identify the row. It is not a decision either — say what
+  // was approved or denied instead of falling through to the generic card.
+  const approval = parseToolApprovalResolution(props.output);
+  if (approval) {
+    return <ToolApprovalResolvedCard resolution={approval} />;
+  }
+  const liveArtifact = resolveDecisionArtifactForToolCall(
     props.output,
     openInterrupt,
     props.toolCallId
   );
+  // ANSWERED: the resolution has replaced the artifact in `output`, so the
+  // question survives only in the arguments the model called with.
+  const artifact =
+    liveArtifact ??
+    parseDecisionArtifactFromInput(props.input, props.toolCallId);
   if (!artifact) {
     // This card is now routed by TOOL NAME (a suspended `requestDecision` has no
     // output to match on), so it also sees answered and dangling calls whose
@@ -52,6 +72,46 @@ export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
     pendingInterruptToolCallIds: pendingInterruptToolCallIds ?? new Set(),
     optimisticInterruptResults: optimisticInterruptResults ?? {},
   });
+
+  // An APPROVAL that has just been answered, while the artifact is still the
+  // one in `output`: the optimistic label lands immediately, the server's
+  // `{approved, operation_id}` only after the run resumes and the transcript
+  // refetches. Without this the row spent that whole stretch rendering the
+  // full question card with the picked option under it — an "in between"
+  // version of a row that ends up as one compact line.
+  const approvalArtifact = parseToolApprovalArtifactId(artifact.artifactId);
+  if (approvalArtifact && resolvedLabel) {
+    const chosen = artifact.choices.find(
+      (choice) => choice.label === resolvedLabel
+    );
+    // Unknown answer → fall through to the decision card rather than guess a
+    // verdict; the gate's own options are the only ones we can read.
+    const approved = chosen
+      ? resolveToolApprovalChoiceVerdict(chosen.id)
+      : null;
+    if (approved !== null) {
+      return (
+        <ToolApprovalResolvedCard
+          resolution={{
+            approved,
+            operationIds: approvalArtifact.operationIds,
+          }}
+        />
+      );
+    }
+  }
+
+  // An artifact rebuilt from the arguments carries no interrupt id, so it can
+  // never be answered — it exists only to say what was asked. Rendering it as
+  // an interactive chooser would offer buttons that resolve nothing.
+  if (!liveArtifact) {
+    return (
+      <DecisionArtifactResolvedCard
+        artifact={artifact}
+        choiceLabel={resolvedLabel || "Decision submitted"}
+      />
+    );
+  }
 
   if (status === "complete" && !(isOpenHere && !resolvedLabel)) {
     return (

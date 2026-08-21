@@ -16,12 +16,12 @@ export function DockPluginsIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M19 11v-2a2 2 0 0 0-2-2h-2V5a3 3 0 0 0-6 0v2H7a2 2 0 0 0-2 2v2"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.2}
+        fillOpacity={0.38}
       />
       <path
         d="M5 15v2a2 2 0 0 0 2 2h2v2a3 3 0 0 0 6 0v-2h2a2 2 0 0 0 2-2v-2"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.3}
+        fillOpacity={0.57}
       />
       <path d="M11 5v2" />
       <path d="M15 11h2" />

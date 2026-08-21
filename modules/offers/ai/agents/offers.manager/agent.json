@@ -12,7 +12,6 @@
   "tools": [
     "engenty_tools_search",
     "engenty_tool_execute",
-    "invoke_frontend_tool",
     "memory_save",
     "memory_record_search",
     "memory_record_archive"

@@ -509,6 +509,7 @@
       "runsLoadError": "Läufe konnten nicht geladen werden.",
       "runOk": "ok",
       "runNeedsApproval": "Freigabe nötig",
+      "runNeedsInput": "Rückfrage offen",
       "openTask": "Aufgabe {{identifier}} öffnen",
       "workspace": "Routine-Workspace",
       "workspacePath": "Speicherpfad",
@@ -717,6 +718,7 @@
     "denyApproval": "Ablehnen",
     "actionReview": "Prüfen",
     "actionApprove": "Freigeben",
+    "actionAnswer": "Beantworten",
     "actionFix": "Beheben",
     "risk": {
       "low": "geringes Risiko",

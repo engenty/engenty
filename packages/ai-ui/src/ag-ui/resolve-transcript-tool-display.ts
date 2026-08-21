@@ -1,3 +1,10 @@
+import { readDecisionResumeAnswer } from "@engenty/ai-core/browser";
+import {
+  isToolApprovalArtifactOutput,
+  parseToolApprovalResolution,
+  readToolApprovalArtifactTitle,
+} from "./tool-approval.js";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -346,9 +353,29 @@ function resolveMastraWorkspaceToolDisplay(
   }
 }
 
+/**
+ * What was ASKED. Lives on the artifact — either still in `output` (the card is
+ * unanswered, or the answer was patched into it) or in `input`, which is the
+ * tool's own arguments and therefore survives when the result replaces the
+ * output with a resolution payload.
+ */
+function readDecisionQuestion(input: unknown, output: unknown): string | null {
+  for (const source of [output, input]) {
+    if (!isRecord(source)) {
+      continue;
+    }
+    const title = readString(source, ["title"]);
+    if (title) {
+      return title;
+    }
+  }
+  return null;
+}
+
 function readDecisionResolutionLabel(output: unknown): string | null {
   if (!isRecord(output)) {
-    return null;
+    // The native suspend resumes with a model-facing sentence, not a record.
+    return readDecisionResumeAnswer(output);
   }
   const choiceLabel =
     typeof output.choice_label === "string" ? output.choice_label.trim() : "";
@@ -502,7 +529,43 @@ export function resolveTranscriptToolDisplay(
   }
 
   if (wireToolName === "requestDecision") {
+    // A tool APPROVAL is not a decision — it only shares this tool name because
+    // the gate rides the decision-artifact pipeline (see ag-ui/tool-approval.ts).
+    // Calling its row "Decision needed" asked the reader to answer a question
+    // nobody asked, and said nothing about the operation at stake.
+    const approval = parseToolApprovalResolution(params.output);
+    if (approval) {
+      const [primary, ...rest] = approval.operationIds;
+      return {
+        resolvedToolName: wireToolName,
+        ...formatTranscriptToolRow({
+          verb: approval.approved ? "Approved" : "Denied",
+          quoted: primary,
+          metadata: rest.length > 0 ? `+${rest.length} more` : undefined,
+        }),
+      };
+    }
+    if (isToolApprovalArtifactOutput(params.output)) {
+      // Still open: the gate's own title ("Approve <operation>?") is the row.
+      return {
+        resolvedToolName: wireToolName,
+        displayLabel:
+          readToolApprovalArtifactTitle(params.output) ?? "Approval needed",
+      };
+    }
+    // The row is about the QUESTION. Labelling it with the answer alone
+    // ("Ja", "Approve") left a transcript entry nobody could place — and once
+    // the resolution payload replaced the artifact in `output`, not even that
+    // survived and every answered chooser collapsed to "Decision needed".
+    const question = readDecisionQuestion(params.input, params.output);
     const resolvedLabel = readDecisionResolutionLabel(params.output);
+    if (question) {
+      return {
+        resolvedToolName: wireToolName,
+        displayLabel: question,
+        ...(resolvedLabel ? { metadata: resolvedLabel } : {}),
+      };
+    }
     return {
       resolvedToolName: wireToolName,
       displayLabel: resolvedLabel ?? "Decision needed",

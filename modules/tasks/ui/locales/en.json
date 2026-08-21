@@ -509,6 +509,7 @@
       "runsLoadError": "Could not load runs.",
       "runOk": "ok",
       "runNeedsApproval": "Needs approval",
+      "runNeedsInput": "Needs input",
       "openTask": "Open task {{identifier}}",
       "workspace": "Routine workspace",
       "workspacePath": "Storage path",
@@ -717,6 +718,7 @@
     "denyApproval": "Deny",
     "actionReview": "Review",
     "actionApprove": "Approve",
+    "actionAnswer": "Answer",
     "actionFix": "Fix",
     "risk": {
       "low": "low risk",

@@ -28,6 +28,10 @@ export const taskJobStatusSchema = z.enum([
   // run ended gracefully, the task is flipped to `blocked`, and a needs-input
   // notification + comment are recorded. A human approves → re-dispatch.
   "needs_approval",
+  // The specialist could not finish without an answer only a human can give
+  // (TASK_BLOCKED marker). Same landing as needs_approval — `blocked`, a
+  // comment, an inbox row — but the ask is a question, not a grant.
+  "needs_input",
   "released",
 ]);
 
@@ -66,6 +70,8 @@ export const taskJobEnvelopeSchema = z.object({
   run_disposition: z.enum(["quiet", "report", "review"]).optional(),
   // Tool-approval requests the specialist hit under the "request" policy.
   pending_approvals: z.array(pendingApprovalSchema).optional(),
+  // What a `needs_input` run asked for (the TASK_BLOCKED question).
+  blocked_question: z.string().optional(),
 });
 
 export type TaskJobEnvelope = z.infer<typeof taskJobEnvelopeSchema>;

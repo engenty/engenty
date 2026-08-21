@@ -16,7 +16,7 @@ export function DockChatIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M6.5 4.25h11a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5v-3.5h-.5a2.5 2.5 0 0 1-2.5-2.5v-8a2.5 2.5 0 0 1 2.5-2.5z"
         fill={dockBrandFill.moss}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
       />
       <circle cx="9" cy="10.5" fill="currentColor" r="1.1" stroke="none" />
       <circle cx="12" cy="10.5" fill="currentColor" r="1.1" stroke="none" />

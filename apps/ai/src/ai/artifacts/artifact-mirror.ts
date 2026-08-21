@@ -1,5 +1,5 @@
 import type { ArtifactRow, ArtifactStore } from "../../dal/artifacts/index.js";
-import { getArtifactType } from "./artifact-types.js";
+import { ARTIFACT_HANDLE_TYPES, getArtifactType } from "./artifact-types.js";
 
 const EXTENSION_BY_TYPE: Record<string, string> = {
   html: "html",
@@ -41,6 +41,11 @@ export async function mirrorArtifactToBoundStorage(params: {
 }): Promise<MirrorArtifactResult> {
   const { artifact, invokeTool, log, store, tenantId } = params;
   if (artifact.scope_type === "thread") {
+    return { mirrored: false };
+  }
+  // Handle types (`app`, `file`) hold a reference, not a document — mirroring
+  // would write the handle JSON to the bound folder and call it the artifact.
+  if (ARTIFACT_HANDLE_TYPES.has(artifact.type)) {
     return { mirrored: false };
   }
   try {

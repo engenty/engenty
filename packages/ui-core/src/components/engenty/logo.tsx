@@ -1,12 +1,14 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { ENGENTY_KINDS, type EngentyKind } from "./colors";
+import { ENGENTY_CORE_KINDS, type EngentyKind } from "./colors";
 import { Engenty } from "./engenty";
 
 const CYCLE_MS = 2800;
 
-/** Cycling engenty used as the brand mark. */
+/** Cycling engenty used as the brand mark. Cycles the founding five only —
+ *  the mark is the thing people learn to recognise, so it does not drift
+ *  through every shape the cast has since grown. */
 export function EngentyLogoMark({ size = 72 }: { size?: number }) {
   const [index, setIndex] = useState(0);
 
@@ -15,7 +17,7 @@ export function EngentyLogoMark({ size = 72 }: { size?: number }) {
       return;
     }
     const id = window.setInterval(
-      () => setIndex((i) => (i + 1) % ENGENTY_KINDS.length),
+      () => setIndex((i) => (i + 1) % ENGENTY_CORE_KINDS.length),
       CYCLE_MS
     );
     return () => window.clearInterval(id);
@@ -27,7 +29,7 @@ export function EngentyLogoMark({ size = 72 }: { size?: number }) {
       className="relative inline-block shrink-0"
       style={{ width: size, height: size }}
     >
-      {ENGENTY_KINDS.map((kind, i) => (
+      {ENGENTY_CORE_KINDS.map((kind, i) => (
         <span
           className="absolute inset-0"
           key={kind}

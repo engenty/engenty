@@ -59,20 +59,48 @@ persisted:
 | `markdown` | Prose, notes, drafts | `text/markdown` |
 | `html` | Rich formatted output | `text/html` |
 | `table` | CSV, or a JSON array of rows | `text/csv` |
+| `app` | An engenty App instance (**handle**) | `application/vnd.engenty.app+json` |
+| `file` | A file in tenant storage (**handle**) | `application/vnd.engenty.file+json` |
 
 `ARTIFACT_TYPE_IDS` derives the zod enums used by both the agent tool and the
 HTTP routes, so the three stay in sync from one source.
 
+### Handle types
+
+`app` and `file` store a **reference**, not the bytes: the App's source lives in
+`module_apps`, the file's bytes stay in tenant storage. Keeping the artifact
+tiny is what lets an App or a 40 MB spreadsheet be scoped, promoted and
+presented through the ordinary artifact machinery. `ARTIFACT_HANDLE_TYPES` is
+what the mirror checks — writing a handle out to a bound folder would copy the
+JSON and call it the document.
+
+A `file` handle is `{ key, name?, mime_type? }`. The pane renders it with the
+same preview the Files tab uses and downloads the stored object rather than the
+handle.
+
 ## Agent tools
 
-- **`artifact_create`** `{ type, title, content }` — creates a thread-scoped
-  artifact and returns `{ artifact_id, version }`.
-- **`artifact_update`** — appends a new version.
-- **`artifact_store`** — promotes a thread artifact to a `task`/`project`/`goal`.
-- **`show_artifact`** — opens an existing artifact in the pane.
+- **`artifact_write`** — creates (no `artifact_id`) or updates (with
+  `artifact_id` + `expected_version`), and promotes with `store_to`. Pass
+  `file: { key, name?, mime_type? }` instead of `content` to register a stored
+  file; the type is then implied.
+- **`artifact_read`** — current or specific version, or lists the chat's
+  artifacts when given no id.
+- **`show_artifact`** — re-opens one that is no longer in view, returning a
+  presentation handle `{ artifact_id, title, type, mime_type }`.
 
-The agent is told to prefer `artifact_create` over pasting a long document into
-the chat.
+The agent is told to prefer an artifact over pasting a long document into the
+chat, and over handing out storage keys or links.
+
+### Why `show_artifact` is not a frontend tool
+
+Frontend tools suspend the run until a browser resumes them, so a surface that
+cannot resume — a background task job, a messaging channel — parks forever.
+Presentation touches no client-local state, so it stays server-side: the tool
+returns a handle and each surface renders it as it can (a pane tab in the SPA,
+a link on a channel, nothing at all headless). The pane also opens a freshly
+created artifact on its own via `useArtifactListSync`, so `show_artifact` is
+only for bringing back something out of view.
 
 ## Adding a type
 

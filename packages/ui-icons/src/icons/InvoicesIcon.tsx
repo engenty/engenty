@@ -18,7 +18,7 @@ export function DockInvoicesIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M5 2h14v18l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z"
         fill={dockBrandFill.moss}
-        fillOpacity={0.16}
+        fillOpacity={0.3}
       />
       <path d="M8 7h8" />
       <path d="M8 11h5" />
@@ -26,7 +26,7 @@ export function DockInvoicesIcon(props: SVGProps<SVGSVGElement>) {
         cx="15.5"
         cy="12"
         fill={dockBrandFill.emberStrong}
-        fillOpacity={0.42}
+        fillOpacity={0.8}
         r="1.6"
         stroke="none"
       />

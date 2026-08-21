@@ -22,6 +22,7 @@ import {
   CheckCheck,
   GitPullRequestArrow,
   Link2,
+  MessageCircleQuestion,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -88,6 +89,8 @@ function iconForKind(
       return AlertTriangle;
     case "task_review_requested":
       return GitPullRequestArrow;
+    case "task_needs_input":
+      return MessageCircleQuestion;
     case "connection_approval_requested":
     case "tool_approval":
       return ShieldCheck;
@@ -177,6 +180,10 @@ function actionVerbKey(notification: InboxNotificationDto): string | null {
     case "task_review_requested":
     case "task_completed":
       return "inbox.actionReview";
+    // The task page is where the answer is written — as a comment the next
+    // dispatch reads back in the brief.
+    case "task_needs_input":
+      return "inbox.actionAnswer";
     default:
       return null;
   }

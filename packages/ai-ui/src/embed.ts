@@ -126,6 +126,7 @@ export {
   useAgentHost,
   useAgentHostConfig,
   useEngentyAIContext,
+  useOptionalAgentHost,
 } from "./agent-provider/index.js";
 export {
   ActionButton,

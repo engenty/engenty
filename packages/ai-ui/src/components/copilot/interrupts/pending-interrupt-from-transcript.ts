@@ -1,4 +1,5 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
+import { parseToolApprovalResolution } from "../../../ag-ui/tool-approval.js";
 import {
   getToolName,
   isToolPart,
@@ -44,6 +45,12 @@ export function pendingInterruptFromTranscript(
       if (toolName === "requestDecision") {
         if (parseDecisionResolution(part.output)) {
           return null; // most recent decision already answered
+        }
+        // An answered tool APPROVAL resolves to `{approved, operation_id}`, not
+        // to a choice — so it never matched the check above and the scan walked
+        // on to an OLDER row, re-docking a card the user had already answered.
+        if (parseToolApprovalResolution(part.output)) {
+          return null;
         }
         const artifact = parseDecisionArtifact(part.output);
         if (!artifact) {

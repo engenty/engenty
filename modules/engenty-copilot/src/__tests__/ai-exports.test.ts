@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { getCopilotBaseFrontendTools } from "../../ai/frontend-tools/index.js";
 import {
   runNavigateFrontendTool,
-  runOfferFileDownloadsFrontendTool,
   useRegisterCopilotFrontendTools,
 } from "../../ai/frontend-tools/register-all.js";
 import {
@@ -49,8 +48,6 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "openDialog",
       "focusField",
       "show_ui_guide",
-      "offer_file_downloads",
-      "show_artifact",
     ]);
   });
 
@@ -131,36 +128,5 @@ describe("runNavigateFrontendTool", () => {
       runNavigateFrontendTool({ to: "//evil.example/" }, navigate)
     ).toThrow("Only internal application paths are allowed.");
     expect(navigate).not.toHaveBeenCalled();
-  });
-});
-
-describe("runOfferFileDownloadsFrontendTool", () => {
-  it("normalizes offered files from storage keys", () => {
-    expect(
-      runOfferFileDownloadsFrontendTool({
-        files: [
-          {
-            key: "tenants/t1/ai/workspace/reports/summary.csv",
-            mime_type: "text/csv",
-          },
-        ],
-      })
-    ).toEqual({
-      ok: true,
-      __type: "file_downloads",
-      files: [
-        {
-          key: "tenants/t1/ai/workspace/reports/summary.csv",
-          mime_type: "text/csv",
-          name: "summary.csv",
-        },
-      ],
-    });
-  });
-
-  it("requires at least one file key", () => {
-    expect(() => runOfferFileDownloadsFrontendTool({ files: [] })).toThrow(
-      /requires input/
-    );
   });
 });

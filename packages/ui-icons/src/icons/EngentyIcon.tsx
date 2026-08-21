@@ -15,7 +15,7 @@ export function DockEngentyIcon(props: SVGProps<SVGSVGElement>) {
       <title>Engenty</title>
       <rect
         fill={dockBrandFill.ember}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
         height="10"
         rx="2"
         width="18"
@@ -26,7 +26,7 @@ export function DockEngentyIcon(props: SVGProps<SVGSVGElement>) {
         cx="12"
         cy="5"
         fill={dockBrandFill.emberStrong}
-        fillOpacity={0.32}
+        fillOpacity={0.61}
         r="2"
       />
       <path d="M12 7v4" />

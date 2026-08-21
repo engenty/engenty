@@ -19,8 +19,8 @@ export function DockBankingIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M8 21v-4" />
       <path d="M12 21v-4" />
       <path d="M16 21v-4" />
-      <path d="M2 11h20" fill={dockBrandFill.amber} fillOpacity={0.22} />
-      <path d="M12 3l10 6H2z" fill={dockBrandFill.amber} fillOpacity={0.32} />
+      <path d="M2 11h20" fill={dockBrandFill.amber} fillOpacity={0.42} />
+      <path d="M12 3l10 6H2z" fill={dockBrandFill.amber} fillOpacity={0.61} />
     </svg>
   );
 }

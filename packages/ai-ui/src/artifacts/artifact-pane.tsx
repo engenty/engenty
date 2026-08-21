@@ -21,6 +21,7 @@ import {
 } from "./artifact-renderers.js";
 import type { ObjectPaneTab, WorkFilePaneTab } from "./artifact-store.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
+import { parseFileArtifactHandle } from "./file-artifact-handle.js";
 import { downloadWorkFile, WorkFilePreview } from "./work-file-preview.js";
 
 const SOURCE_FILE_BY_TYPE: Record<string, { ext: string; mime: string }> = {
@@ -121,13 +122,26 @@ export function ArtifactPane({
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
   const Editor = active ? resolveArtifactEditor(active.type) : null;
 
+  // A `file` artifact's content is a handle, so downloading its "source" would
+  // hand the user the handle JSON. Resolve the stored object instead — same
+  // path a Files-tab tab takes.
+  const activeFileHandle =
+    active?.type === "file" && typeof activeContent === "string"
+      ? parseFileArtifactHandle(activeContent)
+      : null;
+  const downloadTarget = activeFileTab
+    ? { key: activeFileTab.entryKey, name: activeFileTab.filename }
+    : activeFileHandle
+      ? { key: activeFileHandle.key, name: activeFileHandle.name }
+      : null;
+
   const downloadActiveFile = async () => {
-    if (!activeFileTab || fileDownloading) {
+    if (!downloadTarget || fileDownloading) {
       return;
     }
     setFileDownloading(true);
     try {
-      await downloadWorkFile(activeFileTab.entryKey, activeFileTab.filename);
+      await downloadWorkFile(downloadTarget.key, downloadTarget.name);
     } finally {
       setFileDownloading(false);
     }
@@ -235,7 +249,9 @@ export function ArtifactPane({
                     <Pencil className="h-4 w-4" />
                   </Button>
                 ) : null}
-                {active && typeof activeContent === "string" ? (
+                {active &&
+                typeof activeContent === "string" &&
+                !downloadTarget ? (
                   <Button
                     aria-label={t("artifacts.downloadAction")}
                     onClick={() =>
@@ -247,7 +263,7 @@ export function ArtifactPane({
                     <Download className="h-4 w-4" />
                   </Button>
                 ) : null}
-                {activeFileTab ? (
+                {downloadTarget ? (
                   <Button
                     aria-label={t("workPanel.downloadFile")}
                     disabled={fileDownloading}

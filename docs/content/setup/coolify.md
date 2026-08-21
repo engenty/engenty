@@ -189,15 +189,21 @@ started, and every request to it then returns 502.
 ### Optional: build images in CI instead of on the server
 
 The steps above build the images on the VPS, which is simple but slow (~25 min)
-and heavy on a small box. To build once on GitHub Actions and have the server
-just **pull** (~2 min per deploy), point Coolify at
-`docker-compose.prebuilt.yaml` instead of `docker-compose.yaml` (base directory
-stays `/deploy`). The `.github/workflows/build-images.yml` workflow builds the
-`edge`, `ai`, and `sandbox` images on every push to `main` and pushes them to
-GHCR, then (optionally) triggers a Coolify redeploy over SSH — leaving Coolify's
-API IP-allowlist untouched. Full setup (repo variables, GHCR login, the SSH
-deploy key) is in [`deploy/DEPLOY.md`](https://github.com/engenty/engenty-pro/blob/main/deploy/DEPLOY.md)
-under **Prebuilt images via CI**.
+and heavy on a small box. Release tags can instead build immutable images in
+GitHub Actions for the server to pull.
+
+Two layouts are available:
+
+- `docker-compose.prebuilt.yaml`: one Coolify application, simpler, with a
+  stop/start window on every deployment;
+- edge blue-green: two edge applications plus a stable backend, keeping the
+  public UI and core API available through releases.
+
+The operator setup, migration contract, promotion, and rollback procedure for
+blue-green is in
+[`deploy/BLUE-GREEN.md`](https://github.com/engenty/engenty/blob/main/deploy/BLUE-GREEN.md).
+The general GHCR setup remains in
+[`deploy/DEPLOY.md`](https://github.com/engenty/engenty/blob/main/deploy/DEPLOY.md).
 
 > **Watch out:** the `VITE_*` repo variables must live on the repo the workflow
 > actually runs in, and must be non-empty — an empty `VITE_SUPABASE_URL` builds a

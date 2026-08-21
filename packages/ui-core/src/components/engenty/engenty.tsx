@@ -250,6 +250,178 @@ function OvalBody() {
   );
 }
 
+function BeanBody() {
+  return (
+    <>
+      <path fill={ENGENTY_FILL.teal}>
+        <animate
+          attributeName="d"
+          dur="3.8s"
+          repeatCount="indefinite"
+          values="M48 96 Q24 92 26 68 Q28 44 52 38 Q78 32 88 50 Q98 66 84 84 Q70 100 48 96 Z;M46 98 Q20 92 24 66 Q28 40 54 36 Q80 30 90 50 Q100 68 84 86 Q68 102 46 98 Z;M50 94 Q28 90 28 68 Q30 46 52 40 Q76 34 86 50 Q94 64 82 82 Q72 98 50 94 Z;M48 96 Q24 92 26 68 Q28 44 52 38 Q78 32 88 50 Q98 66 84 84 Q70 100 48 96 Z"
+        />
+      </path>
+      <circle cx="32" cy="94" fill={ENGENTY_FILL.teal} opacity="0.4" r="4">
+        <animate
+          attributeName="cx"
+          dur="3.8s"
+          repeatCount="indefinite"
+          values="32;27;32"
+        />
+      </circle>
+      <Eye
+        blink="4.8s"
+        ex={70}
+        ey={58}
+        ink="oklch(18% 0.08 200)"
+        max={3.4}
+        r={8}
+      />
+    </>
+  );
+}
+
+function PebbleBody() {
+  return (
+    <>
+      <path fill={ENGENTY_FILL.slate}>
+        <animate
+          attributeName="d"
+          dur="4.6s"
+          repeatCount="indefinite"
+          values="M60 96 Q20 96 18 78 Q16 60 46 56 Q78 52 98 62 Q110 72 104 86 Q98 96 60 96 Z;M60 98 Q14 98 14 78 Q14 58 46 54 Q80 50 102 62 Q114 74 106 88 Q98 98 60 98 Z;M60 94 Q26 94 22 78 Q20 62 46 58 Q76 54 94 62 Q106 70 100 84 Q94 94 60 94 Z;M60 96 Q20 96 18 78 Q16 60 46 56 Q78 52 98 62 Q110 72 104 86 Q98 96 60 96 Z"
+        />
+      </path>
+      <g fill="oklch(30% 0.05 244)" opacity="0.32">
+        <circle cx="42" cy="76" r="3" />
+        <circle cx="56" cy="86" r="2.2" />
+        <circle cx="86" cy="80" r="2.6" />
+      </g>
+      <Eye
+        blink="5.6s"
+        ex={68}
+        ey={72}
+        ink="oklch(20% 0.06 244)"
+        max={3}
+        r={7.5}
+      />
+    </>
+  );
+}
+
+function SproutBody() {
+  return (
+    <>
+      <g fill={ENGENTY_FILL.citron}>
+        <ellipse cx="48" cy="34" rx="6" ry="10">
+          <animate
+            attributeName="cy"
+            dur="3.2s"
+            repeatCount="indefinite"
+            values="34;30;34"
+          />
+        </ellipse>
+        <ellipse cx="72" cy="32" rx="5.5" ry="9">
+          <animate
+            attributeName="cy"
+            begin="0.5s"
+            dur="3.2s"
+            repeatCount="indefinite"
+            values="32;28;32"
+          />
+        </ellipse>
+      </g>
+      <path fill={ENGENTY_FILL.citron}>
+        <animate
+          attributeName="d"
+          dur="3.2s"
+          repeatCount="indefinite"
+          values="M60 100 Q28 98 28 72 Q28 46 60 44 Q92 46 92 72 Q92 98 60 100 Z;M60 102 Q24 100 24 72 Q24 42 60 40 Q96 42 96 72 Q96 100 60 102 Z;M60 98 Q32 96 32 72 Q32 50 60 48 Q88 50 88 72 Q88 96 60 98 Z;M60 100 Q28 98 28 72 Q28 46 60 44 Q92 46 92 72 Q92 98 60 100 Z"
+        />
+      </path>
+      <Eye
+        blink="4.2s"
+        ex={60}
+        ey={68}
+        ink="oklch(24% 0.09 108)"
+        max={3.4}
+        r={8.5}
+      />
+    </>
+  );
+}
+
+function TowerBody() {
+  return (
+    <>
+      <path fill={ENGENTY_FILL.violet}>
+        <animate
+          attributeName="d"
+          dur="4s"
+          repeatCount="indefinite"
+          values="M60 102 Q36 100 38 78 Q40 58 42 44 Q44 26 60 24 Q76 26 78 44 Q80 58 82 78 Q84 100 60 102 Z;M60 104 Q32 102 36 78 Q40 56 40 42 Q40 22 60 20 Q80 22 80 42 Q80 56 84 78 Q88 102 60 104 Z;M60 100 Q40 98 40 78 Q42 60 44 46 Q46 30 60 28 Q74 30 76 46 Q78 60 80 78 Q80 98 60 100 Z;M60 102 Q36 100 38 78 Q40 58 42 44 Q44 26 60 24 Q76 26 78 44 Q80 58 82 78 Q84 100 60 102 Z"
+        />
+      </path>
+      <g
+        fill="none"
+        opacity="0.4"
+        stroke="oklch(28% 0.10 308)"
+        strokeLinecap="round"
+        strokeWidth="2.2"
+      >
+        <path d="M42 74 Q60 70 78 74" />
+        <path d="M40 88 Q60 84 80 88" />
+      </g>
+      <Eye
+        blink="5s"
+        ex={60}
+        ey={52}
+        ink="oklch(20% 0.09 308)"
+        max={3.2}
+        r={8}
+      />
+    </>
+  );
+}
+
+function WedgeBody() {
+  return (
+    <>
+      <path fill={ENGENTY_FILL.magenta}>
+        <animate
+          attributeName="d"
+          dur="2.9s"
+          repeatCount="indefinite"
+          values="M60 30 Q74 40 86 70 Q96 92 78 98 Q60 102 42 98 Q24 92 34 70 Q46 40 60 30 Z;M60 24 Q78 38 90 70 Q100 94 78 100 Q60 104 42 100 Q20 94 30 70 Q42 38 60 24 Z;M60 34 Q72 44 82 70 Q92 90 76 96 Q60 100 44 96 Q28 90 38 70 Q48 44 60 34 Z;M60 30 Q74 40 86 70 Q96 92 78 98 Q60 102 42 98 Q24 92 34 70 Q46 40 60 30 Z"
+        />
+      </path>
+      <path
+        d="M52 22 Q60 14 68 22"
+        fill="none"
+        opacity="0.5"
+        stroke={ENGENTY_FILL.magenta}
+        strokeLinecap="round"
+        strokeWidth="3"
+      >
+        <animate
+          attributeName="opacity"
+          dur="2.9s"
+          repeatCount="indefinite"
+          values="0.5;0.12;0.5"
+        />
+      </path>
+      <Eye
+        blink="3.6s"
+        ex={60}
+        ey={70}
+        ink="oklch(22% 0.10 345)"
+        max={3.2}
+        r={8}
+      />
+    </>
+  );
+}
+
 const EYE_BY_KIND: Record<
   EngentyKind,
   { ex: number; ey: number; max: number }
@@ -259,6 +431,11 @@ const EYE_BY_KIND: Record<
   dome: { ex: 60, ey: 54, max: 3.4 },
   flame: { ex: 60, ey: 62, max: 3.2 },
   oval: { ex: 66, ey: 58, max: 3.2 },
+  bean: { ex: 70, ey: 58, max: 3.4 },
+  pebble: { ex: 68, ey: 72, max: 3 },
+  sprout: { ex: 60, ey: 68, max: 3.4 },
+  tower: { ex: 60, ey: 52, max: 3.2 },
+  wedge: { ex: 60, ey: 70, max: 3.2 },
 };
 
 const SHADOW: Record<EngentyKind, { cy: number; rx: number; dur: string }> = {
@@ -267,6 +444,11 @@ const SHADOW: Record<EngentyKind, { cy: number; rx: number; dur: string }> = {
   dome: { cy: 104, rx: 27, dur: "3s" },
   flame: { cy: 106, rx: 22, dur: "2.6s" },
   oval: { cy: 102, rx: 32, dur: "4s" },
+  bean: { cy: 102, rx: 26, dur: "3.8s" },
+  pebble: { cy: 102, rx: 34, dur: "4.6s" },
+  sprout: { cy: 106, rx: 26, dur: "3.2s" },
+  tower: { cy: 108, rx: 20, dur: "4s" },
+  wedge: { cy: 106, rx: 28, dur: "2.9s" },
 };
 
 function Body({ kind }: { kind: EngentyKind }) {
@@ -279,6 +461,16 @@ function Body({ kind }: { kind: EngentyKind }) {
       return <FlameBody />;
     case "oval":
       return <OvalBody />;
+    case "bean":
+      return <BeanBody />;
+    case "pebble":
+      return <PebbleBody />;
+    case "sprout":
+      return <SproutBody />;
+    case "tower":
+      return <TowerBody />;
+    case "wedge":
+      return <WedgeBody />;
     default:
       return <RoundBody />;
   }

@@ -14,7 +14,7 @@ import {
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { Workspace } from "@mastra/core/workspace";
-import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
+import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
 import { engentyToolsRunAls } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { ThreadMessageRow, ThreadRow } from "../../dal/threads/index.js";
@@ -290,11 +290,10 @@ export function createThreadService(opts: ThreadServiceOptions) {
         scopeAccessToken(input.scope) ??
         input.authorization?.replace(/^Bearer\s+/i, "").trim(),
     });
-    const isChatbotAgent = session.agent_id?.startsWith("chatbot.") ?? false;
-    const mergedDefinitions = mergeFrontendToolDefinitions(
-      gatedAgentUi?.frontend_tools,
-      { includeServerTools: !isChatbotAgent }
-    );
+    const mergedDefinitions = resolveFrontendToolsForAgent({
+      agentId: session.agent_id,
+      clientTools: gatedAgentUi?.frontend_tools,
+    });
     const nativeFrontendTools = createNativeFrontendTools(mergedDefinitions);
     const assembleOptions = {
       extraTools: nativeFrontendTools,

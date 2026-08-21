@@ -4,6 +4,22 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.130] - 2026-08-21
+- ADDED **[ai]** An unattended run can say what it needs
+- ADDED **[ai]** Only the copilot gets frontend tools
+- ADDED **[ai]** Delete offer_file_downloads
+- ADDED **[ai]** A file in storage can be an artifact
+- ADDED **[ai]** Show_artifact becomes a backend presentation tool
+- ADDED **[time-tracking]** Full AI face — 13 tools, 3 skills, tracker + reporter agents
+- ADDED **[global]** Make a fresh clone runnable in three commands
+- ADDED **[styleguide]** Engenty mascot system, fluffy renderer and manage styleguide
+- CHANGED **[styleguide]** Lead the page with the brand marks
+- FIXED **[copilot]** An answered approval reaches its final row immediately
+- FIXED **[copilot]** The approval row's colour belongs to the verdict, not the shield
+- FIXED **[invoices,offers]** Drop the dead invoke_frontend_tool id from the manager manifests
+- FIXED **[time-tracking]** Wire agents and skills to operation contracts
+- FIXED **[copilot]** An approval is not a decision, and an answered one must say what it approved
+
 ## [0.1.129] - 2026-08-18
 - ADDED **[deploy]** Add blue-green edge releases
 - FIXED **[ci]** Load closed packages optionally so public typecheck stays green

@@ -21,6 +21,7 @@
 // alongside another suspending call queues instead of wedging.
 import {
   createRequestDecisionArtifact,
+  DECISION_RESUME_PREFIXES,
   type RequestDecisionInput,
   requestDecisionInputSchema,
 } from "@engenty/ai-core";
@@ -77,25 +78,28 @@ export function formatDecisionResumeForModel(
     .map((choice) => choice.label?.trim() || choice.id?.trim())
     .filter(Boolean);
   if (picked.length > 0) {
-    return `The user selected: ${picked.join(", ")}`;
+    return `${DECISION_RESUME_PREFIXES.selected}${picked.join(", ")}`;
   }
   const single = resume.choice_label?.trim() || resume.choice_id?.trim();
   if (single) {
-    return `The user selected: ${single}`;
+    return `${DECISION_RESUME_PREFIXES.selected}${single}`;
   }
   const text = resume.text?.trim();
   if (text) {
-    return `The user answered: ${text}`;
+    return `${DECISION_RESUME_PREFIXES.answered}${text}`;
   }
   // A resume with no recognisable answer must NOT read as a silent success —
   // the model would proceed on an imagined choice.
   return "The user responded, but no choice could be read from the answer. Ask them to pick again.";
 }
 
+export const NO_HUMAN_CHANNEL_DECISION_MESSAGE =
+  "This run has no human channel: the chooser was NOT shown and nobody can answer it. Do NOT wait for a pick. Decide from what you already have, or stop and state exactly what you needed to ask.";
+
 /**
- * `requestDecision` that suspends the run. Falls back to returning the artifact
- * when the run cannot service an interrupt (headless task jobs, delegated child
- * runs): suspending there has nobody to answer it and would hang the run
+ * `requestDecision` that suspends the run. A run that cannot service an
+ * interrupt (headless task jobs, delegated child runs) instead gets a result
+ * saying so: suspending there has nobody to answer it and would hang the run
  * forever. That is a runtime-capability split, not a legacy path — the executor
  * sets `canSuspendForInteraction` only for runs that park and resume.
  */
@@ -120,7 +124,16 @@ export function createNativeRequestDecisionTool() {
       const input = inputData as RequestDecisionInput;
       const artifact = createRequestDecisionArtifact(input);
       if (!getEngentyToolsRunContext().canSuspendForInteraction) {
-        return artifact as never;
+        // Returning the bare artifact reads as "the chooser was shown" — a
+        // model then waits for a pick that can never come, or invents one.
+        // Say plainly that nobody saw it.
+        return {
+          artifact_type: "decision_unavailable",
+          note: NO_HUMAN_CHANNEL_DECISION_MESSAGE,
+          options: artifact.choices.map((choice) => choice.label),
+          question: artifact.title,
+          reason: "no_human_channel",
+        } as never;
       }
       const ticket = await acquireFrontendToolSuspendSlot(lockKey);
       try {

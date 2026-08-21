@@ -16,6 +16,7 @@ import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index
 import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
+import { getEngentyToolsRunContext } from "../../tools/engenty-tools/lib/run-context.js";
 import { createMemoryTools } from "../../tools/memory-tools/index.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
 import { createNativeRequestDecisionTool } from "../../tools/request-decision/native-request-decision.js";
@@ -38,7 +39,12 @@ export const proposeUpdatesTool = buildProposeUpdatesTool(createTool);
 // native-request-decision.ts. It degrades to the artifact for runs with no human
 // channel, so headless jobs behave exactly as before.
 export const requestDecisionTool = createNativeRequestDecisionTool();
-export const requestFeedbackTool = buildRequestFeedbackTool(createTool);
+// Same runtime-capability split as requestDecision: a run that cannot park for
+// a human answer must not be told one was asked (see native-request-decision.ts).
+export const requestFeedbackTool = buildRequestFeedbackTool(createTool, {
+  hasHumanChannel: () =>
+    getEngentyToolsRunContext().canSuspendForInteraction === true,
+});
 export const setStateTool = buildSetStateTool(createTool);
 
 // Catalog runner + vault tools live directly on the copilot (and other agents

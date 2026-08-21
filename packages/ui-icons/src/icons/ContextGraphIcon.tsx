@@ -16,7 +16,7 @@ export function DockContextGraphIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
         fill={dockBrandFill.cobalt}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
       />
       <path d="M9 13a4.5 4.5 0 0 0 3-4" />
       <path d="M12 8h8" />

@@ -26,7 +26,7 @@ describe("buildAgentUiContextInstructions", () => {
 
   it("returns frontend tool instructions when state_snapshot is missing", async () => {
     const result = await buildAgentUiContextInstructions({
-      agentId: "tasks.assist",
+      agentId: "engenty.copilot",
       agentUi: { frontend_tools: [] },
       scope: {
         tenantId: "t1",
@@ -41,7 +41,7 @@ describe("buildAgentUiContextInstructions", () => {
 
   it("includes client-provided frontend tools in runtime instructions", async () => {
     const result = await buildAgentUiContextInstructions({
-      agentId: "tasks.assist",
+      agentId: "engenty.copilot",
       agentUi: {
         frontend_tools: [
           createFrontendToolDefinition({
@@ -159,7 +159,8 @@ describe("buildAgentUiContextInstructions", () => {
         userId: "u1",
       },
     });
-    expect(result).toContain("run in the user's browser");
+    // A specialist still gets its page context — it just holds no browser tools.
+    expect(result).not.toContain("run in the user's browser");
     expect(result).toContain("pathname: /mdl/tasks/x");
     expect(result).toContain("Current task (preloaded)");
     expect(resolveAgentSystemPromptFromUiState).toHaveBeenCalledWith(
@@ -245,5 +246,31 @@ describe("buildAgentUiContextInstructions", () => {
       },
     });
     expect(resolveModuleSkillCatalogHint).not.toHaveBeenCalled();
+  });
+  it("gives a worker agent no browser tools, whatever the client registered", async () => {
+    // A frontend tool suspends the run until a client resumes it. A specialist
+    // is meant to run unattended too, so it never holds one — and the prompt
+    // must not name tools it does not have.
+    const result = await buildAgentUiContextInstructions({
+      agentId: "time-tracking.tracker",
+      agentUi: {
+        frontend_tools: [
+          createFrontendToolDefinition({
+            availability: "enabled",
+            description: "Navigate to an internal app path.",
+            name: "navigate",
+            parameters: { type: "object", properties: {} },
+          }),
+        ],
+      },
+      scope: {
+        tenantId: "t1",
+        credential: { kind: "user", token: "token" },
+        userId: "u1",
+      },
+    });
+    expect(result).not.toContain("run in the user's browser");
+    expect(result).not.toContain("Browser tools available now:");
+    expect(result).not.toContain("navigate");
   });
 });

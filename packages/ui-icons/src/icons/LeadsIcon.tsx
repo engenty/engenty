@@ -17,21 +17,21 @@ export function DockLeadsIcon(props: SVGProps<SVGSVGElement>) {
         cx="12"
         cy="12"
         fill={dockBrandFill.amber}
-        fillOpacity={0.12}
+        fillOpacity={0.23}
         r="9"
       />
       <circle
         cx="12"
         cy="12"
         fill={dockBrandFill.amber}
-        fillOpacity={0.24}
+        fillOpacity={0.46}
         r="5"
       />
       <circle
         cx="12"
         cy="12"
         fill={dockBrandFill.amber}
-        fillOpacity={0.88}
+        fillOpacity={0.9}
         r="1"
       />
     </svg>

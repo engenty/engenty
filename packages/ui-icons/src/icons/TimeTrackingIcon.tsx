@@ -17,7 +17,7 @@ export function DockTimeTrackingIcon(props: SVGProps<SVGSVGElement>) {
         cx="12"
         cy="12"
         fill={dockBrandFill.amber}
-        fillOpacity={0.24}
+        fillOpacity={0.46}
         r="9"
       />
       <path d="M12 7v5l3 3" />

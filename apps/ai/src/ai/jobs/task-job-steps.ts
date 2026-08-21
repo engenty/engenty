@@ -246,11 +246,12 @@ export const writeResultStep = createStep({
     });
     const failed = inputData.status === "failed";
     const needsApproval = inputData.status === "needs_approval";
+    const needsInput = inputData.status === "needs_input";
     const isRoutine = Boolean(inputData.trigger_id);
     let runDisposition = inputData.run_disposition;
     let resultText = inputData.result_text;
 
-    if (!(failed || needsApproval) && isRoutine) {
+    if (!(failed || needsApproval || needsInput) && isRoutine) {
       const parsed = parseRoutineDisposition(inputData.result_text);
       runDisposition = parsed.disposition;
       resultText = parsed.cleanedText;
@@ -275,6 +276,14 @@ export const writeResultStep = createStep({
     let body: string;
     if (failed) {
       body = `run failed — ${inputData.note ?? "unknown error"}`;
+    } else if (needsInput) {
+      // The question first, then whatever the run got done before it stopped —
+      // a reader must see what is being asked without hunting for it.
+      const question = inputData.blocked_question ?? "more information";
+      const done = readString(resultText);
+      body = done
+        ? `🙋 Needs your input — ${question}\n\n${done}`
+        : `🙋 Needs your input — ${question}`;
     } else if (needsApproval) {
       const ops = (inputData.pending_approvals ?? [])
         .map((p) =>
@@ -314,30 +323,27 @@ export const finalizeStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const needsApproval = inputData.status === "needs_approval";
+    const needsInput = inputData.status === "needs_input";
     const failed = inputData.status === "failed";
     const isRoutine = Boolean(inputData.trigger_id);
+    const paused = failed || needsApproval || needsInput;
     const disposition =
-      isRoutine && !(failed || needsApproval)
-        ? (inputData.run_disposition ?? "report")
-        : null;
+      isRoutine && !paused ? (inputData.run_disposition ?? "report") : null;
 
     const outcome = failed
       ? ("failed" as const)
       : needsApproval
         ? ("needs_approval" as const)
-        : disposition === "quiet"
-          ? ("completed_quiet" as const)
-          : ("completed" as const);
+        : needsInput
+          ? ("needs_input" as const)
+          : disposition === "quiet"
+            ? ("completed_quiet" as const)
+            : ("completed" as const);
 
     // Routine quiet/report rest in backlog; review parks at in_review after
     // release (release resting_status is backlog, then status update → in_review).
     // Non-routine completed → release to todo then flip to in_review (unchanged).
-    const restingStatus =
-      isRoutine && (disposition === "quiet" || disposition === "report")
-        ? "backlog"
-        : isRoutine && disposition === "review"
-          ? "backlog"
-          : "todo";
+    const restingStatus = isRoutine && !paused ? "backlog" : "todo";
 
     await invoke("tasks_release", {
       actor_agent_type_key: inputData.agent_type_key,
@@ -350,14 +356,11 @@ export const finalizeStep = createStep({
       resting_status: restingStatus,
     });
 
-    const nextStatus =
-      failed || needsApproval
-        ? "blocked"
-        : disposition === "quiet" || disposition === "report"
-          ? "backlog"
-          : disposition === "review"
-            ? "in_review"
-            : "in_review";
+    const nextStatus = paused
+      ? "blocked"
+      : disposition === "quiet" || disposition === "report"
+        ? "backlog"
+        : "in_review";
 
     await invoke("tasks_update", {
       actor_agent_type_key: inputData.agent_type_key,
@@ -410,6 +413,35 @@ export const finalizeStep = createStep({
         source: "tasks",
         summary:
           approvalHeadline ?? subjectTitle ?? `approval to run ${primaryOp}`,
+        tenantId: inputData.tenant_id,
+      });
+      return { ...inputData, status: "released" as const };
+    }
+
+    if (needsInput) {
+      const question = inputData.blocked_question ?? "";
+      await emitInboxNotification({
+        dedupeKey: `task-needs-input:${inputData.task_id}:${runId}`,
+        kind: "task_needs_input",
+        metadata: {
+          agent_type_key: inputData.agent_type_key,
+          run_id: runId,
+          task_id: inputData.task_id,
+          task_identifier: inputData.identifier ?? null,
+          ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
+          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
+        },
+        payload: {
+          ...(question ? { question } : {}),
+          ...(inputData.result_text
+            ? { result_text: inputData.result_text.slice(0, 2000) }
+            : {}),
+        },
+        priority: "high",
+        source: "tasks",
+        // The question IS the subject: an inbox row saying only "Task ENG-12"
+        // makes the reader open it to find out what is even being asked.
+        summary: question || subjectTitle || `Task ${taskRef} needs input`,
         tenantId: inputData.tenant_id,
       });
       return { ...inputData, status: "released" as const };

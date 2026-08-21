@@ -1,0 +1,66 @@
+# Public edge deployment used by both Coolify blue/green applications.
+#
+# Each application uses this same file, a distinct ENGENTY_DEPLOY_COLOR, and an
+# immutable ENGENTY_RELEASE_TAG (vX.Y.Z or commit SHA). Both join the stable
+# engenty-runtime network where the backend services publish fixed aliases.
+services:
+  engenty-edge:
+    image: ghcr.io/engenty/engenty-edge:${ENGENTY_RELEASE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 15s
+    labels:
+      - traefik.docker.network=coolify
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_interval: 2s
+      start_period: 20s
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:8787/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      timeout: 8s
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      ENGENTY_DEPLOY_COLOR: ${ENGENTY_DEPLOY_COLOR}
+      ENGENTY_PROD_GATEWAY: "1"
+      ENGENTY_CORE_BACKGROUND_SERVICES_ENABLED: "false"
+      ENGENTY_CORE_SHUTDOWN_TIMEOUT_MS: "8000"
+      ENGENTY_GATEWAY_UI_ROOT: /app/apps/ui/dist
+      ENGENTY_GATEWAY_MANAGE_ENABLED: ${ENGENTY_GATEWAY_MANAGE_ENABLED:-false}
+      ENGENTY_GATEWAY_DOCS_ENABLED: ${ENGENTY_GATEWAY_DOCS_ENABLED:-false}
+      ENGENTY_GATEWAY_STUDIO_ENABLED: ${ENGENTY_GATEWAY_STUDIO_ENABLED:-false}
+      ENGENTY_GATEWAY_STUDIO_BASIC_AUTH: ${ENGENTY_GATEWAY_STUDIO_BASIC_AUTH:-}
+      ENGENTY_GATEWAY_AI_URL: http://engenty-ai:8790
+      ENGENTY_GATEWAY_DOCS_URL: http://engenty-docs:3000
+      ENGENTY_GATEWAY_STUDIO_URL: http://engenty-studio:43111
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
+      ENGENTY_SERVER_LANE_PRIVATE_KEY: ${ENGENTY_SERVER_LANE_PRIVATE_KEY:-}
+      ENGENTY_SERVER_LANE_KEY_ID: ${ENGENTY_SERVER_LANE_KEY_ID:-}
+      GOTENBERG_URL: http://gotenberg:3000
+      CORS_ORIGIN: ${PUBLIC_APP_URL}
+      ENGENTY_UI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_API_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
+      ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
+      ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+    networks:
+      - coolify
+      - runtime
+
+networks:
+  coolify:
+    external: true
+    name: coolify
+  runtime:
+    external: true
+    name: engenty-runtime

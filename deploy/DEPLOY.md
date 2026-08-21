@@ -151,20 +151,33 @@ To build the images on GitHub Actions instead of on the VPS, see **Prebuilt imag
 
 ## Prebuilt images via CI (GitHub Actions → GHCR)
 
-`.github/workflows/build-images.yml` builds the `edge`, `ai`, `sandbox`, and `app-host` images on GitHub runners and pushes them to `ghcr.io/<org>/engenty-{edge,ai,sandbox,app-host}` on each push to `main`. Point Coolify at **`docker-compose.prebuilt.yaml`** (base directory still `/deploy`) — it pulls those images instead of building, so deploys take ~2 min instead of ~25.
+`.github/workflows/build-images.yml` builds the production images on GitHub
+runners for release tags and pushes immutable version/SHA tags plus `latest` to
+GHCR. Point Coolify at **`docker-compose.prebuilt.yaml`** (base directory still
+`/deploy`) for a simple single-application deployment.
+
+That combined deployment still has a stop/start window. Production installations
+that require an uninterrupted public UI and core API should use the edge-only
+blue-green layout in [BLUE-GREEN.md](./BLUE-GREEN.md).
 
 Setup:
 
 1. **Repo variables** (Actions → Variables) on the repo the workflow runs in: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `PUBLIC_APP_URL` (baked into the UI at build time), and `COOLIFY_DEPLOY_ENABLED`. Set them on the **correct** repo — `gh variable set` without `-R` targets whatever remote your checkout points at, which may not be where CI runs. Empty `VITE_*` bakes a UI that can't reach Supabase (login fails) **with no build error** — verify a built bundle contains your Supabase host.
 2. **GHCR pull on the VPS** (images are private): `docker login ghcr.io -u <user> -p <PAT-with-read:packages>` once; the credential persists in `/root/.docker/config.json`.
-3. **Coolify**: switch the app's compose file to `docker-compose.prebuilt.yaml`.
+3. **Coolify**: use `docker-compose.prebuilt.yaml` for the combined layout, or
+   follow [BLUE-GREEN.md](./BLUE-GREEN.md) for the production layout.
 
-**Auto-deploy trigger.** The `deploy` job (gated on `COOLIFY_DEPLOY_ENABLED=true`) triggers the redeploy. Coolify's API is IP-allowlisted and GitHub runner IPs are dynamic, so it deploys **over SSH** rather than the HTTP API: a key pinned to a forced command (`deploy/scripts/coolify-deploy.sh`) queues the deployment via Coolify's own helper, leaving the API allowlist untouched. This path needs:
+**Auto-deploy trigger.** The `deploy` job (gated on
+`COOLIFY_DEPLOY_ENABLED=true`) invokes the blue-green orchestrator over SSH.
+The forced command handles pre-migration, candidate readiness, promotion, and
+rollback; there is deliberately no queue-only API fallback.
 
-- On the VPS: install `deploy/scripts/coolify-deploy.sh` to `/opt/coolify-deploy.sh` (mode 750) and add a forced-command `authorized_keys` entry — `command="/opt/coolify-deploy.sh",no-pty,no-port-forwarding,no-x11-forwarding,no-agent-forwarding <ci-public-key>`.
+- On the VPS: follow the server configuration and installation steps in
+  [BLUE-GREEN.md](./BLUE-GREEN.md).
 - In GitHub: secret `VPS_DEPLOY_SSH_KEY` (the CI private key) and variable `VPS_DEPLOY_HOST` (VPS host/IP).
 
-Set `COOLIFY_DEPLOY_ENABLED=false` to keep the `deploy` job dormant while still building images on push (e.g. if you trigger deploys manually from an allowlisted IP instead).
+Set `COOLIFY_DEPLOY_ENABLED=false` to build release images without promoting
+them (for example, while bootstrapping the two edge applications).
 
 ---
 
@@ -217,6 +230,10 @@ docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up --build
 |------|---------|
 | `docker-compose.yaml` | Stack: edge, ai, gotenberg; profiles studio, docs (builds on host) |
 | `docker-compose.prebuilt.yaml` | Same stack pulling prebuilt GHCR images (CI path, §"Prebuilt images via CI") |
+| `docker-compose.edge.prebuilt.yaml` | One blue/green public edge color |
+| `docker-compose.backend.prebuilt.yaml` | Stable AI, app-host, docs, and core worker |
+| `docker-compose.migrate.prebuilt.yaml` | One-shot migration before edge promotion |
+| `BLUE-GREEN.md` | Production bootstrap, promotion, and rollback guide |
 | `Dockerfile.edge` | Core API + prod gateway + UI static |
 | `Dockerfile.ai` | AI service |
 | `Dockerfile.sandbox` | Agent sandbox runtime image (build-only) |
@@ -236,10 +253,11 @@ Two operational facts that differ from every other service here:
   `agentos-sidecar`) that ship as platform-specific npm packages. The image must
   therefore be built for the architecture it will run on; the Dockerfile fails
   the build rather than the first deploy if the binaries are missing.
-- It needs a **durable volume**. RivetKit keeps deployed app releases under
-  `$HOME/.rivetkit` (`HOME=/data` in the image, mounted as
-  `engenty-app-host-data`). Losing that volume takes every deployed App offline
-  until each is redeployed from its stored source in Postgres.
+- It needs **durable storage**. RivetKit keeps deployed app releases under
+  `$HOME/.rivetkit`. The combined layout mounts `engenty-app-host-data`; the
+  blue-green backend binds `/opt/engenty/app-host-data` to `/data`. Losing that
+  data takes every deployed App offline until each is redeployed from its stored
+  source in Postgres.
 
 To take Apps out of service: `ENGENTY_APPS_ENABLED=false` on `engenty-edge`
 removes the whole operation surface. A single App is disabled with

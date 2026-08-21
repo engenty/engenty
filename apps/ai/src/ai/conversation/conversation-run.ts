@@ -19,7 +19,7 @@ import {
 import type { AiEffort, AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
-import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
+import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
 import { isToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/index.js";
 import {
@@ -258,10 +258,10 @@ export async function startConversationRun(
         : {}),
       ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
     });
-    const mergedDefinitions = mergeFrontendToolDefinitions(
-      input.agentUi?.frontend_tools,
-      { includeServerTools: !input.agentId.startsWith("chatbot.") }
-    );
+    const mergedDefinitions = resolveFrontendToolsForAgent({
+      agentId: input.agentId,
+      clientTools: input.agentUi?.frontend_tools,
+    });
     const frontendTools = createNativeFrontendTools(mergedDefinitions);
     // Built early so the delegation tools' onProgress can fold lines onto the
     // sub-agent card (recordSubAgentProgress) and tag live progress events.

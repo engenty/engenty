@@ -109,4 +109,18 @@ describe("mirrorArtifactToBoundStorage", () => {
     expect(store.mergeMetadata).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalled();
   });
+  it("skips handle types — mirroring an app/file artifact would write its handle JSON", async () => {
+    for (const type of ["app", "file"]) {
+      const store = fakeStore();
+      const invokeTool = vi.fn(async () => ({ ref: "r" }));
+      const result = await mirrorArtifactToBoundStorage({
+        artifact: { ...artifact, type },
+        invokeTool,
+        store: store as unknown as ArtifactStore,
+        tenantId: "tenant-1",
+      });
+      expect(result).toEqual({ mirrored: false });
+      expect(invokeTool).not.toHaveBeenCalled();
+    }
+  });
 });

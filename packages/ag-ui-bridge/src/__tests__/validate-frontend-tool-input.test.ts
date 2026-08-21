@@ -20,20 +20,4 @@ describe("getFrontendToolInputValidationError", () => {
       })
     ).toMatch(/internal application paths/);
   });
-
-  it("requires offer_file_downloads files with keys", () => {
-    expect(
-      getFrontendToolInputValidationError("offer_file_downloads", {})
-    ).toMatch(/requires input/);
-    expect(
-      getFrontendToolInputValidationError("offer_file_downloads", {
-        files: [{ key: "tenants/t1/ai/workspace/report.csv" }],
-      })
-    ).toBeNull();
-    expect(
-      getFrontendToolInputValidationError("offer_file_downloads", {
-        files: [{ name: "report.csv" }],
-      })
-    ).toMatch(/non-empty key/);
-  });
 });

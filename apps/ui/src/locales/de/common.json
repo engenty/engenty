@@ -609,6 +609,7 @@
     "newChat": "Neuer Chat",
     "newChatPickAgent": "Agent für neuen Chat wählen",
     "newChatStartWithAgent": "Mit anderem Agent starten",
+    "decisionAnswered": "Antwort",
     "decisionCard": {
       "customPrefix": "Eigene Antwort:",
       "inputPlaceholder": "Nummer eingeben oder eigene Antwort…",
@@ -625,7 +626,9 @@
       "approveAlways": "Immer erlauben (dieser Chat)",
       "approveRun": "Für diesen Lauf erlauben",
       "approveChat": "Für diesen Chat erlauben",
-      "deny": "Ablehnen"
+      "deny": "Ablehnen",
+      "approved": "Freigegeben",
+      "denied": "Abgelehnt"
     },
     "sidebar": {
       "title": "Chats",

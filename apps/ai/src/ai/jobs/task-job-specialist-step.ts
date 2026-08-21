@@ -19,6 +19,7 @@ import {
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import { resolveWorkVisibility } from "../work-scope/resolve-work-visibility.js";
+import { parseTaskBlocked } from "./task-blocked.js";
 import { isSkippedEnvelope, taskJobEnvelopeSchema } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
 
@@ -122,6 +123,17 @@ export const runSpecialistStep = createStep({
         pending_approvals: [...pendingByOp.values()],
         result_text: result.finalText,
         status: "needs_approval" as const,
+      };
+    }
+    // The other way a run can stop and wait: it needs an answer a human has to
+    // give. Approval wins when both happened — the grant is the harder gate.
+    const blocked = parseTaskBlocked(result.finalText);
+    if (blocked) {
+      return {
+        ...inputData,
+        blocked_question: blocked.question,
+        result_text: blocked.cleanedText,
+        status: "needs_input" as const,
       };
     }
     return {

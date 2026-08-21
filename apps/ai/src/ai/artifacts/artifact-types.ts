@@ -44,7 +44,24 @@ export function getArtifactType(type: string): ArtifactTypeDescriptor {
  * The registered built-in types, for deriving input schemas (tool + route
  * zod enums) from one source. Extend here when adding a type.
  */
-export const ARTIFACT_TYPE_IDS = ["markdown", "html", "table", "app"] as const;
+export const ARTIFACT_TYPE_IDS = [
+  "markdown",
+  "html",
+  "table",
+  "app",
+  "file",
+] as const;
+
+/**
+ * Types whose content is a HANDLE to something stored elsewhere, not the thing
+ * itself. They must never be mirrored as a document: the bytes already live in
+ * their own store, and writing the handle JSON out as a file would produce a
+ * useless artifact at the mirror target.
+ */
+export const ARTIFACT_HANDLE_TYPES: ReadonlySet<string> = new Set([
+  "app",
+  "file",
+]);
 
 function assertNonEmpty(content: string, label: string): void {
   if (typeof content !== "string" || content.trim().length === 0) {
@@ -93,6 +110,34 @@ registerArtifactType({
       handle.session_id.length === 0
     ) {
       throw new ArtifactInvalidContentError("app handle needs a session_id");
+    }
+  },
+});
+
+/**
+ * A file in tenant storage. Same shape of idea as `app`: the content is a
+ * handle, and the bytes stay where they were written (agent workspace, a
+ * connector folder, an upload). That is what lets a spreadsheet, a PDF or a
+ * generated image be an ordinary artifact — previewed in the pane, downloaded,
+ * promoted to a task/goal/project — instead of a chat-only download offer that
+ * nothing can reopen.
+ */
+registerArtifactType({
+  mimeType: "application/vnd.engenty.file+json",
+  type: "file",
+  validate: (content) => {
+    assertNonEmpty(content, "file");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new ArtifactInvalidContentError(
+        "file content must be a JSON handle: {key, name?, mime_type?}"
+      );
+    }
+    const handle = parsed as { key?: unknown };
+    if (typeof handle?.key !== "string" || handle.key.length === 0) {
+      throw new ArtifactInvalidContentError("file handle needs a storage key");
     }
   },
 });

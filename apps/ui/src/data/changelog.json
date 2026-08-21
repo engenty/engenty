@@ -1,7 +1,97 @@
 [
   {
+    "version": "v0.1.130",
+    "timestamp": 1787339205,
+    "commits": [
+      {
+        "id": "226a215",
+        "message": "an answered approval reaches its final row immediately",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e7b7a99",
+        "message": "the approval row's colour belongs to the verdict, not the shield",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2dbfbb9",
+        "message": "an unattended run can say what it needs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e19bf9e",
+        "message": "only the copilot gets frontend tools",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ecddc83",
+        "message": "delete offer_file_downloads",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "850729c",
+        "message": "a file in storage can be an artifact",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "77695b9",
+        "message": "show_artifact becomes a backend presentation tool",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f8d5f8b",
+        "message": "drop the dead invoke_frontend_tool id from the manager manifests",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0da6fcf",
+        "message": "wire agents and skills to operation contracts",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "01bca1b",
+        "message": "an approval is not a decision, and an answered one must say what it approved",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a9229c4",
+        "message": "full AI face — 13 tools, 3 skills, tracker + reporter agents",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5426b75",
+        "message": "make a fresh clone runnable in three commands",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cc7e772",
+        "message": "lead the page with the brand marks",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "c618f2b",
+        "message": "engenty mascot system, fluffy renderer and manage styleguide",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.129",
-    "timestamp": 1787071716,
+    "timestamp": 1787071718,
     "commits": [
       {
         "id": "00db866",

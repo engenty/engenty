@@ -15,7 +15,7 @@ export function DockContactsIcon(props: SVGProps<SVGSVGElement>) {
       <title>Contacts</title>
       <rect
         fill={dockBrandFill.moss}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
         height="16"
         rx="2"
         width="20"
@@ -26,7 +26,7 @@ export function DockContactsIcon(props: SVGProps<SVGSVGElement>) {
         cx="8"
         cy="12"
         fill={dockBrandFill.moss}
-        fillOpacity={0.34}
+        fillOpacity={0.65}
         r="3"
       />
       <path d="M14 10h4" />

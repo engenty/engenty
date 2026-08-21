@@ -24,7 +24,7 @@ import {
 import type { AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
-import { mergeFrontendToolDefinitions } from "../../../ai/frontend-tools/catalog.js";
+import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import {
   createNativeFrontendTools,
   type FrontendToolResumeData,
@@ -409,10 +409,10 @@ async function resumeFromSnapshot(
 ): Promise<SnapshotResumeResult> {
   // Merged up front (not just for the stream) so the caller can resolve a
   // re-suspended frontend tool to its declaration even on an early bail.
-  const mergedDefinitions = mergeFrontendToolDefinitions(
-    input.agentUi?.frontend_tools,
-    { includeServerTools: !input.agentId?.startsWith("chatbot.") }
-  );
+  const mergedDefinitions = resolveFrontendToolsForAgent({
+    agentId: input.agentId,
+    clientTools: input.agentUi?.frontend_tools,
+  });
   if (
     !(input.registry && input.mastra && input.suspendedRunId && input.agentId)
   ) {

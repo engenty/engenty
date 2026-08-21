@@ -4,6 +4,11 @@ export interface FileDownloadOfferItem {
   name: string;
 }
 
+// LEGACY, read-only. `offer_file_downloads` was removed once a stored file
+// could be an ordinary `file` artifact (previewed, downloadable, promotable).
+// Threads written before that still contain its tool calls, so the parser and
+// its card stay — deleting them would blank out download buttons in transcripts
+// the user can still scroll back to. Nothing emits this shape any more.
 export const FILE_DOWNLOADS_OFFER_TYPE = "file_downloads" as const;
 
 export interface FileDownloadsOfferOutput {

@@ -7,6 +7,7 @@ export const HITL_KINDS = new Set([
   "agent_proposed",
   "skill_proposed",
   "memory_proposal",
+  "task_needs_input",
   "task_review_requested",
 ]);
 

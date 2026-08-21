@@ -141,8 +141,8 @@ export function WorkspaceArtifactPane({
   });
 
   // Sync which artifact the agent is presenting across every window attached
-  // to this thread (server-persisted by the show_artifact frontend tool —
-  // see ACTIVE_ARTIFACT_METADATA_KEY). Same policy as a freshly-created
+  // to this thread (written server-side by the show_artifact tool — see
+  // ACTIVE_ARTIFACT_METADATA_KEY). Same policy as a freshly-created
   // artifact above: auto-focus when the pane is already open, otherwise
   // badge it so a passive window's pane never pops open on its own.
   const { threadsRealtimeClient } = useEngentyAIContext();

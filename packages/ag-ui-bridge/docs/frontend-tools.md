@@ -19,6 +19,33 @@ Definitions are official AG-UI `Tool` objects. Input JSON Schema lives on `param
 
 There is **no per-tool approval flag**. Frontend tools always auto-execute — dispatching a browser-side tool call is not itself the risky step, and the old `safety: "safe" | "requires_confirmation"` gate was removed in `6b81ff814` because it fired on every call regardless of what the tool did, and did not hold reliably. Guard genuinely destructive actions where the risk actually lives: connector approval policies, backend tool approval, and the agent's own prompt.
 
+## Who gets them
+
+A frontend tool mutates **client-local state the server cannot reach** —
+navigation, focus, dialogs, theme, the copilot's own chrome, driving the page.
+Presentation does not qualify and is not a frontend tool: `show_artifact` and
+`show_objects` are backend tools whose results each surface renders itself.
+
+The line matters because a frontend tool **suspends the run** until a client
+resumes it. An agent holding one on a surface that cannot resume — a background
+task job, a messaging channel — parks forever the first time a model reaches for
+it. `resolveFrontendToolsForAgent` (`apps/ai/ai/frontend-tools/catalog.ts`) is
+the single seam; the executor, its resume leg, the session service and the
+prompt block all call it, so what the model is told it has cannot drift from
+what it holds.
+
+| Tier | Agents | Gets |
+|---|---|---|
+| copilot | `engenty.copilot`, `engenty.cli` | server catalog + client-registered |
+| chatbot | `chatbot.*` | client-registered only |
+| worker | everything else — specialists, `*.answers`, coordinator | none |
+| — | a caller that sent no `tools` and no `state` | none |
+
+The last row is not a tier but the same rule: no client, no catalog. The shell
+registers its whole catalog globally and ships it with every run, so restricting
+the *server* half alone would still leave a specialist holding `navigate`, the
+`browser_*` tools and the copilot's chrome.
+
 ## Define a tool
 
 ```ts

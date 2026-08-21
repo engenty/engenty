@@ -41,6 +41,7 @@ export function registerEngentyCopilotToolCallUi() {
     standalone: true,
   });
 
+  // Legacy transcripts only — see file-download-offer.ts.
   registerToolCallUi({
     id: "engenty-copilot.file-downloads",
     priority: 45,

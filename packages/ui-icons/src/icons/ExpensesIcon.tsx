@@ -15,7 +15,7 @@ export function DockExpensesIcon(props: SVGProps<SVGSVGElement>) {
       <title>Expenses</title>
       <rect
         fill={dockBrandFill.rose}
-        fillOpacity={0.22}
+        fillOpacity={0.42}
         height="12"
         rx="2"
         width="16"

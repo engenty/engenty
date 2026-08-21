@@ -29,6 +29,9 @@ function outcomeBadge(run: TaskRun, t: (key: string) => string) {
   if (run.outcome === "needs_approval") {
     return { label: t("routines.detail.runNeedsApproval"), muted: false };
   }
+  if (run.outcome === "needs_input") {
+    return { label: t("routines.detail.runNeedsInput"), muted: false };
+  }
   return { label: t("detail.liveRunFinished"), muted: false };
 }
 

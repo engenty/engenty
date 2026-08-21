@@ -138,14 +138,16 @@ function stopIfEmpty() {
 /** Register an engenty SVG so pupils + body lean track the pointer. */
 export function useEngentyGaze(
   svgRef: React.RefObject<SVGSVGElement | null>,
-  eye: { ex: number; ey: number; max?: number }
+  eye: { ex: number; ey: number; max?: number },
+  /** Decorative instances (background art) opt out of tracking. */
+  enabled = true
 ) {
   const eyeRef = useRef(eye);
   eyeRef.current = eye;
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) {
+    if (!(svg && enabled)) {
       return;
     }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -177,5 +179,5 @@ export function useEngentyGaze(
       cast.delete(handle);
       stopIfEmpty();
     };
-  }, [svgRef, eye.ex, eye.ey, eye.max]);
+  }, [svgRef, enabled, eye.ex, eye.ey, eye.max]);
 }

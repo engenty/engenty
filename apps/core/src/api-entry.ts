@@ -6,6 +6,9 @@ import { startApiServer } from "./api/server.js";
 loadCoreRuntimeEnvFromCallerSrcDir(import.meta.url);
 
 type ApiRuntime = Awaited<ReturnType<typeof startApiServer>>;
+const shutdownTimeoutMs = Number(
+  process.env.ENGENTY_CORE_SHUTDOWN_TIMEOUT_MS ?? 8000
+);
 
 declare global {
   // Persist across watch-mode module re-executions in the same process.
@@ -22,9 +25,19 @@ function closeRuntime(runtime: ApiRuntime | undefined): Promise<void> {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
+    runtime.beginDrain();
+    const deadline = setTimeout(() => {
+      runtime.closeAllConnections();
+      resolve();
+    }, shutdownTimeoutMs);
+    deadline.unref();
     try {
-      runtime.server.close(() => resolve());
+      runtime.server.close(() => {
+        clearTimeout(deadline);
+        resolve();
+      });
     } catch {
+      clearTimeout(deadline);
       resolve();
     }
   });

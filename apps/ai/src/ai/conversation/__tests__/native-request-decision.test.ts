@@ -74,10 +74,11 @@ describe("requestDecision suspends natively", () => {
     expect(result).toBe("The user selected: Report erstellen");
   });
 
-  it("does NOT suspend a run with no human channel", async () => {
+  it("does NOT suspend a run with no human channel, and says nobody was asked", async () => {
     // Headless task jobs and delegated child runs have nobody to answer a
-    // suspend — suspending there would hang the run forever, so the artifact
-    // shape is returned exactly as before.
+    // suspend — suspending there would hang the run forever. Returning the bare
+    // artifact was almost as bad: it reads as "the chooser was shown", so the
+    // model waits for a pick that cannot come or invents one.
     const tool = createNativeRequestDecisionTool();
     const suspend = vi.fn(async () => undefined);
 
@@ -87,7 +88,13 @@ describe("requestDecision suspends natively", () => {
     );
 
     expect(suspend).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ artifact_type: "decision" });
+    expect(result).toMatchObject({
+      artifact_type: "decision_unavailable",
+      reason: "no_human_channel",
+    });
+    expect((result as { note: string }).note).toContain("was NOT shown");
+    // The question survives in the result so the run can report what it needed.
+    expect((result as { question: string }).question).toBe(INPUT.title);
   });
 
   it("serializes a second suspend until the first is resumed", async () => {

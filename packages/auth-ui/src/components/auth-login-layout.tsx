@@ -3,10 +3,10 @@
 
 "use client";
 
+import { Engenty, EngentyLogoMark, EngentyWordmark } from "@engenty/ui-core";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
-import { Engenty, EngentyLogoMark, EngentyWordmark } from "./engenties";
 
 /** Landing hero ember — matches www mockup `oklch(44% 0.16 30)`. */
 const BRAND_EMBER = "oklch(44% 0.16 30)";

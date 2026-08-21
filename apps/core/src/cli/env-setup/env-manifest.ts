@@ -536,6 +536,43 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
+      "Immutable edge image tag used by the blue/green edge Compose file.",
+    exampleValue: "v0.1.127",
+    group: "Production edge",
+    key: "ENGENTY_RELEASE_TAG",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Immutable image tag used by the stable blue/green backend Compose file.",
+    exampleValue: "v0.1.127",
+    group: "Production edge",
+    key: "ENGENTY_BACKEND_RELEASE_TAG",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Blue/green edge color for this Coolify application (blue or green).",
+    exampleValue: "blue",
+    group: "Production edge",
+    key: "ENGENTY_DEPLOY_COLOR",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+    validate: (value) =>
+      value === "blue" || value === "green"
+        ? undefined
+        : "Must be blue or green.",
+  },
+  {
+    description:
       "CORS for apps/ai (comma-separated origins allowed to call /ai).",
     exampleValue: "https://app.example.com",
     group: "Production edge",

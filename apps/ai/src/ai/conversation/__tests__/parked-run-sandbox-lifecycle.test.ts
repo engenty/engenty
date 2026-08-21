@@ -31,7 +31,7 @@ vi.mock("../../sessions/runtime-instructions.js", () => ({
 // Four levels, not three: these resolve from THIS file (…/conversation/__tests__/),
 // while conversation-run.ts reaches the same modules with three.
 vi.mock("../../../../ai/frontend-tools/catalog.js", () => ({
-  mergeFrontendToolDefinitions: () => [],
+  resolveFrontendToolsForAgent: () => [],
 }));
 vi.mock("../../../../ai/frontend-tools/native-frontend-tool.js", () => ({
   createNativeFrontendTools: () => ({}),

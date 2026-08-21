@@ -66,6 +66,40 @@ describe("pendingInterruptFromTranscript", () => {
     expect(open?.kind).toBe("feedback");
   });
 
+  it("stops at an answered tool approval instead of re-docking an older card", () => {
+    // An approval resolves to `{approved, operation_id}` — no choice label — so
+    // the answered-decision check never fired and the scan walked back to the
+    // PREVIOUS approval, docking a card the user had already answered.
+    const open = pendingInterruptFromTranscript([
+      {
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolCallId: "tc-old",
+            toolName: "requestDecision",
+            state: "output-available",
+            output: {
+              artifact_id: "tool-approval|tasks_create",
+              artifact_type: "decision",
+              choices: [{ id: "approve_once", label: "Approve once" }],
+              interrupt_id: "tool-approval|tasks_create",
+              title: "Approve tasks_create?",
+            },
+          },
+          {
+            type: "dynamic-tool",
+            toolCallId: "tc-new",
+            toolName: "requestDecision",
+            state: "output-available",
+            output: { approved: true, operation_id: "tasks_list" },
+          },
+        ],
+      },
+    ]);
+
+    expect(open).toBeNull();
+  });
+
   it("returns null when there is no interactive interrupt part", () => {
     expect(
       pendingInterruptFromTranscript([

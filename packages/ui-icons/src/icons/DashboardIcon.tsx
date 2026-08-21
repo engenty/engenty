@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 import { dockBrandFill } from "../lib/dock-brand-fills";
 
 export function DockDashboardIcon(props: SVGProps<SVGSVGElement>) {
-  const soft = 0.22;
+  const soft = 0.42;
   return (
     <svg
       fill="none"
