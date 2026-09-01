@@ -1,6 +1,6 @@
 ---
 title: Commercial settings
-description: Currency, tax rates, units, disciplines and expense categories shared by offers and invoices — and the agent operations that maintain them.
+description: Currency, tax rates, units, disciplines and expense categories shared by offers, invoices, projects and time tracking — and the agent operations that maintain them.
 ---
 
 # Commercial settings
@@ -8,7 +8,9 @@ description: Currency, tax rates, units, disciplines and expense categories shar
 The shared commercial ground every document stands on: your currency and number
 format, the tax rates that may be applied, the units positions are measured in,
 the disciplines you bill by (with their hourly rates), and the expense
-categories used for bookkeeping.
+categories used for bookkeeping. Time tracking and project tasks use the same
+discipline list — names and short codes — so hours land on the same buckets you
+price on offers.
 
 Change something here and it applies to everything written afterwards. Existing
 offers and invoices keep the values they were written with.

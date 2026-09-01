@@ -6,10 +6,13 @@ description: Timesheets, entries and saved reports, with calendar overlay and sy
 # Time tracking
 
 A weekly timesheet of **rows** (what you are working on) and **entries** (hours
-on a day). Entries can be summarized by any dimension — person, project, client
-— and a summary worth keeping becomes a **saved report**. Freezing a saved
-report produces a **snapshot**: a point-in-time copy that stays put even as the
-underlying hours change, which is what you send a client.
+on a day). An optional **discipline** on a row or entry comes from
+[Commercial settings](/user/modules/commercial-settings) — the same list used
+for offers and project tasks — not a built-in General / Design / Development
+set. Entries can be summarized by any dimension — person, project, client,
+discipline — and a summary worth keeping becomes a **saved report**. Freezing a
+saved report produces a **snapshot**: a point-in-time copy that stays put even
+as the underlying hours change, which is what you send a client.
 
 Calendars can be **overlaid** so you see your meetings while filling the sheet,
 and optionally **synced** so entries are pushed back to a calendar.
