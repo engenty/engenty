@@ -28,7 +28,7 @@ Compatibility means:
 - [Interrupts](https://docs.ag-ui.com/concepts/interrupts)
 - [Upstream repo](https://github.com/ag-ui-protocol/ag-ui)
 
-Published versions in repo today: `@ag-ui/core@0.0.53`, `@ag-ui/encoder@0.0.53` (patched). Re-check upstream before bumping pins.
+Published versions in repo today: `@ag-ui/core@0.0.57`, `@ag-ui/encoder@0.0.57`, `@ag-ui/client@0.0.57` (unpatched — the interrupt/resume schemas landed upstream). Re-check upstream before bumping pins.
 
 ## Completed pass (2026-05)
 

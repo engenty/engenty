@@ -2,6 +2,10 @@ import { ENGENTY_DEV_SERVICE_URLS_FIXTURE } from "@engenty/environment";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createStaticAiScopeResolver } from "../api/http.js";
 import { createApp } from "../app.js";
+import {
+  isMastraStudioApiEnabled,
+  MASTRA_STUDIO_API_ENV,
+} from "../config/mastra-studio-api.js";
 
 // The first createApp() in this fork transforms + imports the heavy Mastra module
 // graph (warm ~1.6s, but able to balloon past the runner's 10s default on a loaded
@@ -46,6 +50,64 @@ describe("@engenty/ai", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
       mastraStudioOrigin
     );
+  });
+
+  // Regression: Mastra's MastraServer mounts ~390 native routes under
+  // AI_BASE_PATH and authenticates none of them without `experimental_auth`,
+  // while apps/core proxies the whole `/ai` prefix. `GET /ai/agents` served the
+  // copilot's full instructions, `.../suspended-runs` leaked live runIds +
+  // resourceIds, and `.../approve-tool-call` accepted them — all anonymously.
+  // The surface is not mounted unless a developer opts into Mastra Studio.
+  describe("mastra native REST API is not mounted by default", () => {
+    // One representative route per family that read or mutated tenant data.
+    const nativeRoutes = [
+      { method: "GET", path: "/ai/agents" },
+      { method: "GET", path: "/ai/agents/engenty.copilot/suspended-runs" },
+      { method: "GET", path: "/ai/workflows" },
+      { method: "GET", path: "/ai/memory/threads" },
+      { method: "GET", path: "/ai/schedules" },
+      { method: "GET", path: "/ai/stored/agents" },
+      { method: "GET", path: "/ai/workspaces" },
+      { method: "GET", path: "/ai/system/api-schema" },
+      { method: "POST", path: "/ai/agents/engenty.copilot/approve-tool-call" },
+      { method: "POST", path: "/ai/tools/chatThreadSearch/execute" },
+    ];
+
+    it.each(
+      nativeRoutes
+    )("$method $path is unroutable without an Authorization header", async ({
+      method,
+      path,
+    }) => {
+      const app = await createApp();
+      const res = await app.request(`http://localhost${path}`, {
+        method,
+        ...(method === "POST"
+          ? {
+              headers: { "content-type": "application/json" },
+              body: "{}",
+            }
+          : {}),
+      });
+      // 404, not 401: the routes do not exist on this app at all. A 200 here
+      // means the surface is back — a 400/422 means it is mounted and merely
+      // failing validation, which is how this hole presented in the first place.
+      expect(res.status).toBe(404);
+    });
+
+    it("stays unmounted in production even when the flag is set", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv(MASTRA_STUDIO_API_ENV, "1");
+      expect(isMastraStudioApiEnabled()).toBe(false);
+    });
+
+    it("mounts only when a developer opts into Mastra Studio", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv(MASTRA_STUDIO_API_ENV, "");
+      expect(isMastraStudioApiEnabled()).toBe(false);
+      vi.stubEnv(MASTRA_STUDIO_API_ENV, "1");
+      expect(isMastraStudioApiEnabled()).toBe(true);
+    });
   });
 
   it("CORS preflight OPTIONS for Studio origin", async () => {

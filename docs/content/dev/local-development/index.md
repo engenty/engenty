@@ -66,6 +66,14 @@ pnpm dev:studio                              # instead of pnpm dev
 pnpm dev:portless --domain=<name> --studio   # with Portless
 ```
 
+Studio talks to Mastra's own REST API (`/ai/agents`, `/ai/workflows`,
+`/ai/memory/*`, …), which **apps/ai does not mount unless you ask for it.** Those
+routes authenticate nothing — Mastra gates them only when `server.experimental_auth`
+is configured — and nothing in this product calls them, so they stay off. The
+`--studio` flags above set `ENGENTY_MASTRA_STUDIO_API=1` for you; production ignores
+the variable entirely. If you hit a `/ai/...` route that 404s and you expected Mastra
+to serve it, that is why — see `apps/ai/src/config/mastra-studio-api.ts`.
+
 **Open [http://localhost:5173](http://localhost:5173)** — the Vite dev server serves
 the UI with hot reload. `/api`, `/ai`, and `/docs` are proxied to the other apps on
 the same origin.

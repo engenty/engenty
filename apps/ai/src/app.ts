@@ -105,6 +105,7 @@ import { registerWorkFilesRoutes } from "./api/work-files-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
+import { isMastraStudioApiEnabled } from "./config/mastra-studio-api.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
 import type { ArtifactStore } from "./dal/artifacts/index.js";
 import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
@@ -931,16 +932,23 @@ export async function createApp(options: CreateAppOptions = {}) {
     return result.toUIMessageStreamResponse();
   });
 
-  const server = new MastraServer({
-    app,
-    mastra,
-    prefix: AI_BASE_PATH,
-  });
-  await server.init();
+  // Mastra's native REST API is opt-in dev tooling, not part of this product's
+  // surface — it authenticates nothing without `server.experimental_auth`, and
+  // apps/core proxies all of `/ai`. Mounted only for Mastra Studio, never in
+  // production. See config/mastra-studio-api.ts.
+  if (isMastraStudioApiEnabled()) {
+    const server = new MastraServer({
+      app,
+      mastra,
+      prefix: AI_BASE_PATH,
+    });
+    await server.init();
 
-  logger.info("mastra hono adapter initialized", {
-    mastraAgents: Object.keys(mastra.listAgents()),
-  });
+    logger.warn(
+      `mastra native REST API mounted under ${AI_BASE_PATH} for Mastra Studio — it is UNAUTHENTICATED; do not expose this process`,
+      { mastraAgents: Object.keys(mastra.listAgents()) }
+    );
+  }
 
   return app;
 }

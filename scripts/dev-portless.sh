@@ -142,6 +142,10 @@ TURBO_TASKS=(dev:portless dev:portless:ready)
 # silently did without one.
 if [[ "$WITH_STUDIO" == "1" ]]; then
   TURBO_TASKS+=(studio)
+  # Studio drives Mastra's native REST API, which apps/ai leaves unmounted
+  # unless asked (apps/ai/src/config/mastra-studio-api.ts). Opting into the
+  # Studio process is opting into the surface it talks to.
+  export ENGENTY_MASTRA_STUDIO_API=1
 fi
 
 # shellcheck source=./dev-open-file-limit.sh

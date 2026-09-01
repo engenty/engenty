@@ -1,7 +1,37 @@
 [
   {
+    "version": "v0.1.131",
+    "timestamp": 1788277035,
+    "commits": [
+      {
+        "id": "547d0c5",
+        "message": "time tracking uses the commercial discipline catalog",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "512d392",
+        "message": "load disciplines from commercial settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "57c22a9",
+        "message": "archify skill",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "2ab8cba",
+        "message": "Mastra's native REST API is not ours to serve",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.130",
-    "timestamp": 1787339205,
+    "timestamp": 1787339206,
     "commits": [
       {
         "id": "226a215",

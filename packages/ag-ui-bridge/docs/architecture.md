@@ -47,10 +47,6 @@ ag-ui-bridge ◄── shared types/validators ──► ai-core (prompt + gatin
 | `validate-frontend-tool-input.ts` | `getFrontendToolInputValidationError` |
 | `agent-turn-message.ts` | `AgentTurnMessageLike` — minimal transcript row for status ticker (UI boundary type) |
 
-## Patch note
-
-`@ag-ui/core@0.0.53` is pnpm-patched for interrupt/resume schemas until upstream republish. See `patches/README.md` and [frontend-tool-interrupt-resume.md](../../../modules/engenty-copilot/dev/frontend-tool-interrupt-resume.md).
-
 ## Verification
 
 ```bash
