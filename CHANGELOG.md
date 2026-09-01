@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.132] - 2026-09-01
+- FIXED **[ai]** Type the needs-input job mock so typecheck passes
+
 ## [0.1.131] - 2026-09-01
 - ADDED **[time-tracking]** Load disciplines from commercial settings
 - DOCS Time tracking uses the commercial discipline catalog

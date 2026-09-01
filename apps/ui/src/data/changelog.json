@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.132",
+    "timestamp": 1788278381,
+    "commits": [
+      {
+        "id": "dcd534f",
+        "message": "type the needs-input job mock so typecheck passes",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.131",
-    "timestamp": 1788277035,
+    "timestamp": 1788277037,
     "commits": [
       {
         "id": "547d0c5",

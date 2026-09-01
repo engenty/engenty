@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskJobEnvelope } from "../task-job-schema.js";
 
-const invoke = vi.fn(async () => ({}));
+const invoke = vi.fn(async (..._args: unknown[]) => ({}));
 const emitInboxNotification = vi.fn(async (..._args: unknown[]) => {});
 const finishTaskJobRun = vi.fn(async (..._args: unknown[]) => {});
 const summarizeTaskResultHeadline = vi.fn(async (..._args: unknown[]) => null);
+
+function invokedPayload(operation: string): Record<string, unknown> {
+  const payload = invoke.mock.calls.find((call) => call[0] === operation)?.[1];
+  expect(payload).toEqual(expect.any(Object));
+  return payload as Record<string, unknown>;
+}
 
 async function runStep(
   step: { execute: (params: never) => Promise<unknown> },
@@ -68,12 +74,13 @@ describe("a run that stopped to ask a human", () => {
         ),
       })
     );
-    const comment = invoke.mock.calls.find(
-      (call) => call[0] === "tasks_add_comment"
-    )?.[1] as { content: string };
-    expect(comment.content).toContain("Logged Monday and Tuesday.");
-    expect(comment.content.indexOf("Needs your input")).toBeLessThan(
-      comment.content.indexOf("Logged Monday")
+    const comment = invokedPayload("tasks_add_comment").content;
+    if (typeof comment !== "string") {
+      throw new Error("comment content is not a string");
+    }
+    expect(comment).toContain("Logged Monday and Tuesday.");
+    expect(comment.indexOf("Needs your input")).toBeLessThan(
+      comment.indexOf("Logged Monday")
     );
     expect(afterWrite.status).toBe("needs_input");
   });
@@ -103,9 +110,8 @@ describe("a run that stopped to ask a human", () => {
   it("does not claim an approval is pending", async () => {
     await runStep(finalizeStep, base, "run-3");
 
-    const release = invoke.mock.calls.find(
-      (call) => call[0] === "tasks_release"
-    )?.[1] as { pending_approval_operation_ids: string[] };
-    expect(release.pending_approval_operation_ids).toEqual([]);
+    expect(
+      invokedPayload("tasks_release").pending_approval_operation_ids
+    ).toEqual([]);
   });
 });
