@@ -11,9 +11,12 @@
 //   * cannot impersonate self; target must exist and have an email.
 //   * rate-limited; every successful mint is audited.
 
-import { envString } from "@engenty/environment/env";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
+import {
+  createAnonAuthAdapter,
+  createDatabaseAdapter,
+} from "../../../infra/index.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import { recordCoreAuditEvent } from "../../../security/audit-service.js";
 import type { AuthProvider } from "../../../security/auth-provider.js";
@@ -44,26 +47,6 @@ export interface ImpersonationUserLabel {
 export interface ImpersonationSessionResult {
   access_token: string;
   refresh_token: string;
-}
-
-function readSupabaseUrl(config: Record<string, unknown>): string {
-  return envString(config, "supabaseUrl", "SUPABASE_URL");
-}
-
-function readServiceRoleKey(config: Record<string, unknown>): string {
-  return envString(
-    config,
-    "supabaseServiceRoleKey",
-    "SUPABASE_SERVICE_ROLE_KEY"
-  );
-}
-
-function readAnonKey(config: Record<string, unknown>): string {
-  return (
-    envString(config, "supabaseAnonKey", "SUPABASE_ANON_KEY") ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    ""
-  );
 }
 
 function displayNameFromAuthUser(user: {
@@ -208,19 +191,11 @@ export function registerImpersonateRoutes(params: {
       return c.json({ error: "cannot impersonate yourself" }, 400);
     }
 
-    const supabaseUrl = readSupabaseUrl(params.config);
-    const serviceRoleKey = readServiceRoleKey(params.config);
-    const anonKey = readAnonKey(params.config);
-    if (!(supabaseUrl && serviceRoleKey && anonKey)) {
+    const admin = createDatabaseAdapter(params.config);
+    const anon = createAnonAuthAdapter(params.config);
+    if (!(admin && anon)) {
       return c.json({ error: "Supabase not configured" }, 500);
     }
-
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const anon = createClient(supabaseUrl, anonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
 
     const target = await lookupAuthUser(admin, userId);
     if (!target) {

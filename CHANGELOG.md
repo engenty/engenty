@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.1.137] - 2026-09-02
+- ADDED **[time-tracking]** Polish report documents and the weekly grid
+- FIXED **[core]** Create Supabase clients only in infra adapters
+
 ## [0.1.136] - 2026-09-02
 - FIXED **[time-tracking]** Compact report print so it matches the on-screen sheet
 

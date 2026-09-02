@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { getUsersByIds } from "../dal/core-users/crud.js";
-import { resolveSupabaseConfig } from "../dal/supabase-config.js";
+import { createDatabaseAdapter } from "../infra/index.js";
 
 export interface AuditActorUser {
   avatar_url: string | null;
@@ -53,10 +52,10 @@ export async function enrichAuditEventsWithUsers(
     }
   >;
   try {
-    const { url, serviceRoleKey } = resolveSupabaseConfig(config);
-    const client = createClient(url, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const client = createDatabaseAdapter(config);
+    if (!client) {
+      return events.map((e) => ({ ...e, user: null }));
+    }
     usersById = await getUsersByIds(client, actorIds, {
       tenantId: options?.tenantId,
     });

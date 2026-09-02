@@ -3,7 +3,7 @@
  * implement expected contracts. See docs/dev/backend-abstraction.md.
  */
 import { describe, expect, it } from "vitest";
-import { createDatabaseAdapter } from "./index.js";
+import { createAnonAuthAdapter, createDatabaseAdapter } from "./index.js";
 
 describe("createDatabaseAdapter compliance", () => {
   it("returns null when config has no Supabase URL or key", () => {
@@ -28,6 +28,33 @@ describe("createDatabaseAdapter compliance", () => {
       supabaseServiceRoleKey: "test-service-role-key",
     };
     const result = createDatabaseAdapter(config);
+    expect(result).not.toBeNull();
+    expect(typeof result?.from).toBe("function");
+  });
+});
+
+describe("createAnonAuthAdapter compliance", () => {
+  it("returns null when config has no Supabase URL or anon key", () => {
+    const result = createAnonAuthAdapter({
+      supabaseUrl: "",
+      supabaseAnonKey: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when config has URL but no anon key", () => {
+    const result = createAnonAuthAdapter({
+      supabaseUrl: "https://test.supabase.co",
+      supabaseAnonKey: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("returns Supabase client when config has URL and anon key", () => {
+    const result = createAnonAuthAdapter({
+      supabaseUrl: "https://test.supabase.co",
+      supabaseAnonKey: "test-anon-key",
+    });
     expect(result).not.toBeNull();
     expect(typeof result?.from).toBe("function");
   });

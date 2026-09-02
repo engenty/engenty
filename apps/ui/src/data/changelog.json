@@ -1,5 +1,23 @@
 [
   {
+    "version": "v0.1.137",
+    "timestamp": 1788358580,
+    "commits": [
+      {
+        "id": "f9e6bd6",
+        "message": "create Supabase clients only in infra adapters",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "123a236",
+        "message": "polish report documents and the weekly grid",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.136",
     "timestamp": 1788346755,
     "commits": [
