@@ -1,7 +1,9 @@
 /**
  * Tiered chat-attachment ingestion for conversation runs.
  *
- * - model_native — image/* + PDF → multimodal `files` (base64 data URLs)
+ * - model_native — image/* + PDF → multimodal `files` (base64 data URLs).
+ *   Images are downscaled/JPEG-compressed first; phone photos otherwise
+ *   exceed provider body limits and the model never sees the pixels.
  * - inline_text  — small text-like files (≤ INLINE_TEXT_MAX_BYTES) → run context
  * - tool_backed  — larger / binary files → manifest + preview; use file_analyst
  *
@@ -10,6 +12,7 @@
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { getEngentyCoreBaseUrlFromEnv } from "../../ai/core-http-client.js";
 import { createEngentyCoreFileStorageClient } from "../../ai/workspace/core-file-storage-client.js";
+import { prepareModelNativeImage } from "./prepare-model-image.js";
 
 /** Max UTF-8 bytes inlined into run context per attachment (~10k tokens). */
 export const INLINE_TEXT_MAX_BYTES = 32 * 1024;
@@ -347,11 +350,36 @@ export async function resolveTieredAttachments(params: {
       });
 
       if (tier === "model_native") {
-        modelAttachments.push({
-          data: `data:${ref.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
-          mediaType: ref.mimeType,
-          ...(ref.filename ? { filename: ref.filename } : {}),
-        });
+        const mime = ref.mimeType.toLowerCase().trim();
+        if (mime.startsWith("image/")) {
+          const prepared = await prepareModelNativeImage(bytes);
+          if (!prepared) {
+            // Unreadable / still too large after compress — don't ship the
+            // original (providers drop oversized file parts). File analyst
+            // can still read from the vault key.
+            manifestBlocks.push(
+              formatAttachmentManifestEntry({
+                filename: ref.filename,
+                mimeType: ref.mimeType,
+                sizeBytes: bytes.byteLength,
+                storageKey: ref.storageKey,
+                tier: "tool_backed",
+              })
+            );
+            continue;
+          }
+          modelAttachments.push({
+            data: prepared.data,
+            mediaType: prepared.mediaType,
+            ...(ref.filename ? { filename: ref.filename } : {}),
+          });
+        } else {
+          modelAttachments.push({
+            data: `data:${ref.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
+            mediaType: ref.mimeType,
+            ...(ref.filename ? { filename: ref.filename } : {}),
+          });
+        }
         manifestBlocks.push(
           formatAttachmentManifestEntry({
             filename: ref.filename,

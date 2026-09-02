@@ -1,5 +1,17 @@
 [
   {
+    "version": "v0.1.133",
+    "timestamp": 1788335901,
+    "commits": [
+      {
+        "id": "30294f6",
+        "message": "shrink chat images before sending them to the model",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.132",
     "timestamp": 1788278381,
     "commits": [
