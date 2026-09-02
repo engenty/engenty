@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.1.135",
+    "timestamp": 1788342071,
+    "commits": [
+      {
+        "id": "0db8db9",
+        "message": "stop print from clipping later pages",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "56e5810",
+        "message": "match report export to the grouped view",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.134",
-    "timestamp": 1788336870,
+    "timestamp": 1788336871,
     "commits": [
       {
         "id": "05e37a5",

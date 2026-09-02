@@ -3,10 +3,15 @@
  * Only `#engenty-app-main` (see CopilotShellMain) is visible — primary sidebar,
  * mobile nav sheet, topbar, module secondary nav, copilot sidebar, and other
  * chrome sit outside that element.
+ *
+ * Pagination: do not pin `#engenty-app-main` with `inset: 0` / a viewport
+ * height. That clips overflowing content to the first printed page. Do not
+ * `page-break-inside: avoid` on tables — long reports must split across pages.
  */
 
 @media print {
   @page {
+    size: auto;
     margin: 12mm;
   }
 
@@ -26,14 +31,37 @@
     visibility: visible;
   }
 
+  /* Drop chrome from layout so the report is not squeezed (wrong scale). */
+  [data-engenty-region="app-bar"],
+  [data-engenty-region="sidebar"],
+  [data-engenty-region="topbar"],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  .shell-root > *:not(:has(#engenty-app-main)),
+  .shell-surface > *:not(:has(#engenty-app-main)) {
+    display: none !important;
+  }
+
+  .shell-root,
+  .shell-surface,
+  .shell-surface > :has(#engenty-app-main),
+  [data-engenty-content-stack],
   #engenty-app-main {
-    position: absolute;
-    inset: 0;
-    width: 100%;
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
     max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
+    transform: none !important;
+  }
+
+  #engenty-app-main {
     color: #000 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -47,7 +75,16 @@
     break-after: avoid-page;
   }
 
-  #engenty-app-main table,
+  #engenty-app-main table {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  #engenty-app-main tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
   #engenty-app-main pre,
   #engenty-app-main figure {
     page-break-inside: avoid;
