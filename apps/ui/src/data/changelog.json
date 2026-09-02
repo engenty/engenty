@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.136",
+    "timestamp": 1788346755,
+    "commits": [
+      {
+        "id": "9d7aa59",
+        "message": "compact report print so it matches the on-screen sheet",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.135",
-    "timestamp": 1788342071,
+    "timestamp": 1788342072,
     "commits": [
       {
         "id": "0db8db9",
