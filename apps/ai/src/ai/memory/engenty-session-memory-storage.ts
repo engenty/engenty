@@ -65,6 +65,13 @@ export interface EngentySessionMemoryScope {
 
 export interface EngentySessionMemoryStorageOptions {
   agentId: string;
+  /**
+   * Persist `sendMessage` as a visible user row. Artifact-resume re-runs steer
+   * the model with a synthetic "Approved: you may now run …" prompt that must
+   * not become a transcript bubble — the Approve/Deny widget already records
+   * the verdict. Default true.
+   */
+  persistCurrentUserTurn?: boolean;
   scope: EngentySessionMemoryScope;
   store: ThreadStore;
   // Durable AG-UI `image`/`document` parts for the current user turn. Mastra
@@ -95,6 +102,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   readonly #userAttachmentParts: readonly unknown[];
   #userAttachmentsSaved = false;
   readonly #userMessageId: string | null;
+  readonly #persistCurrentUserTurn: boolean;
   /** Mastra id of the message that consumed the override — re-saves of the
    * same Mastra message keep mapping to the client id (idempotent), while any
    * other user message in this run keeps its own id. */
@@ -106,6 +114,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     this.#scope = options.scope;
     this.#store = options.store;
     this.#userAttachmentParts = options.userAttachmentParts ?? [];
+    this.#persistCurrentUserTurn = options.persistCurrentUserTurn !== false;
     this.#userMessageId =
       typeof options.userMessageId === "string" &&
       UUID_PATTERN.test(options.userMessageId)
@@ -390,6 +399,14 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
         existing = signalId
           ? rows.find((row) => userSignalIdOfRow(row) === signalId)
           : undefined;
+      }
+
+      // Artifact-resume nudges ("Approved: you may now run …") must reach the
+      // model via sendMessage but must not land as a user bubble. History user
+      // rows still re-save through `existing` above.
+      if (!existing && role === "user" && !this.#persistCurrentUserTurn) {
+        messages.push(message);
+        continue;
       }
 
       // The current turn's NEW user message adopts the client-assigned id so

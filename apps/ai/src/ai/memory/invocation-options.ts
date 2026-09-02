@@ -24,6 +24,11 @@ export interface EngentyMemoryInvocationInput
 export interface EngentySessionMemoryRuntimeInput
   extends EngentyMemoryInvocationInput {
   agentId: string;
+  /**
+   * Persist this run's sendMessage as a visible user row. False for artifact
+   * resume (tool-approval / decision nudge). Default true.
+   */
+  persistCurrentUserTurn?: boolean;
   store: ThreadStore;
   // Durable attachment parts for the current user turn, appended to the user
   // message on persist (Mastra saves the turn text-only). See the storage.
@@ -78,6 +83,9 @@ export function createEngentySessionMemoryRuntime(
       ? { userAttachmentParts: input.userAttachmentParts }
       : {}),
     ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+    ...(input.persistCurrentUserTurn === false
+      ? { persistCurrentUserTurn: false }
+      : {}),
   });
   return {
     memory: createEngentySessionMastraMemory({ storage }),

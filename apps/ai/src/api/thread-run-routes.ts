@@ -772,7 +772,8 @@ export function registerThreadRunRoutes(
         // approval, persist the grant — "once" survives this request's resume
         // runs, "always" the whole chat — so the re-executed pre-gate lets the op
         // run. The grant (not a nudged selection) drives the continuation; a short
-        // proceed/deny note steers the model. Mirrors the parked-approval branch.
+        // proceed/deny note steers the model and is NOT persisted as a user
+        // bubble — the Approve/Deny widget is the visible record.
         // Approve exactly the op the user answered: the answered interrupt id IS
         // the artifact id (buildToolApprovalArtifact sets interrupt_id = artifact_id).
         // The artifact branch has no answered-vs-open mismatch guard, so keying off
@@ -1152,6 +1153,7 @@ export function registerThreadRunRoutes(
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,
         prompt: hsPrompt,
+        ...(isArtifactResume ? { persistCurrentUserTurn: false } : {}),
         registry: opts.createRegistry(scope.scope),
         // Phase 3 — child-run delegation: resolve each delegated agent's own
         // workspace + sandbox on demand (keyed by the child run's own thread).

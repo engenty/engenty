@@ -152,6 +152,21 @@ describe("persistTurnTranscript", () => {
     ]);
   });
 
+  it("does not persist a synthetic resume nudge as a user row", async () => {
+    const { appended, store } = makeStore([]);
+
+    await persistTurnTranscript({
+      ...base,
+      persistCurrentUserTurn: false,
+      prompt:
+        'Approved: you may now run "inbox_thread_get". Proceed with the operation.',
+      store,
+    });
+
+    expect(appended).toHaveLength(1);
+    expect(appended[0]).toMatchObject({ id: runId, role: "assistant" });
+  });
+
   it("never throws — a bookkeeping failure must not fail the run", async () => {
     const store = {
       listMessagesOrdered: vi.fn(async () => {

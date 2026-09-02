@@ -347,4 +347,28 @@ describe("AG-UI session message mapping", () => {
       "call_function_cvuuausam6wj_1"
     );
   });
+
+  it("omits a persisted tool-approval resume nudge from the transcript", () => {
+    const messages = buildAgUiMessagesFromThreadMessages([
+      {
+        id: "user-q",
+        created_at: "2026-05-21T12:00:01.000Z",
+        parts: [{ type: "text", text: "Check the inbox thread" }],
+        role: "user",
+      },
+      {
+        id: "nudge",
+        created_at: "2026-05-21T12:00:03.000Z",
+        parts: [
+          {
+            type: "text",
+            text: 'Approved: you may now run "inbox_thread_get". Proceed with the operation.',
+          },
+        ],
+        role: "user",
+      },
+    ]);
+
+    expect(messages.map((message) => message.id)).toEqual(["user-q"]);
+  });
 });

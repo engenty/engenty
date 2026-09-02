@@ -180,4 +180,33 @@ describe("agUiMessagesToCopilotMessages orphan tools", () => {
     expect(part.state).toBe("output-available");
     expect(part.output).toEqual({ summary: "Done" });
   });
+
+  it("drops a tool-approval resume nudge so it does not render as a user bubble", () => {
+    const messages = agUiMessagesToCopilotMessages([
+      {
+        id: "user-q",
+        role: "user",
+        content: "Check the inbox thread",
+        metadata: { transcript_index: 0 },
+      },
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        metadata: { transcript_index: 1 },
+      },
+      {
+        id: "nudge",
+        role: "user",
+        content:
+          'Approved: you may now run "inbox_thread_get". Proceed with the operation.',
+        metadata: { transcript_index: 2 },
+      },
+    ]);
+
+    expect(messages.map((message) => message.id)).toEqual([
+      "user-q",
+      "assistant-1",
+    ]);
+  });
 });

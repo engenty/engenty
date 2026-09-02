@@ -1,4 +1,8 @@
-import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
+import {
+  agUiMessageText,
+  isToolApprovalResumeNudgeText,
+  sortAgUiMessagesForTranscript,
+} from "@engenty/ai-core/browser";
 import type {
   DynamicToolUIPart,
   UIDataTypes,
@@ -640,6 +644,12 @@ export function agUiMessagesToCopilotMessages(
       continue;
     }
     if (message.role !== "assistant" && message.role !== "user") {
+      continue;
+    }
+    if (
+      message.role === "user" &&
+      isToolApprovalResumeNudgeText(agUiMessageText(message))
+    ) {
       continue;
     }
     flushOrphanToolGroup();

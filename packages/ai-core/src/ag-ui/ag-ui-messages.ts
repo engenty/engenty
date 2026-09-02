@@ -1,6 +1,7 @@
 // AG-UI message mapping for persisted session rows and Mastra UI projection (Stage 4).
 // Row-based builders remain for HTTP list endpoints; harness snapshots prefer MessageList.
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
+import { isToolApprovalResumeNudgeText } from "./tool-approval-resume-nudge.js";
 
 type AgUiMessageBase = RunAgentInput["messages"][number];
 
@@ -396,6 +397,12 @@ export function buildAgUiMessagesFromSessionMessages(
       return [assistantMessage, ...toolMessages];
     }
     if (record.role === "user") {
+      // Tool-approval re-runs used to persist the model-steering nudge as a
+      // user row. The Approve/Deny widget already records the verdict — drop
+      // the duplicate bubble on hydrate / MESSAGES_SNAPSHOT.
+      if (isToolApprovalResumeNudgeText(extractTextFromParts(record.parts))) {
+        return [];
+      }
       const content = partsToAgUiContent(record.parts);
       return [
         {

@@ -41,6 +41,11 @@ export async function persistTurnTranscript(input: {
   threadId: string;
   transcriptParts: readonly unknown[];
   userMessageId?: string | null;
+  /**
+   * Write the prompt as a user row when memory did not. False for artifact
+   * resume — the Approve/Deny widget is the user-visible record.
+   */
+  persistCurrentUserTurn?: boolean;
 }): Promise<void> {
   try {
     let rows = await input.store.listMessagesOrdered({
@@ -56,6 +61,7 @@ export async function persistTurnTranscript(input: {
       ? rows.some((row) => row.id === userMessageId)
       : rows.some((row) => row.role === "user");
     if (
+      input.persistCurrentUserTurn !== false &&
       !alreadyHasUserMessage &&
       (input.prompt.trim() || input.attachmentParts?.length)
     ) {

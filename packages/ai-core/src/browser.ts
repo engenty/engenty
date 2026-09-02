@@ -23,6 +23,7 @@ export {
   sortPersistedAgUiSessionMessageRecords,
   sortPersistedAgUiThreadMessageRecords,
 } from "./ag-ui/ag-ui-messages.js";
+export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
 export { buildAppNavigationPathsPromptSection } from "./agent-ui/app-navigation-paths-prompt.js";
 export { GENERAL_CHAT_AGENT_ID } from "./agents/copilot-constants.js";
 export {

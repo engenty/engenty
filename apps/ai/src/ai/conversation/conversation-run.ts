@@ -123,6 +123,11 @@ export interface StartConversationRunInput {
   mastra?: Mastra;
   modelConfig?: RuntimeModelConfig | null;
   modelId?: string | null;
+  /**
+   * Persist sendMessage as a visible user row / stream echo. False when the
+   * prompt is a synthetic artifact-resume nudge (tool approval / decision).
+   */
+  persistCurrentUserTurn?: boolean;
   prompt: string;
   registry: AiRegistry;
   // Resolve a delegated agent's own workspace + sandbox for a child run (Phase 3
@@ -214,8 +219,13 @@ export async function startConversationRun(
   // The user turn, for OTHER attached clients (reload, second window), as the
   // protocol-native role:"user" text message (AG-UI TEXT_MESSAGE_START carries
   // a role union). The sending client already renders it optimistically and
-  // never attaches to its own run; attachers dedupe by message id.
-  if (input.userMessageId && input.prompt) {
+  // never attaches to its own run; attachers dedupe by message id. Artifact
+  // resume nudges skip this — they are not a user utterance.
+  if (
+    input.persistCurrentUserTurn !== false &&
+    input.userMessageId &&
+    input.prompt
+  ) {
     emit({
       messageId: input.userMessageId,
       role: "user",
@@ -257,6 +267,9 @@ export async function startConversationRun(
         ? { userAttachmentParts: input.attachmentParts }
         : {}),
       ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+      ...(input.persistCurrentUserTurn === false
+        ? { persistCurrentUserTurn: false }
+        : {}),
     });
     const mergedDefinitions = resolveFrontendToolsForAgent({
       agentId: input.agentId,
@@ -753,6 +766,9 @@ export async function startConversationRun(
         ? { attachmentParts: input.attachmentParts }
         : {}),
       ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+      ...(input.persistCurrentUserTurn === false
+        ? { persistCurrentUserTurn: false }
+        : {}),
     });
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {

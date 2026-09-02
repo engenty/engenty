@@ -43,6 +43,7 @@ export {
   type MastraUiMessage,
   type MastraUiMessagePart,
 } from "./ag-ui/mastra-ui-projection.js";
+export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
 export {
   buildAgentSystemPromptFromUiState,
   formatAgentUiStateHarnessInstructions,

@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.1.134",
+    "timestamp": 1788336870,
+    "commits": [
+      {
+        "id": "05e37a5",
+        "message": "hide the tool-approval resume nudge from the transcript",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.133",
-    "timestamp": 1788335901,
+    "timestamp": 1788335902,
     "commits": [
       {
         "id": "30294f6",

@@ -100,6 +100,30 @@ describe("persisting a user turn twice across a resume", () => {
     expect(appendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("skips inserting the current user turn when persistCurrentUserTurn is false", async () => {
+    const appendMessage = vi.fn(async () => ({
+      message: { id: "generated", parts: [], role: "user" },
+    }));
+    const store = {
+      appendMessage,
+      getThread: async () => ({ agent_id: "engenty.copilot", id: THREAD_ID }),
+      listMessagesOrdered: async () => [],
+      updateMessageParts: vi.fn(),
+    } as unknown as ThreadStore;
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      persistCurrentUserTurn: false,
+      scope: { tenantId: TENANT_ID, userId: USER_ID },
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [userSignalMessage(SIGNAL_ID)] as never,
+    });
+
+    expect(appendMessage).not.toHaveBeenCalled();
+  });
+
   it("inserts the first copy when the thread has no rows yet", async () => {
     const { appendMessage, storage } = buildStorage([]);
 
