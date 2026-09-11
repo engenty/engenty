@@ -8,6 +8,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../../src/ai/core-http-client.js";
+import { executionSpaceId } from "../../src/ai/sessions/execution-lane.js";
 import { createSkillProposalStore } from "../../src/ai/skills/skill-proposals.js";
 import { createEngentyCoreFileStorageClient } from "../../src/ai/workspace/core-file-storage-client.js";
 import { emitInboxNotification } from "../../src/notifications/inbox.js";
@@ -68,6 +69,7 @@ export const skillProposeTool = createTool({
       });
       await emitInboxNotification({
         dedupeKey: `skill-proposal:${tenantId}:${input.name}`,
+        spaceId: executionSpaceId(ctx.space) ?? null,
         kind: "skill_proposed",
         metadata: {
           skill_name: input.name,

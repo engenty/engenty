@@ -22,6 +22,8 @@ export const taskSettingsUpdateSchema = z.object({
 });
 
 export const taskSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   scope_id: z.string(),
@@ -30,9 +32,10 @@ export const taskSchema = z.object({
   description: z.string().nullable(),
   status: z.string(),
   priority: z.enum(["critical", "high", "medium", "low"]),
-  goal_id: z.string().uuid().nullable(),
   parent_id: z.string().uuid().nullable(),
   project_id: z.string().uuid().nullable(),
+  /** Space the work belongs to (PLAN-spaces.md); `not null` since Phase 6. */
+  space_id: z.string().uuid(),
   primary_assignee_kind: z.enum(["user", "agent", "none"]),
   primary_assignee_user_id: z.string().uuid().nullable(),
   primary_assignee_agent_type_key: z.string().nullable(),
@@ -47,8 +50,6 @@ export const taskSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   collaborator_user_ids: z.array(z.string().uuid()).optional(),
-  // Routine (trigger) that materialized this task, if any.
-  trigger_id: z.string().uuid().nullable().optional(),
   // Operation ids a headless run may execute without asking ("Allow for this
   // task"). Stored in core.approval_grants (subject = task id) and hydrated
   // onto the DETAIL response only; `approval_grants_once` is reaped after the
@@ -57,6 +58,44 @@ export const taskSchema = z.object({
   approval_grants_once: z.array(z.string()).optional(),
   // Operations a paused run is waiting on — what the task's approval UI reads.
   pending_approval_operation_ids: z.array(z.string()).optional(),
+  has_open_question: z.boolean().optional(),
+});
+
+/**
+ * What a comment IS, so nothing has to read meaning out of its text.
+ * Mirrors the `task_comments_kind_check` constraint.
+ */
+export const taskCommentKindSchema = z.enum([
+  "note",
+  "progress",
+  "question",
+  "result",
+  "system",
+]);
+
+/**
+ * How a `question` comment can be answered. `text` is the fallback for
+ * anything that is genuinely open; the rest let the UI render a control and
+ * spare the person retyping an option the agent already listed.
+ */
+export const taskQuestionAnswerTypeSchema = z.enum([
+  "text",
+  "confirm",
+  "single_choice",
+  "multi_choice",
+]);
+
+export const taskQuestionOptionSchema = z.object({
+  /** What gets posted as the answer when picked. */
+  value: z.string().min(1).max(200),
+  /** Shown instead of `value` when the value is an id or a hex code. */
+  label: z.string().max(200).optional(),
+});
+
+/** Kind-specific payload on a comment. Only `question` uses it today. */
+export const taskCommentMetadataSchema = z.object({
+  answer_type: taskQuestionAnswerTypeSchema.optional(),
+  options: z.array(taskQuestionOptionSchema).max(12).optional(),
 });
 
 export const taskCommentSchema = z.object({
@@ -68,6 +107,10 @@ export const taskCommentSchema = z.object({
   created_by_user_id: z.string().uuid().nullable(),
   created_by_agent_type_key: z.string().nullable(),
   created_at: z.string(),
+  // Older rows are backfilled by the migration; the default keeps a plain
+  // insert honest without every caller naming a kind.
+  kind: taskCommentKindSchema.default("note"),
+  metadata: taskCommentMetadataSchema.default({}),
 });
 
 export const taskDetailSchema = taskSchema.extend({
@@ -90,12 +133,18 @@ export const tasksListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   search: z.string().optional(),
   status: z.string().optional(),
-  goal_id: z.string().uuid().optional(),
   parent_id: z.string().uuid().optional(),
   project_id: z.string().uuid().optional(),
-  trigger_id: z.string().uuid().optional(),
+  space_id: z.string().uuid().optional(),
   assigned_to: z.string().uuid().optional(),
   assignee_kind: z.enum(["user", "agent"]).optional(),
+  primary_assignee_agent_type_key: z.string().trim().min(1).max(128).optional(),
+  include_agent_desk_state: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .optional()
+    .transform((value) =>
+      value === undefined ? undefined : value === true || value === "true"
+    ),
   context_type: z.string().optional(),
   context_id: z.string().optional(),
   context_metadata_phase_id: z.string().optional(),
@@ -119,17 +168,22 @@ export const taskContextInputSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+/**
+ * A task is a work item: title, status, assignee. It carries no action body and
+ * no wake source — a run targets an action through the routine that fired it,
+ * and the task is at most that run's subject.
+ */
 export const taskCreateInputSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable().optional(),
   status: z.string().optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-  goal_id: z.string().uuid().nullable().optional(),
   parent_id: z.string().uuid().nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),
   primary_assignee_kind: z.enum(["user", "agent", "none"]).optional(),
   primary_assignee_user_id: z.string().uuid().nullable().optional(),
   primary_assignee_agent_type_key: z.string().nullable().optional(),
+  space_id: z.string().uuid().optional(),
   collaborator_user_ids: z.array(z.string().uuid()).optional(),
   contexts: z.array(taskContextInputSchema).optional(),
   due_date: z.string().nullable().optional(),
@@ -158,14 +212,32 @@ export const taskIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
+// Exactly one of `operation_id` (single, back-compat) / `operation_ids`
+// (batch, e.g. the "Allow all" button) must be present.
+const toolApprovalOperationFields = {
+  operation_id: z.string().min(1).optional(),
+  operation_ids: z.array(z.string().min(1)).min(1).max(64).optional(),
+};
+
+const exactlyOneOperationField = (v: {
+  operation_id?: string;
+  operation_ids?: string[];
+}) => (v.operation_id === undefined) !== (v.operation_ids === undefined);
+
+const exactlyOneOperationFieldIssue = {
+  message: "exactly one of operation_id or operation_ids is required",
+  path: ["operation_id"] as PropertyKey[],
+};
+
 export const taskToolApprovalInputSchema = z
   .object({
     id: z.string().uuid(),
-    operation_id: z.string().min(1),
+    ...toolApprovalOperationFields,
     decision: z.enum(["approve", "deny"]),
     // Required when decision === "approve".
-    scope: z.enum(["once", "task", "routine"]).optional(),
+    scope: z.enum(["once", "task"]).optional(),
   })
+  .refine(exactlyOneOperationField, exactlyOneOperationFieldIssue)
   .refine((v) => v.decision === "deny" || v.scope !== undefined, {
     message: "scope is required when approving",
     path: ["scope"],
@@ -178,10 +250,11 @@ export const taskClearOnceApprovalsInputSchema = z.object({
 // HTTP body variant (task id comes from the path param).
 export const taskToolApprovalBodySchema = z
   .object({
-    operation_id: z.string().min(1),
+    ...toolApprovalOperationFields,
     decision: z.enum(["approve", "deny"]),
-    scope: z.enum(["once", "task", "routine"]).optional(),
+    scope: z.enum(["once", "task"]).optional(),
   })
+  .refine(exactlyOneOperationField, exactlyOneOperationFieldIssue)
   .refine((v) => v.decision === "deny" || v.scope !== undefined, {
     message: "scope is required when approving",
     path: ["scope"],
@@ -194,73 +267,8 @@ export const taskCommentCreateSchema = z.object({
 export const taskAddCommentOperationInputSchema = taskIdParamsSchema.extend({
   content: z.string().min(1),
   created_by_agent_type_key: z.string().optional(),
-});
-
-export const goalSchema = z.object({
-  id: z.string().uuid(),
-  tenant_id: z.string().uuid(),
-  scope_id: z.string(),
-  title: z.string(),
-  description: z.string().nullable(),
-  status: z.enum(["planned", "active", "achieved", "cancelled"]),
-  parent_id: z.string().uuid().nullable(),
-  project_id: z.string().uuid().nullable(),
-  owner_user_id: z.string().uuid().nullable(),
-  owner_agent_id: z.string().uuid().nullable(),
-  owner_agent_type_key: z.string().nullable(),
-  level: z.string(),
-  target_date: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
-  linked_task_count: z.number().int().optional(),
-});
-
-export const goalsListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).optional(),
-  pageSize: z.coerce.number().int().min(1).max(200).optional(),
-  parent_id: z.string().uuid().optional(),
-  project_id: z.string().uuid().optional(),
-  search: z.string().optional(),
-  status: z.enum(["planned", "active", "achieved", "cancelled"]).optional(),
-  /** Filter to goals owned by this agent type key (e.g. "engenty.coordinator"). */
-  owner_agent_type_key: z.string().optional(),
-  /** Filter by owner kind: a human user or an agent. */
-  owner_kind: z.enum(["user", "agent"]).optional(),
-  sortBy: z.enum(["updated_at", "created_at", "title", "status"]).optional(),
-  sortOrder: z.enum(["asc", "desc"]).optional(),
-});
-
-export const goalsPaginatedResponseSchema = z.object({
-  data: z.array(goalSchema),
-  total: z.number().int(),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-});
-
-export const goalHandoffResponseSchema = z.object({
-  goal: goalSchema,
-  /** True when the coordination task was enqueued for a planning run. */
-  dispatched: z.boolean(),
-  /** The coordination task carrying the planning run (created or reused). */
-  task: taskSchema,
-});
-
-export const goalCreateInputSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().nullable().optional(),
-  status: z.enum(["planned", "active", "achieved", "cancelled"]).optional(),
-  parent_id: z.string().uuid().nullable().optional(),
-  project_id: z.string().uuid().nullable().optional(),
-  owner_user_id: z.string().uuid().nullable().optional(),
-  owner_agent_type_key: z.string().nullable().optional(),
-  level: z.string().optional(),
-  target_date: z.string().nullable().optional(),
-});
-
-export const goalUpdateInputSchema = goalCreateInputSchema.partial();
-
-export const goalIdParamsSchema = z.object({
-  id: z.string().uuid(),
+  kind: taskCommentKindSchema.optional(),
+  metadata: taskCommentMetadataSchema.optional(),
 });
 
 export const notFoundSchema = z.object({
@@ -269,6 +277,10 @@ export const notFoundSchema = z.object({
 
 export const tasksBriefingQuerySchema = z.object({
   mode: z.enum(["personal", "oversight"]).optional(),
+  // The briefing is the Tasks tab's landing page inside a space, so it takes the
+  // same space filter the list does. Absent = every space, which is what a
+  // tenant-level caller (and every pre-space caller) still means.
+  space_id: z.string().uuid().optional(),
 });
 
 export const tasksBriefingSectionItemSchema = z.object({
@@ -369,8 +381,9 @@ export const taskReleaseInputRawSchema = z.object({
       "completed_quiet",
       "failed",
       "needs_approval",
-      // The run stopped to ask a human something (TASK_BLOCKED) — distinct
-      // from needs_approval, where what is missing is a grant.
+      // The run stopped to ask a human something (TASK_BLOCKED or
+      // `task_ask_user`) — distinct from needs_approval, where what is missing
+      // is a grant.
       "needs_input",
     ])
     .optional(),
@@ -392,8 +405,9 @@ export const taskReleaseInputSchema = taskReleaseInputRawSchema.transform(
 
 /** Result of an explicit "run this task now" dispatch. */
 export const taskRunNowResponseSchema = z.object({
-  // False when a live checkout already owns the task — the running run stands.
+  // True only when this request actually put work on the durable queue.
   dispatched: z.boolean(),
+  outcome: z.enum(["already_running", "blocked", "not_dispatchable", "queued"]),
   task: taskSchema,
 });
 
@@ -410,125 +424,4 @@ export const taskRunsListSchema = z.object({
 
 export const taskActivityListSchema = z.object({
   data: z.array(taskActivitySchema),
-});
-
-// --- Triggers + task templates ---------------------------------------------
-// A Trigger is the single "reason work starts" (schedule | event | manual);
-// it always references a task template and firing it materializes a Task.
-
-export const taskTemplateSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  title: z.string(),
-  description: z.string().nullable(),
-  agent_type_key: z.string(),
-  priority: z.enum(["critical", "high", "medium", "low"]),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const taskTemplateCreateInputSchema = z.object({
-  name: z.string().min(1).max(255),
-  title: z.string().min(1).max(500),
-  description: z.string().max(8192).nullable().optional(),
-  agent_type_key: z.string().min(1).max(255),
-  priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-});
-
-export const taskTemplateUpdateInputSchema =
-  taskTemplateCreateInputSchema.partial();
-
-export const triggerKindSchema = z.enum(["schedule", "event", "manual"]);
-
-export const triggerEventProviderSchema = z.enum(["module-events", "webhook"]);
-
-export const triggerSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-  kind: triggerKindSchema,
-  task_template_id: z.string().uuid(),
-  enabled: z.boolean(),
-  cron: z.string().nullable(),
-  timezone: z.string().nullable(),
-  quiet_hours: z.string().nullable(),
-  provider_id: z.string().nullable(),
-  resource: z.string().nullable(),
-  event_filter: z.record(z.string(), z.unknown()).nullable(),
-  source: z.enum(["module", "custom"]),
-  module_id: z.string().nullable(),
-  module_key: z.string().nullable(),
-  heartbeat_id: z.string().nullable(),
-  webhook_secret: z.string().nullable(),
-  last_fired_at: z.string().nullable(),
-  last_result: z.string().nullable(),
-  // Operation ids that runs of this routine may execute without asking
-  // ("Allow for this routine" + pre-configuration).
-  approval_grants: z.array(z.string()),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const triggerDetailSchema = triggerSchema.extend({
-  task_template: taskTemplateSchema.nullable(),
-});
-
-/**
- * A trigger description is not a label: for module routines it carries the
- * whole ROUTINE.md body, which is the agent's operating procedure. The old
- * 1000-char cap silently rejected any routine longer than a short paragraph.
- */
-const TRIGGER_DESCRIPTION_MAX = 16_000;
-
-export const triggerCreateInputSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().max(TRIGGER_DESCRIPTION_MAX).nullable().optional(),
-  kind: triggerKindSchema,
-  task_template_id: z.string().uuid().optional(),
-  // Inline template creation — either this or task_template_id is required.
-  task_template: taskTemplateCreateInputSchema.optional(),
-  enabled: z.boolean().optional(),
-  cron: z.string().max(100).nullable().optional(),
-  timezone: z.string().max(64).nullable().optional(),
-  quiet_hours: z.string().max(100).nullable().optional(),
-  // kind = 'event'
-  provider_id: triggerEventProviderSchema.nullable().optional(),
-  resource: z.string().max(255).nullable().optional(),
-  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
-  // Module-declared triggers (ROUTINE.md sync).
-  source: z.enum(["module", "custom"]).optional(),
-  module_id: z.string().max(255).nullable().optional(),
-  module_key: z.string().max(255).nullable().optional(),
-  approval_grants: z.array(z.string().min(1)).max(64).optional(),
-});
-
-export const triggerUpdateInputSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().max(TRIGGER_DESCRIPTION_MAX).nullable().optional(),
-  enabled: z.boolean().optional(),
-  cron: z.string().max(100).nullable().optional(),
-  timezone: z.string().max(64).nullable().optional(),
-  quiet_hours: z.string().max(100).nullable().optional(),
-  provider_id: triggerEventProviderSchema.nullable().optional(),
-  resource: z.string().max(255).nullable().optional(),
-  event_filter: z.record(z.string(), z.unknown()).nullable().optional(),
-  task_template_id: z.string().uuid().optional(),
-  // Nested template patch (declaration reconcile / custom routine edit).
-  task_template: taskTemplateUpdateInputSchema.optional(),
-  heartbeat_id: z.string().nullable().optional(),
-  approval_grants: z.array(z.string().min(1)).max(64).optional(),
-});
-
-export const triggersListQuerySchema = z.object({
-  kind: triggerKindSchema.optional(),
-  source: z.enum(["module", "custom"]).optional(),
-  enabled: z.boolean().optional(),
-});
-
-export const triggersListSchema = z.object({
-  data: z.array(triggerDetailSchema),
-});
-
-export const triggerIdParamsSchema = z.object({
-  id: z.string().uuid(),
 });

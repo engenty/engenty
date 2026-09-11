@@ -1,4 +1,4 @@
-import type { TasksRepo } from "../api/gateway-methods.js";
+import type { TasksRepo } from "../api/gateway-shared.js";
 import type {
   Task,
   TaskActivity,
@@ -198,7 +198,14 @@ export async function buildTasksBriefingResponse(
     "getSettings" | "listTasksPaginated" | "listRecentActivity"
   >,
   mode: TasksBriefingMode,
-  principalId: string | undefined
+  principalId: string | undefined,
+  /**
+   * `spaceId` narrows the whole briefing — summary, snapshot columns, recent
+   * tasks and the activity feed all derive from this one page of tasks, so
+   * filtering here is what keeps them consistent with each other. Omitted means
+   * every space (the tenant-level briefing).
+   */
+  options: { spaceId?: string } = {}
 ): Promise<TasksBriefingResponse> {
   const settings = await repo.getSettings();
   const userId = principalId ?? null;
@@ -209,6 +216,7 @@ export async function buildTasksBriefingResponse(
       scope: mode === "personal" ? "mine" : "all",
       sortBy: "updated_at",
       sortOrder: "desc",
+      ...(options.spaceId ? { space_id: options.spaceId } : {}),
     },
     principalId
   );
@@ -223,12 +231,18 @@ export async function buildTasksBriefingResponse(
   });
   const recent_tasks = buildRecentTasks(tasksPage.data, mode, userId);
 
+  // Oversight mode normally asks for tenant-wide activity (taskIds undefined).
+  // Inside a space it must not: the feed would show other spaces' tasks under
+  // this space's heading. Narrowing to the page we just fetched is the fix,
+  // because that page is already space-filtered.
   const taskIdsForActivity =
     mode === "personal"
       ? tasksPage.data
           .filter((task) => taskMatchesMode(task, mode, userId))
           .map((task) => task.id)
-      : undefined;
+      : options.spaceId
+        ? tasksPage.data.map((task) => task.id)
+        : undefined;
 
   const recentActivityRows = await repo.listRecentActivity({
     limit: RECENT_ACTIVITY_LIMIT,

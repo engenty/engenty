@@ -1,19 +1,23 @@
-// Phase 4 — the agent_task_dispatch consumer. Polls the dispatch queue and runs
-// each message as a durable Task Job (the Mastra `task-job` workflow). This is the
-// "heartbeat dispatcher" in Paperclip terms: it does NOT execute the agent itself —
-// it starts the workflow, which checks the task out, runs the specialist, writes the
-// result, and finalizes. Durability lives in the workflow snapshot; the consumer
-// awaits the run. At-least-once queue delivery is safe: a redelivered message for an
-// already-checked-out task hits checkout 409 → envelope `skipped` → downstream
-// steps no-op (see task-job-steps).
+// The agent_task_dispatch consumer — the doorbell between two processes.
+//
+// The queue survives Phase 8 for one reason: `dispatchTaskIfReady` runs in CORE,
+// which has no Mastra instance, so something has to carry "run this task" across
+// the process boundary. What it no longer carries is durability — the consumer
+// hands the message to the background-task manager, which persists it, owns its
+// retries and re-dispatches it after a crash, and then ACKS. Awaiting the whole
+// run here would only mean a redelivery timer racing a substrate that already
+// guarantees the run.
+//
+// At-least-once delivery stays safe the same way it always was: a redelivered
+// message for an already-checked-out task hits checkout 409 → envelope `skipped`
+// → every downstream step no-ops.
 
-import { randomUUID } from "node:crypto";
 import type { QueueService } from "@engenty/queue";
 import { startQueueWorker } from "@engenty/queue";
 import { createLogger } from "@engenty/telemetry";
 import type { mastra as MastraInstance } from "../../ai/index.js";
-import { TASK_JOB_WORKFLOW_ID } from "../../ai/workflows/task-job-workflow.js";
 import { taskJobInputSchema } from "../ai/jobs/task-job-schema.js";
+import { startTaskJob } from "./task-background-dispatch.js";
 
 const logger = createLogger({ name: "task-dispatch-consumer" });
 
@@ -63,30 +67,17 @@ export function startTaskDispatchConsumer(
       });
       return;
     }
-    const inputData = parsed.data;
-    const workflow = options.mastra.getWorkflow(TASK_JOB_WORKFLOW_ID);
-    const run = await workflow.createRun({ runId: randomUUID() });
-    logger.info("running task job", {
-      agentTypeKey: inputData.agent_type_key,
-      readCount: meta.readCount,
-      runId: run.runId,
-      taskId: inputData.task_id,
+    // Enqueue and ack. The run's lifetime is the background task's business
+    // from here — including surviving this process.
+    const started = await startTaskJob(options.mastra, parsed.data);
+    started.done.catch(() => {
+      // already logged where it happened
     });
-    const result = await run.start({ inputData });
-    if (result.status === "success") {
-      logger.info("task job finished", {
-        runId: run.runId,
-        status: result.result?.status,
-        taskId: inputData.task_id,
-      });
-    } else {
-      logger.error("task job did not succeed", {
-        runId: run.runId,
-        status: result.status,
-        taskId: inputData.task_id,
-        ...(result.status === "failed" ? { error: result.error?.message } : {}),
-      });
-    }
+    logger.info("dispatched from queue", {
+      readCount: meta.readCount,
+      runId: started.runId,
+      taskId: parsed.data.task_id,
+    });
   });
 
   const stop = startQueueWorker({

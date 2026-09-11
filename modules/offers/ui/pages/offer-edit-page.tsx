@@ -151,12 +151,26 @@ function buildTaxBreakdown(blocks: CommercialBlock[]): Array<{
     .sort((a, b) => b.rate - a.rate);
 }
 
-export function OfferEditPage() {
+/**
+ * The offer draft editor, as a page or embedded in a host pane.
+ *
+ * `embedded` matches `OfferDetailPage`'s: ids as props, no module secondary
+ * nav, no `DocumentHeader`, and no status redirect — the host owns the URL, so
+ * navigating would eject the reader from the pane. The editing itself, the
+ * external-change banner and the save path are unchanged; this IS the draft
+ * editor, not a read-only rendering of one.
+ */
+export function OfferEditPage(props?: {
+  embedded?: boolean;
+  offerId?: string;
+}) {
+  const embedded = props?.embedded ?? false;
   const { t } = useTranslation("offers");
   const { t: tCommercial, i18n } = useTranslation("commercial-settings");
   const { currentTenant } = useWorkspaceContext();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = props?.offerId ?? routeParams.id;
   const contactsPlugin = getContactsPluginApi();
 
   const { data: pageData, isLoading: loading } = useOfferEditPageQuery(
@@ -309,10 +323,12 @@ export function OfferEditPage() {
     if (!offer) {
       return;
     }
-    if (offer.status !== "draft") {
+    // Embedded, the host chose this editor from the record's phase and owns the
+    // URL; navigating on a status change would eject the reader from the pane.
+    if (!embedded && offer.status !== "draft") {
       navigate(`/mdl/offers/${offer.id}`, { replace: true });
     }
-  }, [offer, navigate]);
+  }, [embedded, offer, navigate]);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useOffersModuleSecondaryShellNav();
@@ -479,11 +495,16 @@ export function OfferEditPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-    // Float the transparent topbar over the white DocumentHeader so they blend.
-    topbarOverlap: true,
+    // Embedded: the host owns the secondary column, and there is no
+    // DocumentHeader for a transparent topbar to blend into or float over.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems,
+          secondaryNavHeaderSlot,
+          // Float the transparent topbar over the white DocumentHeader.
+          topbarOverlap: true,
+        }),
   });
 
   useOffersEditAgentUiSlice(offer);
@@ -693,15 +714,17 @@ export function OfferEditPage() {
   if (loading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <DocumentHeader>
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-8 w-64" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-24" />
-          </div>
-        </DocumentHeader>
+        {embedded ? null : (
+          <DocumentHeader>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-64" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-8 w-24" />
+            </div>
+          </DocumentHeader>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <section className="mx-auto w-full max-w-6xl space-y-4 p-page">
             <Card>
@@ -741,35 +764,37 @@ export function OfferEditPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DocumentHeader
-        collapsed={headerCollapsed}
-        compactStatus={<OfferStatusBadge status={offer.status} />}
-        compactTitle={offer.title || t("offerTitle")}
-      >
-        <ClientTopline
-          clientId={contactsPlugin ? offer.client_id : null}
-          clientName={
-            clientName ??
-            (offer.status === "draft" && contactsPlugin
-              ? t("noClientSelected")
-              : undefined)
-          }
-          isReadOnly={isReadOnly}
-          onChangeClient={openChangeClientDialog}
-          showChangeClient={!isReadOnly && offer.status === "draft"}
-          showLinkToClient={Boolean(contactsPlugin)}
-        />
-        <DocumentTitle
-          isReadOnly={isReadOnly}
-          onBlur={() => {
-            handleSave();
-          }}
-          onChange={(title) => setOffer({ ...offer, title })}
-          placeholder={t("offerTitle")}
-          value={offer.title}
-        />
-        <OfferStatusStepper status={offer.status} />
-      </DocumentHeader>
+      {embedded ? null : (
+        <DocumentHeader
+          collapsed={headerCollapsed}
+          compactStatus={<OfferStatusBadge status={offer.status} />}
+          compactTitle={offer.title || t("offerTitle")}
+        >
+          <ClientTopline
+            clientId={contactsPlugin ? offer.client_id : null}
+            clientName={
+              clientName ??
+              (offer.status === "draft" && contactsPlugin
+                ? t("noClientSelected")
+                : undefined)
+            }
+            isReadOnly={isReadOnly}
+            onChangeClient={openChangeClientDialog}
+            showChangeClient={!isReadOnly && offer.status === "draft"}
+            showLinkToClient={Boolean(contactsPlugin)}
+          />
+          <DocumentTitle
+            isReadOnly={isReadOnly}
+            onBlur={() => {
+              handleSave();
+            }}
+            onChange={(title) => setOffer({ ...offer, title })}
+            placeholder={t("offerTitle")}
+            value={offer.title}
+          />
+          <OfferStatusStepper status={offer.status} />
+        </DocumentHeader>
+      )}
 
       {externalChange && pageData ? (
         <div className="flex items-center justify-between gap-3 border-amber-500/40 border-b bg-amber-500/10 px-4 py-2 text-sm">

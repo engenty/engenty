@@ -65,7 +65,7 @@ export function ToolsCatalogCards({
                   const isCustom = category === "custom";
                   return (
                     <button
-                      className="ui-canvas-elevated flex flex-col rounded-lg bg-card p-3 text-left transition-shadow hover:shadow-[var(--e-3)] disabled:cursor-default"
+                      className="ui-card-raised flex flex-col p-3 text-left disabled:cursor-default"
                       disabled={!isCustom}
                       key={tool.id}
                       onClick={() => navigate(buildToolEditPath(tool.id))}

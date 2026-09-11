@@ -103,7 +103,7 @@ function ToolCallDetailsBody({
 }) {
   if (children) {
     return (
-      <div className="space-y-2 border-border/50 border-l-2 pl-3 text-xs">
+      <div className="space-y-2 border-border-soft border-l-2 pl-3 text-xs">
         {children}
       </div>
     );
@@ -112,7 +112,7 @@ function ToolCallDetailsBody({
     return null;
   }
   return (
-    <div className="space-y-1 border-border/50 border-l-2 pl-3 text-xs">
+    <div className="space-y-1 border-border-soft border-l-2 pl-3 text-xs">
       {details.map((row, index) => (
         <p className="text-muted-foreground" key={`${headline}-${index}`}>
           {row}

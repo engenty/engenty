@@ -19,8 +19,8 @@ export interface ActivityEntry {
   statusKind: ActivityStatusKind;
   timestamp: string;
   title: string | null;
-  /** Owner of the thread. */
-  userId: string;
+  /** Owner of the thread — null for an unattended run (a routine fire). */
+  userId: string | null;
 }
 
 export interface ActivityFilterState {

@@ -1,4 +1,7 @@
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  readEngentyDebugInitialPromptEventValue,
+} from "@engenty/ag-ui-bridge";
 import type { EngentyAgUiMessage } from "../../ag-ui/conversation.js";
 
 export interface InspectorToolCall {
@@ -10,8 +13,10 @@ export interface InspectorToolCall {
 }
 
 export interface InspectorInitialPrompt {
-  modelMessages: unknown;
+  modelMessages?: unknown;
   runtimeContextInstructions: string;
+  systemInstructions: string;
+  toolNames: string[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -96,12 +101,12 @@ export function buildToolCallNameIndex(
  * One stream row, after streamed deltas are folded together.
  *
  * A single tool call arrives as dozens of TOOL_CALL_ARGS chunks ("Schritt",
- * "ster", "äch", …) and assistant text as dozens of TEXT_MESSAGE_CONTENT
- * chunks. Rendered one row each — newest-first, so the fragments read
- * BACKWARDS — they bury the events that carry meaning and make the assembled
- * value impossible to read. Fold each adjacent run of same-target deltas into
- * one row carrying the ASSEMBLED value, and keep the chunk count so nothing is
- * silently hidden.
+ * "ster", "äch", …) and assistant text / reasoning as dozens of
+ * TEXT_MESSAGE_CONTENT / REASONING_MESSAGE_CONTENT chunks. Rendered one row
+ * each — newest-first, so the fragments read BACKWARDS — they bury the events
+ * that carry meaning and make the assembled value impossible to read. Fold
+ * each adjacent run of same-target deltas into one row carrying the ASSEMBLED
+ * value, and keep the chunk count so nothing is silently hidden.
  */
 export interface FoldedStreamEvent {
   /** How many wire events this row represents (1 = not folded). */
@@ -110,6 +115,7 @@ export interface FoldedStreamEvent {
 }
 
 const FOLDABLE: Record<string, "messageId" | "toolCallId"> = {
+  REASONING_MESSAGE_CONTENT: "messageId",
   TEXT_MESSAGE_CONTENT: "messageId",
   TOOL_CALL_ARGS: "toolCallId",
 };
@@ -262,22 +268,12 @@ export function extractInitialPrompt(
   events: readonly AGUIEvent[]
 ): InspectorInitialPrompt | null {
   for (const event of [...events].reverse()) {
-    if (event.type !== "CUSTOM") {
-      continue;
+    const prompt = readEngentyDebugInitialPromptEventValue(
+      event as { name?: unknown; type?: unknown; value?: unknown }
+    );
+    if (prompt) {
+      return prompt;
     }
-    const record = event as Record<string, unknown>;
-    if (record.name !== "engenty.debug.initial_prompt") {
-      continue;
-    }
-    const value = record.value;
-    if (!isRecord(value)) {
-      continue;
-    }
-    return {
-      modelMessages: value.modelMessages,
-      runtimeContextInstructions:
-        readString(value.runtimeContextInstructions) ?? "",
-    };
   }
   return null;
 }

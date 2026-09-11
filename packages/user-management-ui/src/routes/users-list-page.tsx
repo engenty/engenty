@@ -244,7 +244,7 @@ export function UsersListPage() {
         />
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card">
+      <div className="ui-card-elevated min-h-0 flex-1 overflow-auto">
         <UsersTable
           allSelected={selection.allSelected}
           columnOrder={columnOrder}

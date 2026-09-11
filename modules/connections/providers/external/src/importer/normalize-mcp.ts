@@ -1,4 +1,4 @@
-import { mcpListTools } from "../invoke/mcp-client.js";
+import { type McpSessionParams, mcpListTools } from "../invoke/mcp-client.js";
 import type { NormalizedAction, NormalizeResult } from "../types.js";
 import { classifyMcpTool } from "./classify.js";
 import { MAX_ACTIONS_PER_CONNECTOR } from "./normalize-openapi.js";
@@ -12,11 +12,9 @@ function humanizeToolName(name: string): string {
 }
 
 /** MCP server tools/list → normalized actions. */
-export async function normalizeMcpServer(params: {
-  endpoint: string;
-  fetchImpl?: typeof fetch;
-  headers?: Record<string, string>;
-}): Promise<NormalizeResult> {
+export async function normalizeMcpServer(
+  params: McpSessionParams
+): Promise<NormalizeResult> {
   const tools = await mcpListTools(params);
 
   const actions: NormalizedAction[] = [];
@@ -62,6 +60,7 @@ export async function normalizeMcpServer(params: {
 
   return {
     actions,
+    applied_overrides: 0,
     base_url: null,
     description: null,
     dropped_count: droppedCount,

@@ -10,8 +10,13 @@ import type {
   TasksBriefingResponse,
 } from "../../../src/schema/types.js";
 import { formatRelativeTime } from "../../lib/format-relative-time.js";
-import { tasksPaths } from "../../lib/tasks-routes.js";
+import { useTasksPaths } from "../../lib/use-tasks-paths.js";
 import { resolveTaskStatusLabel } from "../task-status-badge.js";
+import {
+  BriefingFooterLink,
+  BriefingSectionFooter,
+  BriefingSectionHead,
+} from "./briefing-section.js";
 
 type MotionKind = "now" | "next" | "done";
 
@@ -85,7 +90,7 @@ function MotionMarker({ kind }: { kind: MotionKind }) {
     <span
       aria-hidden
       className={cn(
-        "relative z-[1] flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm",
+        "relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border shadow-sm",
         kind === "now" &&
           "border-primary/30 bg-primary text-primary-foreground",
         kind === "next" && "border-border bg-card text-muted-foreground",
@@ -93,19 +98,25 @@ function MotionMarker({ kind }: { kind: MotionKind }) {
           "border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
       )}
     >
-      {kind === "now" ? <Zap className="size-3.5" /> : null}
-      {kind === "next" ? <CircleDot className="size-3.5" /> : null}
-      {kind === "done" ? (
-        <Check className="size-3.5" strokeWidth={2.5} />
-      ) : null}
+      {kind === "now" ? <Zap className="size-3" /> : null}
+      {kind === "next" ? <CircleDot className="size-3" /> : null}
+      {kind === "done" ? <Check className="size-3" strokeWidth={2.5} /> : null}
     </span>
   );
 }
 
-function MotionRow({ isLast, item }: { isLast: boolean; item: MotionItem }) {
+function MotionRow({
+  href,
+  isLast,
+  item,
+}: {
+  href: string;
+  isLast: boolean;
+  item: MotionItem;
+}) {
   return (
-    <li className="flex gap-3">
-      <div className="flex w-7 shrink-0 flex-col items-center">
+    <li className="flex gap-2.5">
+      <div className="flex w-6 shrink-0 flex-col items-center">
         <MotionMarker kind={item.kind} />
         {isLast ? null : (
           <span aria-hidden className="mt-1 w-px flex-1 bg-border" />
@@ -115,12 +126,12 @@ function MotionRow({ isLast, item }: { isLast: boolean; item: MotionItem }) {
         className={cn(
           "min-w-0 flex-1 rounded-md outline-none transition-colors",
           "hover:bg-accent/30 focus-visible:bg-accent/30",
-          isLast ? "pb-0" : "pb-5",
+          isLast ? "pb-0" : "pb-3",
           item.kind === "done" && "opacity-80"
         )}
-        to={tasksPaths.taskDetail(item.task.id)}
+        to={href}
       >
-        <div className="-mt-0.5 space-y-1 px-1.5 pt-0.5">
+        <div className="-mt-0.5 space-y-0.5 px-1 pt-0.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge
               className={cn(
@@ -159,6 +170,7 @@ export function BriefingInMotion({
   taskStatusDefinitions: TaskStatusDefinition[];
 }) {
   const { t } = useTranslation("tasks");
+  const tasksPaths = useTasksPaths();
   const items = useMemo(
     () =>
       buildMotionItems(
@@ -176,34 +188,32 @@ export function BriefingInMotion({
 
   return (
     <section>
-      <div className="mb-3.5 flex items-baseline justify-between gap-3">
-        <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-          {t("briefing.motion.title")}
-        </h2>
-        <Link
-          className="text-muted-foreground text-sm hover:text-foreground"
-          to={tasksPaths.list}
-        >
-          {t("briefing.viewAllTasks")}
-        </Link>
-      </div>
+      <BriefingSectionHead title={t("briefing.motion.title")} />
 
       {items.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           {t("briefing.motion.empty")}
         </p>
       ) : (
-        <div className="ui-canvas-raised rounded-md bg-card px-4 py-4">
-          <ol className="flex flex-col">
-            {items.map((item, index) => (
-              <MotionRow
-                isLast={index === items.length - 1}
-                item={item}
-                key={item.task.id}
-              />
-            ))}
-          </ol>
-        </div>
+        <>
+          <div className="ui-card-raised px-3 py-2.5">
+            <ol className="flex flex-col">
+              {items.map((item, index) => (
+                <MotionRow
+                  href={tasksPaths.taskDetail(item.task.id)}
+                  isLast={index === items.length - 1}
+                  item={item}
+                  key={item.task.id}
+                />
+              ))}
+            </ol>
+          </div>
+          <BriefingSectionFooter>
+            <BriefingFooterLink to={tasksPaths.list}>
+              {t("briefing.viewAllTasks")}
+            </BriefingFooterLink>
+          </BriefingSectionFooter>
+        </>
       )}
     </section>
   );

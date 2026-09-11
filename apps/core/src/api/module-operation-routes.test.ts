@@ -1394,6 +1394,24 @@ describe("module operation routes", () => {
     );
     expect(decide.status).toBe(200);
 
+    // First to answer wins: a second decision on the same request learns it
+    // was already handled, not that the request vanished.
+    const decideAgain = await app.request(
+      `/api/security/approvals/${approvalBody.error.details?.approvalRequestId}/decision`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${writeToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ decision: "deny" }),
+      }
+    );
+    expect(decideAgain.status).toBe(409);
+    expect(
+      ((await decideAgain.json()) as { error: { code: string } }).error.code
+    ).toBe("approvals.alreadyDecided");
+
     const allowed = await app.request(
       "/api/operations/contacts_delete/invoke",
       {

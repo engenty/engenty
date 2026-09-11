@@ -25,7 +25,7 @@
 | 5 | Multi-window | Active-thread selection is per-tab (`sessionStorage` authoritative, `localStorage` seed); same-thread tabs sync via realtime / run attach |
 | 6 | Visible UI slot | One shell surface at a time; full-page chat closes floating/drawer chrome |
 | 7 | `contribution.requestedAgentId` | Dev warn + ignore on main host; lane stays **`engenty.copilot`**. Composer `@agent` mentions may pass `requestedAgentId` on submit, but the session layer does not honor it |
-| 8 | Module actions (e.g. Enhance) | **Not** the main copilot host — today they run as dispatched **actions** (`ActionButton` / workforce), not as `{module}:action:…` `EngentyAgent` mounts |
+| 8 | Module actions (e.g. Enhance) | **Not** the main copilot host — today they run as dispatched **actions** (`WorkflowButton` / workforce), not as `{module}:action:…` `EngentyAgent` mounts |
 | 9 | Model chooser | UI detail on the main host (expert control) — not a host split |
 | 10 | Full-page entry | Resume last-active thread (else latest listed); `/new` only via explicit New chat |
 

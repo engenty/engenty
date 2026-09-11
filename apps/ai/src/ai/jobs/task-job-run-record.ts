@@ -6,7 +6,11 @@
 // it at the end gives the run card a real running → completed lifecycle and makes
 // the run thread drillable.
 import { createLogger } from "@engenty/telemetry";
-import type { AgentRunStatus } from "../../dal/threads/types.js";
+import { preservedThreadUpsertFields } from "../../dal/threads/thread-upsert-preserve.js";
+import type {
+  AgentRunStatus,
+  AgentRunTrigger,
+} from "../../dal/threads/types.js";
 import {
   createAgentRunStoreFromEnv,
   createThreadStoreFromEnv,
@@ -22,6 +26,8 @@ export interface RegisterTaskJobRunInput {
   identifier?: string;
   runId: string;
   scope: AiSessionScope;
+  /** Why this run happened, as the dispatcher reported it. */
+  startedBy?: AgentRunTrigger | null;
   taskId: string;
   threadId: string;
 }
@@ -43,11 +49,23 @@ export async function registerTaskJobRun(
   // Best-effort: the run record is for UI display only — a failure here must not
   // fail the task (which is already checked out). Degrades to "no run history".
   try {
+    // `threadIdForTaskActor` is STABLE, so run N re-upserts run N-1's thread —
+    // which is the point ("run N opens on run N-1's memory"), and which the
+    // RPC's wholesale `metadata = excluded.metadata` quietly undid: the
+    // working-memory pointers and observational cursor live in that column, so
+    // every checkout was throwing away the memory this thread exists to keep.
+    // See thread-upsert-preserve.ts.
+    const preserved = await preservedThreadUpsertFields({
+      metadata: { source: "task-job" },
+      store,
+      tenantId: input.scope.tenantId,
+      threadId: input.threadId,
+    });
     await store.upsertThread({
       agentId: input.agentTypeKey,
       createdByUserId: scopeAttributionUserId(input.scope),
       id: input.threadId,
-      metadata: { source: "task-job" },
+      ...preserved,
       routeContext: {
         entity_id: input.taskId,
         task_id: input.taskId,
@@ -63,6 +81,7 @@ export async function registerTaskJobRun(
       id: input.runId,
       tenantId: input.scope.tenantId,
       threadId: input.threadId,
+      trigger: input.startedBy ?? null,
     });
   } catch (err) {
     logger.warn("task-job run record registration failed", {
@@ -73,11 +92,22 @@ export async function registerTaskJobRun(
   }
 }
 
-/** Mark the run finished so the run-history card shows completed/failed. */
+/**
+ * Mark the run finished so the run-history card shows completed/failed, and put
+ * the thread back to rest.
+ *
+ * The thread status matters now that the thread is the actor's STANDING one for
+ * the task rather than one run's scratch space: registration flips it to
+ * `running` on every dispatch, and nothing else would ever flip it back, so a
+ * task worked once would sit in every thread list as permanently running. The
+ * run's own outcome (including `failed`) stays on `ai.agent_run`, which is what
+ * the run-history card reads — the thread is only resting or working.
+ */
 export async function finishTaskJobRun(input: {
   runId: string;
   scope: AiSessionScope;
   status: AgentRunStatus;
+  threadId?: string;
 }): Promise<void> {
   const runStore = createAgentRunStoreFromEnv();
   if (!runStore) {
@@ -93,6 +123,26 @@ export async function finishTaskJobRun(input: {
     logger.warn("task-job run record finish failed", {
       error: err instanceof Error ? err.message : String(err),
       runId: input.runId,
+    });
+  }
+  const threadId = input.threadId;
+  if (!threadId) {
+    return;
+  }
+  const store = createThreadStoreFromEnv();
+  if (!store) {
+    return;
+  }
+  try {
+    await store.setThreadStatus({
+      status: "idle",
+      tenantId: input.scope.tenantId,
+      threadId,
+    });
+  } catch (err) {
+    logger.warn("task-job thread status settle failed", {
+      error: err instanceof Error ? err.message : String(err),
+      threadId,
     });
   }
 }

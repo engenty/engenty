@@ -31,6 +31,7 @@ function fakeNative(): FileSource {
     kind: "native",
     listFolder: vi.fn(async () => ({ files: [], folders: [] })),
     getDownloadUrl: vi.fn(async () => "https://native/url"),
+    readBytes: vi.fn(async () => new Uint8Array([1])),
     createFolder: vi.fn(async () => ({}) as never),
     beginUpload: vi.fn(async () => ({}) as never),
     finalizeUpload: vi.fn(async () => ({}) as never),
@@ -40,6 +41,7 @@ function fakeNative(): FileSource {
     renameFile: vi.fn(async () => ({}) as never),
     moveFile: vi.fn(async () => ({}) as never),
     deleteFile: vi.fn(async () => undefined),
+    replaceContent: vi.fn(async () => ({}) as never),
   };
 }
 
@@ -109,7 +111,13 @@ describe("composite file source", () => {
     expect(listing.readOnly).toBe(true);
     expect(listing.cursor).toBe("page-2");
     expect(listing.folders[0]).toMatchObject({
-      id: encodeConnectorNodeId(CONNECTION_ID, "drive-folder-2"),
+      // The id carries the PARENT ref (P2.2) so a write can address the file
+      // by folder + name, which is the only shape the storage capability has.
+      id: encodeConnectorNodeId(
+        CONNECTION_ID,
+        "drive-folder-2",
+        "drive-folder-1"
+      ),
       name: "reports",
       readOnly: true,
       source: "gdrive",
@@ -134,12 +142,45 @@ describe("composite file source", () => {
     );
   });
 
-  it("resolves connector downloads to the provider URL", async () => {
+  it("resolves connector downloads to the proxy path without reading bytes", async () => {
     const { composite } = build();
     const fileId = encodeConnectorNodeId(CONNECTION_ID, "drive-file-9");
     await expect(composite.getDownloadUrl(ctx, fileId)).resolves.toBe(
-      "https://signed/q2.pdf"
+      `/api/files/spaces/project/project-1/files/${encodeURIComponent(fileId)}/download`
     );
+  });
+
+  it("reads native files through the native source", async () => {
+    const { composite, native } = build();
+    const fileId = "0f000000-0000-4000-8000-000000000000";
+    await composite.readBytes(ctx, fileId);
+    expect(native.readBytes).toHaveBeenCalledWith(ctx, fileId);
+  });
+
+  it("reads connector files as bytes without fetching a relative download path", async () => {
+    const native = fakeNative();
+    const client = {
+      ...makeClient(),
+      filesRead: vi.fn(async () => ({
+        content: "# index",
+        kind: "text" as const,
+        mime_type: "text/markdown",
+        name: "index.md",
+        size: 7,
+        truncated: false,
+      })),
+    };
+    const getMount = vi.fn(async () => mountRow);
+    const connector = createConnectorFileSource({ client, getMount });
+    const composite = createCompositeFileSource({
+      connector,
+      getMount,
+      native,
+    });
+    const fileId = encodeConnectorNodeId(CONNECTION_ID, "index.md");
+    const bytes = await composite.readBytes(ctx, fileId);
+    expect(new TextDecoder().decode(bytes)).toBe("# index");
+    expect(native.readBytes).not.toHaveBeenCalled();
   });
 
   it("blocks mutations on and into mounts", async () => {
@@ -162,6 +203,23 @@ describe("composite file source", () => {
     await expect(
       composite.moveFile(ctx, "0f000000-0000-4000-8000-000000000000", MOUNT_ID)
     ).rejects.toBeInstanceOf(FileSourceReadOnlyError);
+    await expect(
+      composite.replaceContent(ctx, virtualId, {
+        data: new Uint8Array([1]),
+        expectedUpdatedAt: "2026-07-01T00:00:00Z",
+      })
+    ).rejects.toBeInstanceOf(FileSourceReadOnlyError);
+  });
+
+  it("saves a native file's content through the native source", async () => {
+    const { composite, native } = build();
+    const fileId = "0f000000-0000-4000-8000-000000000000";
+    const input = {
+      data: new Uint8Array([1, 2, 3]),
+      expectedUpdatedAt: "2026-07-01T00:00:00Z",
+    };
+    await composite.replaceContent(ctx, fileId, input);
+    expect(native.replaceContent).toHaveBeenCalledWith(ctx, fileId, input);
   });
 
   it("lets the mount row itself be renamed and removed (unmount)", async () => {

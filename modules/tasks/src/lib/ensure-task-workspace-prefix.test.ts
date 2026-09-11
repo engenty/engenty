@@ -6,6 +6,7 @@ import {
 import { taskWorkspaceStoragePrefix } from "./task-workspace.js";
 
 const TENANT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const SPACE_ID = "55555555-5555-4555-8555-555555555555";
 const IDENTIFIER = "ENG-142";
 
 describe("ensureTaskWorkspacePrefix", () => {
@@ -16,13 +17,16 @@ describe("ensureTaskWorkspacePrefix", () => {
     const prefix = await ensureTaskWorkspacePrefix(
       { exists, upload },
       TENANT_ID,
+      SPACE_ID,
       IDENTIFIER
     );
 
-    expect(prefix).toBe(taskWorkspaceStoragePrefix(TENANT_ID, IDENTIFIER));
+    expect(prefix).toBe(
+      taskWorkspaceStoragePrefix(TENANT_ID, SPACE_ID, IDENTIFIER)
+    );
     expect(upload).toHaveBeenCalledOnce();
     expect(upload).toHaveBeenCalledWith(
-      taskWorkspaceKeepObjectKey(TENANT_ID, IDENTIFIER),
+      taskWorkspaceKeepObjectKey(TENANT_ID, SPACE_ID, IDENTIFIER),
       new Uint8Array(0),
       {
         contentType: "application/octet-stream",
@@ -35,7 +39,12 @@ describe("ensureTaskWorkspacePrefix", () => {
     const exists = vi.fn(async () => true);
     const upload = vi.fn(async () => undefined);
 
-    await ensureTaskWorkspacePrefix({ exists, upload }, TENANT_ID, IDENTIFIER);
+    await ensureTaskWorkspacePrefix(
+      { exists, upload },
+      TENANT_ID,
+      SPACE_ID,
+      IDENTIFIER
+    );
 
     expect(exists).toHaveBeenCalledOnce();
     expect(upload).not.toHaveBeenCalled();
@@ -45,8 +54,18 @@ describe("ensureTaskWorkspacePrefix", () => {
     const exists = vi.fn(async () => true);
     const upload = vi.fn(async () => undefined);
 
-    await ensureTaskWorkspacePrefix({ exists, upload }, TENANT_ID, IDENTIFIER);
-    await ensureTaskWorkspacePrefix({ exists, upload }, TENANT_ID, IDENTIFIER);
+    await ensureTaskWorkspacePrefix(
+      { exists, upload },
+      TENANT_ID,
+      SPACE_ID,
+      IDENTIFIER
+    );
+    await ensureTaskWorkspacePrefix(
+      { exists, upload },
+      TENANT_ID,
+      SPACE_ID,
+      IDENTIFIER
+    );
 
     expect(upload).not.toHaveBeenCalled();
   });

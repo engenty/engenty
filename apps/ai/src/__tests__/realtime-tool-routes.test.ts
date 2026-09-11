@@ -154,8 +154,9 @@ describe("realtime tool routes", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       result: {
-        ok: true,
         data: { items: [{ name: "Ada Lovelace" }] },
+        ok: true,
+        operation_id: "contacts_list",
       },
     });
   });

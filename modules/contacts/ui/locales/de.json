@@ -272,10 +272,6 @@
     "pauseRun": "Pausieren",
     "resumeRun": "Fortsetzen",
     "discardRun": "Lauf abbrechen",
-    "testSayCharlie": "Test: Say Charlie",
-    "testSayCharlieRunning": "Läuft…",
-    "testSayCharliePaused": "Pausiert",
-    "testSayCharlieTickerWaiting": "Startet…",
     "searchContacts": "Kontakte suchen",
     "triggerHeadless": "Schnell anreichern",
     "triggerHeadlessTooltip": "Startet den kompakten Action-Button-Flow: lokales Popover auf Desktop, Dialog auf schmalen Bildschirmen, mit streamenden Tool-Zeilen und eingebetteten Vorschlägen.",
@@ -400,9 +396,23 @@
     "role": "Rolle",
     "searchPeople": "Personen suchen"
   },
-  "agentNotes": {
-    "title": "Agenten-Notizen",
-    "archive": "Archivieren",
-    "agentFallback": "Agent"
+  "spaceData": {
+    "tab": "Kontakt",
+    "folder": {
+      "empty": "Noch keine Kontakte hier.",
+      "noResults": "Keine passenden Kontakte",
+      "noResultsHint": "Versuch eine andere Suche.",
+      "clearSearch": "Suche löschen",
+      "searchPlaceholder": "Kontakte suchen…",
+      "sortBy": "Sortieren nach",
+      "summary": "{{count}}",
+      "tab": "Kontakte",
+      "truncated": "Nur die erste Seite wird angezeigt."
+    },
+    "root": {
+      "People": "Personen",
+      "Organisations": "Organisationen",
+      "everything": "Alle, als eine Tabelle"
+    }
   }
 }

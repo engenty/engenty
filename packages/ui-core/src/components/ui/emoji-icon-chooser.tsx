@@ -2,19 +2,11 @@
 
 import { Smile } from "lucide-react";
 import {
-  type KeyboardEvent,
   type ReactNode,
   useCallback,
-  useEffect,
-  useId,
-  useRef,
   useState,
 } from "react";
-import {
-  EMOJI_ICON_PRESETS,
-  isSingleEmoji,
-  normalizeEmojiInput,
-} from "../../lib/emoji-icon.js";
+import { EMOJI_ICON_PRESETS } from "../../lib/emoji-icon.js";
 import { focusVisibleRingSubtle } from "../../lib/focus-visible.js";
 import { cn } from "../../lib/utils.js";
 import { Button } from "./button.js";
@@ -24,11 +16,9 @@ import {
   EmojiPickerFooter,
   EmojiPickerSearch,
 } from "./emoji-picker.js";
-import { Input } from "./input.js";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover.js";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs.js";
 
-const GRID_COLUMNS = 5;
+const PICKER_COLUMNS = 8;
 
 export type EmojiIconChooserLabels = {
   addIcon?: string;
@@ -49,7 +39,7 @@ const DEFAULT_LABELS: Required<EmojiIconChooserLabels> = {
   gridAriaLabel: "Choose an emoji",
   inputPlaceholder: "Paste or type an emoji",
   noEmojiFound: "No emoji found.",
-  quickPicks: "Quick picks",
+  quickPicks: "Recommended",
   remove: "Remove icon",
   selectEmoji: "Select an emoji…",
 };
@@ -82,25 +72,10 @@ export function EmojiIconChooserContent({
   className,
 }: EmojiIconChooserContentProps) {
   const resolvedLabels = resolveLabels(labels);
-  const inputId = useId();
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState(value ?? "");
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length > 0;
 
-  useEffect(() => {
-    setDraft(value ?? "");
-  }, [value]);
-
-  const applyDraft = useCallback(() => {
-    const normalized = normalizeEmojiInput(draft);
-    if (!normalized) {
-      return;
-    }
-    onApply(normalized);
-    onClose?.();
-  }, [draft, onApply, onClose]);
-
-  const selectPreset = useCallback(
+  const selectEmoji = useCallback(
     (emoji: string) => {
       onApply(emoji);
       onClose?.();
@@ -108,155 +83,60 @@ export function EmojiIconChooserContent({
     [onApply, onClose]
   );
 
-  const focusGridButton = useCallback((index: number) => {
-    const buttons = gridRef.current?.querySelectorAll<HTMLButtonElement>(
-      "[data-emoji-grid-item]"
-    );
-    buttons?.[index]?.focus();
-    setFocusedIndex(index);
-  }, []);
-
-  const handleGridKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      const count = presets.length;
-      if (count === 0) {
-        return;
-      }
-
-      const current =
-        focusedIndex ??
-        [...(gridRef.current?.querySelectorAll("[data-emoji-grid-item]") ?? [])].findIndex(
-          (node) => node === document.activeElement
-        );
-
-      const safeCurrent = current >= 0 ? current : 0;
-
-      const moveFocus = (nextIndex: number) => {
-        event.preventDefault();
-        focusGridButton(nextIndex);
-      };
-
-      switch (event.key) {
-        case "ArrowRight":
-          moveFocus(Math.min(safeCurrent + 1, count - 1));
-          break;
-        case "ArrowLeft":
-          moveFocus(Math.max(safeCurrent - 1, 0));
-          break;
-        case "ArrowDown":
-          moveFocus(Math.min(safeCurrent + GRID_COLUMNS, count - 1));
-          break;
-        case "ArrowUp":
-          moveFocus(Math.max(safeCurrent - GRID_COLUMNS, 0));
-          break;
-        case "Home":
-          moveFocus(0);
-          break;
-        case "End":
-          moveFocus(count - 1);
-          break;
-        default:
-          break;
-      }
-    },
-    [focusGridButton, focusedIndex, presets.length]
-  );
-
-  const draftIsValid = isSingleEmoji(draft);
-
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <Tabs defaultValue="quick">
-        <TabsList className="grid w-full grid-cols-2" variant="segmented">
-          <TabsTrigger value="quick">{resolvedLabels.quickPicks}</TabsTrigger>
-          <TabsTrigger value="browse">{resolvedLabels.browseAll}</TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="mt-3 space-y-3" value="quick">
-          <div
-            aria-label={resolvedLabels.gridAriaLabel}
-            className="grid grid-cols-5 gap-1"
-            onKeyDown={handleGridKeyDown}
-            ref={gridRef}
-            role="listbox"
-          >
-            {presets.map((emoji, index) => {
-              const selected = value === emoji;
-              return (
-                <button
-                  aria-label={emoji}
-                  aria-selected={selected}
-                  className={cn(
-                    "flex size-9 items-center justify-center rounded-md text-xl outline-none",
-                    focusVisibleRingSubtle,
-                    selected ? "bg-muted" : "hover:bg-muted"
-                  )}
-                  data-emoji-grid-item
-                  key={emoji}
-                  onClick={() => selectPreset(emoji)}
-                  onFocus={() => setFocusedIndex(index)}
-                  role="option"
-                  type="button"
-                >
-                  {emoji}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex gap-2">
-            <Input
-              aria-label={resolvedLabels.inputPlaceholder}
-              className="h-8 flex-1 text-base"
-              id={inputId}
-              maxLength={32}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  applyDraft();
-                }
-              }}
-              placeholder={resolvedLabels.inputPlaceholder}
-              value={draft}
-            />
-            <Button
-              className="shrink-0"
-              disabled={!draftIsValid}
-              onClick={applyDraft}
-              size="sm"
-              type="button"
-              variant="default"
+      <EmojiPicker
+        className="h-90 w-full rounded-md border border-border"
+        columns={PICKER_COLUMNS}
+        locale={locale}
+        onEmojiSelect={({ emoji }) => selectEmoji(emoji)}
+      >
+        <EmojiPickerSearch
+          aria-label={resolvedLabels.inputPlaceholder}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={resolvedLabels.inputPlaceholder}
+        />
+        {searching || presets.length === 0 ? null : (
+          <div className="shrink-0 border-border border-b">
+            <div className="bg-popover px-3 pt-3.5 pb-2 text-muted-foreground text-xs leading-none">
+              {resolvedLabels.quickPicks}
+            </div>
+            <div
+              aria-label={resolvedLabels.gridAriaLabel}
+              className="grid grid-cols-8 px-1 pb-1"
+              role="listbox"
             >
-              {resolvedLabels.apply}
-            </Button>
+              {presets.map((emoji) => {
+                const selected = value === emoji;
+                return (
+                  <button
+                    aria-label={emoji}
+                    aria-selected={selected}
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-sm text-base outline-none",
+                      focusVisibleRingSubtle,
+                      selected ? "bg-accent" : "hover:bg-accent"
+                    )}
+                    key={emoji}
+                    onClick={() => selectEmoji(emoji)}
+                    role="option"
+                    type="button"
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </TabsContent>
-
-        <TabsContent className="mt-3" value="browse">
-          <EmojiPicker
-            className="h-[280px] w-full rounded-md border border-border"
-            columns={8}
-            locale={locale}
-            onEmojiSelect={({ emoji }) => {
-              onApply(emoji);
-              onClose?.();
-            }}
-          >
-            <EmojiPickerSearch
-              aria-label={resolvedLabels.inputPlaceholder}
-              placeholder={resolvedLabels.inputPlaceholder}
-            />
-            <EmojiPickerContent
-              className="h-[200px]"
-              labels={{ empty: resolvedLabels.noEmojiFound }}
-            />
-            <EmojiPickerFooter
-              labels={{ selectEmoji: resolvedLabels.selectEmoji }}
-            />
-          </EmojiPicker>
-        </TabsContent>
-      </Tabs>
+        )}
+        <EmojiPickerContent
+          className="min-h-0"
+          labels={{ empty: resolvedLabels.noEmojiFound }}
+        />
+        <EmojiPickerFooter
+          labels={{ selectEmoji: resolvedLabels.selectEmoji }}
+        />
+      </EmojiPicker>
 
       {showRemove && value && onRemove ? (
         <Button
@@ -289,7 +169,7 @@ export interface EmojiIconChooserProps
   triggerClassName?: string;
 }
 
-/** Popover emoji icon picker — quick presets, full browse, custom input, and optional remove. */
+/** Popover emoji icon picker — recommended section, then the full list. */
 export function EmojiIconChooser({
   value,
   onChange,
@@ -363,6 +243,7 @@ export function EmojiIconChooser({
       >
         <EmojiIconChooserContent
           className={className}
+          key={open ? "open" : "closed"}
           labels={labels}
           locale={locale}
           onApply={(emoji) => onChange(emoji)}

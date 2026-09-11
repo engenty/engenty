@@ -21,4 +21,28 @@ describe("adminListCardsGridClassName", () => {
       adminListCardsGridClassName("normal")
     );
   });
+
+  it("widens the track for prose-led catalogs, at either density", () => {
+    for (const size of ["compact", "normal"] as const) {
+      expect(adminListCardsGridClassName(size, { track: "wide" })).toContain(
+        "repeat(auto-fill,minmax(min(100%,26rem),1fr))"
+      );
+    }
+    // Density still drives the gap — only the track changes.
+    expect(adminListCardsGridClassName("compact", { track: "wide" })).toContain(
+      "gap-2"
+    );
+  });
+
+  it("emits literal track classes so Tailwind can scan them", () => {
+    // A runtime-assembled arbitrary value compiles to no CSS and the grid
+    // silently collapses to a single column.
+    for (const value of Object.values({
+      a: adminListCardsGridClassName("compact"),
+      b: adminListCardsGridClassName("normal"),
+      c: adminListCardsGridClassName("normal", { track: "wide" }),
+    })) {
+      expect(value).not.toContain("${");
+    }
+  });
 });

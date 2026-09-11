@@ -8,6 +8,22 @@ export const TASK_TERMINAL_STATUSES = new Set(["done", "cancelled"]);
  */
 export const TASK_AGENT_CHECKOUT_ENTRY_STATUSES = new Set(["todo", "backlog"]);
 
+/**
+ * Statuses a task may be CREATED into and still start on its own.
+ *
+ * Deliberately narrower than the checkout set. `backlog` stays
+ * checkout-eligible because an existing task may be re-dispatched from there —
+ * but a task someone creates INTO backlog means "not yet", and starting it
+ * anyway makes "plan only" a lie. The two calls express different intent, so
+ * they read different sets.
+ */
+export const TASK_CREATE_AUTOSTART_STATUSES = new Set(["todo"]);
+
+/** Would creating a task in this status start it immediately? */
+export function startsOnCreate(status: string): boolean {
+  return TASK_CREATE_AUTOSTART_STATUSES.has(status);
+}
+
 export type TaskStatus =
   | "backlog"
   | "todo"
@@ -80,7 +96,13 @@ export interface TaskAssigneeShape {
   primary_assignee_user_id: string | null;
 }
 
-/** Primary assignee is singular; collaborators are additive. */
+/**
+ * Primary assignee is singular; collaborators are additive.
+ *
+ * A task is assigned to a person, to a specialist, or to nobody. Assigning it
+ * to a specialist is what makes it dispatchable — the kind `isDispatchableTask`
+ * and the DAL's checkout guard key on.
+ */
 export function normalizeTaskAssignees(input: {
   collaborator_user_ids?: string[] | null;
   primary_assignee_agent_type_key?: string | null;
@@ -113,27 +135,4 @@ export function normalizeTaskAssignees(input: {
     primary_assignee_kind: kind,
     primary_assignee_user_id: kind === "user" ? userId : null,
   };
-}
-
-/** Resolve goal_id: explicit wins; else inherit from parent task. */
-export function resolveTaskGoalId(input: {
-  explicit_goal_id?: string | null;
-  parent_goal_id?: string | null;
-}): string | null {
-  const explicit = input.explicit_goal_id?.trim();
-  if (explicit) {
-    return explicit;
-  }
-  const inherited = input.parent_goal_id?.trim();
-  return inherited || null;
-}
-
-/** Agent-created tasks must carry goal context (human tasks may omit in v1). */
-export function assertAgentTaskGoal(input: {
-  actorKind: TaskTransitionActorKind | "agent_create";
-  goal_id: string | null;
-}): void {
-  if (input.actorKind === "agent_create" && !input.goal_id) {
-    throw new Error("agent_task_goal_required");
-  }
 }

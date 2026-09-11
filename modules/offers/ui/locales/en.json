@@ -493,5 +493,26 @@
     "draft": "Draft",
     "ready": "Ready",
     "accepted": "Accepted"
+  },
+  "spaceData": {
+    "tab": "Offer",
+    "folder": {
+      "client": "Client",
+      "date": "Date",
+      "empty": "No offers in this stage.",
+      "noResults": "No matching offers",
+      "noResultsHint": "Try a different search.",
+      "clearSearch": "Clear search",
+      "searchPlaceholder": "Search offers…",
+      "summary": "{{count}}",
+      "number": "Number",
+      "tab": "Offers",
+      "title": "Title",
+      "truncated": "Showing the first page only.",
+      "validUntil": "Valid until"
+    },
+    "root": {
+      "offers": "offers"
+    }
   }
 }

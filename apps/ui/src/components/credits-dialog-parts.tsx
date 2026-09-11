@@ -176,7 +176,7 @@ export function OssPackageList({
   query?: string;
 }) {
   return (
-    <ul className="divide-y divide-border/60 px-6">
+    <ul className="divide-y divide-border-soft px-6">
       {packages.map((pkg) => (
         <CreditRow
           activeMatchIndex={activeMatchIndex}

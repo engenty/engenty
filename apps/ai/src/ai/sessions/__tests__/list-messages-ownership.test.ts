@@ -32,7 +32,7 @@ describe("listMessages ownership", () => {
         scope: { tenantId, userId: owner },
         threadId,
       } as never)
-    ).resolves.toEqual({ messages: [] });
+    ).resolves.toEqual({ has_more: false, messages: [] });
     expect(listMessagesOrdered).toHaveBeenCalled();
   });
 

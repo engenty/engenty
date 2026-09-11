@@ -11,6 +11,7 @@ export type AiSessionErrorCode =
   | "agent_threads.interruptNotFound"
   | "agent_threads.interruptMismatch"
   | "agent_threads.interruptExpired"
+  | "agent_threads.resumeInProgress"
   | "agent_threads.taskCheckoutConflict";
 
 export class AiSessionError extends Error {

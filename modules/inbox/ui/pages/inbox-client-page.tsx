@@ -5,7 +5,7 @@
 
 import { useEngentyFrontendTool } from "@engenty/ai-ui";
 import {
-  COPILOT_BOTTOM_DOCK_HEIGHT,
+  COPILOT_BOTTOM_DOCK_CLEARANCE,
   createFrontendToolDefinition,
   PaneResizeHandle,
   useCopilotShell,
@@ -13,7 +13,6 @@ import {
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Badge,
   Button,
   cn,
   DetailPageHeader,
@@ -49,6 +48,7 @@ import type {
   InboxMessageStatus,
   InboxThreadListItem,
 } from "../api.js";
+import { EmptyAccountsHint } from "../components/empty-accounts-hint.js";
 import { ThreadDetail } from "../components/thread-detail.js";
 import {
   useInboxListAgentUiSlice,
@@ -56,10 +56,7 @@ import {
 } from "../hooks/use-inbox-agent-ui-slice.js";
 import { useInboxSecondaryNav } from "../hooks/use-inbox-secondary-nav.js";
 import { formatInboxRelativeTime } from "../lib/format-relative-time.js";
-import {
-  INBOX_STATUS_BADGE_VARIANT,
-  isInboxStatusUnread,
-} from "../lib/inbox-status-badge.js";
+import { isInboxStatusUnread } from "../lib/inbox-status-badge.js";
 import {
   useClassifyPendingMutation,
   useInboxCategoriesQuery,
@@ -141,8 +138,10 @@ export function InboxClientPage() {
   // sits over the thread pane only (see `--copilot-dock-inset-left`), so the
   // list has no reason to stop short: the split grows into that strip and the
   // thread pane alone pads itself back out, keeping its pinned zone clear.
-  const dockInsetPx =
-    copilotOpen && dockMode === "bottom" ? COPILOT_BOTTOM_DOCK_HEIGHT : 0;
+  const dockInset =
+    copilotOpen && dockMode === "bottom"
+      ? COPILOT_BOTTOM_DOCK_CLEARANCE
+      : "0px";
   const { threadId } = useParams<{ threadId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const lane = searchParams.get("lane") ?? "all";
@@ -176,7 +175,12 @@ export function InboxClientPage() {
     return [
       // Omitted while the module nav is pinned — the sidebar header says it.
       ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t(`lanes.${lane}`), to: listHref(laneParams) },
+      // The inbox lane IS the module's home, so it earns no crumb of its own:
+      // the module crumb already says "Posteingang", and pinned open the column
+      // header does. Only the other lanes add a segment.
+      ...(lane === "all"
+        ? []
+        : [{ label: t(`lanes.${lane}`), to: listHref(laneParams) }]),
       ...(category
         ? [
             {
@@ -633,6 +637,9 @@ export function InboxClientPage() {
                   : t("actions.classifyNow")}
               </Button>
             ) : null}
+            {/* The unfiltered inbox being empty usually has a nameable cause:
+                no account, or every account's autonomy is off (no sync). */}
+            {laneFiltered ? null : <EmptyAccountsHint />}
           </Empty>
         </div>
       );
@@ -733,8 +740,8 @@ export function InboxClientPage() {
           belowStrip={
             <div className="flex w-full items-end justify-between gap-3">
               {/* Categories, not lanes: what a message *is* barely changes,
-                  so it reads as a section of the inbox. Mailbox lanes (unread /
-                  read / archived) stay in the sidebar next to the other filters. */}
+                  so it reads as a section of the inbox. Mailbox lanes (inbox /
+                  archived) stay in the sidebar next to the other filters. */}
               <Tabs
                 onValueChange={(value) => {
                   setOffset(0);
@@ -782,7 +789,7 @@ export function InboxClientPage() {
   return (
     <div
       className="flex min-h-0 w-full flex-row overflow-hidden"
-      style={{ height: `calc(100% + ${dockInsetPx}px)` }}
+      style={{ height: `calc(100% + ${dockInset})` }}
     >
       {/* List pane — hidden on mobile when a thread is open */}
       <div
@@ -828,7 +835,7 @@ export function InboxClientPage() {
         data-engenty-region="detail"
         // Hands back the space the split just took, so the thread's pinned
         // assistant zone stays above the dock hovering over this pane.
-        style={{ paddingBottom: dockInsetPx }}
+        style={{ paddingBottom: dockInset }}
       >
         {/* Mobile has no list pane to toggle — the thread is the whole screen,
             so it gets an explicit way back instead of the tab strip's toggle. */}
@@ -847,9 +854,10 @@ export function InboxClientPage() {
 
 /**
  * The row for the full-width list: sender, subject with its snippet trailing on
- * one line, then state and time. Below `md` it folds into the same stacked
- * shape as the narrow pane row — one grid, placed explicitly at `md` because
- * the reading order there differs from the source order.
+ * one line, then time. Unread threads use semibold sender and subject. Below
+ * `md` it folds into the same stacked shape as the narrow pane row — one grid,
+ * placed explicitly at `md` because the reading order there differs from the
+ * source order.
  */
 function ThreadListRow({
   onOpen,
@@ -881,17 +889,22 @@ function ThreadListRow({
       <span className="justify-self-end whitespace-nowrap text-muted-foreground text-xs md:col-start-4 md:row-start-1">
         {formatInboxRelativeTime(thread.last_message_at, i18n.language)}
       </span>
-      <span className="col-span-2 min-w-0 truncate text-sm md:col-span-1 md:col-start-2 md:row-start-1">
+      <span
+        className={cn(
+          "col-span-2 min-w-0 truncate text-sm md:col-span-1 md:col-start-2 md:row-start-1",
+          unhandled ? "font-semibold" : "font-normal"
+        )}
+      >
         {thread.subject ?? t("list.noSubject")}
         {thread.latest_snippet ? (
-          <span className="text-muted-foreground">
+          <span className="font-normal text-muted-foreground">
             {" "}
             — {thread.latest_snippet}
           </span>
         ) : null}
       </span>
-      <span className="col-span-2 flex items-center gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1 md:justify-self-end">
-        {thread.message_count > 1 ? (
+      {thread.message_count > 1 ? (
+        <span className="col-span-2 flex items-center gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1 md:justify-self-end">
           <span
             className="inline-flex items-center gap-0.5 text-primary text-xs"
             title={t("list.messageCountTitle", { count: thread.message_count })}
@@ -899,16 +912,8 @@ function ThreadListRow({
             <MessagesSquare className="size-3.5" />
             {thread.message_count}
           </span>
-        ) : null}
-        {thread.latest_status ? (
-          <Badge
-            className="px-1.5 py-0 text-[10px]"
-            variant={INBOX_STATUS_BADGE_VARIANT[thread.latest_status]}
-          >
-            {t(`lanes.${thread.latest_status}`)}
-          </Badge>
-        ) : null}
-      </span>
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -947,7 +952,12 @@ function ThreadRow({
               thread.participants[0] ??
               "—"}
           </span>
-          <span className="block truncate text-sm">
+          <span
+            className={cn(
+              "block truncate text-sm",
+              unhandled ? "font-semibold" : "font-normal"
+            )}
+          >
             {thread.subject ?? t("list.noSubject")}
           </span>
           {thread.latest_snippet ? (
@@ -960,27 +970,17 @@ function ThreadRow({
           <span className="text-muted-foreground text-xs">
             {formatInboxRelativeTime(thread.last_message_at, i18n.language)}
           </span>
-          <div className="flex items-center gap-1.5">
-            {thread.message_count > 1 ? (
-              <span
-                className="inline-flex items-center gap-0.5 text-primary text-xs"
-                title={t("list.messageCountTitle", {
-                  count: thread.message_count,
-                })}
-              >
-                <MessagesSquare className="size-3.5" />
-                {thread.message_count}
-              </span>
-            ) : null}
-            {thread.latest_status ? (
-              <Badge
-                className="px-1.5 py-0 text-[10px]"
-                variant={INBOX_STATUS_BADGE_VARIANT[thread.latest_status]}
-              >
-                {t(`lanes.${thread.latest_status}`)}
-              </Badge>
-            ) : null}
-          </div>
+          {thread.message_count > 1 ? (
+            <span
+              className="inline-flex items-center gap-0.5 text-primary text-xs"
+              title={t("list.messageCountTitle", {
+                count: thread.message_count,
+              })}
+            >
+              <MessagesSquare className="size-3.5" />
+              {thread.message_count}
+            </span>
+          ) : null}
         </div>
       </div>
     </button>

@@ -115,7 +115,7 @@ describe("ensureAppStep", () => {
 });
 
 describe("writeFilesStep", () => {
-  it("merges files and manifest into the draft", async () => {
+  it("commits files and manifest into the App's repository", async () => {
     const envelope = await runStep(writeFilesStep, {
       ...input,
       app_id: APP_ID,
@@ -127,6 +127,7 @@ describe("writeFilesStep", () => {
       app_id: APP_ID,
       files: input.files,
       manifest: input.manifest,
+      message: "app_build",
     });
     expect(envelope.status).toBe("written");
   });
@@ -150,14 +151,14 @@ describe("proposeStep", () => {
     expect(envelope.release).toBe("rel-abc");
   });
 
-  it("captures the draft's build_log on a failed build instead of throwing", async () => {
+  it("captures the failed version's build_log instead of throwing", async () => {
     invoke.mockImplementation(async (op: string) => {
       if (op === "app_release_propose") {
         throw new Error("app_build_failed");
       }
       return {
         versions: [
-          { build_log: "src/App.tsx:3:1: ERROR: boom", status: "proposed" },
+          { build_log: "src/App.tsx:3:1: ERROR: boom", status: "failed" },
           { build_log: null, status: "active" },
         ],
       };

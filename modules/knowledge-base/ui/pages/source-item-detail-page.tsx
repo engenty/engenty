@@ -6,7 +6,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { Skeleton } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   type SourceItemBodyTab,
@@ -18,12 +18,7 @@ import {
   sourceItemHeadingTitle,
 } from "../components/source-item-detail-header.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import {
-  KB_MODULE_BASE,
-  kbSourceItemPath,
-  kbSourcePath,
-  kbSourcesPath,
-} from "../kb-paths.js";
+import { kbSourcePath, kbSourcesPath } from "../kb-paths.js";
 import {
   kbModulePageShellInnerClassName,
   kbModulePageShellSectionClassName,
@@ -32,25 +27,19 @@ import { createKbModuleRichEditorLinkHandler } from "../lib/kb-rich-editor-link-
 import {
   inboxDetailQueryOptions,
   kbSourceItemDetailQueryOptions,
-  kbsQueryOptions,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function SourceItemDetailPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const [bodyViewTab, setBodyViewTab] = useState<SourceItemBodyTab>("parsed");
-  const { itemId, kbSlug: kbSlugParam } = useParams<{
-    itemId: string;
-    kbSlug?: string;
-  }>();
+  const { itemId } = useParams<{ itemId: string }>();
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
-  const kbIdFromUrl = useMemo(
-    () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
-    [kbSlugParam, kbs]
-  );
+  const kbIdFromUrl = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const {
     data: payload,
@@ -111,50 +100,15 @@ export function SourceItemDetailPage() {
     setBodyViewTab("parsed");
   }, [itemId]);
 
-  const canonicalSlug = useMemo(
-    () => (parentSource ? slugFromKbId(kbs, parentSource.kb_id) : undefined),
-    [kbs, parentSource]
-  );
-
-  useEffect(() => {
-    if (!(itemId && parentSource && canonicalSlug)) {
-      return;
-    }
-    if (kbSlugParam === canonicalSlug) {
-      return;
-    }
-    navigate(kbSourceItemPath(canonicalSlug, itemId), { replace: true });
-  }, [canonicalSlug, itemId, kbSlugParam, navigate, parentSource]);
-
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
   const kbId = parentSource?.kb_id ?? kbIdFromUrl ?? "";
 
-  useEffect(() => {
-    if (!kbsLoading && kbSlugParam && !kbIdFromUrl && !parentSource) {
-      navigate(KB_MODULE_BASE, { replace: true });
-    }
-  }, [kbIdFromUrl, kbSlugParam, kbsLoading, navigate, parentSource]);
-
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (nextSlug) {
-        navigate(kbSourcesPath(nextSlug));
-      }
-    },
-    [kbs, navigate]
-  );
-
-  const sourcesListHref = kbSlug ? kbSourcesPath(kbSlug) : KB_MODULE_BASE;
-  const parentSourceHref =
-    kbSlug && parentSource
-      ? kbSourcePath(kbSlug, parentSource.id)
-      : sourcesListHref;
+  const sourcesListHref = kbSourcesPath();
+  const parentSourceHref = parentSource
+    ? kbSourcePath(parentSource.id)
+    : sourcesListHref;
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbId || "",
-    kbSlug: kbSlug || "",
-    onKbChange: navigateKb,
   });
 
   const onRichTextLinkClick = useMemo(
@@ -165,7 +119,6 @@ export function SourceItemDetailPage() {
   const itemTitle = item ? sourceItemHeadingTitle(item) : "…";
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: null,
     breadcrumbs:
@@ -195,18 +148,15 @@ export function SourceItemDetailPage() {
   }
 
   if (detailError || !item || !parentSource || !itemId) {
-    const backAction =
-      kbSlug && parentSource
-        ? {
-            label: t("sources.back_to_source"),
-            onBack: () => navigate(parentSourceHref),
-          }
-        : kbSlug
-          ? {
-              label: t("sources.back_to_list"),
-              onBack: () => navigate(sourcesListHref),
-            }
-          : null;
+    const backAction = parentSource
+      ? {
+          label: t("sources.back_to_source"),
+          onBack: () => navigate(parentSourceHref),
+        }
+      : {
+          label: t("sources.back_to_list"),
+          onBack: () => navigate(sourcesListHref),
+        };
 
     return (
       <SourceItemDetailError
@@ -227,7 +177,6 @@ export function SourceItemDetailPage() {
         <SourceItemDetailHeader
           extraMetadata={metadataForJsonPanel}
           item={item}
-          kbSlug={kbSlug}
         />
 
         <div className="flex w-full min-w-0 flex-col gap-2">

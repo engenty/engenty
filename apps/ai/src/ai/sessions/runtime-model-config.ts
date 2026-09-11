@@ -12,8 +12,18 @@ import type { AiGatewayModelStore } from "../../gateway-models.js";
 import type { RuntimeModelConfig } from "../registry/index.js";
 import type { AiSessionScope, ThreadServiceOptions } from "./types.js";
 
+/**
+ * What model resolution actually needs. Narrower than `ThreadServiceOptions`
+ * (which structurally satisfies it, so session callers are unchanged) because
+ * graph runs resolve models too and have no thread service to hand over.
+ */
+export type RuntimeModelConfigDeps = Pick<
+  ThreadServiceOptions,
+  "getUsageStore" | "resolveTenantModelConfig"
+>;
+
 export async function resolveRuntimeModelConfig(
-  opts: ThreadServiceOptions,
+  opts: RuntimeModelConfigDeps,
   scope: AiSessionScope,
   modelIdOverride?: string | null,
   effort?: AiEffort | null
@@ -92,8 +102,25 @@ export async function resolveRuntimeModelConfig(
     ? (bindings?.get(graded(clamped))?.modelId ?? null)
     : null;
   const sessionModelId = modelIdOverride ?? effortModelId;
+  // Every graded tier's model, clamped to the plan, so an agent with its own
+  // default tier can be placed on it without a second policy read.
+  const gradedModelIds: Partial<Record<AiEffort, string>> = {};
+  for (const tier of ["low", "medium", "high"] as const) {
+    const allowed = clampEffort(tier, {
+      allowed_efforts: allowedEfforts as never,
+    });
+    const modelId = allowed ? bindings?.get(graded(allowed))?.modelId : null;
+    if (modelId) {
+      gradedModelIds[tier] = modelId;
+    }
+  }
 
   return {
+    // A caller that passed an effort decided the tier for this run (the
+    // person's pick, or Auto's answer for their own agent); agents assembled
+    // under it do not re-decide. Delegated and room turns clear this.
+    effortPinned: effort != null,
+    gradedModelIds,
     // Carried so per-agent pins are checked against the same grants, without a
     // policy read per assembled sub-agent.
     grants:
@@ -118,6 +145,31 @@ export async function resolveRuntimeModelConfig(
       purpose: "routing",
       tenantDefault:
         tenantConfig?.routingModelId?.trim() || tenantChatModel || null,
+    }),
+    // Work-coordinator tier: same stored knob as routing (coordinator_model_id,
+    // surfaced via tenantConfig.routingModelId) but a CHAT-grade role binding —
+    // resolving the coordinator through the "router" binding once put a plan
+    // run on the small routing model, which capped out mid-document.
+    coordinatorModelId: resolveChatModelId({
+      allowedModels,
+      allowedProviders,
+      bindings,
+      devMode,
+      override: sessionModelId,
+      purpose: "coordinator",
+      tenantDefault:
+        tenantConfig?.routingModelId?.trim() || tenantChatModel || null,
+    }),
+    // Observational memory: its own role, not the router's. Not conversational
+    // either — the observer/reflector run in the background, so the
+    // per-conversation override does not apply.
+    memoryModelId: resolvePurposeModelId({
+      allowedModels,
+      allowedProviders,
+      bindings,
+      devMode,
+      purpose: "memory",
+      tenantDefault: tenantConfig?.memoryModelId?.trim() || null,
     }),
     // Research / planning tiers are agent-purpose tiers, not conversational — the
     // per-conversation override does not apply to them.

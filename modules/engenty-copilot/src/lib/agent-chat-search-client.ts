@@ -143,6 +143,10 @@ function syntheticThreadFromHit(hit: AgentChatSearchHit): AgentThreadDto {
     id: item.thread_id,
     metadata: {},
     route_context: {},
+    // The search index carries no space. Null rather than a guess: the only
+    // reader that acts on this field warns about a cross-space chat, and it
+    // must not fire on a row that simply does not know.
+    space_id: null,
     status: item.session_status as AgentThreadDto["status"],
     summary: null,
     tenant_id: item.tenant_id,

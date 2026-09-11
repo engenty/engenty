@@ -50,13 +50,20 @@ function joinDraftParts(prefix: string, spoken: string): string {
   return `${base} ${next}`;
 }
 
+/**
+ * In continuous mode `event.results` holds every result since `start()`;
+ * only entries from `resultIndex` on changed in this event. Results below it
+ * were already committed by an earlier event, so walking from 0 would append
+ * every finalized phrase again on each new event.
+ */
 function collectTranscriptFromEvent(event: SpeechRecognitionEvent): {
   finalText: string;
   interimText: string;
 } {
   let finalText = "";
   let interimText = "";
-  for (let index = 0; index < event.results.length; index += 1) {
+  const start = Math.max(0, event.resultIndex ?? 0);
+  for (let index = start; index < event.results.length; index += 1) {
     const result =
       typeof event.results.item === "function"
         ? event.results.item(index)

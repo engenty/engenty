@@ -2,7 +2,8 @@
   "$schema": "engenty/ai-agent-manifest/v1",
   "id": "engenty.copilot",
   "name": "Engenty Copilot",
-  "description": "Supervisor copilot, running in the UI frame, for Engenty. Uses registered catalog and app UI tools directly; delegates CLI/sandbox work to the engenty.cli sub-agent. It provides the main chat interface for users to interact with Engenty.",
+  "description": "Live front-door copilot for Engenty. Completes bounded work in this chat. Recurring jobs become Routines on an Engenty; owned work is a Task, and an outcome that needs several becomes several linked Tasks.",
+  "engenty": "round",
   "module_id": "engenty",
   "instruction_files": ["AGENTS.md", "SOUL.md", "SKILLS.md"],
   "instruction_keys": [
@@ -10,12 +11,46 @@
     "engenty.copilot.soul",
     "engenty.copilot.skills"
   ],
-  "skills": [],
+  "skills": [
+    "work-routing",
+    "hire-agent",
+    "durable-work",
+    "space-data",
+    "space-setup"
+  ],
   "tools": [
     "engentyApiCatalog",
     "engentyApi",
     "delegateToAgent",
-    "memory",
-    "chatThreadSearch"
-  ]
+    "chatThreadSearch",
+    "registry_agents_list",
+    "message_agent"
+  ],
+  "starters": [
+    {
+      "id": "copilot-assign-durable",
+      "label": "Assign durable work",
+      "prompt": "Create one Task for the right mounted Engenty so the work survives this chat, and tell me what was assigned.",
+      "locales": {
+        "de": {
+          "label": "Dauerhafte Arbeit zuweisen",
+          "prompt": "Erstelle eine Aufgabe für den passenden eingebundenen Engenty, damit die Arbeit diesen Chat überdauert, und sag mir, was zugewiesen wurde."
+        }
+      }
+    },
+    {
+      "id": "copilot-ask-live",
+      "label": "Ask an Engenty now",
+      "prompt": "Ask the right mounted Engenty now and return their reply in this chat. Keep this live; do not create a Task.",
+      "locales": {
+        "de": {
+          "label": "Engenty jetzt fragen",
+          "prompt": "Frag jetzt den passenden eingebundenen Engenty und gib seine Antwort in diesem Chat zurück. Das bleibt live; erstelle keine Aufgabe."
+        }
+      }
+    }
+  ],
+  "kind": "interface",
+  "interfaceRole": "live",
+  "moduleId": null
 }

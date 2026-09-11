@@ -38,8 +38,18 @@ export function getCurrentEngentyToolsClient(
       accessToken,
       ...(ctx.agentId ? { agentId: ctx.agentId } : {}),
       ...(ctx.goalId ? { goalId: ctx.goalId } : {}),
+      // CN.3 — the run's space, so core can narrow a connector call to the
+      // ACCOUNTS this space mounts. The AI-side gate refuses an unmounted
+      // connector before the call; this is the half that reaches the account,
+      // which only core can see.
+      ...(ctx.space?.spaceId ? { spaceId: ctx.space.spaceId } : {}),
       ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
-      ...(ctx.triggerId ? { triggerId: ctx.triggerId } : {}),
+      ...(ctx.routineId ? { routineId: ctx.routineId } : {}),
+      // Headless runs: re-mint + retry once when the service token expires
+      // mid-run instead of losing every core-backed tool until the run ends.
+      ...(ctx.refreshAccessToken
+        ? { refreshAccessToken: ctx.refreshAccessToken }
+        : {}),
     }),
   };
 }

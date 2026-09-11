@@ -16,11 +16,68 @@ cd "$ROOT"
 # Workspace-vendored CLI (pnpm install). Prefer it over a random global binary.
 export PATH="${ROOT}/node_modules/.bin:${PATH}"
 
-SUPABASE_API="http://127.0.0.1:54321"
-# Shared across all engenty worktrees — only one predev may start/heal Supabase
-# or apply migrations at a time. Parallel `pnpm dev` is supported; they serialize
-# on this lock instead of racing `supabase stop`/`start`.
-SUPABASE_LOCK_DIR="${TMPDIR:-/tmp}/engenty-local-supabase.predev.lock"
+# Which Supabase stack this worktree talks to. Derived from the worktree's OWN
+# `supabase/config.toml` — the same file `supabase start` reads, so the probe
+# and the stack can never disagree.
+#
+# Hardcoding `engenty-local` / :54321 here made every check in this script
+# inspect the MAIN checkout's stack: a worktree on :54821 printed
+# "✓ Supabase healthy" while its own Postgres was stopped, and — worse — a
+# "heal" would have restarted a stack another checkout was actively using.
+# A false green is the expensive failure: the dev server then boots against
+# nothing and the symptoms surface much later as 401s and 502s.
+#
+# Values are read, never guessed: a missing config.toml is a hard error, because
+# `pnpm engenty setup --local` generates it and its absence means first-run setup
+# was skipped (see .claude/skills/dev-server).
+SUPABASE_CONFIG="${ROOT}/supabase/config.toml"
+
+# Minimal TOML reader: section name ("" = top level) + key. Enough for the flat
+# scalars we need; not a general TOML parser.
+supabase_config_value() {
+  awk -v want_section="$1" -v want_key="$2" '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*\[/ {
+      section = $0
+      sub(/^[[:space:]]*\[/, "", section)
+      sub(/\][[:space:]]*$/, "", section)
+      next
+    }
+    index($0, "=") == 0 { next }
+    {
+      line = $0
+      sub(/#.*/, "", line)
+      key = substr(line, 1, index(line, "=") - 1)
+      gsub(/[[:space:]"]/, "", key)
+      if (section != want_section || key != want_key) { next }
+      val = substr(line, index(line, "=") + 1)
+      gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", val)
+      print val
+      exit
+    }
+  ' "$SUPABASE_CONFIG"
+}
+
+if [[ ! -f "$SUPABASE_CONFIG" ]]; then
+  echo "Missing ${SUPABASE_CONFIG}." >&2
+  echo "Run: pnpm engenty setup --local" >&2
+  exit 1
+fi
+
+SUPABASE_PROJECT_ID="$(supabase_config_value "" project_id)"
+SUPABASE_API_PORT="$(supabase_config_value api port)"
+if [[ -z "$SUPABASE_PROJECT_ID" || -z "$SUPABASE_API_PORT" ]]; then
+  echo "Could not read project_id / [api] port from ${SUPABASE_CONFIG}." >&2
+  exit 1
+fi
+SUPABASE_API="http://127.0.0.1:${SUPABASE_API_PORT}"
+
+# Per-STACK, not per-machine: only one predev may start/heal a given Supabase
+# project or apply its migrations at a time. Worktrees that run their own stack
+# no longer serialize against each other — they contend only with checkouts
+# sharing their project_id, which is exactly the set that can race
+# `supabase stop`/`start`.
+SUPABASE_LOCK_DIR="${TMPDIR:-/tmp}/engenty-${SUPABASE_PROJECT_ID}-supabase.predev.lock"
 # How long to wait for REST/Auth to settle (schema cache, concurrent start) before
 # treating an unhealthy probe as a reason to heal/restart.
 SUPABASE_GRACE_SECS="${ENGENTY_SUPABASE_GRACE_SECS:-45}"
@@ -209,14 +266,15 @@ supabase_auth_reachable() {
   [[ "$code" == "200" ]]
 }
 
-# Critical containers for local API. Names match project_id = engenty-local.
+# Critical containers for local API. The Supabase CLI names containers
+# `supabase_<service>_<project_id>`, so these follow this worktree's project.
 supabase_critical_containers_up() {
   local name status
   for name in \
-    supabase_db_engenty-local \
-    supabase_kong_engenty-local \
-    supabase_rest_engenty-local \
-    supabase_auth_engenty-local
+    "supabase_db_${SUPABASE_PROJECT_ID}" \
+    "supabase_kong_${SUPABASE_PROJECT_ID}" \
+    "supabase_rest_${SUPABASE_PROJECT_ID}" \
+    "supabase_auth_${SUPABASE_PROJECT_ID}"
   do
     status="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo missing)"
     if [[ "$status" != "running" ]]; then
@@ -243,7 +301,7 @@ supabase_half_dead() {
 # reports "already running" and never recovers without an explicit stop.
 supabase_exited_stack() {
   local status
-  status="$(docker inspect -f '{{.State.Status}}' supabase_db_engenty-local 2>/dev/null || echo missing)"
+  status="$(docker inspect -f '{{.State.Status}}' "supabase_db_${SUPABASE_PROJECT_ID}" 2>/dev/null || echo missing)"
   [[ "$status" == "exited" || "$status" == "dead" ]]
 }
 
@@ -307,8 +365,12 @@ soft_heal_supabase_rest() {
   if ! supabase_critical_containers_up; then
     return 1
   fi
-  echo "Soft-healing PostgREST (docker restart supabase_rest_engenty-local)…" >&2
-  if ! docker restart supabase_rest_engenty-local >/dev/null 2>&1; then
+  # This one MUST follow the project id: restarting a container by a hardcoded
+  # name would have bounced another checkout's PostgREST out from under a
+  # colleague's running dev server.
+  local rest_container="supabase_rest_${SUPABASE_PROJECT_ID}"
+  echo "Soft-healing PostgREST (docker restart ${rest_container})…" >&2
+  if ! docker restart "$rest_container" >/dev/null 2>&1; then
     return 1
   fi
   wait_supabase_ready "$SUPABASE_SOFT_HEAL_SECS" "Waiting after REST restart"
@@ -332,7 +394,7 @@ ensure_supabase() {
   if supabase_exited_stack; then
     echo "" >&2
     echo "Local Supabase containers are stopped (common after reboot)." >&2
-    echo "Starting shared database stack (engenty-local)…" >&2
+    echo "Starting database stack (${SUPABASE_PROJECT_ID})…" >&2
     supabase stop >/dev/null 2>&1 || true
     if ! supabase start; then
       echo "supabase start stuck with down containers — stop + start retry…" >&2

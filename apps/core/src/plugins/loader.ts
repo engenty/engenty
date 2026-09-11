@@ -7,6 +7,12 @@ import {
   resolveModuleDir,
 } from "@engenty/environment";
 import {
+  createNotificationsHost,
+  notificationsPolicyFromEnv,
+  type OriginServiceDb,
+  originLookupsFromServiceDb,
+} from "@engenty/notifications";
+import {
   type ContextGraphHost,
   type ContextGraphSchemaRegistration,
   createPluginEventsRuntime,
@@ -29,6 +35,7 @@ import {
   type RetrievalSourceRegistration,
 } from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createJiti } from "jiti";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
 import { createDatabaseAdapter } from "../infra/index.js";
@@ -266,6 +273,38 @@ function createPluginApi(params: {
     server: params.pluginApi.server,
   });
 
+  // One notifications host per process, built the first time any plugin api
+  // is created — before that plugin's factory runs — so a module can emit
+  // regardless of load order. Tenant-locked lane when configured, the service
+  // adapter otherwise; neither → no host on `server`.
+  if (!params.registry.notificationsHost) {
+    const getTenantDb = params.pluginApi.server.getTenantDb;
+    const serviceDb = params.pluginApi.server.getServiceDb?.() as
+      | SupabaseClient
+      | null
+      | undefined;
+    if (getTenantDb || serviceDb) {
+      params.registry.notificationsHost = createNotificationsHost({
+        db: {
+          forTenant: (tenantId) =>
+            ((getTenantDb
+              ? (getTenantDb({ tenantId }) as SupabaseClient | null)
+              : null) ?? serviceDb) as SupabaseClient,
+        },
+        events: params.eventsRuntime.api,
+        ...(serviceDb
+          ? {
+              origin: originLookupsFromServiceDb(
+                serviceDb as unknown as OriginServiceDb
+              ),
+            }
+          : {}),
+        ...notificationsPolicyFromEnv(),
+      });
+    }
+  }
+  const notificationsHost = params.registry.notificationsHost;
+
   return {
     ai: {},
     capabilities: {
@@ -390,8 +429,12 @@ function createPluginApi(params: {
           ...(registration.operation.overrides
             ? { operationOverrides: registration.operation.overrides }
             : {}),
+          ...(registration.operation.spacePolicy
+            ? { spacePolicy: registration.operation.spacePolicy as never }
+            : {}),
         });
       },
+      ...(notificationsHost ? { notifications: notificationsHost } : {}),
       registerSearchIndexProvider: searchIndexHost,
     },
     source: createPluginSourceInfo(params.record, "server.plugin"),
@@ -658,7 +701,6 @@ export function registerPluginFactory(params: {
     params.registry.searchIndexRegistry ??
     createSearchIndexRegistry();
   params.registry.searchIndexRegistry = searchIndexRegistry;
-
   try {
     const mod = jiti(params.record.source) as { default?: LoadedPluginEntry };
     const def = mod?.default;
@@ -789,8 +831,15 @@ export function createPluginRecord(params: {
     manifestPath: params.manifestPath,
     kind: params.manifest.kind,
     category: params.manifest.category,
+    placement: params.manifest.placement,
     tier: params.manifest.tier,
     capabilities: params.manifest.capabilities,
+    ...(params.manifest.connections
+      ? { connections: params.manifest.connections }
+      : {}),
+    ...(params.manifest.mountOperation
+      ? { mountOperation: params.manifest.mountOperation }
+      : {}),
     ui: params.manifest.ui,
     provides: params.manifest.provides ?? [],
     requires: params.manifest.requires ?? [],

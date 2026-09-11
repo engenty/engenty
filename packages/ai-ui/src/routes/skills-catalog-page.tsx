@@ -73,7 +73,11 @@ const SKILL_CATALOG_DISPLAY_DEFAULTS = {
   sortBy: "name" as SkillCatalogSortBy,
   sortOrder: "asc" as const,
   tableSize: "compact" as const,
-  viewMode: "table" as const,
+  // Cards, not the table: a skill is chosen by reading what it DOES, and the
+  // description is what says that. The table leads with identifiers, which is
+  // the right default only once you already know what you're looking for.
+  // Only affects users with no stored preference — the toggle still persists.
+  viewMode: "cards" as const,
 };
 
 export function SkillsCatalogPage() {
@@ -266,7 +270,6 @@ export function SkillsCatalogPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
   });
 

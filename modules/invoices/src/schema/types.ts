@@ -78,10 +78,21 @@ export interface Invoice {
   tax: number;
   templateId?: string | null;
   title?: string | null;
+  /**
+   * Last write, and the optimistic-concurrency token the space Data protocol
+   * checks a write against (`SpaceDataDocument.version`). Not derivable from
+   * anything else on the record — `createdAt` and `issuedAt` do not move when
+   * a draft is edited — so a record without it cannot detect a concurrent
+   * edit, only overwrite one.
+   */
+  updatedAt: string;
   usageBased?: boolean;
 }
 
-export type InvoiceInput = Omit<Invoice, "id" | "createdAt" | "status"> & {
+export type InvoiceInput = Omit<
+  Invoice,
+  "createdAt" | "id" | "status" | "updatedAt"
+> & {
   status?: InvoiceStatus;
 };
 

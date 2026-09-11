@@ -4,17 +4,30 @@ import { streamText } from "ai";
 
 import { DEFAULT_AI_CHAT_MODEL_GATEWAY_ID } from "../config/models.js";
 import {
-  type ActionRequestStore,
-  createActionRequestStore,
-} from "../dal/action-requests/action-request-store.js";
+  createRoutineStore,
+  type RoutineStore,
+} from "../dal/routines/routine-store.js";
+import {
+  createRoutineTriggerStore,
+  type RoutineTriggerStore,
+} from "../dal/routines/routine-trigger-store.js";
 import {
   type AgentRunStore,
   createAgentRunStore,
   createThreadStore,
   type ThreadStore,
 } from "../dal/threads/index.js";
+import {
+  createWorkflowRunStore,
+  type WorkflowRunStore,
+} from "../dal/workflow-runs/workflow-run-store.js";
+import {
+  createWorkflowStore,
+  type WorkflowStore,
+} from "../dal/workflows/index.js";
 
 export { createArtifactStoreFromEnv } from "../dal/artifacts/index.js";
+export { createDataTableStoreFromEnv } from "../dal/data-tables/index.js";
 
 import {
   type ChatSearchRetrieval,
@@ -81,6 +94,7 @@ export type {
   MastraToolDefinition,
 } from "./registry/index.js";
 export {
+  type AgentStateSessionStore,
   assembleDynamicAgent,
   BuiltinProvider,
   CompositeAiRegistry,
@@ -204,10 +218,36 @@ export function createRegistryStoreFromEnv(): RegistryStore | null {
   return createRegistryStore(source);
 }
 
-export function createActionRequestStoreFromEnv(): ActionRequestStore | null {
+export function createWorkflowRunStoreFromEnv(): WorkflowRunStore | null {
   const source = createDbSourceFromEnv();
   if (!source) {
     return null;
   }
-  return createActionRequestStore(source);
+  return createWorkflowRunStore(source);
+}
+
+export function createRoutineStoreFromEnv(): RoutineStore | null {
+  const source = createDbSourceFromEnv();
+  if (!source) {
+    return null;
+  }
+  return createRoutineStore(source);
+}
+
+export function createRoutineTriggerStoreFromEnv(): RoutineTriggerStore | null {
+  const source = createDbSourceFromEnv();
+  if (!source) {
+    return null;
+  }
+  return createRoutineTriggerStore(source);
+}
+
+export function createWorkflowStoreFromEnv(): WorkflowStore | null {
+  const client = createAiDatabaseAdapter(
+    process.env as unknown as Record<string, unknown>
+  );
+  if (!client) {
+    return null;
+  }
+  return createWorkflowStore(client);
 }

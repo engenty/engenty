@@ -35,7 +35,6 @@ function PlatformSettingsPageInner({
 
   usePageConfig({
     breadcrumbs,
-    topbarChrome: "contentBlend",
     secondaryNavHeaderSlot,
   });
 

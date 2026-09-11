@@ -46,7 +46,7 @@ export function CgAskBox({ onClear, onResult, result }: Props) {
         : null;
 
   return (
-    <div className="absolute top-3 left-3 z-10 flex w-80 flex-col gap-2 rounded-xl border border-border/80 bg-background/90 p-3 shadow-lg backdrop-blur-sm">
+    <div className="absolute top-3 left-3 z-10 flex w-80 flex-col gap-2 rounded-xl border border-border bg-background/90 p-3 shadow-lg backdrop-blur-sm">
       <form
         className="flex items-center gap-1.5"
         onSubmit={(e) => {
@@ -88,7 +88,7 @@ export function CgAskBox({ onClear, onResult, result }: Props) {
         <div className="flex flex-wrap gap-1">
           {SUGGESTIONS.map((s) => (
             <button
-              className="rounded-full border border-border/60 px-2 py-0.5 text-muted-foreground text-xxs transition-colors hover:bg-muted"
+              className="rounded-full border border-border-soft px-2 py-0.5 text-muted-foreground text-xxs transition-colors hover:bg-muted"
               key={s}
               onClick={() => submit(s)}
               type="button"

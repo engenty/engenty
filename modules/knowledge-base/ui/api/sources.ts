@@ -16,7 +16,6 @@ import type {
   KbSourceRun,
   KbSourceStatus,
   KbTemplateBindingMode,
-  KbTemplateContentMode,
   PaginatedResponse,
 } from "../../src/schema/types.js";
 
@@ -187,32 +186,35 @@ async function putKbSignedUpload(
 export const KB_FILE_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
 export interface UploadKbVaultFileOptions {
-  /** Knowledge base slug (or id when slug is unavailable). Becomes the third path segment. */
-  kbSlug: string;
+  /** Knowledge base the bytes belong to. The SERVER derives the key from it. */
+  kbId: string;
   /** Optional sub-folder under the KB root, e.g. `covers`. */
   subPath?: string;
-  /** Engenty tenant id used to build the storage key prefix. */
-  tenantId: string;
 }
 
-/** Build the canonical KB storage key: `tenants/<tid>/knowledge-base/<slug>/[<sub>/]<ts>_<safeName>`. */
-export function buildKbVaultFileKey(input: {
+/**
+ * Ask the server for this upload's object key.
+ *
+ * The browser deliberately does NOT compose the key. It used to, and that is
+ * how KB bytes stayed rooted at `tenants/<t>/knowledge-base/…` after the row
+ * gained a `space_id` — the layout lived in a UI helper that read as string
+ * formatting rather than as storage code. The root now has exactly one
+ * definition, server-side, in `src/lib/kb-storage-key.ts`.
+ */
+async function requestKbUploadKey(input: {
   filename: string;
-  kbSlug: string;
+  kbId: string;
   subPath?: string;
-  tenantId: string;
-  /** Override the timestamp segment in tests; defaults to `Date.now()`. */
-  timestamp?: number;
-}): string {
-  const safeName = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const stamped = `${input.timestamp ?? Date.now()}_${safeName}`;
-  const slug = input.kbSlug.trim();
-  if (!slug) {
-    throw new Error("kb_slug_required");
-  }
-  const sub = input.subPath?.replace(/^\/+|\/+$/g, "");
-  const tail = sub ? `${sub}/${stamped}` : stamped;
-  return `tenants/${input.tenantId}/knowledge-base/${slug}/${tail}`;
+}): Promise<string> {
+  const { key } = await requestApiJson<{ key: string }>("/api/kb/upload-key", {
+    method: "POST",
+    body: JSON.stringify({
+      kb_id: input.kbId,
+      filename: input.filename,
+      ...(input.subPath ? { sub_path: input.subPath } : {}),
+    }),
+  });
+  return key;
 }
 
 function resolveKbUploadContentType(file: File, safeName: string): string {
@@ -228,18 +230,15 @@ function resolveKbUploadContentType(file: File, safeName: string): string {
 }
 
 /**
- * Browser-direct KB upload: requests a signed URL from core, PUTs the bytes,
- * and returns the canonical tenant-scoped key. Replaces the legacy multipart POST.
+ * Browser-direct KB upload: asks the server where the bytes go, requests a
+ * signed URL from core, PUTs the bytes, and returns the key.
  */
 export async function uploadKbVaultFile(
   file: File,
   opts: UploadKbVaultFileOptions
 ): Promise<KbFileUploadInfo> {
-  if (!opts.tenantId) {
-    throw new Error("upload_tenant_required");
-  }
-  if (!opts.kbSlug?.trim()) {
-    throw new Error("kb_slug_required");
+  if (!opts.kbId?.trim()) {
+    throw new Error("kb_id_required");
   }
   if (file.size > KB_FILE_UPLOAD_MAX_BYTES) {
     throw new Error("upload_too_large");
@@ -247,11 +246,10 @@ export async function uploadKbVaultFile(
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const contentType = resolveKbUploadContentType(file, safeName);
-  const key = buildKbVaultFileKey({
+  const key = await requestKbUploadKey({
     filename: file.name,
-    kbSlug: opts.kbSlug,
-    subPath: opts.subPath,
-    tenantId: opts.tenantId,
+    kbId: opts.kbId,
+    ...(opts.subPath ? { subPath: opts.subPath } : {}),
   });
 
   const signed = await requestKbSignedUploadUrl({ contentType, key });
@@ -261,6 +259,47 @@ export async function uploadKbVaultFile(
     filename: file.name,
     key: signed.key,
     size_bytes: file.size,
+  };
+}
+
+/** OCR-backed converters routinely outlive the client default of 15s. */
+const CONVERT_TIMEOUT_MS = 300_000;
+
+export interface KbConvertedDocument {
+  markdown: string;
+  original_filename: string;
+  storage_object_key: string | null;
+}
+
+/**
+ * Upload a document and get its text back.
+ *
+ * `uploadKbVaultFile` only moves bytes — nothing downstream can read a PDF or
+ * a DOCX, so a source built from it has a file and no content. This endpoint
+ * stores the original under the KB root *and* extracts markdown in one pass.
+ */
+export async function convertKbDocument(
+  file: File,
+  opts: { kbId: string; signal?: AbortSignal }
+): Promise<KbConvertedDocument> {
+  if (file.size > KB_FILE_UPLOAD_MAX_BYTES) {
+    throw new Error("upload_too_large");
+  }
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kb_id", opts.kbId);
+  const body = await requestApiJson<{
+    markdown?: string;
+    original?: { storage_path?: string } | null;
+  }>(`${API}/convert-document`, {
+    method: "POST",
+    body: form,
+    signal: opts.signal ?? AbortSignal.timeout(CONVERT_TIMEOUT_MS),
+  });
+  return {
+    markdown: body.markdown ?? "",
+    original_filename: file.name,
+    storage_object_key: body.original?.storage_path ?? null,
   };
 }
 
@@ -421,14 +460,18 @@ export async function previewKbSourceIndex(input: {
   });
 }
 
-export type KbSourceIngestStrategy = "articles" | "summary" | "agentic";
+export type KbSourceIngestStrategy = "per_entry" | "per_source" | "agentic";
 
 export interface IngestKbSourceOptions {
+  attach_original?: boolean;
   category_id?: string | null;
-  content_mode?: KbTemplateContentMode;
+  include_full_content?: boolean;
+  include_questions?: boolean;
+  include_summary?: boolean;
   instructions?: string;
   item_ids?: string[];
   parent_article_id?: string;
+  split_long_articles?: boolean;
   strategy: KbSourceIngestStrategy;
   template_id?: string | null;
   template_mode?: KbTemplateBindingMode;
@@ -443,6 +486,82 @@ export interface IngestKbSourceResult {
   task_id?: string;
 }
 
+export interface KbSourceAnalysisConcept {
+  claim: string;
+  name: string;
+}
+
+export interface KbSourceAnalysisPage {
+  category: string;
+  covers: string[];
+  rationale: string;
+  title: string;
+}
+
+export interface KbSourceAnalysis {
+  concepts: KbSourceAnalysisConcept[];
+  overview: string;
+  pages: KbSourceAnalysisPage[];
+  sampled_items: number;
+  suggested_instructions: string;
+  total_items: number;
+}
+
+/**
+ * These two calls run a model (analysis) or a whole ingestion pass (ingest)
+ * inside the request, so they routinely outlive the api-client's 15s default.
+ * Without an explicit signal the browser aborts while the server keeps going —
+ * the work lands, but the UI never learns the outcome.
+ */
+const ANALYZE_TIMEOUT_MS = 180_000;
+const INGEST_TIMEOUT_MS = 900_000;
+
+/** Read-only: proposes a wiki structure and drafts the authoring brief. */
+export async function analyzeKbSource(
+  sourceId: string,
+  options: { hint?: string; sample_size?: number } = {}
+): Promise<KbSourceAnalysis> {
+  return requestApiJson<KbSourceAnalysis>(
+    `${API}/sources/${sourceId}/analyze`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+      signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+    }
+  );
+}
+
+export interface KbSourceTemplateSuggestion {
+  content_markdown: string;
+  description: string;
+  name: string;
+  properties: Array<{
+    description: string;
+    label: string;
+    options: string[];
+    type: "text" | "number" | "date" | "url" | "select";
+  }>;
+  rationale: string;
+  sampled_items: number;
+  total_items: number;
+}
+
+export async function suggestKbSourceTemplate(
+  id: string,
+  body: { hint?: string; sample_size?: number } = {}
+): Promise<KbSourceTemplateSuggestion> {
+  return requestApiJson<KbSourceTemplateSuggestion>(
+    `${API}/sources/${id}/suggest-template`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+    }
+  );
+}
+
 export async function ingestKbSource(
   sourceId: string,
   options: IngestKbSourceOptions
@@ -453,6 +572,7 @@ export async function ingestKbSource(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(options),
+      signal: AbortSignal.timeout(INGEST_TIMEOUT_MS),
     }
   );
 }

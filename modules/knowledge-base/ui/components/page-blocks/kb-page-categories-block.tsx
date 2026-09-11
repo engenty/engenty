@@ -34,7 +34,6 @@ export interface KbPageCategoriesBlockViewProps {
   categories: KbCategory[];
   editable?: boolean;
   kbId: string;
-  kbSlug: string;
   parentCategoryId: string | null;
 }
 
@@ -42,7 +41,6 @@ export function KbPageCategoriesBlockView({
   block,
   categories,
   kbId,
-  kbSlug,
   parentCategoryId,
   editable = false,
 }: KbPageCategoriesBlockViewProps) {
@@ -125,7 +123,7 @@ export function KbPageCategoriesBlockView({
             <li className="space-y-1" key={category.id}>
               <Link
                 className={kbFlatRowLinkClass}
-                to={kbCategoryPath(kbSlug, category.slug)}
+                to={kbCategoryPath(category.slug)}
               >
                 <div className="flex min-w-0 items-center gap-2">
                   {block.show_icon && category.icon ? (
@@ -149,12 +147,12 @@ export function KbPageCategoriesBlockView({
                 ) : null}
               </Link>
               {nestedArticles.length > 0 ? (
-                <ul className="ml-4 divide-y divide-border/40 border-border/40 border-l pl-3">
+                <ul className="ml-4 divide-y divide-border-soft border-border-soft border-l pl-3">
                   {nestedArticles.map((article) => (
                     <li key={article.id}>
                       <Link
                         className="block py-1.5 text-sm hover:underline"
-                        to={kbArticlePath(kbSlug, article.id)}
+                        to={kbArticlePath(article.id)}
                       >
                         {article.title}
                       </Link>
@@ -188,7 +186,7 @@ export function KbPageCategoriesBlockView({
           <Link
             className={kbTopicTeaserCardLinkClass}
             key={category.id}
-            to={kbCategoryPath(kbSlug, category.slug)}
+            to={kbCategoryPath(category.slug)}
           >
             <div className="flex min-w-0 items-center gap-2">
               {block.show_icon && category.icon ? (

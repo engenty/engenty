@@ -1,3 +1,4 @@
+import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import {
   applyCsvHeaders,
@@ -38,27 +39,14 @@ const importCleanupOutputSchema = z.object({
 
 export type ImportCleanupResult = z.infer<typeof importCleanupOutputSchema>;
 
+/**
+ * What this route needs from the host: the plugin-sdk's own route surface.
+ * The first cut hand-copied a lookalike route shape here; once this package's
+ * types resolved to source it stopped matching PluginServerApi and every
+ * module caller failed to typecheck. Type-only import — no runtime edge.
+ */
 export interface ImportCleanupRouteRegistrar {
-  registerHttpRoute: (route: {
-    handler: (ctx: {
-      body?: unknown;
-      request: Request;
-    }) => Promise<unknown | Response>;
-    method: "post";
-    operation: {
-      idempotent?: boolean;
-      requiredCapabilities: string[];
-      riskLevel: string;
-    };
-    path: string;
-    request: { body: typeof importCleanupInputSchema };
-    responses: Record<
-      number,
-      { description: string; schema: typeof importCleanupOutputSchema }
-    >;
-    summary: string;
-    tags: string[];
-  }) => void;
+  registerHttpRoute: (route: PluginHttpRoute) => unknown;
 }
 
 export interface RegisterImportCleanupRouteOptions {

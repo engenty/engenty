@@ -5,19 +5,21 @@
 // step lives separately in task-job-specialist-step.ts.
 import { createHash } from "node:crypto";
 import { createStep } from "@mastra/core/workflows";
-import { emitInboxNotification } from "../../notifications/inbox.js";
+import {
+  emitInboxNotification,
+  resolveNotifications,
+} from "../../notifications/inbox.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
-import {
-  routineEntityRef,
-  routineWorkspaceStoragePrefix,
-} from "./routine-continuity.js";
-import { parseRoutineDisposition } from "./routine-disposition.js";
 import {
   summarizeApprovalRequest,
   summarizeTaskResultHeadline,
 } from "./summarize-result-headline.js";
 import { buildTaskBrief } from "./task-brief.js";
+import {
+  resolveTaskCompletionPolicy,
+  taskCompletionPolicyDepsFromEnv,
+} from "./task-completion-policy.js";
 import { finishTaskJobRun, registerTaskJobRun } from "./task-job-run-record.js";
 import {
   isSkippedEnvelope,
@@ -25,10 +27,6 @@ import {
   taskJobInputSchema,
 } from "./task-job-schema.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
-import {
-  buildPriorLearningsSection,
-  entityRefsFromContexts,
-} from "./task-prior-learnings.js";
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -42,16 +40,29 @@ function isCheckoutConflict(error: unknown): boolean {
 }
 
 /**
- * The run's thread id, derived deterministically (UUIDv5-style, sha1 over the
- * run id) instead of randomly. `checkout` is idempotent and may re-execute when
- * a crash lands between the checkout call and the step snapshot; a random id
- * would mint a second `ai.thread` on that retry and repoint the run record at a
- * thread the run never used. Same run id → same thread id → the upsert is a
- * no-op on resume.
+ * The thread an executor works this task on, derived deterministically
+ * (UUIDv5-style, sha1) from the TASK and the ACTOR rather than from the run.
+ *
+ * Keyed per run, every dispatch minted a fresh `ai.thread`, so an agent picking
+ * the same task back up after a question, an approval or a crash started from
+ * nothing — the brief was the only carrier of context and anything learned in
+ * the previous run was gone. Keyed per (task, actor) the same agent keeps ONE
+ * working memory across dispatches, which is what a person doing the task would
+ * have. The brief still renders every run (it carries live task state and is
+ * the cold-start path for a new agent, a human takeover or a post-deploy run).
+ *
+ * The actor is in the key, not just the task: reassignment must NOT hand the
+ * new agent the old one's notes. A successor inherits the task_comments record,
+ * exactly as a human successor does, and starts its own thread.
+ *
+ * Determinism still buys what it bought before: `checkout` is idempotent and
+ * may re-execute when a crash lands between the checkout call and the step
+ * snapshot, and a random id would repoint the run record at a thread the run
+ * never used.
  */
-function threadIdForRun(runId: string): string {
+function threadIdForTaskActor(taskId: string, actorId: string): string {
   const h = createHash("sha1")
-    .update(`engenty:task-job:${runId}`)
+    .update(`engenty:task-thread:${taskId}:${actorId}`)
     .digest("hex");
   // RFC 4122 variant nibble must be 8-b; pick one deterministically from the
   // hash without bitwise ops (lint policy).
@@ -80,9 +91,18 @@ export const checkoutStep = createStep({
   execute: async ({ inputData, runId }) => {
     const scope = await resolveTaskJobServiceScope(inputData.tenant_id);
     const invoke = createScopeModuleOperationInvoker(scope);
+    // Checkout records WHO holds the task. This lane only ever runs a
+    // task-subject run — somebody assigned the work item to a specialist — so
+    // the specialist IS the actor and a task without one has nothing to run.
+    const actorId = inputData.agent_type_key;
+    if (!actorId) {
+      throw new Error(
+        `task-job: task ${inputData.task_id} has no specialist assigned to run it`
+      );
+    }
     try {
       await invoke("tasks_checkout", {
-        agent_id: inputData.agent_type_key,
+        agent_id: actorId,
         agent_run_id: runId,
         id: inputData.task_id,
       });
@@ -98,14 +118,16 @@ export const checkoutStep = createStep({
     }
     // Register the run as first-class (ai.thread + ai.agent_run, status running)
     // so the task's run-history card has a real lifecycle. The run id is the
-    // workflow run id checkout just bound as checkout_run_id.
-    const threadId = threadIdForRun(runId);
+    // workflow run id checkout just bound as checkout_run_id; the THREAD is the
+    // actor's standing one for this task, so run N opens on run N-1's memory.
+    const threadId = threadIdForTaskActor(inputData.task_id, actorId);
     await registerTaskJobRun({
-      agentTypeKey: inputData.agent_type_key,
+      agentTypeKey: actorId,
       runId,
       scope,
       taskId: inputData.task_id,
       threadId,
+      ...(inputData.started_by ? { startedBy: inputData.started_by } : {}),
     });
     return {
       ...inputData,
@@ -126,65 +148,17 @@ export const buildBriefStep = createStep({
     }
     const invoke = await invokerFor(inputData.tenant_id);
     const task = (await invoke("tasks_get", { id: inputData.task_id })) ?? {};
-    // Durable tool-approval grants: task-scoped ∪ one-shot ∪ routine-scoped.
-    // Read here so the specialist's "request" pre-gate lets pre-approved ops
-    // through; the one-shot list is consumed (cleared) for this run.
+    // Durable tool-approval grants: task-scoped ∪ one-shot. Read here so the
+    // specialist's "request" pre-gate lets pre-approved ops through; the
+    // one-shot list is consumed (cleared) for this run.
     const taskRow = task as {
-      goal_id?: string | null;
-      trigger_id?: string | null;
+      primary_assignee_user_id?: string | null;
+      space_id?: string | null;
     };
-    const routineWorkspacePrefix = taskRow.trigger_id
-      ? routineWorkspaceStoragePrefix(inputData.tenant_id, taskRow.trigger_id)
-      : undefined;
-    // Goal context (cheap half of "seeing each other"): goal title/status +
-    // open sibling task titles. Fetched here where the invoker already exists.
-    let goalContext:
-      | {
-          goal_sibling_titles: string[];
-          goal_status: string;
-          goal_title: string;
-        }
-      | undefined;
-    if (taskRow.goal_id) {
-      const goal = (await invoke("goals_get", {
-        id: taskRow.goal_id,
-      }).catch(() => null)) as { status?: string; title?: string } | null;
-      if (goal?.title) {
-        const siblings = (await invoke("tasks_list", {
-          goal_id: taskRow.goal_id,
-          pageSize: 11,
-        }).catch(() => null)) as {
-          data?: Array<{ id?: string; status?: string; title?: string }>;
-        } | null;
-        const siblingTitles = (siblings?.data ?? [])
-          .filter(
-            (t) =>
-              t.id !== inputData.task_id &&
-              t.status !== "done" &&
-              t.status !== "cancelled"
-          )
-          .map((t) => readString(t.title))
-          .filter(Boolean)
-          .slice(0, 10);
-        goalContext = {
-          goal_sibling_titles: siblingTitles,
-          goal_status: readString(goal.status),
-          goal_title: readString(goal.title),
-        };
-      }
-    }
-    const brief = buildTaskBrief({
-      ...(task as Parameters<typeof buildTaskBrief>[0]),
-      trigger_id: taskRow.trigger_id ?? null,
-      ...(taskRow.goal_id ? { goal_id: taskRow.goal_id } : {}),
-      ...(goalContext ?? {}),
-      ...(routineWorkspacePrefix
-        ? { routine_workspace_prefix: routineWorkspacePrefix }
-        : {}),
-    });
+    const brief = buildTaskBrief(task as Parameters<typeof buildTaskBrief>[0]);
     // Effective grant set for the run's pre-gate, computed by the tasks
-    // module from the core approval store + routine config (2d) — the legacy
-    // task-row columns are no longer read. Once-grants stay live in core so a
+    // module from the core approval store — the legacy task-row columns are no
+    // longer read. Once-grants stay live in core so a
     // core-side gate can spend them DURING the run; write-result reaps the
     // ones nobody spent. A failed read grants nothing (fail closed): the op
     // gates again rather than running unapproved.
@@ -192,39 +166,21 @@ export const buildBriefStep = createStep({
       id: inputData.task_id,
     }).catch(() => null)) as { approval_grants?: string[] } | null;
     const approvalGrants = effective?.approval_grants ?? [];
-    // Memory Phase 2b: start the run from what earlier runs learned. The
-    // section is fail-open and empty when the tenant has no memories.
-    const contexts =
-      (
-        task as {
-          contexts?: Array<{ context_id?: unknown; context_type?: unknown }>;
-        }
-      ).contexts ?? [];
-    const learnings = await buildPriorLearningsSection({
-      agentTypeKey: inputData.agent_type_key,
-      contexts,
-      entityRefs: [
-        ...entityRefsFromContexts(contexts),
-        ...(taskRow.trigger_id ? [routineEntityRef(taskRow.trigger_id)] : []),
-      ],
-      invoke,
-    });
     return {
       ...inputData,
       approval_grants: approvalGrants,
-      brief: learnings ? `${brief}\n\n${learnings}` : brief,
-      goal_id: taskRow.goal_id ?? null,
+      assignee_user_id: taskRow.primary_assignee_user_id ?? null,
+      brief,
       identifier: readString((task as { identifier?: unknown }).identifier),
+      space_id: taskRow.space_id ?? null,
       status: "briefed" as const,
       title: readString((task as { title?: unknown }).title),
-      trigger_id: taskRow.trigger_id ?? null,
     };
   },
 });
 
 // 4) Record the specialist's result as a task comment (its output). Preserves the
 // ran/failed status for the finalize step. (Step 3 is the specialist run.)
-// Routine quiet disposition: no comment at all.
 export const writeResultStep = createStep({
   id: "write-result",
   inputSchema: taskJobEnvelopeSchema,
@@ -247,32 +203,26 @@ export const writeResultStep = createStep({
     const failed = inputData.status === "failed";
     const needsApproval = inputData.status === "needs_approval";
     const needsInput = inputData.status === "needs_input";
-    const isRoutine = Boolean(inputData.trigger_id);
-    let runDisposition = inputData.run_disposition;
-    let resultText = inputData.result_text;
-
-    if (!(failed || needsApproval || needsInput) && isRoutine) {
-      const parsed = parseRoutineDisposition(inputData.result_text);
-      runDisposition = parsed.disposition;
-      resultText = parsed.cleanedText;
-      if (parsed.disposition === "quiet") {
-        // Fully suppressed — run row only, no comment.
-        return {
-          ...inputData,
-          result_text: resultText,
-          run_disposition: runDisposition,
-        };
-      }
-      if (parsed.disposition === "review" && parsed.reviewReason) {
-        const body = parsed.cleanedText.includes(parsed.reviewReason)
-          ? parsed.cleanedText
-          : [parsed.cleanedText, parsed.reviewReason]
-              .filter(Boolean)
-              .join("\n");
-        resultText = body;
-      }
+    // Whatever earlier runs announced about this task is settled by this one
+    // before it speaks: a success closes the failure alert, a park replaces
+    // the stale ask.
+    await resolveNotifications({
+      outcome: failed
+        ? "failed"
+        : needsApproval || needsInput
+          ? "resumed"
+          : "completed",
+      subjectId: inputData.task_id,
+      subjectType: "task",
+      tenantId: inputData.tenant_id,
+    });
+    // The question the agent asked via `task_ask_user` IS the run's output
+    // comment — the tool already posted it. Anything more here would double-post.
+    if (needsInput && inputData.question) {
+      return inputData;
     }
-
+    // A task-subject run always writes its result: the comment IS how the
+    // work item reports back to whoever assigned it.
     let body: string;
     if (failed) {
       body = `run failed — ${inputData.note ?? "unknown error"}`;
@@ -280,7 +230,7 @@ export const writeResultStep = createStep({
       // The question first, then whatever the run got done before it stopped —
       // a reader must see what is being asked without hunting for it.
       const question = inputData.blocked_question ?? "more information";
-      const done = readString(resultText);
+      const done = readString(inputData.result_text);
       body = done
         ? `🙋 Needs your input — ${question}\n\n${done}`
         : `🙋 Needs your input — ${question}`;
@@ -294,18 +244,19 @@ export const writeResultStep = createStep({
         .join(", ");
       body = `⏸ Waiting for approval to run ${ops || "a tool"} — approve from the inbox or on this task.`;
     } else {
-      body = readString(resultText) || "Run completed.";
+      body = readString(inputData.result_text) || "Run completed.";
     }
     await invoke("tasks_add_comment", {
-      content: `🤖 ${inputData.agent_type_key}: ${body}`,
+      content: body,
       created_by_agent_type_key: inputData.agent_type_key,
       id: inputData.task_id,
+      // `result` is what dependent tasks read to inherit this outcome, and
+      // what the panel renders as the run's answer. The agent name used to be
+      // prefixed into the text ("🤖 engenty.coordinator: …"); it is already on
+      // the row as `created_by_agent_type_key` and rendered as the author.
+      kind: needsApproval ? "system" : "result",
     });
-    return {
-      ...inputData,
-      ...(resultText === undefined ? {} : { result_text: resultText }),
-      ...(runDisposition ? { run_disposition: runDisposition } : {}),
-    };
+    return inputData;
   },
 });
 
@@ -325,10 +276,6 @@ export const finalizeStep = createStep({
     const needsApproval = inputData.status === "needs_approval";
     const needsInput = inputData.status === "needs_input";
     const failed = inputData.status === "failed";
-    const isRoutine = Boolean(inputData.trigger_id);
-    const paused = failed || needsApproval || needsInput;
-    const disposition =
-      isRoutine && !paused ? (inputData.run_disposition ?? "report") : null;
 
     const outcome = failed
       ? ("failed" as const)
@@ -336,14 +283,7 @@ export const finalizeStep = createStep({
         ? ("needs_approval" as const)
         : needsInput
           ? ("needs_input" as const)
-          : disposition === "quiet"
-            ? ("completed_quiet" as const)
-            : ("completed" as const);
-
-    // Routine quiet/report rest in backlog; review parks at in_review after
-    // release (release resting_status is backlog, then status update → in_review).
-    // Non-routine completed → release to todo then flip to in_review (unchanged).
-    const restingStatus = isRoutine && !paused ? "backlog" : "todo";
+          : ("completed" as const);
 
     await invoke("tasks_release", {
       actor_agent_type_key: inputData.agent_type_key,
@@ -353,14 +293,43 @@ export const finalizeStep = createStep({
       pending_approval_operation_ids: needsApproval
         ? (inputData.pending_approvals ?? []).map((p) => p.operation_id)
         : [],
-      resting_status: restingStatus,
+      // Release always drops the task back to an entry status; the status
+      // update below is what parks it. Order is load-bearing — see the header.
+      resting_status: "todo",
     });
 
-    const nextStatus = paused
+    // Does this finished run need a human, or is done simply done? The
+    // agent-approval trust dial (tenant → space → agent; the same one that
+    // gates risky tools) answers it: `manual` parks the task at in_review
+    // with a review to-do, `auto`/`pass-all` closes it and lets dependents
+    // dispatch. Only the plain completed lane consults it — failures,
+    // approvals and questions keep their lanes.
+    const plainCompleted = !(failed || needsApproval || needsInput);
+    let completionPolicy: "complete" | "review" = "review";
+    if (plainCompleted) {
+      const policyDeps = taskCompletionPolicyDepsFromEnv();
+      if (policyDeps) {
+        completionPolicy = await resolveTaskCompletionPolicy(policyDeps, {
+          agentTypeKey: inputData.agent_type_key ?? null,
+          spaceId: inputData.space_id ?? null,
+          tenantId: inputData.tenant_id,
+        });
+      }
+    }
+    const autoComplete = plainCompleted && completionPolicy === "complete";
+
+    // A run that stopped to ASK is waiting on a person, not blocked by another
+    // task: `blocked` drops it out of the briefing (which lists todo/in_review/
+    // backlog), so the gate, the capability card and the `ask_user` question
+    // would all be invisible on the one surface built to answer them. Only a
+    // failure rests as blocked.
+    const nextStatus = failed
       ? "blocked"
-      : disposition === "quiet" || disposition === "report"
-        ? "backlog"
-        : "in_review";
+      : needsApproval || needsInput
+        ? "in_review"
+        : autoComplete
+          ? "done"
+          : "in_review";
 
     await invoke("tasks_update", {
       actor_agent_type_key: inputData.agent_type_key,
@@ -372,6 +341,10 @@ export const finalizeStep = createStep({
       runId,
       scope: await resolveTaskJobServiceScope(inputData.tenant_id),
       status: failed ? "failed" : "completed",
+      // The thread outlives the run now, so it must be put back to REST — a
+      // per-run thread could be abandoned mid-status, a standing one shows up
+      // in every thread list until something settles it.
+      ...(inputData.thread_id ? { threadId: inputData.thread_id } : {}),
     });
     const taskRef = inputData.identifier ?? inputData.task_id;
     const subjectTitle = inputData.title?.trim() || null;
@@ -390,6 +363,7 @@ export const finalizeStep = createStep({
         taskRef,
       });
       await emitInboxNotification({
+        assigneeUserId: inputData.assignee_user_id ?? null,
         dedupeKey: `tool-approval:${inputData.task_id}:${primaryOp}`,
         kind: "tool_approval",
         metadata: {
@@ -400,7 +374,6 @@ export const finalizeStep = createStep({
           task_id: inputData.task_id,
           task_identifier: inputData.identifier ?? null,
           ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
-          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
         },
         payload: {
           approvals: pendings,
@@ -411,6 +384,10 @@ export const finalizeStep = createStep({
         },
         priority: "high",
         source: "tasks",
+        spaceId: inputData.space_id ?? null,
+        // The answer comes back on the task and re-dispatch is a new run, so
+        // the task is the subject a resolve can find.
+        subject: { id: inputData.task_id, type: "task" },
         summary:
           approvalHeadline ?? subjectTitle ?? `approval to run ${primaryOp}`,
         tenantId: inputData.tenant_id,
@@ -418,18 +395,26 @@ export const finalizeStep = createStep({
       return { ...inputData, status: "released" as const };
     }
 
+    // The agent asked and stopped. Same lane as an approval — nothing moves
+    // until a person answers — but the answer is a reply comment, not a grant,
+    // so the notification points at the task rather than carrying a decision.
     if (needsInput) {
-      const question = inputData.blocked_question ?? "";
+      const asked = inputData.question?.trim();
+      const blocked = inputData.blocked_question ?? "";
+      const question = asked || blocked;
+      const viaTool = Boolean(asked);
       await emitInboxNotification({
-        dedupeKey: `task-needs-input:${inputData.task_id}:${runId}`,
-        kind: "task_needs_input",
+        assigneeUserId: inputData.assignee_user_id ?? null,
+        dedupeKey: viaTool
+          ? `task-question:${inputData.task_id}:${runId}`
+          : `task-needs-input:${inputData.task_id}:${runId}`,
+        kind: viaTool ? "task_question" : "task_needs_input",
         metadata: {
           agent_type_key: inputData.agent_type_key,
           run_id: runId,
           task_id: inputData.task_id,
           task_identifier: inputData.identifier ?? null,
           ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
-          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
         },
         payload: {
           ...(question ? { question } : {}),
@@ -439,16 +424,18 @@ export const finalizeStep = createStep({
         },
         priority: "high",
         source: "tasks",
+        spaceId: inputData.space_id ?? null,
+        subject: { id: inputData.task_id, type: "task" },
         // The question IS the subject: an inbox row saying only "Task ENG-12"
         // makes the reader open it to find out what is even being asked.
-        summary: question || subjectTitle || `Task ${taskRef} needs input`,
+        summary:
+          question ||
+          subjectTitle ||
+          (viaTool
+            ? `Task ${taskRef} has a question`
+            : `Task ${taskRef} needs input`),
         tenantId: inputData.tenant_id,
       });
-      return { ...inputData, status: "released" as const };
-    }
-
-    // Quiet routine runs: no notification.
-    if (disposition === "quiet") {
       return { ...inputData, status: "released" as const };
     }
 
@@ -459,43 +446,38 @@ export const finalizeStep = createStep({
         })
       : null;
 
-    // Review disposition: needs-input lane (human must clear in_review).
-    if (disposition === "review") {
-      await emitInboxNotification({
-        dedupeKey: `task:${inputData.task_id}:${runId}`,
-        kind: "task_review_requested",
-        metadata: {
-          agent_type_key: inputData.agent_type_key,
-          run_id: runId,
-          task_id: inputData.task_id,
-          ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
-          ...(inputData.trigger_id ? { trigger_id: inputData.trigger_id } : {}),
-        },
-        ...(inputData.result_text
-          ? { payload: { result_text: inputData.result_text.slice(0, 2000) } }
-          : {}),
-        priority: "high",
-        source: "tasks",
-        summary: headline ?? subjectTitle ?? `Task ${taskRef}`,
-        tenantId: inputData.tenant_id,
-      });
-      return { ...inputData, status: "released" as const };
-    }
-
+    // A task parked at in_review is BLOCKING work (its dependents stay
+    // blocked until a human clears it) — that is a to-do, and it rides the
+    // review kind the inbox and briefing already treat as one. Only a task
+    // that actually completed announces itself as completed.
+    const parkedForReview = !failed && nextStatus === "in_review";
     await emitInboxNotification({
+      assigneeUserId: inputData.assignee_user_id ?? null,
       dedupeKey: `task:${inputData.task_id}:${runId}`,
-      kind: failed ? "task_failed" : "task_completed",
+      kind: failed
+        ? "task_failed"
+        : parkedForReview
+          ? "task_review_requested"
+          : "task_completed",
       metadata: {
         agent_type_key: inputData.agent_type_key,
         run_id: runId,
         task_id: inputData.task_id,
+        task_identifier: inputData.identifier ?? null,
         ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
       },
       ...(inputData.result_text
         ? { payload: { result_text: inputData.result_text.slice(0, 2000) } }
         : {}),
-      priority: failed ? "high" : "medium",
+      priority: failed || parkedForReview ? "high" : "medium",
       source: "tasks",
+      spaceId: inputData.space_id ?? null,
+      // A failure or review points at the task (a retry resolves it); a plain
+      // completion is FYI about this run.
+      subject:
+        failed || parkedForReview
+          ? { id: inputData.task_id, type: "task" }
+          : { id: runId, type: "run" },
       summary: headline ?? subjectTitle ?? `Task ${taskRef}`,
       tenantId: inputData.tenant_id,
     });

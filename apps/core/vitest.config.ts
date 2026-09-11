@@ -29,6 +29,10 @@ export default defineConfig({
         repoRoot,
         "packages/ai-core/src/index.ts"
       ),
+      "@engenty/ai-skills": path.resolve(
+        repoRoot,
+        "packages/ai-skills/src/index.ts"
+      ),
     },
   },
 });

@@ -446,7 +446,7 @@ export function TeamSidebarPanel() {
       {/* Footer: settings */}
       <div
         className={cn(
-          "shrink-0 border-border/50 border-t pt-2 pb-2",
+          "shrink-0 border-border-soft border-t pt-2 pb-2",
           sidebarColumnContentInsetClassName,
           sidebarColumnContentInsetEndClassName
         )}

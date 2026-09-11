@@ -11,17 +11,17 @@ import {
   AlertDialogTitle,
   SettingsFormSection,
   Skeleton,
-  Switch,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@engenty/ui-core";
 import {
-  type PluginCategory,
   pluginCategoryRank,
   useUiContributions,
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
-import { BoxIcon, ChevronRightIcon } from "lucide-react";
+import { BoxIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { deactivatePlugin } from "@/lib/api/client";
 import {
@@ -29,41 +29,22 @@ import {
   usePluginsListQuery,
   useTogglePluginFromListMutation,
 } from "@/lib/plugins-queries";
-import { cn } from "@/lib/utils";
 import { useWorkspaceContextQuery } from "@/lib/workspace-context-query";
 import { invalidateUiPluginContributions } from "@/plugins/ui-plugin-contributions-queries";
+import { ModuleSettingsListRow } from "./module-settings-list-row";
+import {
+  buildModuleSettingsRows,
+  filterModuleRows,
+  type ModuleListFilter,
+  type ModuleSettingsRow,
+  type SettingsListCategory,
+} from "./module-settings-rows";
 import {
   collectEnabledDependents,
   type PluginDependencyNode,
 } from "./plugin-dependents";
-import {
-  overviewIconToneForCategory,
-  SettingsOverviewIcon,
-} from "./SettingsOverviewIcon";
-
-/** Core settings surfaces that are not module rows (hardcoded elsewhere in nav). */
-const NON_MODULE_SETTINGS_PATHS = new Set([
-  "/settings/profile",
-  "/settings/ai",
-  "/settings/connections",
-]);
 
 const EXIT_MS = 280;
-
-type SettingsListCategory = PluginCategory | "other";
-
-interface ModuleRow {
-  category: SettingsListCategory;
-  description?: string;
-  enabled: boolean;
-  icon: React.ComponentType<{ className?: string }>;
-  id: string;
-  label: string;
-  mandatory: boolean;
-  order: number;
-  pluginId: string;
-  to: string;
-}
 
 function moduleRootFromPath(path: string): string | null {
   const match = path.match(/^\/mdl\/([^/]+)/);
@@ -83,11 +64,14 @@ export function TenantPluginsSettingsSection() {
   const pluginsQuery = usePluginsListQuery(tenantId);
   const toggleMutation = useTogglePluginFromListMutation(tenantId);
 
-  const [confirmRow, setConfirmRow] = useState<ModuleRow | null>(null);
+  const [listFilter, setListFilter] = useState<ModuleListFilter>("active");
+  const [confirmRow, setConfirmRow] = useState<ModuleSettingsRow | null>(null);
   const [cascadeBusy, setCascadeBusy] = useState(false);
   const [exitingIds, setExitingIds] = useState(() => new Set<string>());
   const [removedIds, setRemovedIds] = useState(() => new Set<string>());
-  const [frozenRows, setFrozenRows] = useState<ModuleRow[] | null>(null);
+  const [frozenRows, setFrozenRows] = useState<ModuleSettingsRow[] | null>(
+    null
+  );
 
   const dependencyNodes = useMemo(
     (): PluginDependencyNode[] =>
@@ -102,31 +86,9 @@ export function TenantPluginsSettingsSection() {
     [pluginsQuery.data]
   );
 
-  const pluginMetaById = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        category?: PluginCategory;
-        description?: string;
-        enabled: boolean;
-        mandatory: boolean;
-      }
-    >();
-    for (const plugin of pluginsQuery.data ?? []) {
-      map.set(plugin.id, {
-        category: plugin.category,
-        description: plugin.description,
-        enabled: plugin.enabled,
-        mandatory: plugin.mandatory === true,
-      });
-    }
-    return map;
-  }, [pluginsQuery.data]);
-
   /**
-   * Same settings contributions as the Settings secondary sidebar — omit
-   * technical plugins without a settings registration (those stay on
-   * Setup → Plugins). Grouped by manifest `category`.
+   * Settings-item modules plus (for admins) disabled / mandatory catalog
+   * plugins so All can turn them on without the old Setup → Plugins list.
    */
   const moduleRows = useMemo(() => {
     const resolveIcon = (
@@ -147,33 +109,36 @@ export function TenantPluginsSettingsSection() {
       )?.icon;
     };
 
-    const visible = contributions.settingsItems.filter(
-      (item) =>
-        !NON_MODULE_SETTINGS_PATHS.has(item.to) &&
-        (isAdmin || item.requiresAdmin === false)
-    );
-
-    return visible.map((item): ModuleRow => {
-      const meta = pluginMetaById.get(item.pluginId);
-      const category = item.category ?? meta?.category ?? ("other" as const);
-      return {
+    return buildModuleSettingsRows({
+      fallbackIcon: BoxIcon,
+      isAdmin,
+      plugins: (pluginsQuery.data ?? []).map((plugin) => ({
+        category: plugin.category,
+        description: plugin.description,
+        enabled: plugin.enabled,
+        id: plugin.id,
+        kind: plugin.kind,
+        mandatory: plugin.mandatory === true,
+        name: plugin.name || plugin.id,
+        rootDir: plugin.rootDir,
+        sourceType: plugin.sourceType,
+      })),
+      resolveIcon,
+      settingsItems: contributions.settingsItems.map((item) => ({
+        category: item.category,
         id: item.id,
-        pluginId: item.pluginId,
-        to: item.to,
         label: item.labelKey ? t(item.labelKey) : item.label,
-        description: meta?.description,
-        enabled: meta?.enabled ?? true,
-        mandatory: meta?.mandatory ?? false,
-        icon: resolveIcon(item) ?? BoxIcon,
-        category,
-        order: item.order ?? 10_000,
-      };
+        order: item.order,
+        pluginId: item.pluginId,
+        requiresAdmin: item.requiresAdmin,
+        to: item.to,
+      })),
     });
   }, [
     contributions.adminMenuItems,
     contributions.settingsItems,
     isAdmin,
-    pluginMetaById,
+    pluginsQuery.data,
     t,
   ]);
 
@@ -227,12 +192,17 @@ export function TenantPluginsSettingsSection() {
   }, [frozenRows, moduleRows, removedIds]);
 
   const visibleRows = useMemo(() => {
-    const source = frozenRows ?? moduleRows;
-    return source.filter((row) => !removedIds.has(row.id));
-  }, [frozenRows, moduleRows, removedIds]);
+    const source =
+      listFilter === "all" ? moduleRows : (frozenRows ?? moduleRows);
+    const unsuppressed =
+      listFilter === "all"
+        ? source
+        : source.filter((row) => !removedIds.has(row.id));
+    return filterModuleRows(unsuppressed, listFilter);
+  }, [frozenRows, listFilter, moduleRows, removedIds]);
 
   const groupedRows = useMemo(() => {
-    const byCategory = new Map<SettingsListCategory, ModuleRow[]>();
+    const byCategory = new Map<SettingsListCategory, ModuleSettingsRow[]>();
     for (const row of visibleRows) {
       const list = byCategory.get(row.category) ?? [];
       list.push(row);
@@ -255,9 +225,12 @@ export function TenantPluginsSettingsSection() {
       ? (toggleMutation.variables?.pluginId ?? confirmRow?.pluginId ?? null)
       : null;
 
-  const isLoading = !ready || (workspace.isLoading && !workspace.data);
+  const isLoading =
+    !ready ||
+    (workspace.isLoading && !workspace.data) ||
+    (listFilter === "all" && pluginsQuery.isLoading && !pluginsQuery.data);
 
-  const requestToggle = (row: ModuleRow, nextEnabled: boolean) => {
+  const requestToggle = (row: ModuleSettingsRow, nextEnabled: boolean) => {
     if (row.mandatory || busyPluginId === row.pluginId) {
       return;
     }
@@ -313,6 +286,9 @@ export function TenantPluginsSettingsSection() {
         if (restartRequired && restartMessage) {
           toast.message(restartMessage);
         }
+        if (listFilter === "all") {
+          return;
+        }
         setFrozenRows(snapshot);
         setExitingIds((prev) => {
           const next = new Set(prev);
@@ -350,6 +326,29 @@ export function TenantPluginsSettingsSection() {
       cardVariant="flush"
       description={t("settings.plugins.description")}
       title={t("settings.plugins.title")}
+      titleAction={
+        <Tabs
+          className="gap-0"
+          onValueChange={(value) => {
+            if (value === "active" || value === "all") {
+              setListFilter(value);
+            }
+          }}
+          value={listFilter}
+        >
+          <TabsList
+            aria-label={t("settings.plugins.filterAriaLabel")}
+            className="h-7"
+          >
+            <TabsTrigger className="h-6 px-2.5 text-xs" value="active">
+              {t("settings.plugins.showActive")}
+            </TabsTrigger>
+            <TabsTrigger className="h-6 px-2.5 text-xs" value="all">
+              {t("settings.plugins.showAll")}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      }
     >
       <div className="divide-y divide-border">
         {isLoading ? (
@@ -367,7 +366,9 @@ export function TenantPluginsSettingsSection() {
         ) : groupedRows.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <p className="text-muted-foreground text-sm">
-              {t("settings.plugins.noModules")}
+              {listFilter === "active"
+                ? t("settings.plugins.noActiveModules")
+                : t("settings.plugins.noModules")}
             </p>
           </div>
         ) : (
@@ -377,86 +378,26 @@ export function TenantPluginsSettingsSection() {
                 {group.label}
               </div>
               <div className="divide-y divide-border">
-                {group.rows.map((row) => {
-                  const Icon = row.icon;
-                  const exiting = exitingIds.has(row.id);
-                  const busy = busyPluginId === row.pluginId;
-                  return (
-                    <div
-                      className={cn(
-                        "overflow-hidden transition-[opacity,max-height] duration-300 ease-out",
-                        exiting ? "max-h-0 opacity-0" : "max-h-24 opacity-100"
-                      )}
-                      key={row.id}
-                    >
-                      <Link
-                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
-                        to={row.to}
-                      >
-                        <SettingsOverviewIcon
-                          Icon={Icon}
-                          tone={overviewIconToneForCategory(row.category)}
-                        />
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate font-medium text-foreground text-sm">
-                            {row.label}
-                          </span>
-                          {row.description ? (
-                            <span className="truncate text-muted-foreground text-xs">
-                              {row.description}
-                            </span>
-                          ) : null}
-                        </div>
-                        {row.mandatory ? null : (
-                          <div
-                            className="relative z-10 shrink-0"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                event.stopPropagation();
-                              }
-                            }}
-                            role="presentation"
-                          >
-                            <Switch
-                              aria-label={
-                                row.enabled
-                                  ? t("plugins.deactivate", {
-                                      context: "plugin",
-                                    })
-                                  : t("plugins.activate", {
-                                      context: "plugin",
-                                    })
-                              }
-                              checked={row.enabled && !exiting}
-                              disabled={busy || exiting || cascadeBusy}
-                              onCheckedChange={(checked) => {
-                                requestToggle(row, checked);
-                              }}
-                              size="sm"
-                            />
-                          </div>
-                        )}
-                        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground/40" />
-                      </Link>
-                    </div>
-                  );
-                })}
+                {group.rows.map((row) => (
+                  <ModuleSettingsListRow
+                    activateLabel={t("plugins.activate", { context: "plugin" })}
+                    busy={busyPluginId === row.pluginId || cascadeBusy}
+                    deactivateLabel={t("plugins.deactivate", {
+                      context: "plugin",
+                    })}
+                    exiting={exitingIds.has(row.id)}
+                    key={row.id}
+                    mandatoryLabel={t("settings.plugins.mandatoryBadge")}
+                    onToggle={(checked) => {
+                      requestToggle(row, checked);
+                    }}
+                    row={row}
+                  />
+                ))}
               </div>
             </div>
           ))
         )}
-        <Link
-          className="flex items-center justify-center gap-2 px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
-          to="/setup/plugins"
-        >
-          <BoxIcon className="size-3" />
-          {t("settings.plugins.manageAll")}
-        </Link>
       </div>
 
       <AlertDialog

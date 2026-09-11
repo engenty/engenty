@@ -17,8 +17,8 @@
     "@engenty/environment": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@hono/node-server": "^2.0.5",
-    "@rivet-dev/agentos": "0.2.14",
-    "@rivet-dev/agentos-apps": "0.2.14",
+    "@rivet-dev/agentos": "0.2.19",
+    "@rivet-dev/agentos-apps": "0.2.19",
     "hono": "^4.12.26",
     "zod": "4.4.3"
   },

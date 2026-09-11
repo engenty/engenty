@@ -10,6 +10,10 @@ import {
   readAiGatewayApiKeyFromEnv,
   resolveChatModelId,
 } from "@engenty/ai-core";
+import {
+  chunkMarkdownIntoSections,
+  MARKDOWN_SECTION_TARGET_CHARS,
+} from "@engenty/web-ingest";
 import { generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 import type { KbRepoFactory } from "../dal/contracts.js";
@@ -17,6 +21,8 @@ import type { KbRepoFactory } from "../dal/contracts.js";
 export interface ResolvedSourceItem {
   content_markdown: string;
   inbox_id: string | null;
+  /** Vault object key when the entry came from an uploaded document. */
+  original_storage_path?: string | null;
   source_url: string | null;
   title: string;
 }
@@ -32,6 +38,8 @@ function readSkillMarkdown(): string {
 
 export interface AgenticIngestOptions {
   actorPrincipalId?: string | null;
+  /** Link each article's originating document and surface it under Files. */
+  attach_original?: boolean;
   category_id?: string | null;
   instructions: string;
   items: ResolvedSourceItem[];
@@ -45,6 +53,11 @@ export interface AgenticIngestResult {
   ingested_items: number;
   strategy: "agentic";
   summary: string;
+}
+
+/** Steps for one agentic run: a floor for the fixed passes, ~3 per item, capped. */
+export function agenticStepBudget(itemCount: number): number {
+  return Math.min(200, Math.max(40, 20 + itemCount * 3));
 }
 
 function buildSlug(text: string): string {
@@ -75,6 +88,43 @@ export async function ingestKbSourceAgentic(
     parent_article_id,
     actorPrincipalId,
   } = opts;
+  const attachOriginal = opts.attach_original ?? false;
+
+  /** The source item an authored article came from, matched on its URL. */
+  const itemByUrl = new Map(
+    items
+      .filter((item) => item.source_url)
+      .map((item) => [item.source_url as string, item])
+  );
+
+  /**
+   * Provenance for an agent-authored article. Written whenever the agent
+   * names the source URL it worked from, independent of `attach_original` —
+   * the reference list records WHERE the text came from, while attaching is
+   * about surfacing the document to the reader.
+   */
+  const recordProvenance = async (
+    articleId: string,
+    sourceUrl: string | null | undefined
+  ) => {
+    const item = sourceUrl ? itemByUrl.get(sourceUrl) : undefined;
+    if (!(sourceUrl || item)) {
+      return;
+    }
+    try {
+      await repos.source_references.create({
+        article_id: articleId,
+        excerpt: null,
+        faq_id: null,
+        inbox_item_id: item?.inbox_id ?? null,
+        locator: null,
+        original_storage_path: item?.original_storage_path ?? null,
+        source_url: sourceUrl ?? null,
+      });
+    } catch {
+      // Additive — never fail an ingest over provenance.
+    }
+  };
   const actor = actorPrincipalId ? { principalId: actorPrincipalId } : null;
 
   const createdArticleIds: string[] = [];
@@ -95,18 +145,35 @@ export async function ingestKbSourceAgentic(
     }),
 
     kb_get_item: tool({
-      description: "Get the full content of a specific source item by index.",
-      inputSchema: z.object({ index: z.number().int().min(0) }),
-      execute: async ({ index }) => {
+      description:
+        "Get the content of a specific source item by index. Oversized items are served in ordered parts: the result carries part/part_count — call again with the next part until part === part_count to read the whole document.",
+      inputSchema: z.object({
+        index: z.number().int().min(0),
+        part: z.number().int().min(1).optional(),
+      }),
+      execute: async ({ index, part }) => {
         const item = items[index];
         if (!item) {
           return { error: "Item not found" };
+        }
+        const parts = chunkMarkdownIntoSections(
+          item.content_markdown,
+          MARKDOWN_SECTION_TARGET_CHARS
+        );
+        const partIndex = (part ?? 1) - 1;
+        const content = parts[partIndex];
+        if (content === undefined) {
+          return {
+            error: `Part ${partIndex + 1} not found; this item has ${parts.length} part(s).`,
+          };
         }
         return {
           index,
           title: item.title,
           source_url: item.source_url ?? null,
-          content_markdown: item.content_markdown,
+          content_markdown: content,
+          part: partIndex + 1,
+          part_count: parts.length,
         };
       },
     }),
@@ -278,13 +345,23 @@ export async function ingestKbSourceAgentic(
             };
           }
         }
+        const item = input.original_document_url
+          ? itemByUrl.get(input.original_document_url)
+          : undefined;
         const article = await repos.articles.create(
           {
             category_id: input.category_id ?? category_id ?? null,
             content_json: null,
             content_markdown: input.content_markdown,
             kb_id: kbId,
-            original_document_name: null,
+            // The Files block renders on the NAME, so attaching without one
+            // hides the original entirely. The URL stays the SOURCE url even
+            // for uploaded documents: `getByOriginalDocumentUrl` is this
+            // path's dedup key, and an armed mode re-runs on every sync, so
+            // swapping in a storage path would duplicate every article.
+            original_document_name: attachOriginal
+              ? (item?.title ?? input.title)
+              : null,
             original_document_url: input.original_document_url ?? null,
             parent_article_id:
               input.parent_article_id ?? parent_article_id ?? null,
@@ -299,6 +376,7 @@ export async function ingestKbSourceAgentic(
           actor
         );
         createdArticleIds.push(article.id);
+        await recordProvenance(article.id, input.original_document_url);
         return {
           id: article.id,
           title: article.title,
@@ -376,7 +454,10 @@ export async function ingestKbSourceAgentic(
     instructions: systemPrompt,
     prompt: userPrompt,
     tools: agentTools,
-    stopWhen: isStepCount(40),
+    // A wiki run is survey + hub + one pass per topic + a cross-link pass, so
+    // the budget has to grow with the material. The flat 40 steps silently
+    // truncated larger sources mid-build, leaving an unlinked hub behind.
+    stopWhen: isStepCount(agenticStepBudget(items.length)),
     maxRetries: 1,
   });
 

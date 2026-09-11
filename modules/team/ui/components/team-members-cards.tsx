@@ -45,11 +45,9 @@ export function TeamMembersCards({
         return (
           <button
             className={cn(
-              "group rounded-lg border bg-card text-left shadow-[var(--e-2)] transition-[border-color,box-shadow,color] hover:shadow-[var(--e-3)]",
+              "ui-card-raised group text-left",
               compact ? "p-3" : "p-4",
-              selectedIds?.has(member.id)
-                ? "border-primary"
-                : "border-transparent"
+              selectedIds?.has(member.id) && "ui-card-selected"
             )}
             key={member.id}
             onClick={() => onCardClick(member)}

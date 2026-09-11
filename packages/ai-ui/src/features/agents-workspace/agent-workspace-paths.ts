@@ -2,7 +2,7 @@ import { normalizeInstructionFilename } from "../../lib/admin/instruction-settin
 
 export const AGENTS_WORKSPACE_ROOT_PATH = "/admin/engenty";
 export const AGENTS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/agents`;
-export const ACTIONS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/actions`;
+export const WORKFLOWS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/workflows`;
 export const SKILLS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/skills`;
 export const TOOLS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/tools`;
 export const ARTIFACTS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/artifacts`;
@@ -134,20 +134,30 @@ export function buildToolEditPath(toolId: string) {
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
+//
+// ONE concept, one URL space. An Action holds the input parameters and is what
+// a button, a slash command, a routine or an agent calls; its steps are one
+// agent turn or a whole graph. "Flow" describes the SHAPE of those steps, not
+// a second kind of thing — so it is not a second list and not a second path.
+//
+// `/actions/:id` takes either id the catalog can produce: a declared
+// module-workflow id (`contacts.enhance-contact`) or a stored graph's uuid. The
+// detail route dispatches on which one it got.
 
-export function buildActionsCatalogPath() {
-  return ACTIONS_CATALOG_ROOT_PATH;
+export function buildWorkflowsCatalogPath() {
+  return WORKFLOWS_CATALOG_ROOT_PATH;
 }
 
-export function buildActionDetailPath(
-  actionId: string,
-  options?: { file?: string | null; view?: "code" | null }
+/** The workflow detail page, addressed by graph id or module source id. */
+export function buildWorkflowDetailPath(
+  workflowId: string,
+  options?: { file?: string | null; view?: "code" | "steps" | null }
 ) {
   return withSearch(
-    `${ACTIONS_CATALOG_ROOT_PATH}/${encodeURIComponent(actionId)}`,
+    `${WORKFLOWS_CATALOG_ROOT_PATH}/${encodeURIComponent(workflowId)}`,
     {
       file: options?.file ?? null,
-      view: options?.view === "code" ? "code" : null,
+      view: options?.view ?? null,
     }
   );
 }

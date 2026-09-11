@@ -34,6 +34,8 @@ export interface ProjectListItem {
   portal_password?: string | null;
   project_team?: ProjectTeamMemberRow[];
   scope_id: string;
+  /** Space the project belongs to. Present on list/detail since Phase 6. */
+  space_id?: string;
   start_date: string | null;
   tenant_id: string;
   /** `false` = lean project: no phases, dates or Gantt. Absent means enabled. */
@@ -105,6 +107,8 @@ export interface ProjectCreateInput {
   portal_enabled?: boolean;
   portal_intro_text?: string | null;
   portal_password?: string | null;
+  /** Defaults to the current Space when created from a Space-mounted UI. */
+  space_id?: string;
   start_date?: string | null;
   team_member_ids?: string[];
   timeplan_enabled?: boolean;
@@ -129,6 +133,8 @@ export interface ProjectsQueryParams {
   search?: string;
   sortBy?: "title" | "start_date" | "end_date" | "created_at";
   sortOrder?: "asc" | "desc";
+  /** Every project in a space. Omission inside `/s/…` means the current Space. */
+  space_id?: string;
 }
 
 export interface ProjectsPaginatedResponse {
@@ -200,6 +206,8 @@ export interface ProjectTasksQueryParams {
   search?: string;
   sortBy?: "updated_at" | "created_at" | "title" | "status";
   sortOrder?: "asc" | "desc";
+  /** Narrow cross-project task lists to one Space. */
+  space_id?: string;
   status?: string;
 }
 

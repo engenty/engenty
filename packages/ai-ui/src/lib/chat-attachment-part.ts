@@ -7,6 +7,18 @@
 // `z.unknown().optional()`, so it is preserved verbatim).
 
 export interface ChatAttachmentMeta {
+  /** Parser id that produced the sidecar (e.g. `anydoc`). */
+  extractedBy?: string;
+  /**
+   * @deprecated Prefer {@link extractedStorageKey}. Kept so older threads
+   * that inlined markdown on the AG-UI part still resolve on follow-up turns.
+   */
+  extractedMarkdown?: string;
+  /**
+   * Sidecar object next to the original file (`{storageKey}.extracted.md`).
+   * Full extract lives there — not on the AG-UI part — so the prompt stays small.
+   */
+  extractedStorageKey?: string;
   filename: string;
   mimeType: string;
   size: number;
@@ -26,6 +38,22 @@ const IMAGE_MIME_PREFIX = "image/";
 
 export function isImageMimeType(mimeType: string | undefined | null): boolean {
   return typeof mimeType === "string" && mimeType.startsWith(IMAGE_MIME_PREFIX);
+}
+
+/** True for PDFs — native multimodal + in-app iframe preview. */
+export function isPdfMimeType(
+  mimeType: string | undefined | null,
+  filename?: string
+): boolean {
+  if (
+    typeof mimeType === "string" &&
+    mimeType.toLowerCase() === "application/pdf"
+  ) {
+    return true;
+  }
+  return (
+    typeof filename === "string" && filename.toLowerCase().endsWith(".pdf")
+  );
 }
 
 /** Build the AG-UI content part for a freshly uploaded chat attachment. */

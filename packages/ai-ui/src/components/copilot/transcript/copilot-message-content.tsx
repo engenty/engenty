@@ -8,6 +8,7 @@ import { cn } from "@engenty/ui-core";
 import { useContext, useMemo } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import { copilotChatSubRunPath } from "../../../copilot/copilot-chat-paths.js";
+import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
 import { ObjectRefMentions } from "../../../objects/object-ref-mentions.js";
 import {
   ChainOfThought,
@@ -30,6 +31,7 @@ import {
   SkillStep,
   WebSearchStep,
 } from "./chain-of-thought-steps";
+import { softenUserInlineCode } from "./chat-user-bubble.js";
 import {
   getToolDisplayLabel,
   getToolName,
@@ -46,6 +48,7 @@ import {
   type ReasoningPartLike,
   type ToolPartLike,
 } from "./copilot-message-parts";
+import { MentionInlineText } from "./mention-inline-text.js";
 
 // Assistant messages that streamed during this page session. A tool part only
 // enters the transcript once its output is complete, so a card can never
@@ -87,7 +90,13 @@ type PartKind =
 
 function isInteractiveDecisionToolPart(part: ToolPartLike): boolean {
   const toolName = getToolName(part);
-  return toolName === "requestDecision" || toolName === "requestFeedback";
+  return (
+    toolName === "requestDecision" ||
+    toolName === "requestFeedback" ||
+    // Parks on its Publish card, so the unanswered copy belongs to the dock
+    // exactly like a chooser's.
+    toolName === "workflow_propose"
+  );
 }
 
 function isInteractiveDecisionToolResolved(part: ToolPartLike): boolean {
@@ -97,6 +106,11 @@ function isInteractiveDecisionToolResolved(part: ToolPartLike): boolean {
   }
   if (toolName === "requestFeedback") {
     return parseFeedbackResolution(part.output) !== null;
+  }
+  if (toolName === "workflow_propose") {
+    // Any output means the call is past its park: the publish decision came
+    // back (or the call never suspended — validation failure, headless run).
+    return part.output != null;
   }
   return false;
 }
@@ -204,7 +218,8 @@ function renderToolCallCardRow(input: {
     <ToolCallCard
       className={cn(
         "mb-0.5 w-full",
-        isSubAgentDelegationTool(part, toolName) && "max-w-none"
+        isSubAgentDelegationTool(part, toolName) && "max-w-none",
+        toolName === "message_agent" && "mb-0"
       )}
       density={toolCardDensity}
       displayLabel={getToolDisplayLabel(part, toolName)}
@@ -299,17 +314,31 @@ export function CopilotMessageContent({
       (c.kind === "tool" || c.kind === "web_search" || c.kind === "skill") &&
       isInteractiveDecisionToolPart(c.part)
     ) {
-      // When this chooser is shown in the docked surface above the composer,
-      // skip its inline copy so the HITL surface appears exactly once.
       const isDocked =
         dockedInterruptToolCallId != null &&
         c.part.toolCallId === dockedInterruptToolCallId;
-      if (!(isInteractiveDecisionToolResolved(c.part) || isDocked)) {
-        trailingToolParts.push({
-          index: i,
-          part: c.part,
-          toolName: c.toolName,
-        });
+      const isResolved = isInteractiveDecisionToolResolved(c.part);
+      // The docked surface above the composer owns the UNANSWERED copy, so the
+      // HITL chooser appears exactly once. Once answered it owns nothing: the
+      // dock clears, and an answered row that is still skipped here leaves the
+      // question and the answer nowhere in the transcript at all.
+      if (isDocked && !isResolved) {
+        continue;
+      }
+      const decisionEntry = {
+        index: i,
+        part: c.part,
+        toolName: c.toolName,
+      };
+      // Answered rows render as a standalone card (the question plus the
+      // choice), which is why they follow the same placement rule as the other
+      // standalone cards rather than always trailing the turn. The card renders
+      // itself resolved — offering buttons again would be offering buttons that
+      // resolve nothing.
+      if (isResolved && (i <= lastTextIndex || lastTextIndex === -1)) {
+        preTextCardParts.push(decisionEntry);
+      } else {
+        trailingToolParts.push(decisionEntry);
       }
       continue;
     }
@@ -355,6 +384,13 @@ export function CopilotMessageContent({
   }
 
   const citations = useCitations(textParts, parts);
+  const userRefs = useMemo(
+    () =>
+      msg.role === "user"
+        ? (msg.parts ?? []).flatMap((part) => readChatReferencePart(part) ?? [])
+        : [],
+    [msg.parts, msg.role]
+  );
 
   const rewrittenTextParts = useMemo(
     () =>
@@ -373,6 +409,9 @@ export function CopilotMessageContent({
         // inline code chip (display-only; the persisted text stays raw).
         if (msg.role === "user" && tpIndex === 0) {
           text = text.replace(/^(\/[a-z0-9][a-z0-9-]*)(\s|$)/, "`$1`$2");
+        }
+        if (msg.role === "user") {
+          text = softenUserInlineCode(text);
         }
         return { ...tp, text };
       }),
@@ -476,9 +515,19 @@ export function CopilotMessageContent({
         })
       )}
 
-      {rewrittenTextParts.map(({ index, text }) => (
-        <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
-      ))}
+      {rewrittenTextParts.map(({ index, text }) =>
+        // A person's turn with @-mentions is drawn as typed, pills inline —
+        // the mention is the point of the message, not a footnote to it.
+        userRefs.length > 0 ? (
+          <MentionInlineText
+            key={`${msg.id}-${index}`}
+            refs={userRefs}
+            text={text}
+          />
+        ) : (
+          <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
+        )
+      )}
 
       <SourceCitations citations={citations} />
 

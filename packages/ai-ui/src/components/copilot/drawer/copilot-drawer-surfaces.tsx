@@ -371,7 +371,10 @@ export function CopilotDrawerSurfaceTree({
         // `--copilot-dock-inset-left` to the width it wants excluded, so the
         // dock centres on the part being worked in rather than the whole page.
         // Ignored below `md`, where such pages show one pane at a time.
-        className="absolute inset-x-0 bottom-0 z-10 flex justify-center overflow-visible px-3 pt-12 pb-4 md:left-[var(--copilot-dock-inset-left,0px)]"
+        // Portaled into main content, so this competes with sticky table
+        // headers (`STICKY_HEADER_CLASS` is z-20). Stay above those, below
+        // dialogs (z-50).
+        className="absolute inset-x-0 bottom-0 z-30 flex justify-center overflow-visible px-3 pt-12 pb-4 md:left-[var(--copilot-dock-inset-left,0px)]"
         data-copilot-speech-scope
         key={`bottom:${surfaceInstanceKey}`}
         role="region"

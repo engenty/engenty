@@ -48,7 +48,7 @@ export function KbGraphControls({
   };
 
   return (
-    <div className="absolute top-3 right-3 z-10 flex w-56 flex-col gap-2 rounded-xl border border-border/80 bg-background/90 p-3 shadow-lg backdrop-blur-sm">
+    <div className="absolute top-3 right-3 z-10 flex w-56 flex-col gap-2 rounded-xl border border-border bg-background/90 p-3 shadow-lg backdrop-blur-sm">
       {/* Search */}
       <div className="relative">
         <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

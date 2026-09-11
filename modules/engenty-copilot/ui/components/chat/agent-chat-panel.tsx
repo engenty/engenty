@@ -1,21 +1,17 @@
-import { isAgUiOpenInterruptExpired } from "@engenty/ag-ui-bridge";
 import {
-  approveCopilotOpenInterrupt,
+  ChatLaneDock,
   CopilotDrawerPositionMenu,
-  CopilotMessageQueueSurface,
-  CopilotOpenInterruptBanner,
-  type CopilotOpenInterruptResumeInterrupt,
   CopilotPanelContent,
   type CopilotPanelContentProps,
+  chatLanePanelBaseProps,
   ENGENTY_COPILOT_HOST_KEY,
   formatCopilotRouteStatusLabel,
   formatCopilotThreadCopyText,
-  pendingInterruptFromTranscript,
   registerCopilotComposerDraftSetter,
-  type SubmitMessage,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
-  useCopilotComposerDraftRecovery,
-  useCopilotMessageQueue,
+  TranscriptLoadOlder,
+  useChatLaneComposer,
+  useChatSlashCommands,
   useCopilotSelectedThread,
   useCopilotThreadActions,
   useCopilotVoice,
@@ -23,6 +19,7 @@ import {
 } from "@engenty/ai-ui";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { Eye } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -30,10 +27,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useChatSlashCommands } from "../../hooks/chat/use-chat-slash-commands.js";
 import { useMentionRefSearch } from "../../hooks/chat/use-mention-ref-search.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
 import { CopilotEffortControl } from "./copilot-effort-control.js";
+import { CopilotHostMessageHandoff } from "./copilot-host-message-handoff.js";
 
 interface AgentChatPanelProps {
   compactContextControl?: ReactNode;
@@ -46,6 +43,16 @@ interface AgentChatPanelProps {
 const EMPTY_SUGGESTIONS: [] = [];
 const EMPTY_CANDIDATES = {};
 
+/**
+ * The copilot's full-page chat lane.
+ *
+ * The composer wiring and the lane's measure come from the shared chat-lane base
+ * (`useChatLaneComposer` / `chatLanePanelBaseProps`), the same one a specialist
+ * desk draws from. What is added here is what only the copilot has: slash
+ * commands, @-mentions, realtime voice, the effort chooser, and the position
+ * menu — the copilot is the one agent that can also live in a drawer, a sidebar
+ * or a floating window.
+ */
 export function AgentChatPanel(props: AgentChatPanelProps) {
   const { t } = useTranslation("engenty-copilot");
   const { t: tc } = useTranslation("common");
@@ -53,11 +60,13 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     binding,
     host,
     isLoadingSelectedSessionMessages,
+    isReadOnlyThread,
     isTransportReady,
     openInterruptFromSession,
     selectedSessionMessagesError,
     status,
     tenantId,
+    thread,
     userId,
   } = useCopilotSelectedThread();
   const { startNewChat } = useCopilotThreadActions();
@@ -108,13 +117,25 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     Record<string, boolean>
   >({});
 
+  const realtimeVoice = useCopilotVoice();
+
+  // Live voice turns are spliced into the transcript the panel renders, so the
+  // lane must read the same list when it looks for a parked chooser.
+  const messages = useMemo(
+    () => [...host.copilotMessages, ...realtimeVoice.transcriptMessages],
+    [host.copilotMessages, realtimeVoice.transcriptMessages]
+  );
+
   const recoverySessionKey =
     binding.activeThreadId ??
     `${TEMPORARY_ENGENTY_THREAD_ID_PREFIX}${binding.newChatGeneration}`;
-  const draftRecovery = useCopilotComposerDraftRecovery({
-    messages: host.messages,
-    threadId: recoverySessionKey,
+  const lane = useChatLaneComposer({
+    host,
+    messages,
+    openInterruptFromSession,
+    status,
     tenantId,
+    threadKey: recoverySessionKey,
     userId,
   });
 
@@ -124,77 +145,15 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     () =>
       registerCopilotComposerDraftSetter(
         ENGENTY_COPILOT_HOST_KEY,
-        draftRecovery.setDraft
+        lane.setDraft
       ),
-    [draftRecovery.setDraft]
+    [lane.setDraft]
   );
 
-  // The LIVE stream value wins while set. `requestDecision` suspends the run
-  // natively, so its chooser exists ONLY in the open interrupt — the tool call
-  // has no output for the transcript path to read. Without the stream arm the
-  // full-page chat waited for the session-metadata refetch and, until then,
-  // rendered a generic spinning "Decision needed" row with no way to answer it
-  // (the drawer already resolved it this way — see copilot-drawer-body.tsx).
-  const openInterrupt = useMemo(() => {
-    const fromStream = host.openInterruptFromStream;
-    if (fromStream && !isAgUiOpenInterruptExpired(fromStream)) {
-      return fromStream;
-    }
-    if (
-      !openInterruptFromSession ||
-      isAgUiOpenInterruptExpired(openInterruptFromSession)
-    ) {
-      return null;
-    }
-    return openInterruptFromSession;
-  }, [host.openInterruptFromStream, openInterruptFromSession]);
-
-  const resumeOpenInterrupt = useCallback<CopilotOpenInterruptResumeInterrupt>(
-    (feedback) => {
-      host.resumeInterrupt?.(
-        feedback as unknown as Parameters<
-          NonNullable<typeof host.resumeInterrupt>
-        >[0]
-      );
-    },
-    [host.resumeInterrupt]
-  );
-
-  const handleSandboxCommandApprove = useCallback(
-    async (open: NonNullable<typeof openInterrupt>) => {
-      await approveCopilotOpenInterrupt({
-        activeThreadId: binding.activeThreadId,
-        executeFrontendTool,
-        open,
-        resumeInterrupt: resumeOpenInterrupt,
-      });
-    },
-    [binding.activeThreadId, executeFrontendTool, resumeOpenInterrupt]
-  );
-
-  const handleSandboxCommandReject = useCallback(
-    (open: NonNullable<typeof openInterrupt>) => {
-      if (open.tool_name) {
-        resumeOpenInterrupt({
-          approved: false,
-          interruptId: open.interrupt_id,
-          toolName: open.tool_name,
-        });
-      }
-    },
-    [resumeOpenInterrupt]
-  );
   const controlsDisabled =
     status !== "ready" || host.awaitingInterrupt || !isTransportReady;
-
-  const realtimeVoice = useCopilotVoice();
-
   const composerDisabled = controlsDisabled || realtimeVoice.session.isActive;
 
-  const messages = useMemo(
-    () => [...host.copilotMessages, ...realtimeVoice.transcriptMessages],
-    [host.copilotMessages, realtimeVoice.transcriptMessages]
-  );
   const threadCopyText = useMemo(
     () => formatCopilotThreadCopyText(messages),
     [messages]
@@ -215,111 +174,6 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
       showPositionOptions={false}
     />
   );
-
-  // The executing decision/feedback chooser to dock above the composer, read from
-  // the transcript (immediate) and gated by the authoritative pending-tool-call set
-  // from the stream. Fall back to the persisted open interrupt for server-driven
-  // interrupts that never enter the transcript — e.g. the tool-approval gate, whose
-  // suspended `engenty_tool_execute` call has no artifact result to render from.
-  const dockInterrupt = useMemo(
-    () =>
-      host.pendingInterruptToolCallIds.size > 0
-        ? (pendingInterruptFromTranscript(messages) ?? openInterrupt)
-        : null,
-    [host.pendingInterruptToolCallIds, messages, openInterrupt]
-  );
-
-  // "Send now" / auto-drain submit. When a run is still in flight (the user sent
-  // a queued message immediately), STOP it for real first — `host.cancel()` does
-  // the same thing the Stop button does (local abort + server `abortRunStream`),
-  // whereas `host.submitMessage` only detaches the local stream and leaves the
-  // server run burning tokens. When idle (auto-drain after a run finished) the
-  // stop is a no-op and we just send.
-  const stopAndSubmit = useCallback<SubmitMessage>(
-    (text, options) => {
-      if (status !== "ready") {
-        host.cancel();
-      }
-      host.submitMessage(text, options);
-    },
-    [status, host.cancel, host.submitMessage]
-  );
-
-  // Client-side message queue: while a run is in flight, a submit from the main
-  // composer is QUEUED instead of aborting the current run. Queued messages
-  // auto-drain one per run as the thread returns to "ready", and are reorderable /
-  // deletable / sendable-now (which STOPS the current run for real and sends).
-  const queue = useCopilotMessageQueue({
-    status,
-    submit: stopAndSubmit,
-    // Scope the queue to the active thread so it resets on a thread switch /
-    // "New chat" and can never replay into an unrelated thread.
-    threadId: recoverySessionKey,
-    // An open approval interrupt pauses the run for the user — don't auto-drain
-    // the next turn across a pending approval.
-    blocked: host.awaitingInterrupt,
-  });
-
-  // Stop clears the queue too: stopping a wedged/parked run must not leave
-  // messages parked to auto-send once the thread frees up.
-  const stopAndClearQueue = useCallback(() => {
-    queue.clear();
-    host.cancel();
-  }, [queue.clear, host.cancel]);
-
-  // MUST forward `options` (attachments, agent override) — a text-only wrapper
-  // here silently drops uploaded attachments (they upload, then never reach the
-  // run input). Attachment-only sends (no text) are valid.
-  const submitMessage = useCallback<SubmitMessage>(
-    (text, options) => {
-      const trimmed = text.trim();
-      if (!(trimmed || options?.attachments?.length)) {
-        return;
-      }
-      draftRecovery.clearDraft();
-      if (status !== "ready") {
-        // A run is in flight — queue this turn instead of interrupting it.
-        queue.enqueue(trimmed, options);
-        return;
-      }
-      host.submitMessage(trimmed, options);
-    },
-    [status, queue.enqueue, host.submitMessage, draftRecovery.clearDraft]
-  );
-
-  // Edit a queued message: remove it from the queue and load its text back into
-  // the composer so the user can tweak + resend.
-  const editQueuedMessage = useCallback(
-    (id: string) => {
-      const message = queue.queued.find((m) => m.id === id);
-      if (!message) {
-        return;
-      }
-      draftRecovery.setDraft(message.text);
-      queue.remove(id);
-    },
-    [queue.queued, queue.remove, draftRecovery.setDraft]
-  );
-
-  // Only docked when there's actually something queued (no empty box mid-run).
-  // No width wrapper: docked surfaces render inside the composer dock flap,
-  // which already sits in the composer's width-constrained wrapper.
-  const queueSurface = queue.hasQueued ? (
-    <CopilotMessageQueueSurface
-      labels={{
-        drag: t("chat.queue.drag"),
-        edit: t("chat.queue.edit"),
-        remove: t("chat.queue.remove"),
-        sendNow: t("chat.queue.sendNow"),
-        title: t("chat.queue.title"),
-      }}
-      onEdit={editQueuedMessage}
-      onRemove={queue.remove}
-      onReorder={queue.reorder}
-      onSendNow={queue.sendNow}
-      queued={queue.queued}
-    />
-  ) : null;
 
   // Agent chooser is hidden on the main copilot lane; the effort selector is
   // the model control people see (the model-id chooser sits behind its expert
@@ -343,89 +197,71 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
     return new Error(errorMessage(source));
   }, [host.error, selectedSessionMessagesError]);
 
-  // Pending decision / feedback chooser docked directly above the composer
-  // (CopilotPanelContent `dockedInterruptSurface`); the inline transcript copy
-  // is suppressed via `dockedInterruptToolCallId`. The message queue docks here
-  // too (above any interrupt).
-  const interruptBanner = dockInterrupt ? (
-    <CopilotOpenInterruptBanner
-      onDecisionChoose={(artifactId, choiceId, choiceLabel, interruptId) =>
-        host.respond(dockInterrupt.tool_call_id, {
-          artifactId,
-          choiceId,
-          choiceLabel,
-          interruptId,
-        })
-      }
-      onFeedbackSubmit={(artifactId, feedback, interruptId) =>
-        host.respond(dockInterrupt.tool_call_id, {
-          artifactId,
-          choiceId: "feedback_submit",
-          choiceLabel: feedback,
-          interruptId,
-          payload: { feedback },
-        })
-      }
-      onSandboxCommandApprove={handleSandboxCommandApprove}
-      onSandboxCommandReject={handleSandboxCommandReject}
-      open={dockInterrupt}
-    />
-  ) : null;
+  // Queued messages and the pending decision / approval chooser dock directly
+  // above the composer; the inline transcript copy of the chooser is suppressed
+  // via `dockedInterruptToolCallId`. Only rendered when something is actually
+  // pending — any non-null dock is a visible flap.
   const dockedInterruptSurface =
-    queueSurface || interruptBanner ? (
-      <div className="flex flex-col gap-2">
-        {queueSurface}
-        {interruptBanner}
-      </div>
+    lane.queue.hasQueued || lane.dockInterrupt ? (
+      <ChatLaneDock
+        dockInterrupt={lane.dockInterrupt}
+        host={host}
+        labels={{
+          drag: t("chat.queue.drag"),
+          edit: t("chat.queue.edit"),
+          remove: t("chat.queue.remove"),
+          sendNow: t("chat.queue.sendNow"),
+          title: t("chat.queue.title"),
+        }}
+        onEditQueued={lane.editQueuedMessage}
+        onSandboxCommandApprove={lane.onSandboxCommandApprove}
+        onSandboxCommandReject={lane.onSandboxCommandReject}
+        queue={lane.queue}
+      />
     ) : null;
 
   const panelProps: CopilotPanelContentProps = {
+    ...chatLanePanelBaseProps(tc),
     appliedSuggestions: EMPTY_SUGGESTIONS,
-    applyError: null,
-    applySelectedLabel: tc("copilot.applySelected"),
-    artifactError: null,
-    artifactLoadFailedLabel: tc("copilot.artifactLoadFailed"),
-    attachLabel: tc("copilot.position.sidebar"),
     autoScrollKey: binding.activeThreadId ?? `new-${host.threadResetKey}`,
-    bodyOnly: true,
-    composerFocusKey: `${host.threadResetKey}:${binding.newChatGeneration}`,
-    cancelLabel: tc("copilot.cancel"),
+    awaitingInterrupt: host.awaitingInterrupt,
     clearLabel: tc("copilot.newChat"),
-    closeLabel: tc("copilot.position.heading"),
     compactContextControl: props.compactContextControl,
-    composerDockStyle: true,
-    enableStatusFlap: false,
+    composerFocusKey: `${host.threadResetKey}:${binding.newChatGeneration}`,
     composerLeadingControl,
+    // An agent's task thread can be opened from the task page. Space members
+    // and task readers may write; Copilot stays owner-only. Say so instead of
+    // offering an input whose every send the server rejects.
+    composerOverride: isReadOnlyThread ? (
+      <ReadOnlyThreadNotice label={t("chat.readOnlyThread")} />
+    ) : (
+      realtimeVoice.composerOverride
+    ),
     composerPlaceholder: props.composerPlaceholder,
-    composerWrapperClassName: "mx-auto w-full max-w-[42rem]",
-    contentBodyGutter: "flush",
     debugPayload: undefined,
-    detachLabel: tc("copilot.position.floating"),
-    draft: draftRecovery.draft,
+    dockedInterruptSurface,
+    dockedInterruptToolCallId: lane.dockInterrupt?.tool_call_id ?? null,
+    draft: lane.draft,
     emptyStateSubtitle: props.emptyStateSubtitle,
     emptyStateTitle: props.emptyStateTitle,
     error: panelError,
+    headerVariant: "docked",
     mentionAgentCandidates,
     mentionRefSearch,
-    slashCommands,
-    headerVariant: "docked",
-    isApplying: false,
-    latestSuggestions: EMPTY_SUGGESTIONS,
-    composerOverride: realtimeVoice.composerOverride,
     messages,
-    minimalChrome: true,
-    onApplySuggestions: noopAsync,
-    onCancel: stopAndClearQueue,
-    onStop: stopAndClearQueue,
-    onClose: noop,
+    onCancel: lane.stopAndClearQueue,
     onNewChat: () => startNewChat(),
-    onSandboxCommandApprove: handleSandboxCommandApprove,
-    onSandboxCommandReject: handleSandboxCommandReject,
-    onPanelModeChange: noop,
-    panelMode: "docked",
+    onSandboxCommandApprove: lane.onSandboxCommandApprove,
+    onSandboxCommandReject: lane.onSandboxCommandReject,
+    onStop: lane.stopAndClearQueue,
+    openInterrupt: lane.openInterrupt,
+    optimisticInterruptResults: host.optimisticInterruptResults,
+    pendingInterruptToolCallIds: host.pendingInterruptToolCallIds,
     pendingUserInsertIndex: host.pendingUserInsertIndex,
+    pendingUserParts: host.pendingUserParts,
     pendingUserText: host.pendingUserText,
     positionMenu,
+    respond: host.respond,
     resumeInterrupt: (feedback) =>
       host.resumeInterrupt({
         artifactId: feedback.artifactId,
@@ -434,44 +270,46 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
         interruptId: feedback.interruptId,
         payload: feedback.payload,
       }),
-    awaitingInterrupt: host.awaitingInterrupt,
-    openInterrupt,
-    pendingInterruptToolCallIds: host.pendingInterruptToolCallIds,
-    optimisticInterruptResults: host.optimisticInterruptResults,
-    respond: host.respond,
-    dockedInterruptSurface,
-    dockedInterruptToolCallId: dockInterrupt?.tool_call_id ?? null,
-    reviewPromptLabel: tc("copilot.reviewPrompt"),
     routeStatusLabel: formatCopilotRouteStatusLabel("engenty-copilot", "chat"),
     selectedCandidateValues: EMPTY_CANDIDATES,
-    selectedCountLabel: tc("copilot.selected"),
     selectedSuggestions,
-    setDraft: draftRecovery.setDraft,
+    setDraft: lane.setDraft,
     setSelectedSuggestions,
+    slashCommands,
     starterPrompts,
-    startMode: "manual",
     status,
+    // Reasoning/tool deltas don't change `messages` — feed raw stream activity
+    // so the no-response guard never errors a live run.
+    streamActivityCount: host.events.length,
     subAgentFullViewLabel: t("subAgent.fullView"),
     subAgentSectionLabels: {
       input: t("subAgent.input"),
       log: t("subAgent.log"),
       output: t("subAgent.output"),
     },
-    threadId: binding.activeThreadId,
-    submitMessage,
-    suggestedUpdatesLabel: tc("copilot.suggestedUpdates"),
+    submitMessage: lane.submitMessage,
     thinkingLabel,
+    threadId: binding.activeThreadId,
     title: props.title,
-    transcriptContainerClassName: "mx-auto w-full max-w-[42rem] gap-4",
+    transcriptHeader: (
+      <TranscriptLoadOlder olderMessages={thread.olderMessages} />
+    ),
     transcriptLoading: isLoadingSelectedSessionMessages,
-    transcriptLoadingLabel: tc("shell.loading"),
-    transcriptSurface: "chat",
-    triggerType: "message_copilot",
   };
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <CopilotHostMessageHandoff />
       <CopilotPanelContent {...panelProps} />
+    </div>
+  );
+}
+
+function ReadOnlyThreadNotice({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-muted-foreground text-sm">
+      <Eye aria-hidden="true" className="size-4 shrink-0" />
+      <span>{label}</span>
     </div>
   );
 }
@@ -499,7 +337,3 @@ function useStarterPrompts() {
     [t]
   );
 }
-
-function noop() {}
-
-async function noopAsync() {}

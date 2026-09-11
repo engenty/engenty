@@ -10,11 +10,10 @@ type TableSize = "compact" | "normal";
 
 interface InboxCardsProps {
   items: InboxItem[];
-  kbSlug: string;
   tableSize: TableSize;
 }
 
-export function InboxCards({ items, kbSlug, tableSize }: InboxCardsProps) {
+export function InboxCards({ items, tableSize }: InboxCardsProps) {
   const { t } = useTranslation("kb");
   const pad = tableSize === "compact" ? "p-3" : "p-4";
 
@@ -33,13 +32,10 @@ export function InboxCards({ items, kbSlug, tableSize }: InboxCardsProps) {
 
         return (
           <div
-            className={`rounded-lg border bg-card text-left ${pad}`}
+            className={cn("ui-card-raised ui-card-interactive text-left", pad)}
             key={row.id}
           >
-            <Link
-              className="block rounded-md transition-colors hover:bg-accent/20"
-              to={kbInboxDetailPath(kbSlug, row.id)}
-            >
+            <Link className="block" to={kbInboxDetailPath(row.id)}>
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium">{row.title}</p>
                 <Badge className="shrink-0" variant="outline">
@@ -63,7 +59,7 @@ export function InboxCards({ items, kbSlug, tableSize }: InboxCardsProps) {
                   className="shrink-0 text-primary hover:text-primary/90"
                   onClick={(e) => e.stopPropagation()}
                   title={t("inbox.open_linked_source")}
-                  to={kbSourcePath(kbSlug, linkedSid)}
+                  to={kbSourcePath(linkedSid)}
                 >
                   <Plug className="h-4 w-4" />
                 </Link>

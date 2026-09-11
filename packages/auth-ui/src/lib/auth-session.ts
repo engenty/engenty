@@ -1,6 +1,51 @@
-import type { Session } from "@supabase/supabase-js";
+import type { AuthError, Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { getSupabaseAuthClient } from "./supabase-auth-client";
+
+/**
+ * A refresh token that Supabase will never accept again: rotated on the
+ * server but the new one never reached this browser (a crash, a hard
+ * reload mid-refresh, two tabs racing), or revoked. Nothing about the
+ * deployment is wrong — the SESSION is dead, and the honest answer is the
+ * login screen, not a card about env vars.
+ */
+export function isDeadRefreshTokenError(
+  error: Pick<AuthError, "code" | "message">
+): boolean {
+  const code = error.code ?? "";
+  if (
+    code === "refresh_token_already_used" ||
+    code === "refresh_token_not_found" ||
+    code === "session_not_found"
+  ) {
+    return true;
+  }
+  return /refresh token/i.test(error.message ?? "");
+}
+
+type SessionAuth = {
+  getSession: () => Promise<{
+    data: { session: Session | null };
+    error: Pick<AuthError, "code" | "message"> | null;
+  }>;
+  signOut: (options: { scope: "local" }) => Promise<unknown>;
+};
+
+/**
+ * The initial session as the shell should see it: a burnt refresh token is
+ * forgotten locally and reads as signed out; every other failure is the
+ * message the setup card shows.
+ */
+export async function loadInitialSession(
+  auth: SessionAuth
+): Promise<{ error: string | null; session: Session | null }> {
+  const { data, error } = await auth.getSession();
+  if (error && isDeadRefreshTokenError(error)) {
+    await auth.signOut({ scope: "local" }).catch(() => undefined);
+    return { error: null, session: null };
+  }
+  return { error: error?.message ?? null, session: data.session ?? null };
+}
 
 export function useCoreAuthSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,16 +70,15 @@ export function useCoreAuthSession() {
         mounted = false;
       };
     }
-    supabase.auth
-      .getSession()
-      .then(({ data, error: authError }) => {
+    loadInitialSession(supabase.auth)
+      .then((initial) => {
         if (!mounted) {
           return;
         }
-        if (authError) {
-          setError(authError.message);
+        if (initial.error) {
+          setError(initial.error);
         }
-        setSession(data.session ?? null);
+        setSession(initial.session);
       })
       .finally(() => {
         if (mounted) {

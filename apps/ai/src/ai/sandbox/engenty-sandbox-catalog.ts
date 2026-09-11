@@ -7,16 +7,25 @@ import {
   listEngentyDockerSandboxes,
 } from "./engenty-sandbox-docker.js";
 import { parseEngentySandboxId } from "./parse-engenty-sandbox-id.js";
+import { stopSpaceComputerContainer } from "./space-computer.js";
 
 export interface EngentySandboxCatalogEntry {
+  /** Which agent's computer this is — a thread can run more than one. */
+  agent_id: string | null;
   container_id: string;
   container_name: string;
-  lifecycle: "session" | "run" | "task";
+  /** When the container started, so a stuck one is visible as a stuck one. */
+  created_at_ms: number | null;
+  lifecycle: "session" | "run" | "task" | "space" | "browser";
   sandbox_id: string;
   scope_key: string;
+  /** The space a `space` (computer) row belongs to; null for run rows. */
+  space_id: string | null;
   state: string;
   thread_id: string | null;
   title: string | null;
+  /** The person a `browser` row belongs to; null for every other row. */
+  user_id: string | null;
 }
 
 async function resolveThreadIdForSandbox(input: {
@@ -52,6 +61,29 @@ async function enrichSandboxRow(input: {
   if (!parsed) {
     return null;
   }
+  // The space computer belongs to a SPACE, not a thread — its id carries the
+  // tenant, and that is the visibility check: every member of the tenant may
+  // see (and stop/reset) their spaces' machines. There is no thread to title
+  // it; the UI names it by its space.
+  if (parsed.lifecycle === "space" || parsed.lifecycle === "browser") {
+    if (parsed.tenant_id !== input.scope.tenantId) {
+      return null;
+    }
+    return {
+      container_id: input.row.container_id,
+      container_name: input.row.container_name,
+      lifecycle: parsed.lifecycle,
+      sandbox_id: parsed.sandbox_id,
+      agent_id: null,
+      created_at_ms: input.row.created_at_ms,
+      scope_key: parsed.scope_key,
+      space_id: parsed.space_id,
+      state: input.row.state,
+      thread_id: null,
+      title: null,
+      user_id: parsed.user_id,
+    };
+  }
   const threadId = await resolveThreadIdForSandbox({
     getRunStore: input.getRunStore,
     parsed,
@@ -77,10 +109,14 @@ async function enrichSandboxRow(input: {
     container_name: input.row.container_name,
     lifecycle: parsed.lifecycle,
     sandbox_id: parsed.sandbox_id,
+    agent_id: parsed.agent_id,
+    created_at_ms: input.row.created_at_ms,
     scope_key: parsed.scope_key,
+    space_id: null,
     state: input.row.state,
     thread_id: threadId,
     title,
+    user_id: null,
   };
 }
 
@@ -89,10 +125,19 @@ export async function listEngentySandboxesForScope(input: {
   scope: AiSessionScope;
   store: ThreadStore;
 }): Promise<EngentySandboxCatalogEntry[]> {
-  const rows = await listEngentyDockerSandboxes({ runningOnly: true });
+  // `all`, not `running`: a STOPPED space computer is a real row — "asleep,
+  // wakes on the next command" — while a stopped per-run container is just a
+  // corpse the sweeps will collect, so those keep the running-only filter.
+  const rows = await listEngentyDockerSandboxes({ runningOnly: false });
   const threadTitleById = new Map<string, string | null>();
   const entries: EngentySandboxCatalogEntry[] = [];
   for (const row of rows) {
+    if (row.state !== "running") {
+      const lifecycle = parseEngentySandboxId(row.sandbox_id)?.lifecycle;
+      if (!(lifecycle === "space" || lifecycle === "browser")) {
+        continue;
+      }
+    }
     const entry = await enrichSandboxRow({
       getRunStore: input.getRunStore,
       row,
@@ -136,6 +181,18 @@ export async function destroyEngentySandboxesForScope(input: {
     if (!parsed) {
       continue;
     }
+    // Destroying a space computer is Reset: the container (installed
+    // packages, dotfiles, browser profiles) goes, the drive stays — the
+    // workspace is bind-mounted and its staging dir is not touched here.
+    // Tenant-gated like the listing.
+    if (parsed.lifecycle === "space" || parsed.lifecycle === "browser") {
+      if (parsed.tenant_id !== input.scope.tenantId) {
+        continue;
+      }
+      await destroyEngentySandboxById(sandboxId).catch(() => undefined);
+      destroyed += 1;
+      continue;
+    }
     const threadId = await resolveThreadIdForSandbox({
       getRunStore: input.getRunStore,
       parsed,
@@ -155,4 +212,41 @@ export async function destroyEngentySandboxesForScope(input: {
     destroyed += 1;
   }
   return { destroyed };
+}
+
+/**
+ * Stop (not destroy) space computers — the Computers view's Stop action.
+ *
+ * Stop is machine-only by design: a per-run container that should end gets
+ * destroyed with its run, while a machine is meant to sleep and wake. Only
+ * running machines of the caller's tenant qualify; anything else in the list
+ * is skipped, not an error.
+ */
+export async function stopEngentySpaceComputersForScope(input: {
+  sandboxIds: readonly string[];
+  scope: AiSessionScope;
+}): Promise<{ stopped: number }> {
+  const rows = await listEngentyDockerSandboxes({ runningOnly: true });
+  const rowsBySandboxId = new Map(rows.map((row) => [row.sandbox_id, row]));
+  let stopped = 0;
+  for (const sandboxId of input.sandboxIds) {
+    const parsed = parseEngentySandboxId(sandboxId);
+    if (
+      !(parsed?.lifecycle === "space" || parsed?.lifecycle === "browser") ||
+      parsed.tenant_id !== input.scope.tenantId
+    ) {
+      continue;
+    }
+    const row = rowsBySandboxId.get(sandboxId);
+    if (!row) {
+      continue;
+    }
+    try {
+      await stopSpaceComputerContainer(row.container_id);
+      stopped += 1;
+    } catch {
+      // Already stopping, or gone — either way not running anymore.
+    }
+  }
+  return { stopped };
 }

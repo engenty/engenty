@@ -21,6 +21,13 @@ export const ENGENTY_HOST_MANDATORY_PLUGINS = [
       "User-scoped settings KV and HTTP API; required for appearance, copilot layout, and per-user prefs.",
   },
   {
+    capabilities: ["notifications"],
+    hostHealthRelevant: true,
+    pluginId: "notifications",
+    reason:
+      "Notification records, /api/notifications routes and the channel registry; required by core, modules, apps/ai and the shell bell.",
+  },
+  {
     capabilities: ["module.engenty-copilot", "platform.copilot"],
     hostHealthRelevant: true,
     pluginId: "engenty-copilot",

@@ -71,3 +71,30 @@ export function flattenKbArticleReadingOrder(
 ): Array<{ id: string; title: string; slug: string }> {
   return flattenForestPreorder(buildArticleForest(articles));
 }
+
+/**
+ * Ancestors of `articleId`, outermost first, read out of the KB's own rows.
+ *
+ * Same set the reading order is built from: an article detail already loads
+ * every row in the KB, so the chain costs nothing extra. Stops at the first
+ * ancestor missing from the set, and at a cycle.
+ */
+export function buildKbArticleParentChain(
+  articles: KbNavArticleRow[],
+  articleId: string
+): Array<{ id: string; title: string; slug: string }> {
+  const byId = new Map(articles.map((row) => [row.id, row]));
+  const chain: Array<{ id: string; title: string; slug: string }> = [];
+  const seen = new Set<string>([articleId]);
+  let pid = byId.get(articleId)?.parent_article_id ?? null;
+  while (pid && !seen.has(pid)) {
+    seen.add(pid);
+    const parent = byId.get(pid);
+    if (!parent) {
+      break;
+    }
+    chain.unshift({ id: parent.id, title: parent.title, slug: parent.slug });
+    pid = parent.parent_article_id;
+  }
+  return chain;
+}

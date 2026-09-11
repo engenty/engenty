@@ -6,6 +6,7 @@
     "emptyStateTitle": "Wie kann ich helfen?",
     "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen.",
     "composerPlaceholder": "Nachricht an den Copilot…",
+    "readOnlyThread": "Nur lesen — dieser Verlauf gehört einem Agenten. Schreib in die Aufgabe, nicht hierher.",
     "sending": "Wird gesendet…",
     "queue": {
       "title": "Warteschlange",
@@ -84,8 +85,14 @@
     "groupStatus": "Status",
     "groupType": "Typ",
     "groupDate": "Datum",
+    "groupSpace": "Space",
     "sortBy": "Sortieren nach",
     "sortUpdated": "Zuletzt aktualisiert",
+    "spaceScope": "Spaces",
+    "spaceScopeAll": "Alle Spaces",
+    "spaceScopeCurrent": "Dieser Space",
+    "spaceNone": "Ohne Space",
+    "spaceUnknown": "Unbekannter Space",
     "sortCreated": "Erstellt",
     "sortTitle": "Titel",
     "sortAgent": "Agent",
@@ -123,7 +130,12 @@
       }
     },
     "artifactReady": "Artefakt bereit",
-    "openArtifact": "Öffnen"
+    "openArtifact": "Öffnen",
+    "history": "Verlauf",
+    "spaceMismatchTitle": "Dieser Chat gehört zu einem anderen Space",
+    "spaceMismatchBody": "Er antwortet weiterhin mit den Agenten, Verbindungen und Dateien jenes Spaces — nicht mit denen von hier. Starte einen neuen Chat, um hier zu arbeiten.",
+    "spaceMismatchAction": "Hier weiterreden",
+    "allSpaceChats": "Alle Chats in diesem Space"
   },
   "subAgent": {
     "backToChat": "Zurück zum Chat",
@@ -133,5 +145,13 @@
     "notFound": "Dieser Sub-Agent-Lauf ist im Transcript nicht mehr verfügbar.",
     "output": "Ausgabe",
     "running": "Läuft…"
+  },
+  "memory": {
+    "menu": "Gedächtnis",
+    "title": "Gedächtnis",
+    "subtitle": "Das stets verfügbare Profil, das der Assistent über dich pflegt. Es aktualisiert sich selbst; Zurücksetzen ist die einzige Bearbeitung.",
+    "reset": "Zurücksetzen",
+    "loading": "Lädt…",
+    "empty": "Noch kein Profil."
   }
 }

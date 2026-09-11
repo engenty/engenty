@@ -152,12 +152,17 @@ export function applyFontSize(sizeId: string) {
   document.documentElement.style.removeProperty("font-size");
 }
 
-/** Default light app-bar seed — matches `--raw-sidebar` in ember-primitives.css. */
+/**
+ * Sentinel for "the default rail", not a painted colour: `isDefaultLightSidebar`
+ * clears the inline seed for it, so CSS owns `--raw-sidebar` — the page canvas
+ * in light, one step below it in dark (`ember-primitives.css`).
+ */
 export const DEFAULT_LIGHT_SIDEBAR = "#ffffff";
 
 /**
- * Warm dark rail for Ember when CSS `.dark --raw-sidebar` is overridden by JS.
- * Sits slightly above the dark canvas (same family as paper-2).
+ * The named `dark` swatch on Appearance → app bar colour: a warm dark rail that
+ * stays dark in light mode too. It is NOT the dark-mode default — the default
+ * defers to CSS `.dark --raw-sidebar` (canvas family, one step below canvas).
  */
 export const DEFAULT_DARK_SIDEBAR = "#1c1917";
 
@@ -166,7 +171,10 @@ export interface ColorSet {
     primary: string;
     secondary: string;
     background: string;
-    /** Required — never fall back to the light sidebar hex in dark mode. */
+    /**
+     * Empty → CSS `.dark --raw-sidebar` owns the seed (one step below canvas).
+     * Never the light sidebar hex.
+     */
     sidebar: string;
   };
   id: string;
@@ -190,11 +198,12 @@ export const COLOR_SETS_PRESETS: readonly ColorSet[] = [
       sidebar: DEFAULT_LIGHT_SIDEBAR,
     },
     dark: {
-      // Empty primary/secondary/background → CSS dark formulas own those seeds.
+      // Empty → CSS dark formulas own every seed, the rail included: it sits
+      // one step below the canvas, the same stacking as light.
       primary: "",
       secondary: "",
       background: "",
-      sidebar: DEFAULT_DARK_SIDEBAR,
+      sidebar: "",
     },
   },
   {
@@ -297,25 +306,6 @@ export function applyCustomColors(
   syncThemeStyles();
 }
 
-function getContrastColor(hex: string): string {
-  const color = hex.replace("#", "");
-  if (color.length === 3) {
-    const r = Number.parseInt(color[0] + color[0], 16);
-    const g = Number.parseInt(color[1] + color[1], 16);
-    const b = Number.parseInt(color[2] + color[2], 16);
-    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    return yiq >= 128 ? "#18181b" : "#ffffff";
-  }
-  if (color.length === 6) {
-    const r = Number.parseInt(color.slice(0, 2), 16);
-    const g = Number.parseInt(color.slice(2, 4), 16);
-    const b = Number.parseInt(color.slice(4, 6), 16);
-    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-    return yiq >= 128 ? "#18181b" : "#ffffff";
-  }
-  return "#18181b";
-}
-
 export function applySidebarColor(colorId: string) {
   const html = document.documentElement;
   if (!colorId || colorId === "default" || colorId === "") {
@@ -385,8 +375,8 @@ export function syncThemeStyles() {
     }
   }
 
-  // Never paint the light default white rail in dark mode — clear so CSS
-  // `.dark { --raw-sidebar }` (canvas-family) can take over.
+  // Never paint the light default in dark mode — clear so CSS
+  // `.dark { --raw-sidebar }` (one step below canvas) can take over.
   if (isDark && isDefaultLightSidebar(finalSidebar)) {
     finalSidebar = "";
   }
@@ -414,7 +404,8 @@ export function syncThemeStyles() {
     html.style.removeProperty("--raw-background");
   }
 
-  // Light white / empty → CSS :root default. Dark empty → CSS .dark canvas-family.
+  // Default / empty → CSS owns the seed in both modes (`:root` canvas, `.dark`
+  // one step below canvas). Only a branded pick is painted inline.
   if (finalSidebar && !isDefaultLightSidebar(finalSidebar)) {
     html.style.setProperty("--raw-sidebar", finalSidebar);
   } else {

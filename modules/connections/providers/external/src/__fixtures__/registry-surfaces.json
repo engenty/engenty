@@ -1,0 +1,852 @@
+{
+  "stripe": {
+    "version": 3,
+    "domain": "stripe.com",
+    "credentials": {
+      "stripe_api_key": {
+        "label": "Stripe API key",
+        "type": "api_key"
+      },
+      "stripe_mcp_oauth": {
+        "label": "Stripe MCP OAuth authorization",
+        "type": "oauth2"
+      },
+      "stripe_cli_session": {
+        "label": "Stripe CLI authenticated session / CLI-generated restricted key",
+        "type": "compound"
+      }
+    },
+    "detect": {},
+    "surfaces": [
+      {
+        "type": "http",
+        "spec": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+        "url": "https://api.stripe.com",
+        "slug": "stripe-api",
+        "name": "Stripe API",
+        "docs": "https://docs.stripe.com/api",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "stripe_api_key",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "mcp",
+        "url": "https://mcp.stripe.com",
+        "transports": ["streamable-http"],
+        "slug": "stripe-mcp-server",
+        "name": "Stripe MCP server",
+        "docs": "https://docs.stripe.com/mcp",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "stripe_mcp_oauth",
+                  "mechanics": {
+                    "source": "well-known"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "stripe_api_key",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                },
+                {
+                  "id": "stripe_api_key",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Stripe-Account"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "cli",
+        "command": "stripe",
+        "slug": "stripe-cli",
+        "name": "Stripe CLI",
+        "docs": "https://docs.stripe.com/stripe-cli",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "stripe_cli_session",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "stripe login"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "stripe_api_key",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "stripe login --api-key <key>"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "github": {
+    "version": 3,
+    "domain": "github.com",
+    "credentials": {
+      "github_pat": {
+        "label": "GitHub personal access token (fine-grained or classic)",
+        "type": "bearer"
+      },
+      "github_app_installation_token": {
+        "label": "GitHub App credentials (app registration + private key, used to mint installation or user tokens)",
+        "type": "compound"
+      },
+      "github_oauth_app": {
+        "label": "GitHub OAuth app",
+        "type": "oauth2"
+      }
+    },
+    "detect": {},
+    "surfaces": [
+      {
+        "type": "mcp",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "transports": ["streamable-http"],
+        "slug": "github-mcp-server",
+        "name": "GitHub MCP Server",
+        "docs": "https://github.com/github/github-mcp-server",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "github_pat",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "github_oauth_app",
+                  "mechanics": {
+                    "source": "unknown"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "http",
+        "url": "https://api.github.com",
+        "slug": "github-rest-api",
+        "name": "GitHub REST API",
+        "docs": "https://docs.github.com/en/rest",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "github_pat",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "github_app_installation_token",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "github_oauth_app",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "requiredHeaders": [
+          {
+            "name": "X-GitHub-Api-Version",
+            "source": {
+              "kind": "static",
+              "value": "2022-11-28"
+            },
+            "description": "GitHub recommends sending an API version header for REST requests; docs also list newer versions in the docs UI."
+          },
+          {
+            "name": "Accept",
+            "source": {
+              "kind": "static",
+              "value": "application/vnd.github+json"
+            },
+            "description": "Recommended media type for REST requests."
+          }
+        ]
+      }
+    ]
+  },
+  "atlassian": {
+    "version": 3,
+    "domain": "atlassian.com",
+    "credentials": {
+      "atlassian_api_token": {
+        "label": "Atlassian account email + API token for direct REST/GraphQL calls",
+        "type": "compound"
+      },
+      "atlassian_oauth_app": {
+        "label": "Atlassian OAuth 2.0 (3LO) app client credentials",
+        "type": "oauth2"
+      },
+      "twg_cli_oauth": {
+        "label": "TWG CLI local OAuth 2.1 session",
+        "type": "oauth2"
+      },
+      "atlassian_admin_api_key": {
+        "label": "Atlassian Admin API key for TWG CLI admin auth",
+        "type": "api_key"
+      },
+      "bitbucket_token": {
+        "label": "Bitbucket token for Bitbucket API and TWG CLI Bitbucket commands",
+        "type": "api_key"
+      },
+      "rovo_mcp_oauth": {
+        "label": "Atlassian Rovo MCP OAuth session",
+        "type": "oauth2"
+      }
+    },
+    "detect": {},
+    "surfaces": [
+      {
+        "type": "http",
+        "url": "https://<site>.atlassian.net/rest/api/3",
+        "slug": "jira-cloud-rest-api",
+        "name": "Jira Cloud REST API",
+        "docs": "https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "atlassian_api_token",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Basic"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "atlassian_oauth_app",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "variables": [
+          {
+            "name": "site",
+            "in": "url",
+            "resolveFrom": "your Jira Cloud site subdomain",
+            "description": "Jira Cloud site hostname prefix"
+          }
+        ]
+      }
+    ]
+  },
+  "gitlab": {
+    "version": 3,
+    "domain": "gitlab.com",
+    "credentials": {
+      "gitlab_oauth_app": {
+        "label": "GitLab OAuth application (client ID + client secret)",
+        "type": "oauth2"
+      },
+      "gitlab_pat": {
+        "label": "GitLab personal access token",
+        "type": "api_key"
+      },
+      "gitlab_project_token": {
+        "label": "GitLab project access token",
+        "type": "api_key"
+      },
+      "gitlab_group_token": {
+        "label": "GitLab group access token",
+        "type": "api_key"
+      },
+      "gitlab_ci_job_token": {
+        "label": "GitLab CI/CD job token",
+        "type": "bearer"
+      }
+    },
+    "detect": {
+      "auth": {
+        "oauth": {
+          "authorizationServers": ["https://gitlab.com"],
+          "authorizationEndpoint": "https://gitlab.com/oauth/authorize",
+          "tokenEndpoint": "https://gitlab.com/oauth/token",
+          "scopes": ["mcp", "mcp_orbit"],
+          "registrationEndpoint": "https://gitlab.com/oauth/register",
+          "dcr": true,
+          "cimd": false,
+          "grantTypes": [
+            "authorization_code",
+            "client_credentials",
+            "device_code",
+            "refresh_token"
+          ]
+        }
+      }
+    },
+    "surfaces": [
+      {
+        "type": "mcp",
+        "transports": ["stdio"],
+        "slug": "gitlab-mcp-server-via-glab",
+        "name": "GitLab MCP server via glab",
+        "docs": "https://docs.gitlab.com/cli/mcp/",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "gitlab_oauth_app",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab auth login --web"
+                  }
+                },
+                {
+                  "id": "gitlab_oauth_app",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab mcp serve"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "gitlab_oauth_app",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab auth login --device"
+                  }
+                },
+                {
+                  "id": "gitlab_oauth_app",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab mcp serve"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "gitlab_pat",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab auth login --stdin",
+                    "env": [
+                      "GITLAB_TOKEN",
+                      "GITLAB_ACCESS_TOKEN",
+                      "OAUTH_TOKEN"
+                    ]
+                  }
+                },
+                {
+                  "id": "gitlab_pat",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab mcp serve"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "gitlab_ci_job_token",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab auth login --job-token $CI_JOB_TOKEN",
+                    "env": ["CI_JOB_TOKEN"]
+                  }
+                },
+                {
+                  "id": "gitlab_ci_job_token",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "glab mcp serve"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "notion": {
+    "version": 3,
+    "domain": "notion.com",
+    "credentials": {
+      "notion_internal_token": {
+        "label": "Notion internal connection installation access token",
+        "type": "bearer"
+      },
+      "notion_pat": {
+        "label": "Notion personal access token (PAT)",
+        "type": "bearer"
+      },
+      "notion_oauth_app": {
+        "label": "OAuth 2.0",
+        "type": "oauth2"
+      },
+      "notion_admin_bot_token": {
+        "label": "Notion Admin API organization bot token",
+        "type": "bearer"
+      },
+      "notion_cli_login": {
+        "label": "Notion CLI login session token",
+        "type": "oauth2"
+      },
+      "notion_mcp_oauth": {
+        "label": "Notion MCP OAuth authorization",
+        "type": "oauth2"
+      }
+    },
+    "detect": {},
+    "surfaces": [
+      {
+        "type": "http",
+        "url": "https://api.notion.com",
+        "slug": "notion-api",
+        "name": "Notion API",
+        "docs": "https://developers.notion.com/reference/intro",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "notion_internal_token",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "notion_pat",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "notion_oauth_app",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "requiredHeaders": [
+          {
+            "name": "Notion-Version",
+            "source": {
+              "kind": "static",
+              "value": "2026-03-11"
+            },
+            "description": "Version header shown in current auth examples and required by the API."
+          }
+        ]
+      }
+    ]
+  },
+  "plaid": {
+    "version": 3,
+    "domain": "plaid.com",
+    "credentials": {
+      "plaid_client_creds": {
+        "label": "Plaid API client ID and secret",
+        "type": "compound"
+      },
+      "plaid_oauth_token": {
+        "label": "Plaid OAuth access token",
+        "type": "oauth2_cc"
+      },
+      "plaid_cli_login": {
+        "label": "Plaid CLI local login/session",
+        "type": "oauth2"
+      }
+    },
+    "detect": {},
+    "surfaces": [
+      {
+        "type": "mcp",
+        "url": "https://api.dashboard.plaid.com/mcp/sse",
+        "transports": ["sse"],
+        "slug": "plaid-dashboard-mcp-server",
+        "name": "Plaid Dashboard MCP server",
+        "docs": "https://plaid.com/docs/resources/mcp/",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "plaid_oauth_token",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "http",
+        "spec": "https://raw.githubusercontent.com/plaid/plaid-openapi/master/2020-09-14.yml",
+        "specAlternates": [
+          "https://api.apis.guru/v2/specs/plaid.com/2020-09-14_1.334.0/openapi.json"
+        ],
+        "url": "https://production.plaid.com",
+        "slug": "the-plaid-api",
+        "name": "The Plaid API",
+        "docs": "https://plaid.com/docs/api/",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "plaid_client_creds",
+                  "mechanics": {
+                    "source": "spec",
+                    "scheme": "clientId"
+                  }
+                },
+                {
+                  "id": "plaid_client_creds",
+                  "mechanics": {
+                    "source": "spec",
+                    "scheme": "secret"
+                  }
+                },
+                {
+                  "id": "plaid_client_creds",
+                  "mechanics": {
+                    "source": "spec",
+                    "scheme": "plaidVersion"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "plaid_client_creds",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "PLAID-CLIENT-ID"
+                  }
+                },
+                {
+                  "id": "plaid_client_creds",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "PLAID-SECRET"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "requiredHeaders": [
+          {
+            "name": "Content-Type",
+            "source": {
+              "kind": "static",
+              "value": "application/json"
+            },
+            "description": "All requests must include JSON content type."
+          }
+        ]
+      }
+    ]
+  },
+  "resend": {
+    "version": 3,
+    "domain": "resend.com",
+    "credentials": {
+      "resend_api_key": {
+        "label": "Resend API key",
+        "type": "api_key"
+      },
+      "resend_oauth": {
+        "label": "OAuth 2.0",
+        "type": "oauth2"
+      }
+    },
+    "detect": {
+      "auth": {
+        "oauth": {
+          "authorizationServers": ["https://api.resend.com"],
+          "authorizationEndpoint": "https://api.resend.com/oauth/authorize",
+          "tokenEndpoint": "https://api.resend.com/oauth/token",
+          "protectedResourceUrl": "https://resend.com/.well-known/oauth-protected-resource",
+          "scopes": ["full_access", "emails:send"],
+          "registrationEndpoint": "https://api.resend.com/oauth/register",
+          "dcr": true,
+          "cimd": true,
+          "grantTypes": ["authorization_code", "refresh_token"]
+        },
+        "mcp": [
+          {
+            "url": "https://mcp.resend.com/mcp",
+            "type": "oauth2",
+            "authorizationServer": "https://api.resend.com",
+            "authorizationServerMetadataFetched": true,
+            "dcr": true,
+            "cimd": true
+          }
+        ]
+      }
+    },
+    "surfaces": [
+      {
+        "type": "http",
+        "spec": "https://resend.com/openapi.yaml",
+        "specAlternates": ["https://resend.com/openapi.json"],
+        "url": "https://api.resend.com",
+        "slug": "resend-rest-api-2",
+        "name": "Resend REST API",
+        "docs": "https://resend.com/docs/api-reference/introduction",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "spec",
+                    "scheme": "bearerAuth"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Authorization",
+                    "scheme": "Bearer"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "mcp",
+        "url": "https://mcp.resend.com/mcp",
+        "transports": ["streamable-http"],
+        "slug": "resend-mcp",
+        "name": "Resend MCP",
+        "docs": "https://resend.com/docs/mcp-server",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "resend_oauth",
+                  "mechanics": {
+                    "source": "well-known"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "cli",
+        "command": "resend",
+        "slug": "resend-cli",
+        "name": "Resend CLI",
+        "docs": "https://resend.com/docs/cli",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "resend login"
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "cli",
+                    "env": ["RESEND_API_KEY"]
+                  }
+                }
+              ]
+            },
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "cli",
+                    "command": "resend --api-key re_xxx ..."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "http",
+        "url": "smtp.resend.com",
+        "slug": "resend-smtp",
+        "name": "Resend SMTP",
+        "docs": "https://resend.com/docs/send-with-smtp.md",
+        "auth": {
+          "status": "required",
+          "entries": [
+            {
+              "use": [
+                {
+                  "id": "resend_api_key",
+                  "mechanics": {
+                    "source": "http",
+                    "in": "header",
+                    "headerName": "Password"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -5,6 +5,13 @@
  * Without these, `.text-base` etc. reference undefined `--text-base` and fall back badly.
  */
 @theme inline {
+  /* Main-area scroller end inset — use `pb-scroll-safe` / `.ui-page-scroll`. */
+  --spacing-scroll-safe: var(--ui-scroll-safe-bottom);
+  /* Device safe-area insets (ui-viewport.css) — `pb-safe-bottom`, `pt-safe-top`, … */
+  --spacing-safe-top: var(--ui-safe-top);
+  --spacing-safe-right: var(--ui-safe-right);
+  --spacing-safe-bottom: var(--ui-safe-bottom);
+  --spacing-safe-left: var(--ui-safe-left);
   --text-xxs: 0.6875rem;
   --text-xxs--line-height: 0.875rem;
   --text-xs: 0.75rem;

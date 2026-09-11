@@ -29,7 +29,7 @@ export interface AgentUiPageBriefInput {
   /**
    * Optional overrides / extensions for DOM region selectors.
    * Defaults (app_bar, sidebar, topbar, main, and list/detail by page_type)
-   * are always merged in so agents can scope `browser_dom_snapshot`.
+   * are always merged in so agents can scope `ui_dom_snapshot`.
    */
   dom_entry_points?: Partial<Record<string, string>>;
   list_filters?: Record<string, JsonValue>;

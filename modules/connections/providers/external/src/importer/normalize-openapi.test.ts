@@ -134,3 +134,55 @@ describe("normalizeOpenApiSpec", () => {
     await expect(normalizeOpenApiSpec(huge)).rejects.toThrow(/spec too large/u);
   });
 });
+
+describe("registry spec overrides", () => {
+  it("applies a correction before extraction", async () => {
+    const result = await normalizeOpenApiSpec(JSON.stringify(spec), {
+      specOverrides: [
+        {
+          op: "replace",
+          path: "/components/securitySchemes/bearerAuth",
+          value: { in: "header", name: "X-Api-Key", type: "apiKey" },
+        },
+      ],
+    });
+    expect(result.applied_overrides).toBe(1);
+    expect(result.security_schemes).toEqual({
+      bearerAuth: { in: "header", name: "X-Api-Key", type: "apiKey" },
+    });
+  });
+
+  it("adds operations the published spec is missing", async () => {
+    const result = await normalizeOpenApiSpec(JSON.stringify(spec), {
+      specOverrides: [
+        {
+          op: "add",
+          path: "/paths/~1health",
+          value: {
+            get: {
+              operationId: "getHealth",
+              responses: { "200": { description: "ok" } },
+              summary: "Health",
+            },
+          },
+        },
+      ],
+    });
+    expect(result.actions.map((action) => action.id)).toContain("get_health");
+  });
+
+  it("fails the import when a correction does not apply", async () => {
+    await expect(
+      normalizeOpenApiSpec(JSON.stringify(spec), {
+        specOverrides: [
+          { op: "replace", path: "/components/securitySchemes/nope", value: 1 },
+        ],
+      })
+    ).rejects.toThrow(/registry spec overrides do not apply/u);
+  });
+
+  it("normalizes the unpatched spec when there are no overrides", async () => {
+    const result = await normalizeOpenApiSpec(JSON.stringify(spec));
+    expect(result.applied_overrides).toBe(0);
+  });
+});

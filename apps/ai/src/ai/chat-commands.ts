@@ -58,8 +58,21 @@ export function filterChatCommandsForAgent(
 export interface ChatTurnReferenceItem {
   entity?: string;
   label: string;
-  /** Canonical ObjectRef: "<module>:<entity>:<id>" | "core:user:<id>" | "artifact:<id>". */
+  /** Canonical ObjectRef: "<module>:<entity>:<id>" | "core:user:<id>" | "ai:agent:<id>" | "artifact:<id>". */
   ref: string;
+}
+
+/** Entity prefix of an @-mentioned agent (`ai:agent:<agent id>`). */
+export const AGENT_REFERENCE_ENTITY = "ai:agent";
+/** Entity prefix of an @-mentioned room (`ai:room:<thread id>`). */
+export const ROOM_REFERENCE_ENTITY = "ai:room";
+/** Entity prefix of an @-mentioned artifact (`artifact:<artifact id>`). */
+export const ARTIFACT_REFERENCE_ENTITY = "artifact";
+
+export interface ChatActionInvocationResult {
+  /** An in-flight run for the same subject answered instead of a new one. */
+  deduped: boolean;
+  runId: string;
 }
 
 /** Leading `/token rest` parse without a catalog — used for skill lookup. */
@@ -131,6 +144,11 @@ export function expandChatSkillSelection(input: {
  */
 export async function buildChatTurnContextEntries(params: {
   agentId: string | null | undefined;
+  invokeWorkflowCommand?: (input: {
+    argsText: string;
+    command: ChatCommandDefinition;
+    refs: readonly ChatTurnReferenceItem[];
+  }) => Promise<ChatActionInvocationResult>;
   moduleLoader?: DynamicAiModuleCapabilityLoader;
   prompt: string;
   refs: readonly ChatTurnReferenceItem[];
@@ -140,6 +158,7 @@ export async function buildChatTurnContextEntries(params: {
   const entries: Array<{ description: string; value: string }> = [];
 
   if (params.prompt.trimStart().startsWith("/")) {
+    let attemptedActionCommand: ChatCommandDefinition | null = null;
     try {
       const all = await listAllChatCommands(params.moduleLoader);
       const match = parseLeadingChatCommand(
@@ -147,10 +166,37 @@ export async function buildChatTurnContextEntries(params: {
         filterChatCommandsForAgent(all, params.agentId)
       );
       if (match) {
-        entries.push({
-          description: "chat_command",
-          value: expandChatCommand(match),
-        });
+        if (match.command.kind === "workflow") {
+          attemptedActionCommand = match.command;
+          if (params.invokeWorkflowCommand) {
+            const invoked = await params.invokeWorkflowCommand({
+              ...match,
+              refs: params.refs,
+            });
+            entries.push({
+              description: "chat_command_workflow",
+              value: [
+                `The user invoked "/${match.command.command}".`,
+                invoked.deduped
+                  ? `A run for this subject was already in flight — run ${invoked.runId} answers instead of a duplicate.`
+                  : `It dispatched as run ${invoked.runId}, bound to the referenced subject.`,
+                "Do not call the Action or its underlying tools directly. Tell the user the run is underway and will report when it settles.",
+              ].join(" "),
+            });
+          } else {
+            entries.push({
+              description: "chat_command_workflow",
+              value:
+                `The user invoked "/${match.command.command}", but this runnable Action could not be dispatched. ` +
+                "Do not execute it directly. Explain that the durable invocation path is unavailable.",
+            });
+          }
+        } else {
+          entries.push({
+            description: "chat_command",
+            value: expandChatCommand(match),
+          });
+        }
       } else if (params.skillStorage) {
         const leading = parseLeadingSlashToken(params.prompt);
         if (leading) {
@@ -171,11 +217,87 @@ export async function buildChatTurnContextEntries(params: {
     } catch (error) {
       // Catalog resolution is best-effort — an unmatched command is plain text.
       console.error("chat command expansion failed", error);
+      if (attemptedActionCommand) {
+        entries.push({
+          description: "chat_command_workflow",
+          value:
+            `The runnable Action "/${attemptedActionCommand.command}" could not be materialized as a Task. ` +
+            "Do not execute it directly or substitute catalog writes. Report the durable invocation failure.",
+        });
+      }
     }
   }
 
-  if (params.refs.length > 0) {
-    const lines = params.refs.map((ref) => `- "${ref.label}" → ${ref.ref}`);
+  // Each kind of reference is a different instruction: a colleague to involve,
+  // a room to talk in, a deliverable to open, a record to load. One
+  // undifferentiated "here are some refs" made the model guess, and it guessed
+  // `show_objects` for an App.
+  const agentRefs = params.refs.filter((ref) =>
+    ref.ref.startsWith(`${AGENT_REFERENCE_ENTITY}:`)
+  );
+  const roomRefs = params.refs.filter((ref) =>
+    ref.ref.startsWith(`${ROOM_REFERENCE_ENTITY}:`)
+  );
+  const artifactRefs = params.refs.filter((ref) =>
+    ref.ref.startsWith(`${ARTIFACT_REFERENCE_ENTITY}:`)
+  );
+  const objectRefs = params.refs.filter(
+    (ref) =>
+      !(
+        agentRefs.includes(ref) ||
+        roomRefs.includes(ref) ||
+        artifactRefs.includes(ref)
+      )
+  );
+
+  if (agentRefs.length > 0) {
+    const lines = agentRefs.map(
+      (ref) =>
+        `- "${ref.label}" → agent id \`${ref.ref.slice(AGENT_REFERENCE_ENTITY.length + 1)}\``
+    );
+    entries.push({
+      description: "user_mentioned_agents",
+      value: [
+        "The user @-mentioned these agents of this Space in their message:",
+        ...lines,
+        "When the message asks or hands something to one of them, use message_agent with that agent id — mode `ask` when you need their answer, `notify` to hand off and keep going. Say what the tool returned; never claim to have reached an agent unless the call succeeded.",
+      ].join("\n"),
+    });
+  }
+
+  if (roomRefs.length > 0) {
+    const lines = roomRefs.map(
+      (ref) =>
+        `- "${ref.label}" → room_id \`${ref.ref.slice(ROOM_REFERENCE_ENTITY.length + 1)}\``
+    );
+    entries.push({
+      description: "user_mentioned_rooms",
+      value: [
+        "The user @-mentioned these rooms of this Space in their message:",
+        ...lines,
+        "To speak in one, call message_agent with that `room_id` — never `agent_ids`, which would open a second room beside the one they named. Everyone in the room takes a turn unless you name members in `agent_ids` as well.",
+        "You cannot READ a room's messages from here. Answer about what was said in one from what you already know, or ask in the room; never claim to have read it.",
+      ].join("\n"),
+    });
+  }
+
+  if (artifactRefs.length > 0) {
+    const lines = artifactRefs.map(
+      (ref) =>
+        `- "${ref.label}" → artifact_id \`${ref.ref.slice(ARTIFACT_REFERENCE_ENTITY.length + 1)}\``
+    );
+    entries.push({
+      description: "user_mentioned_artifacts",
+      value: [
+        "The user @-mentioned these artifacts in their message:",
+        ...lines,
+        "Open one with artifact_read before answering about its content — never describe an artifact you have not read. show_artifact puts it in front of them; artifact_write edits it.",
+      ].join("\n"),
+    });
+  }
+
+  if (objectRefs.length > 0) {
+    const lines = objectRefs.map((ref) => `- "${ref.label}" → ${ref.ref}`);
     entries.push({
       description: "user_references",
       value: [

@@ -112,7 +112,6 @@ export function OffersSettingsPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (loading) {
@@ -137,7 +136,7 @@ export function OffersSettingsPage() {
               {t("offersSettings.configureOfferNumbers")}
             </p>
           </div>
-          <div className="overflow-hidden rounded-lg border bg-card p-4">
+          <div className="ui-card-panel overflow-hidden p-4">
             <div className="flex items-end gap-3">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="offer_id_prefix">
@@ -209,7 +208,7 @@ export function OffersSettingsPage() {
               {t("offersSettings.prefillNewOffers")}
             </p>
           </div>
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="ui-card-panel overflow-hidden">
             <div className="p-4">
               <Label className="font-semibold text-base">
                 {t("offersSettings.defaultIntroduction")}
@@ -275,7 +274,7 @@ export function OffersSettingsPage() {
               {t("offersSettings.templateAndDisplayDescription")}
             </p>
           </div>
-          <div className="overflow-hidden rounded-lg border bg-card p-4">
+          <div className="ui-card-panel overflow-hidden p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-muted-foreground text-sm">
                 {t("offersSettings.managePdfTemplatesDescription")}
@@ -321,7 +320,7 @@ export function OffersSettingsPage() {
               {t("offersSettings.setDefaultValidityPeriod")}
             </p>
           </div>
-          <div className="overflow-hidden rounded-lg border bg-card p-4">
+          <div className="ui-card-panel overflow-hidden p-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label

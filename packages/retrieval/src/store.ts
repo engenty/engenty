@@ -99,6 +99,10 @@ export function createRetrievalStore(source: RetrievalDbSource) {
         indexed_at: new Date().toISOString(),
         metadata: document.filter_metadata ?? {},
         occurred_at: document.occurred_at ?? null,
+        // Null = not space-scoped, which the query treats as tenant-visible.
+        // A space-scoped source that omits this indexes its records as though
+        // they belonged to no space, and they become searchable by everyone.
+        space_id: document.space_id ?? null,
         title: document.title ?? null,
       },
       { onConflict: "tenant_id,source_type,doc_id" }

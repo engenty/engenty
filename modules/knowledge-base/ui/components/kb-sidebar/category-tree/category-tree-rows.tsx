@@ -332,7 +332,6 @@ interface CategoryForestRowsProps {
   categoryTreeExpansion: CategoryTreeExpansionState;
   depth?: number;
   forest: CategoryNode[];
-  kbSlug: string;
   onAddInCategory: (category: KbCategory) => void;
   onAddSubPage: (article: Article) => void;
   onApplyCategoryCommentsMode?: (
@@ -346,7 +345,6 @@ interface CategoryForestRowsProps {
   onCategorySettings?: (category: KbCategory) => void;
   onDeleteCategory?: (category: KbCategory) => void;
   onEditCategory?: (category: KbCategory) => void;
-  onPickArticle: (id: string) => void;
   onPickCategory?: (category: KbCategory) => void;
   onRequestDeleteArticle: (article: Article) => void;
   query: string;
@@ -373,8 +371,6 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
     articleExpanded,
     articleManualReorderDrag,
     articlePropertyDefinitions,
-    kbSlug,
-    onPickArticle,
     onPickCategory,
     onRequestDeleteArticle,
     query,
@@ -393,7 +389,6 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
           categoryTreeExpansion,
           query
         );
-        const hasContent = children.length > 0 || articles.length > 0;
 
         return (
           <Fragment key={category.id}>
@@ -402,21 +397,19 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
                 category={category}
                 categoryReorderDrag={categoryReorderDrag}
                 chevronSlot={
-                  hasContent ? (
-                    <SidebarExpandChevronButton
-                      ariaLabelCollapsed={t(
-                        "sidebar.tree_expand_category_branch"
-                      )}
-                      ariaLabelExpanded={t(
-                        "sidebar.tree_collapse_category_branch"
-                      )}
-                      isOpen={branchOpen}
-                      onPressToggle={() => {
-                        toggleCategory(category.id, depth);
-                      }}
-                      {...shellSecondaryNavItemProps}
-                    />
-                  ) : null
+                  <SidebarExpandChevronButton
+                    ariaLabelCollapsed={t(
+                      "sidebar.tree_expand_category_branch"
+                    )}
+                    ariaLabelExpanded={t(
+                      "sidebar.tree_collapse_category_branch"
+                    )}
+                    isOpen={branchOpen}
+                    onPressToggle={() => {
+                      toggleCategory(category.id, depth);
+                    }}
+                    {...shellSecondaryNavItemProps}
+                  />
                 }
                 depth={depth}
                 onAddInCategory={onAddInCategory}
@@ -439,7 +432,6 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
                 categoryTreeExpansion={categoryTreeExpansion}
                 depth={depth + 1}
                 forest={children}
-                kbSlug={kbSlug}
                 onAddInCategory={onAddInCategory}
                 onAddSubPage={onAddSubPage}
                 onApplyCategoryCommentsMode={onApplyCategoryCommentsMode}
@@ -447,7 +439,6 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
                 onCategorySettings={onCategorySettings}
                 onDeleteCategory={onDeleteCategory}
                 onEditCategory={onEditCategory}
-                onPickArticle={onPickArticle}
                 onPickCategory={onPickCategory}
                 onRequestDeleteArticle={onRequestDeleteArticle}
                 query={query}
@@ -465,9 +456,7 @@ export function CategoryForestRows(props: CategoryForestRowsProps) {
                 depth={depth + 1}
                 forest={articles}
                 hideLeadingIcon
-                kbSlug={kbSlug}
                 onAddSubPage={onAddSubPage}
-                onPickArticle={onPickArticle}
                 onRequestDeleteArticle={onRequestDeleteArticle}
                 query={query}
                 toggleArticle={toggleArticle}

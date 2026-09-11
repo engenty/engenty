@@ -25,6 +25,7 @@ supabase/config.toml
 # UI plugin artifacts (generated from modules/packages on disk)
 apps/ui/src/plugins/generated-catalog.ts
 apps/ui/src/plugins/generated-tailwind-sources.css
+apps/ui/src/plugins/pro/
 
 # Local database snapshots
 supabase/snapshots/
@@ -38,6 +39,9 @@ logs/
 # Local dev slot registry (worktree portless)
 .engenty/
 
+# LLM call traces (ENGENTY_LLM_TRACE) — tenant conversation data
+.llm-trace/
+
 # Local Claude Code preview server config
 .claude/launch.json
 
@@ -49,3 +53,7 @@ logs/
 e2e/.auth/
 e2e/.results/
 e2e/.report/
+
+# dev-only visual harness for the action canvas (not shipped)
+apps/ui/canvas-preview.html
+apps/ui/src/canvas-preview.tsx

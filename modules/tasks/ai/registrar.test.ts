@@ -1,7 +1,8 @@
 import { unregisterAiRegistration } from "@engenty/ai-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TASKS_ASSIST_AGENT_ID } from "./agents/tasks-assist.js";
 import { tasksAiRegistration, tasksDynamicAiCapability } from "./registrar.js";
+
+const TASKS_ASSIST_AGENT_ID = "tasks.assist";
 
 const noopInvokeTasksOperation = vi.fn(async () => null);
 
@@ -10,31 +11,20 @@ describe("tasksAiRegistration", () => {
     unregisterAiRegistration("tasks");
   });
 
-  it("exposes tasks.assist with tasks routes and task-workflow skill", () => {
+  it("exposes tasks.assist with the task-workflow skill", () => {
     const registration = tasksAiRegistration({
       invokeTasksOperation: noopInvokeTasksOperation,
     });
-    const agent = registration.agents?.find(
+    const agent = registration.dynamic?.agent_configs?.find(
       (item) => item.id === TASKS_ASSIST_AGENT_ID
     );
 
     expect(registration.module_id).toBe("tasks");
     expect(agent).toBeTruthy();
-    expect(agent?.skills).toContain("task-workflow");
+    expect(agent?.skillIds).toContain("task-workflow");
 
     const skillNames = new Set(registration.skills?.map((skill) => skill.name));
     expect(skillNames.has("task-workflow")).toBe(true);
-
-    const tools = agent?.build_tools({
-      action: "chat",
-      moduleId: "tasks",
-      scope: { entityId: "task-1", task_snapshot: { title: "Ship tasks" } },
-      scopeId: "default",
-      tenantId: "tenant-1",
-    });
-
-    expect(tools).toBeDefined();
-    expect(tools).toHaveProperty("engentyApiCatalog");
   });
 
   it("exports dynamic capability metadata for apps/ai assembly", () => {
@@ -54,9 +44,6 @@ describe("tasksAiRegistration", () => {
     expect(capability.agentConfigs?.[0]?.toolIds).toEqual([
       "engenty_tools_search",
       "engenty_tool_execute",
-      "memory_save",
-      "memory_record_search",
-      "memory_record_archive",
     ]);
     expect(capability.skills?.["task-workflow"]).toContain("task-workflow");
   });

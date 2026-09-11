@@ -230,3 +230,12 @@ describe("contacts retrieval source — hydrate", () => {
     expect(results?.[0]?.item.match_reason).toBe("text");
   });
 });
+
+describe("contacts retrieval source — search operation policy", () => {
+  it("declares tenant_shared so the synthesized search op does not invent space_id", () => {
+    const source = createContactsRetrievalSource({
+      getDb: () => createFakeSupabase({}) as never,
+    });
+    expect(source.operation.spacePolicy).toEqual({ kind: "tenant_shared" });
+  });
+});

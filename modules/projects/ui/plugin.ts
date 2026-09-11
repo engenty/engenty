@@ -1,3 +1,4 @@
+import type { WorkTab } from "@engenty/tasks/ui/work-tabs";
 import { DockProjectsIcon } from "@engenty/ui-icons";
 import type {
   EngentyPluginContext,
@@ -11,6 +12,7 @@ import {
   getProject,
   getProjectSettings,
   getProjects,
+  type ProjectListItem,
   setProjectSettings,
   updateProject,
 } from "./api.js";
@@ -26,6 +28,7 @@ import {
 import { setProjectsPluginsApi } from "./plugins.js";
 import { projectsLiveBinding } from "./projects-live-binding.js";
 import { projectsPublicUiContributions } from "./public-plugin.js";
+import { projectsWorkTab } from "./work-tab.js";
 
 const PROJECTS_TASKS_LIST_ENRICHER_ID = "projects";
 
@@ -58,6 +61,7 @@ type TasksListHooksApi = {
     enrich: (tasks: TasksListTaskRow[]) => Promise<Record<string, unknown>>;
     id: string;
   }) => void;
+  registerWorkTab: (tab: WorkTab<ProjectListItem>) => void;
   [key: string]: unknown;
 };
 
@@ -91,6 +95,8 @@ export default function plugin(engenty: EngentyPluginContext) {
   });
 
   const tasksUi = engenty.plugins.get<TasksListHooksApi>("tasks");
+  // Projects on the cross-space work overview Tasks owns.
+  tasksUi?.registerWorkTab(projectsWorkTab);
 
   tasksUi?.registerListEnricher({
     id: PROJECTS_TASKS_LIST_ENRICHER_ID,

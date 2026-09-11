@@ -55,7 +55,7 @@ Switch on `display.viewMode` to render `AdminListCardsView` instead when the use
 
 ## Card grid layout
 
-`AdminListCardsView` renders a scroll area only — **no outer elevated list shell**. Individual items in the grid should be elevated cards (`.ui-canvas-raised` or `bg-card` with canvas shadow tokens) sitting directly on the page canvas.
+`AdminListCardsView` renders a scroll area only — **no outer elevated list shell**. Individual items in the grid should use `.ui-card-raised` (alias `.ui-canvas-raised`) sitting directly on the page canvas. Do not also add `border`, `bg-card`, `rounded-*`, or `hover:bg-*` on those nodes.
 
 Pair with `adminListCardsGridClassName(tableSize)` for the responsive grid. Use `AdminListTableView` with `transparent` when the table view should also skip the outer shell.
 

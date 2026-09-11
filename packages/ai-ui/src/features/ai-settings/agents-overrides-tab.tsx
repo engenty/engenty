@@ -1,4 +1,9 @@
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import {
+  AGENT_APPROVAL_MODES,
+  type AgentApprovalMode,
+  type AiEffortChoice,
+  parseAgentApprovalMode,
+} from "@engenty/ai-core/browser";
 import {
   Badge,
   Button,
@@ -15,7 +20,7 @@ import {
   usePatchAiAgentOverridesMutation,
 } from "../../lib/admin/ai-runtime-queries";
 import type { AiRegisteredAgent } from "../../lib/admin/ai-runtime-types";
-import type { EffectiveAiSettings } from "../../lib/admin/effective-ai-settings-api";
+import type { AiConfig } from "../../lib/admin/ai-settings-api";
 import { EffortSelector } from "../ai-effort/effort-selector";
 import { useEffortGrant } from "../ai-effort/use-effort-grant";
 
@@ -53,13 +58,25 @@ function toDraft(agent: AiRegisteredAgent): Draft {
 
 interface AgentsOverridesTabProps {
   chatModelOptions: SearchableSelectOption[];
-  effective: EffectiveAiSettings | undefined;
+  settings: AiConfig;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  updateSettings: <K extends keyof AiConfig>(
+    key: K,
+    value: AiConfig[K]
+  ) => void;
+}
+
+function approvalLabelKey(mode: AgentApprovalMode): string {
+  return mode === "pass-all"
+    ? "limits.approval.passAll"
+    : `limits.approval.${mode}`;
 }
 
 export function AgentsOverridesTab({
   chatModelOptions,
+  settings,
   t,
+  updateSettings,
 }: AgentsOverridesTabProps) {
   const agentsQuery = useAiAgentsQuery();
   const saveMutation = usePatchAiAgentOverridesMutation();
@@ -72,6 +89,23 @@ export function AgentsOverridesTab({
   const [expertModels, setExpertModels] = useState(false);
 
   const agents = agentsQuery.data?.agents ?? [];
+
+  const setAgentApprovalMode = (
+    agentId: string,
+    mode: AgentApprovalMode | null
+  ) => {
+    const current = settings.agent_approval ?? { mode: null, agents: null };
+    const agentsMap = { ...(current.agents ?? {}) };
+    if (mode) {
+      agentsMap[agentId] = mode;
+    } else {
+      delete agentsMap[agentId];
+    }
+    updateSettings("agent_approval", {
+      mode: current.mode ?? null,
+      agents: Object.keys(agentsMap).length > 0 ? agentsMap : null,
+    });
+  };
 
   const startEdit = (agent: AiRegisteredAgent) => {
     setEditingId(agent.id);
@@ -305,6 +339,33 @@ export function AgentsOverridesTab({
                     </span>
                   </div>
                 )}
+                <div className="flex flex-col gap-1.5 sm:max-w-xs">
+                  <Label htmlFor={`ov-approval-${agent.id}`}>
+                    {t("agentsTab.approvalMode")}
+                  </Label>
+                  <select
+                    className="h-8 rounded-md border bg-background px-2 text-sm"
+                    id={`ov-approval-${agent.id}`}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setAgentApprovalMode(
+                        agent.id,
+                        next ? parseAgentApprovalMode(next) : null
+                      );
+                    }}
+                    value={settings.agent_approval?.agents?.[agent.id] ?? ""}
+                  >
+                    <option value="">{t("agentsTab.approvalInherit")}</option>
+                    {AGENT_APPROVAL_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {t(approvalLabelKey(mode))}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-muted-foreground text-xs">
+                    {t("agentsTab.approvalHint")}
+                  </p>
+                </div>
               </div>
             );
           })}

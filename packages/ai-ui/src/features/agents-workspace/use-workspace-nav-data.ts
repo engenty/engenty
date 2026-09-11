@@ -1,10 +1,10 @@
 // Shared nav data for useAgentsWorkspaceShellNav across all admin/engenty pages.
-// Fetches agents, actions, skills once per page tree (TanStack dedupes across calls).
+// Fetches agents, flows and skills once per page tree (TanStack dedupes across
+// calls).
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  useAiActionsQuery,
   useAiAgentsQuery,
   useAiSkillsQuery,
 } from "../../lib/admin/ai-runtime-queries";
@@ -14,26 +14,27 @@ import {
   compareCoreModuleThenModuleName,
 } from "../ai-settings/agent-catalog";
 import {
-  buildActionDetailPath,
   buildAgentDetailPath,
   buildSkillDetailPath,
 } from "./agent-workspace-url-state";
 import type { UseAgentsWorkspaceShellNavOptions } from "./use-agents-workspace-shell-nav";
+import { useFlowCatalog, useSelectFlow } from "./use-flow-catalog";
 
 type WorkspaceNavData = Omit<
   UseAgentsWorkspaceShellNavOptions,
   | "isLandingPage"
   | "onNavigate"
-  | "selectedActionId"
   | "selectedAgentId"
+  | "selectedFlowId"
   | "selectedSkillId"
 >;
 
 export function useWorkspaceNavData(): WorkspaceNavData {
   const navigate = useNavigate();
   const agentsQuery = useAiAgentsQuery();
-  const actionsQuery = useAiActionsQuery();
   const skillsQuery = useAiSkillsQuery();
+  const { flows, flowsLoading } = useFlowCatalog();
+  const onSelectFlow = useSelectFlow();
   const instructionsCatalogQuery = useAiInstructionsCatalogQuery();
 
   const agents = useMemo(
@@ -45,14 +46,6 @@ export function useWorkspaceNavData(): WorkspaceNavData {
     [agentsQuery.data?.agents, instructionsCatalogQuery.data?.documents]
   );
 
-  const actions = useMemo(
-    () =>
-      (actionsQuery.data?.actions ?? []).toSorted(
-        compareCoreModuleThenModuleName
-      ),
-    [actionsQuery.data?.actions]
-  );
-
   const skills = useMemo(
     () =>
       (skillsQuery.data?.skills ?? []).toSorted((l, r) =>
@@ -62,13 +55,10 @@ export function useWorkspaceNavData(): WorkspaceNavData {
   );
 
   return {
-    actions,
-    actionsLoading: actionsQuery.isLoading,
     agents,
-    onSelectAction: (id: string) =>
-      navigate(buildActionDetailPath(id, { file: "ACTION.md" }), {
-        replace: true,
-      }),
+    flows,
+    flowsLoading,
+    onSelectFlow,
     onSelectAgent: (id: string) =>
       navigate(buildAgentDetailPath(id), { replace: true }),
     onSelectSkill: (name: string) =>

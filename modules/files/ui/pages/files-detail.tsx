@@ -65,24 +65,26 @@ function getMimeLabel(mime: string): string {
  */
 function filesDetailBreadcrumbsFromKey(
   fileKey: string,
-  filesTitle: string
+  filesTitle: string,
+  labels: Record<string, string> = {},
+  displayFilename?: string
 ): PageBreadcrumb[] {
   const rest = pathSegmentsAfterFileStorageTenantRoot(fileKey);
   const crumbs: PageBreadcrumb[] = [{ label: filesTitle, to: "/admin/files" }];
 
   if (rest.length === 0) {
-    crumbs.push({ label: fileKey });
+    crumbs.push({ label: displayFilename ?? fileKey });
     return crumbs;
   }
 
   if (rest.length === 1) {
-    crumbs.push({ label: rest[0]! });
+    crumbs.push({ label: displayFilename ?? labels[rest[0]!] ?? rest[0]! });
     return crumbs;
   }
 
-  const filename = rest.at(-1)!;
+  const filename = displayFilename ?? labels[rest.at(-1)!] ?? rest.at(-1)!;
   for (const seg of rest.slice(0, -1)) {
-    crumbs.push({ label: seg });
+    crumbs.push({ label: labels[seg] ?? seg });
   }
   crumbs.push({ label: filename });
   return crumbs;
@@ -96,7 +98,12 @@ export function FilesDetailPage() {
   const queryClient = useQueryClient();
   const params = useParams<{ key: string }>();
   const fileKey = decodeURIComponent(params.key ?? "");
-  const filename = fileKey.split("/").pop() ?? fileKey;
+  const [overlay, setOverlay] = useState<{
+    filename?: string;
+    mime_type?: string;
+    segment_labels?: Record<string, string>;
+  }>({});
+  const filename = overlay.filename ?? fileKey.split("/").pop() ?? fileKey;
 
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,8 +116,8 @@ export function FilesDetailPage() {
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const mimeType = useMemo(
-    () => guessFileStorageMimeFromFilename(filename),
-    [filename]
+    () => overlay.mime_type ?? guessFileStorageMimeFromFilename(filename),
+    [filename, overlay.mime_type]
   );
 
   const kbSlug = useMemo(
@@ -119,8 +126,14 @@ export function FilesDetailPage() {
   );
 
   const breadcrumbs = useMemo(
-    () => filesDetailBreadcrumbsFromKey(fileKey, t("title")),
-    [fileKey, t]
+    () =>
+      filesDetailBreadcrumbsFromKey(
+        fileKey,
+        t("title"),
+        overlay.segment_labels ?? {},
+        overlay.filename
+      ),
+    [fileKey, overlay.filename, overlay.segment_labels, t]
   );
 
   usePageConfig({
@@ -139,8 +152,16 @@ export function FilesDetailPage() {
     }
     setLoading(true);
     setError(null);
+    setOverlay({});
     getFilesUrl(fileKey)
-      .then((result) => setUrl(result.url))
+      .then((result) => {
+        setUrl(result.url);
+        setOverlay({
+          filename: result.filename,
+          mime_type: result.mime_type,
+          segment_labels: result.segment_labels,
+        });
+      })
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : "Failed to load file")
       )
@@ -261,7 +282,7 @@ export function FilesDetailPage() {
             </TabsList>
             <TabsContent className="mt-0" value="preview">
               {error ? (
-                <div className="ui-canvas-panel flex h-full items-center justify-center rounded-lg border-0 bg-destructive/5 p-4">
+                <div className="ui-card-panel flex h-full items-center justify-center bg-destructive/5 p-4">
                   <p className="text-destructive text-sm">{error}</p>
                 </div>
               ) : url ? (
@@ -279,7 +300,7 @@ export function FilesDetailPage() {
             </TabsContent>
             <TabsContent className="mt-0" value="extracted">
               {extractError ? (
-                <div className="ui-canvas-panel rounded-lg border-0 bg-destructive/5 p-4 text-destructive text-sm">
+                <div className="ui-card-panel bg-destructive/5 p-4 text-destructive text-sm">
                   {extractError}
                 </div>
               ) : null}
@@ -289,11 +310,11 @@ export function FilesDetailPage() {
                   {t("extract.loading")}
                 </div>
               ) : extractQuery.data?.markdown ? (
-                <div className="ui-canvas-panel relative rounded-lg border-0 bg-card">
+                <div className="ui-card-panel relative">
                   <div className="pointer-events-none absolute top-1.5 right-1.5 z-10 sm:top-2 sm:right-2">
                     <div
                       aria-label={t("tabs.extracted")}
-                      className="pointer-events-auto inline-flex rounded-md border border-border/80 bg-background/90 p-px shadow-sm backdrop-blur-sm"
+                      className="pointer-events-auto inline-flex rounded-md border border-border bg-background/90 p-px shadow-sm backdrop-blur-sm"
                       role="group"
                     >
                       <Button

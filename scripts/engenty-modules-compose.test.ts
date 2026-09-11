@@ -113,6 +113,43 @@ describe("engenty.plugins compose", () => {
     expect(parsed.dependencies["@engenty/stale-only"]).toBe("workspace:*");
   });
 
+  it("does not add closed-prefix UI modules as apps/ui workspace deps", () => {
+    // `banking` is a real entry in scripts/lib/closed-paths.mjs, which is the
+    // one list that decides what stays out of the public mirror. The fixture
+    // used to write its own CLOSED_PREFIXES bash array into publish-open.sh;
+    // that array is now a shell loop over closed-paths.mjs, so fabricating one
+    // tested a parser rather than the boundary.
+    const root = createRepo(["enabled-ui", "banking"]);
+    writeModule(root, "enabled-ui", true);
+    writeModule(root, "banking", true);
+
+    const uiPath = path.join(root, "apps/ui/package.json");
+    fs.writeFileSync(
+      uiPath,
+      `${JSON.stringify(
+        {
+          name: "@engenty/ui",
+          dependencies: {
+            "@engenty/banking": "workspace:*",
+          },
+        },
+        null,
+        2
+      )}\n`,
+      "utf-8"
+    );
+
+    const result = syncUiModuleDependencies(root);
+    expect(result.added).toEqual(["@engenty/enabled-ui"]);
+    expect(result.removed).toEqual(["@engenty/banking"]);
+
+    const parsed = JSON.parse(fs.readFileSync(uiPath, "utf-8")) as {
+      dependencies: Record<string, string>;
+    };
+    expect(parsed.dependencies["@engenty/enabled-ui"]).toBe("workspace:*");
+    expect(parsed.dependencies["@engenty/banking"]).toBeUndefined();
+  });
+
   it("readEngentyPluginsManifest rejects engenty.plugins arrays", () => {
     const root = createRepo(["alpha"]);
     const pkgPath = path.join(root, "package.json");

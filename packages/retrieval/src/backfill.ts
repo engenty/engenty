@@ -29,6 +29,7 @@ export async function runBackfill(
   );
   const { pending } = await scanIndexState(deps.source, deps.store, tenantId, {
     force: input.force,
+    ...(input.metadata ? { metadata: input.metadata } : {}),
   });
   const targetIds = pending.slice(0, limit);
   if (targetIds.length === 0) {

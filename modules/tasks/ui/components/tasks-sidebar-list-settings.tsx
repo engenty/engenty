@@ -26,42 +26,23 @@ import {
   List,
   ListFilter,
   type LucideIcon,
-  Target,
   User,
-  Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type {
-  GoalStatus,
-  TaskStatusDefinition,
-} from "../../src/schema/types.js";
-import { GOAL_STATUSES } from "../components/goal-status-badge.js";
+import type { TaskStatusDefinition } from "../../src/schema/types.js";
 import {
   formatTaskAgentFilterLabel,
-  type GoalsSidebarSortBy,
-  type RoutinesSidebarEnabledFilter,
-  type RoutinesSidebarSortBy,
   type TasksSidebarAssigneeFilter,
   type TasksSidebarPrefs,
   type TasksSidebarSortBy,
-  type TasksSidebarTab,
 } from "../lib/tasks-sidebar-organization.js";
 
 interface TasksSidebarListSettingsProps {
   agentFilterOptions: string[];
-  onGoalsPrefsChange: (
-    updater: (current: TasksSidebarPrefs["goals"]) => TasksSidebarPrefs["goals"]
-  ) => void;
-  onRoutinesPrefsChange: (
-    updater: (
-      current: TasksSidebarPrefs["routines"]
-    ) => TasksSidebarPrefs["routines"]
-  ) => void;
   onTasksPrefsChange: (
     updater: (current: TasksSidebarPrefs["tasks"]) => TasksSidebarPrefs["tasks"]
   ) => void;
   prefs: TasksSidebarPrefs;
-  tab: TasksSidebarTab;
   taskStatusDefinitions: readonly TaskStatusDefinition[];
   teamMembersEnabled: boolean;
   userFilterOptions: Array<{ id: string; label: string }>;
@@ -69,19 +50,14 @@ interface TasksSidebarListSettingsProps {
 
 export function TasksSidebarListSettings({
   agentFilterOptions,
-  onGoalsPrefsChange,
-  onRoutinesPrefsChange,
   onTasksPrefsChange,
   prefs,
-  tab,
   taskStatusDefinitions,
   teamMembersEnabled,
   userFilterOptions,
 }: TasksSidebarListSettingsProps) {
   const { t } = useTranslation("tasks");
   const selectContentClassName = "z-[110]";
-  const isTasksTab = tab === "tasks";
-  const isRoutinesTab = tab === "routines";
 
   return (
     <Popover>
@@ -117,148 +93,74 @@ export function TasksSidebarListSettings({
             <div className="font-medium text-muted-foreground text-xs">
               {t("sidebar.groupBy")}
             </div>
-            {isTasksTab ? (
-              <div className="grid grid-cols-3 gap-1">
-                <GroupModeButton
-                  icon={List}
-                  label={t("sidebar.groupNoneShort")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "none",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "none"}
-                />
-                <GroupModeButton
-                  icon={CircleDot}
-                  label={t("sidebar.groupStatus")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "status",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "status"}
-                />
-                <GroupModeButton
-                  icon={Flag}
-                  label={t("sidebar.groupPriority")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "priority",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "priority"}
-                />
-                <GroupModeButton
-                  icon={User}
-                  label={t("sidebar.groupAssignee")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "assignee",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "assignee"}
-                />
-                <GroupModeButton
-                  icon={Target}
-                  label={t("sidebar.groupGoal")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "goal",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "goal"}
-                />
-                <GroupModeButton
-                  icon={FolderKanban}
-                  label={t("sidebar.groupProject")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "project",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "project"}
-                />
-                <GroupModeButton
-                  icon={CalendarDays}
-                  label={t("sidebar.groupDueDate")}
-                  onClick={() =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "due_date",
-                    }))
-                  }
-                  selected={prefs.tasks.groupBy === "due_date"}
-                />
-              </div>
-            ) : isRoutinesTab ? (
-              <div className="grid grid-cols-3 gap-1">
-                <GroupModeButton
-                  icon={List}
-                  label={t("sidebar.groupNoneShort")}
-                  onClick={() =>
-                    onRoutinesPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "none",
-                    }))
-                  }
-                  selected={prefs.routines.groupBy === "none"}
-                />
-                <GroupModeButton
-                  icon={Zap}
-                  label={t("sidebar.groupSource")}
-                  onClick={() =>
-                    onRoutinesPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "source",
-                    }))
-                  }
-                  selected={prefs.routines.groupBy === "source"}
-                />
-                <GroupModeButton
-                  icon={CircleDot}
-                  label={t("sidebar.groupStatus")}
-                  onClick={() =>
-                    onRoutinesPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "enabled",
-                    }))
-                  }
-                  selected={prefs.routines.groupBy === "enabled"}
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-1">
-                <GroupModeButton
-                  icon={List}
-                  label={t("sidebar.groupNoneShort")}
-                  onClick={() =>
-                    onGoalsPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "none",
-                    }))
-                  }
-                  selected={prefs.goals.groupBy === "none"}
-                />
-                <GroupModeButton
-                  icon={CircleDot}
-                  label={t("sidebar.groupStatus")}
-                  onClick={() =>
-                    onGoalsPrefsChange((current) => ({
-                      ...current,
-                      groupBy: "status",
-                    }))
-                  }
-                  selected={prefs.goals.groupBy === "status"}
-                />
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-1">
+              <GroupModeButton
+                icon={List}
+                label={t("sidebar.groupNoneShort")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "none",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "none"}
+              />
+              <GroupModeButton
+                icon={CircleDot}
+                label={t("sidebar.groupStatus")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "status",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "status"}
+              />
+              <GroupModeButton
+                icon={Flag}
+                label={t("sidebar.groupPriority")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "priority",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "priority"}
+              />
+              <GroupModeButton
+                icon={User}
+                label={t("sidebar.groupAssignee")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "assignee",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "assignee"}
+              />
+              <GroupModeButton
+                icon={FolderKanban}
+                label={t("sidebar.groupProject")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "project",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "project"}
+              />
+              <GroupModeButton
+                icon={CalendarDays}
+                label={t("sidebar.groupDueDate")}
+                onClick={() =>
+                  onTasksPrefsChange((current) => ({
+                    ...current,
+                    groupBy: "due_date",
+                  }))
+                }
+                selected={prefs.tasks.groupBy === "due_date"}
+              />
+            </div>
           </div>
           <Separator />
           <div className="space-y-2 px-2 py-2">
@@ -267,143 +169,55 @@ export function TasksSidebarListSettings({
                 {t("sidebar.sortBy")}
               </div>
               <div className="flex items-center gap-2">
-                {isTasksTab ? (
-                  <Select
-                    onValueChange={(value) =>
-                      onTasksPrefsChange((current) => ({
-                        ...current,
-                        sortBy: value as TasksSidebarSortBy,
-                      }))
-                    }
-                    value={prefs.tasks.sortBy}
-                  >
-                    <SelectTrigger className="h-8 flex-1 text-xs">
-                      {t(
-                        prefs.tasks.sortBy === "updated_at"
-                          ? "sidebar.sortUpdated"
-                          : prefs.tasks.sortBy === "created_at"
-                            ? "sidebar.sortCreated"
-                            : prefs.tasks.sortBy === "title"
-                              ? "sidebar.sortTitle"
-                              : prefs.tasks.sortBy === "status"
-                                ? "sidebar.sortStatus"
-                                : "sidebar.sortIdentifier"
-                      )}
-                    </SelectTrigger>
-                    <SelectContent className={selectContentClassName}>
-                      <SelectItem value="updated_at">
-                        {t("sidebar.sortUpdated")}
-                      </SelectItem>
-                      <SelectItem value="created_at">
-                        {t("sidebar.sortCreated")}
-                      </SelectItem>
-                      <SelectItem value="title">
-                        {t("sidebar.sortTitle")}
-                      </SelectItem>
-                      <SelectItem value="status">
-                        {t("sidebar.sortStatus")}
-                      </SelectItem>
-                      <SelectItem value="identifier">
-                        {t("sidebar.sortIdentifier")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : isRoutinesTab ? (
-                  <Select
-                    onValueChange={(value) =>
-                      onRoutinesPrefsChange((current) => ({
-                        ...current,
-                        sortBy: value as RoutinesSidebarSortBy,
-                      }))
-                    }
-                    value={prefs.routines.sortBy}
-                  >
-                    <SelectTrigger className="h-8 flex-1 text-xs">
-                      {t(
-                        prefs.routines.sortBy === "last_run_at"
-                          ? "routines.list.sortByLastRun"
-                          : prefs.routines.sortBy === "enabled"
-                            ? "routines.list.sortByEnabled"
-                            : "routines.list.sortByName"
-                      )}
-                    </SelectTrigger>
-                    <SelectContent className={selectContentClassName}>
-                      <SelectItem value="name">
-                        {t("routines.list.sortByName")}
-                      </SelectItem>
-                      <SelectItem value="last_run_at">
-                        {t("routines.list.sortByLastRun")}
-                      </SelectItem>
-                      <SelectItem value="enabled">
-                        {t("routines.list.sortByEnabled")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Select
-                    onValueChange={(value) =>
-                      onGoalsPrefsChange((current) => ({
-                        ...current,
-                        sortBy: value as GoalsSidebarSortBy,
-                      }))
-                    }
-                    value={prefs.goals.sortBy}
-                  >
-                    <SelectTrigger className="h-8 flex-1 text-xs">
-                      {t(
-                        prefs.goals.sortBy === "updated_at"
-                          ? "sidebar.sortUpdated"
-                          : prefs.goals.sortBy === "created_at"
-                            ? "sidebar.sortCreated"
-                            : prefs.goals.sortBy === "title"
-                              ? "sidebar.sortTitle"
-                              : "sidebar.sortStatus"
-                      )}
-                    </SelectTrigger>
-                    <SelectContent className={selectContentClassName}>
-                      <SelectItem value="updated_at">
-                        {t("sidebar.sortUpdated")}
-                      </SelectItem>
-                      <SelectItem value="created_at">
-                        {t("sidebar.sortCreated")}
-                      </SelectItem>
-                      <SelectItem value="title">
-                        {t("sidebar.sortTitle")}
-                      </SelectItem>
-                      <SelectItem value="status">
-                        {t("sidebar.sortStatus")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select
+                  onValueChange={(value) =>
+                    onTasksPrefsChange((current) => ({
+                      ...current,
+                      sortBy: value as TasksSidebarSortBy,
+                    }))
+                  }
+                  value={prefs.tasks.sortBy}
+                >
+                  <SelectTrigger className="h-8 flex-1 text-xs">
+                    {t(
+                      prefs.tasks.sortBy === "updated_at"
+                        ? "sidebar.sortUpdated"
+                        : prefs.tasks.sortBy === "created_at"
+                          ? "sidebar.sortCreated"
+                          : prefs.tasks.sortBy === "title"
+                            ? "sidebar.sortTitle"
+                            : prefs.tasks.sortBy === "status"
+                              ? "sidebar.sortStatus"
+                              : "sidebar.sortIdentifier"
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className={selectContentClassName}>
+                    <SelectItem value="updated_at">
+                      {t("sidebar.sortUpdated")}
+                    </SelectItem>
+                    <SelectItem value="created_at">
+                      {t("sidebar.sortCreated")}
+                    </SelectItem>
+                    <SelectItem value="title">
+                      {t("sidebar.sortTitle")}
+                    </SelectItem>
+                    <SelectItem value="status">
+                      {t("sidebar.sortStatus")}
+                    </SelectItem>
+                    <SelectItem value="identifier">
+                      {t("sidebar.sortIdentifier")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <Tabs
                   className="shrink-0"
-                  onValueChange={(value) => {
-                    const sortOrder = value as "asc" | "desc";
-                    if (isTasksTab) {
-                      onTasksPrefsChange((current) => ({
-                        ...current,
-                        sortOrder,
-                      }));
-                    } else if (isRoutinesTab) {
-                      onRoutinesPrefsChange((current) => ({
-                        ...current,
-                        sortOrder,
-                      }));
-                    } else {
-                      onGoalsPrefsChange((current) => ({
-                        ...current,
-                        sortOrder,
-                      }));
-                    }
-                  }}
-                  value={
-                    isTasksTab
-                      ? prefs.tasks.sortOrder
-                      : isRoutinesTab
-                        ? prefs.routines.sortOrder
-                        : prefs.goals.sortOrder
+                  onValueChange={(value) =>
+                    onTasksPrefsChange((current) => ({
+                      ...current,
+                      sortOrder: value as "asc" | "desc",
+                    }))
                   }
+                  value={prefs.tasks.sortOrder}
                 >
                   <TabsList className="h-8 p-0.5">
                     <TabsTrigger
@@ -429,148 +243,78 @@ export function TasksSidebarListSettings({
           </div>
           <Separator />
           <div className="space-y-2 p-2">
-            {isTasksTab ? (
-              <>
-                <CompactFilterSelect
-                  label={t("sidebar.filterStatus")}
-                  onValueChange={(value) =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      status: value,
-                    }))
-                  }
-                  selectedLabel={
-                    prefs.tasks.status === "all"
-                      ? t("sidebar.allStatuses")
-                      : (taskStatusDefinitions.find(
-                          (d) => d.id === prefs.tasks.status
-                        )?.label ?? prefs.tasks.status)
-                  }
-                  value={prefs.tasks.status}
-                >
-                  <SelectContent className={selectContentClassName}>
-                    <SelectItem value="all">
-                      {t("sidebar.allStatuses")}
-                    </SelectItem>
-                    {taskStatusDefinitions.map((status) => (
-                      <SelectItem key={status.id} value={status.id}>
-                        {status.label}
+            <CompactFilterSelect
+              label={t("sidebar.filterStatus")}
+              onValueChange={(value) =>
+                onTasksPrefsChange((current) => ({
+                  ...current,
+                  status: value,
+                }))
+              }
+              selectedLabel={
+                prefs.tasks.status === "all"
+                  ? t("sidebar.allStatuses")
+                  : (taskStatusDefinitions.find(
+                      (d) => d.id === prefs.tasks.status
+                    )?.label ?? prefs.tasks.status)
+              }
+              value={prefs.tasks.status}
+            >
+              <SelectContent className={selectContentClassName}>
+                <SelectItem value="all">{t("sidebar.allStatuses")}</SelectItem>
+                {taskStatusDefinitions.map((status) => (
+                  <SelectItem key={status.id} value={status.id}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </CompactFilterSelect>
+            <CompactFilterSelect
+              label={t("sidebar.filterAssignee")}
+              onValueChange={(value) =>
+                onTasksPrefsChange((current) => ({
+                  ...current,
+                  assigneeFilter: value as TasksSidebarAssigneeFilter,
+                }))
+              }
+              selectedLabel={(() => {
+                const v = prefs.tasks.assigneeFilter;
+                if (v === "all") {
+                  return t("sidebar.allAssignees");
+                }
+                if (v === "none") {
+                  return t("sidebar.unassigned");
+                }
+                if (v.startsWith("user:")) {
+                  const id = v.slice(5);
+                  return (
+                    userFilterOptions.find((m) => m.id === id)?.label ?? id
+                  );
+                }
+                if (v.startsWith("agent:")) {
+                  return formatTaskAgentFilterLabel(v.slice(6));
+                }
+                return v;
+              })()}
+              value={prefs.tasks.assigneeFilter}
+            >
+              <SelectContent className={selectContentClassName}>
+                <SelectItem value="all">{t("sidebar.allAssignees")}</SelectItem>
+                <SelectItem value="none">{t("sidebar.unassigned")}</SelectItem>
+                {teamMembersEnabled
+                  ? userFilterOptions.map((member) => (
+                      <SelectItem key={member.id} value={`user:${member.id}`}>
+                        {member.label}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </CompactFilterSelect>
-                <CompactFilterSelect
-                  label={t("sidebar.filterAssignee")}
-                  onValueChange={(value) =>
-                    onTasksPrefsChange((current) => ({
-                      ...current,
-                      assigneeFilter: value as TasksSidebarAssigneeFilter,
-                    }))
-                  }
-                  selectedLabel={(() => {
-                    const v = prefs.tasks.assigneeFilter;
-                    if (v === "all") {
-                      return t("sidebar.allAssignees");
-                    }
-                    if (v === "none") {
-                      return t("sidebar.unassigned");
-                    }
-                    if (v.startsWith("user:")) {
-                      const id = v.slice(5);
-                      return (
-                        userFilterOptions.find((m) => m.id === id)?.label ?? id
-                      );
-                    }
-                    if (v.startsWith("agent:")) {
-                      return formatTaskAgentFilterLabel(v.slice(6));
-                    }
-                    return v;
-                  })()}
-                  value={prefs.tasks.assigneeFilter}
-                >
-                  <SelectContent className={selectContentClassName}>
-                    <SelectItem value="all">
-                      {t("sidebar.allAssignees")}
-                    </SelectItem>
-                    <SelectItem value="none">
-                      {t("sidebar.unassigned")}
-                    </SelectItem>
-                    {teamMembersEnabled
-                      ? userFilterOptions.map((member) => (
-                          <SelectItem
-                            key={member.id}
-                            value={`user:${member.id}`}
-                          >
-                            {member.label}
-                          </SelectItem>
-                        ))
-                      : null}
-                    {agentFilterOptions.map((agentKey) => (
-                      <SelectItem key={agentKey} value={`agent:${agentKey}`}>
-                        {formatTaskAgentFilterLabel(agentKey)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </CompactFilterSelect>
-              </>
-            ) : isRoutinesTab ? (
-              <CompactFilterSelect
-                label={t("sidebar.filterStatus")}
-                onValueChange={(value) =>
-                  onRoutinesPrefsChange((current) => ({
-                    ...current,
-                    enabled: value as RoutinesSidebarEnabledFilter,
-                  }))
-                }
-                selectedLabel={
-                  prefs.routines.enabled === "all"
-                    ? t("sidebar.allStatuses")
-                    : prefs.routines.enabled === "enabled"
-                      ? t("routines.list.enabled")
-                      : t("routines.list.disabled")
-                }
-                value={prefs.routines.enabled}
-              >
-                <SelectContent className={selectContentClassName}>
-                  <SelectItem value="all">
-                    {t("sidebar.allStatuses")}
+                    ))
+                  : null}
+                {agentFilterOptions.map((agentKey) => (
+                  <SelectItem key={agentKey} value={`agent:${agentKey}`}>
+                    {formatTaskAgentFilterLabel(agentKey)}
                   </SelectItem>
-                  <SelectItem value="enabled">
-                    {t("routines.list.enabled")}
-                  </SelectItem>
-                  <SelectItem value="disabled">
-                    {t("routines.list.disabled")}
-                  </SelectItem>
-                </SelectContent>
-              </CompactFilterSelect>
-            ) : (
-              <CompactFilterSelect
-                label={t("sidebar.filterStatus")}
-                onValueChange={(value) =>
-                  onGoalsPrefsChange((current) => ({
-                    ...current,
-                    status: value as GoalStatus | "all",
-                  }))
-                }
-                selectedLabel={
-                  prefs.goals.status === "all"
-                    ? t("sidebar.allStatuses")
-                    : t(`goals.status.${prefs.goals.status}`)
-                }
-                value={prefs.goals.status}
-              >
-                <SelectContent className={selectContentClassName}>
-                  <SelectItem value="all">
-                    {t("sidebar.allStatuses")}
-                  </SelectItem>
-                  {GOAL_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {t(`goals.status.${status}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </CompactFilterSelect>
-            )}
+                ))}
+              </SelectContent>
+            </CompactFilterSelect>
           </div>
         </div>
       </PopoverContent>

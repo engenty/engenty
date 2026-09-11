@@ -15,33 +15,25 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Edit, History } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { FaqHeaderChrome } from "../components/faq-header-chrome.js";
 import { FavoriteStarButton } from "../components/favorite-star-button.js";
 import { KbEntityVersionsDialog } from "../components/kb-entity-versions-dialog.js";
 import { useKbFaqDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import {
-  KB_MODULE_BASE,
-  kbFaqEditPath,
-  kbFaqPath,
-  kbFaqsListPath,
-} from "../kb-paths.js";
+import { kbFaqEditPath, kbFaqPath, kbFaqsListPath } from "../kb-paths.js";
 import {
   kbModulePageShellInnerNarrowClassName,
   kbModulePageShellSectionClassName,
 } from "../lib/kb-page-shell.js";
 import { createKbModuleRichEditorLinkHandler } from "../lib/kb-rich-editor-link-navigation.js";
-import { faqDetailQueryOptions, kbsQueryOptions } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { faqDetailQueryOptions, useKbsQuery } from "../queries.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function FaqDetailPage() {
   const { t } = useTranslation("kb");
-  const { kbSlug: kbSlugParam, id } = useParams<{
-    kbSlug?: string;
-    id: string;
-  }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [versionsOpen, setVersionsOpen] = useState(false);
@@ -51,7 +43,7 @@ export function FaqDetailPage() {
     [navigate]
   );
 
-  const { data: kbsRaw } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw } = useKbsQuery();
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
 
   const {
@@ -61,29 +53,9 @@ export function FaqDetailPage() {
   } = useQuery(faqDetailQueryOptions(id ?? ""));
   useKbFaqDetailAgentUiSlice(faq ?? null);
 
-  const canonicalSlug = useMemo(
-    () => (faq ? slugFromKbId(kbs, faq.kb_id) : undefined),
-    [faq, kbs]
-  );
-
-  useEffect(() => {
-    if (!(faq && canonicalSlug && id)) {
-      return;
-    }
-    if (kbSlugParam === canonicalSlug) {
-      return;
-    }
-    navigate(`${kbFaqPath(canonicalSlug, faq.id)}${location.search}`, {
-      replace: true,
-    });
-  }, [faq, canonicalSlug, kbSlugParam, id, navigate, location.search]);
-
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
-
   const kbIdForShell = useMemo(
-    () =>
-      faq?.kb_id ?? (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : "") ?? "",
-    [faq?.kb_id, kbSlugParam, kbs]
+    () => faq?.kb_id ?? spaceKbId(kbs),
+    [faq?.kb_id, kbs]
   );
 
   const answerAsJson = useMemo(() => {
@@ -100,31 +72,15 @@ export function FaqDetailPage() {
     }
   }, [faq?.answer_json, faq?.answer_markdown]);
 
-  const onKbPickerChange = useCallback(
-    (nextKbId: string) => {
-      const slug = slugFromKbId(kbs, nextKbId);
-      if (slug) {
-        navigate(kbFaqsListPath(slug));
-      }
-    },
-    [kbs, navigate]
-  );
-
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbIdForShell,
-    kbSlug,
   });
 
-  const faqListHref = useMemo(() => {
-    const slug =
-      (faq && slugFromKbId(kbs, faq.kb_id)) ||
-      (kbIdForShell ? slugFromKbId(kbs, kbIdForShell) : undefined);
-    return slug ? kbFaqsListPath(slug) : `${KB_MODULE_BASE}/faqs`;
-  }, [faq, kbs, kbIdForShell]);
+  const faqListHref = kbFaqsListPath();
 
   const pageActions = useMemo(
     () =>
-      faq && kbSlug ? (
+      faq ? (
         <div className="flex items-center gap-2">
           <Button
             className={topbarIconButtonClassName}
@@ -138,22 +94,18 @@ export function FaqDetailPage() {
           <FavoriteStarButton
             subtitle={t("faq.title")}
             title={faq.question}
-            to={kbFaqPath(kbSlug, faq.id)}
+            to={kbFaqPath(faq.id)}
           />
-          <Button
-            onClick={() => navigate(kbFaqEditPath(kbSlug, faq.id))}
-            size="sm"
-          >
+          <Button onClick={() => navigate(kbFaqEditPath(faq.id))} size="sm">
             <Edit className="mr-1.5 h-4 w-4" />
             {t("faq.edit")}
           </Button>
         </div>
       ) : null,
-    [faq, kbSlug, navigate, t]
+    [faq, navigate, t]
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: faq

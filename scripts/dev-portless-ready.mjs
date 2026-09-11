@@ -59,11 +59,10 @@ export function buildStartingHint({ gatewayOrigin, domain = null }) {
 
 async function probeOk(url) {
   try {
-    // Generous per-probe timeout: /api/openapi.json regenerates the spec per
-    // request and can take >5s under dev (tsx) on a loaded machine. A probe
-    // timeout below that made this checker exit 1 after maxWaitMs — and turbo
-    // then tore down the whole dev stack.
-    const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    // Cheap routes only. `/api/openapi.json` regenerates a multi-MB spec per
+    // request and can take >15s under tsx; a timed-out probe made this
+    // checker exit 1 — and turbo then SIGTERM'd the whole stack (143).
+    const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
     return response.ok;
   } catch {
     return false;
@@ -78,7 +77,7 @@ export async function waitForDevPortlessReady({
   log = () => {},
 } = {}) {
   const uiUrl = `http://127.0.0.1:${uiPort}/`;
-  const coreUrl = `http://127.0.0.1:${corePort}/api/openapi.json`;
+  const coreUrl = `http://127.0.0.1:${corePort}/api/ready`;
   const deadline = Date.now() + maxWaitMs;
   let lastProgressAt = 0;
 

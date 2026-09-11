@@ -1,3 +1,4 @@
+export { MastraStudioDevSection } from "./components/profile/mastra-studio-dev-section.js";
 export {
   applyUserFilters,
   createDefaultUserColumnOrder,

@@ -98,6 +98,9 @@ export function useSaveAiSettingsMutation() {
     mutationFn: saveAiConfig,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: aiSettingsKeys.all });
+      await queryClient.invalidateQueries({
+        queryKey: aiSettingsKeys.effective,
+      });
     },
   });
 }

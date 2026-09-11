@@ -44,10 +44,7 @@ export function ObjectCardFrame({
 }) {
   return (
     <div
-      className={cn(
-        "ui-canvas-raised my-1 w-full overflow-hidden rounded-lg border-0 bg-card",
-        className
-      )}
+      className={cn("ui-card-raised my-1 w-full overflow-hidden", className)}
     >
       {children}
     </div>
@@ -55,7 +52,7 @@ export function ObjectCardFrame({
 }
 
 export function ObjectRowList({ children }: { children: ReactNode }) {
-  return <div className="divide-y divide-border/50">{children}</div>;
+  return <div className="divide-y divide-border-soft">{children}</div>;
 }
 
 /** "+N more · open <module>" — shown when refs are capped or a subset. */
@@ -83,7 +80,7 @@ export function ObjectListFooter({
   }
   return (
     <Link
-      className="block border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-muted/40 hover:text-foreground"
+      className="block border-border-soft border-t px-3 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-muted/40 hover:text-foreground"
       onClick={
         navigateFromChat
           ? (event) => {

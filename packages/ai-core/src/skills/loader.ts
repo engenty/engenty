@@ -89,29 +89,6 @@ export function resolveModuleSkillsDir(importMetaUrl: string): string {
   );
 }
 
-/**
- * Seed skills shipped inside `@engenty/ai-core` (`src/skills/seed/<name>/SKILL.md`).
- */
-export function resolveBuiltinSkillsSeedDir(importMetaUrl: string): string {
-  const here = dirname(fileURLToPath(importMetaUrl));
-  const candidates = [
-    /** `src/skills/*.ts` (tests, tsx) — seed sits next to this file’s directory. */
-    join(here, "seed"),
-    /** Bundled `dist/index.js` — copy seeds into dist on build (`dist/skills/seed`). */
-    join(here, "skills", "seed"),
-    /** Bundled `dist/index.js` next to checked-out `src/` (workspace / monorepo). */
-    join(here, "..", "src", "skills", "seed"),
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  throw new Error(
-    `Could not find builtin skills seed directory relative to ${importMetaUrl}`
-  );
-}
-
 export interface LoadSkillDefinitionsParams {
   /** Merged into each skill's metadata after file metadata; `module_id` always set last from {@link moduleId}. */
   defaultMetadata?: SkillMetadataDefinition;

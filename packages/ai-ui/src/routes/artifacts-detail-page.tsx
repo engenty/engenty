@@ -88,7 +88,6 @@ export function ArtifactsDetailPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const Renderer = type ? resolveArtifactRenderer(type) : null;
@@ -150,7 +149,7 @@ export function ArtifactsDetailPage() {
         </div>
       </div>
 
-      <div className="ui-canvas-raised flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-elevated flex min-h-0 flex-1 flex-col overflow-hidden">
         {detailQuery.isLoading ? (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <Spinner />

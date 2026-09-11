@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -33,7 +34,9 @@ const SIDEBAR_FETCH_SIZE = 200;
 
 export function ProjectsSidebarPanel() {
   const { t, i18n } = useTranslation("projects");
-  const { pathname } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
+  // matcher below is written against `/mdl/<module>/…`.
+  const pathname = canonicalModulePathname(useLocation().pathname);
   const navigate = useNavigate();
 
   const [search, setSearch] = useState("");

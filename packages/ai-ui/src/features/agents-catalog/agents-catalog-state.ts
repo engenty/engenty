@@ -1,5 +1,6 @@
 // Pure filtering/grouping helpers for the unified agents catalog (ui-6 §2).
 
+import { rankRecordsLexically } from "@engenty/search-index";
 import type {
   AiAgentRole,
   AiRegisteredAgent,
@@ -32,18 +33,17 @@ export function getAgentRole(agent: AiRegisteredAgent): AiAgentRole {
 }
 
 /**
- * Platform Engenty leadership agents (copilot + coordinator) stay always on —
- * tenants cannot deactivate them.
+ * Platform Copilot stays always on — tenants cannot deactivate it.
  */
 export function isAlwaysActiveAgent(agent: {
   id?: string;
   role?: AiAgentRole | null;
 }): boolean {
   const role = agent.role;
-  if (role === "copilot" || role === "coordinator") {
+  if (role === "copilot") {
     return true;
   }
-  return agent.id === "engenty.copilot" || agent.id === "engenty.coordinator";
+  return agent.id === "engenty.copilot";
 }
 
 export function isCustomAgent(agent: AiRegisteredAgent): boolean {
@@ -192,25 +192,26 @@ export function filterAgents(
   agents: AiRegisteredAgent[],
   state: AgentCatalogFilterState
 ): AiRegisteredAgent[] {
-  const query = state.searchQuery.trim().toLowerCase();
-  return agents.filter((agent) => {
+  const scoped = agents.filter((agent) => {
     if (
       state.groupFilter !== "all" &&
       getAgentCatalogGroup(agent) !== state.groupFilter
     ) {
       return false;
     }
-    if (!matchesSource(agent, state.sourceFilter)) {
-      return false;
-    }
-    if (!query) {
-      return true;
-    }
-    return (
-      agent.name.toLowerCase().includes(query) ||
-      agent.id.toLowerCase().includes(query)
-    );
+    return matchesSource(agent, state.sourceFilter);
   });
+  const query = state.searchQuery.trim();
+  if (!query) {
+    return scoped;
+  }
+  return rankRecordsLexically(scoped, query, (agent) => ({
+    description: agent.description ?? "",
+    id: agent.id,
+    modules: agent.module_id ? [agent.module_id] : [],
+    name: agent.name,
+    source: agent.source ?? "",
+  }));
 }
 
 export function groupAgents(

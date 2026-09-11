@@ -47,6 +47,8 @@ const API_BACKEND_UNAVAILABLE_MESSAGE =
 // A request that is sent but never answered (dev-server restart, hung proxy)
 // must fail fast rather than leaving callers pending forever.
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+/** File bytes can be large and slow (local-files bridge); 15s would abort a PDF. */
+const BINARY_REQUEST_TIMEOUT_MS = 120_000;
 
 export interface RequestApiJsonOptions extends Omit<RequestInit, "body"> {
   authToken?: string;
@@ -57,12 +59,60 @@ export interface RequestApiJsonOptions extends Omit<RequestInit, "body"> {
 
 let globalConfig: ApiClientConfig | null = null;
 
+/**
+ * Where the caller is working, for `x-engenty-space-id` (PLAN-spaces.md CN.3).
+ *
+ * Separate from {@link ApiClientConfig} because the app that KNOWS the space
+ * (apps/ui, from the router) and the package that configures the client
+ * (auth-ui) are not the same one, and threading spaces through auth would tie
+ * two unrelated things together. A provider rather than a value: the space
+ * changes on every navigation, and a snapshot taken at wiring time would be
+ * wrong from the first route change onwards.
+ *
+ * Unset means no header, which is exactly the pre-spaces behaviour — every
+ * consumer of this header treats absence as "do not narrow".
+ */
+let spaceIdProvider: (() => string | null) | null = null;
+
 export function setApiClient(config: ApiClientConfig): void {
   globalConfig = config;
 }
 
+/** Register (or clear, with null) the current-space provider. */
+export function setApiClientSpaceProvider(
+  provider: (() => string | null) | null
+): void {
+  spaceIdProvider = provider;
+}
+
 export function clearApiClient(): void {
   globalConfig = null;
+  spaceIdProvider = null;
+}
+
+/**
+ * The space the registered provider currently reports, for callers that must
+ * key a cache on it — a query whose response the server narrows by the space
+ * header is a different query per space.
+ */
+export function currentRequestSpaceId(): string | null {
+  try {
+    return spaceIdProvider?.()?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function currentSpaceHeader(): Record<string, string> {
+  let spaceId: string | null = null;
+  try {
+    spaceId = spaceIdProvider?.() ?? null;
+  } catch {
+    // A provider that throws must not take every request down with it — the
+    // header is a narrowing hint, not a credential.
+    spaceId = null;
+  }
+  return spaceId?.trim() ? { "x-engenty-space-id": spaceId.trim() } : {};
 }
 
 export function getApiBaseUrl(): string {
@@ -180,6 +230,9 @@ export async function requestApiJson<T>(
         ? {}
         : { "content-type": "application/json" }),
       ...(token.trim() ? { authorization: `Bearer ${token.trim()}` } : {}),
+      ...currentSpaceHeader(),
+      // Explicit headers win, so a caller that means a DIFFERENT space (or
+      // deliberately none) can say so.
       ...(headers ?? {}),
     },
     body: createRequestBody(body),
@@ -232,6 +285,79 @@ export async function requestApiJson<T>(
   }
 
   return parsedBody as T;
+}
+
+/**
+ * Authenticated file bytes. An `<iframe src>` or `<a href>` never sends the
+ * Bearer token {@link requestApiJson} attaches, so a same-origin `/download`
+ * proxy answers 401 JSON and the browser renders that instead of the file.
+ */
+export async function requestApiBlob(
+  path: string,
+  options: RequestApiJsonOptions = {}
+): Promise<Blob> {
+  const {
+    authToken,
+    baseUrl,
+    body,
+    headers,
+    unwrapEnvelope: _unwrapEnvelope,
+    ...init
+  } = options;
+
+  const token = authToken ?? (await getCurrentAccessToken()) ?? "";
+  const response = await fetch(`${baseUrl ?? getApiBaseUrl()}${path}`, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(BINARY_REQUEST_TIMEOUT_MS),
+    headers: {
+      ...(token.trim() ? { authorization: `Bearer ${token.trim()}` } : {}),
+      ...currentSpaceHeader(),
+      ...(headers ?? {}),
+    },
+    body: createRequestBody(body),
+  }).catch((error: unknown) => {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    throw createApiUnreachableError({ cause: error, kind: "connection_lost" });
+  });
+
+  if (!response.ok) {
+    const parsedBody = await parseResponseBody(response);
+
+    if (isApiError(parsedBody)) {
+      throw new ApiClientResponseError({
+        status: response.status,
+        code: parsedBody.error.code,
+        message: parsedBody.error.message,
+        details: parsedBody.error.details,
+        fields: parsedBody.error.fields,
+      });
+    }
+
+    if (isNonJsonGatewayFailure(response)) {
+      throw createApiUnreachableError({
+        kind: "backend_unavailable",
+        status: response.status,
+      });
+    }
+
+    throw new ApiClientResponseError({
+      status: response.status,
+      code: getApiErrorCode(parsedBody, "request_failed"),
+      message:
+        getApiErrorMessage(
+          parsedBody,
+          typeof parsedBody === "string" && parsedBody
+            ? parsedBody
+            : response.statusText || "Request failed"
+        ) || response.statusText,
+      details: parsedBody,
+    });
+  }
+
+  return response.blob();
 }
 
 export async function requestApiEnvelope<T, M = undefined>(

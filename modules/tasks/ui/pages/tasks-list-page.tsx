@@ -29,7 +29,7 @@ import {
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { ListTodo, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
   Task,
@@ -69,7 +69,6 @@ import {
   useBulkDeleteTasksMutation,
   useBulkUpdateTasksMutation,
   useDeleteTaskMutation,
-  useGoalsListQuery,
   useTaskSettingsQuery,
   useTasksListQuery,
   useUpdateTasksListMutation,
@@ -81,6 +80,7 @@ export function TasksListPage() {
   const { t } = useTranslation("tasks");
   const { setCopilotContext } = useCopilotShell();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const onPlanTabChange = usePlanListTabNavigation();
 
   const displayDefaults = useMemo(() => createTasksDisplayDefaults(), []);
@@ -120,13 +120,28 @@ export function TasksListPage() {
     status: "all",
     assignee: "all",
     priority: "all",
-    goalId: "all",
   });
   const [page, setPage] = useState(1);
   const [assigneeKind, setAssigneeKind] = useState<TasksAssigneeKind>("");
 
   const { openCreateTask, pageActions, topbarDialogs } =
     useTasksTopbarActions();
+
+  useEffect(() => {
+    if (searchParams.get("create") !== "1") {
+      return;
+    }
+    openCreateTask(searchParams.get("assignee"));
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("assignee");
+        next.delete("create");
+        return next;
+      },
+      { replace: true }
+    );
+  }, [openCreateTask, searchParams, setSearchParams]);
 
   const pageSize = viewMode === "kanban" || viewMode === "cards" ? 200 : 25;
 
@@ -140,8 +155,11 @@ export function TasksListPage() {
         filters.assignee === "all" || filters.assignee === "unassigned"
           ? undefined
           : filters.assignee,
-      assignee_kind: assigneeKind || undefined,
-      goal_id: filters.goalId === "all" ? undefined : filters.goalId,
+      // "runs" is not an assignee kind — it asks for work nobody has to pick
+      // up (work a run drives), so it travels as its own filter.
+      assignee_kind:
+        assigneeKind === "runs" ? undefined : assigneeKind || undefined,
+      machine_run: assigneeKind === "runs" ? true : undefined,
       sortBy,
       sortOrder,
     }),
@@ -152,19 +170,12 @@ export function TasksListPage() {
       filters.status,
       filters.assignee,
       assigneeKind,
-      filters.goalId,
       sortBy,
       sortOrder,
     ]
   );
 
   const tasksQuery = useTasksListQuery(listParams);
-  const goalsQuery = useGoalsListQuery({
-    page: 1,
-    pageSize: 200,
-    sortBy: "title",
-    sortOrder: "asc",
-  });
   const settingsQuery = useTaskSettingsQuery();
   const teamMembersCatalogQuery = useTeamMembersCatalogQuery();
   const taskStatusDefinitions =
@@ -174,7 +185,6 @@ export function TasksListPage() {
   const updateListMutation = useUpdateTasksListMutation(listParams);
 
   const tasks = tasksQuery.data?.data ?? EMPTY_TASKS;
-  const goals = goalsQuery.data?.data ?? [];
   const total = tasksQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const isLoading = tasksQuery.isLoading && !tasksQuery.data;
@@ -355,7 +365,6 @@ export function TasksListPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend.
     topbarOverlap: true,
   });
@@ -406,12 +415,9 @@ export function TasksListPage() {
     [deleteMutation, t]
   );
 
-  const handleAddTask = useCallback(
-    (goalId?: string | null) => {
-      openCreateTask(goalId);
-    },
-    [openCreateTask]
-  );
+  const handleAddTask = useCallback(() => {
+    openCreateTask();
+  }, [openCreateTask]);
 
   const handleTaskStatusChange = useCallback(
     async (taskId: string, status: string) => {
@@ -427,18 +433,10 @@ export function TasksListPage() {
     [t, updateListMutation]
   );
 
-  const handleGoalEdit = useCallback(
-    (goalId: string) => {
-      navigate(tasksPaths.goalDetail(goalId));
-    },
-    [navigate]
-  );
-
   const hasActiveFilters =
     filters.status !== "all" ||
     filters.assignee !== "all" ||
     filters.priority !== "all" ||
-    filters.goalId !== "all" ||
     assigneeKind !== "";
 
   const assigneeOptions = useMemo(
@@ -528,7 +526,6 @@ export function TasksListPage() {
             <TasksListFilterBar
               assigneeOptions={assigneeOptions}
               filtersExpanded={filtersExpanded}
-              goalOptions={goals}
               hasActiveChipFilters={hasActiveFilters}
               onChange={handleFiltersChange}
               statusOptions={taskStatusDefinitions}
@@ -577,7 +574,6 @@ export function TasksListPage() {
                           status: "all",
                           assignee: "all",
                           priority: "all",
-                          goalId: "all",
                         });
                       }}
                       type="button"
@@ -587,7 +583,7 @@ export function TasksListPage() {
                   ) : (
                     <button
                       className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                      onClick={() => handleAddTask(null)}
+                      onClick={() => handleAddTask()}
                       type="button"
                     >
                       {t("list.newTask")}
@@ -624,7 +620,6 @@ export function TasksListPage() {
                     columns={listColumns}
                     columnVisibility={effectiveColumnVisibility}
                     enrichments={enrichments}
-                    goals={goals}
                     groupBy={filters.groupBy}
                     navigate={navigate}
                     onDelete={handleTaskDelete}
@@ -662,11 +657,7 @@ export function TasksListPage() {
             filteredTasks.length > 0 ? (
               <TasksGroupedList
                 assigneeProfiles={assigneeProfiles}
-                goals={goals}
                 groupBy={filters.groupBy}
-                onAddGeneralTask={() => handleAddTask(null)}
-                onAddTaskToGoal={(goalId) => handleAddTask(goalId)}
-                onGoalEdit={handleGoalEdit}
                 onTaskClick={handleTaskClick}
                 onTaskDelete={handleTaskDelete}
                 onTaskEdit={handleTaskEdit}
@@ -704,7 +695,6 @@ export function TasksListPage() {
                           status: "all",
                           assignee: "all",
                           priority: "all",
-                          goalId: "all",
                         });
                       }}
                       type="button"
@@ -714,7 +704,7 @@ export function TasksListPage() {
                   ) : (
                     <button
                       className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
-                      onClick={() => handleAddTask(null)}
+                      onClick={() => handleAddTask()}
                       type="button"
                     >
                       {t("list.newTask")}
@@ -744,7 +734,6 @@ export function TasksListPage() {
       {topbarDialogs}
 
       <TasksBulkEditDialog
-        goals={goals}
         onClose={() => setBulkEditOpen(false)}
         onSubmit={handleBulkEditSubmit}
         open={bulkEditOpen}

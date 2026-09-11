@@ -5,34 +5,19 @@ import {
 } from "./registrar.js";
 
 describe("companyProfileAiRegistration", () => {
-  it("registers a manager agent, research action, and research tools", () => {
+  it("registers a manager agent and the research action", () => {
     const registration = companyProfileAiRegistration({
       invokeCompanyProfileOperation: async () => null,
     });
-    const agent = registration.agents?.find(
+    const agent = registration.dynamic?.agent_configs?.find(
       (item) => item.id === "company-profile.manager"
     );
-    const action = registration.actions?.find(
+    const action = registration.workflows?.find(
       (item) => item.id === "company-profile.research"
     );
 
     expect(agent).toBeTruthy();
-    expect(action?.agent_id).toBe("company-profile.manager");
-
-    const tools = agent?.build_tools({
-      action: "research",
-      moduleId: "company-profile",
-      scope: { currentModule: "company-profile" },
-      scopeId: "default",
-      tenantId: "tenant-1",
-    } as never);
-
-    expect(tools).toBeDefined();
-    expect("loadCompanyProfile" in (tools ?? {})).toBe(true);
-    expect("updateCompanyProfile" in (tools ?? {})).toBe(true);
-    expect("setCompanyLogo" in (tools ?? {})).toBe(true);
-    expect("companyWebsitePages" in (tools ?? {})).toBe(true);
-    expect("web_search" in (tools ?? {})).toBe(true);
+    expect(action?.owner_agent_id).toBe("company-profile.manager");
   });
 
   it("exposes company profile manager as a dynamic module capability", async () => {
@@ -57,9 +42,6 @@ describe("companyProfileAiRegistration", () => {
         "companyWebsitePages",
         "convert_image",
         "web_search",
-        "memory_save",
-        "memory_record_search",
-        "memory_record_archive",
       ],
     });
     expect(capability.tools).toHaveProperty("loadCompanyProfile");
@@ -101,5 +83,8 @@ describe("company profile skills", () => {
     expect(
       registration.dynamic?.skills?.["company-profile-research-and-fill"]
     ).toMatch(/Never research bank details/i);
+    expect(
+      registration.dynamic?.skills?.["company-profile-research-and-fill"]
+    ).toMatch(/one tenant legal\/company profile shared across Spaces/);
   });
 });

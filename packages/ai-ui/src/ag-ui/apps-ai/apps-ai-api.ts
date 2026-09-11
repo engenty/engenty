@@ -55,23 +55,23 @@ export function withAppsAiSearchParams(
 
 export function appsAiActionRunPath(
   serviceBaseUrl: string,
-  actionId: string
+  workflowId: string
 ): string {
-  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/actions/${encodeURIComponent(actionId)}/run`;
+  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/workflows/by-source/${encodeURIComponent(workflowId)}/run`;
 }
 
 export function appsAiActionsListPath(serviceBaseUrl: string): string {
-  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/actions`;
+  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/workflows/catalog`;
 }
 
-export function appsAiActionRequestsPath(
+export function appsAiWorkflowRunsPath(
   serviceBaseUrl: string,
-  actionId: string
+  workflowId: string
 ): string {
-  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/actions/${encodeURIComponent(actionId)}/requests`;
+  return `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/workflows/by-source/${encodeURIComponent(workflowId)}/runs`;
 }
 
-export interface ActionRequestRecord {
+export interface WorkflowRunRecord {
   context_id: string | null;
   context_type: string | null;
   created_at: string;
@@ -89,13 +89,13 @@ export interface ActionContext {
   type: string;
 }
 
-export async function getAppsAiActionRequests(
+export async function getAppsAiWorkflowRuns(
   serviceBaseUrl: string,
-  actionId: string,
+  workflowId: string,
   context?: ActionContext,
   signal?: AbortSignal
-): Promise<ActionRequestRecord[]> {
-  let url = appsAiActionRequestsPath(serviceBaseUrl, actionId);
+): Promise<WorkflowRunRecord[]> {
+  let url = appsAiWorkflowRunsPath(serviceBaseUrl, workflowId);
   if (context) {
     const search = new URLSearchParams({
       context_id: context.id,
@@ -112,7 +112,7 @@ export async function getAppsAiActionRequests(
       { status: res.status, body }
     );
   }
-  const data = (await res.json()) as { requests?: ActionRequestRecord[] };
+  const data = (await res.json()) as { requests?: WorkflowRunRecord[] };
   return data.requests ?? [];
 }
 
@@ -129,7 +129,7 @@ export interface ChatCommandCatalogEntry {
   description: string | null;
   description_key: string | null;
   id: string;
-  kind: "action" | "prompt";
+  kind: "workflow" | "prompt";
   label: string | null;
   label_key: string | null;
   module_id: string;
@@ -160,14 +160,18 @@ export async function getAppsAiChatCommands(
 }
 
 export interface RunActionInput {
-  actionId: string;
   /** Subject binding (D1) — tags the run + audit row for per-place observe. */
   context?: ActionContext;
   input?: Record<string, unknown>;
   threadId?: string;
+  workflowId: string;
 }
 
-export interface RunActionResult {
+export interface RunWorkflowResult {
+  /** True when an in-flight run for this subject answered instead of a new one. */
+  deduped: boolean;
+  requestId: string;
+  /** The run to watch — always present; a deduped press returns the existing one. */
   runId: string;
   threadId: string;
 }
@@ -175,8 +179,8 @@ export interface RunActionResult {
 export async function postAppsAiActionRun(
   serviceBaseUrl: string,
   params: RunActionInput
-): Promise<RunActionResult> {
-  const url = appsAiActionRunPath(serviceBaseUrl, params.actionId);
+): Promise<RunWorkflowResult> {
+  const url = appsAiActionRunPath(serviceBaseUrl, params.workflowId);
   const headers = await appsAiRequestHeaders();
   const res = await fetch(url, {
     method: "POST",
@@ -188,41 +192,46 @@ export async function postAppsAiActionRun(
     }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      reason?: string;
+    };
+    // A refusal names its reason; the person reads that, not the code.
     throw Object.assign(
-      new Error((body as { error?: string }).error ?? `HTTP ${res.status}`),
+      new Error(body.reason ?? body.error ?? `HTTP ${res.status}`),
       { status: res.status, body }
     );
   }
-  const data = (await res.json()) as { run_id: string; thread_id: string };
-  return { runId: data.run_id, threadId: data.thread_id };
+  const data = (await res.json()) as {
+    deduped?: boolean;
+    request_id: string;
+    run_id: string;
+    thread_id: string;
+  };
+  return {
+    deduped: data.deduped ?? false,
+    requestId: data.request_id,
+    runId: data.run_id,
+    threadId: data.thread_id,
+  };
 }
 
 /**
- * Resolve a proposeUpdates approval by resuming the suspended action-job
- * workflow with the user's decision. The server's apply-updates step writes the
- * approved patch and finalizes the run. `runId` targets the suspended run (the
- * button knows it); `rejected: true` resumes with no changes.
+ * Apply the field updates a run's agent proposed — for runs no Task
+ * supervises (a button press). The server takes the subject from the run's
+ * own audit-row binding, never from this request.
  */
-export async function postAppsAiActionApprove(
+export async function postAppsAiRunFieldUpdates(
   serviceBaseUrl: string,
   params: {
-    actionId: string;
     approved: Array<{ field: string; value: string | null }>;
-    context?: ActionContext;
-    rejected?: boolean;
-    runId?: string;
+    runId: string;
   }
-): Promise<{ resumed: boolean }> {
-  const url = `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/actions/${encodeURIComponent(params.actionId)}/approve`;
+): Promise<{ applied: number }> {
+  const url = `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/action-runs/${encodeURIComponent(params.runId)}/field-updates`;
   const headers = await appsAiRequestHeaders();
   const res = await fetch(url, {
-    body: JSON.stringify({
-      approved: params.approved,
-      context: params.context,
-      rejected: params.rejected ?? false,
-      run_id: params.runId,
-    }),
+    body: JSON.stringify({ approved: params.approved }),
     headers,
     method: "POST",
   });
@@ -233,8 +242,41 @@ export async function postAppsAiActionApprove(
       { body, status: res.status }
     );
   }
-  const data = (await res.json()) as { resumed?: boolean };
-  return { resumed: data.resumed ?? false };
+  const data = (await res.json()) as { applied?: number };
+  return { applied: data.applied ?? 0 };
+}
+
+/**
+ * Apply the field updates a task's agent proposed.
+ *
+ * The action lane resolved this by RESUMING a suspended workflow; a flow's
+ * specialist never suspends — it proposes and finishes, leaving the decision
+ * on the task. So the approval is a write against the task, and the server
+ * takes the subject from the task's own binding.
+ */
+export async function postAppsAiTaskFieldUpdates(
+  serviceBaseUrl: string,
+  params: {
+    approved: Array<{ field: string; value: string | null }>;
+    taskId: string;
+  }
+): Promise<{ applied: number }> {
+  const url = `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/tasks/${encodeURIComponent(params.taskId)}/field-updates`;
+  const headers = await appsAiRequestHeaders();
+  const res = await fetch(url, {
+    body: JSON.stringify({ approved: params.approved }),
+    headers,
+    method: "POST",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(
+      new Error((body as { error?: string }).error ?? `HTTP ${res.status}`),
+      { body, status: res.status }
+    );
+  }
+  const data = (await res.json()) as { applied?: number };
+  return { applied: data.applied ?? 0 };
 }
 
 /** `VITE_ENGENTY_AI_BASE_URL` without trailing slash; `undefined` when unset. */

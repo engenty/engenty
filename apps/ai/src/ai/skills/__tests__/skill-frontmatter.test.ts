@@ -49,4 +49,25 @@ engenty:
     expect(summary.engenty_modules).toEqual(["contacts"]);
     expect(summary.requires_sandbox).toBe(false);
   });
+
+  it("does not treat library source as a fake module", () => {
+    const summary = buildSkillSummary(
+      "xlsx",
+      "managed",
+      parseSkillMarkdown(`---
+name: xlsx
+description: Work with spreadsheets.
+engenty:
+  source: library
+  category: productivity
+---
+
+# Xlsx
+`)
+    );
+
+    expect(summary.source).toBe("library");
+    expect(summary.category).toBe("productivity");
+    expect(summary.engenty_modules).toEqual([]);
+  });
 });

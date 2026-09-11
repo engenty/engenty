@@ -108,7 +108,6 @@ export function TeamSettingsPage() {
     ],
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (settingsQuery.isLoading) {

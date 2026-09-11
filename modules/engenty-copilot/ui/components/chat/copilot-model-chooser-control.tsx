@@ -8,17 +8,22 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useAgentChatModelOptions } from "../../hooks/chat/use-chat-model-options.js";
 import { ChatModelChooser } from "./model-chooser.js";
 
-export function CopilotModelChooserControl(props: { disabled?: boolean }) {
+export function CopilotModelChooserControl(props: {
+  disabled?: boolean;
+  /** Lane to pin the model on; defaults to the copilot host. */
+  hostKey?: string;
+}) {
+  const hostKey = props.hostKey ?? ENGENTY_COPILOT_HOST_KEY;
   const { t } = useTranslation("engenty-copilot");
   const ai = useEngentyAIContext();
-  const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
+  const host = useAgentHost(hostKey);
   const modelOptions = useAgentChatModelOptions({
     isTransportReady: ai.isTransportReady,
     serviceBaseUrl: ai.serviceBaseUrl,
   });
 
   useAgentHostConfig({
-    hostKey: ENGENTY_COPILOT_HOST_KEY,
+    hostKey,
     modelId: modelOptions.activeModelId,
   });
 

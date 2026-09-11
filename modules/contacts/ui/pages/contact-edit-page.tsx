@@ -332,7 +332,6 @@ export function ContactEditPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (loading) {

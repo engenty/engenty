@@ -149,6 +149,7 @@ export function createTeamChatRetrievalSource(options: {
         summary:
           "Semantic + lexical search over team-chat channel messages (DMs excluded)",
       },
+      spacePolicy: { kind: "tenant_shared" },
     },
     retriever: {
       hydrate: async (matches, ctx) => {

@@ -28,7 +28,7 @@ import {
  * must belong to exactly one category. Categories may nest via
  * `parent_id` to form a tree; the root level is `parent_id === null`.
  *
- * Categories also have a **view page** (`/mdl/knowledge-base/kb/:kbSlug/c/:catSlug`).
+ * Categories also have a **view page** (`/mdl/knowledge-base/c/:catSlug`).
  * The page surfaces a cover, an inline title, and configurable content /
  * category / article blocks driven by `page_settings.blocks`.
  */

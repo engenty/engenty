@@ -4,10 +4,14 @@ import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { useUiCoreMediaQuery } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isInterruptResolvedLocally } from "../../../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
+import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
 import { resolveFullscreenCopilotChatPath } from "../../../copilot/copilot-chat-paths.js";
 import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
+import { CopilotBrowserPanel } from "../../../features/browser/copilot-browser-panel.js";
 import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
+import { useEngentyThread } from "../../../threads/use-engenty-thread.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import {
@@ -18,6 +22,7 @@ import { pendingInterruptFromTranscript } from "../interrupts/pending-interrupt-
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotPanelContent } from "../panel/copilot-panel-content";
 import { formatCopilotThreadCopyText } from "../transcript/copilot-thread-copy";
+import { TranscriptLoadOlder } from "../transcript/transcript-load-older.js";
 import { CopilotDrawerPositionMenu } from "./copilot-drawer-position-menu";
 import { CopilotDrawerSurfaceTree } from "./copilot-drawer-surfaces";
 import type {
@@ -37,6 +42,8 @@ import { useCopilotDrawerLayout } from "./use-copilot-drawer-layout";
 import { useCopilotDrawerSuggestionsApply } from "./use-copilot-drawer-suggestions-apply";
 
 /** Copilot drawer orchestration (session, layout, panel props). Re-exported as `CopilotDrawer` from `copilot-drawer.tsx`. */
+const EMPTY_RESOLVED_IDS: ReadonlySet<string> = new Set();
+
 export function CopilotDrawerBody({
   open,
   onOpenChange,
@@ -257,6 +264,11 @@ export function CopilotDrawerBody({
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const mentionAgentCandidates = useMentionAgentCandidates();
   const activeThreadId = session.activeThreadId;
+  // Same paged query the active provider hydrates from — this only reads the
+  // "older page exists" bit and the fetch for the transcript's top control.
+  const { olderMessages } = useEngentyThread(ENGENTY_COPILOT_HOST_KEY, {
+    threadId: activeThreadId,
+  });
   const setActiveThreadId = session.setActiveThreadId;
   const threadIdRef = useRef<string | null>(activeThreadId);
   threadIdRef.current = activeThreadId;
@@ -449,11 +461,30 @@ export function CopilotDrawerBody({
   // session metadata still names the PREVIOUS interrupt until the refetch
   // lands, and rendering it re-shows an already-answered card (the "same
   // approval card re-asks" bug with chained/parallel gated tool calls).
-  const resolvedOpenInterrupt =
-    session.openInterruptFromStream ??
-    openInterruptFromSession ??
-    session.openInterruptFromSession ??
-    null;
+  // ...and neither arm may re-show a card this client already answered or
+  // dismissed (the session copy lags its refetch).
+  const resolvedOpenInterrupt = useMemo(() => {
+    const locallyResolved =
+      session.resolvedInterruptToolCallIds ?? EMPTY_RESOLVED_IDS;
+    for (const candidate of [
+      session.openInterruptFromStream,
+      openInterruptFromSession,
+      session.openInterruptFromSession,
+    ]) {
+      if (
+        candidate &&
+        !isInterruptResolvedLocally(candidate, locallyResolved)
+      ) {
+        return candidate;
+      }
+    }
+    return null;
+  }, [
+    session.openInterruptFromStream,
+    session.openInterruptFromSession,
+    session.resolvedInterruptToolCallIds,
+    openInterruptFromSession,
+  ]);
 
   // The executing decision/feedback chooser to dock above the composer, read from
   // the transcript and gated by the authoritative pending-tool-call set from the
@@ -472,7 +503,20 @@ export function CopilotDrawerBody({
     [session.pendingInterruptToolCallIds, drawerMessages, resolvedOpenInterrupt]
   );
 
+  // The person's browser beside the chat (PLAN-user-browser.md §2.6). The
+  // Space comes from the route context the copilot already carries; outside
+  // a Space the panel says so rather than hiding the button.
+  const [browserPanelOpen, setBrowserPanelOpen] = useState(false);
+  const browserSpaceId = readSpaceIdFromRouteContext(
+    activeCopilotContext?.scope
+  );
   const panelContentProps = {
+    browserPanel: browserPanelOpen ? (
+      <CopilotBrowserPanel spaceId={browserSpaceId} />
+    ) : null,
+    browserPanelLabel: "Your browser",
+    browserPanelOpen,
+    onToggleBrowserPanel: () => setBrowserPanelOpen((open) => !open),
     ...(agentSessionChooserEnabled
       ? { agentSessionChooser: renderAgentSessionChooser("panel") }
       : {
@@ -497,7 +541,9 @@ export function CopilotDrawerBody({
     error: session.error ?? null,
     mentionAgentCandidates,
     messages: drawerMessages,
+    transcriptHeader: <TranscriptLoadOlder olderMessages={olderMessages} />,
     pendingUserInsertIndex: session.pendingUserInsertIndex,
+    pendingUserParts: session.pendingUserParts,
     pendingUserText: session.pendingUserText,
     status: session.status,
     startMode,
@@ -525,6 +571,7 @@ export function CopilotDrawerBody({
     pendingInterruptToolCallIds: session.pendingInterruptToolCallIds,
     optimisticInterruptResults: session.optimisticInterruptResults,
     respond: session.respond,
+    dismissInterrupt: session.dismissInterrupt,
     onSandboxCommandApprove: (open: AgUiOpenInterruptMetadata) => {
       if (onSandboxCommandInterruptApprove) {
         void onSandboxCommandInterruptApprove(open);
@@ -616,6 +663,7 @@ export function CopilotDrawerBody({
             interruptId,
           });
         }}
+        onDismiss={session.dismissInterrupt}
         onFeedbackSubmit={(artifactId, feedback, interruptId) => {
           session.respond?.(dockInterrupt.tool_call_id, {
             artifactId,
@@ -756,4 +804,17 @@ export function CopilotDrawerBody({
       title={title}
     />
   );
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `scope.space_id` of a route context, the same field apps/ai reads. */
+function readSpaceIdFromRouteContext(
+  scope: Record<string, unknown> | undefined
+): string | null {
+  const raw = scope?.space_id;
+  return typeof raw === "string" && UUID_RE.test(raw.trim())
+    ? raw.trim()
+    : null;
 }

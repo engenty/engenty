@@ -1,11 +1,13 @@
 import { createScopedKvSettingsRepoSupabase } from "@engenty/scoped-kv-settings";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { kbChunkingSchema } from "../schema/chunking.js";
 import {
   kbPageLayoutSettingsSchema,
   normalizeKbPageLayoutSettings,
 } from "../schema/page-blocks.js";
 import { kbDisplaySchema } from "../schema/settings.js";
 import type {
+  KbChunking,
   KbDisplay,
   KbPageLayoutSettings,
   KbSettings,
@@ -68,35 +70,19 @@ export function createKbSettingsRepo(
       const existing = await kv.list();
 
       const oldDisplayIds = collectPerKbIdsForKey(existing, KB_KV_KEY.display);
+      const oldChunkingIds = collectPerKbIdsForKey(
+        existing,
+        KB_KV_KEY.chunking
+      );
       const oldSidebarIds = collectPerKbIdsForKey(
         existing,
         KB_KV_KEY.sidebarArticleTreeDefaults
       );
 
-      if (input.default_kb_id == null || input.default_kb_id.trim() === "") {
-        await kv.delete(KB_KV_SCOPE_CONTEXT, KB_KV_KEY.defaultKbId);
-      } else {
-        await kv.set(KB_KV_SCOPE_CONTEXT, {
-          name: KB_KV_KEY.defaultKbId,
-          type: "string",
-          value_string: input.default_kb_id,
-        });
-      }
-
       await kv.set(KB_KV_SCOPE_CONTEXT, {
         name: KB_KV_KEY.embeddingModel,
         type: "string",
         value_string: input.embedding_model,
-      });
-      await kv.set(KB_KV_SCOPE_CONTEXT, {
-        name: KB_KV_KEY.autoGenerateSummary,
-        type: "boolean",
-        value_boolean: input.auto_generate_summary,
-      });
-      await kv.set(KB_KV_SCOPE_CONTEXT, {
-        name: KB_KV_KEY.autoGenerateQuestions,
-        type: "boolean",
-        value_boolean: input.auto_generate_questions,
       });
       await kv.set(KB_KV_SCOPE_CONTEXT, {
         name: KB_KV_KEY.searchVectorMinSimilarity,
@@ -125,6 +111,20 @@ export function createKbSettingsRepo(
           name: KB_KV_KEY.display,
           type: "json",
           value_jsonb: display,
+        });
+      }
+
+      const nextChunkingIds = new Set(Object.keys(input.kb_chunking_by_id));
+      for (const id of oldChunkingIds) {
+        if (!nextChunkingIds.has(id)) {
+          await kv.delete(kbKvContextForKbId(id), KB_KV_KEY.chunking);
+        }
+      }
+      for (const [kbId, chunking] of Object.entries(input.kb_chunking_by_id)) {
+        await kv.set(kbKvContextForKbId(kbId), {
+          name: KB_KV_KEY.chunking,
+          type: "json",
+          value_jsonb: chunking,
         });
       }
 
@@ -168,6 +168,24 @@ export function createKbSettingsRepo(
       const next = kbDisplaySchema.parse(merged);
       await kv.set(ctx, {
         name: KB_KV_KEY.display,
+        type: "json",
+        value_jsonb: next,
+      });
+      return next;
+    },
+
+    async patchKbChunking(
+      kbId: string,
+      chunking: KbChunking | null
+    ): Promise<KbChunking | null> {
+      const ctx = kbKvContextForKbId(kbId);
+      if (chunking === null) {
+        await kv.delete(ctx, KB_KV_KEY.chunking);
+        return null;
+      }
+      const next = kbChunkingSchema.parse(chunking);
+      await kv.set(ctx, {
+        name: KB_KV_KEY.chunking,
         type: "json",
         value_jsonb: next,
       });

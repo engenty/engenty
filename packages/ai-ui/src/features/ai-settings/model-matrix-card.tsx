@@ -1,4 +1,8 @@
-import type { AiModelPurpose } from "@engenty/ai-core/browser";
+import {
+  type AiModelPurpose,
+  DEFAULT_MODEL_GATEWAY_ID,
+  formatModelRef,
+} from "@engenty/ai-core/browser";
 import { Badge, Button, SettingsFormSection } from "@engenty/ui-core";
 import { useMemo, useState } from "react";
 import type { AiConfig } from "../../lib/admin/ai-settings-api";
@@ -21,26 +25,72 @@ type ModelField = Extract<
   | "research_model_id"
   | "planning_coding_model_id"
   | "safeguard_model_id"
+  | "memory_model_id"
 >;
 
 interface PurposeRow {
+  capable: boolean;
   field: ModelField;
   options: "chat" | "routing";
   purpose: AiModelPurpose;
 }
 
+function modelsByRef(
+  models: GatewayModelOption[]
+): Map<string, GatewayModelOption> {
+  return new Map(
+    models.map((m) => [
+      formatModelRef({
+        gateway: m.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
+        modelId: m.model_id,
+      }),
+      m,
+    ])
+  );
+}
+
 /** Display order mirrors AI_MODEL_PURPOSES. Routing uses the routing catalog. */
 const PURPOSE_ROWS: PurposeRow[] = [
-  { purpose: "chat", field: "chat_model_id", options: "chat" },
-  { purpose: "routing", field: "coordinator_model_id", options: "routing" },
-  { purpose: "classifier", field: "classifier_model_id", options: "routing" },
-  { purpose: "research", field: "research_model_id", options: "chat" },
+  { purpose: "chat", field: "chat_model_id", options: "chat", capable: true },
+  {
+    purpose: "routing",
+    field: "coordinator_model_id",
+    options: "routing",
+    capable: false,
+  },
+  {
+    purpose: "classifier",
+    field: "classifier_model_id",
+    options: "routing",
+    capable: false,
+  },
+  {
+    purpose: "research",
+    field: "research_model_id",
+    options: "chat",
+    capable: true,
+  },
   {
     purpose: "planning_coding",
     field: "planning_coding_model_id",
     options: "chat",
+    capable: true,
   },
-  { purpose: "safeguard", field: "safeguard_model_id", options: "chat" },
+  {
+    purpose: "safeguard",
+    field: "safeguard_model_id",
+    options: "chat",
+    capable: false,
+  },
+  // Chat catalog, `capable`: the reflector has to finish a structured rewrite
+  // of a whole conversation. Offering the routing catalog here is what put it
+  // on a 20B model that truncated every reflection.
+  {
+    purpose: "memory",
+    field: "memory_model_id",
+    options: "chat",
+    capable: true,
+  },
 ];
 
 interface ModelMatrixCardProps {
@@ -67,12 +117,14 @@ export function ModelMatrixCard({
 }: ModelMatrixCardProps) {
   const [editing, setEditing] = useState<PurposeRow | null>(null);
 
-  const chatById = useMemo(
-    () => new Map(chatModels.map((m) => [m.model_id, m])),
-    [chatModels]
-  );
-  const routingById = useMemo(
-    () => new Map(routingModels.map((m) => [m.model_id, m])),
+  // Keyed by ref. A pinned value and the server's effective value are both refs
+  // (`openrouter:openai/gpt-4o` when the gateway is not the default), so an
+  // id-keyed map would both collapse the two gateways' rows for one model and
+  // then fail to find either — the row would lose its price and capability
+  // chips with nothing to say why.
+  const chatByRef = useMemo(() => modelsByRef(chatModels), [chatModels]);
+  const routingByRef = useMemo(
+    () => modelsByRef(routingModels),
     [routingModels]
   );
 
@@ -110,7 +162,7 @@ export function ModelMatrixCard({
               // value so the row reflects the pending change immediately.
               const modelId = pinned ?? eff?.value ?? "";
               const catalog =
-                row.options === "routing" ? routingById : chatById;
+                row.options === "routing" ? routingByRef : chatByRef;
               const model = catalog.get(modelId);
               const price = model ? formatModelPrice(model) : null;
               const source = pinned ? "tenant" : (eff?.source ?? "default");
@@ -195,6 +247,7 @@ export function ModelMatrixCard({
 
       {editing ? (
         <ModelPickerDialog
+          capableOnlyDefault={editing.capable}
           inheritedValue={editingEff?.inherited.value ?? ""}
           maxPriceTier={maxPriceTier}
           models={editingModels}

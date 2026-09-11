@@ -152,115 +152,148 @@ async function fetchSnapshot(
   }
 }
 
+export const SHOW_OBJECTS_TOOL_ID = "show_objects";
+
+export const SHOW_OBJECTS_DESCRIPTION =
+  "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings. The entity is NOT the module name — use exactly: 'contacts:contact:<uuid>', 'offers:offer:<uuid>', 'tasks:task:<uuid>', 'invoices:invoice:<uuid>', 'team:member:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. When the user wants to work ON one record (e.g. 'let's work on offer X', 'show me the full offer'), pass its single ref with display 'expanded' — offers/invoices then render as a full document beside the chat that live-updates as you edit them with module tools. Prefer this whenever the user asks to see, list, or work on records.";
+
+export const showObjectsInputSchema = z.object({
+  refs: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(MAX_REFS)
+    .describe(
+      "Canonical object refs: 'contacts:contact:<id>', 'offers:offer:<id>', 'tasks:task:<id>', 'invoices:invoice:<id>', 'team:member:<id>'."
+    ),
+  display: z.enum(["inline", "panel", "expanded"]).optional(),
+  title: z
+    .string()
+    .max(256)
+    .optional()
+    .describe("Tab title when display is panel/expanded."),
+  query: z
+    .string()
+    .max(512)
+    .optional()
+    .describe("The user query/filter these objects answer, for context."),
+  total: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Total matches when refs are a subset of a larger result."),
+});
+
+export type ShowObjectsInput = z.infer<typeof showObjectsInputSchema>;
+
+export interface BuildObjectRenderOptions {
+  /**
+   * Resolve a display snapshot per ref before the card is written.
+   *
+   * TRUE only when the caller holds the VIEWING USER's token: the snapshot
+   * carries title/subtitle/status into the persisted message, and the gateway
+   * read is what drops refs that user may not see.
+   *
+   * FALSE for a graph-action node, which holds a service scope — resolving
+   * there would write fields into a message on someone else's thread that the
+   * reader is not entitled to. Refs alone are safe: the client resolves them
+   * live as whoever is looking.
+   */
+  snapshots: boolean;
+}
+
+/** The card payload for a set of refs — the `_meta.engenty.object_render` marker included. */
+export async function buildObjectRender(
+  input: ShowObjectsInput,
+  options: BuildObjectRenderOptions
+): Promise<Record<string, unknown>> {
+  const parsed: ObjectRef[] = [];
+  const invalid: string[] = [];
+  for (const raw of input.refs) {
+    const ref = parseObjectRef(raw);
+    if (ref) {
+      parsed.push(normalizeObjectRef(ref));
+    } else {
+      invalid.push(raw);
+    }
+  }
+
+  const client = options.snapshots
+    ? getCurrentEngentyToolsClient()
+    : { ok: false as const };
+  const items: ObjectDisplayItem[] = [];
+  const shownRefs: string[] = [];
+  const dropped: string[] = [];
+  if (client.ok) {
+    const outcomes = await Promise.all(
+      parsed.map((ref) =>
+        fetchSnapshot(
+          (toolId, opInput) => client.client.invokeTool(toolId, opInput),
+          ref
+        ).then((outcome) => ({ ref, outcome }))
+      )
+    );
+    for (const { ref, outcome } of outcomes) {
+      if (outcome.dropped) {
+        dropped.push(formatObjectRef(ref));
+        continue;
+      }
+      shownRefs.push(formatObjectRef(ref));
+      if (outcome.item) {
+        items.push(outcome.item);
+      }
+    }
+  } else {
+    // No end-user token (headless run), or snapshots deliberately off — render
+    // refs alone and let the client resolve live data with the viewing user's
+    // own session.
+    shownRefs.push(...parsed.map(formatObjectRef));
+  }
+
+  if (shownRefs.length === 0) {
+    return {
+      ok: false,
+      shown: 0,
+      dropped: dropped.length,
+      invalid: invalid.length,
+      titles: [],
+    };
+  }
+
+  const objectRender: ObjectRenderMeta = {
+    refs: shownRefs,
+    display: input.display ?? "inline",
+    items,
+    ...(input.title ? { title: input.title } : {}),
+    ...(input.query || input.total !== undefined
+      ? {
+          provenance: {
+            ...(input.total === undefined ? {} : { total: input.total }),
+            ...(input.query ? { query: input.query } : {}),
+          },
+        }
+      : {}),
+    ...(dropped.length > 0 ? { dropped } : {}),
+  };
+
+  return {
+    ok: true,
+    shown: shownRefs.length,
+    dropped: dropped.length,
+    invalid: invalid.length,
+    titles: items.map((item) => item.title),
+    _meta: { engenty: { object_render: objectRender } },
+  };
+}
+
 export function createShowObjectsTool() {
   return createTool({
-    id: "show_objects",
-    description:
-      "Render engenty objects (contacts, offers, tasks, invoices, team members, …) as interactive cards in the chat UI instead of describing them in prose. Pass refs as '<module>:<entity>:<id>' strings. The entity is NOT the module name — use exactly: 'contacts:contact:<uuid>', 'offers:offer:<uuid>', 'tasks:task:<uuid>', 'invoices:invoice:<uuid>', 'team:member:<uuid>'. Use display 'inline' for cards in the conversation (default), 'panel' to open in the side panel, 'expanded' for the large view. When the user wants to work ON one record (e.g. 'let's work on offer X', 'show me the full offer'), pass its single ref with display 'expanded' — offers/invoices then render as a full document beside the chat that live-updates as you edit them with module tools. Prefer this whenever the user asks to see, list, or work on records.",
-    inputSchema: z.object({
-      refs: z
-        .array(z.string().min(1))
-        .min(1)
-        .max(MAX_REFS)
-        .describe(
-          "Canonical object refs: 'contacts:contact:<id>', 'offers:offer:<id>', 'tasks:task:<id>', 'invoices:invoice:<id>', 'team:member:<id>'."
-        ),
-      display: z.enum(["inline", "panel", "expanded"]).optional(),
-      title: z
-        .string()
-        .max(256)
-        .optional()
-        .describe("Tab title when display is panel/expanded."),
-      query: z
-        .string()
-        .max(512)
-        .optional()
-        .describe("The user query/filter these objects answer, for context."),
-      total: z
-        .number()
-        .int()
-        .min(0)
-        .optional()
-        .describe("Total matches when refs are a subset of a larger result."),
-    }),
+    id: SHOW_OBJECTS_TOOL_ID,
+    description: SHOW_OBJECTS_DESCRIPTION,
+    inputSchema: showObjectsInputSchema,
     // No outputSchema on purpose: schema validation would strip the
     // `_meta.engenty.object_render` marker the UI card matches on (same
     // reason the MCP-app dynamic tool omits it).
-    execute: async (input) => {
-      const parsed: ObjectRef[] = [];
-      const invalid: string[] = [];
-      for (const raw of input.refs) {
-        const ref = parseObjectRef(raw);
-        if (ref) {
-          parsed.push(normalizeObjectRef(ref));
-        } else {
-          invalid.push(raw);
-        }
-      }
-
-      const client = getCurrentEngentyToolsClient();
-      const items: ObjectDisplayItem[] = [];
-      const shownRefs: string[] = [];
-      const dropped: string[] = [];
-      if (client.ok) {
-        const outcomes = await Promise.all(
-          parsed.map((ref) =>
-            fetchSnapshot(
-              (toolId, opInput) => client.client.invokeTool(toolId, opInput),
-              ref
-            ).then((outcome) => ({ ref, outcome }))
-          )
-        );
-        for (const { ref, outcome } of outcomes) {
-          if (outcome.dropped) {
-            dropped.push(formatObjectRef(ref));
-            continue;
-          }
-          shownRefs.push(formatObjectRef(ref));
-          if (outcome.item) {
-            items.push(outcome.item);
-          }
-        }
-      } else {
-        // No end-user token (headless run): render refs without snapshots —
-        // the client resolves live data with the viewing user's own session.
-        shownRefs.push(...parsed.map(formatObjectRef));
-      }
-
-      if (shownRefs.length === 0) {
-        return {
-          ok: false,
-          shown: 0,
-          dropped: dropped.length,
-          invalid: invalid.length,
-          titles: [],
-        };
-      }
-
-      const objectRender: ObjectRenderMeta = {
-        refs: shownRefs,
-        display: input.display ?? "inline",
-        items,
-        ...(input.title ? { title: input.title } : {}),
-        ...(input.query || input.total !== undefined
-          ? {
-              provenance: {
-                ...(input.total === undefined ? {} : { total: input.total }),
-                ...(input.query ? { query: input.query } : {}),
-              },
-            }
-          : {}),
-        ...(dropped.length > 0 ? { dropped } : {}),
-      };
-
-      return {
-        ok: true,
-        shown: shownRefs.length,
-        dropped: dropped.length,
-        invalid: invalid.length,
-        titles: items.map((item) => item.title),
-        _meta: { engenty: { object_render: objectRender } },
-      };
-    },
+    execute: async (input) => buildObjectRender(input, { snapshots: true }),
   });
 }

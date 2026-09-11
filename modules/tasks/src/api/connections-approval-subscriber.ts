@@ -17,7 +17,10 @@ import type {
 import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createTasksRepoSupabase } from "../dal/supabase.js";
-import { resolveTaskToolApproval } from "./task-approval-service.js";
+import {
+  type ResolveToolApprovalDeps,
+  resolveTaskToolApproval,
+} from "./task-approval-service.js";
 
 const logger = createLogger({ name: "tasks-connections-approvals" });
 
@@ -46,6 +49,7 @@ export function subscribeConnectionsApprovalResume(params: {
   /** Tenant-locked handle factory — the resume runs on the event's tenant. */
   getDb: (auth: { tenantId: string }) => SupabaseClient;
   queue: QueueServiceLike | null;
+  validateAgentAssignment?: ResolveToolApprovalDeps["validateAgentAssignment"];
 }): void {
   params.events.modules.on(
     "connections.approval.decided",
@@ -75,7 +79,12 @@ export function subscribeConnectionsApprovalResume(params: {
           (data as { scope_id: string }).scope_id
         );
         await resolveTaskToolApproval(
-          { queue: params.queue, tasksRepo: repo, tenantId },
+          {
+            queue: params.queue,
+            tasksRepo: repo,
+            tenantId,
+            validateAgentAssignment: params.validateAgentAssignment,
+          },
           // "once", matching the one-shot core grant the decide minted — the
           // task is unblocked for this retry, not standing-approved.
           { decision: "approve", operationId, scope: "once", taskId }

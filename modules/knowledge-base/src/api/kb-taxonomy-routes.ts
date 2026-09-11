@@ -1,4 +1,5 @@
 import { createLogger } from "@engenty/telemetry";
+import { onlyRequestedKeys } from "../schema/only-requested-keys.js";
 import type { KbCategoryUpdateInput } from "../schema/types.js";
 import {
   categoryCreateSchema,
@@ -238,8 +239,13 @@ export function registerKbTaxonomyRoutes(api: KbServerApi, getRepo: GetKbRepo) {
     handler: async (ctx) => {
       const repos = getRepo(ctx.auth);
       const params = ctx.params as { id: string };
-      const body = categoryUpdateSchema.parse(
-        await ctx.request.json().catch(() => ({}))
+      const rawPatch = await ctx.request.json().catch(() => ({}));
+      // Filter by the RAW body's keys: `.partial()` keeps `.default()` firing,
+      // so the parsed patch resets sort_order on a plain rename.
+      const body = onlyRequestedKeys(
+        rawPatch,
+        categoryUpdateSchema.parse(rawPatch) as KbCategoryUpdateInput &
+          Record<string, unknown>
       ) as KbCategoryUpdateInput;
       try {
         const category = await repos.categories.update(params.id, body);

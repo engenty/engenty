@@ -76,12 +76,16 @@ function fakeRepo(state: FakeRepoState) {
     listCandidateConnections: async (params: {
       connectorId: string;
       principalId: string;
+      spaceOwnerUserId?: string | null;
     }) =>
       state.connections.filter(
         (c) =>
           c.status === "active" &&
           c.connector_id === params.connectorId &&
-          (c.sharing === "org" || c.owner_user_id === params.principalId)
+          (c.sharing === "org" ||
+            c.owner_user_id === params.principalId ||
+            (params.spaceOwnerUserId != null &&
+              c.owner_user_id === params.spaceOwnerUserId))
       ),
     listPolicyOverrides: async (ids: string[]) =>
       (state.overrides ?? []).filter((o) => ids.includes(o.connection_id)),
@@ -452,5 +456,96 @@ describe("executeConnectorAction", () => {
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_not_connected" });
+  });
+});
+
+describe("executeConnectorAction — space parity (§2.1 / CN.3)", () => {
+  const service = { principalId: "svc-1", principalType: "service" as const };
+
+  it("reaches the verified space owner's personal account headless", async () => {
+    const target = connection({
+      autonomous_mode: "full",
+      id: "c-own",
+      owner_user_id: "owner-9",
+    });
+    const { repo } = fakeRepo({ connections: [target] });
+    const result = await executeConnectorAction({
+      action: makeAction(),
+      connector,
+      input: {},
+      isAutonomous: true,
+      mountedConnectionAccess: new Map([["c-own", null]]),
+      principal: service,
+      repo,
+      spaceOwnerUserId: "owner-9",
+      tenantId: "tenant-1",
+    });
+    expect(result.connection.id).toBe("c-own");
+  });
+
+  it("refuses when the space mounts none of the candidates", async () => {
+    const target = connection({
+      autonomous_mode: "full",
+      id: "c-own",
+      owner_user_id: "owner-9",
+    });
+    const { repo } = fakeRepo({ connections: [target] });
+    await expect(
+      executeConnectorAction({
+        action: makeAction(),
+        connector,
+        input: {},
+        isAutonomous: true,
+        mountedConnectionAccess: new Map(),
+        principal: service,
+        repo,
+        spaceOwnerUserId: "owner-9",
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_not_in_space" });
+  });
+
+  it("applies the mount level to the resolved connection", async () => {
+    const target = connection({
+      autonomous_mode: "full",
+      id: "c-own",
+      owner_user_id: "owner-9",
+    });
+    const { repo } = fakeRepo({ connections: [target] });
+    await expect(
+      executeConnectorAction({
+        action: makeAction({ group: "write", id: "send" }),
+        connector,
+        input: {},
+        isAutonomous: true,
+        mountedConnectionAccess: new Map([["c-own", "read"]]),
+        principal: service,
+        repo,
+        spaceOwnerUserId: "owner-9",
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_denied" });
+  });
+
+  it("stays personal-clamped without a verified owner", async () => {
+    const target = connection({
+      autonomous_mode: "full",
+      id: "c-own",
+      owner_user_id: "owner-9",
+    });
+    const { repo } = fakeRepo({ connections: [target] });
+    await expect(
+      executeConnectorAction({
+        action: makeAction(),
+        connector,
+        // Directly addressed so the candidate filter cannot hide the clamp.
+        connectionId: "c-own",
+        input: {},
+        isAutonomous: true,
+        principal: service,
+        repo,
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_denied" });
   });
 });

@@ -1,14 +1,9 @@
 "use client";
 
 // Presentational attachment tiles shared by the composer preview and the chat
-// transcript, mirroring the AI SDK Elements Attachments component:
-//   - grid variant  → separated square tiles: image thumbnails
-//     (`AttachmentImageTile`) and icon file tiles (`AttachmentFileTile`) —
-//     used in messages
-//   - inline variant → compact file badge pills (`AttachmentFileBadge`) —
-//     used in the composer input area
-// All accept an optional `onRemove` (composer) or `href` (transcript link).
-// `size` picks the square edge: "sm" (64px, composer) or "lg" (112px, thread).
+// transcript. Images: `fit="cover"` square thumbs (composer) or `fit="natural"`
+// in the stream. Files: `AttachmentFileTile` / `AttachmentFileBadge`.
+// `onPreview` wins over `href`. `size` is the square edge for cover thumbs.
 
 import { cn } from "@engenty/ui-core";
 import { FileText, Film, Music, X } from "lucide-react";
@@ -63,41 +58,72 @@ const TILE_SIZE_CLASS: Record<AttachmentTileSize, string> = {
 };
 const TILE_SIZE_PX: Record<AttachmentTileSize, number> = { lg: 112, sm: 64 };
 
+export type AttachmentImageFit = "cover" | "natural";
+
 export interface AttachmentTileProps {
   className?: string;
+  /**
+   * `cover` — square crop (composer thumbs). `natural` — original aspect
+   * ratio, never upscaled, height-capped (stream).
+   */
+  fit?: AttachmentImageFit;
   href?: string;
   label: string;
   mediaType?: string;
+  /** In-app preview (lightbox). Takes precedence over `href`. */
+  onPreview?: () => void;
   onRemove?: () => void;
+  /** Accessible name for the preview control; defaults to `label`. */
+  previewAriaLabel?: string;
   size?: AttachmentTileSize;
   url?: string;
 }
 
-/** Grid variant — a square image thumbnail. */
+/** Grid variant — square thumbnail (`cover`) or stream-sized image (`natural`). */
 export function AttachmentImageTile({
   className,
+  fit = "cover",
   href,
   label,
+  onPreview,
   onRemove,
+  previewAriaLabel,
   size = "sm",
   url,
 }: AttachmentTileProps) {
+  const natural = fit === "natural";
   const image = (
     <img
       alt={label}
       className={cn(
-        TILE_SIZE_CLASS[size],
-        "border border-border bg-muted object-cover",
+        natural
+          ? "h-auto max-h-80 w-auto max-w-full rounded-xl border border-border bg-muted object-contain shadow-sm"
+          : cn(
+              TILE_SIZE_CLASS[size],
+              "border border-border bg-muted object-cover"
+            ),
         className
       )}
-      height={TILE_SIZE_PX[size]}
+      height={natural ? undefined : TILE_SIZE_PX[size]}
       src={url ?? undefined}
-      width={TILE_SIZE_PX[size]}
+      width={natural ? undefined : TILE_SIZE_PX[size]}
     />
   );
   return (
-    <div className="group relative" title={label}>
-      {href ? (
+    <div
+      className={cn("group relative", natural && "max-w-full")}
+      title={label}
+    >
+      {onPreview ? (
+        <button
+          aria-label={previewAriaLabel ?? label}
+          className="block max-w-full cursor-pointer rounded-[inherit] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onPreview}
+          type="button"
+        >
+          {image}
+        </button>
+      ) : href ? (
         <a href={href} rel="noreferrer" target="_blank">
           {image}
         </a>
@@ -115,14 +141,17 @@ export function AttachmentFileTile({
   href,
   label,
   mediaType,
+  onPreview,
   onRemove,
+  previewAriaLabel,
   size = "sm",
 }: AttachmentTileProps) {
   const Icon = fileIcon(mediaType);
+  const interactive = Boolean(onPreview || href);
   const tileClass = cn(
     TILE_SIZE_CLASS[size],
     "flex items-center justify-center border border-border bg-muted/50",
-    href && "hover:bg-muted",
+    interactive && "hover:bg-muted",
     className
   );
   const icon = (
@@ -135,7 +164,19 @@ export function AttachmentFileTile({
   );
   return (
     <div className="group relative" title={label}>
-      {href ? (
+      {onPreview ? (
+        <button
+          aria-label={previewAriaLabel ?? label}
+          className={cn(
+            tileClass,
+            "cursor-pointer transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          )}
+          onClick={onPreview}
+          type="button"
+        >
+          {icon}
+        </button>
+      ) : href ? (
         <a className={tileClass} href={href} rel="noreferrer" target="_blank">
           {icon}
         </a>

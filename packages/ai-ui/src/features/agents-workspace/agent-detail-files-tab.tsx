@@ -24,7 +24,11 @@ export function AgentDetailFilesTab({
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-page pt-2 pb-2">
       <AgentFilesTab
-        canReset={Boolean(detail.selectedKey)}
+        canReset={
+          files.isInstructionDirty ||
+          Boolean(files.resolutionQuery.data?.tenant_override) ||
+          Boolean(files.resolutionQuery.data?.user_override)
+        }
         createErrorMessage={createError}
         editorBody={files.editorBody}
         errorMessage={files.instructionErrorMessage}
@@ -130,6 +134,7 @@ export function AgentDetailFilesTab({
           });
         }}
         onSelectFile={detail.setFileParam}
+        overrideFlagsByKey={detail.instructionOverridesByKey}
         scope={files.scope}
         selectedDocument={files.selectedDocument}
         selectedKey={detail.selectedKey}

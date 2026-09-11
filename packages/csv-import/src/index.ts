@@ -14,9 +14,37 @@ export {
   CSVImportWizard,
   type CSVImportWizardLabels,
   type CSVImportWizardProps,
+  CsvGrid,
+  type CsvGridProps,
+  CsvTable,
+  type CsvTableLabels,
+  type CsvTableProps,
   type ImportPresetAdapter,
   type PreviewColumn,
+  XlsxViewer,
+  type XlsxViewerLabels,
+  type XlsxViewerProps,
 } from "./components/index.jsx";
+export {
+  appendCsvColumn,
+  appendCsvRow,
+  type CsvCell,
+  type CsvMatrix,
+  type CsvRange,
+  clearCsvRange,
+  csvRange,
+  csvRangeContains,
+  csvRangeToText,
+  EMPTY_CSV_MATRIX,
+  parseCsvBlock,
+  parseCsvMatrix,
+  removeCsvColumn,
+  removeCsvRow,
+  serializeCsvMatrix,
+  setCsvCell,
+  setCsvColumnName,
+  writeCsvBlock,
+} from "./csv-matrix.js";
 export { applyDeterministicMapping } from "./deterministic-mapping.js";
 export {
   normalizeImportPresets,
@@ -74,3 +102,13 @@ export type {
   MatchByType,
   ParsedCSV,
 } from "./types.js";
+export {
+  columnLetter,
+  isXlsxSheetTruncated,
+  readXlsxWorkbook,
+  XLSX_MAX_COLUMNS,
+  XLSX_MAX_ROWS,
+  type XlsxSheet,
+  type XlsxWorkbook,
+  xlsxCellText,
+} from "./xlsx-workbook.js";

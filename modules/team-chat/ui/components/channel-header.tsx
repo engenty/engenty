@@ -97,7 +97,7 @@ export function ChannelHeader({
             : ""}
         </span>
         {isChannel ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border-soft px-2 py-0.5 text-[11px] text-muted-foreground">
             {isPrivate ? <Lock className="size-3" /> : null}
             {isPrivate
               ? t("conversation.typePrivate")

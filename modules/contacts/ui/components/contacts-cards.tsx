@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName, Badge } from "@engenty/ui-core";
+import { adminListCardsGridClassName, Badge, cn } from "@engenty/ui-core";
 import type { ContactListItem } from "../api.js";
 
 type TableSize = "compact" | "normal";
@@ -21,9 +21,10 @@ export function ContactsCards({
     <div className={adminListCardsGridClassName(tableSize)}>
       {entities.map((entity) => (
         <button
-          className={`rounded-lg border bg-card text-left transition-colors hover:bg-accent/30 ${
+          className={cn(
+            "ui-card-raised text-left",
             tableSize === "compact" ? "p-3" : "p-4"
-          }`}
+          )}
           key={entity.id}
           onClick={() => onCardClick(entity)}
           type="button"

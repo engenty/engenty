@@ -14,14 +14,6 @@ export function usePlanListTabNavigation() {
         navigate(tasksPaths.inbox);
         return;
       }
-      if (tab === "goals") {
-        navigate(tasksPaths.goals);
-        return;
-      }
-      if (tab === "routines") {
-        navigate(tasksPaths.routines);
-        return;
-      }
       navigate(tasksPaths.list);
     },
     [navigate]

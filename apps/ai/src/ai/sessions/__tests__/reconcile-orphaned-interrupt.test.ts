@@ -1,11 +1,11 @@
 import { AG_UI_OPEN_INTERRUPT_METADATA_KEY } from "@engenty/ag-ui-bridge";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  finishParkedResume,
-  parkSessionRun,
-  takeParkedSessionRun,
-} from "../../conversation/session-park.js";
+  claimResumeInFlight,
+  releaseResumeInFlight,
+} from "../../conversation/resume-claims.js";
 import {
+  clearOpenInterrupt,
   isOpenInterruptOrphaned,
   reconcileOrphanedInterrupt,
 } from "../reconcile-orphaned-interrupt.js";
@@ -29,6 +29,16 @@ function openInterrupt(overrides: Record<string, unknown> = {}) {
 
 function metadataWith(open: Record<string, unknown> | null) {
   return open ? { [AG_UI_OPEN_INTERRUPT_METADATA_KEY]: open } : {};
+}
+
+interface ToolPart {
+  toolInvocation: { result?: { interrupted?: boolean }; state: string };
+}
+
+function firstUpdatedParts(fn: { mock: { calls: unknown[][] } }): ToolPart[] {
+  const first = fn.mock.calls.at(0)?.[0] as { parts?: ToolPart[] } | undefined;
+  expect(first?.parts).toBeDefined();
+  return first?.parts ?? [];
 }
 
 const scope = {
@@ -63,24 +73,21 @@ function snapshotProbe(suspendedRunIds: string[]) {
 }
 
 describe("isOpenInterruptOrphaned", () => {
-  it("is orphaned when a run_id interrupt has no live/in-flight/parked session", async () => {
+  it("is orphaned when a run_id interrupt has no live or in-flight run", async () => {
     expect(await isOpenInterruptOrphaned(openInterrupt() as never)).toBe(true);
   });
 
-  it("is NOT orphaned while the suspended run is still parked", async () => {
-    parkSessionRun("run-R", {
-      controller: { destroy: vi.fn(async () => {}) } as never,
-      mergedDefinitions: [],
-      session: { suspensions: { has: () => true } } as never,
-      threadId: "thread-1",
-    });
+  it("is NOT orphaned while a resume for it is in flight", async () => {
+    // Nothing is kept in memory any more, so this marker is the only in-process
+    // signal that a run is being answered right now. Clearing the interrupt
+    // under a live resume would delete the pointer it is about to resolve.
+    expect(claimResumeInFlight("run-R")).toBe(true);
     try {
       expect(await isOpenInterruptOrphaned(openInterrupt() as never)).toBe(
         false
       );
     } finally {
-      takeParkedSessionRun("run-R");
-      finishParkedResume("run-R");
+      releaseResumeInFlight("run-R");
     }
   });
 
@@ -214,20 +221,13 @@ describe("reconcileOrphanedInterrupt", () => {
     expect(result?.[AG_UI_OPEN_INTERRUPT_METADATA_KEY]).toBeUndefined();
     // Both parallel dangling tool calls in the wedged turn resolved to "result".
     expect(store.updateMessageParts).toHaveBeenCalledTimes(1);
-    const parts = store.updateMessageParts.mock.calls[0]![0].parts as Array<{
-      toolInvocation: { state: string; result?: { interrupted?: boolean } };
-    }>;
+    const parts = firstUpdatedParts(store.updateMessageParts);
     expect(parts.every((p) => p.toolInvocation.state === "result")).toBe(true);
-    expect(parts[0]!.toolInvocation.result?.interrupted).toBe(true);
+    expect(parts[0]?.toolInvocation.result?.interrupted).toBe(true);
   });
 
-  it("no-ops when the interrupt is still resumable (parked)", async () => {
-    parkSessionRun("run-R", {
-      controller: { destroy: vi.fn(async () => {}) } as never,
-      mergedDefinitions: [],
-      session: { suspensions: { has: () => true } } as never,
-      threadId: "thread-1",
-    });
+  it("no-ops while a resume for the interrupt is in flight", async () => {
+    expect(claimResumeInFlight("run-R")).toBe(true);
     try {
       const result = await reconcileOrphanedInterrupt({
         metadata: metadataWith(openInterrupt()),
@@ -240,16 +240,15 @@ describe("reconcileOrphanedInterrupt", () => {
       expect(store.mergeThreadMetadataForUser).not.toHaveBeenCalled();
       expect(store.updateMessageParts).not.toHaveBeenCalled();
     } finally {
-      takeParkedSessionRun("run-R");
-      finishParkedResume("run-R");
+      releaseResumeInFlight("run-R");
     }
   });
 
-  // The bug this whole change exists for: a restart leaves the park empty, and
-  // the reconciler used to clear the interrupt on thread load — before the
-  // resume POST could reach the snapshot lane, so the run was unresumable and
-  // the route answered "no runtime matched this run".
-  it("no-ops when the park is gone but storage still holds the run", async () => {
+  // Storage is the authority now that nothing is kept in memory: the reconciler
+  // must not clear the interrupt on thread load before the resume POST can reach
+  // the snapshot, so the run was unresumable and the route answered "no runtime
+  // matched this run".
+  it("no-ops when storage still holds the suspended run", async () => {
     const { probe, listSuspendedRuns } = snapshotProbe(["run-R"]);
     const result = await reconcileOrphanedInterrupt({
       metadata: metadataWith(openInterrupt()),
@@ -266,7 +265,7 @@ describe("reconcileOrphanedInterrupt", () => {
     expect(store.updateMessageParts).not.toHaveBeenCalled();
   });
 
-  it("still heals when neither the park nor storage has the run", async () => {
+  it("still heals when storage has no such run", async () => {
     const { probe } = snapshotProbe([]);
     const result = await reconcileOrphanedInterrupt({
       metadata: metadataWith(openInterrupt()),
@@ -291,5 +290,51 @@ describe("reconcileOrphanedInterrupt", () => {
     });
     expect(result).toBeNull();
     expect(store.mergeThreadMetadataForUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("clearOpenInterrupt (the card's ✕)", () => {
+  it("clears a LIVE interrupt on request — no orphan check — and settles its tool step", async () => {
+    const store = {
+      listMessagesOrdered: vi.fn(async () => [
+        {
+          id: "msg-1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-invocation",
+              toolInvocation: { state: "call", toolCallId: "call-a" },
+            },
+          ],
+        },
+      ]),
+      mergeThreadMetadataForUser: vi.fn(async () => ({
+        thread: { metadata: { kept: true } },
+      })),
+      updateMessageParts: vi.fn(async () => ({ message: null })),
+    };
+    markRunLive("run-R");
+    try {
+      const result = await clearOpenInterrupt({
+        metadata: metadataWith(openInterrupt()),
+        open: openInterrupt() as never,
+        scope,
+        store: store as never,
+        threadId: "thread-1",
+        userId: "u1",
+      });
+      expect(result).toEqual({ kept: true });
+      expect(store.mergeThreadMetadataForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
+          threadId: "thread-1",
+        })
+      );
+      const parts = firstUpdatedParts(store.updateMessageParts);
+      expect(parts[0]?.toolInvocation.state).toBe("result");
+      expect(parts[0]?.toolInvocation.result?.interrupted).toBe(true);
+    } finally {
+      markRunDone("run-R");
+    }
   });
 });

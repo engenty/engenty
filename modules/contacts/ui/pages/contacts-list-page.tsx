@@ -296,7 +296,6 @@ export function ContactsListPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const handleSearchChange = useCallback(

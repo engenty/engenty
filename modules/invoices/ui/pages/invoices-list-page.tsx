@@ -358,7 +358,6 @@ function InvoicesListPageContent() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
   useInvoicesListAgentUiSlice({ search, invoices: filteredInvoices });
 
@@ -400,7 +399,7 @@ function InvoicesListPageContent() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {isLoading && (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="ui-card-elevated overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -9,6 +9,10 @@ allowed-tools: engenty_tools_search engenty_tool_execute web_search
 
 Use this skill when the user asks for hygiene, lint, audits, or “what is broken/outdated” in the knowledge base.
 
+## Spaces
+
+- Audit only Knowledge Bases in **current_space**. The Space has one Knowledge Base; that is what you audit.
+
 ## What to do
 
 1. Sample lists with `kb_articles_list` and `kb_faqs_list`, use `knowledge_base_article_search` (default hybrid mode) for semantic recall, and `knowledge_base_article_search` with **`strategy: "lexical"`** (or `kb_articles_list` with `search` and **`search_fts: true`**) where keyword coverage matters.

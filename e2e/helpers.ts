@@ -38,9 +38,15 @@ export async function gotoLoggedIn(page: Page, path = "/"): Promise<void> {
   // (401) and the SPA does not retry — it hangs on "Loading session…". A single
   // reload picks up the now-persisted session; retry a couple of times before
   // giving up.
+  //
+  // The readiness signal must hold at BOTH widths. Below `md` the module rail
+  // is collapsed into the nav sheet, so `a[href^="/mdl/"]` is present but not
+  // visible and waiting on it alone hangs the phone lane forever; the topbar's
+  // hamburger is the mobile half of the same signal.
+  const SHELL_READY = 'a[href^="/mdl/"], [data-shell-mobile-nav-trigger]';
   for (let attempt = 0; ; attempt++) {
     try {
-      await page.waitForSelector('a[href^="/mdl/"]', { timeout: 20_000 });
+      await page.waitForSelector(SHELL_READY, { timeout: 20_000 });
       return;
     } catch (error) {
       if (attempt >= 2) {
@@ -81,4 +87,50 @@ export async function apiAccessToken(page: Page): Promise<string> {
     throw new Error("No Supabase access token in localStorage after login");
   }
   return token;
+}
+
+/**
+ * Assert the page does not scroll sideways.
+ *
+ * The single highest-signal mobile-layout check: virtually every phone-width
+ * regression (a fixed `w-[720px]`, an un-wrapped table, a flex row that never
+ * wraps) shows up as the document being wider than the viewport. Reported with
+ * the widest offending elements so the failure names the culprit instead of
+ * just the symptom.
+ */
+export async function expectNoHorizontalOverflow(
+  page: Page,
+  label: string
+): Promise<void> {
+  const result = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const overflow = doc.scrollWidth - doc.clientWidth;
+    if (overflow <= 0) {
+      return { overflow, culprits: [] as string[] };
+    }
+    const culprits: string[] = [];
+    for (const el of Array.from(document.body.querySelectorAll("*"))) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.right <= doc.clientWidth + 1) {
+        continue;
+      }
+      // Only the outermost offenders are interesting: a too-wide parent drags
+      // every descendant past the edge with it.
+      if (culprits.length >= 5) {
+        break;
+      }
+      const tag = el.tagName.toLowerCase();
+      const cls =
+        typeof el.className === "string" ? el.className.slice(0, 120) : "";
+      culprits.push(`${tag}.${cls} → right=${Math.round(rect.right)}`);
+    }
+    return { overflow, culprits };
+  });
+
+  if (result.overflow > 0) {
+    throw new Error(
+      `${label}: document scrolls horizontally by ${result.overflow}px.\n` +
+        `Widest offenders:\n  ${result.culprits.join("\n  ")}`
+    );
+  }
 }

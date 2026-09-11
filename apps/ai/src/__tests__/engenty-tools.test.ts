@@ -10,11 +10,36 @@ import {
   normalizeToolContract,
   searchEngentyTools,
 } from "../../ai/tools/engenty-tools/index.js";
+import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+import type { SpaceGateSurface } from "../../ai/tools/engenty-tools/lib/space-gate.js";
+import { buildUnresolvedToolCallResult } from "../ai/conversation/unresolved-tool-call.js";
 import {
   EngentyCoreHttpError,
   type EngentyToolContract,
 } from "../ai/core-http-client.js";
 import { createApiCatalogSearchStore } from "../dal/api-catalog/api-catalog-search-store.js";
+
+const CATALOG_ENVELOPE = {
+  ok: true,
+  catalog_only: true,
+  message: "These are operation contracts, not app records.",
+  next: "Execute one returned operation before stating record facts.",
+};
+
+const EMPTY_EXECUTE_META = {
+  source: "engenty_tool_execute",
+  empty: true,
+  message:
+    "The operation succeeded and returned no records. Report an empty result; do not invent rows.",
+};
+
+const marketingSpace: SpaceGateSurface = {
+  allConnectorPrefixes: new Set(),
+  connectorPrefixes: new Set(),
+  moduleIds: new Set(["projects", "contacts"]),
+  readOnlyModuleIds: new Set(["contacts"]),
+  spaceId: "019fe8ec-0000-0000-0000-000000000001",
+};
 
 const contactsListContract = {
   auth: {
@@ -81,6 +106,17 @@ const kbArticlesListContract = {
   pluginId: "knowledge-base",
   summary: "List Knowledge Base articles",
   toolId: "kb_articles_list",
+};
+
+const projectsListContract = {
+  ...contactsListContract,
+  description: "List projects",
+  moduleId: "projects",
+  operationId: "projects_list",
+  pluginId: "projects",
+  readOnly: true as const,
+  summary: "List projects",
+  toolId: "projects_list",
 };
 
 const defaultWorkspaceContext = {
@@ -168,7 +204,7 @@ describe("Engenty Mastra tools helpers", () => {
       );
 
       expect(result).toMatchObject({
-        ok: true,
+        ...CATALOG_ENVELOPE,
         matches: [
           {
             name: "contacts_list",
@@ -176,6 +212,9 @@ describe("Engenty Mastra tools helpers", () => {
           },
         ],
       });
+      expect(result).toHaveProperty("space_scope");
+      expect(JSON.stringify(result)).not.toContain("proj-001");
+      expect(JSON.stringify(result)).not.toContain("Sales-Einführung");
       // searchEngentyTools returns a union whose error members carry no
       // `matches`; narrow rather than cast so a regression to the error
       // envelope fails here instead of silently reading undefined.
@@ -183,6 +222,8 @@ describe("Engenty Mastra tools helpers", () => {
         throw new Error(`expected a match envelope, got ${result.code}`);
       }
       expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]).not.toHaveProperty("status");
+      expect(result.matches[0]).not.toHaveProperty("rows");
     } finally {
       if (originalGatewayKey === undefined) {
         Reflect.deleteProperty(process.env, "AI_GATEWAY_API_KEY");
@@ -212,7 +253,7 @@ describe("Engenty Mastra tools helpers", () => {
       );
 
       expect(result).toMatchObject({
-        ok: true,
+        ...CATALOG_ENVELOPE,
         matches: expect.arrayContaining([
           expect.objectContaining({
             name: "kb_search",
@@ -249,15 +290,12 @@ describe("Engenty Mastra tools helpers", () => {
       );
 
       expect(result).toMatchObject({
-        ok: true,
-        catalog_only: true,
+        ...CATALOG_ENVELOPE,
         matches: expect.arrayContaining([
           expect.objectContaining({ name: "kb_search" }),
           expect.objectContaining({ name: "kb_articles_list" }),
         ]),
-        message:
-          "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search.",
-        next: expect.stringContaining("engenty_tool_execute"),
+        note: "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search.",
       });
     } finally {
       if (originalGatewayKey === undefined) {
@@ -313,8 +351,7 @@ describe("Engenty Mastra tools helpers", () => {
     );
 
     expect(result).toMatchObject({
-      ok: true,
-      catalog_only: true,
+      ...CATALOG_ENVELOPE,
       modules: [
         {
           routePrefix: "/mdl/contacts",
@@ -402,6 +439,7 @@ describe("Engenty Mastra tools helpers", () => {
 
     expect(result).toEqual({
       ok: true,
+      operation_id: "kb_search",
       data: { error: "No knowledge base found" },
     });
     expect(result).not.toHaveProperty("tool");
@@ -459,5 +497,195 @@ describe("Engenty Mastra tools helpers", () => {
       message:
         "Core-backed Engenty tools are unavailable because this run does not include an end-user bearer token.",
     });
+  });
+
+  it("names Space-mounted modules, not the current user/tenant, when Space-bound", async () => {
+    const result = await engentyToolsRunAls.run({ space: marketingSpace }, () =>
+      listEngentyToolModules(
+        createTestClient({
+          listPlugins: async () => [
+            {
+              description: "Projects.",
+              enabled: true,
+              id: "projects",
+              kind: "module",
+              loaded: true,
+              name: "Projects",
+              provides: ["module.projects"],
+            },
+            {
+              description: "Offers.",
+              enabled: true,
+              id: "offers",
+              kind: "module",
+              loaded: true,
+              name: "Offers",
+              provides: ["module.offers"],
+            },
+          ],
+          listToolContracts: async () => [projectsListContract],
+        })
+      )
+    );
+
+    expect(result).toMatchObject({
+      ...CATALOG_ENVELOPE,
+      note: expect.stringContaining("mounted in this Space"),
+      modules: [expect.objectContaining({ moduleId: "projects" })],
+    });
+    expect(JSON.stringify(result)).not.toContain("current user/tenant");
+    if (!("modules" in result)) {
+      throw new Error("expected modules envelope");
+    }
+    expect(result.modules).toHaveLength(1);
+  });
+});
+
+/**
+ * Exact sequence from logs/projects-chat.md: catalog named `projects_list`,
+ * execute returned nothing the model could read, and the assistant invented
+ * proj-001 / Sales-Einführung. Each step below must make that invention
+ * impossible from the tool result alone.
+ */
+describe("projects-chat regression: catalog is not data", () => {
+  const fabricated = [
+    "proj-001",
+    "Sales-Einführung",
+    "Marketing-Kampagne 2026",
+  ];
+
+  it("a catalog hit on projects_list is a contract, not project rows", async () => {
+    const result = await engentyToolsRunAls.run({ space: marketingSpace }, () =>
+      searchEngentyTools(
+        {
+          kind: "tool",
+          moduleId: "projects",
+          query: "list",
+          readOnlyOnly: true,
+        },
+        {
+          apiCatalog: makeCatalog([projectsListContract, contactsListContract]),
+        }
+      )
+    );
+
+    expect(result).toMatchObject({
+      ...CATALOG_ENVELOPE,
+      matches: [expect.objectContaining({ name: "projects_list" })],
+    });
+    expect(result).toHaveProperty("space_scope");
+    if (!("matches" in result)) {
+      throw new Error("expected catalog matches");
+    }
+    expect(result.matches[0]).not.toHaveProperty("id");
+    expect(result.matches[0]).not.toHaveProperty("status");
+    const serialized = JSON.stringify(result);
+    for (const value of fabricated) {
+      expect(serialized).not.toContain(value);
+    }
+  });
+
+  it("a missing execute result is a structured failure, not empty data", async () => {
+    const result = await executeEngentyTool(
+      { id: "projects_list", input: {} },
+      createTestClient({
+        describeTool: async () => projectsListContract,
+        invokeTool: async () => undefined as never,
+      })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "no_tool_result",
+      operation_id: "projects_list",
+    });
+    expect(JSON.stringify(result)).toContain(
+      "Do not guess; report retrieval failure or retry once."
+    );
+    for (const value of fabricated) {
+      expect(JSON.stringify(result)).not.toContain(value);
+    }
+  });
+
+  it("a dangling engenty_tool_execute call tells the model not to guess", () => {
+    const result = buildUnresolvedToolCallResult({
+      knownToolNames: ["engenty_tools_search", "engenty_tool_execute"],
+      toolName: "engenty_tool_execute",
+    });
+    expect(result).toMatchObject({
+      code: "no_tool_result",
+      ok: false,
+      tool_name: "engenty_tool_execute",
+    });
+    expect(result.error).toContain(
+      "Do not guess; report retrieval failure or retry once."
+    );
+  });
+
+  it("a real empty projects list is success, not an error", async () => {
+    const result = await executeEngentyTool(
+      { id: "projects_list", input: {} },
+      createTestClient({
+        describeTool: async () => projectsListContract,
+        invokeTool: async <_TInput, TResult>() =>
+          ({ data: [], total: 0 }) as TResult,
+      })
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      operation_id: "projects_list",
+      data: { data: [], total: 0 },
+      meta: EMPTY_EXECUTE_META,
+    });
+  });
+
+  it("unmounted and read-only refusals are final and non-retryable", async () => {
+    const unmounted = await engentyToolsRunAls.run(
+      { space: marketingSpace },
+      () =>
+        executeEngentyTool(
+          { id: "offers_list", input: {} },
+          createTestClient({
+            describeTool: async () => ({
+              ...contactsListContract,
+              moduleId: "offers",
+              operationId: "offers_list",
+              pluginId: "offers",
+              summary: "List offers",
+              toolId: "offers_list",
+            }),
+            invokeTool: async () => {
+              throw new Error("unmounted ops must not invoke");
+            },
+          })
+        )
+    );
+    expect(unmounted).toMatchObject({
+      ok: false,
+      error: "module_not_in_space",
+    });
+    expect(JSON.stringify(unmounted).toLowerCase()).toContain("do not retry");
+
+    const readOnlyWrite = await engentyToolsRunAls.run(
+      { space: marketingSpace },
+      () =>
+        executeEngentyTool(
+          { id: "contacts_delete", input: { id: "c1" } },
+          createTestClient({
+            describeTool: async () => contactsDeleteContract,
+            invokeTool: async () => {
+              throw new Error("read-only writes must not invoke");
+            },
+          })
+        )
+    );
+    expect(readOnlyWrite).toMatchObject({
+      ok: false,
+      error: "space_read_only",
+    });
+    expect(JSON.stringify(readOnlyWrite).toLowerCase()).toContain(
+      "do not retry"
+    );
   });
 });

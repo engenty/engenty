@@ -11,6 +11,7 @@ import {
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
 import { AiSessionError } from "../errors.js";
+import { serviceScopeTokenRefresher } from "../service-credential.js";
 import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
 // Workspace-key contract shared with the tasks module (`task:<IDENTIFIER>`).
@@ -96,9 +97,11 @@ export function createScopeModuleOperationInvoker(
         "Task workspace preparation requires core-backed tools with an end-user bearer token."
       );
     }
+    const refreshAccessToken = serviceScopeTokenRefresher(scope);
     const client = new EngentyCoreClient({
       coreBaseUrl,
       accessToken,
+      ...(refreshAccessToken ? { refreshAccessToken } : {}),
     });
     return client.invokeTool(operationId, input ?? {});
   };

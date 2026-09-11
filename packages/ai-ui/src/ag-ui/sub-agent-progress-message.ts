@@ -2,6 +2,13 @@
 // CUSTOM `engenty.sub_agent.progress` SSE events patch `metadata.transcript_parts`
 // on the in-flight assistant message so the inline card and full-page monitor
 // can read `progressLines` without waiting for a snapshot reload.
+//
+// The lines usually arrive BEFORE the call they belong to: `@ag-ui/mastra`
+// buffers a server tool's TOOL_CALL_START/ARGS/END and flushes them with the
+// result, so nothing carries the tool call while the colleague works. When the
+// event names its origin we open the row ourselves, on the same message the
+// buffered events will land on — a delegation that takes a minute is a minute
+// of "Thinking …" otherwise (live 2026-09-07, two agents playing a table).
 
 import type { EngentyAgUiMessage } from "./conversation.js";
 
@@ -100,15 +107,11 @@ function appendProgressToTranscriptParts(
   });
 }
 
-function findTargetAssistantMessageId(
+/** The message that already carries this tool call — the one to append to. */
+function findMessageCarryingToolCall(
   messages: readonly Message[],
-  input: { messageId?: string | null; toolCallId: string }
+  toolCallId: string
 ): string | null {
-  const explicit = input.messageId?.trim();
-  if (explicit && messages.some((message) => message.id === explicit)) {
-    return explicit;
-  }
-  // Harness usually sends messageId; scan backward as a narrow fallback when it does not.
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message?.role !== "assistant") {
@@ -118,7 +121,7 @@ function findTargetAssistantMessageId(
     const seeded =
       parts.length > 0 ? parts : seedTranscriptPartsFromToolCalls(message);
     const hasTool = seeded.some(
-      (part) => isRecord(part) && part.toolCallId === input.toolCallId
+      (part) => isRecord(part) && part.toolCallId === toolCallId
     );
     if (hasTool) {
       return message.id;
@@ -127,15 +130,64 @@ function findTargetAssistantMessageId(
   return null;
 }
 
+/** The in-flight assistant message — where the buffered tool events will land. */
+function lastAssistantMessageId(messages: readonly Message[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "assistant") {
+      return message.id ?? null;
+    }
+  }
+  return null;
+}
+
+function openingPart(input: {
+  agentId: string;
+  line: string;
+  toolCallId: string;
+  toolName: string;
+}): Record<string, unknown> {
+  return {
+    input: { agent_id: input.agentId },
+    progressLines: [input.line],
+    state: "input-available",
+    toolCallId: input.toolCallId,
+    toolName: input.toolName,
+    type: "dynamic-tool",
+  };
+}
+
 export function appendSubAgentProgressToAgUiMessages(
   messages: readonly Message[],
   input: {
+    agentId?: string | null;
     line: string;
     messageId?: string | null;
     toolCallId: string;
+    toolName?: string | null;
   }
 ): Message[] {
-  const targetId = findTargetAssistantMessageId(messages, input);
+  // Carrying the call and merely being the message the harness named are two
+  // different things: the harness names the in-flight message from its first
+  // line onward, while the call itself only lands with the result.
+  const carrierId = findMessageCarryingToolCall(messages, input.toolCallId);
+  const agentId = input.agentId?.trim();
+  const toolName = input.toolName?.trim();
+  const explicit = input.messageId?.trim();
+  const namedId =
+    explicit && messages.some((message) => message.id === explicit)
+      ? explicit
+      : lastAssistantMessageId(messages);
+  const opening =
+    carrierId || !(agentId && toolName)
+      ? null
+      : openingPart({
+          agentId,
+          line: input.line,
+          toolCallId: input.toolCallId,
+          toolName,
+        });
+  const targetId = carrierId ?? (opening ? namedId : null);
   if (!targetId) {
     return [...messages];
   }
@@ -148,7 +200,9 @@ export function appendSubAgentProgressToAgUiMessages(
       existingParts.length > 0
         ? existingParts
         : seedTranscriptPartsFromToolCalls(message);
-    const nextParts = appendProgressToTranscriptParts(baseParts, input);
+    const nextParts = opening
+      ? [...baseParts, opening]
+      : appendProgressToTranscriptParts(baseParts, input);
     return writeTranscriptParts(message, nextParts);
   });
 }

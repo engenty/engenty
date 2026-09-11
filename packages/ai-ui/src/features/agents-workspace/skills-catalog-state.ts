@@ -1,3 +1,4 @@
+import { rankRecordsLexically } from "@engenty/search-index";
 import type { AiSkillRecord } from "../../lib/admin/ai-runtime-api";
 import { getSkillModuleId } from "./skill-record-utils";
 
@@ -54,21 +55,21 @@ export function normalizeSkillRecord(
   };
 }
 
-function searchableText(skill: NormalizedSkillRecord): string {
-  return [
-    skill.title,
-    skill.name,
-    skill.description,
-    skill.module_id,
-    skill.engenty_modules.join(" "),
-    skill.tier,
-    skill.origin,
-    skill.requires_sandbox ? "sandbox shell" : null,
-    skill.source_reference,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+function skillCatalogRecord(skill: NormalizedSkillRecord) {
+  return {
+    description: skill.description ?? "",
+    id: skill.name,
+    modules: skill.engenty_modules,
+    name: skill.title?.trim() || skill.name,
+    source: skill.source_reference ?? "",
+    tags: [
+      skill.tier,
+      skill.origin,
+      skill.module_id,
+      skill.requires_sandbox ? "sandbox shell" : "",
+    ].filter(Boolean),
+    title: skill.title ?? "",
+  };
 }
 
 export function getSkillCatalogModules(
@@ -83,11 +84,8 @@ export function filterAndSortSkills(
   skills: readonly NormalizedSkillRecord[],
   state: SkillCatalogState
 ): NormalizedSkillRecord[] {
-  const query = state.searchQuery.trim().toLowerCase();
+  const query = state.searchQuery.trim();
   const filtered = skills.filter((skill) => {
-    if (query && !searchableText(skill).includes(query)) {
-      return false;
-    }
     if (state.originFilter !== "all" && skill.origin !== state.originFilter) {
       return false;
     }
@@ -98,6 +96,10 @@ export function filterAndSortSkills(
       state.moduleFilter !== "all" && skill.module_id !== state.moduleFilter
     );
   });
+
+  if (query) {
+    return rankRecordsLexically(filtered, query, skillCatalogRecord);
+  }
 
   const direction = state.sortOrder === "asc" ? 1 : -1;
   return filtered.toSorted((left, right) => {

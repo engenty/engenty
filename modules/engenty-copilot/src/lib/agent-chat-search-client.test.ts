@@ -124,6 +124,7 @@ describe("chatSearchHitsToThreads", () => {
       id: "thread-1",
       metadata: {},
       route_context: {},
+      space_id: null,
       status: "completed",
       summary: null,
       tenant_id: "tenant-1",

@@ -1,7 +1,7 @@
 ---
 command: create-offer
-kind: action
-action_id: offers-create-and-edit
+kind: workflow
+workflow_id: offers-create-and-edit
 label: Create offer
 description: Draft a new offer for a contact
 args:

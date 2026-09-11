@@ -1,3 +1,4 @@
+import { fileSpaceListingQueryKey } from "@engenty/file-storage";
 import { queryOptions } from "@engenty/query-client";
 import { type FileSpaceOwnerRef, listFileSpace } from "./file-manager-api.js";
 
@@ -6,13 +7,7 @@ export function fileSpaceKey(
   folderId: string | null,
   search?: string
 ) {
-  return [
-    "file-space",
-    owner.type,
-    owner.id,
-    folderId ?? "root",
-    search ?? "",
-  ] as const;
+  return fileSpaceListingQueryKey(owner, folderId, search);
 }
 
 export function fileSpaceQueryOptions(
@@ -21,14 +16,9 @@ export function fileSpaceQueryOptions(
 ) {
   const folderId = opts?.folderId ?? null;
   return queryOptions({
-    queryKey: fileSpaceKey(owner, folderId, opts?.search),
     queryFn: ({ signal }) =>
       listFileSpace(owner, { folderId, search: opts?.search }, signal),
+    queryKey: fileSpaceKey(owner, folderId, opts?.search),
     staleTime: 0,
   });
-}
-
-/** Invalidation prefix for an owner's whole file space. */
-export function fileSpaceInvalidationKey(owner: FileSpaceOwnerRef) {
-  return ["file-space", owner.type, owner.id] as const;
 }

@@ -1,5 +1,5 @@
 /**
- * KB Sidebar — KB chooser + search + nested article tree + scoped nav links.
+ * KB Sidebar — search + nested article tree + scoped nav links.
  *
  * Rendered in the app shell secondary column via
  * `useKbModuleSecondaryShellNav`.
@@ -33,7 +33,6 @@ import {
 } from "../../api.js";
 import { createKbSidebarLiveBindings } from "../../kb-live-cache.js";
 import {
-  kbArticlePath,
   kbCategoryEditPath,
   kbCategoryPath,
   kbHubPath,
@@ -90,8 +89,6 @@ export interface KbSidebarProps {
   activeArticleId?: string;
   /** Current KB id (from page-level resolver). */
   kbId: string;
-  /** KB slug for path-based navigation. */
-  kbSlug: string;
 }
 
 function prefsToApiSort(
@@ -197,11 +194,7 @@ function collectArticleIdsWithNestedChildren(forest: ArticleNode[]): string[] {
   return out;
 }
 
-export function useKbSidebarModel({
-  kbId,
-  kbSlug,
-  activeArticleId,
-}: KbSidebarProps) {
+export function useKbSidebarModel({ kbId, activeArticleId }: KbSidebarProps) {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const params = useParams<{ id: string }>();
@@ -339,10 +332,10 @@ export function useKbSidebarModel({
       ac.abort();
     };
   }, [hasSearch, kbId, search]);
-  const { tab, setTab } = useKbSidebarTab(kbSlug);
+  const { tab, setTab } = useKbSidebarTab(kbId);
   const isArticlesTab = tab === "articles";
   const isFavoritesTab = tab === "favorites";
-  const isChatTab = tab === "chat";
+  const isSourcesTab = tab === "sources";
 
   const [articleExpanded, setArticleExpanded] = useState<Set<string>>(
     () => new Set()
@@ -443,25 +436,15 @@ export function useKbSidebarModel({
     [articleForest]
   );
 
-  const onPickArticle = (id: string, slug?: string) => {
-    if (!kbSlug) {
-      return;
-    }
-    navigate(kbArticlePath(kbSlug, slug || id));
-  };
-
   // Sidebar category rows link to the new category view page.
   // The seeded `general` category is treated as a fallback bucket, not a
   // curated landing — clicking it jumps back to the KB hub instead.
   const onPickCategory = (category: KbCategory) => {
-    if (!kbSlug) {
-      return;
-    }
     if (category.is_default) {
-      navigate(kbHubPath(kbSlug));
+      navigate(kbHubPath());
       return;
     }
-    navigate(kbCategoryPath(kbSlug, category.slug));
+    navigate(kbCategoryPath(category.slug));
   };
 
   const onRequestDeleteArticle = (article: Article) => {
@@ -911,9 +894,9 @@ export function useKbSidebarModel({
 
   const onEditCategory = useCallback(
     (category: KbCategory) => {
-      navigate(kbCategoryEditPath(kbSlug, category.slug));
+      navigate(kbCategoryEditPath(category.slug));
     },
-    [kbSlug, navigate]
+    [navigate]
   );
 
   const onCategorySettings = useCallback((category: KbCategory) => {
@@ -986,10 +969,9 @@ export function useKbSidebarModel({
     folderHasContent,
     hasSearch,
     isArticlesTab,
-    isChatTab,
     isFavoritesTab,
+    isSourcesTab,
     kbId,
-    kbSlug,
     manualReorderDrag,
     navigate,
     onAddCategory,
@@ -1001,7 +983,6 @@ export function useKbSidebarModel({
     onCategorySettings,
     onDeleteCategory,
     onEditCategory,
-    onPickArticle,
     onPickCategory,
     onRequestDeleteArticle,
     prefs,

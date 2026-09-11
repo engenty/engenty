@@ -28,6 +28,7 @@ import {
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
 } from "./model-defaults.js";
+import { parseModelRef } from "./model-ref.js";
 
 /** How much thinking a piece of work deserves. The only user-facing axis. */
 export const AI_EFFORT_LEVELS = ["low", "medium", "high"] as const;
@@ -136,6 +137,20 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
     role: "research",
     surface: "fixed",
   },
+  {
+    declaredBy: null,
+    // Chat-tier, NOT the classifier seed. Observational memory reads a whole
+    // conversation and rewrites a condensed set of observations — long input,
+    // structured output. On 2026-08-28 it was resolving through `routing` and
+    // landing on the bound 20B router: 4 of 6 reflection calls died on
+    // `finishReason: "length"` with the model still narrating its plan, so
+    // nothing was ever written back and the observation pile only grew. Same
+    // failure the coordinator hit on 2026-08-22 — see PURPOSE_TO_ROLE below.
+    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    label: "Memory",
+    role: "memory",
+    surface: "fixed",
+  },
 ];
 
 /**
@@ -146,11 +161,17 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
 export const PURPOSE_TO_ROLE: Readonly<Record<string, string>> = {
   chat: "model.medium",
   routing: "router",
+  // Chat-tier, never "router": the coordinator writes plans, not route picks.
+  coordinator: "model.high",
   // Dedicated fixed role — not model.low (graded chat effort is a different job).
   classifier: "classifier",
   research: "research",
   planning_coding: "planning_coding",
   safeguard: "safeguard",
+  // Its own role, never "router": the reflector condenses a conversation, it
+  // does not pick a route. Bound separately so raising it costs nothing on
+  // thread titles and tool search, which legitimately want the cheap tier.
+  memory: "memory",
 };
 
 export interface ModelBinding {
@@ -171,14 +192,17 @@ export function seedBindings(
   roles: readonly AiRoleSpec[] = AI_PLATFORM_ROLES,
   readEnv?: (key: string) => string | undefined
 ): ModelBinding[] {
-  return roles.map((spec) => ({
+  return roles.map((spec) => {
     // Env vars seeded the platform layer before bindings existed. They are read
     // once, here, so an existing deployment keeps its behaviour on upgrade —
     // and then never again, so there is exactly one place to look afterwards.
-    gateway: "vercel",
-    modelId: envSeedFor(spec.role, readEnv) ?? spec.defaultModelId,
-    role: spec.role,
-  }));
+    // A seed may name its gateway (`openrouter:openai/gpt-4o`), which is how a
+    // fresh install can come up on OpenRouter without a manual rebind.
+    const ref = parseModelRef(
+      envSeedFor(spec.role, readEnv) ?? spec.defaultModelId
+    );
+    return { gateway: ref.gateway, modelId: ref.modelId, role: spec.role };
+  });
 }
 
 /**
@@ -196,6 +220,7 @@ const ROLE_ENV_KEYS: Readonly<Record<string, readonly string[]>> = {
   safeguard: ["AI_SAFEGUARD_MODEL"],
   planning_coding: ["AI_PLANNING_CODING_MODEL"],
   research: ["AI_RESEARCH_MODEL"],
+  memory: ["AI_MEMORY_MODEL"],
 };
 
 function envSeedFor(

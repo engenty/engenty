@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("./load-closed-ui-catalog", () => ({
+  loadClosedUiPluginCatalog: () => [],
+}));
+
 vi.mock("../lib/api/client", () => ({
   getPlugins: vi.fn(),
 }));
@@ -64,7 +68,11 @@ describe("ui plugin contribution invalidation", () => {
     vi.mocked(getPlugins).mockResolvedValue([]);
 
     const options = uiPluginContributionsOptions("tenant-1", true);
-    const data = await options.queryFn({ signal: undefined } as never);
+    const queryFn = options.queryFn;
+    if (typeof queryFn !== "function") {
+      throw new Error("queryFn missing");
+    }
+    const data = await queryFn({ signal: undefined } as never);
 
     expect(data.contributions.routes).toContainEqual(
       expect.objectContaining({
@@ -106,7 +114,11 @@ describe("ui plugin contribution invalidation", () => {
     ]);
 
     const options = uiPluginContributionsOptions("tenant-1", true);
-    const data = await options.queryFn({ signal: undefined } as never);
+    const queryFn = options.queryFn;
+    if (typeof queryFn !== "function") {
+      throw new Error("queryFn missing");
+    }
+    const data = await queryFn({ signal: undefined } as never);
 
     expect(data.contributions.copilotApps).toContainEqual(
       expect.objectContaining({
@@ -140,6 +152,8 @@ describe("ui plugin contribution invalidation", () => {
     const Page = () => null;
     const activeData: UiPluginContributionsData = {
       contributions: {
+        backgroundComponents: [],
+        chatCommands: [],
         routes: [
           {
             id: "contacts_route",
@@ -223,6 +237,8 @@ describe("ui plugin contribution invalidation", () => {
     const brandSource = () => ({ name: "Acme" });
     const activeData: UiPluginContributionsData = {
       contributions: {
+        backgroundComponents: [],
+        chatCommands: [],
         routes: [],
         adminMenuItems: [
           {
@@ -276,6 +292,8 @@ describe("ui plugin contribution invalidation", () => {
     const Page = () => null;
     const activeData: UiPluginContributionsData = {
       contributions: {
+        backgroundComponents: [],
+        chatCommands: [],
         routes: [
           {
             id: "contacts_route",

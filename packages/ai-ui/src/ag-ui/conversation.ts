@@ -82,6 +82,17 @@ export function agUiMessageText(message: Message): string {
   return "";
 }
 
+/** Optimistic user turns (text and/or attachments) must not be rewritten by the stream echo. */
+function userMessageHasCommittedContent(message: Message | undefined): boolean {
+  if (message?.role !== "user") {
+    return false;
+  }
+  if (typeof message.content === "string") {
+    return message.content.length > 0;
+  }
+  return Array.isArray(message.content) && message.content.length > 0;
+}
+
 function appendContent(message: Message, delta: string): Message {
   return {
     ...message,
@@ -393,15 +404,12 @@ export function reduceEngentyAgUiConversationEvent(
       // User messages are write-once in the lane: the run stream echoes the
       // user turn (role:"user" trio) for attached windows, but the SENDING
       // window already holds the optimistic user message under the same id —
-      // appending the echo's delta would double its text.
+      // appending the echo's delta would double its text and stringify array
+      // content (stripping image/document parts until the final snapshot).
       const existing = current.messages.find(
         (message) => message.id === messageId
       );
-      if (
-        existing?.role === "user" &&
-        typeof existing.content === "string" &&
-        existing.content.length > 0
-      ) {
+      if (userMessageHasCommittedContent(existing)) {
         return { ...current, events: [...current.events, event] };
       }
       return {
@@ -521,9 +529,11 @@ export function reduceEngentyAgUiConversationEvent(
         ...current,
         events: [...current.events, event],
         messages: appendSubAgentProgressToAgUiMessages(current.messages, {
+          agentId: value ? getString(value.agentId) : null,
           line,
           messageId,
           toolCallId,
+          toolName: value ? getString(value.toolName) : null,
         }),
       };
     }

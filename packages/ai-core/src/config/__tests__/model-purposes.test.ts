@@ -20,11 +20,13 @@ describe("resolvePurposeModel provenance", () => {
       readEnv: (k: string) => (k === "AI_CHAT_MODEL" ? "e/model" : undefined),
     };
     expect(resolvePurposeModel(layered)).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: "s/model",
       source: "session",
     });
     expect(resolvePurposeModel({ ...layered, sessionOverride: null })).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: "a/model",
       source: "agent",
@@ -35,13 +37,23 @@ describe("resolvePurposeModel provenance", () => {
         sessionOverride: null,
         agentOverride: null,
       })
-    ).toEqual({ purpose: "chat", value: "t/model", source: "tenant" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "t/model",
+      source: "tenant",
+    });
     expect(
       resolvePurposeModel({
         purpose: "chat",
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "e/model" : undefined),
       })
-    ).toEqual({ purpose: "chat", value: "e/model", source: "platform" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "e/model",
+      source: "platform",
+    });
   });
 
   it("falls back to the package default per purpose", () => {
@@ -74,6 +86,7 @@ describe("resolvePurposeModel provenance", () => {
         },
       })
     ).toEqual({
+      gateway: "vercel",
       purpose: "classifier",
       value: "inbox/digest",
       source: "platform",
@@ -86,7 +99,12 @@ describe("resolvePurposeModel provenance", () => {
         purpose: "routing",
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "chat/env" : undefined),
       })
-    ).toEqual({ purpose: "routing", value: "chat/env", source: "platform" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "routing",
+      value: "chat/env",
+      source: "platform",
+    });
   });
 
   it("planning_coding never falls back to the chat env key", () => {
@@ -106,6 +124,7 @@ describe("resolvePurposeModel provenance", () => {
       "research",
       "planning_coding",
       "safeguard",
+      "memory",
     ]);
   });
 });
@@ -119,7 +138,12 @@ describe("resolvePurposeModel governance allow-list", () => {
         allowedModels: ["openai/gpt-5", "openai/gpt-5-mini"],
         readEnv: noEnv,
       })
-    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "tenant" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "openai/gpt-5",
+      source: "tenant",
+    });
   });
 
   it("demotes a tenant pin outside the allow-list to platform/default", () => {
@@ -132,6 +156,7 @@ describe("resolvePurposeModel governance allow-list", () => {
       readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5-mini" : undefined),
     });
     expect(resolved).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: "openai/gpt-5-mini",
       source: "platform",
@@ -151,6 +176,7 @@ describe("resolvePurposeModel governance allow-list", () => {
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
     ).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: DEFAULT_AI_CHAT_MODEL_ID,
       source: "default",
@@ -168,6 +194,7 @@ describe("resolvePurposeModel governance allow-list", () => {
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
     ).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: "anthropic/claude-sonnet-5",
       source: "governance",
@@ -181,7 +208,12 @@ describe("resolvePurposeModel governance allow-list", () => {
         allowedProviders: ["openai"],
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
-    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "platform" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "openai/gpt-5",
+      source: "platform",
+    });
   });
 
   it("ignores case and stray whitespace in the allow-list", () => {
@@ -191,7 +223,12 @@ describe("resolvePurposeModel governance allow-list", () => {
         allowedModels: [" OpenAI/GPT-5 "],
         readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
       })
-    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "platform" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "openai/gpt-5",
+      source: "platform",
+    });
   });
 
   it("treats an empty allow-list as no restriction", () => {

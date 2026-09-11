@@ -33,13 +33,13 @@ function JsonSchemaPanel(props: {
 }) {
   if (!props.schema) {
     return (
-      <div className="rounded-md border border-border/70 border-dashed bg-background/60 p-3">
+      <div className="rounded-md border border-border border-dashed bg-background/60 p-3">
         <p className="text-muted-foreground text-xs">{props.emptyLabel}</p>
       </div>
     );
   }
   return (
-    <pre className="max-h-56 overflow-auto rounded-md border border-border/60 bg-muted/25 p-3 font-mono text-[11px] text-muted-foreground leading-relaxed shadow-xs">
+    <pre className="max-h-56 overflow-auto rounded-md border border-border-soft bg-muted/25 p-3 font-mono text-[11px] text-muted-foreground leading-relaxed shadow-xs">
       {JSON.stringify(props.schema, null, 2)}
     </pre>
   );
@@ -173,7 +173,7 @@ export function AgentEffectiveToolsPanel({
                       </p>
                     ) : null}
                     {!schemasLoading && snap?.description ? (
-                      <div className="rounded-md border border-border/60 bg-background/70 p-3">
+                      <div className="rounded-md border border-border-soft bg-background/70 p-3">
                         <p className="font-medium text-foreground text-xs">
                           {t("skills.toolsRuntimeDescription")}
                         </p>

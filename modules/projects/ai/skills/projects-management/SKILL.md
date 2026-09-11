@@ -9,6 +9,10 @@ allowed-tools: engenty_tools_search engenty_tool_execute load_project load_proje
 
 Use this skill when the user wants to create, edit, delete, or configure projects — including team members, client assignment, portal setup, and module settings.
 
+## Space scope
+- Projects are space-owned. List and create in `current_space`; never omit space scope in a Space-bound run.
+- Direct ids (get/update/delete) must belong to the active Space. A project from another Space is not part of this run — do not retry the same id.
+
 ## Tool Process
 1. Start with `engenty_tools_search` using `moduleId: "projects"` and `kind: "tool"`.
 2. Prefer registered operations: `projects_list`, `projects_get`, `projects_create`, `projects_update`, `projects_delete`, `projects_settings_get`, `projects_settings_update`.

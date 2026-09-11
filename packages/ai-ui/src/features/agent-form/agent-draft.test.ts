@@ -13,7 +13,9 @@ import {
 const FIXTURE_MODEL = "openai/test-agent-model";
 
 const config: CustomAgentConfig = {
+  agentScope: "shared",
   description: "Handles research requests.",
+  engenty: "drop",
   id: "tenant.research-agent",
   instructions: "Research the question and summarize evidence.",
   model: FIXTURE_MODEL,
@@ -25,13 +27,36 @@ const config: CustomAgentConfig = {
 
 describe("agent-draft", () => {
   it("seeds new drafts with the package chat default", () => {
-    expect(createEmptyAgentDraft().model).toBe(DEFAULT_AI_CHAT_MODEL_ID);
+    const draft = createEmptyAgentDraft();
+    expect(draft.model).toBe(DEFAULT_AI_CHAT_MODEL_ID);
+    expect(draft.agentScope).toBe("shared");
+    expect(draft.engenty).toBe("round");
+    expect(draft.spaceIds).toEqual([]);
   });
 
   it("round-trips an agent config through the form draft", () => {
     const draft = createAgentDraft(config);
 
     expect(buildAgentConfigFromDraft(draft)).toEqual(config);
+  });
+
+  it("round-trips starter chips including German overrides", () => {
+    const withStarters: CustomAgentConfig = {
+      ...config,
+      starters: [
+        {
+          id: "job",
+          label: "Do the job",
+          prompt: "Please do the job.",
+          locales: {
+            de: { label: "Die Aufgabe", prompt: "Bitte die Aufgabe." },
+          },
+        },
+      ],
+    };
+    expect(buildAgentConfigFromDraft(createAgentDraft(withStarters))).toEqual(
+      withStarters
+    );
   });
 
   it("deduplicates picker selections while preserving order", () => {
@@ -68,5 +93,19 @@ describe("agent-draft", () => {
         subAgentsText: "tenant.research-agent",
       })
     ).toContain("cannot list itself");
+  });
+
+  it("requires at least one space only when asked", () => {
+    const draft = createAgentDraft(config);
+    expect(validateAgentDraft(draft)).toBeNull();
+    expect(validateAgentDraft(draft, { requireSpaces: true })).toContain(
+      "space"
+    );
+    expect(
+      validateAgentDraft(
+        { ...draft, spaceIds: ["00000000-0000-4000-8000-000000000001"] },
+        { requireSpaces: true }
+      )
+    ).toBeNull();
   });
 });

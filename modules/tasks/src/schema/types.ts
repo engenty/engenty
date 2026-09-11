@@ -6,8 +6,6 @@ export type TaskPriority = "critical" | "high" | "medium" | "low";
 
 export type PrimaryAssigneeKind = "user" | "agent" | "none";
 
-export type GoalStatus = "planned" | "active" | "achieved" | "cancelled";
-
 export interface TaskStatusDefinition {
   color: import("./task-status-colors.js").TaskStatusColor;
   id: string;
@@ -20,27 +18,6 @@ export interface TaskSettings {
   identifier_prefix: string;
   stale_after_days: number;
   task_status_definitions: TaskStatusDefinition[];
-}
-
-export interface Goal {
-  created_at: string;
-  description: string | null;
-  id: string;
-  level: string;
-  /** Present on list responses when aggregated. */
-  linked_task_count?: number;
-  owner_agent_id: string | null;
-  /** Stable type key of the owning agent (e.g. "engenty.coordinator"). */
-  owner_agent_type_key: string | null;
-  owner_user_id: string | null;
-  parent_id: string | null;
-  project_id: string | null;
-  scope_id: string;
-  status: GoalStatus;
-  target_date: string | null;
-  tenant_id: string;
-  title: string;
-  updated_at: string;
 }
 
 export interface Task {
@@ -64,7 +41,8 @@ export interface Task {
   created_by_user_id: string | null;
   description: string | null;
   due_date: string | null;
-  goal_id: string | null;
+  /** Present on focused list reads that request Agent Desk waiting state. */
+  has_open_question?: boolean;
   id: string;
   identifier: string;
   parent_id: string | null;
@@ -79,12 +57,17 @@ export interface Task {
   priority: TaskPriority;
   project_id: string | null;
   scope_id: string;
+  /**
+   * Space the work belongs to (PLAN-spaces.md). REQUIRED since Phase 6: the
+   * column is `not null` in the database and every create path resolves one
+   * (explicit → inherit from parent task / project → tenant default), so a read
+   * can no longer produce a space-less container.
+   */
+  space_id: string;
   started_at: string | null;
   status: TaskStatus;
   tenant_id: string;
   title: string;
-  /** Routine (trigger) that materialized this task, if any. */
-  trigger_id?: string | null;
   updated_at: string;
 }
 
@@ -104,12 +87,41 @@ export interface TaskContextInput {
   metadata?: Record<string, unknown>;
 }
 
+/** See `task_comments.kind` — replaces reading meaning out of an emoji prefix. */
+export type TaskCommentKind =
+  | "note"
+  | "progress"
+  | "question"
+  | "result"
+  | "system";
+
+/** How a `question` comment can be answered — see `task_comments.metadata`. */
+export type TaskQuestionAnswerType =
+  | "text"
+  | "confirm"
+  | "single_choice"
+  | "multi_choice";
+
+export interface TaskQuestionOption {
+  /** Shown instead of `value` when the value is an id or a hex code. */
+  label?: string;
+  /** What gets posted as the answer when picked. */
+  value: string;
+}
+
+export interface TaskCommentMetadata {
+  answer_type?: TaskQuestionAnswerType;
+  options?: TaskQuestionOption[];
+}
+
 export interface TaskComment {
   content: string;
   created_at: string;
   created_by_agent_type_key: string | null;
   created_by_user_id: string | null;
   id: string;
+  kind: TaskCommentKind;
+  metadata: TaskCommentMetadata;
   scope_id: string;
   task_id: string;
   tenant_id: string;
@@ -172,7 +184,7 @@ export interface TaskCheckoutInput {
 export interface TaskReleaseInput {
   agent_session_run_id?: string;
   /** Run outcome stamped onto the task_runs row. `needs_input` = the run asked
-   * a human a question (TASK_BLOCKED); `needs_approval` = it lacked a grant. */
+   * a human a question (TASK_BLOCKED or `task_ask_user`); `needs_approval` = it lacked a grant. */
   outcome?:
     | "completed"
     | "completed_quiet"
@@ -186,7 +198,6 @@ export interface TaskReleaseInput {
   pending_approval_operation_ids?: string[];
   /**
    * Status to park the task at after checkout clears. Defaults to `todo`.
-   * Routine standing tasks pass `backlog` so they rest out of human todo lists.
    * Only entry statuses — never `done` / `cancelled` / mid-lifecycle values.
    */
   resting_status?: "backlog" | "todo";
@@ -211,42 +222,30 @@ export interface TasksQueryParams {
   context_id?: string | null;
   context_metadata_phase_id?: string | null;
   context_type?: string | null;
-  goal_id?: string | null;
+  /** Hydrate focused waiting-state metadata for the Agent Desk feed. */
+  include_agent_desk_state?: boolean;
   page?: number;
   pageSize?: number;
   parent_id?: string | null;
+  primary_assignee_agent_type_key?: string | null;
   project_id?: string | null;
   scope?: "all" | "mine";
   search?: string | null;
   sortBy?: "updated_at" | "created_at" | "title" | "status" | "identifier";
   sortOrder?: "asc" | "desc";
+  /** Every task in a space — the container resolver's `space` case. */
+  space_id?: string | null;
+  /**
+   * Tasks in ANY of these spaces — the cross-space overview, narrowed to what
+   * the caller may see. Set by the HTTP handler from core's answer, never read
+   * from the query string. An empty list lists nothing.
+   */
+  space_ids?: readonly string[];
   status?: string | null;
-  trigger_id?: string | null;
 }
 
 export interface TasksPaginatedResponse {
   data: Task[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
-
-export interface GoalsQueryParams {
-  owner_agent_type_key?: string | null;
-  /** Filter by owner kind: a human user or an agent. */
-  owner_kind?: "user" | "agent" | null;
-  page?: number;
-  pageSize?: number;
-  parent_id?: string | null;
-  project_id?: string | null;
-  search?: string | null;
-  sortBy?: "updated_at" | "created_at" | "title" | "status";
-  sortOrder?: "asc" | "desc";
-  status?: GoalStatus | null;
-}
-
-export interface GoalsPaginatedResponse {
-  data: Goal[];
   page: number;
   pageSize: number;
   total: number;
@@ -260,17 +259,16 @@ export interface TaskCreateInput {
   created_by_agent_type_key?: string | null;
   description?: string | null;
   due_date?: string | null;
-  goal_id?: string | null;
   parent_id?: string | null;
   primary_assignee_agent_type_key?: string | null;
   primary_assignee_kind?: PrimaryAssigneeKind;
   primary_assignee_user_id?: string | null;
   priority?: TaskPriority;
   project_id?: string | null;
+  /** Explicit space; omitted means inherit from parent task / project, else the tenant default. */
+  space_id?: string;
   status?: TaskStatus;
   title: string;
-  /** Internal only — stamped by trigger-fire; not exposed on tasks_create. */
-  trigger_id?: string | null;
 }
 
 export type TaskUpdateInput = Partial<
@@ -279,20 +277,6 @@ export type TaskUpdateInput = Partial<
   collaborator_user_ids?: string[];
   status?: TaskStatus;
 };
-
-export interface GoalCreateInput {
-  description?: string | null;
-  level?: string;
-  owner_agent_type_key?: string | null;
-  owner_user_id?: string | null;
-  parent_id?: string | null;
-  project_id?: string | null;
-  status?: GoalStatus;
-  target_date?: string | null;
-  title: string;
-}
-
-export type GoalUpdateInput = Partial<GoalCreateInput>;
 
 export interface TaskSettingsUpdateInput {
   identifier_prefix?: string;
@@ -332,57 +316,4 @@ export interface TasksBriefingResponse {
   stale_items: TasksBriefingSectionItem[];
   summary: TasksBriefingSummary;
   waiting_items: TasksBriefingSectionItem[];
-}
-
-// --- Triggers + task templates ---------------------------------------------
-
-export type TriggerKind = "schedule" | "event" | "manual";
-export type TriggerSource = "module" | "custom";
-/** Event-trigger ingestion edges: the in-process plugin event bus, or the
- * public secret-authenticated webhook route. */
-export type TriggerEventProvider = "module-events" | "webhook";
-
-export interface TaskTemplate {
-  agent_type_key: string;
-  created_at: string;
-  description: string | null;
-  id: string;
-  name: string;
-  priority: TaskPriority;
-  scope_id: string;
-  tenant_id: string;
-  title: string;
-  updated_at: string;
-}
-
-export interface Trigger {
-  /** Operation ids runs of this routine may execute without asking. */
-  approval_grants: string[];
-  created_at: string;
-  cron: string | null;
-  description: string | null;
-  enabled: boolean;
-  event_filter: Record<string, unknown> | null;
-  heartbeat_id: string | null;
-  id: string;
-  kind: TriggerKind;
-  last_fired_at: string | null;
-  last_result: string | null;
-  module_id: string | null;
-  module_key: string | null;
-  name: string;
-  provider_id: string | null;
-  quiet_hours: string | null;
-  resource: string | null;
-  scope_id: string;
-  source: TriggerSource;
-  task_template_id: string;
-  tenant_id: string;
-  timezone: string | null;
-  updated_at: string;
-  webhook_secret: string | null;
-}
-
-export interface TriggerDetail extends Trigger {
-  task_template: TaskTemplate | null;
 }

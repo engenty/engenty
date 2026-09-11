@@ -30,6 +30,7 @@ export function loadPortlessNames(portlessConfigPath) {
     coreName: apps["apps/core"]?.name ?? "engenty",
     aiName: apps["apps/ai"]?.name ?? "ai.engenty",
     docsName: apps["apps/docs"]?.name ?? "docs.engenty",
+    wwwName: apps["apps/www"]?.name ?? "www.engenty",
   };
 }
 
@@ -65,6 +66,7 @@ export function buildLocalhostAppUrlComments() {
     `#   Main app:  ${ui}/`,
     `#   AI:        ${ui}/ai`,
     `#   Docs:      ${ui}/docs`,
+    `#   WWW:       http://localhost:${ports.www}/`,
     `#   Studio:    ${ui}/studio`,
     `#   OpenAPI:   ${ui}/api/docs`,
   ];
@@ -115,20 +117,24 @@ export function buildPortlessAppUrlComments({
   coreName,
   aiName,
   docsName,
+  wwwName = "www.engenty",
   domain = null,
 }) {
   const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
   const aiRoute = domain ? `${domain}.${aiName}` : aiName;
   const docsRoute = domain ? `${domain}.${docsName}` : docsName;
+  const wwwRoute = domain ? `${domain}.${wwwName}` : wwwName;
   const gateway = portlessOrigin(gatewayRoute);
   const aiDirect = portlessOrigin(aiRoute);
   const docsDirect = portlessOrigin(docsRoute);
+  const wwwDirect = portlessOrigin(wwwRoute);
   const domainNote = domain ? ` (worktree: ${domain})` : "";
   return [
     `# App URLs (open after pnpm dev:portless${domainNote})`,
     `#   Main app:  ${gateway}/`,
     `#   AI:        ${gateway}/ai`,
     `#   Docs:      ${gateway}/docs`,
+    `#   WWW:       ${wwwDirect}/`,
     `#   Studio:    ${gateway}/studio`,
     `#   OpenAPI:   ${gateway}/api/docs`,
     `#   Core (server-side / AI → core): ${resolveCoreLoopbackOrigin(
@@ -137,6 +143,7 @@ export function buildPortlessAppUrlComments({
     "# Direct upstream (debug):",
     `#   AI:        ${aiDirect}/`,
     `#   Docs:      ${docsDirect}/`,
+    `#   WWW:       ${wwwDirect}/`,
   ];
 }
 

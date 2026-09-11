@@ -52,8 +52,28 @@ async function loadJsonDefaults(): Promise<ModelPricingSeed[] | null> {
  * about the same resolved set instead of assuming the fallback.
  */
 export async function resolveModelPricingSeeds(): Promise<ModelPricingSeed[]> {
-  // Copy the fallback: it is `readonly`, and callers get a mutable array.
-  return (await loadJsonDefaults()) ?? [...DEFAULT_MODEL_PRICING_SEEDS];
+  // MERGED, not replaced. `default-pricing.json` used to win outright, and the
+  // copy on disk carried only 15 Google models — so every OpenAI and Anthropic
+  // seed silently vanished and their usage was priced at
+  // FALLBACK_MODEL_PRICING ($5/$15 per Mtok) instead of the real card. Measured
+  // 2026-08-28: a gpt-5.6-luna thread reported $4.53 against a true ~$0.19, a
+  // 25x overstatement on every cost surface in the product.
+  //
+  // The JSON is an operator override, so its entry wins per model id; models it
+  // does not mention keep the bundled seed rather than falling off the catalog.
+  const json = await loadJsonDefaults();
+  if (!json) {
+    // Copy the fallback: it is `readonly`, and callers get a mutable array.
+    return [...DEFAULT_MODEL_PRICING_SEEDS];
+  }
+  const byModel = new Map<string, ModelPricingSeed>();
+  for (const seed of DEFAULT_MODEL_PRICING_SEEDS) {
+    byModel.set(seed.model_id, seed);
+  }
+  for (const seed of json) {
+    byModel.set(seed.model_id, seed);
+  }
+  return [...byModel.values()];
 }
 
 /**

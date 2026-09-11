@@ -4,7 +4,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
-  Card,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -39,10 +38,17 @@ export function AgentCard({
 }) {
   const navigate = useNavigate();
   return (
-    <Card
-      className="cursor-pointer p-4 transition-shadow hover:shadow-[var(--e-3)]"
+    <div
+      className="ui-card-raised ui-card-interactive cursor-pointer p-4"
       onClick={() => navigate(buildAgentDetailPath(agent.id))}
-      variant="form"
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          navigate(buildAgentDetailPath(agent.id));
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div className="flex items-start gap-3">
         <Bot
@@ -91,6 +97,6 @@ export function AgentCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </Card>
+    </div>
   );
 }

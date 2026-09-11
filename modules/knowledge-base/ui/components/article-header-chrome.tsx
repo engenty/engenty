@@ -6,7 +6,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import { Check, FilePenLine, Lock } from "lucide-react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { Article } from "../../src/schema/types.js";
 import { kbArticlePath } from "../kb-paths.js";
 import { resolveArticleLifecycleIndicator } from "../lib/article-lifecycle-indicator.js";
@@ -23,7 +23,6 @@ const kbArticleTitleLifecycleGutterClassName =
 export interface ArticleHeaderChromeProps {
   /** When omitted (e.g. new article), provide `titleEdit` and optional `parentChainOverride`. */
   article?: Article;
-  kbSlug: string;
   /** Replaces `article.parent_chain` for nav (e.g. new article with `?parent=`). */
   parentChainOverride?: Array<{ id: string; title: string }>;
   /** Light text when rendered over an inherited category cover band. */
@@ -66,7 +65,6 @@ function LifecycleTitleBadge({
 
 export function ArticleHeaderChrome({
   article,
-  kbSlug,
   parentChainOverride,
   templateTopline,
   titleEdit,
@@ -74,7 +72,6 @@ export function ArticleHeaderChrome({
 }: ArticleHeaderChromeProps) {
   const onCover = surface === "on-cover";
   const { t } = useTranslation("kb");
-  const navigate = useNavigate();
   const chain = parentChainOverride ?? article?.parent_chain ?? [];
   const lifecycle =
     article && !titleEdit ? resolveArticleLifecycleIndicator(article) : null;
@@ -100,20 +97,15 @@ export function ArticleHeaderChrome({
               key={p.id}
             >
               {i > 0 ? <span aria-hidden>/</span> : null}
-              <button
+              <Link
                 className={cn(
                   "max-w-[200px] truncate text-left hover:underline",
                   onCover ? "hover:text-white" : "hover:text-foreground"
                 )}
-                onClick={() =>
-                  kbSlug
-                    ? navigate(kbArticlePath(kbSlug, p.id))
-                    : navigate(`/mdl/knowledge-base/${p.id}`)
-                }
-                type="button"
+                to={kbArticlePath(p.id)}
               >
                 {p.title}
-              </button>
+              </Link>
             </span>
           ))}
         </nav>

@@ -189,7 +189,7 @@ function ChainOfThoughtImageGrid({
           <HoverCardTrigger asChild>
             <div
               aria-label={img.caption ?? "Tool result"}
-              className="size-14 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border/40 bg-muted/30"
+              className="size-14 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border-soft bg-muted/30"
               role="img"
             >
               {/* biome-ignore lint/correctness/useImageSize: remote tool images have no known dimensions */}
@@ -209,7 +209,7 @@ function ChainOfThoughtImageGrid({
                 alternate-square color; base color comes from bg-white/bg-zinc-950. */}
             <div
               className={[
-                "overflow-hidden rounded-sm border border-border/30",
+                "overflow-hidden rounded-sm border border-border-soft",
                 "bg-white dark:bg-zinc-950",
                 "[--ck-sq:#e4e4e7] dark:[--ck-sq:#27272a]",
               ].join(" ")}

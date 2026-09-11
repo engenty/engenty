@@ -1,7 +1,10 @@
+import type { LookupFn } from "@engenty/web-ingest";
+import { createGuardedFetch } from "../net/guarded-fetch.js";
 import type {
   ActionInvoke,
   ImportedConnectorRecord,
   StoredAuthConfig,
+  StoredRequiredHeader,
 } from "../types.js";
 
 /**
@@ -9,6 +12,9 @@ import type {
  * params, serialize the JSON body, inject credentials per the stored auth
  * config, and clamp the response for model context. Deliberately small and
  * fetch-based — the executor request pipeline stays confined to import time.
+ *
+ * `base_url` came from a spec fetched over the network, so the request goes
+ * through the SSRF guard on every hop like the import-time fetches do.
  */
 
 /** Response clamp: tool output feeds model context; oversize bodies truncate. */
@@ -83,11 +89,17 @@ export function buildHttpRequest(params: {
   baseUrl: string;
   input: Record<string, unknown>;
   invoke: Extract<ActionInvoke, { kind: "http" }>;
+  /** Static headers the API requires on every request (registry facts). */
+  requiredHeaders?: StoredRequiredHeader[];
 }): BuiltHttpRequest {
   const { accessToken, auth, baseUrl, input, invoke } = params;
 
   let path = invoke.path_template;
   const headers = new Headers({ accept: "application/json" });
+  // Set before operation params and auth so neither is silently overwritten.
+  for (const header of params.requiredHeaders ?? []) {
+    headers.set(header.name, header.value);
+  }
   const query: [string, unknown][] = [];
 
   for (const param of invoke.params) {
@@ -144,10 +156,19 @@ export async function executeHttpAction(params: {
   accessToken: string;
   fetchImpl: typeof fetch;
   input: Record<string, unknown>;
+  /** Injectable DNS lookup for tests; production resolves for real. */
+  lookupImpl?: LookupFn;
   invoke: Extract<ActionInvoke, { kind: "http" }>;
-  record: Pick<ImportedConnectorRecord, "auth_config" | "base_url">;
+  record: Pick<
+    ImportedConnectorRecord,
+    "auth_config" | "base_url" | "required_headers"
+  >;
 }): Promise<unknown> {
-  const { accessToken, fetchImpl, input, invoke, record } = params;
+  const { accessToken, input, invoke, record } = params;
+  const fetchImpl = createGuardedFetch({
+    fetchImpl: params.fetchImpl,
+    ...(params.lookupImpl ? { lookupImpl: params.lookupImpl } : {}),
+  });
   if (!record.base_url) {
     throw new ExternalActionError(
       "imported connector has no base URL — set one via refresh/import",
@@ -161,6 +182,7 @@ export async function executeHttpAction(params: {
     baseUrl: record.base_url,
     input,
     invoke,
+    requiredHeaders: record.required_headers,
   });
   const response = await fetchImpl(request.url, {
     body: request.body,

@@ -248,7 +248,7 @@ export function TeamTaxonomyTermsSection({
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-panel overflow-hidden">
         <div className="p-4">
           <DndContext
             collisionDetection={closestCenter}

@@ -17,16 +17,16 @@ export const tasksCopilotContribution: UiCopilotContribution = {
         "Based on the current tasks context, what should I work on next? Use the preloaded snapshot or tasks.list as needed.",
     },
     {
-      id: "tasks_blocked_by_goal",
+      id: "tasks_blocked",
       label: "Summarize blocked tasks",
       prompt:
-        "Summarize blocked or stuck tasks linked to the current goal or visible list. Highlight what is blocking progress.",
+        "Summarize blocked or stuck tasks in the visible list. Highlight what is blocking progress.",
     },
     {
       id: "tasks_summarize_task",
       label: "Summarize this task",
       prompt:
-        "Summarize the current task: status, assignee, goal, due date, and recent comments. Use the preloaded snapshot when available.",
+        "Summarize the current task: status, assignee, due date, and recent comments. Use the preloaded snapshot when available.",
     },
   ],
 };
@@ -44,13 +44,13 @@ export const tasksDetailCopilotContribution: UiCopilotContribution = {
       id: "tasks_work_on_task",
       label: "Work on this task",
       prompt:
-        "Help me work this task. Use the preloaded task snapshot, checkout when starting agent work, and follow task-workflow rules.",
+        "Help me work this task. Use the preloaded task snapshot, checkout when starting agent work, and follow the task lifecycle rules.",
     },
     {
       id: "tasks_summarize_task",
       label: "Summarize this task",
       prompt:
-        "Summarize the current task: status, assignee, goal, due date, and recent comments. Use the preloaded snapshot when available.",
+        "Summarize the current task: status, assignee, due date, and recent comments. Use the preloaded snapshot when available.",
     },
   ],
 };

@@ -92,6 +92,7 @@ export {
 } from "./ag-ui/engenty-ag-ui-route-context.js";
 export {
   resolvePendingUserInsertIndex,
+  resolvePendingUserPartsForTranscript,
   resolvePendingUserTextForTranscript,
 } from "./ag-ui/pending-send-transcript.js";
 export {
@@ -129,10 +130,23 @@ export {
   useOptionalAgentHost,
 } from "./agent-provider/index.js";
 export {
-  ActionButton,
-  type ActionButtonProps,
-} from "./components/ai-elements/action-button.js";
+  WorkflowButton,
+  type WorkflowButtonProps,
+} from "./components/ai-elements/workflow-button.js";
+export {
+  CHAT_LANE_COLUMN_CLASS,
+  CHAT_LANE_COMPOSER_CLASS,
+  CHAT_LANE_TRANSCRIPT_CLASS,
+  type ChatLaneComposer,
+  ChatLaneDock,
+  type ChatLaneDockLabels,
+  type ChatLanePanelBaseProps,
+  chatLanePanelBaseProps,
+  type UseChatLaneComposerParams,
+  useChatLaneComposer,
+} from "./components/copilot/chat-lane/index.js";
 export { A2uiToolCallCard } from "./components/copilot/tool-call/a2ui-tool-call-card.js";
+
 // --- Presentation (copilot chrome + AI Elements) ---
 export {
   asRecord,
@@ -151,6 +165,7 @@ export {
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
   CopilotOpenInterruptBanner,
+  CopilotPanelComposerBlock,
   CopilotPanelContent,
   type CopilotPanelContentProps,
   CopilotPanelHeader,
@@ -211,6 +226,11 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
+// --- Working memory (assistant's per-user profile; settings view) ---
+export {
+  type AgentPadSave,
+  AgentPadSection,
+} from "./features/agent-desk/agent-pad-section.js";
 // --- Effort: the end-user "how much thinking" control ---
 export {
   AI_EFFORT_CHOICES,
@@ -236,22 +256,33 @@ export {
   useMarkAllInboxSeenMutation,
   useMarkInboxNotificationMutation,
 } from "./features/inbox/inbox-queries.js";
-// --- Working memory (assistant's per-user profile; settings view) ---
 export {
+  type CopilotTasksDto,
   parseWorkingMemoryProfile,
+  useCopilotTasksQuery,
   useResetWorkingMemoryMutation,
+  useSaveCopilotTasksMutation,
   useWorkingMemoryQuery,
   type WorkingMemoryDto,
   workingMemoryKeys,
 } from "./features/memory/working-memory-api.js";
 export {
+  RoutineCanvas,
+  type RoutineCanvasProps,
+} from "./features/routines/routine-canvas.js";
+export {
   RoutineCreateDialog,
   type RoutineCreateDialogProps,
 } from "./features/routines/routine-create-dialog.js";
 export {
-  RoutineDetailPanel,
-  type RoutineDetailPanelProps,
-} from "./features/routines/routine-detail-panel.js";
+  RoutineDetailBody,
+  type RoutineDetailBodyProps,
+  RoutineDetailStateRow,
+} from "./features/routines/routine-detail-body.js";
+export {
+  RoutineEditor,
+  type RoutineEditorProps,
+} from "./features/routines/routine-editor.js";
 export {
   RoutineForm,
   type RoutineFormProps,
@@ -265,39 +296,70 @@ export {
   validateRoutineForm,
 } from "./features/routines/routine-form-value.js";
 export {
+  buildRoutineShape,
+  type RoutineShape,
+  type RoutineShapeStep,
+  type RoutineShapeTrigger,
+  routineBelongsToAgent,
+} from "./features/routines/routine-shape.js";
+export {
   RoutineTriggerChip,
   type RoutineTriggerChipProps,
 } from "./features/routines/routine-trigger-chip.js";
-// --- AI Routines & Custom Routines ---
+export {
+  RoutineTriggerList,
+  type RoutineTriggerListProps,
+} from "./features/routines/routine-trigger-list.js";
+// --- Routines (jobs on a mounted specialist) ---
 export {
   type CustomRoutineInput,
   createCustomRoutine,
   deleteCustomRoutine,
+  listRoutineRuns,
   listRoutines,
   patchRoutineState,
   type RoutineDto,
+  type RoutineReportMode,
+  type RoutineRunDto,
+  type RoutineSkipReason,
   runRoutineNow,
   updateCustomRoutine,
 } from "./features/routines/routines-api.js";
-export {
-  RoutinesList,
-  type RoutinesListProps,
-} from "./features/routines/routines-list.js";
 export {
   routinesKeys,
   routinesListOptions,
   useCreateCustomRoutineMutation,
   useDeleteCustomRoutineMutation,
   usePatchRoutineStateMutation,
+  useRoutineRunsQuery,
   useRoutinesListQuery,
   useRunRoutineNowMutation,
   useUpdateCustomRoutineMutation,
 } from "./features/routines/routines-queries.js";
 export {
+  type UseRoutineRunResult,
+  useRoutineRun,
+} from "./features/routines/use-routine-run.js";
+// --- Flows (pick one as a task's target; read and answer its gate) ---
+export type {
+  GraphRunSnapshotDto,
+  WorkflowDto,
+} from "./features/workflow-canvas/workflow-api.js";
+export {
+  useResumeRunMutation,
+  useWorkflowListQuery,
+  useWorkflowQuery,
+  useWorkflowRunQuery,
+} from "./features/workflow-canvas/workflow-queries.js";
+export {
   type RunActionInput,
-  type RunActionResult,
-  useRunAction,
-} from "./hooks/use-run-action.js";
+  type RunWorkflowResult,
+  useRunWorkflow,
+} from "./hooks/use-run-workflow.js";
+export {
+  useWorkflowRunStatus,
+  type WorkflowRunStatusState,
+} from "./hooks/use-workflow-run-status.js";
 export {
   buildChatReferencePart,
   type ChatReferenceItem,
@@ -354,6 +416,7 @@ export {
 } from "./objects/object-widget-registry.js";
 // --- Host-scoped thread list (CopilotKit-shaped) ---
 export {
+  activeThreadStorageKey,
   type CreateEngentyThreadOptions,
   ENGENTY_THREAD_HOST_KEY_FIELD,
   type EngentyThreadRecord,

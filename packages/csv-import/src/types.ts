@@ -15,7 +15,8 @@ export interface ColumnMapping {
 }
 
 export interface ImportFieldDefinition {
-  description: string;
+  /** Help text under the field row; the mapping panel renders it only when set. */
+  description?: string;
   examples?: string[];
   key: string;
   label: string;

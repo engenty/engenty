@@ -76,6 +76,11 @@ interface CopilotShellProviderProps {
   children: ReactNode;
   copilotLayout: CopilotLayoutPersistence;
   defaultDockMode?: CopilotDockMode | null;
+  /**
+   * Hide the floating drawer / inline sidebar slot (full-page chat owns the
+   * surface). Does not mutate persisted `open`.
+   */
+  hideCopilotChrome?: boolean;
   /** Current pathname (from router). Used to derive default copilotContext. */
   pathname?: string;
 }
@@ -84,6 +89,7 @@ export function CopilotShellProvider({
   children,
   copilotLayout,
   defaultDockMode = null,
+  hideCopilotChrome = false,
   pathname = "/",
 }: CopilotShellProviderProps) {
   const copilotSidebarRef = useRef<HTMLDivElement | null>(null);
@@ -192,6 +198,7 @@ export function CopilotShellProvider({
 
   const value: CopilotShellContextValue = useMemo(
     () => ({
+      chromeHidden: hideCopilotChrome,
       copilotContext,
       copilotLayout,
       copilotSidebarRef,
@@ -211,6 +218,7 @@ export function CopilotShellProvider({
       copilotLayout,
       copilotSidebarReady,
       copilotLayoutApplied,
+      hideCopilotChrome,
       open,
       setCopilotContextStable,
       setOpenStable,

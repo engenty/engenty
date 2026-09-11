@@ -15,7 +15,7 @@ import { useQueryClient } from "@engenty/query-client";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { CopilotDrawerLayer } from "@/components/copilot-drawer-layer";
 import { setUserSetting } from "@/lib/api/client";
@@ -80,7 +80,7 @@ function useRequestedAgentDevGuard(input: {
 export function CopilotProviderContent() {
   const { i18n } = useTranslation("common");
   const { setTheme } = useTheme();
-  const { currentTenant, currentUserId } = useWorkspaceContext();
+  const { currentTenant } = useWorkspaceContext();
   const location = useLocation();
   const isDedicatedChatSurface =
     isFullPageCopilotChatRoute(location.pathname) ||
@@ -260,55 +260,33 @@ export function CopilotProviderContent() {
   );
 
   useEffect(() => {
+    if (isDedicatedChatSurface) {
+      return;
+    }
     const params = new URLSearchParams(location.search);
     if (params.get("copilot") === "open" && !open) {
       openCopilotShellAction();
     }
-  }, [location.search, open, openCopilotShellAction]);
+  }, [isDedicatedChatSurface, location.search, open, openCopilotShellAction]);
 
-  // Full-page chat surface owns the only visible copilot slot; drawer chrome
-  // closes on entry and restores its prior open state on exit so navigating
-  // through `/mdl/engenty-copilot/chat/*` does not silently flip the
-  // persisted `copilot.layout.open` to false.
-  const openBeforeChatRef = useRef<boolean | null>(null);
-  const prevIsDedicatedRef = useRef(isDedicatedChatSurface);
-  useEffect(() => {
-    const wasDedicated = prevIsDedicatedRef.current;
-    prevIsDedicatedRef.current = isDedicatedChatSurface;
-    if (isDedicatedChatSurface === wasDedicated) {
-      return;
-    }
-    if (isDedicatedChatSurface) {
-      openBeforeChatRef.current = open;
-      logCopilotUiState("dedicated chat surface entered", {
-        capturedOpen: open,
-        pathname: location.pathname,
-      });
-      if (open) {
-        setOpen(false);
-      }
-      return;
-    }
-    const restoreOpen = openBeforeChatRef.current === true;
-    logCopilotUiState("dedicated chat surface exited", {
-      pathname: location.pathname,
-      restoreOpen,
-      restoredOpenValue: openBeforeChatRef.current,
-    });
-    openBeforeChatRef.current = null;
-    if (restoreOpen && !open) {
-      openCopilotShellAction();
-    }
-  }, [isDedicatedChatSurface, open, openCopilotShellAction, location.pathname]);
-
+  // Full-page chat owns the only visible copilot slot. The drawer layer
+  // unmounts below; `hideCopilotChrome` on the shell collapses the empty
+  // sidebar column without flipping persisted `copilot.layout.open`.
   useEffect(() => {
     logCopilotUiState("shell snapshot", {
+      chromeHidden: isDedicatedChatSurface,
       dockMode,
       open,
       pathname: location.pathname,
       preferredDockMode: shell?.preferredDockMode ?? null,
     });
-  }, [dockMode, open, location.pathname, shell?.preferredDockMode]);
+  }, [
+    dockMode,
+    isDedicatedChatSurface,
+    open,
+    location.pathname,
+    shell?.preferredDockMode,
+  ]);
 
   if (isDedicatedChatSurface) {
     return null;

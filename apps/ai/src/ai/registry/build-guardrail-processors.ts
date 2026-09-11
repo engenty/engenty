@@ -19,7 +19,7 @@ import {
   PromptInjectionDetector,
   SystemPromptScrubber,
 } from "@mastra/core/processors";
-import { gateway } from "ai";
+import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 
 const logger = createLogger({ name: "apps/ai/guardrails" });
 
@@ -33,14 +33,8 @@ export interface BuildGuardrailProcessorsResult {
   outputProcessors: Processor[];
 }
 
-function isGatewayModelId(modelId: string): boolean {
-  return modelId.includes("/") && !modelId.startsWith("vercel/");
-}
-
 function resolveSafeguardModel(modelId: string): MastraModelConfig {
-  return isGatewayModelId(modelId)
-    ? (gateway(modelId) as unknown as MastraModelConfig)
-    : modelId;
+  return resolveMastraModel<MastraModelConfig>(modelId);
 }
 
 function withViolationLogger<T extends Processor>(

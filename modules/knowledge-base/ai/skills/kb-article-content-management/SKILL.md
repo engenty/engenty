@@ -18,7 +18,7 @@ Use this skill when the user wants to create, inspect, edit, publish, archive, d
 
 ## Find Before Writing
 
-- Use `kb_list` first when the target KB is ambiguous or the user asks to work across all KBs.
+- Use `kb_list` first when the target KB is ambiguous. List only KBs in current_space; never fall back to the tenant default when a Space or current KB is known.
 - Use `kb_articles_list` for title searches, status filters, directories, and parent article discovery.
 - Use `knowledge_base_article_search` to detect semantic duplicates or related content before creating a new article. Pin `strategy: "lexical"` for exact title/keyword matches.
 - **Use `kb_article_get` ONLY when you need the full article body.** Extract the `id` field from a prior `kb_articles_list` or search result and pass it as `article_id`. Do NOT call `kb_article_get` without an `article_id` parameter.
@@ -48,7 +48,8 @@ When `kb_articles_list` returns article summaries like:
 
 ## Create Articles
 
-- Use `kb_article_create` for direct draft or published article creation.
+- Use `kb_article_create` for direct draft or published article creation. File the article where it belongs at create time: pass `category_id` (create the folder first with `kb_category_create`), a one-paragraph `summary`, and `tag_ids` (`kb_tags_list` / `kb_tag_create`) — an unfiled, unsummarized article is a maintenance ticket, not a wiki page.
+- Deleting is `kb_article_delete` and permanent; when the content may still be needed, unpublish instead (`kb_article_update` with status `draft`).
 - Default to `status: "draft"` unless the user explicitly asks to publish.
 - Pass `kb_id` when known. If the target KB is unclear, ask first.
 - Pass `parent_article_id` for nested pages; do not confuse KB slugs with article ids.

@@ -8,18 +8,18 @@ import {
 
 describe("kb-paths", () => {
   it("detects KB hub chat routes", () => {
-    expect(isKbHubChatRoute("/mdl/knowledge-base/engenty/chat")).toBe(true);
-    expect(isKbHubChatRoute("/mdl/knowledge-base/engenty/chat/")).toBe(true);
-    expect(isKbHubChatRoute("/mdl/knowledge-base/engenty")).toBe(false);
+    expect(isKbHubChatRoute("/mdl/knowledge-base/chat")).toBe(true);
+    expect(isKbHubChatRoute("/mdl/knowledge-base/chat/")).toBe(true);
+    expect(isKbHubChatRoute("/mdl/knowledge-base")).toBe(false);
     expect(isKbHubChatRoute("/mdl/engenty-copilot/chat/new")).toBe(false);
   });
 
   it("builds hub chat paths", () => {
-    expect(kbHubChatPath("engenty")).toBe("/mdl/knowledge-base/engenty/chat");
+    expect(kbHubChatPath()).toBe("/mdl/knowledge-base/chat");
   });
 
   it("builds hub edit paths", () => {
-    expect(kbHubEditPath("default")).toBe("/mdl/knowledge-base/default/edit");
+    expect(kbHubEditPath()).toBe("/mdl/knowledge-base/edit");
   });
 
   it("treats reserved article ids", () => {

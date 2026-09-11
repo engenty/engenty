@@ -36,6 +36,8 @@ export function CopilotOpenInterruptBanner(props: {
     choiceLabel: string,
     interruptId?: string
   ) => void;
+  /** The card's ✕ — closes the interrupt without answering it. */
+  onDismiss?: (open: AgUiOpenInterruptMetadata) => void;
   onFeedbackSubmit?: (
     artifactId: string,
     feedback: string,
@@ -45,12 +47,15 @@ export function CopilotOpenInterruptBanner(props: {
   onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   open: AgUiOpenInterruptMetadata;
 }) {
+  const { onDismiss, open } = props;
+  const dismiss = onDismiss ? () => onDismiss(open) : undefined;
   if (isSandboxCommandOpenInterrupt(props.open)) {
     const { onSandboxCommandApprove, onSandboxCommandReject } = props;
     return (
       <div className={props.className}>
         <SandboxCommandConfirmCard
           onApprove={() => onSandboxCommandApprove?.(props.open)}
+          onDismiss={dismiss}
           onReject={() => onSandboxCommandReject?.(props.open)}
           open={props.open}
         />
@@ -64,6 +69,7 @@ export function CopilotOpenInterruptBanner(props: {
       <div className={props.className}>
         <FeedbackArtifactCard
           artifact={feedback}
+          onDismiss={dismiss}
           onSubmit={(artifactId, value) => {
             props.onFeedbackSubmit?.(artifactId, value, feedback.interruptId);
           }}
@@ -91,6 +97,7 @@ export function CopilotOpenInterruptBanner(props: {
             decision.interruptId
           );
         }}
+        onDismiss={dismiss}
       />
     </div>
   );

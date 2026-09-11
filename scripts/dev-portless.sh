@@ -132,7 +132,7 @@ node "$ROOT/scripts/dev-portless-ready.mjs" --print-hint --tty 2>/dev/null || \
 # "Port 5173 is already in use" from Vite.
 PORTS_LIST="$(node -e \
   "const c=JSON.parse(process.argv[1]); process.stdout.write(\
-    [c.ports.ui,c.ports.core,c.ports.ai,c.ports.docs,c.ports.studio,c.ports.appHost].join(','))" \
+    [c.ports.ui,c.ports.core,c.ports.ai,c.ports.docs,c.ports.www,c.ports.studio,c.ports.appHost].join(','))" \
   "$CONFIG")"
 node "$ROOT/scripts/dev-port-check.mjs" --ports="$PORTS_LIST" --cwd="$ROOT"
 

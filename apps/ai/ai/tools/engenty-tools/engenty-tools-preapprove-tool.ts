@@ -1,7 +1,14 @@
-// Bulk pre-approval for sandbox programs (Phase 3 of Code Mode writes).
+// ONE approval card for a turn's whole write set.
 //
-// A Code Mode program cannot suspend for a human mid-flight, so gated writes
-// need their grants BEFORE the program runs. This tool is that upfront step:
+// Originally built for Code Mode (a sandbox program cannot suspend for a human
+// mid-flight, so its gated writes need grants BEFORE it runs), but the shape is
+// what ordinary chat turns want too. A gated call parks the run, and the next
+// gated call in the same step never executes — that is not a defect, it is how
+// approvals work: a person answers one card at a time, and every harness UI shows
+// one card at a time. So a turn touching several gated operations either asks
+// once up front, or drips one card per turn for as long as the work takes.
+//
+// This tool is the "ask once" path:
 // the agent declares every write operation a planned program will call plus a
 // human-readable reason, ONE approval card covers the whole set, and approving
 // persists a grant per operation — "Approve for this run" as once-grants
@@ -39,7 +46,7 @@ const preapproveInputSchema = z.object({
     .min(1)
     .max(TOOL_APPROVAL_MAX_BULK_OPERATIONS)
     .describe(
-      "Every gated operation the planned program will call (from engenty_tools_search ids)."
+      "Every gated operation this turn will call (from engenty_tools_search ids)."
     ),
   reason: z
     .string()
@@ -47,14 +54,14 @@ const preapproveInputSchema = z.object({
     .min(1)
     .max(1000)
     .describe(
-      "What the program will do with these operations, in the user's language — shown on the approval card."
+      "What you will do with these operations, in the user's language — shown on the approval card. Write it for the person deciding, not as a technical list."
     ),
   estimated_calls: z
     .number()
     .int()
     .positive()
     .optional()
-    .describe("Rough total number of write calls the program will make."),
+    .describe("Rough total number of write calls you expect to make."),
 });
 
 const RISK_ORDER: Record<ToolRiskLevel, number> = {
@@ -78,10 +85,12 @@ function needsGrant(input: {
 export const engentyToolsPreapproveTool = createTool({
   id: ENGENTY_TOOLS_PREAPPROVE_TOOL_ID,
   description:
-    "Request the user's approval for a SET of write operations before running a bulk execute_typescript program. " +
-    "One approval card covers all listed operations; approving grants them for this run or this chat. " +
-    "Call this BEFORE a program that writes (creates/updates/deletes) — sandbox calls to gated operations fail without a grant. " +
-    "Not needed for read-only programs.",
+    "Ask the user ONCE for a set of write operations, instead of one card per call. " +
+    "One approval card covers every listed operation; approving grants them for this run or this chat. " +
+    "Call this FIRST whenever this turn will write (create/update/delete) via MORE THAN ONE gated operation — " +
+    "each gated call otherwise raises its own card and the user has to answer them one turn at a time. " +
+    "Always call it before an execute_typescript program that writes: sandbox calls to gated operations fail without a grant. " +
+    "Not needed for reads, or for a single write.",
   inputSchema: preapproveInputSchema,
   suspendSchema: toolApprovalSuspendSchema,
   resumeSchema: toolApprovalResumeSchema,

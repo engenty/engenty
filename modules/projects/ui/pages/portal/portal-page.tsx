@@ -95,7 +95,7 @@ export function PortalPage() {
 
   if (!isPortalVerified(projectId) && projectInfo.password_required) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-dvh items-center justify-center p-4">
         <PortalLogin
           introText={projectInfo.portal_intro_text}
           onVerified={handleVerified}
@@ -107,7 +107,7 @@ export function PortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <PortalHeader
         onLogout={handleLogout}
         projectId={projectId}

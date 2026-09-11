@@ -1,19 +1,21 @@
 // Schemas for the App Build workflow. One envelope flows through every step so
 // a failed build can short-circuit: `build_failed` carries the verbatim
 // build_log and downstream steps pass the envelope through untouched. The
-// sequence (ensure → write → propose → publish) lives here as code precisely
-// because the chat E2E showed a model cannot be trusted to remember it across
-// approval interruptions — it created three duplicate apps trying.
+// sequence (ensure → commit → propose → publish) lives here as code precisely
+// because a model cannot be trusted to remember it across approval
+// interruptions — it created three duplicate apps trying.
 import { z } from "zod";
 
 export const appBuildInputSchema = z.object({
   /** Acting agent's type key, for honest created_by attribution on the app. */
   agent_type_key: z.string().min(1).optional(),
   description: z.string().max(2000).optional(),
-  /** path -> source text. The whole App; merged into the draft version. */
+  /** path -> source text. Written into the App's repository and committed. */
   files: z.record(z.string(), z.string()),
   /** Validated properly by core at the write boundary; opaque here. */
   manifest: z.record(z.string(), z.unknown()),
+  /** The commit message. */
+  message: z.string().max(500).optional(),
   name: z.string().min(1).max(120),
   /**
    * The artifact handle's session id. Defaults to `chat-<thread_id>` so two

@@ -4,8 +4,8 @@ import {
   useInboxListQuery,
 } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn } from "@engenty/ui-core";
-import { type ReactNode, useMemo } from "react";
+import { isNeedsInput, NotificationList } from "@engenty/notifications-ui";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type {
   Task,
@@ -13,42 +13,34 @@ import type {
   TasksBriefingResponse,
 } from "../../../src/schema/types.js";
 import { formatRelativeTime } from "../../lib/format-relative-time.js";
-import { isNeedsInput } from "../../lib/inbox-classification.js";
-import { tasksPaths } from "../../lib/tasks-routes.js";
-import { InboxList } from "../inbox/inbox-list.js";
+import { useTasksPaths } from "../../lib/use-tasks-paths.js";
 import { TaskStatusBadge } from "../task-status-badge.js";
-
-function SectionHead({ action, title }: { action?: ReactNode; title: string }) {
-  return (
-    <div className="mb-3.5 flex items-baseline justify-between gap-3">
-      <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-        {title}
-      </h2>
-      {action}
-    </div>
-  );
-}
+import {
+  BriefingFooterAction,
+  BriefingFooterLink,
+  BriefingSectionFooter,
+  BriefingSectionHead,
+} from "./briefing-section.js";
 
 function PlateRow({
   locale,
   task,
+  taskHref,
   taskStatusDefinitions,
 }: {
   locale: string;
   task: Task;
+  taskHref: string;
   taskStatusDefinitions: TaskStatusDefinition[];
 }) {
   return (
     <Link
-      className={cn(
-        "ui-canvas-raised flex w-full items-start gap-3 rounded-md bg-card px-4 py-3 text-left",
-        "transition-shadow hover:shadow-[var(--e-3)]"
-      )}
-      to={tasksPaths.taskDetail(task.id)}
+      className="ui-card-raised flex w-full items-start gap-2.5 px-3 py-2 text-left"
+      to={taskHref}
     >
       <span
         aria-hidden
-        className="mt-1.5 size-2 shrink-0 rounded-full bg-primary/80"
+        className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/80"
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
@@ -107,23 +99,36 @@ function buildPlateTasks(snapshot: TasksBriefingResponse): Task[] {
   return out.slice(0, 6);
 }
 
+function PlateCreateActions({ onCreateTask }: { onCreateTask: () => void }) {
+  const { t } = useTranslation("tasks");
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <BriefingFooterAction onClick={onCreateTask}>
+        {t("list.newTask")}
+      </BriefingFooterAction>
+    </div>
+  );
+}
+
 export function BriefingDayColumn({
   locale,
+  onCreateTask,
   snapshot,
   taskStatusDefinitions,
 }: {
   locale: string;
+  onCreateTask: () => void;
   snapshot: TasksBriefingResponse;
   taskStatusDefinitions: TaskStatusDefinition[];
 }) {
   const { t } = useTranslation("tasks");
+  const tasksPaths = useTasksPaths();
   const inboxQuery = useInboxListQuery({ limit: 20, status: "open" });
 
   const attentionNotifications = useMemo(() => {
     const all = inboxQuery.data?.notifications ?? [];
     return all.filter(
-      (n: InboxNotificationDto) =>
-        isNeedsInput(n) && (n.status === "pending" || n.status === "delivered")
+      (n: InboxNotificationDto) => isNeedsInput(n) && n.status === "pending"
     );
   }, [inboxQuery.data?.notifications]);
 
@@ -137,19 +142,9 @@ export function BriefingDayColumn({
   );
 
   return (
-    <div className="space-y-9">
+    <div className="space-y-6">
       <section>
-        <SectionHead
-          action={
-            <Link
-              className="text-muted-foreground text-sm hover:text-foreground"
-              to={tasksPaths.inbox}
-            >
-              {t("briefing.hubs.open")}
-            </Link>
-          }
-          title={t("briefing.day.attention")}
-        />
+        <BriefingSectionHead title={t("briefing.day.attention")} />
         {inboxQuery.isLoading ? (
           <p className="text-muted-foreground text-sm">{t("inbox.loading")}</p>
         ) : attentionNotifications.length === 0 ? (
@@ -157,7 +152,13 @@ export function BriefingDayColumn({
             {t("briefing.day.emptyAttention")}
           </p>
         ) : (
-          <InboxList
+          <NotificationList
+            clearAllPlacement="bottom"
+            footerStart={
+              <BriefingFooterLink to={tasksPaths.inbox}>
+                {t("inbox.viewAll")}
+              </BriefingFooterLink>
+            }
             grouped={false}
             locale={locale}
             notifications={attentionNotifications}
@@ -166,49 +167,53 @@ export function BriefingDayColumn({
       </section>
 
       <section>
-        <SectionHead
-          action={
-            <Link
-              className="text-muted-foreground text-sm hover:text-foreground"
-              to={tasksPaths.list}
-            >
-              {t("tabs.tasks")}
-            </Link>
-          }
-          title={t("briefing.day.onYourPlate")}
-        />
+        <BriefingSectionHead title={t("briefing.day.onYourPlate")} />
         {plateTasks.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t("briefing.day.emptyPlate")}
-          </p>
+          <>
+            <p className="text-muted-foreground text-sm">
+              {t("briefing.day.emptyPlate")}
+            </p>
+            <BriefingSectionFooter>
+              <PlateCreateActions onCreateTask={onCreateTask} />
+            </BriefingSectionFooter>
+          </>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {plateTasks.map((task) => (
-              <li key={task.id}>
-                <PlateRow
-                  locale={locale}
-                  task={task}
-                  taskStatusDefinitions={taskStatusDefinitions}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-1.5">
+              {plateTasks.map((task) => (
+                <li key={task.id}>
+                  <PlateRow
+                    locale={locale}
+                    task={task}
+                    taskHref={tasksPaths.taskDetail(task.id)}
+                    taskStatusDefinitions={taskStatusDefinitions}
+                  />
+                </li>
+              ))}
+            </ul>
+            <BriefingSectionFooter>
+              <BriefingFooterLink to={tasksPaths.list}>
+                {t("inbox.viewAll")}
+              </BriefingFooterLink>
+              <PlateCreateActions onCreateTask={onCreateTask} />
+            </BriefingSectionFooter>
+          </>
         )}
       </section>
 
       <section>
-        <SectionHead title={t("briefing.day.recentlyAccomplished")} />
+        <BriefingSectionHead title={t("briefing.day.recentlyAccomplished")} />
         {recentlyDone.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             {t("briefing.day.emptyRecentlyDone")}
           </p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1.5">
             {recentlyDone.map((task) => (
-              <li className="flex items-start gap-3 opacity-70" key={task.id}>
+              <li className="flex items-start gap-2.5 opacity-70" key={task.id}>
                 <span
                   aria-hidden
-                  className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-600/80"
+                  className="mt-1 size-1.5 shrink-0 rounded-full bg-emerald-600/80"
                 />
                 <div className="min-w-0">
                   <Link

@@ -252,10 +252,18 @@ describe("Gateway model sync", () => {
 
   it("lets superadmins trigger a Gateway sync", async () => {
     const store = makeStore();
+    // Answer per URL. A single catch-all response used to be enough because
+    // there was one adapter; with a second registered it fed the OpenRouter
+    // normalizer a Vercel-shaped payload and the count silently doubled. This
+    // test is about the route, so only the Vercel catalog has anything in it.
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        Response.json({
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.includes("ai-gateway.vercel.sh")) {
+          return Response.json({ data: [] });
+        }
+        return Response.json({
           data: [
             {
               context_window: 128_000,
@@ -267,8 +275,8 @@ describe("Gateway model sync", () => {
               type: "language",
             },
           ],
-        })
-      )
+        });
+      })
     );
     const app = await createApp({
       scopeResolver: scopeResolver(true),
@@ -340,6 +348,65 @@ describe("Gateway model sync", () => {
         model_id: "openai/gpt-b",
       }),
     ]);
+  });
+
+  // With one adapter, "a gateway threw" and "the run failed" were the same
+  // event. With two they are not: OpenRouter being down must not blank the
+  // Vercel catalog or skip its pricing pass.
+  it("keeps a healthy gateway's rows when another one is down", async () => {
+    const store = makeStore();
+    const healthy: ModelGateway = {
+      id: "vercel",
+      listModels: async (opts) => [
+        normalizeGatewayModel(
+          { id: "openai/gpt-a", owned_by: "openai", type: "language" },
+          { now: opts.now }
+        ),
+      ],
+      sourceUrl: "https://vercel.example/models",
+    };
+    const down: ModelGateway = {
+      id: "openrouter",
+      listModels: () => Promise.reject(new Error("503 Service Unavailable")),
+      sourceUrl: "https://openrouter.example/models",
+    };
+
+    const result = await syncGatewayModels(store, {
+      gateways: [healthy, down],
+      trigger: "manual",
+    });
+
+    expect(result.model_count).toBe(1);
+    expect(result.by_gateway).toEqual({
+      // Zero rows and RECORDED, so "down" is distinguishable from "empty".
+      openrouter: { model_count: 0, updated_model_count: 0 },
+      vercel: { model_count: 1, updated_model_count: 1 },
+    });
+    // The run succeeds but says which half is stale — the sync-runs list is the
+    // only place an operator would learn that.
+    expect(store.updateGatewayModelSyncRun).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        error_text: expect.stringContaining("openrouter: 503"),
+        status: "succeeded",
+      })
+    );
+  });
+
+  it("fails the run when every gateway is down", async () => {
+    const store = makeStore();
+    const down = (id: string): ModelGateway => ({
+      id,
+      listModels: () => Promise.reject(new Error("503")),
+      sourceUrl: `https://${id}.example/models`,
+    });
+
+    await expect(
+      syncGatewayModels(store, {
+        gateways: [down("vercel"), down("openrouter")],
+        trigger: "manual",
+      })
+    ).rejects.toThrow(/vercel: 503; openrouter: 503/);
   });
 
   it("rejects Gateway catalog routes for non-superadmins", async () => {

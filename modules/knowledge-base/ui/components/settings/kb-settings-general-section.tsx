@@ -1,5 +1,6 @@
 /**
- * KB module settings: knowledge bases list and tenant-wide configuration.
+ * KB module settings body: Embedding (model + index), Retrieval quality, and
+ * the test search. Everything here is tenant-wide index infrastructure.
  */
 
 import { useTranslation } from "@engenty/i18n/ui";
@@ -7,19 +8,14 @@ import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   SettingsFormRow,
   SettingsFormSection,
   Skeleton,
-  Switch,
 } from "@engenty/ui-core";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, RotateCcw } from "lucide-react";
 import {
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -27,25 +23,101 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import type { KbSettings } from "../../../src/schema/types.js";
 import { updateKbSettings } from "../../api.js";
 import { kbSettingsQueryOptions } from "../../queries.js";
-import { KbSettingsEmbeddingModelField } from "../kb-settings-embedding-model-field.js";
+import {
+  fetchKbSearchIndexStatus,
+  KbSettingsEmbeddingModelField,
+} from "../kb-settings-embedding-model-field.js";
 import { runKbArticleReindex } from "./kb-article-reindex.js";
 import { KbSearchTestPanel } from "./kb-search-test-panel.js";
 import type { KbSettingsToolbarSaveSlot } from "./kb-settings-types.js";
 
-/** Mirrors the `chunk_strategy` enum in `kbSettingsSchema` (all Select options below). */
-const CHUNK_STRATEGIES: readonly KbSettings["chunk_strategy"][] = [
-  "recursive",
-  "markdown",
-  "semantic-markdown",
-  "sentence",
-  "token",
-  "character",
-  "html",
-  "json",
-];
+/** Mirrors the zod defaults in `kbSettingsSchema`; shown as the reset target. */
+const RETRIEVAL_DEFAULTS = {
+  search_vector_min_similarity: 0.45,
+  search_verifier_max_candidates: 6,
+  search_verifier_min_query_terms: 3,
+} as const;
+
+const KB_INDEX_STATUS_KEY = ["kb", "search-index", "status"] as const;
+
+function formatRelative(iso: string | null, locale: string): string | null {
+  if (!iso) {
+    return null;
+  }
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) {
+    return null;
+  }
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(at);
+}
+
+/** A numeric row with its default shown and a one-click reset to it. */
+function NumberRow({
+  hint,
+  id,
+  label,
+  max,
+  min,
+  onChange,
+  resetLabel,
+  step,
+  value,
+  defaultValue,
+}: {
+  defaultValue: number;
+  hint: ReactNode;
+  id: string;
+  label: ReactNode;
+  max: number;
+  min: number;
+  onChange: (next: number) => void;
+  resetLabel: string;
+  step: number;
+  value: number;
+}) {
+  const isDefault = value === defaultValue;
+  return (
+    <SettingsFormRow
+      controlSizing="compact"
+      hint={hint}
+      label={label}
+      labelFor={id}
+    >
+      <div className="flex items-center gap-1">
+        <Input
+          className="w-full tabular-nums"
+          id={id}
+          max={max}
+          min={min}
+          onChange={(event) => {
+            const parsed = Number.parseFloat(event.target.value);
+            onChange(Number.isFinite(parsed) ? parsed : defaultValue);
+          }}
+          step={step}
+          type="number"
+          value={value}
+        />
+        <Button
+          aria-label={resetLabel}
+          className={isDefault ? "invisible" : "text-muted-foreground"}
+          onClick={() => onChange(defaultValue)}
+          size="icon"
+          tabIndex={isDefault ? -1 : 0}
+          title={`${resetLabel} (${defaultValue})`}
+          type="button"
+          variant="ghost"
+        >
+          <RotateCcw className="size-4" />
+        </Button>
+      </div>
+    </SettingsFormRow>
+  );
+}
 
 export function KbSettingsGeneralSection({
   setToolbarSaveSlot,
@@ -54,75 +126,90 @@ export function KbSettingsGeneralSection({
     SetStateAction<KbSettingsToolbarSaveSlot | null>
   >;
 }) {
-  const { t } = useTranslation("kb");
+  const { t, i18n } = useTranslation("kb");
   const queryClient = useQueryClient();
 
   const { data: settings, isLoading } = useQuery(kbSettingsQueryOptions);
+  const { data: indexStatus } = useQuery({
+    queryFn: fetchKbSearchIndexStatus,
+    queryKey: KB_INDEX_STATUS_KEY,
+    staleTime: 15_000,
+  });
 
   const [embeddingDraft, setEmbeddingDraft] = useState("");
-  const [autoSummary, setAutoSummary] = useState(true);
-  const [autoQuestions, setAutoQuestions] = useState(true);
-  const [vectorMinSimilarity, setVectorMinSimilarity] = useState(0.45);
-  const [verifierMinQueryTerms, setVerifierMinQueryTerms] = useState(3);
-  const [verifierMaxCandidates, setVerifierMaxCandidates] = useState(6);
-  const [chunkStrategy, setChunkStrategy] =
-    useState<KbSettings["chunk_strategy"]>("recursive");
-  const [chunkMaxLength, setChunkMaxLength] = useState(1000);
-  const [chunkOverlap, setChunkOverlap] = useState(100);
+  const [vectorMinSimilarity, setVectorMinSimilarity] = useState<number>(
+    RETRIEVAL_DEFAULTS.search_vector_min_similarity
+  );
+  const [verifierMinQueryTerms, setVerifierMinQueryTerms] = useState<number>(
+    RETRIEVAL_DEFAULTS.search_verifier_min_query_terms
+  );
+  const [verifierMaxCandidates, setVerifierMaxCandidates] = useState<number>(
+    RETRIEVAL_DEFAULTS.search_verifier_max_candidates
+  );
 
-  // Rebuild index state (shared button in Chunking section)
   const [reindexing, setReindexing] = useState(false);
+  const [reindexProgress, setReindexProgress] = useState<string | null>(null);
+
+  const invalidateIndex = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: KB_INDEX_STATUS_KEY });
+  }, [queryClient]);
 
   const runReindex = useCallback(async () => {
     setReindexing(true);
+    setReindexProgress(t("settings.embedding_reindex_preparing"));
     try {
       await runKbArticleReindex({
         onProgress: (done, total) =>
-          toast.info(`Re-indexing ${done}/${total}…`),
+          setReindexProgress(
+            `${t("settings.embedding_reindex_batch")} ${done}/${total}`
+          ),
       });
+      setReindexProgress(null);
       toast.success(t("settings.embedding_reindex_success"));
       queryClient.invalidateQueries({ queryKey: ["kb"] });
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : t("settings.embedding_reindex_failed")
-      );
+      const message =
+        e instanceof Error ? e.message : t("settings.embedding_reindex_failed");
+      setReindexProgress(message);
+      toast.error(message);
     } finally {
       setReindexing(false);
+      invalidateIndex();
     }
-  }, [queryClient, t]);
+  }, [invalidateIndex, queryClient, t]);
 
   useEffect(() => {
     if (settings) {
       setEmbeddingDraft(settings.embedding_model);
-      setAutoSummary(settings.auto_generate_summary);
-      setAutoQuestions(settings.auto_generate_questions);
       setVectorMinSimilarity(settings.search_vector_min_similarity);
       setVerifierMinQueryTerms(settings.search_verifier_min_query_terms);
       setVerifierMaxCandidates(settings.search_verifier_max_candidates);
-      setChunkStrategy(settings.chunk_strategy ?? "recursive");
-      setChunkMaxLength(settings.chunk_max_length ?? 1000);
-      setChunkOverlap(settings.chunk_overlap ?? 100);
     }
   }, [settings]);
 
-  const saveMut = useMutation({
-    mutationFn: () => {
+  const draft = useCallback(
+    (embeddingModel: string) => {
       if (!settings) {
         throw new Error("Settings not loaded");
       }
-      return updateKbSettings({
+      return {
         ...settings,
-        embedding_model: embeddingDraft,
-        auto_generate_summary: autoSummary,
-        auto_generate_questions: autoQuestions,
+        embedding_model: embeddingModel,
         search_vector_min_similarity: vectorMinSimilarity,
         search_verifier_min_query_terms: verifierMinQueryTerms,
         search_verifier_max_candidates: verifierMaxCandidates,
-        chunk_strategy: chunkStrategy,
-        chunk_max_length: chunkMaxLength,
-        chunk_overlap: chunkOverlap,
-      });
+      };
     },
+    [
+      settings,
+      vectorMinSimilarity,
+      verifierMinQueryTerms,
+      verifierMaxCandidates,
+    ]
+  );
+
+  const saveMut = useMutation({
+    mutationFn: () => updateKbSettings(draft(embeddingDraft)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
       toast.success(t("settings.saved"));
@@ -131,21 +218,7 @@ export function KbSettingsGeneralSection({
   });
 
   const commitEmbeddingModel = async (nextModel: string) => {
-    if (!settings) {
-      throw new Error("Settings not loaded");
-    }
-    await updateKbSettings({
-      ...settings,
-      embedding_model: nextModel,
-      auto_generate_summary: autoSummary,
-      auto_generate_questions: autoQuestions,
-      search_vector_min_similarity: vectorMinSimilarity,
-      search_verifier_min_query_terms: verifierMinQueryTerms,
-      search_verifier_max_candidates: verifierMaxCandidates,
-      chunk_strategy: chunkStrategy,
-      chunk_max_length: chunkMaxLength,
-      chunk_overlap: chunkOverlap,
-    });
+    await updateKbSettings(draft(nextModel));
     queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
     setEmbeddingDraft(nextModel);
   };
@@ -156,26 +229,16 @@ export function KbSettingsGeneralSection({
     }
     return (
       embeddingDraft !== settings.embedding_model ||
-      autoSummary !== settings.auto_generate_summary ||
-      autoQuestions !== settings.auto_generate_questions ||
       vectorMinSimilarity !== settings.search_vector_min_similarity ||
       verifierMinQueryTerms !== settings.search_verifier_min_query_terms ||
-      verifierMaxCandidates !== settings.search_verifier_max_candidates ||
-      chunkStrategy !== (settings.chunk_strategy ?? "recursive") ||
-      chunkMaxLength !== (settings.chunk_max_length ?? 1000) ||
-      chunkOverlap !== (settings.chunk_overlap ?? 100)
+      verifierMaxCandidates !== settings.search_verifier_max_candidates
     );
   }, [
     settings,
     embeddingDraft,
-    autoSummary,
-    autoQuestions,
     vectorMinSimilarity,
     verifierMinQueryTerms,
     verifierMaxCandidates,
-    chunkStrategy,
-    chunkMaxLength,
-    chunkOverlap,
   ]);
 
   useEffect(() => {
@@ -198,6 +261,27 @@ export function KbSettingsGeneralSection({
     settings,
   ]);
 
+  const indexSummary = useMemo(() => {
+    if (!indexStatus) {
+      return null;
+    }
+    const behind = indexStatus.stale_count + indexStatus.missing_count;
+    const when = formatRelative(indexStatus.last_indexed_at, i18n.language);
+    const parts = [
+      t("settings.index_status_indexed", {
+        count: indexStatus.indexed_count,
+        total: indexStatus.total_count,
+      }),
+    ];
+    if (behind > 0) {
+      parts.push(t("settings.index_status_behind", { count: behind }));
+    }
+    if (when) {
+      parts.push(t("settings.index_status_last", { when }));
+    }
+    return { behind, text: parts.join(" · ") };
+  }, [i18n.language, indexStatus, t]);
+
   if (isLoading) {
     return <Skeleton className="h-40 w-full" />;
   }
@@ -207,10 +291,12 @@ export function KbSettingsGeneralSection({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <SettingsFormSection
-        description={t("settings.general_description")}
-        title={t("settings.general_title")}
+        cardClassName="space-y-0 divide-y divide-border"
+        cardVariant="compact"
+        description={t("settings.embedding_section_description")}
+        title={t("settings.embedding_section_title")}
       >
         <KbSettingsEmbeddingModelField
           embeddingDraft={embeddingDraft}
@@ -221,11 +307,36 @@ export function KbSettingsGeneralSection({
               queryKey: ["kb", "knowledge-bases"],
             });
             queryClient.invalidateQueries({ queryKey: ["kb", "articles"] });
+            invalidateIndex();
             toast.success(t("settings.embedding_reindex_success"));
           }}
           savedEmbeddingModel={settings.embedding_model}
           setEmbeddingDraft={setEmbeddingDraft}
         />
+        <SettingsFormRow
+          controlSizing="fit"
+          hint={
+            reindexProgress ??
+            indexSummary?.text ??
+            t("settings.index_status_loading")
+          }
+          label={t("settings.index_title")}
+        >
+          <Button
+            disabled={reindexing}
+            onClick={runReindex}
+            size="sm"
+            type="button"
+            variant={
+              indexSummary && indexSummary.behind > 0 ? "default" : "outline"
+            }
+          >
+            <RefreshCw
+              className={`mr-1.5 size-3.5 ${reindexing ? "animate-spin" : ""}`}
+            />
+            {t("settings.index_rebuild")}
+          </Button>
+        </SettingsFormRow>
       </SettingsFormSection>
 
       <SettingsFormSection
@@ -234,220 +345,45 @@ export function KbSettingsGeneralSection({
         description={t("settings.search_quality_description")}
         title={t("settings.search_quality_title")}
       >
-        <SettingsFormRow
-          controlSizing="compact"
+        <NumberRow
+          defaultValue={RETRIEVAL_DEFAULTS.search_vector_min_similarity}
           hint={t("settings.search_vector_min_similarity_hint")}
+          id="kb-search-vector-min-similarity"
           label={t("settings.search_vector_min_similarity")}
-          labelFor="kb-search-vector-min-similarity"
-        >
-          <Input
-            className="w-full tabular-nums"
-            id="kb-search-vector-min-similarity"
-            max={1}
-            min={0}
-            onChange={(event) =>
-              setVectorMinSimilarity(Number.parseFloat(event.target.value) || 0)
-            }
-            step={0.01}
-            type="number"
-            value={vectorMinSimilarity}
-          />
-        </SettingsFormRow>
-        <SettingsFormRow
-          controlSizing="compact"
+          max={1}
+          min={0}
+          onChange={setVectorMinSimilarity}
+          resetLabel={t("settings.reset_default")}
+          step={0.01}
+          value={vectorMinSimilarity}
+        />
+        <NumberRow
+          defaultValue={RETRIEVAL_DEFAULTS.search_verifier_min_query_terms}
           hint={t("settings.search_verifier_min_query_terms_hint")}
+          id="kb-search-verifier-min-terms"
           label={t("settings.search_verifier_min_query_terms")}
-          labelFor="kb-search-verifier-min-terms"
-        >
-          <Input
-            className="w-full tabular-nums"
-            id="kb-search-verifier-min-terms"
-            max={20}
-            min={1}
-            onChange={(event) =>
-              setVerifierMinQueryTerms(
-                Number.parseInt(event.target.value, 10) || 1
-              )
-            }
-            step={1}
-            type="number"
-            value={verifierMinQueryTerms}
-          />
-        </SettingsFormRow>
-        <SettingsFormRow
-          controlSizing="compact"
+          max={20}
+          min={1}
+          onChange={(next) => setVerifierMinQueryTerms(Math.round(next))}
+          resetLabel={t("settings.reset_default")}
+          step={1}
+          value={verifierMinQueryTerms}
+        />
+        <NumberRow
+          defaultValue={RETRIEVAL_DEFAULTS.search_verifier_max_candidates}
           hint={t("settings.search_verifier_max_candidates_hint")}
+          id="kb-search-verifier-max-candidates"
           label={t("settings.search_verifier_max_candidates")}
-          labelFor="kb-search-verifier-max-candidates"
-        >
-          <Input
-            className="w-full tabular-nums"
-            id="kb-search-verifier-max-candidates"
-            max={20}
-            min={1}
-            onChange={(event) =>
-              setVerifierMaxCandidates(
-                Number.parseInt(event.target.value, 10) || 1
-              )
-            }
-            step={1}
-            type="number"
-            value={verifierMaxCandidates}
-          />
-        </SettingsFormRow>
-      </SettingsFormSection>
-
-      {/* Chunking settings */}
-      <SettingsFormSection
-        cardClassName="space-y-0 divide-y divide-border"
-        cardVariant="compact"
-        description="Controls how article text is split into chunks before embedding."
-        title="Chunking"
-        titleAction={
-          <Button
-            disabled={reindexing}
-            onClick={runReindex}
-            size="sm"
-            variant="outline"
-          >
-            <RefreshCw
-              className={`size-3.5 ${reindexing ? "animate-spin" : ""}`}
-            />
-            Rebuild index
-          </Button>
-        }
-      >
-        <SettingsFormRow
-          controlSizing="compact"
-          hint="How article markdown is split before embedding."
-          label="Strategy"
-          labelFor="kb-chunk-strategy"
-        >
-          <Select
-            onValueChange={(v) => {
-              const next = CHUNK_STRATEGIES.find((s) => s === v);
-              if (next) {
-                setChunkStrategy(next);
-              }
-            }}
-            value={chunkStrategy}
-          >
-            <SelectTrigger className="w-full" id="kb-chunk-strategy">
-              <SelectValue>
-                {(value: string | null) => {
-                  const labels: Record<string, string> = {
-                    recursive: "Recursive",
-                    character: "Character",
-                    token: "Token",
-                    markdown: "Markdown",
-                    html: "HTML",
-                    json: "JSON",
-                    sentence: "Sentence",
-                    "semantic-markdown": "Semantic Markdown",
-                  };
-                  return labels[value ?? ""] ?? value ?? "Recursive";
-                }}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="min-w-fit">
-              <SelectItem value="recursive">
-                Recursive — splits on headings, paragraphs, sentences
-              </SelectItem>
-              <SelectItem value="markdown">
-                Markdown — respects headers, code blocks, lists
-              </SelectItem>
-              <SelectItem value="semantic-markdown">
-                Semantic Markdown — groups related sections
-              </SelectItem>
-              <SelectItem value="sentence">
-                Sentence — one sentence per chunk
-              </SelectItem>
-              <SelectItem value="token">
-                Token — respects token boundaries
-              </SelectItem>
-              <SelectItem value="character">
-                Character — fixed character window
-              </SelectItem>
-              <SelectItem value="html">HTML — respects HTML tags</SelectItem>
-              <SelectItem value="json">JSON — structure-aware</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsFormRow>
-        <SettingsFormRow
-          controlSizing="compact"
-          hint="Maximum number of characters per chunk."
-          label="Max chunk length"
-          labelFor="kb-chunk-max-length"
-        >
-          <Input
-            className="w-full tabular-nums"
-            id="kb-chunk-max-length"
-            max={8000}
-            min={100}
-            onChange={(e) =>
-              setChunkMaxLength(Number.parseInt(e.target.value, 10) || 1000)
-            }
-            step={100}
-            type="number"
-            value={chunkMaxLength}
-          />
-        </SettingsFormRow>
-        <SettingsFormRow
-          controlSizing="compact"
-          hint="Character overlap between consecutive chunks for context continuity."
-          label="Chunk overlap"
-          labelFor="kb-chunk-overlap"
-        >
-          <Input
-            className="w-full tabular-nums"
-            id="kb-chunk-overlap"
-            max={2000}
-            min={0}
-            onChange={(e) =>
-              setChunkOverlap(Number.parseInt(e.target.value, 10) || 0)
-            }
-            step={10}
-            type="number"
-            value={chunkOverlap}
-          />
-        </SettingsFormRow>
+          max={20}
+          min={1}
+          onChange={(next) => setVerifierMaxCandidates(Math.round(next))}
+          resetLabel={t("settings.reset_default")}
+          step={1}
+          value={verifierMaxCandidates}
+        />
       </SettingsFormSection>
 
       <KbSearchTestPanel vectorMinSimilarity={vectorMinSimilarity} />
-
-      <SettingsFormSection
-        cardClassName="space-y-0 divide-y divide-border"
-        cardVariant="compact"
-        description={t("settings.automation_description")}
-        title={t("settings.automation_title")}
-      >
-        <SettingsFormRow
-          className="sm:items-center"
-          controlSizing="fit"
-          hint={t("settings.auto_summary_hint")}
-          label={t("settings.auto_summary")}
-          labelFor="kb-auto-summary"
-        >
-          <Switch
-            checked={autoSummary}
-            id="kb-auto-summary"
-            onCheckedChange={setAutoSummary}
-          />
-        </SettingsFormRow>
-        <SettingsFormRow
-          className="sm:items-center"
-          controlSizing="fit"
-          hint={t("settings.auto_questions_hint")}
-          label={t("settings.auto_questions")}
-          labelFor="kb-auto-questions"
-        >
-          <Switch
-            checked={autoQuestions}
-            id="kb-auto-questions"
-            onCheckedChange={setAutoQuestions}
-          />
-        </SettingsFormRow>
-      </SettingsFormSection>
     </div>
   );
 }

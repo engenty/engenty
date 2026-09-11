@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   createTenantDbFactory,
   resolveTenantDbConfig,
+  SERVER_LANE_IAT_BACKDATE_SECONDS,
   SERVER_LANE_ROLE,
   SERVER_LANE_SUBJECT,
 } from "../tenant-db.js";
@@ -144,6 +145,43 @@ describe("the minted token", () => {
 
     expect(await read("tenant-a")).toBe("tenant-a");
     expect(await read("tenant-b")).toBe("tenant-b");
+  });
+
+  it("backdates iat as clock-skew leeway, without shortening the token's life", async () => {
+    const factory = createTenantDbFactory({
+      url: BASE.supabaseUrl,
+      anonKey: BASE.supabaseAnonKey,
+      signingKey: { alg: "HS256", secret: "stack-secret" },
+    });
+
+    const beforeSeconds = Math.floor(Date.now() / 1000);
+    const client = factory.getTenantDb({ tenantId: "tenant-skew" });
+    const token = await (
+      client as unknown as { accessToken: () => Promise<string> }
+    ).accessToken();
+    const afterSeconds = Math.ceil(Date.now() / 1000);
+
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode("stack-secret")
+    );
+    // PostgREST rejects `iat` more than ~30s in ITS future (PGRST303 "JWT
+    // issued at future") and offers no leeway knob, so a minter clock a few
+    // ticks ahead of the database container — a Docker VM lagging after host
+    // sleep — took down every scheduled trigger fire. The mint must sit a
+    // meaningful margin BEHIND the minting clock.
+    expect(SERVER_LANE_IAT_BACKDATE_SECONDS).toBeGreaterThanOrEqual(30);
+    expect(payload.iat).toBeLessThanOrEqual(
+      afterSeconds - SERVER_LANE_IAT_BACKDATE_SECONDS
+    );
+    expect(payload.iat).toBeGreaterThanOrEqual(
+      beforeSeconds - SERVER_LANE_IAT_BACKDATE_SECONDS
+    );
+    // The leeway widens the window backwards only: `exp` stays anchored to the
+    // real clock (10-min TTL). Deriving it from the backdated iat instead
+    // would silently shave the leeway off every token's refresh margin.
+    expect(payload.exp).toBeGreaterThanOrEqual(beforeSeconds + 600);
+    expect(payload.exp).toBeLessThanOrEqual(afterSeconds + 600);
   });
 
   it("rejects an empty tenant rather than minting an unscoped token", () => {

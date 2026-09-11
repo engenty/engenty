@@ -9,45 +9,48 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const BASE = "/mdl/tasks";
+const SPACE_ROUTE_PREFIX = "/s";
+
+function buildTasksPaths(base: string) {
+  return {
+    root: base,
+    briefing: `${base}/briefing`,
+    // The inbox is the shell's notification center now — inside a space it
+    // sits beside the module, not under it.
+    inbox: base.startsWith(`${SPACE_ROUTE_PREFIX}/`)
+      ? base.replace(/\/tasks$/, "/notifications")
+      : "/notifications",
+    list: `${base}/list`,
+    settings: `${base}/settings`,
+    operations: `${base}/operations`,
+    taskDetail: (id: string) => `${base}/${encodeURIComponent(id)}`,
+    taskEdit: (id: string) => `${base}/${encodeURIComponent(id)}/edit`,
+  };
+}
 
 // ─── Route patterns — registration only (plugin.ts) ─────────────────────────
 
 export const tasksRoutePatterns = {
   root: BASE,
   briefing: `${BASE}/briefing`,
-  inbox: `${BASE}/inbox`,
   list: `${BASE}/list`,
-  goals: `${BASE}/goals`,
-  goalDetail: `${BASE}/goals/:id`,
-  goalEdit: `${BASE}/goals/:id/edit`,
   settings: `${BASE}/settings`,
-  routines: `${BASE}/routines`,
   operations: `${BASE}/operations`,
-  routineDetail: `${BASE}/routines/:id`,
-  routineEdit: `${BASE}/routines/:id/edit`,
   taskDetail: `${BASE}/:id`,
   taskEdit: `${BASE}/:id/edit`,
 } as const;
 
 // ─── Concrete path builders — navigation / Link / breadcrumbs ────────────────
 
-export const tasksPaths = {
-  root: BASE,
-  briefing: `${BASE}/briefing`,
-  inbox: `${BASE}/inbox`,
-  list: `${BASE}/list`,
-  goals: `${BASE}/goals`,
-  goalDetail: (id: string) => `${BASE}/goals/${encodeURIComponent(id)}`,
-  goalEdit: (id: string) => `${BASE}/goals/${encodeURIComponent(id)}/edit`,
-  settings: `${BASE}/settings`,
-  routines: `${BASE}/routines`,
-  operations: `${BASE}/operations`,
-  routineDetail: (id: string) => `${BASE}/routines/${encodeURIComponent(id)}`,
-  routineEdit: (id: string) =>
-    `${BASE}/routines/${encodeURIComponent(id)}/edit`,
-  taskDetail: (id: string) => `${BASE}/${encodeURIComponent(id)}`,
-  taskEdit: (id: string) => `${BASE}/${encodeURIComponent(id)}/edit`,
-};
+export const tasksPaths = buildTasksPaths(BASE);
+
+/** Concrete Tasks paths that stay inside the current Space. */
+export function tasksPathsForSpace(spaceKey?: string | null) {
+  const key = spaceKey?.trim();
+  return key
+    ? buildTasksPaths(`${SPACE_ROUTE_PREFIX}/${encodeURIComponent(key)}/tasks`)
+    : tasksPaths;
+}
 
 // ─── Matchers — derived from BASE; no second copy of the path structure ───────
 
@@ -59,37 +62,13 @@ export function isBriefingPath(pathname: string): boolean {
   );
 }
 
-export function isRoutinesPath(pathname: string): boolean {
-  return (
-    pathname === tasksPaths.routines ||
-    pathname.startsWith(`${tasksPaths.routines}/`)
-  );
-}
-
-/** Active routine id from detail/edit URL, or null on the list route. */
-export function isRoutineDetailPath(pathname: string): string | null {
-  const match = pathname.match(
-    new RegExp(`^${BASE}/routines/([^/]+)(?:/edit)?$`)
-  );
-  const raw = match?.[1];
-  if (!raw) {
-    return null;
-  }
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
-
-export function isGoalsListPath(pathname: string): boolean {
-  return pathname === tasksPaths.goals;
-}
-
-export function isGoalDetailPath(pathname: string): string | null {
-  const match = pathname.match(new RegExp(`^${BASE}/goals/([^/]+)(?:/edit)?$`));
-  const id = match?.[1];
-  return id && UUID_PATTERN.test(id) ? id : null;
+/**
+ * The space's own home (`/s/<key>`), where this briefing is stacked under the
+ * composer. Hub cards stay on the Plan tab — Inbox and the lists already live
+ * in the space sidebar from there.
+ */
+export function isSpaceRootPath(pathname: string): boolean {
+  return /^\/s\/[^/]+\/?$/.test(pathname);
 }
 
 export function isTasksListPath(pathname: string): boolean {

@@ -9,7 +9,7 @@ import {
 
 describe("navigation", () => {
   describe("buildNavigationSections", () => {
-    it("renders copilot apps in the primary sidebar top section", () => {
+    it("leads the apps section with copilot, then global modules", () => {
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -20,6 +20,7 @@ describe("navigation", () => {
             id: "contacts_menu",
             label: "Contacts",
             pluginId: "contacts",
+            placement: "global",
             section: "modules",
             to: "/mdl/contacts",
           },
@@ -27,6 +28,7 @@ describe("navigation", () => {
         copilotApps: [
           {
             id: "engenty_copilot_app",
+            placement: "global",
             label: "Engenty Copilot",
             pluginId: "engenty-copilot",
             to: "/mdl/engenty-copilot/chat",
@@ -42,15 +44,19 @@ describe("navigation", () => {
         settingsItems: [],
       });
 
+      // The `primary` section is gone (PLAN-spaces.md Phase 5a): Today/copilot
+      // is the first item of the apps zone, not a section of its own.
+      expect(sections.map((section) => section.id)).toEqual([
+        "modules",
+        "admin",
+      ]);
       expect(sections[0]?.items.map((item) => item.to)).toEqual([
         "/mdl/engenty-copilot/chat",
-      ]);
-      expect(sections[1]?.items.map((item) => item.to)).toEqual([
         "/mdl/contacts",
       ]);
     });
 
-    it("renders projects and tasks in the primary sidebar top section", () => {
+    it("keeps space-placed modules off the rail entirely", () => {
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -61,6 +67,7 @@ describe("navigation", () => {
             id: "projects_module_menu",
             label: "Projects",
             pluginId: "projects",
+            placement: "space",
             section: "modules",
             to: "/mdl/projects",
           },
@@ -68,6 +75,7 @@ describe("navigation", () => {
             id: "tasks_module_menu",
             label: "Tasks",
             pluginId: "tasks",
+            placement: "space",
             section: "modules",
             to: "/mdl/tasks",
           },
@@ -75,6 +83,7 @@ describe("navigation", () => {
             id: "contacts_menu",
             label: "Contacts",
             pluginId: "contacts",
+            placement: "global",
             section: "modules",
             to: "/mdl/contacts",
           },
@@ -82,6 +91,54 @@ describe("navigation", () => {
         copilotApps: [
           {
             id: "engenty_copilot_app",
+            placement: "global",
+            label: "Engenty Copilot",
+            pluginId: "engenty-copilot",
+            to: "/mdl/engenty-copilot/chat",
+            icon: () => null,
+          },
+        ],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      // Tasks and Projects are reached INSIDE a space now (Tasks tab, Drive),
+      // so they are absent from the rail rather than moved within it — the
+      // filter is `placement`, not a hard-coded pair of menu ids.
+      expect(sections[0]?.items.map((item) => item.to)).toEqual([
+        "/mdl/engenty-copilot/chat",
+        "/mdl/contacts",
+      ]);
+    });
+
+    it("keeps a space-placed copilot on the rail as its home", () => {
+      // Records modules leave the rail when they move into a space. Copilot
+      // does not: `/mdl/engenty-copilot` is the personal desk, and the compact
+      // rail is how you reach it from inside a space.
+      const sections = buildNavigationSections({
+        routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
+        adminMenuItems: [
+          {
+            id: "contacts_menu",
+            label: "Contacts",
+            pluginId: "contacts",
+            placement: "global",
+            section: "modules",
+            to: "/mdl/contacts",
+          },
+        ],
+        copilotApps: [
+          {
+            id: "engenty_copilot_app",
+            placement: "space",
             label: "Engenty Copilot",
             pluginId: "engenty-copilot",
             to: "/mdl/engenty-copilot/chat",
@@ -99,12 +156,115 @@ describe("navigation", () => {
 
       expect(sections[0]?.items.map((item) => item.to)).toEqual([
         "/mdl/engenty-copilot/chat",
-        "/mdl/tasks",
-        "/mdl/projects",
-      ]);
-      expect(sections[1]?.items.map((item) => item.to)).toEqual([
         "/mdl/contacts",
       ]);
+    });
+
+    it("keeps the apps zone for Copilot when every records module lives in a space", () => {
+      // Records modules leave the rail; Copilot stays, so zone ③ is not
+      // empty on a default install. An empty section would still be dropped.
+      const sections = buildNavigationSections({
+        routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
+        adminMenuItems: [
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            placement: "space",
+            section: "modules",
+            to: "/mdl/tasks",
+          },
+        ],
+        copilotApps: [
+          {
+            id: "engenty_copilot_app",
+            placement: "space",
+            label: "Engenty Copilot",
+            pluginId: "engenty-copilot",
+            to: "/mdl/engenty-copilot/chat",
+            icon: () => null,
+          },
+        ],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      expect(sections.map((section) => section.id)).toContain("modules");
+      expect(sections[0]?.items.map((item) => item.to)).toEqual([
+        "/mdl/engenty-copilot/chat",
+      ]);
+      expect(sections.every((section) => section.items.length > 0)).toBe(true);
+    });
+
+    it("drops the apps zone when Copilot is absent and every module lives in a space", () => {
+      const sections = buildNavigationSections({
+        routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
+        adminMenuItems: [
+          {
+            id: "tasks_module_menu",
+            label: "Tasks",
+            pluginId: "tasks",
+            placement: "space",
+            section: "modules",
+            to: "/mdl/tasks",
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+
+      expect(sections.map((section) => section.id)).not.toContain("modules");
+      expect(sections.every((section) => section.items.length > 0)).toBe(true);
+    });
+
+    it("drops a module that declares no placement, and says so", () => {
+      // Absence is treated as "space" by the resolver (with a diagnostic), so a
+      // module arriving here unplaced must not fall onto the rail by default —
+      // the wrong-and-invisible outcome the plan calls out.
+      const sections = buildNavigationSections({
+        routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
+        adminMenuItems: [
+          {
+            id: "legacy_module_menu",
+            label: "Legacy",
+            pluginId: "legacy",
+            section: "modules",
+            to: "/mdl/legacy",
+          },
+        ],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      });
+      // No rail row anywhere — not an empty "Apps" zone, which is now dropped.
+      expect(
+        sections.flatMap((section) => section.items).map((item) => item.to)
+      ).not.toContain("/mdl/legacy");
     });
 
     it("applies a persisted dock module order over category defaults", () => {
@@ -116,6 +276,7 @@ describe("navigation", () => {
         adminMenuItems: [
           {
             id: "invoices_module_menu",
+            placement: "global",
             label: "Invoices",
             pluginId: "invoices",
             section: "modules",
@@ -125,6 +286,7 @@ describe("navigation", () => {
           },
           {
             id: "contacts_module_menu",
+            placement: "global",
             label: "Contacts",
             pluginId: "contacts",
             section: "modules",
@@ -134,6 +296,7 @@ describe("navigation", () => {
           },
           {
             id: "kb_menu",
+            placement: "global",
             label: "Knowledge Base",
             pluginId: "knowledge-base",
             section: "modules",
@@ -170,6 +333,7 @@ describe("navigation", () => {
         adminMenuItems: [
           {
             id: "secrets_module_menu",
+            placement: "global",
             label: "Secrets",
             pluginId: "secrets",
             section: "modules",
@@ -179,6 +343,7 @@ describe("navigation", () => {
           },
           {
             id: "team_module_menu",
+            placement: "global",
             label: "Team",
             pluginId: "team",
             section: "modules",
@@ -190,6 +355,7 @@ describe("navigation", () => {
             id: "invoices_module_menu",
             label: "Invoices",
             pluginId: "invoices",
+            placement: "global",
             section: "modules",
             category: "commercial",
             to: "/mdl/invoices",
@@ -199,6 +365,7 @@ describe("navigation", () => {
             id: "contacts_module_menu",
             label: "Contacts",
             pluginId: "contacts",
+            placement: "global",
             section: "modules",
             category: "work",
             to: "/mdl/contacts",
@@ -208,6 +375,7 @@ describe("navigation", () => {
             id: "kb_menu",
             label: "Knowledge Base",
             pluginId: "knowledge-base",
+            placement: "global",
             section: "modules",
             category: "knowledge",
             to: "/mdl/knowledge-base",
@@ -215,6 +383,7 @@ describe("navigation", () => {
           },
           {
             id: "team_chat_module_menu",
+            placement: "global",
             label: "Team Chat",
             pluginId: "team-chat",
             section: "modules",
@@ -224,6 +393,7 @@ describe("navigation", () => {
           },
           {
             id: "offers_module_menu",
+            placement: "global",
             label: "Offers",
             pluginId: "offers",
             section: "modules",
@@ -233,6 +403,7 @@ describe("navigation", () => {
           },
           {
             id: "tasks_module_menu",
+            placement: "global",
             label: "Plan",
             pluginId: "tasks",
             section: "modules",
@@ -251,8 +422,11 @@ describe("navigation", () => {
         settingsItems: [],
       });
 
-      expect(sections[0]?.items.map((item) => item.to)).toEqual(["/mdl/tasks"]);
-      expect(sections[1]?.items.map((item) => item.to)).toEqual([
+      // One section now, ordered by PLUGIN_CATEGORIES then within-category
+      // `order` — the rule is unchanged; only `primary` skimming two ids off
+      // the top is gone.
+      expect(sections[0]?.items.map((item) => item.to)).toEqual([
+        "/mdl/tasks",
         "/mdl/team-chat",
         "/mdl/invoices",
         "/mdl/offers",
@@ -287,16 +461,18 @@ describe("navigation", () => {
             to: "/admin/files",
           },
           {
-            id: "tasks_module_menu",
-            label: "Tasks",
-            pluginId: "tasks",
+            id: "inbox_module_menu",
+            label: "Inbox",
+            placement: "global" as const,
+            pluginId: "inbox",
             section: "modules" as const,
-            to: "/mdl/tasks",
+            to: "/mdl/inbox",
           },
         ],
         copilotApps: [
           {
             id: "engenty_copilot_app",
+            placement: "global" as const,
             label: "Engenty Copilot",
             pluginId: "engenty-copilot",
             to: "/mdl/engenty-copilot/chat",
@@ -317,7 +493,7 @@ describe("navigation", () => {
       });
       expect(adminSections[0]?.items.map((item) => item.to)).toEqual([
         "/mdl/engenty-copilot/chat",
-        "/mdl/tasks",
+        "/mdl/inbox",
       ]);
       expect(adminSections[0]?.items.map((item) => item.to)).not.toContain(
         "/admin/engenty"
@@ -332,6 +508,7 @@ describe("navigation", () => {
         "/admin/engenty",
         "/admin/files",
         "/settings",
+        "/setup",
       ]);
 
       const memberTop =
@@ -378,7 +555,7 @@ describe("navigation", () => {
         adminItems(
           buildNavigationSections(contributions, { isTenantAdmin: true })
         )
-      ).not.toContain("/setup");
+      ).toContain("/setup");
     });
 
     it("hides developer settings links unless developer mode is enabled", () => {
@@ -397,25 +574,26 @@ describe("navigation", () => {
         navigationPrefetch: [],
         settingsItems: [],
       };
-      const settingsChildren = (
+      const setupChildren = (
         sections: ReturnType<typeof buildNavigationSections>
       ) =>
         sections
           .flatMap((section) => section.items)
-          .find((item) => item.to === "/settings")?.children ?? [];
+          .find((item) => item.to === "/setup")?.children ?? [];
 
-      const hidden = settingsChildren(
+      const hidden = setupChildren(
         buildNavigationSections(contributions, {
           developerModeEnabled: false,
           isSuperAdmin: true,
         })
       ).map((item) => item.to);
 
-      expect(hidden).not.toContain("/settings/development");
-      expect(hidden).not.toContain("/settings/features");
-      expect(hidden).not.toContain("/settings/search-index");
+      expect(hidden).not.toContain("/setup/development");
+      expect(hidden).not.toContain("/setup/studio");
+      expect(hidden).not.toContain("/setup/features");
+      expect(hidden).not.toContain("/setup/search-index");
 
-      const visible = settingsChildren(
+      const visible = setupChildren(
         buildNavigationSections(contributions, {
           developerModeEnabled: true,
           isSuperAdmin: true,
@@ -423,24 +601,28 @@ describe("navigation", () => {
       ).map((item) => item.to);
 
       expect(visible).toEqual([
-        "/settings/appearance",
-        "/settings/ai",
-        "/settings/integration-keys",
-        "/settings/development",
-        "/settings/features",
-        "/settings/search-index",
+        "/setup/platform",
+        "/setup/plugins",
+        "/setup/roles",
+        "/setup/connectors",
+        "/setup/ai",
+        "/setup/integration-keys",
+        "/setup/development",
+        "/setup/studio",
+        "/setup/features",
+        "/setup/search-index",
       ]);
     });
 
-    it("promotes Connections into the core settings block after integration keys", () => {
+    it("promotes Connections into Setup for admins and keeps it in Settings for members", () => {
       const ConnectionsIcon = () => null;
       const InvoicesIcon = () => null;
-      const settingsChildren = (
-        sections: ReturnType<typeof buildNavigationSections>
-      ) =>
-        sections
-          .flatMap((section) => section.items)
-          .find((item) => item.to === "/settings")?.children ?? [];
+      const childrenOf =
+        (to: string) =>
+        (sections: ReturnType<typeof buildNavigationSections>) =>
+          sections
+            .flatMap((section) => section.items)
+            .find((item) => item.to === to)?.children ?? [];
 
       const contributions = {
         routes: [],
@@ -468,42 +650,95 @@ describe("navigation", () => {
             id: "connections_settings_menu",
             label: "Connections",
             pluginId: "connections",
-            to: "/settings/connections",
+            to: "/setup/connections",
             icon: ConnectionsIcon,
             requiresAdmin: false as const,
           },
         ],
       };
 
-      const adminChildren = settingsChildren(
+      const adminSettings = childrenOf("/settings")(
         buildNavigationSections(contributions, { isTenantAdmin: true })
       );
-
-      expect(adminChildren.map((item) => item.to)).toEqual([
+      expect(adminSettings.map((item) => item.to)).toEqual([
+        "/settings/spaces",
         "/settings/appearance",
-        "/settings/ai",
-        "/settings/integration-keys",
-        "/settings/connections",
+        "/settings/notifications",
         "",
         "",
         "/mdl/invoices/settings",
       ]);
       expect(
-        adminChildren.find(
+        adminSettings.find(
           (item) => item.type === "heading" && item.label.includes("commercial")
         )
       ).toBeTruthy();
+
+      const adminSetup = childrenOf("/setup")(
+        buildNavigationSections(contributions, { isTenantAdmin: true })
+      );
+      expect(adminSetup.map((item) => item.to)).toEqual([
+        "/setup/ai",
+        "/setup/integration-keys",
+        "/setup/connections",
+      ]);
       expect(
-        adminChildren.find((item) => item.to === "/settings/connections")?.icon
+        adminSetup.find((item) => item.to === "/setup/connections")?.icon
       ).toBe(ConnectionsIcon);
 
       // Members keep Connections (personal surface) without tenant admin rows.
-      const memberChildren = settingsChildren(
+      const memberChildren = childrenOf("/settings")(
         buildNavigationSections(contributions, {})
       );
       expect(memberChildren.map((item) => item.to)).toEqual([
-        "/settings/connections",
+        "/setup/connections",
       ]);
+    });
+
+    it("lists Tenant in Settings only for superadmins who can switch", () => {
+      const childrenOf = (
+        sections: ReturnType<typeof buildNavigationSections>
+      ) =>
+        sections
+          .flatMap((section) => section.items)
+          .find((item) => item.to === "/settings")?.children ?? [];
+
+      const emptyContributions = {
+        routes: [],
+        backgroundComponents: [],
+        chatCommands: [],
+        tabs: [],
+        adminMenuItems: [],
+        copilotApps: [],
+        copilotContributions: [],
+        dashboardWidgets: [],
+        developmentPanels: [],
+        i18nNamespaces: [],
+        liveBindings: [],
+        navigationPrefetch: [],
+        settingsItems: [],
+      };
+
+      const adminWithoutSwitch = childrenOf(
+        buildNavigationSections(emptyContributions, {
+          canSwitchTenant: true,
+          isTenantAdmin: true,
+        })
+      ).map((item) => item.to);
+      expect(adminWithoutSwitch).not.toContain("/settings/tenant");
+
+      const superadminWithoutSwitch = childrenOf(
+        buildNavigationSections(emptyContributions, { isSuperAdmin: true })
+      ).map((item) => item.to);
+      expect(superadminWithoutSwitch).not.toContain("/settings/tenant");
+
+      const superadminWithSwitch = childrenOf(
+        buildNavigationSections(emptyContributions, {
+          canSwitchTenant: true,
+          isSuperAdmin: true,
+        })
+      ).map((item) => item.to);
+      expect(superadminWithSwitch[0]).toBe("/settings/tenant");
     });
 
     it("inserts category headings for module settings order bands", () => {
@@ -568,19 +803,21 @@ describe("navigation", () => {
         }))
       ).toEqual([
         {
+          // Spaces (PLAN-spaces.md 3b) leads the admin block: it is the widest
+          // tenant-configuration surface, above appearance and models.
+          to: "/settings/spaces",
+          type: undefined,
+          label: "spaces.title",
+        },
+        {
           to: "/settings/appearance",
           type: undefined,
           label: "settings.appearanceTitle",
         },
         {
-          to: "/settings/ai",
+          to: "/settings/notifications",
           type: undefined,
-          label: "settings.aiModels.menuLabel",
-        },
-        {
-          to: "/settings/integration-keys",
-          type: undefined,
-          label: "settings.integrationKeys.menuLabel",
+          label: "settings.notificationStreamsTitle",
         },
         { to: "", type: "separator", label: "" },
         {
@@ -731,7 +968,7 @@ describe("navigation", () => {
         .map((item) => item.to);
       expect(adminTargets).toContain("/admin/files");
       expect(adminTargets).toContain("/settings");
-      expect(adminTargets).not.toContain("/setup");
+      expect(adminTargets).toContain("/setup");
       expect(adminTargets).not.toContain("/admin/users");
 
       const setupChildren =
@@ -744,6 +981,8 @@ describe("navigation", () => {
         "/setup/plugins",
         "/setup/roles",
         "/setup/connectors",
+        "/setup/ai",
+        "/setup/integration-keys",
       ]);
     });
   });

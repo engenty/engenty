@@ -1,6 +1,7 @@
 export {
   ENGENTY_CORE_KINDS,
   ENGENTY_FILL,
+  ENGENTY_KIND_FILL,
   ENGENTY_KINDS,
   type EngentyKind,
 } from "./colors";

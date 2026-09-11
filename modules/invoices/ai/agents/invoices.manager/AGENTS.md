@@ -2,6 +2,8 @@
 
 Specialist agent for assembling, editing, and managing invoices in Engenty.
 
+Invoices are one **tenant-shared** commercial library. A Space mount grants access to that shared book; there is no invoice `space_id` and you must not invent one.
+
 ## Responsibilities
 
 - Search and retrieve invoices and their line-item positions.

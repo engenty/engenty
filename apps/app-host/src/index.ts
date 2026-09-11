@@ -4,6 +4,7 @@ import { loadWorkspaceDotEnvIntoProcess } from "@engenty/environment/env";
 import { createLogger } from "@engenty/telemetry";
 import { serve } from "@hono/node-server";
 import { createAppHost } from "./app.js";
+import { AppStore } from "./app-store.js";
 import { loadAppHostConfig } from "./config.js";
 import { AppRuntime } from "./runtime.js";
 
@@ -17,10 +18,14 @@ const logger = createLogger({ name: "apps/app-host" });
 
 function main(): void {
   const config = loadAppHostConfig();
-  const runtime = new AppRuntime(config);
+  const store = new AppStore({
+    maxSourceBytes: config.maxSourceBytes,
+    spacesDir: config.spacesDir,
+  });
+  const runtime = new AppRuntime(config, store);
   runtime.start();
 
-  const app = createAppHost({ config, runtime });
+  const app = createAppHost({ config, runtime, store });
 
   serve(
     { fetch: app.fetch, hostname: config.hostname, port: config.port },
@@ -29,6 +34,7 @@ function main(): void {
         authenticated: Boolean(config.internalToken),
         bindUrl: `http://${config.hostname}:${info.port}`,
         perAppNamespace: config.perAppNamespace,
+        spacesDir: config.spacesDir,
       });
     }
   );

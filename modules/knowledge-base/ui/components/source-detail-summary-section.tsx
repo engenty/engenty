@@ -107,7 +107,7 @@ export function SourceDetailSummarySection({
   }, [runPending]);
 
   return (
-    <div className="ui-canvas-panel overflow-hidden rounded-lg border-0 bg-card">
+    <div className="ui-card-panel overflow-hidden">
       {/* Indeterminate progress bar while run is in-flight */}
       <div
         className={cn(

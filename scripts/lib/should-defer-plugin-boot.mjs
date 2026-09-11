@@ -16,6 +16,7 @@ export function shouldDeferPluginBoot(argv) {
     command === "setup" ||
     command === "init" ||
     command === "db" ||
+    command === "doctor" ||
     command === "plugins"
   ) {
     return true;

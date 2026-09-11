@@ -654,7 +654,7 @@ The connections framework already has everything except the Slack stream:
 - **Outbound** (team-chat → Slack): a bridge service in team-chat consumes our own
   Slack-shaped module events (`message` posted/changed/deleted, `reaction_added`, …)
   for conversations whose `external.slack` binding is set, and replays them via
-  `createConnectionsModuleClient(...).callAction({connectorId:"slack", actionId:
+  `createConnectionsModuleClient(...).callAction({connectorId:"slack", workflowId:
   "post_message" | "update_message" | "add_reaction", ...})` — the connector already
   ships these actions with `thread_ts` support; policy/approval/audit apply for free.
   mrkdwn/markdown + mention-id translation happens here (§2.3), using the id maps in

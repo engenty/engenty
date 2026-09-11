@@ -3,10 +3,7 @@
  */
 
 import { readAiGatewayApiKeyFromEnv } from "@engenty/ai-core";
-import {
-  fileStorageTenantObjectKey,
-  guessFileStorageMimeFromFilename,
-} from "@engenty/file-storage";
+import { guessFileStorageMimeFromFilename } from "@engenty/file-storage";
 import type {
   PluginAuthContext,
   PluginHttpRouteContext,
@@ -17,6 +14,11 @@ import { createLogger } from "@engenty/telemetry";
 import { generateImage } from "ai";
 import { z } from "zod";
 import type { KbRepoFactory } from "../dal/contracts.js";
+import {
+  isKbStorageKey,
+  type KbStorageOwner,
+  kbStorageKey,
+} from "../lib/kb-storage-key.js";
 import type {
   KbCover,
   KbCoverImageSourceUnsplash,
@@ -51,32 +53,14 @@ function notConfigured(msg: string) {
   return bad(msg, 503);
 }
 
-function objectKeyAllowedForKb(
-  tenantId: string,
-  kb: { id: string; slug: string },
-  key: string
-): boolean {
-  const slug = kb.slug?.trim() || kb.id;
-  const prefix = fileStorageTenantObjectKey(tenantId, "knowledge-base", slug);
-  return key.startsWith(`${prefix}/`);
-}
-
 async function uploadCoverBytes(
   storage: StorageService,
-  tenantId: string,
-  kb: { id: string; slug: string },
+  kb: KbStorageOwner,
   bytes: Uint8Array,
   filenameHint: string
 ): Promise<{ key: string; contentType: string }> {
   const safe = filenameHint.replace(/[^a-zA-Z0-9._-]/g, "_") || "cover.png";
-  const slug = kb.slug?.trim() || kb.id;
-  const key = fileStorageTenantObjectKey(
-    tenantId,
-    "knowledge-base",
-    slug,
-    "covers",
-    `${Date.now()}_${safe}`
-  );
+  const key = kbStorageKey(kb, "covers", `${Date.now()}_${safe}`);
   const contentType = guessFileStorageMimeFromFilename(safe);
   await storage.upload(key, bytes, { contentType, upsert: true });
   return { key, contentType };
@@ -224,7 +208,6 @@ export function registerKbCoverMediaRoutes(
         : "jpg";
       const { key } = await uploadCoverBytes(
         storage,
-        ctx.auth.tenantId,
         kb,
         buf,
         `unsplash_${body.photo_id}.${ext}`
@@ -277,7 +260,7 @@ export function registerKbCoverMediaRoutes(
         if (!refKey) {
           return bad("reference_object_key required for edit mode");
         }
-        if (!objectKeyAllowedForKb(tenantId, kb, refKey)) {
+        if (!isKbStorageKey(kb, refKey)) {
           return bad(
             "Invalid reference_object_key for this knowledge base",
             403
@@ -319,7 +302,6 @@ export function registerKbCoverMediaRoutes(
         }
         const { key } = await uploadCoverBytes(
           storage,
-          tenantId,
           kb,
           bytes,
           `ai_cover_${Date.now()}.png`

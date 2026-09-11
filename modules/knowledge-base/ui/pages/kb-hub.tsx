@@ -1,7 +1,7 @@
 /**
  * Knowledge base home — article dashboard with hybrid search.
  * Typing 3+ words morphs the search field into a chat composer;
- * submitting navigates to /kb/:slug/chat?q=…&chat_kb=… for a full session.
+ * submitting navigates to /mdl/knowledge-base/chat?q=… for a full session.
  */
 
 import {
@@ -10,30 +10,28 @@ import {
   PromptInputProvider,
 } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   Button,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
-import { useCanAdministerTenant, usePageConfig } from "@engenty/ui-plugin-sdk";
-import { ArrowRight, BookOpen, Eye, Pencil } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+  useCanAdministerTenant,
+  usePageConfig,
+  useWorkspaceContext,
+} from "@engenty/ui-plugin-sdk";
+import { BookOpen, Eye, Pencil, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   KB_HUB_PAGE_LAYOUT_DEFAULTS,
   type KbPageLayoutSettings,
 } from "../../src/schema/page-blocks.js";
 import type { KbCover } from "../../src/schema/types.js";
-import { listCategories } from "../api.js";
-import type { KbChatScopeValue } from "../components/kb-chat-kb-scope-control.js";
-import { KbChatKbScopeControl } from "../components/kb-chat-kb-scope-control.js";
+import { setUpSpaceKnowledgeBase } from "../api/knowledge-bases.js";
 import { KbHubCover } from "../components/kb-hub-cover.js";
 import { KbHubKbHeaderInline } from "../components/kb-hub-kb-header-inline.js";
 import { KbHubSearchCombobox } from "../components/kb-hub-search-combobox.js";
@@ -44,41 +42,27 @@ import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-s
 import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
-  KB_MODULE_BASE,
   kbArticlePath,
   kbArticlesListPath,
-  kbCategoryPath,
   kbHubChatPath,
   kbHubEditPath,
   kbHubPath,
-  searchStringWithoutKbId,
 } from "../kb-paths.js";
 import {
-  kbFlatRowLinkClass,
-  kbFlatRowTitleClass,
-  kbHubOverviewCardClassName,
-} from "../lib/kb-flat-list-styles.js";
-import { listTopLevelCategories } from "../lib/kb-hub-top-level-categories.js";
-import {
   KB_HUB_HERO_SEARCH_HEIGHT_PX,
-  kbHubSectionHeadingClassName,
   kbModuleHubContentInnerClassName,
   kbModulePageScrollAreaShellSectionClassName,
   kbModulePageShellSectionClassName,
 } from "../lib/kb-page-shell.js";
+import { KB_LIST_KEY_PREFIX } from "../queries/knowledge-bases.js";
 import {
   categoriesQueryOptions,
   kbDetailQueryOptions,
   kbSettingsQueryOptions,
-  kbsQueryOptions,
+  useKbsQuery,
   useUpdateKbPageLayoutMutation,
 } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const SEARCH_H = KB_HUB_HERO_SEARCH_HEIGHT_PX;
 /** px height of the expanded chat card (dock composer + footer tools). */
@@ -91,11 +75,27 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   const { t } = useTranslation("kb");
   const { t: tc } = useTranslation("common");
   const canAdministerTenant = useCanAdministerTenant();
+  const { currentSpace } = useWorkspaceContext();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
+  const setupMut = useMutation({
+    mutationFn: () => setUpSpaceKnowledgeBase(currentSpace?.id ?? ""),
+    onSuccess: ({ mounted }) => {
+      queryClient.invalidateQueries({ queryKey: KB_LIST_KEY_PREFIX });
+      queryClient.invalidateQueries({ queryKey: ["kb", "knowledge-bases"] });
+      const kb = mounted.find((entry) => entry.module_id === "knowledge-base");
+      if (kb?.error) {
+        toast.error(kb.error);
+      } else if (kb?.needs.includes("ai_gateway")) {
+        toast.warning(t("hub.setup_needs_ai_gateway"));
+      } else {
+        toast.success(t("hub.setup_done"));
+      }
+    },
+    onError: (err) => toast.error(err.message),
+  });
   const [searchParams] = useSearchParams();
   const [searchText, setSearchText] = useState("");
-  const [hubChatKbScope, setHubChatKbScope] = useState<KbChatScopeValue>("");
   const [coverOverride, setCoverOverride] = useState<{
     cover: KbCover | null;
     kbId: string;
@@ -103,47 +103,20 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   const composerSurfaceRef = useRef<HTMLDivElement>(null);
   const prevChatMode = useRef(false);
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
 
-  const kbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId), [kbs, kbId]);
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const { data: kbDetail } = useQuery({
     ...kbDetailQueryOptions(kbId),
   });
-
-  useEffect(() => {
-    if (kbsLoading || kbs.length === 0) {
-      return;
-    }
-    const rest = searchStringWithoutKbId(searchParams);
-    if (kbSlugParam?.trim() && !kbIdFromSlug(kbs, kbSlugParam)) {
-      navigate(`${KB_MODULE_BASE}${rest}`, { replace: true });
-      return;
-    }
-    // Stay on `/mdl/knowledge-base` (module root) — do not redirect a single KB
-    // into `/kb/:slug` so the shell module icon and module home stay addressable.
-  }, [kbsLoading, kbs, kbSlugParam, searchParams, navigate]);
 
   const wordCount = useMemo(
     () => searchText.trim().split(/\s+/).filter(Boolean).length,
     [searchText]
   );
   const chatMode = wordCount >= 3;
-
-  useEffect(() => {
-    if (kbId) {
-      setHubChatKbScope(kbId);
-    }
-  }, [kbId]);
 
   const hubStarterPrompts = useMemo(
     () => [
@@ -191,23 +164,20 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   const submitToChat = useCallback(
     (messageText: string) => {
       const q = messageText.trim();
-      if (!(q && kbSlug)) {
+      if (!q) {
         return;
       }
       const params = new URLSearchParams();
       params.set("q", q);
-      const scope = hubChatKbScope === "" ? kbId : hubChatKbScope;
-      params.set("chat_kb", scope === "all" ? "all" : scope);
       // Fresh client + server session per hub launch (stable chat store id would otherwise reuse).
       params.set("hub_run", crypto.randomUUID());
-      navigate(`${kbHubChatPath(kbSlug)}?${params.toString()}`);
+      navigate(`${kbHubChatPath()}?${params.toString()}`);
     },
-    [hubChatKbScope, kbId, kbSlug, navigate]
+    [kbId, navigate]
   );
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug ?? "",
   });
 
   const activeKbBase = useMemo(() => {
@@ -233,29 +203,27 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
 
   const breadcrumbs = useMemo(() => {
     const root = kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : [];
-    if (!(isEditMode && kbSlug)) {
+    if (!isEditMode) {
       return root;
     }
     return [
       ...root.map((crumb) =>
-        crumb.to ? crumb : { ...crumb, to: kbHubPath(kbSlug) }
+        crumb.to ? crumb : { ...crumb, to: kbHubPath() }
       ),
       { label: t("category.actions.edit") },
     ];
-  }, [isEditMode, kbShellNav.kbRootCrumb, kbSlug, t]);
+  }, [isEditMode, kbShellNav.kbRootCrumb, t]);
 
   const pageActions = useMemo(() => {
-    if (!kbSlug || kbsLoading || !activeKbBase) {
-      return kbSlug && !kbsLoading ? (
-        <KbModuleShellActions kbSlug={kbSlug} />
-      ) : null;
+    if (kbsLoading || !activeKbBase) {
+      return kbsLoading ? null : <KbModuleShellActions />;
     }
     if (isEditMode) {
       return (
         <div className="flex items-center gap-1">
           <Button
             className={topbarIconButtonClassName}
-            onClick={() => navigate(kbHubPath(kbSlug))}
+            onClick={() => navigate(kbHubPath())}
             size="sm"
             type="button"
             variant="ghost"
@@ -263,7 +231,7 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
             <Eye aria-hidden className="h-4 w-4" />
             <TopbarActionLabel>{t("category.actions.view")}</TopbarActionLabel>
           </Button>
-          <KbModuleShellActions hideKbSettings kbSlug={kbSlug} />
+          <KbModuleShellActions hideKbSettings />
         </div>
       );
     }
@@ -272,20 +240,19 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
         <Button
           aria-label={t("category.actions.edit")}
           className={topbarIconButtonClassName}
-          onClick={() => navigate(kbHubEditPath(kbSlug))}
+          onClick={() => navigate(kbHubEditPath())}
           size="sm"
           type="button"
           variant="ghost"
         >
           <Pencil aria-hidden className="h-4 w-4" />
         </Button>
-        <KbModuleShellActions hideKbSettings kbSlug={kbSlug} />
+        <KbModuleShellActions hideKbSettings />
       </div>
     );
-  }, [activeKbBase, isEditMode, kbSlug, kbsLoading, navigate, t]);
+  }, [activeKbBase, isEditMode, kbsLoading, navigate, t]);
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
     contentStackBackground: "paper",
     actions: pageActions,
@@ -310,32 +277,6 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
 
   const { data: categoryRows = [] } = useQuery(categoriesQueryOptions(kbId));
 
-  const kbCardsData = useQuery({
-    queryKey: ["kb", "hub", "kb-cards", kbs.map((k) => k.id).join(",")],
-    enabled: kbs.length > 1,
-    queryFn: async () => {
-      const out: Array<{
-        categories: { name: string; slug: string }[];
-        id: string;
-        name: string;
-        slug: string;
-      }> = [];
-      for (const kb of kbs.slice(0, 12)) {
-        const categories = await listCategories(kb.id);
-        out.push({
-          id: kb.id,
-          name: kb.name,
-          slug: kb.slug,
-          categories: listTopLevelCategories(categories, 4).map((c) => ({
-            name: c.name,
-            slug: c.slug,
-          })),
-        });
-      }
-      return out;
-    },
-  });
-
   if (kbsLoading) {
     return (
       <section className={kbModulePageShellSectionClassName}>
@@ -346,6 +287,9 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   }
 
   if (kbs.length === 0) {
+    // The library is created when the module is mounted (kb_space_mount).
+    // Reaching this state means that setup did not finish; re-adding the
+    // module is the retry, offered only to someone who can act on it.
     return (
       <section
         className={`${kbModulePageShellSectionClassName} items-center justify-center text-center`}
@@ -359,30 +303,19 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
               : t("hub.empty_no_permission")}
           </p>
         </div>
-        {/* Creating a knowledge base lives on /settings/knowledge-base, which
-            the router treats as admin-only and redirects away from silently.
-            Offering the button to a member sent them to the copilot chat with
-            no explanation, so only show it to someone who can act on it. */}
-        {canAdministerTenant ? (
-          <Button asChild>
-            <Link to="/settings/knowledge-base">{t("hub.empty_cta")}</Link>
+        {canAdministerTenant && currentSpace ? (
+          <Button
+            disabled={setupMut.isPending}
+            onClick={() => setupMut.mutate()}
+            type="button"
+          >
+            <Plus className="mr-1.5 size-4" />
+            {setupMut.isPending ? t("actions.saving") : t("hub.empty_cta")}
           </Button>
         ) : null}
       </section>
     );
   }
-
-  if (!(kbId && kbSlug)) {
-    return (
-      <section className={kbModulePageShellSectionClassName}>
-        <Skeleton className="h-10 w-full max-w-xl" />
-        <Skeleton className="mt-4 h-40 w-full" />
-      </section>
-    );
-  }
-
-  const multiKb = kbs.length > 1;
-  const showMultiKbCards = multiKb && !kbSlugParam;
 
   return (
     <section className={kbModulePageScrollAreaShellSectionClassName}>
@@ -442,17 +375,13 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
               }}
             >
               <KbHubSearchCombobox
-                kbId={showMultiKbCards ? undefined : kbId}
-                kbIds={showMultiKbCards ? kbs.map((k) => k.id) : undefined}
-                onOpenArticle={(articleId, articleKbId) => {
-                  const targetKbSlug = articleKbId
-                    ? (slugFromKbId(kbs, articleKbId) ?? kbSlug)
-                    : kbSlug;
-                  navigate(kbArticlePath(targetKbSlug, articleId));
+                kbId={kbId}
+                onOpenArticle={(articleId) => {
+                  navigate(kbArticlePath(articleId));
                 }}
                 onSeeAll={(q) =>
                   navigate(
-                    `${kbArticlesListPath(kbSlug)}?search=${encodeURIComponent(q)}`
+                    `${kbArticlesListPath()}?search=${encodeURIComponent(q)}`
                   )
                 }
                 onValueChange={setSearchText}
@@ -474,14 +403,6 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
                 <div className={COPILOT_DOCK_COMPOSER_CARD_CLASS}>
                   <CopilotComposerSection
                     compact
-                    compactLeadingControl={
-                      <KbChatKbScopeControl
-                        kbs={kbs}
-                        kbsLoading={kbsLoading}
-                        onKbChange={setHubChatKbScope}
-                        selected={hubChatKbScope === "" ? kbId : hubChatKbScope}
-                      />
-                    }
                     composerPlaceholder={tc("copilot.typeMessage")}
                     draft={searchText}
                     setDraft={setSearchText}
@@ -521,66 +442,10 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
             </div>
           ) : null}
 
-          {showMultiKbCards ? (
-            <section className="space-y-3">
-              <h2 className={kbHubSectionHeadingClassName}>
-                {t("hub.your_kbs")}
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {kbCardsData.isLoading
-                  ? Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton className="h-28 w-full rounded-lg" key={i} />
-                    ))
-                  : (kbCardsData.data ?? []).map((row) => {
-                      const rowKb = kbs.find((k) => k.id === row.id);
-                      const rowTitle = rowKb
-                        ? kbDisplayName(rowKb, t)
-                        : row.name;
-                      return (
-                        <div
-                          className={kbHubOverviewCardClassName}
-                          key={row.id}
-                        >
-                          <p className="font-medium text-foreground text-sm">
-                            {rowTitle}
-                          </p>
-                          {row.categories.length > 0 ? (
-                            <ul className="divide-y divide-border/50">
-                              {row.categories.map((c) => (
-                                <li key={c.slug}>
-                                  <Link
-                                    className={kbFlatRowLinkClass}
-                                    to={kbCategoryPath(row.slug, c.slug)}
-                                  >
-                                    <span className={kbFlatRowTitleClass}>
-                                      {c.name}
-                                    </span>
-                                  </Link>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          <Button
-                            asChild
-                            className="h-8 px-0"
-                            size="sm"
-                            variant="link"
-                          >
-                            <Link to={kbHubPath(row.slug)}>
-                              {t("hub.open_kb")}
-                              <ArrowRight className="ml-1 h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </div>
-                      );
-                    })}
-              </div>
-            </section>
-          ) : activeKb ? (
+          {activeKb ? (
             <KbPageBlocksEditor
               categories={categoryRows}
               isEditMode={isEditMode}
-              kbSlug={kbSlug}
               layout={hubPageLayout}
               onLayoutChange={(next) => pageLayoutMutation.mutate(next)}
               target={{ kind: "hub", kb: activeKb }}

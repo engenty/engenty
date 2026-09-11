@@ -3,7 +3,10 @@ import type {
   AgentRunStore,
   CreateAgentRunInput,
 } from "../../dal/threads/agent-run-store.js";
-import type { AgentRunStatus } from "../../dal/threads/types.js";
+import type {
+  AgentRunStatus,
+  AgentRunTrigger,
+} from "../../dal/threads/types.js";
 import { markRunDone, publishRunEvent } from "./run-event-bus.js";
 
 /** Persist `ai.agent_run` before task checkout or other FK consumers. */
@@ -64,11 +67,14 @@ export interface SessionRunTracker {
 export function createSessionRunTracker(params: {
   agentId: string;
   createdByUserId: string | null;
+  metadata?: Record<string, unknown>;
   modelId?: string | null;
   runId: string;
   runStore: AgentRunStore | null;
   threadId: string;
   tenantId: string;
+  /** How this run started — recorded on the row, never guessed by a reader. */
+  trigger?: AgentRunTrigger | null;
 }): SessionRunTracker {
   let seq = 0;
   let finished = false;
@@ -90,8 +96,17 @@ export function createSessionRunTracker(params: {
     agentId: params.agentId,
     modelId: params.modelId ?? null,
     createdByUserId: params.createdByUserId,
+    ...(params.metadata ? { metadata: params.metadata } : {}),
+    trigger: params.trigger ?? null,
   });
 
+  // Durable tracking is telemetry riding alongside a run that is already
+  // streaming to the client. Every caller fires it as `void tracker.append(…)`,
+  // so a throw here surfaces as an unhandled rejection rather than failing
+  // anything useful — a flapping database would take the process's error
+  // channel with it while the run itself was fine. Swallow, count, and report
+  // once per run so the loss is visible without drowning the log.
+  let persistFailures = 0;
   const persistEvent = async (
     eventType: string,
     payload: Record<string, unknown>,
@@ -100,15 +115,25 @@ export function createSessionRunTracker(params: {
     if (!params.runStore) {
       return;
     }
-    await ensureStarted;
-    await params.runStore.appendRunEvent({
-      runId: params.runId,
-      tenantId: params.tenantId,
-      threadId: params.threadId,
-      seq: eventSeq,
-      eventType,
-      payload,
-    });
+    try {
+      await ensureStarted;
+      await params.runStore.appendRunEvent({
+        runId: params.runId,
+        tenantId: params.tenantId,
+        threadId: params.threadId,
+        seq: eventSeq,
+        eventType,
+        payload,
+      });
+    } catch (error) {
+      persistFailures += 1;
+      if (persistFailures === 1) {
+        console.warn(
+          `[run-tracking ${params.runId}] run-event persist failed; replay for this run is incomplete. Further failures are counted, not logged:`,
+          error
+        );
+      }
+    }
   };
 
   const flushTextBuf = async () => {

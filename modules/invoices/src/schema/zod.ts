@@ -74,6 +74,8 @@ const invoiceCommercialShape = {
 } as const;
 
 export const invoiceSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   id: z.string(),
   number: z.string(),
   date: z.string(),
@@ -85,6 +87,9 @@ export const invoiceSchema = z.object({
   clientId: z.string().optional(),
   recipientSnapshot: invoiceRecipientSnapshotSchema.optional(),
   createdAt: z.string(),
+  // Declared here or the operation's output schema strips it, and every caller
+  // — including the space Data adapter's version check — sees `undefined`.
+  updatedAt: z.string(),
   ...invoiceCommercialShape,
 });
 

@@ -18,6 +18,7 @@ import {
 import { contactsProfilePolicy } from "./policies.js";
 import { contactCreateInputSchema } from "./schema/zod.js";
 import { applyResolvedPersonNameToContactInput } from "./services/contact-input.js";
+import { createContactsSpaceDataAdapter } from "./space-data/adapter.js";
 
 type ContactEntityPayload = EntityEventPayload<"contact_id">;
 
@@ -108,6 +109,11 @@ const registerContactsPlugin: EngentyPluginFactory = (engenty) => {
     },
   ]);
   server.registerProfilePolicy(contactsProfilePolicy);
+  // The module's face in the space Data tree (PLAN-space-data.md D2). Its
+  // reads and writes are `contacts_list`/`contacts_get`/`contacts_update` under
+  // the caller's own principal — a projection, not a second data path — and the
+  // root only appears in spaces where contacts is mounted.
+  server.registerSpaceDataAdapter?.(createContactsSpaceDataAdapter());
 
   const CONTACTS_SCHEMA_DESCRIPTION = `Contact create schema (use snake_case). REQUIRED: display_name (string), type ("organisation" or "person").
 Optional (string or null unless noted): legal_name, contact_name, email, billing_email, phone, address_street, address_zip, address_city, address_country, address_info, tax_id, registration_number, court_of_registration, legal_form, website_contact, website_impress, logo_url, reference_id, notes. Optional: created_by (string, UUID). Optional: roles (array of lowercase role slugs, e.g. "client", "partner", "supplier", "team").

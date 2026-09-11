@@ -40,8 +40,27 @@ the **provider** that made them — Anthropic is a provider, and the gateway is
 whoever you reach it through. The catalog stores both, so the same model served
 by two gateways is two rows with their own pricing and availability.
 
-Vercel AI Gateway ships as the default. Additional gateways are added by
-registering an adapter; see the developer guide.
+Two gateways ship built in:
+
+| Gateway | Key | Serves |
+| --- | --- | --- |
+| **Vercel AI Gateway** | `AI_GATEWAY_API_KEY` | Chat, embeddings, images, transcription. The default. |
+| **OpenRouter** | `OPENROUTER_API_KEY` | Chat models only. |
+
+Set both keys if you want both catalogs. They are independent — a role bound to
+OpenRouter and a role bound to Vercel run side by side, and leaving
+`OPENROUTER_API_KEY` unset simply means every role stays on Vercel.
+
+OpenRouter serves no embedding, reranking, or transcription models, so search
+indexing, retrieval, and voice always go through Vercel regardless of how chat
+roles are bound.
+
+The OpenRouter catalog is listed without a key, so you can browse and compare
+prices before deciding to sign up. A role bound to a gateway with no key fails
+with a message naming the missing variable, rather than quietly falling back to
+the other gateway and billing you somewhere you did not expect.
+
+Further gateways are added by registering an adapter; see the developer guide.
 
 ## What each plan includes
 
@@ -79,9 +98,13 @@ Effort levels and specialist jobs (routing, safeguards, research, planning) are
 each bound to a model. Bindings are created automatically on first start from
 the installation's defaults, and are not reset afterwards.
 
-Bindings are currently configured at the database level; there is no admin
-screen for them yet. Everything else on this page is managed through the
-Manage app.
+Change them at **Manage → Settings → AI models → Bindings**. Each row picks one
+catalog entry, and because the catalog carries the gateway, picking the row *is*
+picking the gateway — an `openai/gpt-4o` served by OpenRouter and the same model
+served by Vercel are two separate options, each showing its own price.
+
+Binding a role to a gateway whose key is not set will fail that role's calls, so
+set the key first.
 
 ## Tenant settings
 

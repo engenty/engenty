@@ -25,7 +25,6 @@ const inboxMessageStatusSchema = z.enum(["new", "read", "archived"]);
 function defineInboxAi(options: InboxAiOptions) {
   const invoke = options.invokeInboxOperation;
   return defineModuleAi({
-    agentDefinitions: () => [],
     dir: import.meta.url,
     moduleId: "inbox",
     tools: {

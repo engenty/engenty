@@ -139,7 +139,7 @@ function LineItemRow({
   const amountless = item.subtype === "text" || item.unit === "text";
   const isFixed = item.unit === "fixed";
   return (
-    <div className="flex items-baseline justify-between gap-4 border-border/50 border-b py-2 last:border-b-0">
+    <div className="flex items-baseline justify-between gap-4 border-border-soft border-b py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
         <div className="text-foreground text-sm">{item.title}</div>
         {item.description ? (

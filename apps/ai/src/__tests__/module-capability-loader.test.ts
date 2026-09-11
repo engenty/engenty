@@ -102,28 +102,44 @@ describe("module capability loader", () => {
                     name: "Leads Manager",
                     skillIds: [],
                     source: "module",
+                    starters: [
+                      {
+                        id: "leads-triage",
+                        label: "Triage new leads",
+                        prompt:
+                          "Show me the leads that came in today and rank them.",
+                      },
+                    ],
                     toolIds: ["leads_get"],
                   },
                 ],
-                actions: [
+                workflows: [
                   {
-                    agent_id: "leads.manager",
-                    default_thread_mode: "new",
+                    definition: {
+                      graph: [
+                        { id: "run", toolId: "run_specialist", type: "tool" },
+                      ],
+                      id: "leads.briefing",
+                      inputSchema: { type: "object", properties: {} },
+                      outputSchema: {},
+                    },
                     id: "leads.briefing",
-                    input_schema_json: { type: "object", properties: {} },
                     module_id: "leads",
                     name: "Lead briefing",
-                    prompt: "Prepare a lead briefing.",
+                    owner_agent_id: "leads.manager",
                   },
                 ],
                 routines: [
                   {
+                    agent_id: "leads.manager",
+                    cron: "0 7 * * *",
                     enabled_by_default: true,
                     id: "leads.daily-digest",
+                    kind: "schedule",
                     module_id: "leads",
                     name: "Daily leads digest",
-                    schedule: "0 7 * * *",
-                    target: { agent_id: "leads.manager", kind: "agent_prompt" },
+                    scope: "space",
+                    workflow: "leads.briefing",
                   },
                 ],
               },
@@ -163,9 +179,17 @@ describe("module capability loader", () => {
     );
 
     expect(leadsCapability?.agentConfigs?.[0]?.id).toBe("leads.manager");
+    // The seed is a hand-picked shape — starters must survive the crossing.
+    expect(leadsCapability?.agentConfigs?.[0]?.starters).toEqual([
+      {
+        id: "leads-triage",
+        label: "Triage new leads",
+        prompt: "Show me the leads that came in today and rank them.",
+      },
+    ]);
     expect(leadsCapability?.tools).toHaveProperty("leads_get");
     expect(leadsCapability?.tools).toHaveProperty("leads_list");
-    expect(leadsCapability?.actions?.map((action) => action.id)).toEqual([
+    expect(leadsCapability?.workflows?.map((action) => action.id)).toEqual([
       "leads.briefing",
     ]);
     expect(leadsCapability?.routines?.map((routine) => routine.id)).toEqual([

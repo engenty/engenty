@@ -195,7 +195,7 @@ Replace with **apps/ai** harness tests or module **registrar** tests only if cov
 |---------|------------|
 | Fumadocs still describe orchestrator as live | Phase E doc pass |
 | `docs/content/wip/dynamic-agents/phase-3-supervisor.md` checkbox mentions inbound-router blocked on `runChatRuntime` | Update checkbox — blocker cleared 2026-05-28 |
-| Heartbeat automation doc references `runOrchestrator` | Point to `apps/ai` `ai.action_request` queue |
+| Heartbeat automation doc references `runOrchestrator` | Point to `apps/ai` `ai.workflow_run` queue |
 
 ### Test migration notes
 

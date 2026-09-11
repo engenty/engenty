@@ -13,7 +13,7 @@ describe("pdfTemplatesAiRegistration", () => {
       "pdf-templates-create-and-edit",
       "pdf-templates-markup-reference",
     ]);
-    expect(registration.agents ?? []).toEqual([]);
+    expect(registration.dynamic?.agent_configs ?? []).toEqual([]);
     expect(registration.module_id).toBe("pdf-templates");
   });
 

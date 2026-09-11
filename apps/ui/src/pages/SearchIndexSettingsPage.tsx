@@ -36,7 +36,6 @@ export function SearchIndexSettingsPage() {
 
   usePageConfig({
     breadcrumbs,
-    topbarChrome: "contentBlend",
     secondaryNavHeaderSlot,
   });
 

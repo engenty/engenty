@@ -272,10 +272,6 @@
     "pauseRun": "Pause",
     "resumeRun": "Resume",
     "discardRun": "Cancel run",
-    "testSayCharlie": "Test: Say Charlie",
-    "testSayCharlieRunning": "Running…",
-    "testSayCharliePaused": "Paused",
-    "testSayCharlieTickerWaiting": "Starting…",
     "searchContacts": "Search contacts",
     "triggerHeadless": "Quick Enhance",
     "triggerHeadlessTooltip": "Runs the compact action-button flow: a local popover on desktop, a dialog on narrow screens, with streaming tool rows and inline suggested updates.",
@@ -400,9 +396,23 @@
     "role": "Role",
     "searchPeople": "Search people"
   },
-  "agentNotes": {
-    "title": "Agent notes",
-    "archive": "Archive",
-    "agentFallback": "agent"
+  "spaceData": {
+    "tab": "Contact",
+    "folder": {
+      "empty": "No contacts here yet.",
+      "noResults": "No matching contacts",
+      "noResultsHint": "Try a different search.",
+      "clearSearch": "Clear search",
+      "searchPlaceholder": "Search contacts…",
+      "sortBy": "Sort by",
+      "summary": "{{count}}",
+      "tab": "Contacts",
+      "truncated": "Showing the first page only."
+    },
+    "root": {
+      "People": "People",
+      "Organisations": "Organisations",
+      "everything": "Everyone, as one table"
+    }
   }
 }

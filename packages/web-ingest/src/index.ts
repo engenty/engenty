@@ -46,6 +46,10 @@ export {
   createHtmlToMarkdownService,
   htmlToMarkdown,
 } from "./lib/html-to-markdown.js";
+export {
+  chunkMarkdownIntoSections,
+  MARKDOWN_SECTION_TARGET_CHARS,
+} from "./lib/markdown-section-chunk.js";
 export { stripCookieConsentFromMarkdown } from "./lib/markdown-strip-cookie-consent.js";
 export {
   cleanPageTitle,

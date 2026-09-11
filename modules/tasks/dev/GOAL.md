@@ -2,13 +2,18 @@
 
 **Status:** implemented (2026-05); optional tails in [PLAN.md](./PLAN.md#handover-status-2026-05-23)  
 **Module:** `modules/tasks` (`@engenty/tasks`)  
-**Product line:** *Manage business goals — not pull requests.*
+**Product line:** *Manage business work — not pull requests.*
+
+> **2026-09:** the Goals (Ziele) feature was dropped. `module_tasks.goals`, `tasks.goal_id`
+> and every Goal route, operation and screen are gone; project phases
+> (`task_contexts.metadata.phase_id`) carry planning structure now. Passages below are
+> kept as the historical record of what was built.
 
 ---
 
 ## North star
 
-Engenty needs a **stable work artefact** that humans and agents share: the **Task** (Aufgabe). Strategic context lives in **Goals** (Ziele). Everything else — project phases, copilot runs, vault files, inbox items — **links to** tasks; it does not own them.
+Engenty needs a **stable work artefact** that humans and agents share: the **Task** (Aufgabe). Everything else — project phases, copilot runs, vault files, inbox items — **links to** tasks; it does not own them.
 
 Paperclip proved the pattern: long-running agents need durable tasks with lifecycle, checkout, and traceable “why.” Engenty’s difference: **human ↔ agent collaboration** on the same row, not an agent-only control plane with humans as “the board.”
 
@@ -22,7 +27,6 @@ Paperclip proved the pattern: long-running agents need durable tasks with lifecy
 | **Human-readable id** | Tenant-scoped identifier, e.g. `ENG-142` (`{prefix}-{sequence}`) |
 | **Host placement** | **Mandatory core module** (declare in `apps/core/src/plugins/mandatory-plugins.ts` alongside `vault`) |
 | **Projects cutover** | **Brutal** — no dual-write, no parallel task editing in `modules/projects` during build-out; re-integrate in **Phase 7 only** |
-| **Goal linkage** | Soft for human-created tasks in v1; **required** for agent-created tasks |
 | **Subtasks** | ~~One level deep in v1~~ **Deferred / not shipped in UI** — `parent_id` exists in schema/API only; no subtask UX |
 | **Agent start work** | `tasks_checkout` required for agents; humans may set `in_progress` directly |
 
@@ -33,9 +37,9 @@ Paperclip proved the pattern: long-running agents need durable tasks with lifecy
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  modules/tasks (mandatory platform module)                 │
-│  goals · tasks · statuses · comments · checkout · runs     │
-│  ops: tasks.* · goals.* · events: tasks.*                  │
-│  UI: /module/tasks · /module/tasks/goals · /module/tasks/:id │
+│  tasks · statuses · comments · checkout · runs             │
+│  ops: tasks.* · events: tasks.*                            │
+│  UI: /module/tasks · /module/tasks/list · /module/tasks/:id │
 └───────────────────────────┬────────────────────────────────┘
                             │ task_contexts (plugin links)
               ┌─────────────┴─────────────┐
@@ -87,11 +91,11 @@ Terminal: `done`, `cancelled`.
 - [x] Projects phase board reads tasks via `task_contexts` only (`context_type: "project"`) — `project-tasks-bridge`, drop `phase_tasks` migration
 - [x] Contract tests in `modules/tasks/src/contracts/` pass unchanged after Phase 7 projects cutover
 - [x] `pnpm --filter @engenty/tasks test` and `pnpm --filter @engenty/projects test` green
-- [x] DE + EN locales: **Ziele** / **Aufgaben**
+- [x] DE + EN locales: **Aufgaben** / **Tasks**
 
 ### Product changes after plan (handover)
 
-- **No subtasks / sub-goals in UI** — flat tasks and goals only (`parent_id` unused in product surfaces).
+- **No subtasks in UI** — flat tasks only (`parent_id` unused in product surfaces).
 - **Done/cancelled tasks editable** — lifecycle allows reopening from terminal statuses (see contract test `allows reopening from terminal statuses`).
 - **Comments + activity** — single chat-style tab (`task-comments-activity-tabs.tsx`), not separate legacy panels.
 - **Activity feed** — card rows, status pills single-line; see [AGENTS.md](../AGENTS.md) design rules.
@@ -104,7 +108,6 @@ Terminal: `done`, `cancelled`.
 |--------|------|
 | Tasks list (grouped by status) | [assets/ui-sketch-tasks-list.png](./assets/ui-sketch-tasks-list.png) |
 | Task detail (live runs + properties) | [assets/ui-sketch-task-detail.png](./assets/ui-sketch-task-detail.png) |
-| Goals list | [assets/ui-sketch-goals-list.png](./assets/ui-sketch-goals-list.png) |
 
 Inspired by [Paperclip](https://paperclip.ing/) task/issue UX; Engenty shell chrome (borderless canvas, blended module tabs).
 

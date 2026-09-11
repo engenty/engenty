@@ -27,7 +27,8 @@ Create the shared network and durable app-host directory:
 ```bash
 apt-get install -y curl jq util-linux
 docker network create engenty-runtime
-install -d -m 700 /opt/engenty/app-host-data
+install -d -m 700 -o 1000 -g 1000 /opt/engenty/app-host-data
+install -d -m 700 -o 1000 -g 1000 /opt/engenty/spaces
 install -d -m 700 /etc/engenty /var/lib/engenty-deploy
 ```
 
@@ -43,8 +44,9 @@ docker run --rm \
 ```
 
 Verify `/opt/engenty/app-host-data/.rivetkit` exists when deployed Apps already
-exist. Keep the old stack stopped but intact until the new backend has passed
-its health checks.
+exist, then `chown -R 1000:1000 /opt/engenty/app-host-data` — app-host runs as
+uid 1000. Keep the old stack stopped but intact until the new backend has
+passed its health checks.
 
 ## Create the stable backend
 

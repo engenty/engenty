@@ -27,11 +27,7 @@ import {
 } from "@engenty/ui-core";
 import { Pencil, Trash2 } from "lucide-react";
 import { Fragment, type ReactNode, useMemo, useState } from "react";
-import type {
-  Goal,
-  Task,
-  TaskStatusDefinition,
-} from "../../src/schema/types.js";
+import type { Task, TaskStatusDefinition } from "../../src/schema/types.js";
 import type { TasksListEnrichmentState } from "../hooks/use-tasks-list-enrichments.js";
 import { TaskAssigneeLabel } from "./task-assignee-label.js";
 import { TaskStatusBadge } from "./task-status-badge.js";
@@ -48,7 +44,6 @@ interface TasksListTableProps {
   columns: TasksListColumnConfig[];
   columnVisibility: Record<string, boolean>;
   enrichments: TasksListEnrichmentState;
-  goals?: Goal[];
   groupBy?: TasksGroupBy;
   navigate: (to: string) => void;
   onDelete?: (taskId: string) => void | Promise<void>;
@@ -73,7 +68,7 @@ const rowBodyBaseClass = cn(
 
 /** Per-group card chrome — only when grouped (a flat list gets no card). */
 const groupCardChromeClass = cn(
-  "ui-canvas-raised rounded-md",
+  "ui-card-raised",
   "[&>tr:first-child>td:first-child]:rounded-tl-md",
   "[&>tr:first-child>td:last-child]:rounded-tr-md",
   "[&>tr:last-child>td:first-child]:rounded-bl-md",
@@ -229,7 +224,6 @@ export function TasksListTable({
   showAssignee = true,
   tableSize = "normal",
   groupBy = "status",
-  goals = [],
   projectTitleById,
 }: TasksListTableProps) {
   const { t } = useTranslation("tasks");
@@ -390,34 +384,6 @@ export function TasksListTable({
         .sort((a, b) => a.label.localeCompare(b.label));
     }
 
-    if (groupBy === "goal") {
-      const byGoal = new Map<string, Task[]>();
-      for (const task of tasks) {
-        const key = task.goal_id ?? "general";
-        const list = byGoal.get(key) ?? [];
-        list.push(task);
-        byGoal.set(key, list);
-      }
-      return Array.from(byGoal.entries())
-        .map(([key, groupTasks]) => {
-          let label = t("list.generalTasks", "General tasks");
-          if (key !== "general") {
-            const g = goals.find((item) => item.id === key);
-            label = g?.title ?? t("sidebar.missingGoal", "Unknown goal");
-          }
-          return { id: key, label, tasks: groupTasks };
-        })
-        .sort((a, b) => {
-          if (a.id === "general") {
-            return -1;
-          }
-          if (b.id === "general") {
-            return 1;
-          }
-          return a.label.localeCompare(b.label);
-        });
-    }
-
     if (groupBy === "project") {
       const byProject = new Map<string, Task[]>();
       for (const task of tasks) {
@@ -451,7 +417,6 @@ export function TasksListTable({
     groupBy,
     taskStatusDefinitions,
     assigneeProfiles,
-    goals,
     projectTitleById,
     t,
   ]);

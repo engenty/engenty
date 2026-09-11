@@ -1,10 +1,8 @@
 /**
- * AI Core – contracts for route context, module registration, and agent definitions.
+ * AI Core – contracts for route context and module registration.
  */
-import type { ZodType } from "zod";
 import type { TriggerDefinition } from "./copilot-trigger-contracts.js";
 import type { AgentConfig } from "./dynamic-contracts.js";
-import type { ToolExecutionContext } from "./tools/types.js";
 
 /** Route + module context passed from UI (pathname, module, route, scope). */
 export interface AiRouteContext {
@@ -14,23 +12,9 @@ export interface AiRouteContext {
   scope?: Record<string, unknown>;
 }
 
-export interface ArtifactDefinition {
-  id: string;
-  schema: unknown;
-}
-
 /** Additional skill metadata values projected from the Agent Skills spec. */
 export interface SkillMetadataDefinition {
   [key: string]: string;
-}
-
-/** Execution source and scope for a run. */
-export interface ExecutionScope {
-  role: string | null;
-  scope_id: string | null;
-  source: "user" | "automation" | "system";
-  tenant_id: string | null;
-  user_id: string | null;
 }
 
 /** Durable instruction document seed definition. */
@@ -40,11 +24,11 @@ export interface InstructionDocumentDefinition {
   id: string;
   key: string;
   // `system` is reserved for installation-wide defaults (unused today); `tenant`
-  // is the tenant-wide base layer that module/agent/action layers refine.
-  layer: "system" | "tenant" | "module" | "agent" | "action";
+  // is the tenant-wide base layer that module/agent layers refine.
+  layer: "system" | "tenant" | "module" | "agent";
   module_id: string;
   owner_id?: string;
-  owner_kind?: "system" | "tenant" | "module" | "agent" | "action";
+  owner_kind?: "system" | "tenant" | "module" | "agent" | "workflow";
   title: string;
 }
 
@@ -74,7 +58,7 @@ export type InstructionDocumentLayer =
   | "tenant"
   | "module"
   | "agent"
-  | "action"
+  | "workflow"
   | "tenant_override"
   | "user_override";
 
@@ -91,92 +75,86 @@ export interface AiRegistrationDynamicCapability {
   skills?: Record<string, string>;
 }
 
-/** Stable orchestrator agent/persona definition. */
-export interface AgentDefinition {
-  artifacts?: ArtifactDefinition[];
-  build_system_prompt?: (params: {
-    action?: ActionDefinition<ZodType> | null;
-    context: Record<string, unknown>;
-    scope: ExecutionScope;
-  }) => Promise<string> | string;
-  build_tools: (context: ToolExecutionContext) => Record<string, object>;
-  description?: string;
-  id: string;
-  instruction_keys: string[];
-  module_id: string;
-  name: string;
-  /** Bound skill ids (kebab), same storage style as Agent Skills `allowed-tools` in ACTION.md (space-delimited). */
-  skills?: string[];
-}
-
 /**
- * Pre-approved tool ids for an action (Agent Skills `allowed-tools`: space-delimited in ACTION.md).
+ * Pre-approved tool ids for an action (`metadata.allowed_tools` on the workflow definition).
  * When set, the orchestrator intersects this list with the agent tool surface (no deny-list).
  */
-export type ActionAllowedTools = string[];
+export type WorkflowAllowedTools = string[];
 
-/** Narrow execution harness. This remains the main guardrail surface for orchestrated runs. */
-export interface ActionDefinition<TInput extends ZodType = ZodType> {
-  agent_id: string;
-  /**
-   * Optional allow list of tool ids (same semantics as {@link SkillDefinition.allowed_tools}).
-   * @see https://agentskills.io/specification
-   */
-  allowed_tools?: ActionAllowedTools;
-  context_type?: string;
-  default_thread_mode: "reuse" | "new" | "none";
+/**
+ * A verbatim Mastra `DynamicWorkflowGraph` in its JSON form — nothing
+ * engenty-specific in the definition itself. Engenty-side metadata that is
+ * not Mastra's (`owner_agent_id`, `context_type`, `allowed_tools`, `skills`,
+ * `title`) rides in `metadata`.
+ */
+export interface WorkflowGraphDefinition {
   description?: string;
+  graph: Record<string, unknown>[];
   id: string;
-  input_schema: TInput;
-  /**
-   * JSON Schema as authored (e.g. in ACTION.md), including `description` on properties.
-   * When set, catalog seeding uses this instead of `z.toJSONSchema(input_schema)` so metadata is preserved.
-   */
-  input_schema_json?: Record<string, unknown>;
-  instruction_keys?: string[];
-  module_id: string;
-  name: string;
-  prompt: string;
-  skills?: string[];
-}
-
-// A routine creates a Task — the only target kind. (Legacy `agent_prompt` /
-// `action` kinds retired; headless agent prompts are system jobs in apps/ai.
-// See docs/content/wip/agent-platform/actions-tasks-routines-concept.md.)
-export type RoutineTargetKind = "task_template";
-
-/** Task payload created by a routine each due tick. */
-export interface RoutineTaskTemplate {
-  agent_type_key: string;
-  description?: string;
-  priority?: string;
-  title: string;
-}
-
-/** What a routine creates when due: a Task. */
-export interface RoutineTarget {
-  kind: "task_template";
-  task_template: RoutineTaskTemplate;
+  inputSchema: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+  requestContextSchema?: Record<string, unknown>;
+  stateSchema?: Record<string, unknown>;
 }
 
 /**
- * Declared recurring work (module ROUTINE.md). A Routine = `Trigger(schedule)
- * → Task`. At runtime these declarations are reconciled into
- * `module_tasks.triggers` rows (source `'module'`) backed by Mastra
- * heartbeats — see apps/ai `src/scheduler/`.
+ * An Action: a module-shipped workflow (`ai/workflows/<id>.workflow.json`).
+ * The `definition` is the stored artifact; everything else is convenience
+ * derived from it (and its `metadata`) at load so callers need not re-parse.
  */
-export interface RoutineDefinition {
+export interface WorkflowDefinition {
+  /** From `metadata.allowed_tools`. */
+  allowed_tools?: WorkflowAllowedTools;
+  /** From `metadata.context_type` — the record kind a press is about. */
+  context_type?: string;
+  definition: WorkflowGraphDefinition;
   description?: string;
-  enabled_by_default: boolean;
   id: string;
   module_id: string;
+  /** Display name — `metadata.title`, falling back to the id. */
   name: string;
-  /** Optional `"HH:MM-HH:MM"` UTC window during which the routine never fires. */
+  /** From `metadata.owner_agent_id`; null/absent = library (decision B). */
+  owner_agent_id?: string | null;
+  /** From `metadata.skills`. */
+  skills?: string[];
+}
+
+/**
+ * A declared trigger (agent.json `triggers:`) — a binding on the SPECIALIST
+ * (decision A): wake `schedule|event|manual` → run a module workflow with an
+ * input mapping. At runtime these are reconciled into `ai.routines` rows
+ * (source `'module'`); `scope: "space"` fans out one row per space mounting
+ * the module, `scope: "tenant"` keeps one tenant-global row. Each fire starts
+ * a Run — never a Task.
+ */
+export interface RoutineDefinition {
+  /** The owning specialist — the agent whose agent.json declares it. */
+  agent_id: string;
+  /** Cron expression (schedule kind). */
+  cron?: string | null;
+  description?: string;
+  enabled_by_default: boolean;
+  /** Event-kind filter over the provider's payloads. */
+  event_filter?: Record<string, unknown> | null;
+  id: string;
+  /** Static input + mapped context handed to the workflow at fire. */
+  input_mapping?: Record<string, unknown>;
+  kind: "event" | "manual" | "schedule";
+  module_id: string;
+  name: string;
+  /** Event-kind source provider. */
+  provider_id?: string | null;
+  /** Optional `"HH:MM-HH:MM"` UTC window during which the trigger never fires. */
   quiet_hours?: string | null;
-  /** Cron expression, UTC. */
-  schedule: string;
+  /** Event-kind resource selector. */
+  resource?: string | null;
+  /** One row per mounting space, or one tenant-global row. Default: space. */
+  scope: "space" | "tenant";
   suppress_if_no_op?: boolean;
-  target: RoutineTarget;
+  timezone?: string | null;
+  /** The module workflow this trigger runs (e.g. `inbox.sync`). */
+  workflow: string;
 }
 
 /** Registry payload for module AI registration. */
@@ -203,8 +181,6 @@ export interface ModelRoleDefinition {
 }
 
 export interface AiRegistration {
-  actions?: ActionDefinition[];
-  agents?: AgentDefinition[];
   /** Chat slash commands declared via ai/commands/<name>/COMMAND.md. */
   chat_commands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   dynamic?: AiRegistrationDynamicCapability;
@@ -214,6 +190,7 @@ export interface AiRegistration {
   routines?: RoutineDefinition[];
   skills?: SkillDefinition[];
   triggers?: TriggerDefinition[];
+  workflows?: WorkflowDefinition[];
 }
 
 /** Persisted runtime instruction document. */

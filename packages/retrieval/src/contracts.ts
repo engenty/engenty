@@ -73,6 +73,16 @@ export interface RetrievalDocument extends SearchDocument {
   owner_user_id?: string | null;
   /** Source row's updated_at at build time — drives staleness detection. */
   source_updated_at: string;
+  /**
+   * The space this document belongs to (PLAN-spaces.md Phase P4).
+   *
+   * Null means NOT SPACE-SCOPED — a contact, an inbox message — and those stay
+   * visible under the existing `visibility` rules. A source whose records live
+   * in a space MUST set it: search never passes through a `/s/<key>` route, so
+   * no route guard protects it, and a private space's content would otherwise be
+   * readable by anyone in the tenant who searches for it.
+   */
+  space_id?: string | null;
   title?: string | null;
 }
 
@@ -85,6 +95,16 @@ export interface RetrievalQueryFilters {
   occurred_before?: string | null;
   scope_id?: string | null;
   source_types?: string[];
+  /**
+   * Spaces the caller may read (PLAN-spaces.md Phase P4). Injected by the host
+   * from `accessibleSpaceIds`, never taken from the caller.
+   *
+   * `undefined`/null means UNSCOPED — documents in any space match. That is the
+   * right default for module tools and admin diagnostics, which are already
+   * bounded some other way, and the wrong one for anything user-facing: the
+   * workspace-search route must always set it.
+   */
+  space_ids?: string[] | null;
   // Injected from authenticated context by the host; caller values are stripped.
   tenant_id?: string | null;
   user_id?: string | null;
@@ -153,6 +173,9 @@ export interface RetrievalSourceRetriever<TResult = unknown> {
       "metadata" | "occurred_after" | "occurred_before" | "scope_id"
     >
   >;
+  // `space_ids` is never mapped from module filters: the host injects it from
+  // the run's space (plugin-sdk `synthesizeSearchOperation`) and the managed
+  // provider forwards it verbatim.
   /** Final ordering tweaks (per-KB caps, time decay). Pure. */
   postRank?(
     results: SearchResult<TResult>[],
@@ -184,6 +207,13 @@ export interface RetrievalSourceRegistration<TResult = unknown> {
    */
   listDocuments(input: {
     limit: number;
+    /**
+     * Equality filter on the source's own `filter_metadata` keys (e.g. KB's
+     * `kb_id`). Narrows status/backfill to one container so a per-library
+     * chunking change re-indexes that library alone. Optional for sources
+     * without containers.
+     */
+    metadata?: Record<string, string>;
     tenant_id: string;
   }): Promise<{ doc_id: string; updated_at: string }[]>;
   module_id: string;
@@ -193,6 +223,16 @@ export interface RetrievalSourceRegistration<TResult = unknown> {
     entityName: string;
     filtersSchema?: ZodType;
     overrides?: Record<string, unknown>;
+    // Forwarded onto the synthesized search operation. Omit = no policy
+    // (not an implied tenant_shared default).
+    spacePolicy?: {
+      kind:
+        | "account_mounted"
+        | "platform"
+        | "space_owned"
+        | "tenant_shared"
+        | "user_owned";
+    };
   };
   retriever?: RetrievalSourceRetriever<TResult>;
   /** Globally unique dotted id, e.g. "kb.article", "inbox.message". */
@@ -204,6 +244,8 @@ export interface RetrievalSourceRegistration<TResult = unknown> {
 export interface RetrievalBackfillInput {
   force?: boolean;
   limit?: number;
+  /** Narrow the scan to documents whose `filter_metadata` matches (see `listDocuments`). */
+  metadata?: Record<string, string>;
   tenant_id?: string | null;
   user_id?: string | null;
 }

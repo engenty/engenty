@@ -16,6 +16,7 @@ import type { ToolCallCardProps } from "./tool-call-card.types";
  */
 export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
   const {
+    dismissInterrupt,
     openInterrupt,
     pendingInterruptToolCallIds,
     optimisticInterruptResults,
@@ -50,6 +51,13 @@ export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
   return (
     <FeedbackArtifactCard
       artifact={artifact}
+      onDismiss={
+        dismissInterrupt &&
+        openInterrupt &&
+        openInterrupt.tool_call_id === props.toolCallId
+          ? () => dismissInterrupt(openInterrupt)
+          : undefined
+      }
       onSubmit={(artifactId, feedback) => {
         if (!(respond && props.toolCallId)) {
           return;

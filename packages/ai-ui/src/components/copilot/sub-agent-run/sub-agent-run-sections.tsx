@@ -25,7 +25,7 @@ function SubAgentSectionHeader(props: {
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 border-border/60 border-b px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide",
+        "flex items-center gap-1.5 border-border-soft border-b px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide",
         props.className
       )}
     >
@@ -72,7 +72,7 @@ export function SubAgentTextPanel(props: {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-border/60 bg-muted/20",
+        "overflow-hidden rounded-md border border-border-soft bg-muted/20",
         className
       )}
     >
@@ -103,7 +103,7 @@ export function SubAgentTextPanel(props: {
           </div>
           {collapsible && (overflows || expanded) ? (
             <button
-              className="flex w-full items-center justify-center gap-1 border-border/60 border-t py-1.5 text-muted-foreground text-xs hover:bg-muted/30"
+              className="flex w-full items-center justify-center gap-1 border-border-soft border-t py-1.5 text-muted-foreground text-xs hover:bg-muted/30"
               onClick={() => setExpanded((v) => !v)}
               type="button"
             >
@@ -155,7 +155,7 @@ export function SubAgentLogPanel(props: {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-border/60 bg-muted/20",
+        "overflow-hidden rounded-md border border-border-soft bg-muted/20",
         className
       )}
     >

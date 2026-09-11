@@ -23,7 +23,13 @@ export type LocalFilesErrorCode =
   (typeof LOCAL_FILES_ERROR)[keyof typeof LOCAL_FILES_ERROR];
 
 /** Bridge action names carried over the request/response channel. */
-export type BridgeAction = "list" | "read" | "stat" | "search";
+export type BridgeAction =
+  | "list"
+  | "read"
+  | "stat"
+  | "search"
+  | "write"
+  | "delete";
 
 /**
  * Validate a path relative to the granted directory root. The File System
@@ -81,6 +87,18 @@ export interface LocalListResult {
 export type LocalReadResult =
   | { content: string; encoding: "utf-8"; size: number }
   | { content_base64: string; encoding: "base64"; size: number };
+
+export interface LocalWriteResult {
+  modified_at: string | null;
+  name: string;
+  path: string;
+  size: number;
+}
+
+export interface LocalDeleteResult {
+  deleted: boolean;
+  path: string;
+}
 
 export interface LocalSearchResult {
   matches: LocalFileEntry[];

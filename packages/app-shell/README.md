@@ -7,7 +7,7 @@ Product app shell layout and browser-owned Agent UI state.
 ## Quick reference
 
 - `src/components/app-layout/` — layout frame and secondary-nav modules
-- `src/components/` — `app-sidebar`, `app-topbar`, `sidebar-tenant-switcher`
+- `src/components/` — `app-sidebar`, `app-topbar`
 - `src/context/` — copilot shell, agent UI state, secondary nav
 - `src/navigation.ts` — `@engenty/app-shell/navigation` entry
 - `src/index.ts` — main package exports

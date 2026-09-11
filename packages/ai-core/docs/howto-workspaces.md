@@ -5,7 +5,13 @@ description: Step-by-step guide to adding a Mastra workspace to an agent — pre
 
 # How-to: Agent Workspaces
 
-This guide walks through adding a Mastra workspace to a new or existing agent. Read the [Agent Workspaces architecture doc](../../../docs/content/dev/ai-agents/workspaces.md) first for a conceptual overview.
+This guide walks through adding a Mastra workspace to a new or existing agent.
+Read the [Spaces runtime contract](../../../docs/agent/spaces-runtime.md) first.
+
+A workspace is the named file/context mounts resolved for one run. It is not a
+Space, queue, task database, or module-record store. `/data` is a separate
+projection of mounted module records. User-facing documents belong in Files or
+artifacts; do not treat a working path as a delivered result.
 
 ## 1. Pick a preset
 
@@ -13,9 +19,23 @@ Start with the right archetype:
 
 | You want… | Use |
 |-----------|-----|
-| Personal assistant per user (like `engenty.copilot`) | `preset: "assistant"` |
-| Company-shared specialist agent (like `engenty.tools`) | `preset: "staff"` |
+| Personal assistant with a user-scoped `/home` (like `engenty.copilot`) | `preset: "assistant"` |
+| Staff specialist with an agent-scoped `/home` | `preset: "staff"` |
+| Code execution without a personal `/home` | `preset: "code_execution"` |
 | Non-standard mount layout | `preset: "custom"` + explicit `mounts` |
+
+Preset declarations are not promises that every conditional mount exists. The
+resolved run receives:
+
+| Preset | Mounts |
+|---|---|
+| `assistant` | `/home`, `/skills`; `/shared` or confined `/space`; `/data` only with a resolved Space; `/task`, `/project` only when bound |
+| `staff` | Same, but `/home` belongs to the staff agent rather than the user |
+| `code_execution` | `/skills`, `/sandbox`; `/shared` or `/space`; conditional `/data`, `/task`, `/project`; no `/home` |
+| `custom` | Only the declared mounts whose required bindings resolve |
+
+Use only mounts present in the run. In particular, never tell a confined run to
+write `/shared`, or an unbound chat to use `/task`.
 
 ## 2. Add `workspace` to `AgentConfig`
 
@@ -93,13 +113,20 @@ workspace: {
 
 Each mount's `source` maps to a file-storage prefix:
 
-| source | path in file storage (under `tenants/<tid>/`) |
-|--------|-----------------------------------------------|
-| `commons` (scope `tenant`) | `ai/workspace/commons/` |
-| `home` (scope `user`) | `ai/workspace/users/<uid>/` |
-| `home` (scope `agent`) | `ai/workspace/agents/<agentId>/` |
-| `skills` | `ai/skills/` |
-| `checkout` (scope `task`) | `ai/workspace/tasks/<taskId>/` |
+| source | Meaning |
+|--------|---------|
+| `commons` (scope `tenant`) | tenant `/shared` context |
+| `commons` (scope `space`) | confined `/space` context |
+| `home` (scope `user`) | user-personal `/home` |
+| `home` (scope `agent`) | staff-agent `/home` |
+| `skills` | read-only `/skills` library |
+| `checkout` (scope `task`) | bound `/task` files |
+| `routine` / `project` | containment files, only when those bindings resolve |
+| `data` | `/data` module records; not a file-storage prefix |
+
+Storage-backed task, routine, project, Space, and sandbox mounts are rooted in the
+resolved Space. `/home` and `/skills` remain tenant-rooted. This is why callers
+must use mount names rather than constructing storage keys.
 
 ## 6. Override skill discovery paths
 
@@ -128,16 +155,22 @@ const myAgent: AgentConfig = {
 
 The actual `SKILL.md` content is loaded on demand by Mastra Workspace tools, not inlined on every call.
 
+Preferred skills must belong to the agent’s own module (the `SKILL.md` next to
+that agent). A skill from another module becomes visible when that module is
+**mounted** on the Space or the skill is **explicitly mounted** — do not list it
+on `skillIds` / `useSkillHint` as a backdoor. In a Space-bound run, skill
+discovery is the union of those three sources; unmounted-module skills stay
+hidden even though tenant storage is shared.
+
 ## Checklist
 
 - [ ] `workspace.preset` set (or `mounts` declared for `custom`)
 - [ ] `sandbox.requireApproval: true` whenever sandbox is enabled
 - [ ] Env vars present if `vector: true` (`ENGENTY_WORKSPACE_VECTOR_DB_URL`, `AI_GATEWAY_API_KEY`)
-- [ ] `skillIds` lists the skills the agent should prefer
+- [ ] `skillIds` lists only skills this module owns (Space mounts cover the rest)
 - [ ] Module skills declared in `ai/skills/<name>/SKILL.md` (seeded automatically at startup)
 
 ## Related docs
 
-- [Agent Workspaces architecture](../../../docs/content/dev/ai-agents/workspaces.md)
-- [Skills](../../../docs/content/dev/ai-agents/skills.md)
-- [HITL Artifacts](../../../docs/content/dev/ai-agents/hitl-artifacts.md)
+- [Spaces runtime contract](../../../docs/agent/spaces-runtime.md)
+- [Who drives what](../../../docs/agent/who-drives.md)

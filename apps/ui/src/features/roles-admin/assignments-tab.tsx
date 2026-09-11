@@ -5,7 +5,6 @@
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   Button,
-  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -19,6 +18,7 @@ import {
   assignRole,
   listAssignments,
   listRoles,
+  listTenantAgents,
   listTenantRoles,
   listTenantUsers,
   type SubjectKind,
@@ -66,6 +66,10 @@ export function AssignmentsTab({ tenantId }: Props) {
     queryKey: ["authz-admin", "tenant-users"],
     queryFn: listTenantUsers,
   });
+  const agentsQuery = useQuery({
+    queryKey: ["authz-admin", "tenant-agents", tenantId],
+    queryFn: () => listTenantAgents(tenantId),
+  });
   const rolesQuery = useQuery({
     queryKey: ["authz-admin", "roles"],
     queryFn: listRoles,
@@ -105,6 +109,14 @@ export function AssignmentsTab({ tenantId }: Props) {
     }
     return map;
   }, [usersQuery.data]);
+
+  const agentLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of agentsQuery.data ?? []) {
+      map.set(a.id, a.name);
+    }
+    return map;
+  }, [agentsQuery.data]);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
@@ -163,31 +175,32 @@ export function AssignmentsTab({ tenantId }: Props) {
             </Select>
           </Field>
 
-          <Field
-            className="min-w-48 flex-1"
-            label={kind === "user" ? "Named" : "Agent id"}
-          >
-            {kind === "user" ? (
-              <Select onValueChange={setSubjectId} value={subjectId}>
-                <SelectTrigger className="ui-canvas-field h-8">
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(usersQuery.data ?? []).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.display_name || u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                className="ui-canvas-field h-8"
-                onChange={(e) => setSubjectId(e.target.value)}
-                placeholder="agent uuid"
-                value={subjectId}
-              />
-            )}
+          <Field className="min-w-48 flex-1" label="Named">
+            {/* Both halves pick by name. The agent half used to be a raw uuid
+                box, which meant looking the principal up in the database
+                before you could grant anything. */}
+            <Select onValueChange={setSubjectId} value={subjectId}>
+              <SelectTrigger className="ui-canvas-field h-8">
+                <SelectValue
+                  placeholder={
+                    kind === "user" ? "Select a user" : "Select an agent"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {kind === "user"
+                  ? (usersQuery.data ?? []).map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.display_name || u.email}
+                      </SelectItem>
+                    ))
+                  : (agentsQuery.data ?? []).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           <Field className="min-w-56 flex-1" label="Grant role">
@@ -236,11 +249,15 @@ export function AssignmentsTab({ tenantId }: Props) {
           assignments.map((a) => {
             const sKind: SubjectKind = a.user_id ? "user" : "agent";
             const sId = a.user_id ?? a.agent_id ?? "";
+            // Falls back to the raw id: an assignment can outlive the
+            // principal it names, and "agent <uuid>" is still the truth.
             const label =
-              sKind === "user" ? (userLabel.get(sId) ?? sId) : `agent ${sId}`;
+              sKind === "user"
+                ? (userLabel.get(sId) ?? sId)
+                : (agentLabel.get(sId) ?? `agent ${sId}`);
             return (
               <div
-                className="flex items-center justify-between gap-3 border-border/40 border-b py-2 last:border-0"
+                className="flex items-center justify-between gap-3 border-border-soft border-b py-2 last:border-0"
                 key={a.id}
               >
                 <div className="flex min-w-0 items-center gap-2 text-sm">

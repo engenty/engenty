@@ -20,6 +20,7 @@
   },
   "lanes": {
     "all": "Alle",
+    "inbox": "Posteingang",
     "new": "Ungelesen",
     "read": "Gelesen",
     "archived": "Archiviert"
@@ -42,7 +43,11 @@
     "title": "Keine Nachrichten",
     "description": "Verbinde ein E-Mail-Konto und starte eine Synchronisierung.",
     "laneTitle": "Nichts hier",
-    "laneDescription": "Keine Nachrichten für diesen Filter."
+    "laneDescription": "Keine Nachrichten für diesen Filter.",
+    "noAccountsHint": "Noch kein E-Mail-Konto verbunden — verbinde eines, um diesen Posteingang zu füllen.",
+    "connectAccount": "Konto verbinden",
+    "autonomyOffHint": "Ein E-Mail-Konto ist verbunden, aber die autonome Nutzung ist aus — es wird nichts synchronisiert, bis Agenten es lesen dürfen.",
+    "openConnectionSettings": "Verbindungseinstellungen öffnen"
   },
   "thread": {
     "attachment": "Anhang",

@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName, Badge } from "@engenty/ui-core";
+import { adminListCardsGridClassName, Badge, cn } from "@engenty/ui-core";
 import type { Faq } from "../../src/schema/types.js";
 
 type TableSize = "compact" | "normal";
@@ -25,9 +25,10 @@ export function FaqsCards({ faqs, tableSize, onCardClick }: FaqsCardsProps) {
     <div className={adminListCardsGridClassName(tableSize)}>
       {faqs.map((faq) => (
         <button
-          className={`rounded-lg border bg-card text-left transition-colors hover:bg-accent/30 ${
+          className={cn(
+            "ui-card-raised text-left",
             tableSize === "compact" ? "p-3" : "p-4"
-          }`}
+          )}
           key={faq.id}
           onClick={() => onCardClick(faq)}
           type="button"

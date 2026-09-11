@@ -8,14 +8,16 @@
 //   code_execution — sandbox-first: `/shared` tenant-shared (rw), `/skills`
 //                    (ro), `/sandbox` (rw), optional `/task` when bound.
 //
-// `/shared` (source `commons`) is the writable, durable tenant-shared scratch
-// space — the cross-user/cross-session space agents persist artifacts to. There
+// `/shared` (source `commons`) is writable tenant-shared working context. It is
+// not a deliverable store or module database. There
 // is no read-only `/` tenant asset mount; the seeded AGENTS.md/SOUL.md reach the
 // agent via prompt injection (the instruction registry), not a filesystem mount.
 //
-// `scope` resolves to a tenant-relative file-storage prefix (no `tenants/<tid>/`
-// prefix — the FileStorageFilesystem adds that). `group` is reserved for a future
-// tenant-group concept and is intentionally unhandled here.
+// `scope` resolves to a CONTAINER-relative file-storage prefix (no
+// `tenants/<tid>/` and no `spaces/<sid>/` — the FileStorageFilesystem adds the
+// root). Which root a mount gets is `resolveMountSpaceId`'s job: work
+// containers and the space commons hang off the space, skills and the personal
+// home stay tenant-level. PLAN-spaces.md §1b.
 
 import type {
   AgentWorkspaceConfig,
@@ -28,41 +30,109 @@ import {
 
 import type { EngentyWorkspaceMountSpec } from "./contracts.js";
 
-// Writable, durable tenant-shared scratch space (cross-user/session). When a
+// Writable tenant-shared working context (cross-user/session). When a
 // sandbox is enabled this prefix is staged locally and bind-mounted into the
 // sandbox so running code can read/write it (see loader + docker provider).
 // Re-exported from @engenty/file-storage so bytes stay where they are.
 export { COMMONS_STORAGE_PREFIX } from "@engenty/file-storage";
 
-// Agent/user-scoped durable home. Shares the same staged+bind-mounted+synced
+// Agent/user-scoped personal working context. Shares the staged+bind-mounted+synced
 // mechanism as commons when a sandbox is enabled (its storage prefix is per-user
 // or per-agent — see `resolveScopeRelativePath`).
 export const HOME_MOUNT_PATH = "/home";
 
 export interface WorkspaceScopeContext {
   agentId: string;
-  /** Containment chain above the bound task (resolveWorkVisibility). */
-  goalId?: string;
+  /** Containment chain around the bound task (resolveWorkVisibility). */
   projectId?: string;
+  /**
+   * The standing routine whose fire this run is, when it is one. Successive
+   * fires share the folder, which is what makes a routine able to keep notes
+   * between runs at all.
+   */
+  routineId?: string;
   runId?: string;
-  sandboxLifecycle?: "run" | "session" | "task";
+  sandboxLifecycle?: "run" | "session" | "task" | "space";
+  /**
+   * Whether this agent is ACTIVATED IN the space rather than merely running
+   * inside one. That is the narrowing switch: a confined agent gets `/space`
+   * and loses `/shared`, so it cannot reach the tenant commons at all.
+   *
+   * Deliberately separate from {@link spaceId}: every run resolves a space
+   * (the tenant default at minimum), and treating that as confinement would
+   * strand the tenant commons for every agent overnight. The flag is set from
+   * the space's agent mount (PLAN-spaces.md Phase 3); until those exist it is
+   * off and behaviour is unchanged.
+   */
+  spaceConfined?: boolean;
+  /**
+   * The space this run happens in, from `resolveWorkVisibility`. Roots the work
+   * containers and the space commons. Present for nearly every run once a
+   * tenant has a default space — on its own it does NOT narrow anything.
+   */
+  spaceId?: string;
   taskIdentifier?: string;
   tenantId: string;
   threadId?: string;
   userId: string;
 }
 
-// Containment tiers above a bound task — the cascade (goal, then project)
+/** Mount point for a space's own shared folder. */
+export const SPACE_MOUNT_PATH = "/space";
+
+/**
+ * The space's own commons, alongside the tenant's.
+ *
+ * Additive rather than a rename of `/shared`: the two are different folders
+ * with different audiences, and an agent that remembers "I saved it to
+ * /shared" must not mean different bytes depending on how it was activated.
+ * Drops itself when the run has no space (`resolveScopeRelativePath`).
+ */
+const SPACE_COMMONS_MOUNT: AgentWorkspaceMount = {
+  access: "rw",
+  path: SPACE_MOUNT_PATH,
+  scope: "space",
+  source: "commons",
+};
+
+/**
+ * Mount point for the space's DATA TREE (PLAN-space-data.md D4).
+ *
+ * Not a folder of bytes: `/data` renders the mounted modules' records as files
+ * and routes every read and write through those modules' own operations, with
+ * the run's principal. An agent that greps `/data/Contacts` is calling
+ * `contacts_list`; one that edits an offer member is calling `offers_update`
+ * and raising its approval card.
+ *
+ * Present only where the run HAS a space, and the space's own mounts decide
+ * what appears inside it — `agent_access: none` hides a module entirely.
+ */
+export const DATA_MOUNT_PATH = "/data";
+
+/**
+ * `rw` because the point of D4 is that a file write IS the module's write
+ * operation, gate included. Read-only would have been the timid version: it
+ * would leave agents editing records through tools and reading them through
+ * files, which is exactly the two-representations split this design removes.
+ */
+const DATA_MOUNT: AgentWorkspaceMount = {
+  access: "rw",
+  path: DATA_MOUNT_PATH,
+  scope: "space",
+  source: "data",
+};
+
+// Containment tiers around a bound task — the cascade (routine, then project)
 // from the run's visibility chain (work-scope/resolve-work-visibility).
-// rw for the whole chain (decision 2026-08-04): a task run writes its goal
-// and project workspaces, not just its own. Unresolved binding → dropped.
+// rw for the whole chain (decision 2026-08-04): a task run writes its project
+// workspace, not just its own. Unresolved binding → dropped.
 const CONTAINMENT_MOUNTS: AgentWorkspaceMount[] = [
   {
     access: "rw",
-    path: "/goal",
+    path: "/routine",
     requireBinding: true,
-    scope: "goal",
-    source: "goal",
+    scope: "routine",
+    source: "routine",
   },
   {
     access: "rw",
@@ -77,6 +147,7 @@ const CONTAINMENT_MOUNTS: AgentWorkspaceMount[] = [
 const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
   { access: "rw", path: HOME_MOUNT_PATH, scope: "user", source: "home" },
   { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   {
     access: "rw",
@@ -86,12 +157,14 @@ const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
     source: "checkout",
   },
   ...CONTAINMENT_MOUNTS,
+  DATA_MOUNT,
 ];
 
 const STAFF_MOUNTS: AgentWorkspaceMount[] = [
   // Staff agents are company resources: `/home` is agent-scoped scratch.
   { access: "rw", path: HOME_MOUNT_PATH, scope: "agent", source: "home" },
   { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   {
     access: "rw",
@@ -101,10 +174,12 @@ const STAFF_MOUNTS: AgentWorkspaceMount[] = [
     source: "checkout",
   },
   ...CONTAINMENT_MOUNTS,
+  DATA_MOUNT,
 ];
 
 const CODE_EXECUTION_MOUNTS: AgentWorkspaceMount[] = [
   { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   { access: "rw", path: "/sandbox", scope: "sandbox", source: "sandbox" },
   {
@@ -115,6 +190,7 @@ const CODE_EXECUTION_MOUNTS: AgentWorkspaceMount[] = [
     source: "checkout",
   },
   ...CONTAINMENT_MOUNTS,
+  DATA_MOUNT,
 ];
 
 // Explicit `mounts` win; otherwise expand the named preset. `custom` with no
@@ -138,15 +214,39 @@ export function expandWorkspaceMounts(
 }
 
 export interface SandboxLifecycleContext {
+  /**
+   * The agent this sandbox belongs to.
+   *
+   * A `session` sandbox is keyed by the PARENT thread so a sub-agent reuses one
+   * container across several delegations in a conversation. Keyed by the thread
+   * ALONE, that also made the copilot and its CLI sub-agent share one container
+   * — and a container carries the HostConfig of whoever created it first, so
+   * the CLI agent's `network: "egress"` silently became the copilot's `none`.
+   * Two agents are two computers; the thread only says which conversation.
+   */
+  agentId: string;
   runId: string;
   taskIdentifier?: string;
   threadId: string;
 }
 
+/**
+ * Sandbox scratch layout, CONTAINER-relative. The root (tenant vs space) is
+ * `resolveMountSpaceId`'s call, and sandboxes are space-rooted when the run has
+ * a space — see the decision recorded there. `task` lifecycle reuses the task
+ * checkout prefix, which is space-rooted for the same reason.
+ */
 export function resolveSandboxStorageRelativePath(
-  lifecycle: "run" | "session" | "task",
+  lifecycle: "run" | "session" | "task" | "space",
   ctx: SandboxLifecycleContext
 ): string {
+  if (lifecycle === "space") {
+    // The space computer's drive. Constant within a space on purpose: the
+    // staging root is already space-rooted (`resolveMountSpaceId`), so this is
+    // one shared workspace per space — every run that targets the machine, and
+    // the machine itself, see the same bytes (PLAN-space-computer.md §1.2).
+    return "ai/sandboxes/space/workspace/";
+  }
   if (lifecycle === "task") {
     const identifier = ctx.taskIdentifier?.trim();
     if (!identifier) {
@@ -155,7 +255,9 @@ export function resolveSandboxStorageRelativePath(
     return workWorkspaceRelativePrefix("task", identifier);
   }
   const sandboxId =
-    lifecycle === "session" ? `session-${ctx.threadId}` : `run-${ctx.runId}`;
+    lifecycle === "session"
+      ? `session-${ctx.threadId}-${ctx.agentId}`
+      : `run-${ctx.runId}`;
   return `ai/sandboxes/${sandboxId}/workspace/`;
 }
 
@@ -178,13 +280,28 @@ export function resolveScopeRelativePath(
         }
       }
       return resolveSandboxStorageRelativePath(lifecycle, {
+        agentId: ctx.agentId,
         runId: ctx.runId,
         threadId: ctx.threadId,
         ...(ctx.taskIdentifier ? { taskIdentifier: ctx.taskIdentifier } : {}),
       });
     }
+    case "data":
+      // A LABEL, not a storage key. The data mount has no bytes at rest, so
+      // there is no prefix to resolve — but the mount table's contract is
+      // "unresolved means dropped", and a data mount without a space genuinely
+      // must be dropped (there is no tree to show). Returning the marker keeps
+      // both facts in one place.
+      return ctx.spaceId?.trim() ? "space-data" : null;
     case "commons":
-      // Writable tenant-shared scratch space (durable, cross-user/session).
+      // Writable shared working context (durable, cross-user/session). The
+      // relative path is the same at both roots — `resolveMountSpaceId` decides
+      // whether this is the TENANT commons or the SPACE's own.
+      if (mount.scope === "space" && !ctx.spaceId?.trim()) {
+        // A space mount without a space is not the tenant commons by default;
+        // dropping it is the fail-closed answer.
+        return null;
+      }
       return COMMONS_STORAGE_PREFIX;
     case "skills":
       return "ai/skills/";
@@ -201,9 +318,11 @@ export function resolveScopeRelativePath(
       }
       return workWorkspaceRelativePrefix("task", identifier);
     }
-    case "goal": {
-      const goalId = ctx.goalId?.trim();
-      return goalId ? workWorkspaceRelativePrefix("goal", goalId) : null;
+    case "routine": {
+      const routineId = ctx.routineId?.trim();
+      return routineId
+        ? workWorkspaceRelativePrefix("routine", routineId)
+        : null;
     }
     case "project": {
       const projectId = ctx.projectId?.trim();
@@ -216,6 +335,64 @@ export function resolveScopeRelativePath(
   }
 }
 
+/**
+ * The space a mount is rooted in, or `null` for tenant-level mounts.
+ *
+ * The split is the containment rule, not a preference: anything that is part of
+ * the WORK (the space commons, the task checkout, the project folder,
+ * and the run's sandbox scratch) lives inside the space, so a space-scoped
+ * engenty cannot address another space's bytes — no path exists. Skills and the
+ * personal/agent `/home` stay tenant-level: skills are a tenant library
+ * (PLAN-spaces.md §1b) and a person's desk follows them across spaces.
+ *
+ * Sandbox scratch is space-rooted DELIBERATELY (Phase 2 checklist asked for a
+ * decision): a sandbox holds whatever the run pulled out of its space, so
+ * leaving it at the tenant root would be a hole in exactly the boundary this
+ * plan exists to create. A run with no space keeps the tenant root.
+ */
+export function resolveMountSpaceId(
+  mount: AgentWorkspaceMount,
+  ctx: WorkspaceScopeContext
+): string | null {
+  const spaceId = ctx.spaceId?.trim();
+  if (!spaceId) {
+    return null;
+  }
+  switch (mount.source) {
+    case "checkout":
+    case "data":
+    case "project":
+    case "routine":
+    case "sandbox":
+      return spaceId;
+    case "commons":
+      return mount.scope === "space" ? spaceId : null;
+    default:
+      // `skills` and `home` are tenant-level by design.
+      return null;
+  }
+}
+
+/**
+ * Confinement REMOVES the tenant `/shared`; it does not rename it.
+ *
+ * Every preset already carries `/space`, so a confined agent keeps the space
+ * commons it was going to get and simply loses the tenant one. Nothing is
+ * re-rooted: a path means the same bytes for every agent, however it was
+ * activated, which is what makes a transcript readable.
+ */
+function applySpaceConfinement(
+  mounts: AgentWorkspaceMount[],
+  ctx: WorkspaceScopeContext
+): AgentWorkspaceMount[] {
+  if (!(ctx.spaceConfined && ctx.spaceId?.trim())) {
+    return mounts;
+  }
+  return mounts.filter(
+    (mount) => !(mount.source === "commons" && mount.scope === "tenant")
+  );
+}
+
 // Resolve the declared mount table into Mastra mount specs for the current run.
 // Mounts whose `requireBinding` entity is missing (e.g. `/task` with no task)
 // are dropped rather than mounted empty.
@@ -224,16 +401,19 @@ export function buildEngentyMountSpecs(
   ctx: WorkspaceScopeContext
 ): EngentyWorkspaceMountSpec[] {
   const specs: EngentyWorkspaceMountSpec[] = [];
-  for (const mount of mounts) {
+  for (const mount of applySpaceConfinement(mounts, ctx)) {
     const fileStorageRelativePath = resolveScopeRelativePath(mount, ctx);
     if (!fileStorageRelativePath) {
-      // Unresolved binding (or unsupported scope like `group`): skip.
+      // Unresolved binding (or an unsupported scope): skip.
       continue;
     }
+    const spaceId = resolveMountSpaceId(mount, ctx);
     specs.push({
       fileStorageRelativePath,
       mountPath: mount.path,
       readOnly: mount.access === "ro",
+      ...(mount.source === "data" ? { kind: "data" as const } : {}),
+      ...(spaceId ? { spaceId } : {}),
     });
   }
   return specs;

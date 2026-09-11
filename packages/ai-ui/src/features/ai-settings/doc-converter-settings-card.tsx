@@ -34,6 +34,7 @@ export function DocConverterSettingsCard({
 }: DocConverterSettingsCardProps) {
   const dc = settings.doc_converter ?? {
     provider: "local" as const,
+    browser_parse: "anydoc" as const,
     gemini_model: null,
     mistral_model: null,
   };
@@ -95,6 +96,57 @@ export function DocConverterSettingsCard({
       </div>
       <p className="text-muted-foreground text-xs">
         {t("docConverter.providerHelp")}
+      </p>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <Label
+          className="shrink-0 sm:w-32 md:w-40"
+          htmlFor="doc-converter-browser-parse"
+        >
+          {t("docConverter.browserParseLabel")}
+        </Label>
+        <Select
+          onValueChange={(value) =>
+            updateSettings("doc_converter", {
+              ...dc,
+              browser_parse:
+                value === "off" || value === "anydoc" || value === "liteparse"
+                  ? value
+                  : "anydoc",
+            })
+          }
+          value={
+            dc.browser_parse === "off" ||
+            dc.browser_parse === "anydoc" ||
+            dc.browser_parse === "liteparse"
+              ? dc.browser_parse
+              : "anydoc"
+          }
+        >
+          <SelectTrigger
+            className="min-w-0 flex-1"
+            id="doc-converter-browser-parse"
+            size="sm"
+          >
+            <SelectValue
+              placeholder={t("docConverter.browserParsePlaceholder")}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="off">
+              {t("docConverter.browserParseOff")}
+            </SelectItem>
+            <SelectItem value="anydoc">
+              {t("docConverter.browserParseAnydoc")}
+            </SelectItem>
+            <SelectItem value="liteparse">
+              {t("docConverter.browserParseLiteParse")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <p className="text-muted-foreground text-xs">
+        {t("docConverter.browserParseHelp")}
       </p>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">

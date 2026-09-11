@@ -23,7 +23,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     created_by_user_id: null,
     description: null,
     due_date: null,
-    goal_id: null,
     id: `task-${seq}`,
     identifier: `ENG-${seq}`,
     parent_id: null,
@@ -37,7 +36,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "in_progress",
     tenant_id: "tenant",
     title: "T",
-    trigger_id: null,
+    space_id: "space-1",
     // Old enough that a missing run row counts as stale.
     updated_at: "2026-07-23T10:00:00.000Z",
     ...overrides,
@@ -148,5 +147,24 @@ describe("reapStaleCheckouts", () => {
     expect(result.reaped).toHaveLength(1);
     expect(released).toEqual([orphaned.id]);
     expect(result.reaped[0]?.run_id).toBe(orphaned.checkout_run_id);
+  });
+
+  it("only reaps claimed tasks in the active Space when spaceId is set", async () => {
+    const inSpace = makeTask({ space_id: "space-a" });
+    const otherSpace = makeTask({ space_id: "space-b" });
+    const { released, repo } = makeRepo([inSpace, otherSpace], {
+      [inSpace.checkout_run_id as string]: "finished",
+      [otherSpace.checkout_run_id as string]: "finished",
+    });
+
+    const result = await reapStaleCheckouts({
+      now: () => NOW,
+      repo,
+      spaceId: "space-a",
+      tenantId: "tenant",
+    });
+
+    expect(result.checked).toBe(1);
+    expect(released).toEqual([inSpace.id]);
   });
 });

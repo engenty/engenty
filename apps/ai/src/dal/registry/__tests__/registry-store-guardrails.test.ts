@@ -42,6 +42,7 @@ function createFakeSupabase(state: FakeRowStore): SupabaseClient {
     select: () => ({
       single: async () => {
         state.row = {
+          agent_scope: values.agent_scope ?? null,
           id: "row-1",
           created_at: "2026-05-27T00:00:00.000Z",
           updated_at: "2026-05-27T00:00:00.000Z",
@@ -106,6 +107,7 @@ describe("createRegistryStore guardrails round-trip", () => {
     const store = createRegistryStore(createFakeSupabase(state));
 
     const config: AgentConfig = {
+      agentScope: "shared",
       id: "chatbot_acme",
       name: "Acme Chatbot",
       description: "Test",
@@ -119,10 +121,13 @@ describe("createRegistryStore guardrails round-trip", () => {
 
     const upserted = await store.upsertAgent(TENANT_ID, config);
     expect(upserted.guardrails).toEqual(FULL_GUARDRAILS);
+    expect(upserted.agentScope).toBe("shared");
+    expect(state.row?.agent_scope).toBe("shared");
     expect(state.row?.guardrails).toEqual(FULL_GUARDRAILS);
 
     const read = await store.getAgentConfig(TENANT_ID, config.id);
     expect(read?.guardrails).toEqual(FULL_GUARDRAILS);
+    expect(read?.agentScope).toBe("shared");
   });
 
   it("returns no guardrails when column is empty {}", async () => {

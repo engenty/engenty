@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type {
-  Goal,
-  TaskDetail,
-  TasksBriefingResponse,
-} from "../src/schema/types.js";
+import type { TaskDetail, TasksBriefingResponse } from "../src/schema/types.js";
 import {
   buildBriefingSnapshot,
-  buildGoalsPreview,
   buildTaskSnapshot,
   buildTasksPreview,
 } from "./copilot-snapshot.js";
@@ -15,12 +10,12 @@ const baseTask: TaskDetail = {
   id: "task-1",
   tenant_id: "tenant-1",
   scope_id: "default",
+  space_id: "space-1",
   identifier: "TSK-1",
   title: "Ship tasks module",
   description: "Build copilot integration",
   status: "in_progress",
   priority: "high",
-  goal_id: "goal-1",
   parent_id: null,
   primary_assignee_kind: "user",
   primary_assignee_user_id: "user-1",
@@ -46,6 +41,8 @@ const baseTask: TaskDetail = {
       created_by_user_id: "user-1",
       created_by_agent_type_key: null,
       created_at: "2026-05-02T00:00:00.000Z",
+      kind: "note" as const,
+      metadata: {},
     },
   ],
   contexts: [],
@@ -58,7 +55,6 @@ describe("buildTaskSnapshot", () => {
       title: "Ship tasks module",
       status: "in_progress",
       priority: "high",
-      goal_id: "goal-1",
       description: "Build copilot integration",
       due_date: "2026-06-01",
       primary_assignee_kind: "user",
@@ -71,35 +67,6 @@ describe("buildTaskSnapshot", () => {
   });
 });
 
-describe("buildGoalsPreview", () => {
-  it("caps preview items", () => {
-    const goals: Goal[] = Array.from({ length: 12 }, (_, index) => ({
-      id: `goal-${index}`,
-      tenant_id: "tenant-1",
-      scope_id: "default",
-      title: `Goal ${index}`,
-      description: null,
-      status: "active",
-      level: "team",
-      owner_agent_id: null,
-      owner_user_id: null,
-      owner_agent_type_key: null,
-      parent_id: null,
-      project_id: null,
-      target_date: null,
-      linked_task_count: index,
-      created_at: "2026-05-01T00:00:00.000Z",
-      updated_at: "2026-05-01T00:00:00.000Z",
-    }));
-
-    expect(buildGoalsPreview(goals, 3)).toEqual([
-      { id: "goal-0", title: "Goal 0", status: "active", linked_task_count: 0 },
-      { id: "goal-1", title: "Goal 1", status: "active", linked_task_count: 1 },
-      { id: "goal-2", title: "Goal 2", status: "active", linked_task_count: 2 },
-    ]);
-  });
-});
-
 describe("buildTasksPreview", () => {
   it("maps list tasks to preview rows", () => {
     expect(buildTasksPreview([baseTask])).toEqual([
@@ -109,7 +76,6 @@ describe("buildTasksPreview", () => {
         title: "Ship tasks module",
         status: "in_progress",
         priority: "high",
-        goal_id: "goal-1",
       },
     ]);
   });

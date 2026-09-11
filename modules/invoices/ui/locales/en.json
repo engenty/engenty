@@ -7,6 +7,9 @@
   "loadFailed": "Failed to load invoices.",
   "loadFailedWithError": "Failed to load invoices: {{error}}",
   "noInvoices": "No invoices found.",
+  "previous": "Previous",
+  "next": "Next",
+  "pageOf": "Page {{page}} of {{totalPages}}",
   "recipient": "Recipient",
   "email": "Email",
   "location": "Location",
@@ -127,5 +130,27 @@
     "noRecent": "No invoices yet.",
     "noSearchResults": "No matching invoices."
   },
-  "previewPdf": "Preview PDF"
+  "previewPdf": "Preview PDF",
+  "spaceData": {
+    "tab": "Invoice",
+    "folder": {
+      "date": "Date",
+      "due": "Due",
+      "empty": "No invoices in this state.",
+      "noResults": "No matching invoices",
+      "noResultsHint": "Try a different search.",
+      "clearSearch": "Clear search",
+      "searchPlaceholder": "Search invoices…",
+      "summary": "{{count}}",
+      "number": "Number",
+      "recipient": "Recipient",
+      "tab": "Invoices",
+      "total": "Total",
+      "truncated": "Showing the first page only."
+    },
+    "root": {
+      "invoices": "invoices",
+      "overdue": "{{count}} overdue"
+    }
+  }
 }

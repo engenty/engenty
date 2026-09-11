@@ -56,13 +56,22 @@ export function createWorkspaceFilesAdapter(): Adapter {
   }
 }
 
+/**
+ * The Files client for one mount. `spaceId` inserts the space boundary between
+ * the tenant and the module folder (`tenants/<t>/spaces/<s>/…`), which is what
+ * makes containment structural: a mount rooted in space A has no path that
+ * reaches space B. Absent → tenant root, unchanged.
+ */
 export function createWorkspaceFilesClient(input: {
   fileStorageRelativePath: string;
+  spaceId?: string;
   tenantId: string;
 }): Files {
+  const spaceId = input.spaceId?.trim();
   const segments = [
     "tenants",
     input.tenantId.trim(),
+    ...(spaceId ? ["spaces", spaceId] : []),
     ...input.fileStorageRelativePath.split("/").filter(Boolean),
   ];
   return new Files({

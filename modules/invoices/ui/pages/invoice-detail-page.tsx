@@ -28,6 +28,7 @@ import {
   useInvoiceEditPageQuery,
   useSetInvoiceStatusMutation,
 } from "../queries.js";
+import { InvoiceEditPage } from "./invoice-edit-page.js";
 
 function toCommercialBlocks(
   blocks: {
@@ -45,10 +46,27 @@ function toCommercialBlocks(
   }));
 }
 
-export function InvoiceDetailPage() {
+/**
+ * The invoice, as a page or embedded in a host pane.
+ *
+ * `embedded` matches the contacts/offers treatment: the id arrives as a prop,
+ * the module's secondary nav stays out of the host's column, and the
+ * `InvoiceDocumentHeader` gives way to the host's frame.
+ *
+ * **The phase picks the view**, as it does for offers: a draft renders the
+ * DRAFT EDITOR — the same component the route's Edit action leads to — and
+ * every later phase renders this read-only document, which is what an issued
+ * invoice legally is.
+ */
+export function InvoiceDetailPage(props?: {
+  embedded?: boolean;
+  invoiceId?: string;
+}) {
+  const embedded = props?.embedded ?? false;
   const { t } = useTranslation("invoices");
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = props?.invoiceId ?? routeParams.id;
 
   const { data: pageData, isLoading } = useInvoiceEditPageQuery(id ?? null);
   const setStatusMutation = useSetInvoiceStatusMutation();
@@ -178,11 +196,16 @@ export function InvoiceDetailPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-    // Float the transparent topbar over the white DocumentHeader so they blend.
-    topbarOverlap: true,
+    // Embedded: the host owns the secondary column, and there is no
+    // InvoiceDocumentHeader for a transparent topbar to blend into or float over.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems,
+          secondaryNavHeaderSlot,
+          // Float the transparent topbar over the white DocumentHeader.
+          topbarOverlap: true,
+        }),
   });
   useInvoicesDetailAgentUiSlice(invoice);
 
@@ -202,23 +225,29 @@ export function InvoiceDetailPage() {
     );
   }
 
+  if (embedded && invoice.status === "draft") {
+    return <InvoiceEditPage embedded invoiceId={invoice.id} />;
+  }
+
   const currency = invoice.currency || "EUR";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <InvoiceDocumentHeader
-        clientId={invoice.clientId}
-        clientName={invoice.recipientSnapshot?.displayName}
-        collapsed={headerCollapsed}
-        compactStatus={<InvoiceStatusBadge status={status} />}
-        compactTitle={invoice.title || invoice.number}
-        isReadOnly
-        onTitleChange={() => undefined}
-        showChangeClient={false}
-        showLinkToClient={Boolean(invoice.clientId)}
-        status={status}
-        title={invoice.title || invoice.number}
-      />
+      {embedded ? null : (
+        <InvoiceDocumentHeader
+          clientId={invoice.clientId}
+          clientName={invoice.recipientSnapshot?.displayName}
+          collapsed={headerCollapsed}
+          compactStatus={<InvoiceStatusBadge status={status} />}
+          compactTitle={invoice.title || invoice.number}
+          isReadOnly
+          onTitleChange={() => undefined}
+          showChangeClient={false}
+          showLinkToClient={Boolean(invoice.clientId)}
+          status={status}
+          title={invoice.title || invoice.number}
+        />
+      )}
 
       <div
         className="min-h-0 flex-1 overflow-y-auto"

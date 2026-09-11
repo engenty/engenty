@@ -17,6 +17,7 @@ import { request } from "./request";
 
 export type {
   AiCapsConfig,
+  BrowserParseProvider,
   DocConverterTenantPrefs,
   RealtimeVoiceTenantPrefs,
 } from "@engenty/ai-core/browser";
@@ -24,6 +25,13 @@ export type {
 export const AI_CONFIG_KEY = "ai.config";
 
 export interface AiConfig {
+  /**
+   * How agents ask a human before running a capable-but-risky op.
+   * Default when omitted: `manual`. Does not add capabilities.
+   */
+  agent_approval?:
+    | import("@engenty/ai-core/browser").AgentApprovalTenantPrefs
+    | null;
   /** Tenant-default caps (iteration cap). */
   caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
@@ -37,6 +45,13 @@ export interface AiConfig {
   doc_converter?:
     | import("@engenty/ai-core/browser").DocConverterTenantPrefs
     | null;
+  /**
+   * Opt-in model-generated starter chips on specialist start pages.
+   * Default off.
+   */
+  generated_starters?: boolean | null;
+  /** Observational memory observer + reflector. */
+  memory_model_id?: string | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
   /** Realtime voice provider + voice preferences. */
@@ -47,6 +62,12 @@ export interface AiConfig {
   research_model_id?: string | null;
   /** Guardrail-processor safeguard model. */
   safeguard_model_id?: string | null;
+  /**
+   * IANA zone the workspace works in. Rides into every sandbox as `TZ`, so an
+   * agent reading its own clock answers in local time instead of the
+   * container's UTC. Null inherits UTC.
+   */
+  timezone?: string | null;
 }
 
 export const DEFAULT_CHAT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
@@ -89,6 +110,9 @@ export async function getAiConfig(signal?: AbortSignal): Promise<AiConfig> {
       doc_converter: parsed.doc_converter ?? null,
       realtime_voice: parsed.realtime_voice ?? null,
       caps: parsed.caps ?? null,
+      agent_approval: parsed.agent_approval ?? null,
+      generated_starters: parsed.generated_starters === true,
+      timezone: parsed.timezone ?? null,
     };
   }
   return {};
@@ -109,6 +133,9 @@ export async function saveAiConfig(config: AiConfig): Promise<void> {
         doc_converter: config.doc_converter ?? null,
         realtime_voice: config.realtime_voice ?? null,
         caps: config.caps ?? null,
+        agent_approval: config.agent_approval ?? null,
+        generated_starters: config.generated_starters === true,
+        timezone: config.timezone ?? null,
       },
     }),
   });

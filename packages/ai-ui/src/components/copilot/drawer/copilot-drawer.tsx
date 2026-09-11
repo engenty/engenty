@@ -2,7 +2,10 @@
 "use client";
 
 export { CopilotDrawerBody as CopilotDrawer } from "./copilot-drawer-body";
-export { COPILOT_BOTTOM_DOCK_HEIGHT } from "./copilot-drawer-constants";
+export {
+  COPILOT_BOTTOM_DOCK_HEIGHT,
+  UI_SCROLL_SAFE_BOTTOM_PX,
+} from "./copilot-drawer-constants";
 export type {
   CopilotDockMode,
   CopilotDrawerProps,

@@ -1,7 +1,9 @@
 import type {
+  AgentStarter,
+  AgentWorkspaceConfig,
   ChatCommandDefinition,
-  ModuleActionCapability,
   RoutineDefinition,
+  WorkflowDefinition,
 } from "@engenty/ai-core";
 
 export type EngentyApiEnvelope<T> =
@@ -43,6 +45,130 @@ export interface EngentyToolContract {
   summary?: string;
   toolId?: string;
   transports?: string[];
+}
+
+/** A space as `GET /api/spaces` returns it (PLAN-spaces.md Phase 0). */
+export interface EngentySpace {
+  id: string;
+  isDefault?: boolean;
+  key: string;
+  name: string;
+  ownerUserId?: string | null;
+}
+
+/**
+ * Everything mounted in a space, from core's ONE surface resolver
+ * (PLAN-spaces.md Phase 3 / C3a).
+ *
+ * `agentAccess` is the part with teeth: `none` means the space's engentys get
+ * NOTHING from that module even though its pages are there, and `read` means
+ * they may look but not write. Core derives `capabilities` from the same mounts
+ * with `deriveSpaceAgentCapabilities`, so the numbers a setup dialog shows and
+ * what an agent actually gets cannot drift.
+ */
+export interface EngentySpaceMount {
+  agentAccess: "none" | "read" | "write" | null;
+  createdAt: string;
+  isRequired: boolean;
+  /** Agent mounts only: the agent whose room this agent's reports also reach. */
+  reportsTo?: string | null;
+  resourceKey: string;
+  resourceType: "agent" | "connection" | "module" | "skill";
+  spaceId: string;
+}
+
+export interface EngentySpaceSurface {
+  agents: string[];
+  /**
+   * The acting person's consent for THEIR browser in this space
+   * (PLAN-user-browser.md D3): may an agent drive it while they are away.
+   * Null when they never set one, or when the caller acts for nobody (a
+   * task job); absent on a core that predates it. Never a widening: no
+   * grant means a headless run stops with `needs_user`.
+   */
+  browserGrant?: { autostart?: boolean; unattended: boolean } | null;
+  capabilities: string[];
+  /**
+   * Network reach of this space's shared computer. Absent or null inherits the
+   * host default — a core that predates the column simply omits it.
+   */
+  computerNetworkTier?: "none" | "egress" | null;
+  /** ACCOUNT ids (connection rows) mounted here — see CN.3 in the plan. */
+  connections: string[];
+  /**
+   * Connector ids those accounts belong to, derived by core.
+   *
+   * Optional so a running apps/ai keeps working against a core that predates
+   * CN.3; absent means the connector gate finds nothing mounted, which refuses
+   * rather than widens.
+   */
+  connectors?: string[];
+  modules: Array<{
+    agentAccess: "none" | "read" | "write";
+    isRequired: boolean;
+    moduleId: string;
+    /** Reserved and null on every row today; no assembler reads it. */
+    recordScope: "space" | "all" | null;
+  }>;
+  skills: string[];
+  spaceId: string;
+  /**
+   * Hired engenties with no `reports_to` here. Optional so apps/ai keeps
+   * working against a core that predates the field; absent means nobody is
+   * top-level, which withholds the hiring set rather than handing it out.
+   */
+  topLevelAgents?: string[];
+}
+
+/**
+ * `GET /api/spaces/setup-catalog` — the modules a space may mount, as the setup
+ * dialog lists them. `modules` is a display heuristic (connector providers,
+ * platform plugins and Settings-placed modules are filtered out); core still
+ * validates a mount against EVERY installed plugin, so a module missing here
+ * can be mounted by id.
+ */
+export interface EngentySpaceSetupCatalog {
+  modules: Array<{
+    category: string | null;
+    description: string | null;
+    id: string;
+    name: string;
+  }>;
+}
+
+/** `POST /api/spaces/:id/setup/add` — see `postSpaceSetupAdd`. */
+export interface EngentySpaceSetupAddResult {
+  added: Array<{
+    agent_access: "none" | "read" | "write" | null;
+    resource_key: string;
+    resource_type: string;
+  }>;
+  /**
+   * Apps that now actually use an account here — the module's own binding
+   * (a mailbox's sync state, a drive's file source). An entry carrying `error`
+   * is a placement that stands with a binding that did not finish.
+   */
+  bound?: Array<{ connection_id: string; error?: string; module_id: string }>;
+  /** Accounts whose owner still has to allow engentys to use them. */
+  ceiling_blocked: Array<{ connection_id: string; reason: string }>;
+  /**
+   * Apps whose own first-use setup ran with this call (their manifest's
+   * `mountOperation` — the space's knowledge base row, for one). `ready:
+   * false` with `needs` or `error` is a placement that stands with a setup
+   * that did not finish; re-adding the app retries it.
+   */
+  mounted?: Array<{
+    error?: string;
+    module_id: string;
+    needs: string[];
+    ready: boolean;
+  }>;
+  /**
+   * Apps mounted here that declare they need an account and have none.
+   * Absent — not empty — when core could not check.
+   */
+  needs_connect?: Array<{ capability: string; module_id: string }>;
+  surface: EngentySpaceSurface;
 }
 
 export interface EngentyWorkspaceContext {
@@ -116,24 +242,59 @@ export interface EngentyCoreAiAgentListItem {
 }
 
 export interface EngentyCoreModuleCapabilitySeed {
-  // Serializable ACTION.md / ROUTINE.md definitions declared by the module
-  // (shape: @engenty/ai-core ModuleActionCapability / RoutineDefinition).
-  actions?: ModuleActionCapability[];
   agentConfigs?: Array<{
+    /**
+     * Whose agent this is once mounted (`agent_scope` in agent.json):
+     * `shared` keys rooms, observations, MEMORY.md and TASKS.md per Space,
+     * `personal` per person. Absent = no audience and none of those.
+     */
+    agentScope?: "personal" | "shared";
     description?: string;
     id: string;
     instructions: string;
     model: string;
+    /**
+     * Owning module; `null` is a deliberate disclaimer (copilot/coordinator
+     * ship inside a module but are platform agents). Carried so the identity
+     * surfaces can name the module an agent came with.
+     */
+    moduleId?: string | null;
     name: string;
+    /**
+     * Which tenant model tier the agent inherits when a run resolves a
+     * RuntimeModelConfig (e.g. the coordinator declares "coordinator" so
+     * tenant ai.config.coordinator_model_id applies). `model` stays the
+     * compiled fallback for runs with no resolved config.
+     */
+    purpose?:
+      | "chat"
+      | "routing"
+      | "coordinator"
+      | "research"
+      | "planning_coding"
+      | "safeguard";
     skillIds?: string[];
     source?: "builtin" | "module" | "database";
+    /** Empty-state composer chips declared in the module's agent.json. */
+    starters?: AgentStarter[];
     toolIds?: string[];
+    /**
+     * The agent's workspace request (files + sandbox), straight from
+     * agent.json / the module registrar. Until 2026-08-29 this was dropped
+     * on the way into apps/ai, which silently stripped every module
+     * specialist's declaration — the Worker compute default
+     * (PLAN-agent-computers.md P1) needs the declaration to arrive.
+     */
+    workspace?: AgentWorkspaceConfig;
   }>;
   // Serializable COMMAND.md chat slash commands declared by the module.
   chatCommands?: ChatCommandDefinition[];
   moduleId: string;
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;
+  // Module workflow / trigger declarations (shape: @engenty/ai-core
+  // WorkflowDefinition / RoutineDefinition — plain JSON, carried verbatim).
+  workflows?: WorkflowDefinition[];
 }
 
 export class EngentyCoreHttpError extends Error {
@@ -170,16 +331,36 @@ export interface EngentyCoreClientOptions {
   coreBaseUrl: string;
   fetchImpl?: typeof fetch;
   goalId?: string;
+  /**
+   * Re-mint the bearer after core answers 401. Service tokens live 15 minutes
+   * and a long headless run outlives them; when this is set, a 401 triggers
+   * one refresh, and a token different from the one that just failed is
+   * retried once — the client then rides the fresh token for the rest of its
+   * life. Absent (interactive user tokens, which nothing can re-mint), a 401
+   * surfaces unchanged.
+   */
+  refreshAccessToken?: () => Promise<string | null | undefined>;
   requestTimeoutMs?: number;
+  /**
+   * The routine whose fire started this run, forwarded as
+   * x-engenty-routine-id — the subject routine-scoped grants are spent against,
+   * which is what opens a routine's standing permissions to its own runs.
+   */
+  routineId?: string;
+  /**
+   * The space this run happens in, forwarded as x-engenty-space-id (CN.3).
+   *
+   * Narrows which mounted ACCOUNT a connector call may resolve to. Purely
+   * additive: core intersects it with what the principal may already reach, so
+   * omitting it reproduces the pre-spaces behaviour exactly.
+   */
+  spaceId?: string;
   /**
    * Task a headless run is executing, forwarded as x-engenty-task-id — the
    * subject core's approval gate spends task-scoped grants against, and the
    * link stamped onto any approval request the gate files.
    */
   taskId?: string;
-  /** Trigger/routine behind the task, forwarded as x-engenty-trigger-id —
-   * the subject routine-scoped grants are spent against. */
-  triggerId?: string;
 }
 
 // Workspace context cache: key is token, value is [context, expiresAt]
@@ -193,11 +374,15 @@ export class EngentyCoreClient {
   private readonly options: EngentyCoreClientOptions;
   private readonly fetchImpl: typeof fetch;
   private readonly coreBaseUrl: string;
+  /** Current bearer — starts as options.accessToken and is replaced by a
+   * successful 401 refresh, so every later request rides the fresh token. */
+  private accessToken: string;
 
   constructor(options: EngentyCoreClientOptions) {
     this.options = options;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.coreBaseUrl = normalizeCoreBaseUrl(options.coreBaseUrl);
+    this.accessToken = options.accessToken;
   }
 
   async request<T>(
@@ -215,20 +400,18 @@ export class EngentyCoreClient {
     }
 
     const url = new URL(path, this.coreBaseUrl);
-    let response: Response;
-    try {
-      response = await this.fetchWithTimeout(url, init);
-    } catch (err) {
-      if (err instanceof EngentyCoreHttpError) {
-        throw err;
+    let response = await this.fetchOnce(url, init);
+    // 401 with a refresh seam: the bearer likely expired mid-run (service
+    // tokens live 15 minutes; long headless runs outlive them). Re-mint once
+    // and retry — but only with a token DIFFERENT from the one that just
+    // failed, so a 401 that is not about expiry cannot loop.
+    if (response.status === 401 && this.options.refreshAccessToken) {
+      const failedToken = normalizeBearerToken(this.accessToken);
+      const fresh = await this.options.refreshAccessToken().catch(() => null);
+      if (fresh && normalizeBearerToken(fresh) !== failedToken) {
+        this.accessToken = fresh;
+        response = await this.fetchOnce(url, init);
       }
-      const message =
-        err instanceof Error && err.name === "AbortError"
-          ? "Core request timed out"
-          : err instanceof Error
-            ? err.message
-            : "Core request failed";
-      throw new EngentyCoreHttpError(message, 0, "network_error");
     }
 
     const body = await parseJsonBody(response);
@@ -260,6 +443,29 @@ export class EngentyCoreClient {
     );
   }
 
+  /** One fetch attempt with the error mapping `request` promises callers. */
+  private async fetchOnce(
+    url: URL,
+    init: Omit<RequestInit, "headers"> & {
+      headers?: Record<string, string>;
+    }
+  ): Promise<Response> {
+    try {
+      return await this.fetchWithTimeout(url, init);
+    } catch (err) {
+      if (err instanceof EngentyCoreHttpError) {
+        throw err;
+      }
+      const message =
+        err instanceof Error && err.name === "AbortError"
+          ? "Core request timed out"
+          : err instanceof Error
+            ? err.message
+            : "Core request failed";
+      throw new EngentyCoreHttpError(message, 0, "network_error");
+    }
+  }
+
   private async fetchWithTimeout(
     url: URL,
     init: Omit<RequestInit, "headers"> & {
@@ -287,18 +493,21 @@ export class EngentyCoreClient {
         signal: controller.signal,
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${normalizeBearerToken(this.options.accessToken)}`,
+          Authorization: `Bearer ${normalizeBearerToken(this.accessToken)}`,
           ...(this.options.agentId
             ? { "x-engenty-agent-id": this.options.agentId }
             : {}),
           ...(this.options.goalId
             ? { "x-engenty-goal-id": this.options.goalId }
             : {}),
+          ...(this.options.spaceId
+            ? { "x-engenty-space-id": this.options.spaceId }
+            : {}),
           ...(this.options.taskId
             ? { "x-engenty-task-id": this.options.taskId }
             : {}),
-          ...(this.options.triggerId
-            ? { "x-engenty-trigger-id": this.options.triggerId }
+          ...(this.options.routineId
+            ? { "x-engenty-routine-id": this.options.routineId }
             : {}),
           ...init.headers,
         },
@@ -316,20 +525,6 @@ export class EngentyCoreClient {
   listModuleCapabilitySeeds() {
     return this.request<{ capabilities: EngentyCoreModuleCapabilitySeed[] }>(
       "/api/tools/module-capabilities"
-    );
-  }
-
-  resolveAgentSystemPromptFromUiState(
-    agentId: string,
-    uiState: Record<string, unknown>
-  ) {
-    return this.request<{ system_prompt: string }>(
-      "/api/tools/agent-system-prompt",
-      {
-        body: JSON.stringify({ agent_id: agentId, ui_state: uiState }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      }
     );
   }
 
@@ -362,7 +557,7 @@ export class EngentyCoreClient {
   }
 
   async getWorkspaceContext(): Promise<EngentyWorkspaceContext> {
-    const token = this.options.accessToken;
+    const token = this.accessToken;
     const cached = workspaceContextCache.get(token);
     if (cached) {
       const [context, expiresAt] = cached;
@@ -384,6 +579,147 @@ export class EngentyCoreClient {
   listPlugins(tenantId?: string | null) {
     const query = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
     return this.request<EngentyPluginListItem[]>(`/api/plugins${query}`);
+  }
+
+  /**
+   * The spaces this caller may enter (PLAN-spaces.md Phase P2).
+   *
+   * Membership-filtered by core, so naming a space from this list in a prompt
+   * cannot disclose one the user is not in — which matters because personal
+   * spaces are private and their key is a person's name.
+   */
+  listSpaces() {
+    return this.request<EngentySpace[]>("/api/spaces");
+  }
+
+  /**
+   * Every space mounting a module — the trigger fan-out's question
+   * (`scope: "space"` reconciles one binding per space here). Service-lane
+   * only on core's side; includes private spaces by design.
+   */
+  listSpacesMounting(moduleId: string) {
+    return this.request<{ space_ids: string[] }>(
+      `/api/spaces/mounting/${encodeURIComponent(moduleId)}`
+    );
+  }
+
+  /**
+   * What a space contains (PLAN-spaces.md Phase C3a).
+   *
+   * Gated by `requireSpaceAccess` on core's side, so a caller who is not in the
+   * space gets an error rather than its mount list — which is why apps/ai can
+   * treat a successful response as proof of access and does not re-derive one.
+   */
+  getSpaceSurface(spaceId: string) {
+    return this.request<EngentySpaceSurface>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/surface`
+    );
+  }
+
+  /** The explicit mount rows of a space — where an agent's `reportsTo` lives. */
+  listSpaceMounts(spaceId: string) {
+    return this.request<EngentySpaceMount[]>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/mounts`
+    );
+  }
+
+  /**
+   * Mount one resource on a space (PLAN-spaces.md Phase 3). Admin or personal-
+   * space owner — core refuses everyone else. Used when installing a public
+   * skill into the current space from chat; `space_setup` posts to /setup/add.
+   *
+   * `agent_access` / `record_scope` are module-only; core rejects them on any
+   * other resource type, and rejects a module mount that omits `agent_access`.
+   */
+  putSpaceMount(
+    spaceId: string,
+    input: {
+      agent_access?: "none" | "read" | "write";
+      record_scope?: "space" | "all";
+      /** Agent mounts only: who this agent reports to. Null clears. */
+      reports_to?: string | null;
+      resource_key: string;
+      resource_type: "agent" | "connection" | "module" | "skill";
+    }
+  ) {
+    return this.request<unknown>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/mounts`,
+      {
+        body: JSON.stringify(input),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }
+    );
+  }
+
+  /**
+   * ADD to a space's setup — apps and accounts in one call
+   * (PLAN-connections-ux.md B2). Additive: what is already mounted stays, and
+   * re-adding a mount with a different `agent_access` is how the level changes.
+   *
+   * The answer carries what the caller still has to do: `needs_connect` names
+   * apps that are here with no account to work with, and `ceiling_blocked`
+   * names accounts whose own owner still has to open them up.
+   */
+  postSpaceSetupAdd(
+    spaceId: string,
+    mounts: Array<{
+      agent_access?: "none" | "read" | "write";
+      resource_key: string;
+      resource_type: "agent" | "connection" | "module" | "skill";
+    }>
+  ) {
+    return this.request<EngentySpaceSetupAddResult>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/setup/add`,
+      {
+        body: JSON.stringify({ mounts }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }
+    );
+  }
+
+  /**
+   * Unmount one resource. Unmounting HIDES records, it never deletes them —
+   * say that wherever this is offered.
+   */
+  deleteSpaceMount(
+    spaceId: string,
+    resourceType: "agent" | "connection" | "module" | "skill",
+    resourceKey: string
+  ) {
+    return this.request<{ removed: boolean }>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/mounts/${encodeURIComponent(
+        resourceType
+      )}/${encodeURIComponent(resourceKey)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  /**
+   * The modules a space MAY mount, with their display names. Readable by any
+   * member — it is a catalog, not tenant data.
+   */
+  getSpaceSetupCatalog() {
+    return this.request<EngentySpaceSetupCatalog>("/api/spaces/setup-catalog");
+  }
+
+  putSpaceSkillPack(spaceId: string, category: string) {
+    return this.request<{ category: string; mounted: string[] }>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/skill-packs/${encodeURIComponent(category)}`,
+      { method: "PUT" }
+    );
+  }
+
+  deleteSpaceSkillPack(spaceId: string, category: string) {
+    return this.request<{
+      category: string;
+      retained: string[];
+      unmounted: string[];
+    }>(
+      `/api/spaces/${encodeURIComponent(spaceId)}/skill-packs/${encodeURIComponent(category)}`,
+      { method: "DELETE" }
+    );
   }
 
   /**

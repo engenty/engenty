@@ -3,6 +3,7 @@ import type { ModuleOpInvoker } from "../resolve-work-container.js";
 import { resolveWorkVisibility } from "../resolve-work-visibility.js";
 
 const TENANT = "tenant-1";
+const SPACE = "space-1";
 
 /** Build a fake invoker from a per-op response map. */
 function fakeInvoke(
@@ -17,86 +18,143 @@ function fakeInvoke(
 describe("resolveWorkVisibility", () => {
   it("orders the chain most-specific-first and always ends with global", async () => {
     const resolved = await resolveWorkVisibility(
-      { invoke: fakeInvoke({}), tenantId: TENANT },
+      { invoke: fakeInvoke({}), spaceId: SPACE, tenantId: TENANT },
       {
-        goalId: "goal-1",
         projectId: "project-1",
+        routineId: "routine-1",
         taskIdentifier: "ENG-7",
-        triggerId: "trigger-1",
       }
     );
 
     expect(resolved.prefixes).toEqual([
-      `tenants/${TENANT}/ai/workspace/routines/trigger-1/`,
-      `tenants/${TENANT}/ai/workspace/tasks/ENG-7/`,
-      `tenants/${TENANT}/ai/workspace/goals/goal-1/`,
-      `tenants/${TENANT}/ai/workspace/projects/project-1/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/routines/routine-1/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/tasks/ENG-7/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/projects/project-1/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/commons/`,
       `tenants/${TENANT}/ai/workspace/commons/`,
     ]);
     expect(resolved.chain.map((n) => n.tier)).toEqual([
       "routine",
       "task",
-      "goal",
       "project",
+      "space",
       "global",
     ]);
   });
 
   it("makes no lookups when the binding already carries every link", async () => {
     const tasksGet = vi.fn();
-    const goalsGet = vi.fn();
     await resolveWorkVisibility(
       {
-        invoke: fakeInvoke({ goals_get: goalsGet, tasks_get: tasksGet }),
+        invoke: fakeInvoke({ tasks_get: tasksGet }),
+        spaceId: SPACE,
         tenantId: TENANT,
       },
       {
-        goalId: "goal-1",
         projectId: "project-1",
+        spaceId: SPACE,
         taskId: "task-1",
         taskIdentifier: "ENG-7",
       }
     );
     expect(tasksGet).not.toHaveBeenCalled();
-    expect(goalsGet).not.toHaveBeenCalled();
   });
 
-  it("fills goal and project links from the task row", async () => {
+  it("still reads the task row when only the SPACE is missing", async () => {
+    // deps.spaceId is a fallback, not an answer: a task carrying its own
+    // space must win over the tenant default, so the lookup has to happen.
+    const tasksGet = vi.fn(() => ({ space_id: "space-from-task" }));
+    const resolved = await resolveWorkVisibility(
+      {
+        invoke: fakeInvoke({ tasks_get: tasksGet }),
+        spaceId: SPACE,
+        tenantId: TENANT,
+      },
+      {
+        projectId: "project-1",
+        taskId: "task-1",
+        taskIdentifier: "ENG-7",
+      }
+    );
+    expect(tasksGet).toHaveBeenCalled();
+    expect(resolved.spaceId).toBe("space-from-task");
+    expect(resolved.prefixes[0]).toBe(
+      `tenants/${TENANT}/spaces/space-from-task/ai/workspace/tasks/ENG-7/`
+    );
+  });
+
+  it("keeps the most specific space and logs the conflict", async () => {
+    // A containment tree spanning two spaces is a data-integrity bug the
+    // composite (space_id, tenant_id) FKs are meant to make unreachable. If it
+    // ever happens the chain must still resolve to ONE space — a chain that
+    // spanned both would hand the run prefixes from a space it was never
+    // activated in.
+    const log = vi.fn();
     const resolved = await resolveWorkVisibility(
       {
         invoke: fakeInvoke({
-          tasks_get: () => ({ goal_id: "goal-2", project_id: "project-2" }),
+          tasks_get: () => ({ space_id: "space-task" }),
         }),
+        log,
+        spaceId: SPACE,
+        tenantId: TENANT,
+      },
+      {
+        spaceId: "space-binding",
+        taskId: "task-1",
+        taskIdentifier: "ENG-8",
+      }
+    );
+
+    expect(resolved.spaceId).toBe("space-binding");
+    const spaceSegments = new Set(
+      resolved.prefixes
+        .map((p) => /\/spaces\/([^/]+)\//.exec(p)?.[1])
+        .filter(Boolean)
+    );
+    expect([...spaceSegments]).toEqual(["space-binding"]);
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining("spans multiple spaces"),
+      expect.objectContaining({ chosen: "space-binding" })
+    );
+  });
+
+  it("fills the project link from the task row", async () => {
+    const resolved = await resolveWorkVisibility(
+      {
+        invoke: fakeInvoke({
+          tasks_get: () => ({ project_id: "project-2" }),
+        }),
+        spaceId: SPACE,
         tenantId: TENANT,
       },
       { taskId: "task-1", taskIdentifier: "ENG-1" }
     );
 
     expect(resolved.prefixes).toEqual([
-      `tenants/${TENANT}/ai/workspace/tasks/ENG-1/`,
-      `tenants/${TENANT}/ai/workspace/goals/goal-2/`,
-      `tenants/${TENANT}/ai/workspace/projects/project-2/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/tasks/ENG-1/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/projects/project-2/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/commons/`,
       `tenants/${TENANT}/ai/workspace/commons/`,
     ]);
   });
 
-  it("falls back to the goal row for the project link", async () => {
+  it("reads the project row for the space the task did not name", async () => {
     const resolved = await resolveWorkVisibility(
       {
         invoke: fakeInvoke({
-          goals_get: () => ({ project_id: "project-3" }),
-          tasks_get: () => ({ goal_id: "goal-3" }),
+          projects_get: () => ({ space_id: "space-project" }),
+          tasks_get: () => ({ project_id: "project-3" }),
         }),
+        spaceId: SPACE,
         tenantId: TENANT,
       },
       { taskId: "task-1", taskIdentifier: "ENG-2" }
     );
 
+    expect(resolved.spaceId).toBe("space-project");
     expect(resolved.prefixes).toContain(
-      `tenants/${TENANT}/ai/workspace/goals/goal-3/`
-    );
-    expect(resolved.prefixes).toContain(
-      `tenants/${TENANT}/ai/workspace/projects/project-3/`
+      `tenants/${TENANT}/spaces/space-project/ai/workspace/projects/project-3/`
     );
   });
 
@@ -106,33 +164,50 @@ describe("resolveWorkVisibility", () => {
         invoke: async () => {
           throw new Error("core unreachable");
         },
+        spaceId: SPACE,
         tenantId: TENANT,
       },
       { taskId: "task-1", taskIdentifier: "ENG-3" }
     );
 
     expect(resolved.prefixes).toEqual([
-      `tenants/${TENANT}/ai/workspace/tasks/ENG-3/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/tasks/ENG-3/`,
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/commons/`,
       `tenants/${TENANT}/ai/workspace/commons/`,
     ]);
   });
 
-  it("resolves bare bindings to global only", async () => {
+  it("resolves a bare binding to the space commons plus global", async () => {
     const resolved = await resolveWorkVisibility(
-      { invoke: fakeInvoke({}), tenantId: TENANT },
+      { invoke: fakeInvoke({}), spaceId: SPACE, tenantId: TENANT },
       {}
     );
     expect(resolved.prefixes).toEqual([
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/commons/`,
       `tenants/${TENANT}/ai/workspace/commons/`,
     ]);
+  });
+
+  it("resolves to global ALONE when no space can be proven", async () => {
+    const resolved = await resolveWorkVisibility(
+      { invoke: fakeInvoke({}), spaceId: null, tenantId: TENANT },
+      { taskIdentifier: "ENG-9" }
+    );
+    // No space → no path for the task tier. Contribute nothing rather than a
+    // prefix outside the containment boundary.
+    expect(resolved.prefixes).toEqual([
+      `tenants/${TENANT}/ai/workspace/commons/`,
+    ]);
+    expect(resolved.spaceId).toBeNull();
   });
 
   it("ignores blank and whitespace-only ids", async () => {
     const resolved = await resolveWorkVisibility(
-      { invoke: fakeInvoke({}), tenantId: TENANT },
-      { goalId: "  ", taskIdentifier: "", triggerId: null }
+      { invoke: fakeInvoke({}), spaceId: SPACE, tenantId: TENANT },
+      { projectId: "  ", routineId: null, taskIdentifier: "" }
     );
     expect(resolved.prefixes).toEqual([
+      `tenants/${TENANT}/spaces/${SPACE}/ai/workspace/commons/`,
       `tenants/${TENANT}/ai/workspace/commons/`,
     ]);
   });

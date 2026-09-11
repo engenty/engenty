@@ -39,6 +39,10 @@ export function TeamMemberTasksTab({
   const isProjectsEnabled = pluginsApi?.isPluginEnabled("projects") ?? false;
   const projectsApi = pluginsApi?.get<any>("projects");
 
+  // Deliberately tenant-wide, not space-scoped: this tab answers "what is this
+  // PERSON working on", and a member works across spaces. It reaches
+  // `tasksListOptions` directly rather than `useTasksListQuery`, which is what
+  // keeps it unscoped — see lib/use-task-space-scope.ts.
   const tasksQuery = useQuery({
     ...tasksListOptions({ assigned_to: member.user_id, pageSize: 100 }),
     enabled: isTasksEnabled && !!member.user_id,

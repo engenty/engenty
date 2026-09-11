@@ -281,19 +281,72 @@ export function readPluginManifest(
   }
 }
 
-export function moduleHasUi(manifest: Record<string, unknown> | null): boolean {
-  if (!manifest) {
+/** Convention entry points — a module with one of these ships a UI. */
+const UI_PLUGIN_CONVENTION_FILES = ["plugin.ts", "plugin.mts", "plugin.js"];
+
+/**
+ * Whether a module contributes a UI plugin.
+ *
+ * Three signals, because the manifest is the exception rather than the rule:
+ * a declared `ui.entry`, a declared `capabilities.ui`, and — how almost every
+ * module actually does it — the convention file `ui/plugin.ts`. Only the last
+ * needs the directory, which is why `moduleDir` is worth passing whenever the
+ * caller has it. Checking the manifest alone answers `false` for nearly every
+ * real module, and `syncUiModuleDependencies` then deletes their dependencies
+ * from `apps/ui/package.json`.
+ *
+ * Keep in sync with scripts/lib/engenty-modules.mjs and with the UI artifact
+ * generator's `resolveConventionUiImportPath`, which is the authority on what
+ * the built catalog contains.
+ */
+/** The module's declared package name, when it is on disk. */
+function readModulePackageName(dir: string): string | null {
+  const pkgPath = path.join(dir, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    return null;
+  }
+  try {
+    const name = (
+      JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as { name?: unknown }
+    ).name;
+    return typeof name === "string" && name.trim() ? name.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function moduleHasUi(
+  manifest: Record<string, unknown> | null,
+  moduleDir?: string
+): boolean {
+  if (manifest) {
+    const ui = manifest.ui;
+    if (ui === true) {
+      return true;
+    }
+    if (ui && typeof ui === "object" && !Array.isArray(ui)) {
+      const entry = (ui as { entry?: unknown }).entry;
+      if (typeof entry === "string" && entry.trim().length > 0) {
+        return true;
+      }
+    }
+    const capabilities = manifest.capabilities;
+    if (
+      capabilities &&
+      typeof capabilities === "object" &&
+      !Array.isArray(capabilities) &&
+      (capabilities as { ui?: unknown }).ui === true
+    ) {
+      return true;
+    }
+  }
+
+  if (!moduleDir) {
     return false;
   }
-  const ui = manifest.ui;
-  if (ui === true) {
-    return true;
-  }
-  if (!ui || typeof ui !== "object" || Array.isArray(ui)) {
-    return false;
-  }
-  const entry = (ui as { entry?: unknown }).entry;
-  return typeof entry === "string" && entry.trim().length > 0;
+  return UI_PLUGIN_CONVENTION_FILES.some((file) =>
+    fs.existsSync(path.join(moduleDir, "ui", file))
+  );
 }
 
 /**
@@ -351,7 +404,12 @@ export function resolveEnabledModules(
     let packageName: string;
     if (spec.source === "workspace") {
       dir = onDisk.get(slug) ?? path.join(repoRoot, "modules", slug);
-      packageName = modulePackageName(slug);
+      // The module's own package.json is the authority: a handful diverge from
+      // the `@engenty/<slug>` convention (files → @engenty/files-ui,
+      // pdf-templates → @engenty/pdf-templates-module), and a derived name
+      // that does not exist breaks `pnpm install` for anyone who writes it
+      // into a manifest.
+      packageName = readModulePackageName(dir) ?? modulePackageName(slug);
       if (!fs.existsSync(dir)) {
         // Soft-skip: open worktrees / partial checkouts often list closed
         // plugins in package.json that are not on disk. CI still fails via
@@ -395,7 +453,7 @@ export function resolveEnabledModules(
       dir,
       packageName,
       manifest,
-      hasUi: moduleHasUi(manifest),
+      hasUi: moduleHasUi(manifest, dir),
       source: spec.source,
     });
   }

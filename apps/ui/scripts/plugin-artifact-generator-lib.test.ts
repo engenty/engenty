@@ -11,6 +11,7 @@ import {
   getPackageNameFromUiImportPath,
   normalizeAndSortUiPlugins,
   normalizeManifestUiEntry,
+  partitionUiPluginsByVisibility,
   renderCatalog,
   renderTailwindSources,
 } from "./plugin-artifact-generator-lib.mjs";
@@ -109,6 +110,76 @@ describe("plugin-artifact-generator-lib", () => {
         workspacePackageNames: ["@engenty/contacts"],
       })
     ).toThrow('Add "@engenty/contacts": "workspace:*" to apps/ui/package.json');
+  });
+
+  it("keeps closed plugins out of the open catalog and does not require apps/ui deps", () => {
+    const partitioned = partitionUiPluginsByVisibility(
+      [
+        {
+          id: "contacts",
+          importPath: "@engenty/contacts/ui/plugin",
+          load: "workspace",
+          exportName: "default",
+          sourceInfo: { rootDir: "modules/contacts" },
+        },
+        {
+          id: "engenty-remote",
+          importPath: "@engenty/engenty-remote/ui/plugin",
+          load: "workspace",
+          exportName: "default",
+          sourceInfo: { rootDir: "modules/engenty-remote" },
+        },
+        {
+          id: "team-chat-slack-bridge",
+          importPath: "@engenty/team-chat-slack-bridge/ui/plugin",
+          load: "workspace",
+          exportName: "default",
+          sourceInfo: { rootDir: "modules/team-chat/providers/slack-bridge" },
+        },
+      ],
+      [
+        "modules/engenty-remote",
+        "modules/team-chat/providers/slack-bridge",
+        "modules/team-hr",
+        "modules/time-tracking",
+      ]
+    );
+
+    expect(partitioned.open.map((entry) => entry.id)).toEqual(["contacts"]);
+    expect(partitioned.closed.map((entry) => entry.id)).toEqual([
+      "engenty-remote",
+      "team-chat-slack-bridge",
+    ]);
+
+    const openCatalog = renderCatalog(partitioned.open);
+    expect(openCatalog).toContain('import("@engenty/contacts/ui/plugin")');
+    expect(openCatalog).not.toContain("@engenty/engenty-remote");
+    expect(openCatalog).not.toContain("@engenty/team-chat-slack-bridge");
+
+    const closedCatalog = renderCatalog(partitioned.closed, {
+      catalogTypeImport: "../catalog",
+      loaderImport: "../runtime-ui-loader",
+    });
+    expect(closedCatalog).toContain(
+      'import type { UiPluginCatalogEntry } from "../catalog"'
+    );
+    expect(closedCatalog).toContain(
+      'import("@engenty/engenty-remote/ui/plugin")'
+    );
+
+    expect(
+      collectMissingUiWorkspaceDependencies({
+        entries: partitioned.open,
+        uiPackageManifest: {
+          dependencies: { "@engenty/contacts": "workspace:*" },
+        },
+        workspacePackageNames: [
+          "@engenty/contacts",
+          "@engenty/engenty-remote",
+          "@engenty/team-chat-slack-bridge",
+        ],
+      })
+    ).toEqual([]);
   });
 
   it("collects generated artifacts whose content changed", () => {

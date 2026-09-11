@@ -7,6 +7,7 @@ import {
   createFileStorageService,
   createSupabaseFileStorageProvider,
 } from "@engenty/file-storage";
+import type { NotificationsHost } from "@engenty/notifications";
 import type {
   CliRegistrar,
   ContextGraphHost,
@@ -25,6 +26,7 @@ import type {
   PluginGatewayMethod,
   PluginHttpRoute,
   PluginOperationMeta,
+  PluginPlacement,
   PluginProfilePolicy,
   PluginRegistrationReceipt,
   PluginResultPolicy,
@@ -35,8 +37,13 @@ import type {
   PluginTestDataRegistration,
   QueueDefinition,
   RoleProfile,
+  SpaceDataAdapter,
 } from "@engenty/plugin-sdk";
-import { assertStrictToolId, RoleProfileRegistry } from "@engenty/plugin-sdk";
+import {
+  assertStrictToolId,
+  isOperationSpacePolicy,
+  RoleProfileRegistry,
+} from "@engenty/plugin-sdk";
 import { createQueueService } from "@engenty/queue";
 import type { RetrievalServiceWithProviders } from "@engenty/retrieval";
 import type { SearchIndexRegistry } from "@engenty/search-index";
@@ -44,7 +51,11 @@ import {
   enforceInProcessPolicy,
   type InProcessPolicyDeps,
 } from "../security/in-process-gate.js";
-import type { PluginManifestCapabilityFlags, PluginTier } from "./manifest.js";
+import type {
+  PluginManifestCapabilityFlags,
+  PluginManifestConnectionNeed,
+  PluginTier,
+} from "./manifest.js";
 
 /**
  * Internal runtime API object built by the registry for each plugin record.
@@ -63,6 +74,12 @@ export interface PluginRecord {
   /** Catalog group from engenty.plugin.json — see PluginCategory. */
   category?: PluginCategory;
   cliCommands: string[];
+  /**
+   * External accounts this module needs, by connector capability — what makes
+   * "add this app to a space" answerable as a complete step
+   * (PLAN-connections-ux.md B3).
+   */
+  connections?: PluginManifestConnectionNeed[];
   dependencies: string[];
   description?: string;
   enabled: boolean;
@@ -84,9 +101,13 @@ export interface PluginRecord {
   loaded: boolean;
   manifestPath: string;
   moduleOperations: string[];
+  /** Runs once per space mount to make the module usable there — see the manifest. */
+  mountOperation?: string;
   name?: string;
   optional?: string[];
   packageName?: string;
+  /** Shell placement from engenty.plugin.json — see PluginPlacement. */
+  placement?: PluginPlacement;
   profilePolicies?: string[];
   provides?: string[];
   queues: string[];
@@ -97,6 +118,8 @@ export interface PluginRecord {
   source: string;
   sourceInfo?: PluginSourceInfo;
   sourceType: "builtin" | "module" | "package";
+  /** Space Data tree roots this plugin contributes (PLAN-space-data.md D2). */
+  spaceDataAdapters?: string[];
   testDataTypes: string[];
   /** Capability tier (see plugin-tier-policy). Defaults to "module" when unset. */
   tier?: PluginTier;
@@ -304,6 +327,7 @@ export interface PluginRegistry {
     > & {
       audit?: PluginOperationMeta["audit"];
       requiredCapabilities: string[];
+      spacePolicy?: PluginOperationMeta["spacePolicy"];
     };
     outputSchema?: PluginServerOperation["outputSchema"];
     receiptId?: string;
@@ -312,6 +336,11 @@ export interface PluginRegistry {
     summary?: string;
     pluginConfig: Record<string, unknown>;
   }>;
+  // Shared registry of `SearchIndexProvider`s (chat-search, contacts, kb,
+  // api-catalog). Populated by `engenty.server.registerSearchIndexProvider(...)`
+  // and consumed by the unified `/api/search-index/*` operator surface.
+  /** The notifications host every plugin's `server.notifications` points at. */
+  notificationsHost?: NotificationsHost;
   // Schema registrations made by consumer plugins before the host loaded
   // (modules discover before packages). Flushed when the host installs.
   pendingContextGraphSchemas?: Array<{
@@ -369,9 +398,6 @@ export interface PluginRegistry {
    * `resolveGrants` to map assigned role ids → capability strings.
    */
   roleProfiles?: RoleProfileRegistry;
-  // Shared registry of `SearchIndexProvider`s (chat-search, contacts, kb,
-  // api-catalog). Populated by `engenty.server.registerSearchIndexProvider(...)`
-  // and consumed by the unified `/api/search-index/*` operator surface.
   searchIndexRegistry?: SearchIndexRegistry;
   services: Array<{
     pluginId: string;
@@ -387,6 +413,19 @@ export interface PluginRegistry {
    * those services exist. The gate runs with or without them.
    */
   setPolicyDeps?: (deps: InProcessPolicyDeps) => void;
+  /**
+   * Module faces in the space Data tree (PLAN-space-data.md D2). One per
+   * module at most; the root is only VISIBLE where that module is mounted, so
+   * an entry here grants nothing by itself.
+   */
+  spaceDataAdapters?: Array<{
+    adapter: SpaceDataAdapter;
+    pluginId: string;
+    receiptId?: string;
+    source: string;
+    sourceInfo?: PluginSourceInfo;
+    pluginConfig: Record<string, unknown>;
+  }>;
   testDataTypes: Array<{
     pluginId: string;
     registration: PluginTestDataRegistration;
@@ -426,6 +465,7 @@ export interface RemoveOwnedRegistrationsResult {
     queueHandlers: number;
     resultPolicies: number;
     services: number;
+    spaceDataAdapters: number;
     testDataTypes: number;
   };
   totalRemoved: number;
@@ -500,6 +540,7 @@ function emptyOwnedRemovalCounts(): RemoveOwnedRegistrationsResult["removed"] {
     queueHandlers: 0,
     resultPolicies: 0,
     services: 0,
+    spaceDataAdapters: 0,
     testDataTypes: 0,
   };
 }
@@ -581,6 +622,7 @@ async function collectOwnedDisposableEntries(
       ...(registry.queueDefinitions ?? []),
       ...(registry.resultPolicies ?? []),
       ...(registry.services ?? []),
+      ...(registry.spaceDataAdapters ?? []),
       ...(registry.testDataTypes ?? []),
     ],
     logger
@@ -613,6 +655,7 @@ function resetPluginRecordContributions(record: PluginRecord) {
   record.queues = [];
   record.resultPolicies = [];
   record.services = [];
+  record.spaceDataAdapters = [];
   record.testDataTypes = [];
 }
 
@@ -686,6 +729,10 @@ export async function removeOwnedRegistrations(
       pluginId
     ),
     services: removeArrayEntriesByPluginId(registry.services, pluginId),
+    spaceDataAdapters: removeArrayEntriesByPluginId(
+      registry.spaceDataAdapters,
+      pluginId
+    ),
     testDataTypes: removeArrayEntriesByPluginId(
       registry.testDataTypes,
       pluginId
@@ -731,6 +778,7 @@ export function createPluginRegistry(params: CreateRegistryParams): {
     roleProfiles: new RoleProfileRegistry(),
     resultPolicies: [],
     services: [],
+    spaceDataAdapters: [],
     testDataTypes: [],
     diagnostics: [],
     featureFlags: [],
@@ -893,6 +941,9 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       dryRunSupported: operation.dryRunSupported ?? false,
       requiresApproval: operation.requiresApproval ?? false,
       ...(operation.audit ? { audit: operation.audit } : {}),
+      ...(isOperationSpacePolicy(operation.spacePolicy)
+        ? { spacePolicy: operation.spacePolicy }
+        : {}),
     } as const;
     // Phase 5 audit: a gateway method with no explicit requiredCapabilities
     // falls back to inferred module.read/module.write, which any default agent
@@ -905,6 +956,20 @@ export function createPluginRegistry(params: CreateRegistryParams): {
         pluginId: record.id,
         remediation:
           "Declare requiredCapabilities explicitly on the gateway method.",
+        sourceInfo: sourceInfoFor(record, "server.moduleOperation"),
+      });
+    }
+    if (
+      operation.spacePolicy !== undefined &&
+      !isOperationSpacePolicy(operation.spacePolicy)
+    ) {
+      registry.diagnostics.push({
+        code: "plugin.operation.invalid_space_policy",
+        level: "warn",
+        message: `module operation "${operationId}" (${record.id}) declared a spacePolicy that is not one of platform | tenant_shared | space_owned | account_mounted | user_owned.`,
+        pluginId: record.id,
+        remediation:
+          "Declare spacePolicy with a supported kind. Do not omit it on a Space-placed operation or silently treat it as tenant_shared.",
         sourceInfo: sourceInfoFor(record, "server.moduleOperation"),
       });
     }
@@ -1045,6 +1110,72 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       source: record.source,
       sourceInfo,
       pluginConfig,
+    });
+    return receipt;
+  };
+
+  /**
+   * Register a module's face in the space Data tree.
+   *
+   * Two things are refused rather than tolerated, because both would show a
+   * reader a tree that lies: a duplicate ROOT (two modules claiming `Contacts/`
+   * — one would silently shadow the other) and a duplicate MODULE (a module
+   * appearing twice under different names).
+   */
+  const registerSpaceDataAdapter = (
+    record: PluginRecord,
+    adapter: SpaceDataAdapter,
+    pluginConfig: Record<string, unknown>
+  ): PluginRegistrationReceipt | undefined => {
+    const sourceInfo = sourceInfoFor(record, "server.spaceDataAdapter");
+    const root = adapter.root.trim();
+    const moduleId = adapter.moduleId.trim();
+    if (!(root && moduleId)) {
+      pushDiagnostic({
+        level: "warn",
+        code: "plugin.registration.missing_name",
+        pluginId: record.id,
+        sourceInfo,
+        message: "space data adapter missing root or moduleId",
+        remediation: "Provide a non-empty root folder name and module id.",
+      });
+      return;
+    }
+    registry.spaceDataAdapters ??= [];
+    const clash = registry.spaceDataAdapters.find(
+      (entry) =>
+        entry.adapter.root === root || entry.adapter.moduleId === moduleId
+    );
+    if (clash) {
+      pushDiagnostic({
+        level: "warn",
+        code: "plugin.registration.duplicate_space_data_adapter",
+        pluginId: record.id,
+        sourceInfo,
+        message: `space data adapter already registered for ${
+          clash.adapter.moduleId === moduleId
+            ? `module ${moduleId}`
+            : `root ${root}`
+        }`,
+        remediation:
+          "Choose a unique root folder name, or remove the duplicate adapter contribution.",
+      });
+      return;
+    }
+    const receipt = createRegistrationReceipt({
+      key: `${moduleId}:${root}`,
+      kind: "server.spaceDataAdapter",
+      sourceInfo,
+    });
+    record.spaceDataAdapters ??= [];
+    record.spaceDataAdapters.push(root);
+    registry.spaceDataAdapters.push({
+      adapter: { ...adapter, moduleId, root },
+      pluginConfig,
+      pluginId: record.id,
+      receiptId: receipt.id,
+      source: record.source,
+      sourceInfo,
     });
     return receipt;
   };
@@ -1392,6 +1523,8 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       registerResultPolicy: (policy) =>
         registerResultPolicy(record, policy, pluginConfig),
       registerService: (s) => registerService(record, s, pluginConfig),
+      registerSpaceDataAdapter: (adapter) =>
+        registerSpaceDataAdapter(record, adapter, pluginConfig),
       registerTestDataType: (registration) =>
         registerTestDataType(record, registration, pluginConfig),
       resolvePath: (p: string) => params.resolvePath(p),

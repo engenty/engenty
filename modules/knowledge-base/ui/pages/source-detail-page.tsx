@@ -29,12 +29,7 @@ import { SourceIngestStrategyPanel } from "../components/source-ingest-strategy-
 import { SourceRunProgressBanner } from "../components/source-run-progress-banner.js";
 import { useKbSourceDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import {
-  KB_MODULE_BASE,
-  kbSourceEditPath,
-  kbSourcePath,
-  kbSourcesPath,
-} from "../kb-paths.js";
+import { kbSourceEditPath, kbSourcesPath } from "../kb-paths.js";
 import { mergeKbSourceAdaptersForPicker } from "../kb-source-adapters-merge.js";
 import {
   kbModulePageFillShellSectionClassName,
@@ -42,11 +37,11 @@ import {
 } from "../lib/kb-page-shell.js";
 import {
   kbSourceDetailQueryOptions,
-  kbsQueryOptions,
   sourceAdaptersQueryOptions,
   useKbSourceMutations,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const SOURCE_DETAIL_TAB_IDS = ["overview", "sync", "ingest"] as const;
 type SourceDetailTabId = (typeof SOURCE_DETAIL_TAB_IDS)[number];
@@ -63,24 +58,18 @@ export function SourceDetailPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { kbSlug: kbSlugParam, sourceId } = useParams<{
-    kbSlug?: string;
-    sourceId: string;
-  }>();
+  const { sourceId } = useParams<{ sourceId: string }>();
   const [itemsPage, setItemsPage] = useState(1);
   const [lastWebhookToken, setLastWebhookToken] = useState<string | null>(null);
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const { data: adaptersRaw = [] } = useQuery(sourceAdaptersQueryOptions);
   const adapters = useMemo(
     () => mergeKbSourceAdaptersForPicker(adaptersRaw),
     [adaptersRaw]
   );
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
-  const kbIdFromUrl = useMemo(
-    () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
-    [kbSlugParam, kbs]
-  );
+  const kbIdFromUrl = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const {
     data: detail,
@@ -99,22 +88,6 @@ export function SourceDetailPage() {
   const runningRun = runs.find((r) => r.status === "running") ?? null;
   useKbSourceDetailAgentUiSlice(source ?? null);
 
-  const canonicalSlug = useMemo(
-    () => (source ? slugFromKbId(kbs, source.kb_id) : undefined),
-    [kbs, source]
-  );
-
-  useEffect(() => {
-    if (!(source && canonicalSlug && sourceId)) {
-      return;
-    }
-    if (kbSlugParam === canonicalSlug) {
-      return;
-    }
-    navigate(kbSourcePath(canonicalSlug, sourceId), { replace: true });
-  }, [canonicalSlug, kbSlugParam, navigate, source, sourceId]);
-
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
   const kbId = source?.kb_id ?? kbIdFromUrl ?? "";
 
   const listQuery = useMemo(
@@ -133,12 +106,6 @@ export function SourceDetailPage() {
   const mutations = useKbSourceMutations(listQuery);
 
   useEffect(() => {
-    if (!kbsLoading && kbSlugParam && !kbIdFromUrl && !source) {
-      navigate(KB_MODULE_BASE, { replace: true });
-    }
-  }, [kbIdFromUrl, kbSlugParam, kbsLoading, navigate, source]);
-
-  useEffect(() => {
     setItemsPage(1);
   }, [sourceId]);
 
@@ -153,17 +120,7 @@ export function SourceDetailPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (nextSlug) {
-        navigate(kbSourcesPath(nextSlug));
-      }
-    },
-    [kbs, navigate]
-  );
-
-  const sourcesListHref = kbSlug ? kbSourcesPath(kbSlug) : KB_MODULE_BASE;
+  const sourcesListHref = kbSourcesPath();
 
   const adapterLabel = useMemo(() => {
     if (!source) {
@@ -187,8 +144,6 @@ export function SourceDetailPage() {
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbId || "",
-    kbSlug: kbSlug || "",
-    onKbChange: navigateKb,
   });
 
   const tabParam = searchParams.get("tab");
@@ -217,10 +172,10 @@ export function SourceDetailPage() {
 
   const pageActions = useMemo(
     () =>
-      source && kbSlug ? (
+      source ? (
         <Button
           className={topbarIconButtonClassName}
-          onClick={() => navigate(kbSourceEditPath(kbSlug, source.id))}
+          onClick={() => navigate(kbSourceEditPath(source.id))}
           size="sm"
           type="button"
         >
@@ -228,11 +183,10 @@ export function SourceDetailPage() {
           <TopbarActionLabel>{t("sources.edit")}</TopbarActionLabel>
         </Button>
       ) : null,
-    [kbSlug, navigate, source, t]
+    [navigate, source, t]
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: source
@@ -263,15 +217,13 @@ export function SourceDetailPage() {
             ? detailError.message
             : t("sources.source_not_found")}
         </div>
-        {kbSlug ? (
-          <Button
-            onClick={() => navigate(sourcesListHref)}
-            type="button"
-            variant="outline"
-          >
-            {t("sources.back_to_list")}
-          </Button>
-        ) : null}
+        <Button
+          onClick={() => navigate(sourcesListHref)}
+          type="button"
+          variant="outline"
+        >
+          {t("sources.back_to_list")}
+        </Button>
       </section>
     );
   }
@@ -355,7 +307,6 @@ export function SourceDetailPage() {
             })()}
             <SourceDetailItemsPanel
               itemsPage={itemsPage}
-              kbSlug={kbSlug}
               listQuery={listQuery}
               runs={runs}
               setItemsPage={setItemsPage}
@@ -375,7 +326,6 @@ export function SourceDetailPage() {
             <SourceIngestStrategyPanel
               ingestConfig={source.ingest_config}
               kbId={kbId}
-              kbSlug={kbSlug}
               sourceId={source.id}
               syncRunning={!!runningRun}
             />
@@ -384,7 +334,7 @@ export function SourceDetailPage() {
           <TabsContent className="space-y-6" value="sync">
             <SourceDetailSchedulerSection
               defaultIntervalMinutes={defaultScheduleMinutes}
-              onEdit={() => navigate(kbSourceEditPath(kbSlug, source.id))}
+              onEdit={() => navigate(kbSourceEditPath(source.id))}
               onRunNow={() => mutations.run.mutate(source.id)}
               onScheduleEnabledChange={(enabled) => {
                 const schedule = scheduleForEnabledToggle(

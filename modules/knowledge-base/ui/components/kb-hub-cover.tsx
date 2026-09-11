@@ -74,7 +74,6 @@ export function KbHubCover({
       <KbHubCoverDialog
         currentCover={cover}
         kbId={kb.id}
-        kbSlug={kb.slug}
         onApplyCover={(next) => mutation.mutate(next)}
         onOpenChange={setDialogOpen}
         open={dialogOpen}

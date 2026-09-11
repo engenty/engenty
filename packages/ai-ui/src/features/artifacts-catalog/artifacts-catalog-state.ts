@@ -1,6 +1,6 @@
 // Filter / sort / group logic for the artifacts admin list. Scope (thread /
-// task / project / goal) is the default grouping because it decides who can
-// see an artifact; storage, type, status and creator are also selectable.
+// task / project / space / Engenty) is the default grouping because it decides
+// who can see an artifact; storage, type, status and creator are also selectable.
 
 import type { AdminArtifactRow } from "../../artifacts/artifacts-api";
 
@@ -8,7 +8,8 @@ export const ARTIFACT_SCOPE_ORDER = [
   "thread",
   "task",
   "project",
-  "goal",
+  "space",
+  "agent",
 ] as const;
 export const ARTIFACT_STORAGE_ORDER = ["inline", "blob"] as const;
 
@@ -25,7 +26,8 @@ export type ArtifactScopeFilter =
   | "thread"
   | "task"
   | "project"
-  | "goal";
+  | "space"
+  | "agent";
 export type ArtifactStorageFilter = "all" | "inline" | "blob";
 export type ArtifactStatusFilter = "active" | "archived" | "all";
 export type ArtifactCreatorFilter = "all" | "agent" | "user";

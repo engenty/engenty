@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type KbChunking, kbChunkingSchema } from "./chunking.js";
 import type { KbRootCommentsMode } from "./comments.js";
 import { kbRootCommentsModeSchema } from "./comments.js";
 import {
@@ -215,6 +216,12 @@ export const kbCoverSchema = z.discriminatedUnion("type", [
 
 export interface KnowledgeBase {
   article_property_definitions: ArticlePropertyDefinition[];
+  /**
+   * The library's own chunking, or null when it follows `KB_CHUNKING_DEFAULTS`.
+   * Stored in `kb_settings` KV `kb.chunking` with `context = { kb_id }`.
+   * Populated by the API layer.
+   */
+  chunking: KbChunking | null;
   /** KB-wide default for article comments (no inherit at this level). */
   comments_mode: KbRootCommentsMode;
   /**
@@ -232,7 +239,6 @@ export interface KnowledgeBase {
    */
   icon: string | null;
   id: string;
-  is_default: boolean;
   name: string;
   /**
    * Hub start page block layout — stored in `kb_settings` KV `kb.page_layout`
@@ -241,14 +247,26 @@ export interface KnowledgeBase {
   page_layout: KbPageLayoutSettings;
   scope_id: string;
   slug: string;
+  /**
+   * The space this library belongs to (PLAN-spaces.md Phase 6b).
+   *
+   * REQUIRED — a knowledge base is part of a space's file tree, so it lives in
+   * exactly one space the way goals, tasks and projects do. Phase 4 modelled a
+   * tenant-wide tier here (NULL = every space's Drive shows it); that tier no
+   * longer exists. A library several spaces shared now belongs to one of them.
+   */
+  space_id: string;
   tenant_id: string;
   updated_at: string;
 }
 
 export type KnowledgeBaseInput = Pick<
   KnowledgeBase,
-  "name" | "slug" | "description" | "is_default"
->;
+  "name" | "slug" | "description"
+> & {
+  /** Optional on INPUT only: the DAL resolves the tenant's default space. */
+  space_id?: string;
+};
 
 /** DB-only fields: excludes display fields stored in scoped `kb_settings` KV. */
 export type KnowledgeBaseUpdateInput = Partial<
@@ -265,7 +283,8 @@ export const knowledgeBaseCreateSchema = z.object({
   name: z.string().min(1).max(256),
   slug: slugSchema,
   description: z.string().max(2048).nullable().optional(),
-  is_default: z.boolean().optional().default(false),
+  /** Omitted = the tenant's default space; there is no tenant-wide tier. */
+  space_id: z.string().uuid().optional(),
 });
 
 /**
@@ -280,4 +299,6 @@ export const knowledgeBaseUpdateSchema = knowledgeBaseCreateSchema
     icon: z.string().max(10).nullable().optional(),
     cover: kbCoverSchema.nullable().optional(),
     page_layout: kbPageLayoutSettingsSchema.optional(),
+    /** `null` clears the library's own chunking so it follows the defaults again. */
+    chunking: kbChunkingSchema.nullable().optional(),
   });

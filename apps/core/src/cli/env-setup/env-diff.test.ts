@@ -89,4 +89,28 @@ describe("diffScope", () => {
     const report = diffScope({ doc, scope: "root", specs: SPECS });
     expect(generatableGaps(report).map((g) => g.spec.key)).toEqual(["REQ"]);
   });
+
+  it("resolves a per-scope requirement against the scope being diffed", () => {
+    const perScope: EnvVarSpec[] = [
+      {
+        description: "Required in one file, an override in the other",
+        group: "G",
+        key: "SCOPED",
+        obtain: { kind: "manual" },
+        required: { deploy: "optional", root: "always" },
+        scopes: ["root", "deploy"],
+        secret: false,
+      },
+    ];
+    const empty = parseEnvDocument("");
+
+    expect(
+      requiredGaps(
+        diffScope({ doc: empty, scope: "root", specs: perScope })
+      ).map((g) => g.spec.key)
+    ).toEqual(["SCOPED"]);
+    expect(
+      requiredGaps(diffScope({ doc: empty, scope: "deploy", specs: perScope }))
+    ).toEqual([]);
+  });
 });

@@ -37,6 +37,10 @@ function extractNamespacesFromContributions(contributions: {
 
 function isStaleSupabaseSessionError(message: string): boolean {
   return (
+    // A refresh token Supabase has already rotated away or never had.
+    /invalid refresh token/i.test(message) ||
+    message.includes("refresh_token_already_used") ||
+    message.includes("refresh_token_not_found") ||
     message.includes("session_not_found") ||
     message.includes("Session from session_id claim in JWT does not exist") ||
     message.includes("Auth session missing") ||
@@ -99,6 +103,7 @@ export function useAuthenticatedAppBootstrap(isAuthenticated: boolean) {
     return buildNavigationSections(
       contributions as UiContributions,
       {
+        canSwitchTenant: workspaceContext?.canSwitchTenant === true,
         developerModeEnabled,
         isSuperAdmin: workspaceContext?.isSuperAdmin === true,
         isTenantAdmin: workspaceContext?.isTenantAdmin === true,

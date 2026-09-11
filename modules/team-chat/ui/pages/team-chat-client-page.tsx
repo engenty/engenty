@@ -215,7 +215,6 @@ export function TeamChatClientPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white blended header.
     topbarOverlap: true,
   });

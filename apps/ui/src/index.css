@@ -5,7 +5,9 @@
 @import "tailwindcss";
 @import "../../../packages/design-tokens/src/tailwind-type-scale.css";
 @import "../../../packages/design-tokens/src/shadcn-ember.css";
+@import "../../../packages/design-tokens/src/ui-viewport.css";
 @import "../../../packages/design-tokens/src/ui-canvas-chrome.css";
+@import "../../../packages/design-tokens/src/reader-paper-surface.css";
 @import "../../../packages/app-shell/src/styles/engenty-print.css";
 @import "../../../packages/commercial-editor/src/commercial-core/RichTextEditor.css";
 @import "./plugins/generated-tailwind-sources.css";
@@ -38,6 +40,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-popover: var(--popover);
@@ -108,7 +111,7 @@ body {
 }
 
 #root {
-  @apply min-h-screen;
+  @apply min-h-dvh;
 }
 
 .p-page {
@@ -177,7 +180,7 @@ body,
   background-color: var(--shell-bg);
 }
 .theme-floating .shell-surface {
-  @apply md:my-2 md:mr-2 md:rounded-xl md:border md:border-border/80 bg-background shadow-sm;
+  @apply md:my-2 md:mr-2 md:rounded-xl md:border md:border-border bg-background shadow-sm;
 }
 
 .theme-paper {

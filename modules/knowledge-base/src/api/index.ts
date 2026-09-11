@@ -39,7 +39,7 @@ export function registerKbApi(
 
   registerKbChatRoute(api, repoFactory, searchProvider, db.getDb);
   registerKbSourceApi(api, getRepo, repoFactory, db.serviceDb);
-  registerKbKnowledgeBaseRoutes(api, getRepo);
+  registerKbKnowledgeBaseRoutes(api, getRepo, events);
   registerKbTaxonomyRoutes(api, getRepo);
   registerKbArticleRoutes(api, getRepo);
   registerKbAttachmentAndFaqRoutes(api, getRepo);

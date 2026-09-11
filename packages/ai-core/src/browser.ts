@@ -24,8 +24,67 @@ export {
   sortPersistedAgUiThreadMessageRecords,
 } from "./ag-ui/ag-ui-messages.js";
 export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
+export {
+  AGENT_DESK_LANES,
+  type AgentDeskAgent,
+  type AgentDeskCapabilityChip,
+  type AgentDeskEngagement,
+  type AgentDeskEngagementKind,
+  type AgentDeskFeed,
+  type AgentDeskLane,
+  type AgentDeskLaneCounts,
+  type AgentDeskStarter,
+  agentDeskCapabilityChips,
+  emptyAgentDeskLaneCounts,
+  formatAgentDeskCapabilityLabel,
+} from "./agent-desk/contracts.js";
+export {
+  AGENT_DESK_CONVERSATION_PREFIX,
+  conversationEngagement,
+  threadIdFromEngagement,
+} from "./agent-ui/agent-desk-engagement.js";
+export { formatAgentUiStateHarnessInstructions } from "./agent-ui/agent-prompt-context-from-ui.js";
 export { buildAppNavigationPathsPromptSection } from "./agent-ui/app-navigation-paths-prompt.js";
+export {
+  canonicalModulePathname,
+  isSpaceReservedSegment,
+  SPACE_MODULE_URL_ALIASES,
+  SPACE_RESERVED_SEGMENTS,
+  spaceChatsPathname,
+  spaceKeyFromPathname,
+  spaceModuleIdFromUrlSegment,
+  spaceModuleUrlSegment,
+  spaceRoomPathname,
+} from "./agent-ui/space-module-url.js";
+export {
+  AGENT_ENGENTY_KINDS,
+  type AgentEngentyKind,
+  isAgentEngentyKind,
+  resolveAgentEngenty,
+} from "./agents/agent-engenty.js";
+export {
+  type AgentMessageHeader,
+  formatAgentMessageHeader,
+  parseAgentMessageHeader,
+} from "./agents/agent-message-header.js";
+export {
+  AGENT_STARTER_DECLARE_MAX,
+  AGENT_STARTER_MAX,
+  AGENT_STARTER_WHAT_CAN_YOU_DO_ID,
+  type AgentStarter,
+  type AgentStarterCondition,
+  type AgentStarterContext,
+  agentStarterSchema,
+  mergeGeneratedStarters,
+  type ResolvedAgentStarter,
+  selectAgentDeskStarters,
+} from "./agents/agent-starters.js";
 export { GENERAL_CHAT_AGENT_ID } from "./agents/copilot-constants.js";
+export {
+  FIRST_ENGENTY_SKILL_ID,
+  FIRST_ENGENTY_TEMPLATE_ID,
+  FIRST_ENGENTY_TOOL_IDS,
+} from "./agents/first-engenty.js";
 export {
   createFieldSuggestionsArtifact,
   FIELD_SUGGESTIONS_ARTIFACT_TYPE,
@@ -39,6 +98,7 @@ export {
   fieldSuggestionsToolOutputToCreatedValue,
   parseFieldSuggestionsArtifactCreatedValue,
 } from "./artifacts/field-suggestions.js";
+export { isCapableAgentModel } from "./config/capable-agent-model.js";
 export {
   type ChatModelResolutionPurpose,
   DEFAULT_AI_CHAT_MODEL_ID,
@@ -56,6 +116,17 @@ export {
   type ResolvedModel,
 } from "./config/model-purposes.js";
 export {
+  DEFAULT_MODEL_GATEWAY_ID,
+  formatModelRef,
+  gatewayOfRef,
+  isNonDefaultGatewayRef,
+  MODEL_GATEWAY_IDS,
+  type ModelRef,
+  modelIdOfRef,
+  OPENROUTER_GATEWAY_ID,
+  parseModelRef,
+} from "./config/model-ref.js";
+export {
   AI_EFFORT_LEVELS,
   AI_PLATFORM_ROLES,
   type AiEffort,
@@ -72,10 +143,33 @@ export {
   seedBindings,
 } from "./config/model-roles.js";
 export type { AgentSessionStatus } from "./contracts.js";
+export {
+  type ColumnEdit,
+  coerceColumnValue,
+  coerceRowValues,
+  columnEdit,
+  DATA_TABLE_ARTIFACT_TYPE,
+  DATA_TABLE_MIME_TYPE,
+  type DataTableHandle,
+  dataTableHandleSchema,
+  formatTableCell,
+  mergeRowValues,
+  parseTableColumns,
+  type TableColumn,
+  TableColumnValueError,
+  type TextStyle,
+  tableColumnsSchema,
+  textColumnStyle,
+} from "./data-tables/index.js";
 export type {
   AgentConfig,
   AgentGuardrailsConfig,
   AgentLimitsConfig,
+} from "./dynamic-contracts.js";
+export {
+  COMPUTER_NETWORK_TIERS,
+  type ComputerNetworkTier,
+  parseComputerNetworkTier,
 } from "./dynamic-contracts.js";
 export type {
   SupportedModel,
@@ -131,9 +225,15 @@ export {
   isValidAgentSkillName,
 } from "./skill-name.js";
 export {
+  AGENT_APPROVAL_MODES,
+  type AgentApprovalMode,
+  type AgentApprovalTenantPrefs,
   type AiCapsConfig,
+  type BrowserParseProvider,
   type DocConverterTenantPrefs,
+  parseAgentApprovalMode,
   parseTenantAiSettings,
+  resolveBrowserParse,
   TENANT_AI_CONFIG_KEY,
   type TenantAiSettings,
 } from "./tenant-ai-settings.js";

@@ -1,35 +1,25 @@
 import type { ObjectRef } from "@engenty/ai-core/browser";
 import {
-  AppWindow,
   BookOpen,
+  Bot,
   Box,
   Building2,
   CheckSquare,
-  FileCode2,
   FileText,
   FolderKanban,
   Globe,
+  ImageIcon,
   type LucideIcon,
-  Table2,
+  Paperclip,
   User,
   Users,
 } from "lucide-react";
+import {
+  isImageMimeType,
+  isPdfMimeType,
+} from "../../../lib/chat-attachment-part.js";
 
-/** Per-artifact-type icon; unknown types fall back to a generic doc icon. */
-export function iconForArtifactType(type: string): LucideIcon {
-  switch (type.trim().toLowerCase()) {
-    case "markdown":
-      return FileText;
-    case "html":
-      return FileCode2;
-    case "table":
-      return Table2;
-    case "app":
-      return AppWindow;
-    default:
-      return FileText;
-  }
-}
+export { iconForArtifactType } from "../../../artifacts/artifact-icons.js";
 
 /**
  * Best-effort icon from module/entity. Widgets do not register icons yet, so
@@ -79,11 +69,33 @@ export function iconForObjectRef(ref: ObjectRef): LucideIcon {
 /** KB / internal docs → book; external web → globe. */
 export function iconForSourceUrl(url: string): LucideIcon {
   if (
+    url.startsWith("/data/") ||
+    url.includes("/data?") ||
     url.startsWith("/") ||
     url.includes("/kb/") ||
     url.includes("/mdl/knowledge-base/")
   ) {
-    return BookOpen;
+    return url.startsWith("/data/") || url.includes("/data?")
+      ? FileText
+      : BookOpen;
   }
   return Globe;
+}
+
+/** Image / PDF / generic file icons for chat attachments in the context card. */
+export function iconForAttachment(
+  mimeType: string,
+  filename?: string
+): LucideIcon {
+  if (isImageMimeType(mimeType)) {
+    return ImageIcon;
+  }
+  if (isPdfMimeType(mimeType, filename)) {
+    return FileText;
+  }
+  return Paperclip;
+}
+
+export function iconForSubAgent(): LucideIcon {
+  return Bot;
 }

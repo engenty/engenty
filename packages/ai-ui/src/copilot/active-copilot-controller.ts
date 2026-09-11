@@ -4,6 +4,7 @@
 
 import { isAgentThreadId } from "@engenty/ai-core/browser";
 import { finalizeAgentSessionStableKey } from "../agent-provider/affinity.js";
+import { canonicalCopilotChatPathname } from "./copilot-chat-paths.js";
 
 /** sessionStorage key — bumped on explicit "New chat" so each one creates a fresh server session. */
 export const ACTIVE_COPILOT_NEW_CHAT_GENERATION_STORAGE_KEY =
@@ -23,14 +24,14 @@ function createGenerationId(): string {
 
 /** `/mdl/engenty-copilot/chat` with no thread segment — resume active copilot. */
 export function isActiveCopilotChatIndexPathname(pathname: string): boolean {
-  return pathname.trim() === COPILOT_CHAT_PATH_PREFIX;
+  return canonicalCopilotChatPathname(pathname) === COPILOT_CHAT_PATH_PREFIX;
 }
 
 /** UUID in `/mdl/engenty-copilot/chat/:threadId` — null on `/new`, index, or non-chat paths. */
 export function resolveAuthoritativeChatThreadIdFromPathname(
   pathname: string
 ): string | null {
-  const normalized = pathname.trim();
+  const normalized = canonicalCopilotChatPathname(pathname);
   if (normalized === `${COPILOT_CHAT_PATH_PREFIX}/new`) {
     return null;
   }

@@ -124,7 +124,7 @@ function ArtifactCard({
 
   return (
     <button
-      className="ui-canvas-elevated flex flex-col rounded-lg bg-card p-3 text-left transition-shadow hover:shadow-[var(--e-3)]"
+      className="ui-card-raised flex flex-col p-3 text-left"
       onClick={() =>
         navigate(buildArtifactDetailPath(row.id), { state: { row } })
       }

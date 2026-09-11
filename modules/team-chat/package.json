@@ -51,7 +51,7 @@
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@engenty/user-management-ui": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
-    "@mastra/core": "1.49.0",
+    "@mastra/core": "1.61.0",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.21.0",
     "react": "^19.2.7",

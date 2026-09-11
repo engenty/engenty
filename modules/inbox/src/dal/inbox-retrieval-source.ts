@@ -173,6 +173,9 @@ export function createInboxRetrievalSource(options: {
         summary:
           "Search synced inbox messages by sender, subject, body text, or natural-language question (hybrid lexical + semantic, local store — no provider quota)",
       },
+      // Caller-visible mail, same as thread reads — not mailbox listings.
+      // `account_mounted` without a connection key would not enforce anything.
+      spacePolicy: { kind: "user_owned" },
     },
     retriever: {
       hydrate: async (matches, ctx) => {

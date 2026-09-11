@@ -98,6 +98,8 @@ export const contactRoleSchema = z
   });
 
 export const contactRecordSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   id: z.string(),
   display_name: z.string().min(1),
   name_prefix: z.string().nullable(),

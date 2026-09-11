@@ -357,7 +357,7 @@ export function ContextPopoverList({
           items.map((item) => <div key={item.id}>{renderItem(item)}</div>)}
 
         {footer && (
-          <div className="mt-1 border-border/40 border-t pt-1">
+          <div className="mt-1 border-border-soft border-t pt-1">
             {renderFooterItem()}
           </div>
         )}

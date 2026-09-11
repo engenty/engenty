@@ -66,7 +66,7 @@ describe("shouldRecordAudit", () => {
     expect(
       shouldRecordAudit({
         type: "operation.executed",
-        operationId: "memory_record_search",
+        operationId: "contacts_contact_search",
         riskLevel: "low",
         audit: "always",
       })
@@ -104,7 +104,7 @@ describe("shouldRecordAudit", () => {
     expect(
       shouldRecordAudit({
         type: "operation.executed",
-        operationId: "memory_record_search",
+        operationId: "contacts_contact_search",
         riskLevel: "medium",
       })
     ).toBe(false);

@@ -7,6 +7,7 @@ import {
 } from "@engenty/app-shell";
 import { queryOptions, useQuery, useQueryClient } from "@engenty/query-client";
 import { useCallback, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { getUserSetting, setUserSetting } from "@/lib/api/client";
 
 /** User-settings `shell.secondary_nav.pinned`: global module secondary column pinned open/closed. */
@@ -83,7 +84,17 @@ export function useShellSecondaryNavPinnedPersistence(
         void setUserSetting(SHELL_SECONDARY_NAV_PINNED_USER_SETTING_NAME, {
           type: "json",
           value_jsonb: body,
-        });
+        })
+          .then(() => {
+            queryClient.setQueryData(shellSecondaryNavPinnedQueryKey, body);
+          })
+          .catch(() => {
+            void queryClient.invalidateQueries({
+              exact: true,
+              queryKey: shellSecondaryNavPinnedQueryKey,
+            });
+            toast.error("Could not save the navigation preference.");
+          });
       }, 300);
     },
     [options.enabled, queryClient]

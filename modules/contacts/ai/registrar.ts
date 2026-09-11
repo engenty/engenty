@@ -1,17 +1,13 @@
-// Contacts AI surface — declared via defineModuleAi (Phase 5).
+// Contacts AI surface — declared via defineModuleAi.
 // agents/contacts.manager/agent.json (+ AGENTS.md/SOUL.md), skills/*/SKILL.md,
-// actions/*/ACTION.md. The dynamic AgentConfig keeps the catalog-led tool/skill
-// set via an override (the manifest tool list drives the code-level runtime).
+// workflows/*.workflow.json. The AgentConfig override pins the catalog-led tool/skill
+// set and the code-built system prompt.
 import type {
   AiRegistration,
   DynamicAiModuleCapability,
   TriggerDefinition,
 } from "@engenty/ai-core";
-import {
-  defineModuleAi,
-  loadActionDefinitionsFromDirectory,
-  resolveModuleActionsDir,
-} from "@engenty/ai-core";
+import { defineModuleAi } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import {
   buildContactsManagerDynamicTools,
@@ -19,7 +15,6 @@ import {
   CONTACTS_MANAGER_AGENT_ID,
   CONTACTS_MANAGER_DYNAMIC_TOOL_IDS,
   CONTACTS_MANAGER_SKILL_IDS,
-  createContactsManagerAgentDefinition,
   createContactsManagerInstructionDocuments,
 } from "./contacts-manager.js";
 
@@ -39,29 +34,13 @@ function createContactsTriggers(): TriggerDefinition[] {
       triggerType: "button",
       feedbackMode: "chat",
     },
-    {
-      id: "contacts_saycharlie_trigger",
-      moduleId: "contacts",
-      routeKey: "saycharlie",
-      triggerType: "button",
-      feedbackMode: "chat",
-    },
   ];
 }
 
-function defineContactsAi(options: {
+function defineContactsAi(_options: {
   invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"];
 }) {
   return defineModuleAi({
-    agentDefinitions: () => [
-      createContactsManagerAgentDefinition({
-        actions: loadActionDefinitionsFromDirectory({
-          actionsDir: resolveModuleActionsDir(import.meta.url),
-          moduleId: "contacts",
-        }),
-        invokeContactsOperation: options.invokeContactsOperation,
-      }),
-    ],
     agents: [
       {
         description:

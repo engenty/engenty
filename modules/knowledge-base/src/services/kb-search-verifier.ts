@@ -107,7 +107,6 @@ export async function verifyKbSearchResults(
 
   try {
     const { output } = await generateText({
-      telemetry: { isEnabled: true },
       model: modelId,
       output: Output.object({ schema: kbSearchVerifierOutputSchema }),
       temperature: 0,

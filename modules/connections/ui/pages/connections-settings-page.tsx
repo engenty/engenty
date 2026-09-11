@@ -1,4 +1,7 @@
-import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import {
+  useSettingsSecondaryShellNav,
+  useSetupSecondaryShellNav,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -18,7 +21,7 @@ import {
 } from "@engenty/ui-plugin-sdk";
 import { Cable } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { CatalogConnection, CatalogConnector } from "../api.js";
 import { ConnectButton } from "../components/connect-button.js";
@@ -28,7 +31,7 @@ import { getConnectorConnectButton } from "../extensions.js";
 import { useConnectionsSettingsAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 
-export const CONNECTIONS_SETTINGS_PATH = "/settings/connections";
+export const CONNECTIONS_SETTINGS_PATH = "/setup/connections";
 
 /**
  * Surface the OAuth callback outcome (`?connected=1` / `?error=...`) as a
@@ -45,7 +48,11 @@ export function useConnectResultToast() {
       return;
     }
     if (connected) {
-      toast.success(t("toasts.connected"));
+      // A fresh connection ships with autonomous use OFF — without this hint
+      // the first signal is an inexplicably empty inbox days later.
+      toast.success(t("toasts.connected"), {
+        description: t("toasts.connectedAutonomyHint"),
+      });
     } else if (error) {
       toast.error(t("toasts.connectFailed", { error }));
     }
@@ -57,15 +64,30 @@ export function useConnectResultToast() {
 }
 
 export function ConnectionsSettingsPage() {
+  const { isSuperAdmin, isTenantAdmin, currentUserId } = useWorkspaceContext();
   const { t } = useTranslation("connections");
+  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
-  const { currentUserId } = useWorkspaceContext();
+  const setupNav = useSetupSecondaryShellNav(tCommon("navigation.setup"));
+  const settingsNav = useSettingsSecondaryShellNav(t("breadcrumb.settings"));
+  const { moduleRootCrumb, secondaryNavHeaderSlot } =
+    isSuperAdmin || isTenantAdmin ? setupNav : settingsNav;
   const { data, isLoading } = useConnectionsCatalogQuery();
+  // PLAN-spaces.md CN.4 Flow A — arriving from a space's "Add account". The
+  // space rides the URL so it survives this page, the provider round trip and
+  // the callback, which is what turns "connect an account" into "this space can
+  // use this account". `back` returns the user where they started; without it
+  // a connect from a space would end on the tenant settings page, which is not
+  // where they were working.
+  const [flowParams] = useSearchParams();
+  const fromSpaceId = flowParams.get("space")?.trim() || null;
+  const backTo = flowParams.get("back")?.trim();
+  const returnPath =
+    backTo?.startsWith("/") && !backTo.startsWith("//")
+      ? backTo
+      : CONNECTIONS_SETTINGS_PATH;
 
   useConnectResultToast();
-
-  const { moduleRootCrumb, secondaryNavHeaderSlot } =
-    useSettingsSecondaryShellNav(t("breadcrumb.settings"));
 
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [
@@ -79,7 +101,6 @@ export function ConnectionsSettingsPage() {
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const connectors = data?.connectors ?? [];
@@ -110,6 +131,8 @@ export function ConnectionsSettingsPage() {
                 onManage={() =>
                   navigate(`${CONNECTIONS_SETTINGS_PATH}/${connector.id}`)
                 }
+                returnPath={returnPath}
+                spaceId={fromSpaceId}
               />
             ))}
           </div>
@@ -123,10 +146,16 @@ function ConnectorCard({
   connector,
   currentUserId,
   onManage,
+  returnPath = CONNECTIONS_SETTINGS_PATH,
+  spaceId = null,
 }: {
   connector: CatalogConnector;
   currentUserId: string | null;
   onManage: () => void;
+  /** Where the OAuth callback returns to — the space, when one sent us here. */
+  returnPath?: string;
+  /** Space to mount the new account into on success (CN.4 Flow A). */
+  spaceId?: string | null;
 }) {
   const { t } = useTranslation("connections");
   const myConnections = visibleConnections(connector, currentUserId);
@@ -178,6 +207,8 @@ function ConnectorCard({
         <ConnectorConnectAffordance
           connector={connector}
           hasConnection={hasConnection}
+          returnPath={returnPath}
+          spaceId={spaceId}
         />
       </div>
     </Card>
@@ -193,9 +224,13 @@ function ConnectorCard({
 function ConnectorConnectAffordance({
   connector,
   hasConnection,
+  returnPath = CONNECTIONS_SETTINGS_PATH,
+  spaceId = null,
 }: {
   connector: CatalogConnector;
   hasConnection: boolean;
+  returnPath?: string;
+  spaceId?: string | null;
 }) {
   // OAuth connector with no client credentials anywhere (env/platform/tenant):
   // the connect flow would fail, so surface "Needs setup" instead of Connect.
@@ -220,7 +255,8 @@ function ConnectorConnectAffordance({
         <Custom
           connectorId={connector.id}
           hasConnections={hasConnection}
-          redirectTo={CONNECTIONS_SETTINGS_PATH}
+          redirectTo={returnPath}
+          spaceId={spaceId}
         />
       );
     }
@@ -230,32 +266,42 @@ function ConnectorConnectAffordance({
     <ConnectButton
       connectorId={connector.id}
       hasConnections={hasConnection}
-      redirectTo={CONNECTIONS_SETTINGS_PATH}
+      redirectTo={returnPath}
+      spaceId={spaceId}
       variant={hasConnection ? "outline" : "default"}
     />
   );
 }
 
 /**
- * Shown for an OAuth connector whose client credentials are not configured. The
- * admin sets them in Setup → Platform settings (or, per tenant, Integration
- * keys); a member sees only that it isn't available yet.
+ * Shown for an OAuth connector whose client credentials are not configured
+ * anywhere (env, platform settings, this tenant's overrides).
+ *
+ * It used to be a disabled button with a tooltip, which is the same dead end
+ * for both people who see it: an admin who could fix it in a minute was told
+ * to hunt for a page, and a member was told to do something they cannot do.
+ * So it now branches on who is looking — a link for the person with the power
+ * to act, and a plain sentence naming the ask for everyone else
+ * (PLAN-spaces.md CN.2).
  */
 function NeedsSetupAffordance() {
   const { t } = useTranslation("connections");
+  const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
+  if (isSuperAdmin || isTenantAdmin) {
+    return (
+      <Button asChild size="sm" type="button" variant="outline">
+        <Link to="/settings/integration-keys">
+          {t("catalog.needsSetupAdmin", { defaultValue: "Set up \u2192" })}
+        </Link>
+      </Button>
+    );
+  }
   return (
-    <Button
-      disabled
-      size="sm"
-      title={t("catalog.needsSetupHint", {
-        defaultValue:
-          "An admin must add this connector's OAuth credentials in Setup → Platform settings.",
+    <span className="text-muted-foreground text-xs">
+      {t("catalog.needsSetupMember", {
+        defaultValue: "Ask an admin to set this up",
       })}
-      type="button"
-      variant="outline"
-    >
-      {t("catalog.needsSetup", { defaultValue: "Needs setup" })}
-    </Button>
+    </span>
   );
 }
 

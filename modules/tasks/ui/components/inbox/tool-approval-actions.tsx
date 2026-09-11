@@ -1,15 +1,65 @@
-// Inline Allow-once / task / routine / Deny buttons for a pending approval.
+// Inline Allow-once / Allow-for-task / Deny buttons for a pending approval.
 // On resolve, the notification is dismissed (the run has already ended; the
 // task re-dispatches on approve). Shared by the inbox and the task card.
 //
 // Layout: the operation label owns its own line and the buttons own theirs.
-// Keeping the label inline with four buttons made the row wrap raggedly in the
+// Keeping the label inline with the buttons made the row wrap raggedly in the
 // narrow inbox column — a long operation id would push "Deny" onto a line of
 // its own, and the id itself could overflow the card.
-import { useMarkInboxNotificationMutation } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
 import { useResolveToolApprovalMutation } from "../../tasks-queries.js";
+
+/**
+ * "Allow all" for a task waiting on SEVERAL gated ops at once. Approves every
+ * pending op in one request with once-scope (the batch counterpart of "Allow
+ * once"); the per-op rows stay available for granular scope/deny decisions.
+ * Only rendered when more than one op is pending — the server holds the
+ * re-dispatch until the pending set is empty, so batch-approving is the
+ * one-click way to actually resume the run.
+ */
+export function ToolApprovalBatchActions({
+  operationIds,
+  taskId,
+  onResolved,
+}: {
+  operationIds: string[];
+  taskId: string;
+  onResolved?: () => void;
+}) {
+  const { t } = useTranslation("tasks");
+  const resolveMutation = useResolveToolApprovalMutation();
+  if (operationIds.length < 2) {
+    return null;
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <Button
+        disabled={resolveMutation.isPending}
+        onClick={() =>
+          resolveMutation.mutate(
+            {
+              body: {
+                decision: "approve",
+                operation_ids: operationIds,
+                scope: "once",
+              },
+              taskId,
+            },
+            { onSuccess: () => onResolved?.() }
+          )
+        }
+        size="sm"
+        variant="default"
+      >
+        {t("inbox.approveAllOnce")}
+      </Button>
+      <span className="text-muted-foreground text-xs">
+        {t("inbox.approveAllHint", { count: operationIds.length })}
+      </span>
+    </div>
+  );
+}
 
 /** Risk levels carried on a pending approval, worst first. */
 const RISK_CLASS: Record<string, string> = {
@@ -23,14 +73,12 @@ const RISK_CLASS: Record<string, string> = {
 export function ToolApprovalActions({
   operationId,
   taskId,
-  triggerId,
   title,
   riskLevel,
   onResolved,
 }: {
   operationId: string;
   taskId: string;
-  triggerId: string | null;
   /** Human label for the gated operation, when the run reported one. */
   title?: string | null;
   riskLevel?: string | null;
@@ -38,13 +86,9 @@ export function ToolApprovalActions({
 }) {
   const { t } = useTranslation("tasks");
   const resolveMutation = useResolveToolApprovalMutation();
-  const markMutation = useMarkInboxNotificationMutation();
   const pending = resolveMutation.isPending;
 
-  const resolve = (
-    decision: "approve" | "deny",
-    scope?: "once" | "task" | "routine"
-  ) => {
+  const resolve = (decision: "approve" | "deny", scope?: "once" | "task") => {
     resolveMutation.mutate(
       { body: { decision, operation_id: operationId, scope }, taskId },
       { onSuccess: () => onResolved?.() }
@@ -52,7 +96,7 @@ export function ToolApprovalActions({
   };
 
   return (
-    <div className="mt-2 space-y-2">
+    <div className="mt-1.5 space-y-1.5">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {title ? (
           <span className="min-w-0 break-words font-medium text-foreground text-xs">
@@ -90,19 +134,9 @@ export function ToolApprovalActions({
         >
           {t("inbox.approveForTask")}
         </Button>
-        {triggerId ? (
-          <Button
-            disabled={pending}
-            onClick={() => resolve("approve", "routine")}
-            size="sm"
-            variant="outline"
-          >
-            {t("inbox.approveForRoutine")}
-          </Button>
-        ) : null}
         <Button
           className="text-destructive hover:text-destructive"
-          disabled={pending || markMutation.isPending}
+          disabled={pending}
           onClick={() => resolve("deny")}
           size="sm"
           variant="ghost"

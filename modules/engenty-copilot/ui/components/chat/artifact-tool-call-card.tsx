@@ -93,7 +93,7 @@ export function ArtifactToolCallCard(props: ToolCallCardProps) {
     return null;
   }
   return (
-    <div className="ui-canvas-raised flex items-center gap-2.5 rounded-md bg-card px-3 py-2">
+    <div className="ui-card-raised flex items-center gap-2.5 px-3 py-2">
       <FileText className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-sm">
         {readArtifactTitle(props.output) ??

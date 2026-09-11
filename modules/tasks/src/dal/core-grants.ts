@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CoreGrantsWriter } from "../api/task-approval-service.js";
 
 /**
- * Writes a task/routine tool approval into core.approval_grants (D2 phase 2c)
+ * Writes a task tool approval into core.approval_grants (D2 phase 2c)
  * — since the task-row grant columns were dropped, the ONLY grant store.
  *
  * The core row is what CORE-side gates spend: the connections profile policy

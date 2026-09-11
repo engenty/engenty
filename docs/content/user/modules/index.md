@@ -24,7 +24,7 @@ than guessing, which is why you rarely need to know these names.
 ## Work
 
 - **[Projects](/user/modules/projects)** — projects, phases, and what the client portal shows.
-- **[Tasks, goals and triggers](/user/modules/tasks)** — work agents can pick up, and the rules that create it.
+- **[Tasks and routines](/user/modules/tasks)** — work agents can pick up, and the jobs that keep running.
 - **[Time tracking](/user/modules/time-tracking)** — timesheets, reports and snapshots.
 - **[Contacts](/user/modules/contacts)** — people, organizations, roles and relations.
 - **[Team](/user/modules/team)** — the people in your workspace.
@@ -35,6 +35,6 @@ than guessing, which is why you rarely need to know these names.
 - **[Team chat](/user/modules/team-chat)** — channels and DMs for people and agents.
 - **[Knowledge base](/user/modules/knowledge-base)** — articles, FAQs and ingest sources.
 
-Capabilities that are not tied to one module — search, connections, memory,
+Capabilities that are not tied to one module — search, connections,
 secrets, apps — live under
 [Agent operations](/user/agent-operations).

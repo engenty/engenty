@@ -274,6 +274,31 @@ describe("recordAiUsage", () => {
     expect(store.events).toHaveLength(0);
   });
 
+  it("records a compute lease that consumed host time but no tokens", async () => {
+    const store = buildStore();
+    configureAiUsageStore(store);
+
+    const result = await recordAiUsage({
+      compute_ms: 42_000,
+      feature: "compute_lease",
+      model_id: "sandbox",
+      run_id: "run-1",
+      space_id: "space-9",
+      tenant_id: "tenant-a",
+      usage: {},
+      user_id: null,
+    });
+
+    // A lease has no model and no tokens; without its own dimension it would
+    // fall through the all-zero guard and never be metered at all.
+    expect(result).not.toBeNull();
+    expect(store.events).toHaveLength(1);
+    expect(store.events[0].compute_ms).toBe(42_000);
+    expect(store.events[0].space_id).toBe("space-9");
+    expect(store.events[0].input_tokens).toBe(0);
+    expect(store.bumps[0].compute_ms).toBe(42_000);
+  });
+
   it("only bumps the tenant aggregate when user_id is missing", async () => {
     const store = buildStore();
     configureAiUsageStore(store);

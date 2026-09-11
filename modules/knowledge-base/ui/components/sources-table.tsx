@@ -71,7 +71,6 @@ interface SourcesTableProps {
   allSelected: boolean;
   columnOrder: (keyof SourcesColumnVisibility)[];
   columnVisibility: SourcesColumnVisibility;
-  kbSlug: string;
   listQuery: KbSourcesListQuery;
   onDeleteRequest: (source: KbSource) => void;
   onEdit: (source: KbSource) => void;
@@ -91,7 +90,6 @@ interface SourcesTableProps {
 export function SourcesTable({
   sources,
   adapters,
-  kbSlug,
   listQuery,
   columnVisibility,
   columnOrder,
@@ -139,7 +137,7 @@ export function SourcesTable({
           <Link
             className="font-medium text-primary underline-offset-4 hover:underline"
             onClick={(e) => e.stopPropagation()}
-            to={kbSourcePath(kbSlug, source.id)}
+            to={kbSourcePath(source.id)}
           >
             {source.name}
           </Link>
@@ -217,7 +215,7 @@ export function SourcesTable({
             className={`group cursor-pointer ${compact ? "[&>td]:!py-1.5" : "[&>td]:!py-3"}`}
             data-state={selectedIds.has(source.id) ? "selected" : undefined}
             key={source.id}
-            onClick={() => navigate(kbSourcePath(kbSlug, source.id))}
+            onClick={() => navigate(kbSourcePath(source.id))}
           >
             <TableSelectionCell
               checked={selectedIds.has(source.id)}

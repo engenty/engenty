@@ -268,10 +268,11 @@ export function registerKbGraphRagSearchOperation(
     operationId: "kb_graph_rag_search",
     summary: "GraphRAG knowledge search",
     description:
-      "Perform a GraphRAG relational search over knowledge base articles and folders. Retrieves adjacent entities (parents, children, categories) linked to the search matches to provide multi-hop graph context.",
+      "Perform a GraphRAG relational search over knowledge base articles and folders in current_space. Retrieves adjacent entities (parents, children, categories) linked to the search matches to provide multi-hop graph context. Never fall back to the tenant default KB when a Space or current KB is known.",
     moduleId: "knowledge-base",
     riskLevel: "low",
     idempotent: true,
+    spacePolicy: { kind: "space_owned" },
     inputSchema: z.object({
       article_ids: z
         .array(z.string())
@@ -280,7 +281,9 @@ export function registerKbGraphRagSearchOperation(
       kb_id: z
         .string()
         .optional()
-        .describe("Target KB ID. If omitted, default KB is used."),
+        .describe(
+          "Target KB ID in current_space. If omitted, use a KB from the active Space — never the tenant default when a Space is known."
+        ),
       max_depth: z
         .number()
         .int()
@@ -313,7 +316,10 @@ export function registerKbGraphRagSearchOperation(
 
       // If a query is provided and starting IDs are empty, perform a search to find starting articles
       if (queryIsValid(params.query) && startingArticleIds.length === 0) {
-        const kbId = params.kb_id || (await repos.kb.list())[0]?.id;
+        const spaceId = ctx.auth?.spaceId?.trim();
+        const kbId =
+          params.kb_id ||
+          (await repos.kb.list(spaceId ? { spaceId } : undefined))[0]?.id;
         if (kbId) {
           const searchResults = await repos.articles.listPaginated({
             kb_id: kbId,

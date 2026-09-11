@@ -10,13 +10,21 @@
 // The cure is generic on purpose: ANY dangling call is answered with a tool
 // ERROR result. Adding the hallucinated name as a real tool would only teach
 // the tool list to grow one hallucination at a time.
+//
+// `engenty_tool_execute` is special: a missing result must not be filled in
+// from catalog memory (the projects-chat incident). Operation-specific
+// guidance tells the model to report retrieval failure, not invent rows.
+
+import { NO_TOOL_RESULT_GUIDANCE } from "../../../ai/tools/engenty-tools/lib/errors.js";
+
+const EXECUTE_TOOL_ID = "engenty_tool_execute";
 
 /** How many valid tool names to name in the correction. */
 const SUGGESTION_LIMIT = 12;
 
 export interface UnresolvedToolCallResult {
   available_tools?: string[];
-  code: "unknown_tool" | "tool_did_not_complete";
+  code: "unknown_tool" | "tool_did_not_complete" | "no_tool_result";
   error: string;
   ok: false;
   tool_name: string;
@@ -53,12 +61,33 @@ function suggestToolNames(
   return [...related, ...rest].slice(0, SUGGESTION_LIMIT);
 }
 
+function isExecuteTool(toolName: string): boolean {
+  return toolName === EXECUTE_TOOL_ID;
+}
+
+function executeDidNotCompleteResult(
+  toolName: string
+): UnresolvedToolCallResult {
+  return {
+    code: "no_tool_result",
+    error: `The tool "${toolName}" was called but produced no readable result. ${NO_TOOL_RESULT_GUIDANCE} Never invent names, IDs, rows, amounts, statuses, or counts from catalog discovery.`,
+    ok: false,
+    tool_name: toolName,
+  };
+}
+
 export function buildUnresolvedToolCallResult(params: {
   knownToolNames?: readonly string[];
   toolName: string;
 }): UnresolvedToolCallResult {
   const toolName = params.toolName.trim() || "tool";
   const known = params.knownToolNames ?? [];
+  if (
+    isExecuteTool(toolName) &&
+    (known.length === 0 || known.includes(toolName))
+  ) {
+    return executeDidNotCompleteResult(toolName);
+  }
   // An empty known-set means "we could not enumerate the agent's tools", not
   // "the agent has none" — say the call failed rather than asserting the tool
   // does not exist, which would be a lie the model then reasons from.
@@ -78,10 +107,15 @@ export function buildUnresolvedToolCallResult(params: {
       tool_name: toolName,
     };
   }
+  // Only the copilot lane holds `requestDecision`; a specialist that reads
+  // "call requestDecision" here reaches for a second tool it does not have.
+  const askHint = known.includes("requestDecision")
+    ? " To ask the user a question with options, call requestDecision."
+    : " To ask the user a question, ask it in your reply and stop.";
   return {
     available_tools: suggestToolNames(toolName, known),
     code: "unknown_tool",
-    error: `No tool named "${toolName}" exists. You may only call tools from your tool list — pick the closest one from available_tools and call it with its own schema. To ask the user a question with options, call requestDecision.`,
+    error: `No tool named "${toolName}" exists. You may only call tools from your tool list — pick the closest one from available_tools and call it with its own schema.${askHint}`,
     ok: false,
     tool_name: toolName,
   };

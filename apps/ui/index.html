@@ -2,7 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to a
+         non-zero value on notched devices; the insets are consumed through the
+         --ui-safe-* tokens (packages/design-tokens/src/ui-viewport.css). -->
+    <meta
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      name="viewport"
+    >
     <title>Engenty</title>
 
     <!-- Animated APNG favicon (Chrome, Firefox, Safari, Edge) -->
@@ -32,10 +38,22 @@
     <script src="/src/main.tsx" type="module"></script>
     <script>
     "use strict";
-    // Web push (N2). Guarded: inside the desktop shell the origin is
-    // tauri://localhost and SW registration only allows http(s) — an
-    // unguarded call surfaces as an unhandled rejection in the app.
-    if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    // Web push (N2). Only the browser gets the service worker: the native
+    // shells deliver notifications through their own plugin, and a second
+    // registered SW would double-notify.
+    //
+    // Do NOT go back to sniffing location.protocol. That test happens to hold
+    // on iOS/macOS (origin `tauri://localhost`) but fails OPEN on Android,
+    // whose Tauri webview serves from `http://tauri.localhost` — the SW would
+    // register inside the app and race the native push plugin. Detect the
+    // shell itself; `__TAURI_INTERNALS__` is injected before any page script
+    // (same probe as isDesktopShell() in src/desktop/desktop-runtime.ts).
+    const inNativeShell = "__TAURI_INTERNALS__" in window;
+    if (
+      !inNativeShell &&
+      "serviceWorker" in navigator &&
+      /^https?:$/.test(location.protocol)
+    ) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
     </script>

@@ -1,0 +1,16 @@
+# Hosts a sandbox may reach, one POSIX extended regex per line.
+#
+# `FilterDefaultDeny Yes` in tinyproxy.conf means anything absent from this file
+# is refused. Anchor each entry (`^…$`) so `evil-pypi.org.attacker.com` cannot
+# match the `pypi.org` line.
+#
+# The defaults are the package registries an agent needs to install what its
+# script imports. Add your own APIs; remove what you do not want reachable.
+
+^(.+\.)?pypi\.org$
+^(.+\.)?pythonhosted\.org$
+^(.+\.)?npmjs\.org$
+^(.+\.)?npmjs\.com$
+^registry\.npmjs\.org$
+^(.+\.)?bun\.sh$
+^(.+\.)?astral\.sh$

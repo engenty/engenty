@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ConversationMember } from "../schema/types.js";
 import {
   computeMessageNotificationTargets,
-  enqueueNotificationDispatch,
   notificationPreview,
-  TEAM_CHAT_NOTIFICATION_QUEUE,
 } from "./notification-queue.js";
 
 function member(
@@ -106,45 +104,5 @@ describe("notificationPreview", () => {
         "hey <@u:0f0e0d0c-0b0a-0908-0706-050403020100>\n see <@agent:engenty.coordinator> <!channel>"
       )
     ).toBe("hey @user see @engenty.coordinator @channel");
-  });
-});
-
-describe("enqueueNotificationDispatch", () => {
-  it("sends message dispatches with targets and skips empty ones", async () => {
-    const sent: { payload: Record<string, unknown>; queue: string }[] = [];
-    const queue = {
-      read: async () => [],
-      send: async (queue: string, payload: Record<string, unknown>) => {
-        sent.push({ payload, queue });
-        return 1;
-      },
-      sendBatch: async () => [],
-    };
-    const base = {
-      author_agent_key: null,
-      author_user_id: "u-author",
-      conversation_id: "conv-1",
-      conversation_name: "general",
-      conversation_type: "public_channel",
-      kind: "message" as const,
-      message_ts: "1000.000001",
-      tenant_id: "tenant-1",
-      text_preview: "hi",
-      thread_ts: null,
-    };
-    await enqueueNotificationDispatch(queue, { ...base, targets: [] });
-    expect(sent).toHaveLength(0);
-    await enqueueNotificationDispatch(queue, {
-      ...base,
-      targets: [{ reason: "mention", user_id: "u-1" }],
-    });
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.queue).toBe(TEAM_CHAT_NOTIFICATION_QUEUE);
-    await expect(
-      enqueueNotificationDispatch(null, {
-        ...base,
-        targets: [{ reason: "mention", user_id: "u-1" }],
-      })
-    ).resolves.toBeUndefined();
   });
 });

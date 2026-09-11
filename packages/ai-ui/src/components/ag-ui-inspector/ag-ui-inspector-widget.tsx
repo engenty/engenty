@@ -35,6 +35,7 @@ import {
 import {
   JsonPanel,
   PromptPanel,
+  RawPanel,
   TimelinePanel,
   ToolsPanel,
 } from "./ag-ui-inspector-panels.js";
@@ -71,13 +72,23 @@ export function openAgUiAgentInspector() {
   window.dispatchEvent(new Event(OPEN_INSPECTOR_EVENT));
 }
 
+/**
+ * Neither the launcher nor the panel may sit over the app bar (56px rail +
+ * 8px). Dragged positions are persisted, so `clampPosition` applies the floor
+ * to stored values on read as well.
+ */
+const INSPECTOR_MIN_X = 64;
+
 function defaultLauncherPosition() {
   if (typeof window === "undefined") {
     return { launcherX: 24, launcherY: 88 };
   }
+  // Beside the copilot FAB (bottom-right, 60px + 16px inset): the two floating
+  // dev-ish controls share one corner instead of the launcher sitting over the
+  // current-space tile at the top of the rail.
   return {
-    launcherX: Math.max(8, window.innerWidth - 120),
-    launcherY: Math.max(8, window.innerHeight - 56),
+    launcherX: Math.max(INSPECTOR_MIN_X, window.innerWidth - 166),
+    launcherY: Math.max(8, window.innerHeight - 64),
   };
 }
 
@@ -114,14 +125,13 @@ function clampPosition(
   bounds: { height: number; width: number }
 ) {
   if (typeof window === "undefined") {
-    return { x: Math.max(8, x), y: Math.max(8, y) };
+    return { x: Math.max(INSPECTOR_MIN_X, x), y: Math.max(8, y) };
   }
+  // Floors last: a hidden or not-yet-sized viewport reports 0px, and the
+  // viewport clamp alone would then park the widget over the app bar.
   return {
-    x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - bounds.width)),
-    y: Math.min(
-      Math.max(8, y),
-      Math.max(8, window.innerHeight - bounds.height)
-    ),
+    x: Math.max(INSPECTOR_MIN_X, Math.min(x, window.innerWidth - bounds.width)),
+    y: Math.max(8, Math.min(y, window.innerHeight - bounds.height)),
   };
 }
 
@@ -335,7 +345,7 @@ export function AgUiAgentInspectorWidget({
   if (!layout.open) {
     return (
       <Button
-        className="fixed z-[90] h-9 gap-1.5 rounded-full border border-border/80 bg-card px-3 font-mono text-xs shadow-md"
+        className="fixed z-[90] h-9 gap-1.5 rounded-full border border-border bg-card px-3 font-mono text-xs shadow-md"
         onClick={() => {
           if (suppressNextLauncherClickRef.current) {
             suppressNextLauncherClickRef.current = false;
@@ -359,7 +369,7 @@ export function AgUiAgentInspectorWidget({
 
   return (
     <div
-      className="fixed z-[90] flex flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-[0_8px_32px_oklch(0.4_0.02_60/0.12)]"
+      className="fixed z-[90] flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[0_8px_32px_oklch(0.4_0.02_60/0.12)]"
       style={{
         height: layout.minimized ? PANEL_HEADER_HEIGHT : layout.height,
         left: layout.x,
@@ -368,7 +378,7 @@ export function AgUiAgentInspectorWidget({
       }}
     >
       <div
-        className="flex h-10 shrink-0 cursor-move items-center gap-2 border-border/70 border-b bg-muted/25 px-3"
+        className="flex h-10 shrink-0 cursor-move items-center gap-2 border-border border-b bg-muted/25 px-3"
         onPointerDown={(event) => onPointerDown(event, "panel")}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -440,12 +450,16 @@ export function AgUiAgentInspectorWidget({
       </div>
       {layout.minimized ? null : (
         <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="timeline">
-          <TabsList className="h-9 shrink-0 justify-start gap-0 rounded-none border-border/70 border-b bg-transparent px-1">
+          <TabsList className="h-9 shrink-0 justify-start gap-0 rounded-none border-border border-b bg-transparent px-1">
             <InspectorTab value="prompt">Prompt</InspectorTab>
             <InspectorTab value="timeline">
               Stream
               <TabCount>{host.messages.length}</TabCount>
               <TabCount muted>{events.length}</TabCount>
+            </InspectorTab>
+            <InspectorTab value="raw">
+              Raw
+              <TabCount>{events.length}</TabCount>
             </InspectorTab>
             <InspectorTab value="tools">
               Tools
@@ -470,6 +484,12 @@ export function AgUiAgentInspectorWidget({
           </TabsContent>
           <TabsContent
             className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
+            value="raw"
+          >
+            <RawPanel events={events as AGUIEvent[]} messages={host.messages} />
+          </TabsContent>
+          <TabsContent
+            className="m-0 h-full min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
             value="tools"
           >
             <ToolsPanel toolCalls={toolCalls} />
@@ -480,7 +500,7 @@ export function AgUiAgentInspectorWidget({
           >
             <JsonPanel value={host.state} />
           </TabsContent>
-          <footer className="relative shrink-0 border-border/60 border-t px-3 py-1.5 pr-6">
+          <footer className="relative shrink-0 border-border-soft border-t px-3 py-1.5 pr-6">
             <p className="font-mono text-muted-foreground text-xxs">
               Real-time AG-UI debugging for Engenty copilot runs
             </p>

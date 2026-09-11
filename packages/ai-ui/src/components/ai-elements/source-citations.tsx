@@ -69,8 +69,8 @@ function SourceCitationCard({ citation }: { citation: CitationItem }) {
   return (
     <Collapsible
       className={cn(
-        "overflow-hidden rounded-lg border border-border/40 bg-card/45 shadow-sm transition-all duration-200 hover:border-border/80 hover:bg-card/65",
-        isOpen && "border-border/80 bg-card"
+        "overflow-hidden rounded-lg border border-border-soft bg-card/45 shadow-sm transition-all duration-200 hover:border-border hover:bg-card/65",
+        isOpen && "border-border bg-card"
       )}
       onOpenChange={setIsOpen}
       open={isOpen}
@@ -130,7 +130,7 @@ function SourceCitationCard({ citation }: { citation: CitationItem }) {
       </div>
 
       {hasExcerpt && chunkText && (
-        <CollapsibleContent className="overflow-hidden border-border/30 border-t data-[state=closed]:animate-out">
+        <CollapsibleContent className="overflow-hidden border-border-soft border-t data-[state=closed]:animate-out">
           <div className="max-h-60 overflow-y-auto bg-muted/15 p-3 font-sans text-foreground/80 text-sm leading-relaxed">
             <div className="flex flex-col gap-0.5 font-mono text-xs leading-5">
               {chunkText

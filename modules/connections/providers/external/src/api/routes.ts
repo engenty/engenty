@@ -1,16 +1,23 @@
 import { capabilityCovers, type PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
+import { ImportValidationError } from "../errors.js";
 import {
   assembleRecord,
-  ImportValidationError,
+  connectorIdFromSlug,
   prepareSource,
+  resolveRequiredHeaders,
+  toolPrefixFromSlug,
 } from "../import-service.js";
 import {
   discoverImportableSources,
   discoverOAuthFacts,
+  type ImportableSource,
+  type RegistrySurface,
   registryDiscover,
   registrySearch,
+  resolveMcpTransport,
 } from "../registry-client.js";
+import { resolveRegistrySource } from "../registry-source.js";
 import type { ExternalConnectorsRepo } from "../repo.js";
 import type { ImportedConnectorRecord } from "../types.js";
 
@@ -18,6 +25,10 @@ import type { ImportedConnectorRecord } from "../types.js";
  * Superadmin import console API. Imports are platform-level in v1 (connector
  * definitions are process-global); per-tenant catalogs are an explicit
  * non-goal — see PLAN-external-connectors.md §0.
+ *
+ * Registry metadata that decides what gets imported — surface slug, spec
+ * overrides, required headers, transport — is re-resolved here from `domain`
+ * plus `source_url`. The client never gets to hand it in.
  */
 
 const searchBody = z.object({
@@ -63,6 +74,44 @@ function projectRecord(record: ImportedConnectorRecord) {
     ...rest,
     action_count: record.actions.length,
     has_oauth_client: Boolean(client_id_enc && client_secret_enc),
+  };
+}
+
+/** Surface facts the console renders next to a source. */
+function projectSurface(surface: RegistrySurface) {
+  return {
+    auth_status: surface.auth.status,
+    connect_url: surface.connect_url,
+    docs: surface.docs,
+    kind: surface.kind,
+    name: surface.name,
+    required_headers: surface.required_headers.map((header) => ({
+      description: header.description ?? null,
+      name: header.name,
+      source_kind: header.source?.kind ?? "unknown",
+      value: header.source?.value ?? null,
+    })),
+    slug: surface.slug,
+    spec: surface.spec,
+    spec_alternates: surface.spec_alternates,
+    spec_override_count: surface.spec_overrides.length,
+    suggested_id: connectorIdFromSlug(surface.slug),
+    suggested_tool_prefix: toolPrefixFromSlug(surface.slug),
+    transports: surface.transports,
+    variables: surface.variables.map((variable) => ({
+      name: variable.name,
+      resolve_from: variable.resolveFrom ?? null,
+    })),
+  };
+}
+
+function projectSource(source: ImportableSource) {
+  return {
+    blocked_reason: source.blocked_reason,
+    source_kind: source.source_kind,
+    source_url: source.source_url,
+    surface: projectSurface(source.surface),
+    transport: source.transport,
   };
 }
 
@@ -138,7 +187,8 @@ export function registerExternalConnectorRoutes(
           oauth_found: Boolean(
             discoverOAuthFacts(parsed)?.authorizationEndpoint
           ),
-          sources: discoverImportableSources(parsed),
+          sources: discoverImportableSources(parsed).map(projectSource),
+          summary: parsed.summary ?? parsed.description ?? null,
         });
       } catch (error) {
         return hono.json(
@@ -165,15 +215,48 @@ export function registerExternalConnectorRoutes(
       }
       const body = ctx.body as z.infer<typeof previewBody>;
       try {
-        const [prepared, discover] = await Promise.all([
-          prepareSource({
-            sourceKind: body.source_kind,
-            sourceUrl: body.source_url,
-          }),
-          body.domain
-            ? registryDiscover(body.domain).catch(() => null)
-            : Promise.resolve(null),
-        ]);
+        const { discover, surface } = body.domain
+          ? await resolveRegistrySource({
+              domain: body.domain,
+              sourceUrl: body.source_url,
+            })
+          : { discover: null, surface: null };
+
+        // Blockers are computed before the fetch: an import that cannot
+        // succeed should say why rather than spend 30s on a spec first.
+        const blockers: string[] = [];
+        if (surface) {
+          try {
+            resolveRequiredHeaders(surface);
+          } catch (error) {
+            blockers.push(
+              error instanceof Error ? error.message : String(error)
+            );
+          }
+          if (surface.variables.length > 0) {
+            blockers.push(
+              `this surface is templated on ${surface.variables
+                .map((variable) => variable.name)
+                .join(", ")} — resolve the URL manually before importing`
+            );
+          }
+          if (body.source_kind === "mcp" && !resolveMcpTransport(surface)) {
+            blockers.push(
+              `unsupported MCP transport (${surface.transports.join(", ")})`
+            );
+          }
+        }
+
+        const prepared = await prepareSource({
+          requiredHeaders:
+            blockers.length === 0 && surface
+              ? resolveRequiredHeaders(surface)
+              : [],
+          sourceKind: body.source_kind,
+          sourceUrl: body.source_url,
+          specOverrides: surface?.spec_overrides ?? [],
+          transport: surface ? resolveMcpTransport(surface) : null,
+        });
         return hono.json({
           actions: prepared.normalized.actions.map((action) => ({
             classification: action.classification,
@@ -182,11 +265,14 @@ export function registerExternalConnectorRoutes(
             summary: action.summary,
             tags: action.tags,
           })),
+          applied_overrides: prepared.normalized.applied_overrides,
           base_url: prepared.normalized.base_url,
           discover_found: Boolean(discover),
           dropped_count: prepared.normalized.dropped_count,
+          import_blockers: blockers,
           security_schemes: prepared.normalized.security_schemes,
           skipped: prepared.normalized.skipped,
+          surface: surface ? projectSurface(surface) : null,
           title: prepared.normalized.title,
         });
       } catch (error) {
@@ -220,13 +306,33 @@ export function registerExternalConnectorRoutes(
         );
       }
       try {
-        const [prepared, discovered] = await Promise.all([
-          prepareSource({
-            sourceKind: body.source_kind,
-            sourceUrl: body.source_url,
-          }),
-          registryDiscover(body.domain).catch(() => null),
-        ]);
+        // Registry facts are re-derived server-side from domain + source URL;
+        // the request body carries no surface metadata to trust.
+        const { discover: discovered, surface } = await resolveRegistrySource({
+          domain: body.domain,
+          sourceUrl: body.source_url,
+        });
+        if (surface) {
+          const existing = await repo.findByRegistrySurface(
+            body.domain,
+            surface.slug
+          );
+          if (existing) {
+            return hono.json(
+              {
+                error: `registry surface "${surface.slug}" on ${body.domain} is already imported as "${existing.id}" — refresh that connector instead`,
+              },
+              409
+            );
+          }
+        }
+        const prepared = await prepareSource({
+          requiredHeaders: surface ? resolveRequiredHeaders(surface) : [],
+          sourceKind: body.source_kind,
+          sourceUrl: body.source_url,
+          specOverrides: surface?.spec_overrides ?? [],
+          transport: surface ? resolveMcpTransport(surface) : null,
+        });
         const { record, warnings } = assembleRecord({
           actionFilter: body.action_filter ?? null,
           baseUrlOverride: body.base_url ?? null,
@@ -246,6 +352,7 @@ export function registerExternalConnectorRoutes(
           rawDiscover: discovered?.raw ?? null,
           sourceKind: body.source_kind,
           sourceUrl: body.source_url,
+          surface,
           toolPrefix: body.tool_prefix,
         });
         await repo.insert(record);
@@ -255,6 +362,7 @@ export function registerExternalConnectorRoutes(
             action_count: record.actions.length,
             connector_id: record.id,
             domain: record.domain,
+            registry_surface_slug: record.registry_surface_slug,
             source_kind: record.source_kind,
           },
           type: "external_connector.imported",
@@ -311,9 +419,30 @@ export function registerExternalConnectorRoutes(
         return hono.json({ error: "not found" }, 404);
       }
       try {
+        // A refresh is the deliberate moment registry metadata is re-read:
+        // spec overrides, required headers and transport are re-derived from
+        // the surface the record was imported from.
+        const { surface } = record.registry_surface_slug
+          ? await resolveRegistrySource({
+              domain: record.domain,
+              sourceUrl: record.source_url,
+            })
+          : { surface: null };
+        const requiredHeaders = surface
+          ? resolveRequiredHeaders(surface)
+          : record.required_headers;
+        const transport =
+          record.source_kind === "mcp"
+            ? ((surface ? resolveMcpTransport(surface) : null) ??
+              record.mcp_transport ??
+              "streamable-http")
+            : null;
         const prepared = await prepareSource({
+          requiredHeaders,
           sourceKind: record.source_kind,
           sourceUrl: record.source_url,
+          specOverrides: surface?.spec_overrides ?? [],
+          transport,
         });
         const before = new Set(record.actions.map((a) => a.id));
         const after = new Set(prepared.normalized.actions.map((a) => a.id));
@@ -323,13 +452,17 @@ export function registerExternalConnectorRoutes(
           ...record,
           actions: prepared.normalized.actions,
           base_url: record.base_url ?? prepared.normalized.base_url,
+          mcp_transport: transport,
           refreshed_at: new Date().toISOString(),
+          required_headers: requiredHeaders,
           spec_hash: prepared.spec_hash,
         };
         await repo.update(id, {
           actions: updated.actions,
           base_url: updated.base_url,
+          mcp_transport: updated.mcp_transport,
           refreshed_at: updated.refreshed_at,
+          required_headers: updated.required_headers,
           spec_hash: updated.spec_hash,
         });
         const skippedActions = registerRecord(updated);
@@ -347,9 +480,10 @@ export function registerExternalConnectorRoutes(
           skipped_actions: skippedActions,
         });
       } catch (error) {
+        const status = error instanceof ImportValidationError ? 422 : 502;
         return hono.json(
           { error: error instanceof Error ? error.message : String(error) },
-          502
+          status
         );
       }
     },

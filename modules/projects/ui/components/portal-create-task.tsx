@@ -52,7 +52,7 @@ export function PortalCreateTask({ projectId }: PortalCreateTaskProps) {
         <ArrowLeft className="mr-1 h-4 w-4" />
         {t("portal.back")}
       </Button>
-      <div className="mx-auto max-w-md rounded-lg border bg-card p-6">
+      <div className="ui-card-panel mx-auto w-full max-w-md p-6">
         <h2 className="font-semibold text-lg">{t("portal.newRequest")}</h2>
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
           <div>

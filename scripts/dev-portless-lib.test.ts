@@ -71,6 +71,7 @@ describe("dev-portless-lib", () => {
     expect(portsForSlot(0).ui).toBe(5173);
     expect(portsForSlot(1).ui).toBe(5183);
     expect(portsForSlot(1).core).toBe(8797);
+    expect(portsForSlot(1).www).toBe(3013);
     expect(portsForSlot(1).studio).toBe(43_121);
   });
 

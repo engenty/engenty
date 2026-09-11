@@ -1,0 +1,42 @@
+{
+  "id": "knowledge-base.file-answer",
+  "description": "Turn a useful assistant answer into an inbox capture for human review before wiki promotion.",
+  "inputSchema": {
+    "description": "Optional kb_id and title for the capture.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kb_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "File chat answer to inbox",
+    "owner_agent_id": "knowledge-base.manager",
+    "allowed_tools": [
+      "engenty_tools_search",
+      "engenty_tool_execute",
+      "web_search"
+    ],
+    "skills": ["kb-search-and-retrieve"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"knowledge-base.manager\"},\"brief\":{\"value\":\"# File Answer To Inbox\\n\\n## Task\\n\\nPersist a high-value chat reply as **`source_type: chat`** (or `paste`) inbox content so editors can triage and later promote.\\n\\n## Steps\\n\\n1. Resolve `kb_id` if missing.\\n2. Craft a concise `title` (what future readers will see in the inbox list).\\n3. Use `engenty_tool_execute` with `kb_inbox_create` when available, or the catalog-discovered inbox create route, with `raw_markdown` containing the answer, citations to article ids/titles used, and `metadata` noting origin (e.g. `{ \\\"origin\\\": \\\"copilot\\\", \\\"session_hint\\\": \\\"...\\\" }` without secrets).\\n4. Confirm inbox id and suggested next step (triage action).\\n\\n## Rules\\n\\n- Do not auto-promote to published articles.\\n- Strip secrets, tokens, and personal data from filed content.\\n- Use snake_case JSON for the API.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"engenty_tools_search\",\"engenty_tool_execute\",\"web_search\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

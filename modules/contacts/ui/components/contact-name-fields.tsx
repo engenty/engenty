@@ -41,7 +41,7 @@ function nameField<T extends FieldValues & ContactProfileNameFormFields>(
 }
 
 const nameRowFieldClass =
-  "border-border/60 border-b px-3 py-2.5 last:border-b-0";
+  "border-border-soft border-b px-3 py-2.5 last:border-b-0";
 
 export function ContactNameFields<
   T extends FieldValues & ContactProfileNameFormFields,
@@ -64,7 +64,7 @@ export function ContactNameFields<
     <CardSection cardVariant="flush" title={t("nameSection")}>
       <div className="space-y-0">
         {onApplySplit && splitSourceLabel ? (
-          <div className="flex justify-end border-border/60 border-b px-3 py-2">
+          <div className="flex justify-end border-border-soft border-b px-3 py-2">
             <Button
               className="h-8 gap-1.5 text-xs"
               onClick={() =>
@@ -145,7 +145,7 @@ export function ContactNameFields<
           control={control}
           name={nameField<T>("custom_display_name")}
           render={({ field }) => (
-            <FormItem className="flex items-center gap-2.5 border-border/60 border-t px-3 py-2.5">
+            <FormItem className="flex items-center gap-2.5 border-border-soft border-t px-3 py-2.5">
               <FormControl>
                 <Checkbox
                   checked={field.value}

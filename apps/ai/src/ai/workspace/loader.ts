@@ -1,4 +1,6 @@
 import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { resolveSpacesDir } from "@engenty/environment/env";
 
 import {
   LocalFilesystem,
@@ -9,10 +11,16 @@ import {
   type WorkspaceToolsConfig,
 } from "@mastra/core/workspace";
 
+import type { Files } from "files-sdk";
 import { createEngentySandboxProvider } from "../sandbox/sandbox-factory.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { resolveSandboxStorageLayout } from "../sandbox/sandbox-storage-paths.js";
 import type { SandboxExtraMount } from "../sandbox/sandbox-types.js";
+import {
+  resolveSpaceBrowserDownloadsRootPath,
+  SPACE_BROWSER_DOWNLOADS_MOUNT_PATH,
+} from "../sandbox/space-browser.js";
+import { isSkillWorkspaceMount } from "./allowed-skills.js";
 import {
   type EngentyWorkspaceMountSpec,
   type EngentyWorkspaceRuntimeSpec,
@@ -20,8 +28,24 @@ import {
   parseEngentyWorkspaceRuntimeSpec,
 } from "./contracts.js";
 import { createEngentyCoreFileStorageClient } from "./core-file-storage-client.js";
-import { createWorkspaceMountFilesystem } from "./files-sdk-filesystem.js";
-import { resolveLocalMountBasePath } from "./local-workspace-paths.js";
+import {
+  createSpaceDataFilesClient,
+  createSpaceDataMountFilesystem,
+  createWorkspaceMountFilesystem,
+} from "./files-sdk-filesystem.js";
+import { wrapSkillFilesystem } from "./filtered-skill-filesystem.js";
+import {
+  resolveLocalMountBasePath,
+  resolveSandboxCachePaths,
+  SANDBOX_CACHE_TOOLS,
+  type SandboxCacheTool,
+} from "./local-workspace-paths.js";
+import {
+  flushSpaceData,
+  materializeSpaceData,
+  type SpaceDataStagingManifest,
+  spaceDataStagingExists,
+} from "./space-data-staging.js";
 import {
   resolveEngentyWorkspaceFsMode,
   shouldUseRemoteWorkspaceSync,
@@ -30,6 +54,10 @@ import {
   COMMONS_STORAGE_PREFIX,
   HOME_MOUNT_PATH,
 } from "./workspace-presets.js";
+import {
+  sandboxExecuteApprovalGate,
+  workspaceDeleteApprovalGate,
+} from "./workspace-tool-guards.js";
 
 export interface CreateEngentyAgentWorkspaceResult {
   // The single Mastra executor (DockerSandbox) attached to the Workspace; the
@@ -44,9 +72,23 @@ export interface CreateEngentyAgentWorkspaceResult {
 // Writable, durable mounts unified with the sandbox staging mechanism: each is
 // staged to a local dir, bind-mounted into the docker sandbox at its mount path,
 // and synced to its own file-storage prefix at the run edges (syncIn/syncOut).
-// Today these are tenant-shared commons (`/shared`) and the agent/user `/home`.
+// Today these are the shared commons (`/shared`, or `/space` for a confined
+// agent — same relative path, different root) and the agent/user `/home`.
 // (`/sandbox` is the sandbox layout itself; the read-only `/skills` mount and
 // the `/task` checkout intentionally stay direct Files-SDK — see below.)
+// Where the package caches land inside the container, and the variable each
+// tool reads to find its own. The host owns both halves so a custom sandbox
+// image cannot silently leave the binds inert.
+const SANDBOX_CACHE_MOUNT_ROOT = "/cache";
+/** Where a space computer sees the space's Apps. */
+const SPACE_APPS_MOUNT_PATH = "/sandbox/apps";
+
+const SANDBOX_CACHE_ENV_VARS: Record<SandboxCacheTool, string> = {
+  bun: "BUN_INSTALL_CACHE_DIR",
+  npm: "npm_config_cache",
+  uv: "UV_CACHE_DIR",
+};
+
 function isSyncedWritableMount(mount: EngentyWorkspaceMountSpec): boolean {
   if (mount.readOnly) {
     return false;
@@ -76,7 +118,8 @@ export function buildSyncedWritableMounts(
     }
     const stagingPath = resolveLocalMountBasePath(
       tenantId,
-      mount.fileStorageRelativePath
+      mount.fileStorageRelativePath,
+      mount.spaceId
     );
     stagingByMountPath.set(mount.mountPath, stagingPath);
     extraMounts.push({
@@ -84,10 +127,65 @@ export function buildSyncedWritableMounts(
       layout: {
         fileStorageRelativePath: mount.fileStorageRelativePath,
         stagingPath,
+        ...(mount.spaceId ? { spaceId: mount.spaceId } : {}),
       },
     });
   }
   return { extraMounts, stagingByMountPath };
+}
+
+interface SpaceDataStagingBinding {
+  files: Files;
+  manifest: SpaceDataStagingManifest;
+  stagingPath: string;
+}
+
+/**
+ * Give the sandbox provider the `/data` cache's two edges.
+ *
+ * A DECORATOR rather than a change to the provider, because the provider's job
+ * is object-storage sync and this is not that: the flush runs module UPDATE
+ * operations, with their capability checks, approval gates and audit rows. The
+ * two happen to share a lifecycle, and nothing else.
+ *
+ * `syncOut` never throws. A conflicted flush is a real outcome the run should
+ * survive — the records are unchanged, which is exactly what a 409 is FOR —
+ * and letting it take the teardown down with it would strand the sandbox.
+ */
+function wrapProviderWithSpaceDataStaging(
+  provider: EngentySandboxProvider,
+  binding: SpaceDataStagingBinding
+): EngentySandboxProvider {
+  return {
+    destroy: () => provider.destroy(),
+    getWorkingDirectory: () => provider.getWorkingDirectory(),
+    id: provider.id,
+    provider: provider.provider,
+    runCommand: (request) => provider.runCommand(request),
+    async syncIn() {
+      await provider.syncIn();
+      try {
+        binding.manifest = await materializeSpaceData({
+          files: binding.files,
+          stagingPath: binding.stagingPath,
+        });
+      } catch {
+        // A tree that could not be staged leaves `/data` empty in the sandbox,
+        // which is the same thing an unmounted module looks like. The run
+        // continues; `engenty_tool_execute` still reaches the records.
+      }
+    },
+    async syncOut() {
+      if (await spaceDataStagingExists(binding.stagingPath)) {
+        await flushSpaceData({
+          files: binding.files,
+          manifest: binding.manifest,
+          stagingPath: binding.stagingPath,
+        }).catch(() => undefined);
+      }
+      await provider.syncOut();
+    },
+  };
 }
 
 function createMountFilesystem(
@@ -95,7 +193,26 @@ function createMountFilesystem(
   mount: EngentyWorkspaceMountSpec,
   sandboxStagingPath?: string,
   stagingByMountPath?: Map<string, string>
-): WorkspaceFilesystem {
+): WorkspaceFilesystem | null {
+  // The `/data` mount has no bytes at rest, so it is neither staged nor keyed:
+  // it serves the space's module records through core's data endpoints, as the
+  // run's principal. Without core access it is DROPPED
+  // rather than mounted empty — an empty `/data` would read to the agent as
+  // "this space has no contacts", which is a lie it would act on.
+  if (mount.kind === "data") {
+    if (!(spec.fileStorageAccess && mount.spaceId)) {
+      return null;
+    }
+    return createSpaceDataMountFilesystem({
+      accessToken: spec.fileStorageAccess.accessToken,
+      coreBaseUrl: spec.fileStorageAccess.coreBaseUrl,
+      id: `mount-${mount.mountPath.replace(/\//g, "-")}`,
+      readOnly: mount.readOnly ?? false,
+      spaceId: mount.spaceId,
+      ...(spec.coreAgentId ? { agentId: spec.coreAgentId } : {}),
+    });
+  }
+
   const isSandboxMount =
     sandboxStagingPath &&
     mount.mountPath === (spec.sandboxConfig?.mountPath ?? "/sandbox");
@@ -123,6 +240,7 @@ function createMountFilesystem(
     id: `mount-${mount.mountPath.replace(/\//g, "-")}`,
     readOnly: mount.readOnly,
     tenantId: spec.agentConfig.tenantId,
+    ...(mount.spaceId ? { spaceId: mount.spaceId } : {}),
   });
 }
 
@@ -155,12 +273,15 @@ export async function createEngentyAgentWorkspace(
   let sandboxStagingPath: string | undefined;
   let stagingByMountPath: Map<string, string> | undefined;
   let mastraSandbox: CreateEngentyAgentWorkspaceResult["mastraSandbox"];
+  let dataStaging: SpaceDataStagingBinding | undefined;
 
   if (spec.enableSandbox && spec.sandboxIdentity) {
     const lifecycle = spec.sandboxConfig?.lifecycle ?? "run";
     const layout = resolveSandboxStorageLayout({
+      agentId: spec.agentConfig.id,
       lifecycle,
       runId: spec.sandboxIdentity.runId,
+      spaceId: spec.sandboxIdentity.spaceId,
       taskIdentifier: spec.sandboxIdentity.taskIdentifier,
       tenantId: spec.sandboxIdentity.tenantId,
       threadId: spec.sandboxIdentity.threadId,
@@ -176,17 +297,108 @@ export async function createEngentyAgentWorkspace(
     stagingByMountPath = synced.stagingByMountPath;
     const extraMounts = synced.extraMounts;
 
+    // `/data` inside the sandbox. A program cannot
+    // speak HTTP to the data plane through a bind mount, so the tree is staged
+    // as a read-through cache at the run's edges. The staging dir sits in the
+    // sandbox's own scratch, NOT under a space prefix: for agent byte-mounts
+    // the prefix IS access (§1c), so materialised records there would be a hole
+    // in the boundary this design exists to create.
+    const dataMount = spec.mounts.find((mount) => mount.kind === "data");
+    if (dataMount && spec.fileStorageAccess && dataMount.spaceId) {
+      dataStaging = {
+        files: createSpaceDataFilesClient({
+          accessToken: spec.fileStorageAccess.accessToken,
+          coreBaseUrl: spec.fileStorageAccess.coreBaseUrl,
+          spaceId: dataMount.spaceId,
+          ...(spec.coreAgentId ? { agentId: spec.coreAgentId } : {}),
+        }),
+        manifest: new Map(),
+        stagingPath: join(layout.stagingPath, "..", "data"),
+      };
+      extraMounts.push({
+        containerPath: dataMount.mountPath,
+        layout: {
+          // No storage prefix: this cache is flushed through the operation
+          // pipeline on syncOut, never synced to a bucket. An empty relative
+          // path would make the sandbox's own sync try to upload records as
+          // objects, which is the thing that must not happen.
+          fileStorageRelativePath: "",
+          stagingPath: dataStaging.stagingPath,
+        },
+      });
+    }
+
+    // The space's Apps: every App's source repository and /data directory,
+    // bound in at /sandbox/apps/<slug>/{src,data} so the agent edits the same
+    // files the running App reads. app-host owns the tree (it commits and
+    // deploys from it); the machine only binds it. Empty storage prefix, so
+    // the sandbox's own sync never uploads a repository to object storage.
+    if (lifecycle === "space" && spec.sandboxIdentity.spaceId) {
+      // Every user's browser downloads for this space, bound read-write so
+      // a file a browser saved is the same byte the machine reads under
+      // /sandbox/browser-downloads/<user>/. Empty storage prefix: the bytes
+      // are the browser's, never synced to object storage by the sandbox.
+      extraMounts.push({
+        containerPath: SPACE_BROWSER_DOWNLOADS_MOUNT_PATH,
+        layout: {
+          fileStorageRelativePath: "",
+          stagingPath: resolveSpaceBrowserDownloadsRootPath(
+            spec.sandboxIdentity.tenantId,
+            spec.sandboxIdentity.spaceId
+          ),
+        },
+      });
+      extraMounts.push({
+        containerPath: SPACE_APPS_MOUNT_PATH,
+        layout: {
+          fileStorageRelativePath: "",
+          stagingPath: join(
+            resolveSpacesDir(),
+            "tenants",
+            spec.sandboxIdentity.tenantId,
+            "spaces",
+            spec.sandboxIdentity.spaceId,
+            "apps"
+          ),
+        },
+      });
+    }
+
+    // Package caches: bound in so a second `uv pip install` in the same space
+    // is a cache hit, and given an EMPTY storage prefix so the sandbox's own
+    // sync never uploads a downloaded wheel to object storage. Same exemption
+    // the `/data` cache uses, for the same reason.
+    const cacheEnv: Record<string, string> = {};
+    const cachePaths = resolveSandboxCachePaths(
+      spec.sandboxIdentity.tenantId,
+      spec.sandboxIdentity.spaceId
+    );
+    for (const tool of SANDBOX_CACHE_TOOLS) {
+      const containerPath = `${SANDBOX_CACHE_MOUNT_ROOT}/${tool}`;
+      extraMounts.push({
+        containerPath,
+        layout: {
+          fileStorageRelativePath: "",
+          stagingPath: cachePaths[tool],
+        },
+      });
+      cacheEnv[SANDBOX_CACHE_ENV_VARS[tool]] = containerPath;
+    }
+
     const client = spec.fileStorageAccess
       ? createEngentyCoreFileStorageClient(spec.fileStorageAccess)
       : null;
     const sandboxResult = await createEngentySandboxProvider({
       client,
+      env: cacheEnv,
       extraMounts,
       fileStorageAccess: spec.fileStorageAccess,
       input: {
         identity: {
+          agentId: spec.agentConfig.id,
           lifecycle,
           runId: spec.sandboxIdentity.runId,
+          spaceId: spec.sandboxIdentity.spaceId,
           taskIdentifier: spec.sandboxIdentity.taskIdentifier,
           tenantId: spec.sandboxIdentity.tenantId,
           threadId: spec.sandboxIdentity.threadId,
@@ -195,10 +407,15 @@ export async function createEngentyAgentWorkspace(
         timeoutMs: spec.sandboxConfig?.timeoutMs ?? 120_000,
       },
       sandboxConfig: spec.sandboxConfig,
+      ...(spec.spaceComputerNetwork
+        ? { spaceComputerNetwork: spec.spaceComputerNetwork }
+        : {}),
       tenantId: spec.sandboxIdentity.tenantId,
       workspaceFsMode,
     });
-    sandboxProvider = sandboxResult.provider;
+    sandboxProvider = dataStaging
+      ? wrapProviderWithSpaceDataStaging(sandboxResult.provider, dataStaging)
+      : sandboxResult.provider;
     mastraSandbox = sandboxResult.mastraSandbox;
     await sandboxProvider.syncIn();
   }
@@ -216,25 +433,58 @@ export async function createEngentyAgentWorkspace(
 
   const mountFilesystems: Record<string, WorkspaceFilesystem> = {};
   for (const mount of spec.mounts) {
-    mountFilesystems[mount.mountPath] = createMountFilesystem(
+    const filesystem = createMountFilesystem(
       spec,
       mount,
       sandboxStagingPath,
       stagingByMountPath
     );
+    if (filesystem) {
+      const skillFilter =
+        spec.allowedSkillNames !== undefined && isSkillWorkspaceMount(mount)
+          ? wrapSkillFilesystem(filesystem, spec.allowedSkillNames)
+          : filesystem;
+      mountFilesystems[mount.mountPath] = skillFilter;
+    }
   }
 
   // Sandbox is gated by HITL by default: `EXECUTE_COMMAND` requires approval,
-  // which Mastra surfaces as a tool suspension the harness bridges to an AG-UI
-  // interrupt. Set `sandbox.requireApproval: false` in the declaration to allow
-  // unattended command execution.
-  const sandboxTools: WorkspaceToolsConfig | undefined = spec.enableSandbox
-    ? {
-        [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
-          requireApproval: spec.sandboxRequireApproval,
-        },
-      }
-    : undefined;
+  // which Mastra surfaces as a tool suspension — an AG-UI interrupt in a chat,
+  // and a `needs_approval` park headless. The gate is grants-aware, so an
+  // approval carries into the re-dispatch instead of asking again. Set
+  // `sandbox.requireApproval: false` in the declaration to allow unattended
+  // command execution outright.
+  //
+  // DELETE gets the same treatment and did not have it (P1.6): Mastra ships
+  // `mastra_workspace_delete` ungated WITH a `recursive` flag, so one call
+  // could empty a prefix of `/shared`. The gate is dynamic — it sees the call's
+  // args, so the agent tidying a file in its own `/home` is not asked, while
+  // anything recursive, shared, or in `/data` is. `files.requireApproval` in
+  // the declaration can force the strict answer for every call.
+  const workspaceTools: WorkspaceToolsConfig = {
+    ...(spec.enableSandbox
+      ? {
+          [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: {
+            requireApproval: spec.sandboxRequireApproval
+              ? sandboxExecuteApprovalGate(
+                  WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND
+                )
+              : false,
+          },
+        }
+      : {}),
+    [WORKSPACE_TOOLS.FILESYSTEM.DELETE]: {
+      requireApproval:
+        spec.filesRequireApproval === true
+          ? true
+          : workspaceDeleteApprovalGate(WORKSPACE_TOOLS.FILESYSTEM.DELETE),
+    },
+    // A tool the archetype will never call still ships its JSON Schema on every
+    // model call. Mastra's per-tool `enabled` is the supported way off.
+    ...Object.fromEntries(
+      spec.disabledWorkspaceTools.map((name) => [name, { enabled: false }])
+    ),
+  };
 
   const workspace = new Workspace({
     // One shape for every agent: named mounts, no implicit `/` root. An agent
@@ -242,7 +492,7 @@ export async function createEngentyAgentWorkspace(
     // optionally `/shared`, `/task`, `/sandbox` — and nothing else.
     mounts: mountFilesystems,
     ...(spec.enableSandbox && mastraSandbox ? { sandbox: mastraSandbox } : {}),
-    ...(sandboxTools ? { tools: sandboxTools } : {}),
+    tools: workspaceTools,
     ...(spec.bm25 ? { bm25: spec.bm25 } : {}),
     skills: skillDiscoveryPaths,
   });

@@ -9,12 +9,16 @@ allowed-tools: engenty_tools_search engenty_tool_execute navigate
 
 Use this skill when the user wants to browse, create, edit, merge, or remove team member records (employees, contractors, external members).
 
+## Spaces
+
+The team directory is tenant-global: a Space mount grants access to the same people. There is no member `space_id` and you must not invent one. Tenant settings live at `/settings/team` (fields, taxonomies, and related tabs). The directory itself is `/mdl/team`.
+
 ## Tool Process
 
 1. Start with `engenty_tools_search` using `moduleId: "team"` and `kind: "tool"`.
 2. Prefer registered operations: `team_list`, `team_get`, `team_create`, `team_update`, and `team_delete`.
 3. Use `engenty_tool_execute` before writes unless the input schema is already clear from this skill and prior tool results.
-4. Call the `navigate` tool to open `/mdl/team` or `/mdl/team/:id/edit` when the user should review changes in the UI.
+4. Call the `navigate` tool to open `/mdl/team`, `/mdl/team/:id/edit`, or `/settings/team` when the user should review directory or settings changes in the UI.
 
 ## Find Before Writing
 

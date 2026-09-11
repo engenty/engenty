@@ -9,11 +9,15 @@ allowed-tools: engenty_tools_search engenty_tool_execute contacts_apply_draft_pa
 
 Use this skill when the user wants to create, inspect, edit, delete, add roles to, or connect stored contact records.
 
+## Spaces
+
+Contacts are one tenant address book. A Space mount grants access to that shared book; there is no contact `space_id` and you must not invent one.
+
 ## Tool Process
 
 1. Start with `engenty_tools_search` using `moduleId: "contacts"` and `kind: "tool"`.
 2. Prefer registered operations such as `contacts_contact_search`, `contacts_get`, `contacts_create`, `contacts_update`, `contacts_delete`, `contacts_add_contact_role`, `contacts_create_relation`, `contacts_update_relation`, and `contacts_delete_relation`.
-3. Use `engenty_tool_execute` before writes unless the input schema is already clear from this skill and prior tool results.
+3. Use `engenty_tool_execute` before writes unless the input schema is already clear from this skill and prior tool results. Pass `input` as a JSON **string** of the operation arguments (not a nested object — providers strip nested objects to `{}`). Example: `id: "contacts_create"`, `input: "{\"type\":\"organisation\",\"display_name\":\"SFG\",\"website\":\"https://www.sfg.at/\"}"`.
 4. Use catalog-discovered HTTP routes only for capabilities not yet exposed as `contacts.*` operations.
 
 ## Find Before Writing

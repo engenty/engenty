@@ -11,7 +11,8 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `AI_GATEWAY_API_KEY` | API key for AI Gateway (required for copilot) | — |
+| `AI_GATEWAY_API_KEY` | API key for the Vercel AI Gateway (required for copilot) | — |
+| `OPENROUTER_API_KEY` | API key for OpenRouter, the optional second gateway | — |
 | `AI_CHAT_MODEL` | Seeds the `model.medium` and `model.high` role bindings | `DEFAULT_AI_CHAT_MODEL_ID` |
 | `AI_CLASSIFIER_MODEL` | Seeds `model.low` | Role default |
 | `AI_ROUTING_MODEL` | Seeds `router` | Role default |
@@ -31,6 +32,28 @@ legacy aliases were removed on 2026-08-04 along with the dead
 
 Runtime resolution for a chat model id is `resolveChatModelId`
 (`@engenty/ai-core`): explicit override → tenant default → `DEFAULT_AI_CHAT_MODEL_ID`.
+
+## Model refs: naming a gateway in a single string
+
+Every layer above stores one string, so a model is named by a **ref**:
+`<gateway>:<model id>`, with a bare id meaning the default gateway (`vercel`).
+`openai/gpt-4o` and `vercel:openai/gpt-4o` are the same model, which is why no
+stored value needed migrating when OpenRouter was added.
+
+- `parseModelRef` / `formatModelRef` / `modelIdOfRef` (`config/model-ref.ts`).
+- The head is matched against the **registered gateway set**, never just split
+  on the first colon — OpenRouter's own ids carry colons
+  (`meta-llama/llama-3.1-8b-instruct:free`).
+- `ai.model_binding` keeps the pair in two columns; the ref exists for the
+  single-string surfaces (tenant JSON, agent `modelOverride`, session picks,
+  `AI_*_MODEL` seeds, select values).
+- Anything that means *which model* rather than *which model, where* — usage
+  rows, pricing lookups, governance grants — takes `modelIdOfRef` first.
+
+`resolveLanguageModel` (`apps/ai/src/model-gateways/resolve-language-model.ts`)
+is the one place a ref becomes a callable model. A ref naming a gateway with no
+credential throws rather than falling back, so a misconfiguration surfaces as
+itself instead of as an "unknown model" from the wrong gateway.
 
 ## Tenant `ai.config` JSON (tenant-settings)
 

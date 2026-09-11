@@ -17,9 +17,21 @@ export type {
   AgentRunRow,
   AgentRunStatus,
   AgentSessionStatus,
+  ThreadAgentRole,
+  ThreadAgentRow,
   ThreadMessageRole,
   ThreadMessageRow,
   ThreadParticipantRole,
   ThreadPrincipalType,
   ThreadRow,
+  ThreadUserParticipantRow,
+  ThreadVisibility,
+} from "./types.js";
+export {
+  isDmThread,
+  isRoomThread,
+  THREAD_DM_KEY,
+  THREAD_ROOM_KEY,
+  type ThreadKind,
+  threadKind,
 } from "./types.js";

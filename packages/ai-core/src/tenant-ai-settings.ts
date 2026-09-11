@@ -2,14 +2,43 @@
  * Shared parsing for tenant `ai.config` JSON (tenant-settings key {@link TENANT_AI_CONFIG_KEY}).
  */
 
+import {
+  type AgentApprovalMode,
+  parseAgentApprovalMode,
+} from "@engenty/plugin-sdk";
+import { modelIdOfRef } from "./config/model-ref.js";
 import type { RealtimeVoiceTenantPrefs } from "./realtime/provider.js";
+
+export {
+  AGENT_APPROVAL_MODES,
+  type AgentApprovalMode,
+  parseAgentApprovalMode,
+} from "@engenty/plugin-sdk";
 
 export const TENANT_AI_CONFIG_KEY = "ai.config" as const;
 
+export type BrowserParseProvider = "off" | "anydoc" | "liteparse";
+
 export interface DocConverterTenantPrefs {
+  /**
+   * Chat-attachment extract in the browser before upload.
+   * `null` / omitted inherits {@link resolveBrowserParse} (anydoc).
+   */
+  browser_parse?: BrowserParseProvider | null;
   gemini_model?: string | null;
   mistral_model?: string | null;
   provider?: "local" | "liteparse" | "llamaparse" | "mistral" | "gemini" | null;
+}
+
+/** Effective chat browser parser. Omitted / unknown → anydoc (current default). */
+export function resolveBrowserParse(
+  dc: DocConverterTenantPrefs | null | undefined
+): BrowserParseProvider {
+  const value = dc?.browser_parse;
+  if (value === "off" || value === "anydoc" || value === "liteparse") {
+    return value;
+  }
+  return "anydoc";
 }
 
 /**
@@ -24,7 +53,48 @@ export interface AiCapsConfig {
   max_steps?: number | null;
 }
 
+export interface AgentApprovalTenantPrefs {
+  /**
+   * Per-agent overrides keyed by agent type key (`engenty.coordinator`).
+   * Each value is clamped to the tenant `mode` ceiling.
+   */
+  agents?: Record<string, AgentApprovalMode> | null;
+  /** Tenant ceiling. Omitted → `manual`. */
+  mode?: AgentApprovalMode | null;
+}
+
+function parseAgentApprovalPrefs(
+  raw: unknown
+): AgentApprovalTenantPrefs | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const o = raw as Record<string, unknown>;
+  const mode = parseAgentApprovalMode(o.mode);
+  const agentsRaw = o.agents;
+  const agents: Record<string, AgentApprovalMode> = {};
+  if (agentsRaw && typeof agentsRaw === "object" && !Array.isArray(agentsRaw)) {
+    for (const [key, value] of Object.entries(
+      agentsRaw as Record<string, unknown>
+    )) {
+      const parsed = parseAgentApprovalMode(value);
+      if (parsed) {
+        agents[key] = parsed;
+      }
+    }
+  }
+  return {
+    mode,
+    agents: Object.keys(agents).length > 0 ? agents : null,
+  };
+}
+
 export interface TenantAiSettings {
+  /**
+   * How agents ask a human before running a capable-but-risky op.
+   * Default when omitted: `manual`. Does not add capabilities.
+   */
+  agent_approval?: AgentApprovalTenantPrefs | null;
   caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
   /** Fast single-shot classification (inbox lanes, attachment triage). */
@@ -32,6 +102,13 @@ export interface TenantAiSettings {
   /** Routing / supervisor model (stored as `coordinator_model_id` for legacy compat). */
   coordinator_model_id?: string | null;
   doc_converter?: DocConverterTenantPrefs | null;
+  /**
+   * Opt-in model-generated starter chips on specialist start pages.
+   * Default off — a routing-tier call per page open is a real bill.
+   */
+  generated_starters?: boolean | null;
+  /** Observational memory observer + reflector. */
+  memory_model_id?: string | null;
   /** Most-capable tier: planning, decomposition, sandboxed code execution. */
   planning_coding_model_id?: string | null;
   /** Realtime voice provider + voice preferences. */
@@ -39,8 +116,25 @@ export interface TenantAiSettings {
   /** Search / retrieval / deep-research tier. */
   research_model_id?: string | null;
   safeguard_model_id?: string | null;
+  /**
+   * IANA timezone the workspace works in, e.g. "Europe/Vienna".
+   *
+   * A container has no idea where its user is: it boots on UTC, so an agent
+   * that reads its own clock reports UTC and every "good evening" is off by
+   * the offset. This is the one place that says otherwise — it rides into the
+   * sandbox as `TZ`, so `date` and `new Date()` answer in local time.
+   *
+   * Null means inherit UTC, which is what a container does anyway.
+   */
+  timezone?: string | null;
 }
 
+/**
+ * Accepts a catalog model id, optionally carrying a gateway ref head
+ * (`openrouter:openai/gpt-4o`). The `/` test is what rejects junk: every catalog
+ * id is `provider/model`, so a value without one was never a model. It is
+ * applied to the id half so a ref does not smuggle a malformed id past it.
+ */
 function parseGatewayModelId(raw: unknown): string | null {
   if (typeof raw !== "string") {
     return null;
@@ -49,7 +143,29 @@ function parseGatewayModelId(raw: unknown): string | null {
   if (!value) {
     return null;
   }
-  return value.includes("/") ? value : null;
+  return modelIdOfRef(value).includes("/") ? value : null;
+}
+
+/**
+ * An IANA zone name, validated by asking Intl to use it. Anything the runtime
+ * would reject is dropped rather than stored: a bad `TZ` does not fail a
+ * container, it silently leaves it on UTC, and a setting that looks saved but
+ * does nothing is worse than an empty one.
+ */
+function parseTimezone(raw: unknown): string | null {
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const value = raw.trim();
+  if (!value) {
+    return null;
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return value;
+  } catch {
+    return null;
+  }
 }
 
 function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
@@ -63,6 +179,7 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
   const provider = o.provider;
   const gemini_model = o.gemini_model;
   const mistral_model = o.mistral_model;
+  const browser_parse = o.browser_parse;
   const normalizedProvider =
     provider === "local" ||
     provider === "liteparse" ||
@@ -71,8 +188,15 @@ function parseDocConverterPrefs(raw: unknown): DocConverterTenantPrefs | null {
     provider === "gemini"
       ? provider
       : null;
+  const normalizedBrowserParse =
+    browser_parse === "off" ||
+    browser_parse === "anydoc" ||
+    browser_parse === "liteparse"
+      ? browser_parse
+      : null;
   return {
     provider: normalizedProvider,
+    browser_parse: normalizedBrowserParse,
     gemini_model:
       typeof gemini_model === "string" ? gemini_model.trim() || null : null,
     mistral_model:
@@ -148,9 +272,13 @@ export function parseTenantAiSettings(raw: unknown): TenantAiSettings {
     research_model_id: parseGatewayModelId(o.research_model_id),
     planning_coding_model_id: parseGatewayModelId(o.planning_coding_model_id),
     classifier_model_id: parseGatewayModelId(o.classifier_model_id),
+    memory_model_id: parseGatewayModelId(o.memory_model_id),
     doc_converter: parseDocConverterPrefs(o.doc_converter),
     realtime_voice: parseRealtimeVoicePrefs(o.realtime_voice),
     safeguard_model_id: parseGatewayModelId(o.safeguard_model_id),
     caps: parseCaps(o.caps),
+    agent_approval: parseAgentApprovalPrefs(o.agent_approval),
+    generated_starters: o.generated_starters === true,
+    timezone: parseTimezone(o.timezone),
   };
 }

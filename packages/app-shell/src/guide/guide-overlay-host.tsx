@@ -95,12 +95,12 @@ export function GuideOverlayHost({
   }
 
   const handleAction = (
-    actionId: string,
+    workflowId: string,
     inputValue?: string,
     inputValues?: Record<string, string>
   ) => {
     const outcome = resolveUiGuideAction({
-      action_id: actionId,
+      action_id: workflowId,
       input_value: inputValue,
       input_values: inputValues,
     });
@@ -110,7 +110,7 @@ export function GuideOverlayHost({
     if (outcome.followUp) {
       onFollowUpMessage?.(
         formatUiGuideFollowUpMessage({
-          action_id: actionId,
+          action_id: workflowId,
           guide_id: outcome.result.guide_id,
           input_value: inputValue,
           input_values: inputValues,

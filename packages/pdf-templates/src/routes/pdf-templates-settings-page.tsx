@@ -437,7 +437,7 @@ export function PdfTemplatesSettingsPage() {
         </div>
       ) : null}
 
-      <div className="max-h-[calc(100vh-8.2rem)] min-h-[420px] min-w-0 flex-1 overflow-hidden px-3">
+      <div className="max-h-[calc(100dvh-8.2rem)] min-h-[420px] min-w-0 flex-1 overflow-hidden px-3">
         <Group className="h-full" orientation="horizontal">
           <Panel defaultSize={showPreview ? 38 : 100} minSize={25}>
             <Card

@@ -6,11 +6,32 @@ import {
   CommandItem,
   CommandList,
 } from "@engenty/ui-core";
+import { Bot, Box, User } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type MentionRow, mentionRowKey } from "./use-copilot-composer-mention";
 
 /** Section label for the agents group; ref rows carry their own group names. */
 const AGENTS_GROUP = "Agents";
+
+/**
+ * The row's leading glyph. A supplier that knows what the row is hands one in
+ * — the Space picker draws each agent as its own Engenty — and everything
+ * else falls back on its entity. Without a glyph the list is one column of
+ * identical text, and a room reads like an agent.
+ */
+function MentionRowIcon({ row }: { row: MentionRow }) {
+  if (row.kind === "agent") {
+    return <Bot className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+  const Icon =
+    row.candidate.icon ??
+    (row.candidate.entity === "core:user"
+      ? User
+      : row.candidate.entity === "ai:agent"
+        ? Bot
+        : Box);
+  return <Icon className="size-3.5 shrink-0 text-muted-foreground" />;
+}
 
 function groupMentionRows(
   rows: MentionRow[]
@@ -107,7 +128,7 @@ export function CopilotComposerMentionPopover({
                     : [row.candidate.label, row.candidate.ref];
                 return (
                   <CommandItem
-                    className="flex min-h-0 cursor-pointer flex-col items-start gap-0 rounded-none px-2 py-1.5 text-xs"
+                    className="flex min-h-0 cursor-pointer flex-row items-center gap-2 rounded-none px-2 py-1.5 text-xs"
                     key={key}
                     keywords={keywords}
                     onMouseEnter={() => setMentionHighlight(rowIndex)}
@@ -115,14 +136,19 @@ export function CopilotComposerMentionPopover({
                     onSelect={() => applyMentionPick(row)}
                     value={key}
                   >
-                    <span className="w-full truncate font-medium leading-tight">
-                      {title}
+                    <span className="grid size-5 shrink-0 place-items-center">
+                      <MentionRowIcon row={row} />
                     </span>
-                    {subtitle ? (
-                      <span className="w-full truncate font-normal text-muted-foreground text-xxs leading-tight">
-                        {subtitle}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="w-full truncate font-medium leading-tight">
+                        {title}
                       </span>
-                    ) : null}
+                      {subtitle ? (
+                        <span className="w-full truncate font-normal text-muted-foreground text-xxs leading-tight">
+                          {subtitle}
+                        </span>
+                      ) : null}
+                    </span>
                   </CommandItem>
                 );
               })}

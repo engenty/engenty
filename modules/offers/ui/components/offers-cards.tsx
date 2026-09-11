@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName } from "@engenty/ui-core";
+import { adminListCardsGridClassName, cn } from "@engenty/ui-core";
 import type { OfferListItem } from "../api.js";
 import { OfferStatusBadge } from "./offer-status-badge.js";
 
@@ -22,9 +22,10 @@ export function OffersCards({
     <div className={adminListCardsGridClassName(tableSize)}>
       {offers.map((offer) => (
         <button
-          className={`rounded-lg border bg-card text-left transition-colors hover:bg-accent/30 ${
+          className={cn(
+            "ui-card-raised text-left",
             tableSize === "compact" ? "p-3" : "p-4"
-          }`}
+          )}
           key={offer.id}
           onClick={() => onCardClick(offer)}
           type="button"

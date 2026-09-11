@@ -3,7 +3,6 @@
  */
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
 import type {
   Editor,
   InlineBubbleMenuOptions,
@@ -23,7 +22,7 @@ import type { KbPageContentBlock } from "../../../src/schema/page-blocks.js";
 import { createKbArticleLinkBubbleSources } from "../../lib/kb-article-inline-link-sources.js";
 import { createKbModuleRichEditorLinkHandler } from "../../lib/kb-rich-editor-link-navigation.js";
 import { jsonIsEmptyDoc } from "../../lib/page-blocks/page-block-empty.js";
-import { kbsQueryOptions } from "../../queries.js";
+import { useKbsQuery } from "../../queries.js";
 import "../../category-rich-block.css";
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -48,7 +47,6 @@ interface KbPageContentBlockViewProps {
   block: KbPageContentBlock;
   editable?: boolean;
   kbId: string;
-  kbSlug: string;
   onChange: (patch: {
     content_json: Record<string, unknown> | null;
     content_markdown: string | null;
@@ -60,13 +58,12 @@ export function KbPageContentBlockView({
   block,
   editable = false,
   kbId,
-  kbSlug,
   onChange,
   placeholder,
 }: KbPageContentBlockViewProps) {
   const { t, i18n } = useTranslation("kb");
   const navigate = useNavigate();
-  const { data: kbsRaw } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw } = useKbsQuery();
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
 
   const initialJson = block.content_json as JSONContent | null;
@@ -146,7 +143,7 @@ export function KbPageContentBlockView({
       strike: t("article.bubble.strike"),
       code: t("article.bubble.code"),
     };
-    if (!(kbId && kbSlug)) {
+    if (!kbId) {
       return { labels, linkSources: [] };
     }
     return {
@@ -154,14 +151,13 @@ export function KbPageContentBlockView({
       linkSources: createKbArticleLinkBubbleSources({
         kbs,
         currentKbId: kbId,
-        currentKbSlug: kbSlug,
         labels: {
           thisKb: t("article.bubble.link_source_this_kb"),
           otherKbs: t("article.bubble.link_source_other_kbs"),
         },
       }),
     };
-  }, [kbId, kbSlug, kbs, i18n.language]);
+  }, [kbId, kbs, i18n.language]);
 
   const onRichEditorLinkClick = useMemo(
     () => createKbModuleRichEditorLinkHandler(navigate),

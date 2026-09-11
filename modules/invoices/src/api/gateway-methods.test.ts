@@ -56,6 +56,7 @@ describe("registerInvoicesApi server operations", () => {
       requiredCapabilities: ["module.invoices.read"],
       riskLevel: "low",
       idempotent: true,
+      spacePolicy: { kind: "tenant_shared" },
     });
   });
 

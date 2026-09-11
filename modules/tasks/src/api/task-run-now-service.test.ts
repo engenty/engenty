@@ -18,7 +18,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     created_by_user_id: null,
     description: null,
     due_date: null,
-    goal_id: null,
     id: `task-${seq}`,
     identifier: `ENG-${seq}`,
     parent_id: null,
@@ -28,11 +27,11 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     priority: "medium",
     project_id: null,
     scope_id: "scope",
+    space_id: "space-1",
     started_at: null,
     status: "todo",
     tenant_id: "tenant",
     title: "T",
-    trigger_id: null,
     updated_at: "2026-07-23T00:00:00Z",
     ...overrides,
   };
@@ -72,6 +71,7 @@ describe("runTaskNow", () => {
       { taskId: task.id }
     );
     expect(result.dispatched).toBe(true);
+    expect(result.outcome).toBe("queued");
     expect(activity).toContain("tasks.run_requested");
     expect((q as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
       AGENT_TASK_DISPATCH_QUEUE,
@@ -104,6 +104,26 @@ describe("runTaskNow", () => {
       { taskId: task.id }
     );
     expect(result.dispatched).toBe(false);
+    expect(result.outcome).toBe("already_running");
+    expect(
+      (q as { send: ReturnType<typeof vi.fn> }).send
+    ).not.toHaveBeenCalled();
+  });
+
+  it("reports a blocked dispatch instead of claiming it was queued", async () => {
+    const task = makeTask({ blocked_by_task_ids: ["blocker-1"] });
+    const { repo } = makeRepo(task);
+    repo.loadTaskStatuses = async () => new Map([["blocker-1", "todo"]]);
+    const q = queue();
+
+    const result = await runTaskNow(
+      { queue: q, repo, tenantId: "tenant" },
+      { taskId: task.id }
+    );
+
+    expect(result.dispatched).toBe(false);
+    expect(result.outcome).toBe("blocked");
+    expect(task.status).toBe("blocked");
     expect(
       (q as { send: ReturnType<typeof vi.fn> }).send
     ).not.toHaveBeenCalled();

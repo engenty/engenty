@@ -5,7 +5,7 @@ description: How headless work in apps/ai authenticates — the AI service princ
 
 # Service identity
 
-Headless work in `apps/ai` — the trigger scheduler, the task-job substrate,
+Headless work in `apps/ai` — the routine scheduler, the run substrate,
 remote channels — acts as **the AI service principal**. This page covers what
 that principal is, how to issue and revoke its credential, and how a running
 process turns that credential into a token.
@@ -48,13 +48,16 @@ clamped to your own, so you cannot mint a credential more powerful than the
 account you ran the command with, and the credential lands in your tenant.
 
 Grant only what the service calls. For the AI service that is module
-invocation plus, if remote channels are in use, `core.users.impersonate` —
-the capability `POST /api/auth/actor-token` checks before it will mint a
-user-scoped actor token:
+invocation, the Plan module facets (`module.tasks.*` — `module.read` does
+**not** cover `module.tasks.read`; the matcher has no
+infix wildcards), plus, if remote channels are in use,
+`core.users.impersonate` — the capability `POST /api/auth/actor-token`
+checks before it will mint a user-scoped actor token:
 
 ```bash
 pnpm engenty service-token create --name ai-service \
   --capability module.read,module.write,module.execute \
+  --capability module.tasks.read,module.tasks.write \
   --capability core.users.impersonate
 ```
 
@@ -82,7 +85,7 @@ ENGENTY_AI_SERVICE_SECRET=<credentialId>.<rawSecret>
 `apps/ai` mints on demand and caches until 2 minutes before expiry, with
 concurrent callers sharing one in-flight exchange
 ([service-credential.ts](../../../apps/ai/src/ai/service-credential.ts)). A
-scheduled trigger firing days after boot rides a token minted seconds earlier,
+scheduled routine firing days after boot rides a token minted seconds earlier,
 never the one from boot.
 
 `ENGENTY_AI_SERVICE_SECRET` is the only credential — a static JWT and the
@@ -90,14 +93,14 @@ Supabase password grant were removed: both are single-tenant by construction
 and the static token dies silently at expiry.
 
 With it unset, the scheduler logs `scheduler disabled — no service
-credential configured` at boot and **no scheduled trigger ever fires**. That
-message is the thing to grep for when triggers go quiet.
+credential configured` at boot and **no routine ever fires**. That message is
+the thing to grep for when routines go quiet.
 
 The credential being present is not the same as the scheduler working. Boot
 goes: scope resolves (`scheduler service scope resolved`) → workers start →
-five seconds later the reconcile turns trigger rows and system jobs into Mastra
+five seconds later the reconcile turns routine rows and system jobs into Mastra
 schedules. A `scheduler reconcile failed` line means the credential is fine but
-**nothing is scheduled** — the triggers exist in the database and no schedule
+**nothing is scheduled** — the routines exist in the database and no schedule
 backs them. Both lines are worth an alert; the second is the quieter failure,
 because everything up to it looks healthy.
 
@@ -118,10 +121,10 @@ authority is exactly the capability list baked into its credential.
 That last sentence is enforced literally in the operation policy: when the
 platform service credential acts **on its own behalf** (no agent in the chain),
 high-risk operations are *not* escalated to human approval — the scheduler's
-trigger reconcile and fires are unattended by definition, so an escalation
-would deadlock them, which is exactly how production ran with zero triggers
-("Approval required" on `triggers_create`). The moment an agent rides the same
-token (headless task runs forward `x-engenty-agent-id`), the escalation
+routine reconcile and fires are unattended by definition, so an escalation
+would deadlock them, which is exactly how production ran with zero routines
+("Approval required" on `routines_create`). The moment an agent rides the same
+token (headless runs forward `x-engenty-agent-id`), the escalation
 returns: that is the durable-approvals lane, and it is keyed on the agent, not
 the bearer.
 

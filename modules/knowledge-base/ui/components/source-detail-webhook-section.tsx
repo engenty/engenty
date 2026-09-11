@@ -53,7 +53,7 @@ export function SourceDetailWebhookSection({
   }, [t, webhookPath]);
 
   return (
-    <div className="ui-canvas-panel rounded-lg border-0 bg-card p-4 sm:p-5">
+    <div className="ui-card-panel p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1">
           <h2 className="font-semibold text-sm">

@@ -4,17 +4,12 @@
  */
 
 import type {
-  ActionDefinition,
-  AgentDefinition,
   AiRegistration,
   RoutineDefinition,
   SkillDefinition,
+  WorkflowDefinition,
 } from "./contracts.js";
-import {
-  type AgentConfig,
-  type ModuleActionCapability,
-  toModuleActionCapability,
-} from "./dynamic-contracts.js";
+import type { AgentConfig } from "./dynamic-contracts.js";
 
 const AI_REGISTRATIONS_KEY = Symbol.for("engenty.ai-core.aiRegistrations");
 
@@ -81,12 +76,12 @@ export function listActiveAiRegistrations(): AiRegistration[] {
 }
 
 export interface ModuleDynamicCapabilitySeed {
-  actions?: ModuleActionCapability[];
   agentConfigs?: AgentConfig[];
   chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;
+  workflows?: WorkflowDefinition[];
 }
 
 /** JSON-serializable module AI metadata registered by active plugins. */
@@ -97,41 +92,30 @@ export function listModuleDynamicCapabilitySeeds(): ModuleDynamicCapabilitySeed[
       agentConfigs: registration.dynamic?.agent_configs,
       skills: registration.dynamic?.skills,
       // Actions/routines/chat-commands ride the same capability channel so
-      // apps/ai can resolve module-declared ACTION.md / ROUTINE.md /
+      // apps/ai can resolve module-declared workflows / triggers /
       // COMMAND.md without sharing memory.
-      actions: registration.actions?.map(toModuleActionCapability),
+      workflows: registration.workflows,
       chatCommands: registration.chat_commands,
       routines: registration.routines,
     }))
     .filter(
       (capability) =>
         (capability.agentConfigs?.length ?? 0) > 0 ||
-        (capability.actions?.length ?? 0) > 0 ||
+        (capability.workflows?.length ?? 0) > 0 ||
         (capability.chatCommands?.length ?? 0) > 0 ||
         (capability.routines?.length ?? 0) > 0 ||
         Object.keys(capability.skills ?? {}).length > 0
     );
 }
 
-/** Resolve an orchestrator agent definition by id across all active registrations. */
-export function resolveAgentDefinitionById(
-  agentId: string
-): AgentDefinition | undefined {
-  for (const { registration } of aiRegistrations.values()) {
-    const agent = registration.agents?.find((item) => item.id === agentId);
-    if (agent) {
-      return agent;
-    }
-  }
-  return;
-}
-
 /** Resolve an orchestrator action definition by id across all active registrations. */
-export function resolveActionDefinitionById(
-  actionId: string
-): ActionDefinition | undefined {
+export function resolveWorkflowDefinitionById(
+  workflowId: string
+): WorkflowDefinition | undefined {
   for (const { registration } of aiRegistrations.values()) {
-    const action = registration.actions?.find((item) => item.id === actionId);
+    const action = registration.workflows?.find(
+      (item) => item.id === workflowId
+    );
     if (action) {
       return action;
     }
@@ -198,9 +182,9 @@ export function listRegisteredModelRoles(): {
 }
 
 /** List all registered action definitions across active orchestrator registrations. */
-export function listRegisteredActions(): ActionDefinition[] {
+export function listRegisteredWorkflows(): WorkflowDefinition[] {
   return Array.from(aiRegistrations.values()).flatMap(
-    ({ registration }) => registration.actions ?? []
+    ({ registration }) => registration.workflows ?? []
   );
 }
 

@@ -1,9 +1,16 @@
 // Role + source badge pills for the agents catalog (ui-6 §"Agent role model").
+//
+// The identity surfaces — desk header, settings drawer, space sidebar, roster
+// row — draw only {@link AgentModuleBadge}: "Specialist" and "Custom" repeat
+// what the name and the mandate already say, and every non-module agent is
+// custom by definition.
 
+import { formatAgentDeskCapabilityLabel } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Badge } from "@engenty/ui-core";
+import { Badge, cn } from "@engenty/ui-core";
 import {
   Bot,
+  CornerDownRight,
   Cpu,
   Globe,
   Hammer,
@@ -38,6 +45,11 @@ const ROLE_BADGE: Record<
     icon: Sparkles,
     key: "agentsCatalog.role.copilot",
     variant: "default",
+  },
+  delegated: {
+    icon: CornerDownRight,
+    key: "agentsCatalog.role.delegated",
+    variant: "outline",
   },
   external: {
     icon: Globe,
@@ -100,6 +112,31 @@ export function AgentSourceBadge({
       {source === "module" && moduleId
         ? t("agentsCatalog.source.moduleWithId", { module: moduleId })
         : t(config.key)}
+    </Badge>
+  );
+}
+
+/**
+ * The module an agent ships with, as the pill that follows its name. Pass
+ * `label` where the caller knows the module's display name (the rail's own
+ * label); the id is formatted as a fallback.
+ */
+export function AgentModuleBadge({
+  className,
+  label,
+  moduleId,
+}: {
+  className?: string;
+  label?: string | null;
+  moduleId: string;
+}) {
+  return (
+    <Badge
+      className={cn("gap-1 whitespace-nowrap", className)}
+      variant="outline"
+    >
+      <Package aria-hidden className="size-3" />
+      {label?.trim() || formatAgentDeskCapabilityLabel(moduleId)}
     </Badge>
   );
 }

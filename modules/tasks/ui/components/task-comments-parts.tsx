@@ -10,14 +10,23 @@ import { MessageResponse } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button, cn } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, CornerDownRight, Info } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Task, TaskComment } from "../../src/schema/types.js";
+import type {
+  Task,
+  TaskComment,
+  TaskQuestionOption,
+} from "../../src/schema/types.js";
+import {
+  quoteQuestion,
+  resolveAnsweredQuestions,
+} from "../lib/answered-questions.js";
 import {
   resolveCommentActor,
   resolveTaskCommentAudience,
 } from "../lib/format-activity.js";
 import { formatActivityTimeLabel } from "../lib/format-activity-time.js";
+import { taskQuestionOptionLabel } from "../lib/open-question.js";
 import { linkifyChildren } from "./comment-object-links.js";
 import { ActivityActorAvatar } from "./task-activity-feed.js";
 
@@ -47,20 +56,88 @@ type CommentAudienceTask = Pick<
   "collaborator_user_ids" | "created_by_user_id" | "primary_assignee_user_id"
 >;
 
+/**
+ * What the agent OFFERED. The options live in the question comment's metadata
+ * and were rendered only by the live answer card, so the moment anyone answered,
+ * the thread lost all trace of what the choice had been between. The chosen one
+ * is marked, which is the whole point of keeping them.
+ */
+function TaskQuestionOptions({
+  answer,
+  options,
+}: {
+  answer?: TaskComment;
+  options: TaskQuestionOption[];
+}) {
+  if (options.length === 0) {
+    return null;
+  }
+  const answered = answer?.content.trim().toLowerCase();
+  return (
+    <ul className="mt-2 flex flex-wrap gap-1.5">
+      {options.map((option) => {
+        const label = taskQuestionOptionLabel(option);
+        const picked =
+          Boolean(answered) &&
+          (answered === label.toLowerCase() ||
+            answered === option.value.trim().toLowerCase());
+        return (
+          <li key={option.value}>
+            <Badge
+              className={cn(
+                "font-normal text-xxs",
+                picked && "border-sky-500/40 bg-sky-500/10 text-sky-700"
+              )}
+              variant={picked ? "outline" : "secondary"}
+            >
+              {label}
+            </Badge>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function TaskCommentItem({
+  answersQuestion,
   comment,
+  questionAnswer,
   task,
   assigneeProfiles,
 }: {
+  /** The question this comment replies to, when it replies to one. */
+  answersQuestion?: TaskComment;
   assigneeProfiles?: AssigneeProfiles;
   comment: TaskComment;
+  /** The reply this comment received, when this comment is an answered question. */
+  questionAnswer?: TaskComment;
   task: CommentAudienceTask;
 }) {
   const { t } = useTranslation("tasks");
   const actor = resolveCommentActor(comment, assigneeProfiles, t);
   const audience = resolveTaskCommentAudience(task, comment);
   const timeLabel = formatActivityTimeLabel(comment.created_at, t);
-  const elevated = audience !== "team";
+  // `kind` is a column now, so the thread can show what each entry IS without
+  // parsing its text. A question and a result read very differently at a
+  // glance; a `system` notice is not somebody talking and should recede.
+  const kind = comment.kind ?? "note";
+  const isSystem = kind === "system";
+  const elevated = !isSystem && audience !== "team";
+
+  // Lifecycle notices ("the flow is waiting for approval") are not a voice in
+  // the conversation — one quiet line, no avatar, no author.
+  if (isSystem) {
+    return (
+      <li className="flex items-baseline gap-2 px-1 py-1.5 text-muted-foreground text-xs">
+        <Info className="size-3.5 shrink-0 translate-y-0.5" />
+        <span className="min-w-0 flex-1">{comment.content}</span>
+        <time className="shrink-0 tabular-nums" dateTime={comment.created_at}>
+          {timeLabel}
+        </time>
+      </li>
+    );
+  }
 
   const header = (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -75,6 +152,22 @@ function TaskCommentItem({
       {audience === "outside" ? (
         <Badge className="font-normal text-xxs" variant="outline">
           {t("detail.commentGuestBadge")}
+        </Badge>
+      ) : null}
+      {kind === "question" || kind === "result" ? (
+        <Badge
+          className={
+            kind === "question"
+              ? "border-sky-500/40 bg-sky-500/10 font-normal text-sky-700 text-xxs dark:text-sky-300"
+              : "font-normal text-xxs"
+          }
+          variant={kind === "question" ? "outline" : "secondary"}
+        >
+          {t(
+            kind === "question"
+              ? "detail.commentKindQuestion"
+              : "detail.commentKindResult"
+          )}
         </Badge>
       ) : null}
       <time
@@ -98,19 +191,42 @@ function TaskCommentItem({
     </MessageResponse>
   );
 
+  // A reply carries its question with it. Without this, scrolling back past the
+  // agent's follow-up comments is the only way to learn what "Hans" meant.
+  const quotedQuestion = answersQuestion ? (
+    <p className="mt-1 flex items-baseline gap-1.5 border-sky-500/30 border-l-2 pl-2 text-muted-foreground text-xs">
+      <CornerDownRight className="size-3 shrink-0 translate-y-0.5" />
+      <span className="min-w-0">{quoteQuestion(answersQuestion.content)}</span>
+    </p>
+  ) : null;
+
   const content = (
     <div className="flex min-w-0 items-start gap-2.5">
       <ActivityActorAvatar actor={actor} />
       <div className="min-w-0 flex-1">
         {header}
+        {quotedQuestion}
         {body}
+        {kind === "question" ? (
+          <TaskQuestionOptions
+            {...(questionAnswer ? { answer: questionAnswer } : {})}
+            options={comment.metadata?.options ?? []}
+          />
+        ) : null}
       </div>
     </div>
   );
 
   if (elevated) {
     return (
-      <li className="ui-canvas-raised rounded-md bg-card px-3 py-2.5">
+      <li
+        className={cn(
+          "ui-card-raised px-3 py-2.5",
+          // Same sky as TaskQuestionCard, so the question and the box that
+          // answers it read as one thing.
+          kind === "question" && "border-sky-500/30 border-l-2"
+        )}
+      >
         {content}
       </li>
     );
@@ -137,6 +253,23 @@ export function TaskCommentsList({
       [...comments].sort((a, b) => a.created_at.localeCompare(b.created_at)),
     [comments]
   );
+
+  // Both directions of the same pairing: an answer needs its question above it,
+  // an answered question needs to know which option was taken.
+  const answeredQuestions = useMemo(
+    () => resolveAnsweredQuestions(sortedComments),
+    [sortedComments]
+  );
+  const answersByQuestionId = useMemo(() => {
+    const byQuestion = new Map<string, TaskComment>();
+    for (const [answerId, question] of answeredQuestions) {
+      const answer = sortedComments.find((c) => c.id === answerId);
+      if (answer) {
+        byQuestion.set(question.id, answer);
+      }
+    }
+    return byQuestion;
+  }, [answeredQuestions, sortedComments]);
 
   const scrollToLatest = useCallback(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -185,14 +318,21 @@ export function TaskCommentsList({
         </p>
       ) : (
         <ul className={cn("space-y-1", FEED_SCROLL_PAD_CLASS)}>
-          {sortedComments.map((comment) => (
-            <TaskCommentItem
-              assigneeProfiles={assigneeProfiles}
-              comment={comment}
-              key={comment.id}
-              task={task}
-            />
-          ))}
+          {sortedComments.map((comment) => {
+            const answersQuestion = answeredQuestions.get(comment.id);
+            return (
+              <TaskCommentItem
+                {...(answersQuestion ? { answersQuestion } : {})}
+                assigneeProfiles={assigneeProfiles}
+                comment={comment}
+                key={comment.id}
+                {...(answersByQuestionId.get(comment.id)
+                  ? { questionAnswer: answersByQuestionId.get(comment.id) }
+                  : {})}
+                task={task}
+              />
+            );
+          })}
         </ul>
       )}
       {sortedComments.length > 0 ? (

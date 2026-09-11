@@ -101,7 +101,7 @@ async function assistantMessages(memory: Memory) {
     }
   ).recall({
     resourceId: RESOURCE_ID,
-    threadConfig: { lastMessages: 40 },
+    threadConfig: { lastMessages: 10 },
     threadId: THREAD_ID,
   })) as { messages: { role?: string }[] };
   return recalled.messages.filter((message) => message.role === "assistant");

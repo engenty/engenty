@@ -2,7 +2,7 @@ import { validateDocumentSourceCronExpression } from "@engenty/document-sources/
 import { z } from "zod";
 import {
   kbTemplateBindingModeSchema,
-  kbTemplateContentModeSchema,
+  kbTemplatePropertyTypeSchema,
 } from "./templates.js";
 
 export const kbSourceAdapterIdSchema = z.enum([
@@ -429,23 +429,60 @@ export const kbSourceIndexPreviewSchema = z.object({
   settings: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
+/**
+ * How synced items become articles. This is a *grouping* choice only — what
+ * goes INTO each article (full text, summary, questions, the original) is
+ * chosen separately via `kbSourceIngestContentOptionsSchema`, because those
+ * axes are orthogonal and the old `articles`/`summary` pair conflated them.
+ */
 export const kbSourceIngestStrategySchema = z.enum([
-  "articles",
-  "summary",
+  /** One article per synced entry. */
+  "per_entry",
+  /** One article for the whole source, all entries merged into it. */
+  "per_source",
+  /** Hand the items to an agent that authors a structured wiki. */
   "agentic",
 ]);
 export type KbSourceIngestStrategy = z.infer<
   typeof kbSourceIngestStrategySchema
 >;
 
-export const kbSourceIngestConfigSchema = z.object({
-  agentic_instructions: z.string().max(5000).optional().default(""),
-  category_id: z.string().nullable().optional(),
-  parent_article_id: z.string().nullable().optional(),
-  template_id: z.string().nullable().optional(),
-  template_mode: kbTemplateBindingModeSchema.optional().default("inherit"),
-  content_mode: kbTemplateContentModeSchema.optional(),
+/**
+ * What each ingested article contains. Independent switches, not a mode enum:
+ * a page can carry a summary AND the full text, and either can be preceded by
+ * a template structure. Nothing here decides how many articles are created.
+ */
+export const kbSourceIngestContentOptionsSchema = z.object({
+  /** Link the source entry's original document/URL and record provenance. */
+  attach_original: z.boolean().optional(),
+  /** Carry the source text into the article body verbatim. */
+  include_full_content: z.boolean().optional(),
+  /** Append a "questions answered" section with answers and source links. */
+  include_questions: z.boolean().optional(),
+  /** Generate a summary (article summary field, and a body section). */
+  include_summary: z.boolean().optional(),
+  /** Split oversized bodies into sub-pages below a generated index page. */
+  split_long_articles: z.boolean().optional(),
 });
+export type KbSourceIngestContentOptions = z.infer<
+  typeof kbSourceIngestContentOptionsSchema
+>;
+
+export const kbSourceIngestConfigSchema =
+  kbSourceIngestContentOptionsSchema.extend({
+    agentic_instructions: z.string().max(5000).optional().default(""),
+    /**
+     * Armed modes ingest automatically after every successful sync. Both may
+     * be armed at once — they write different things (authored articles vs an
+     * agent-authored wiki) and are not alternatives.
+     */
+    agentic_active: z.boolean().optional().default(false),
+    authored_active: z.boolean().optional().default(false),
+    category_id: z.string().nullable().optional(),
+    parent_article_id: z.string().nullable().optional(),
+    template_id: z.string().nullable().optional(),
+    template_mode: kbTemplateBindingModeSchema.optional().default("inherit"),
+  });
 export type KbSourceIngestConfig = z.infer<typeof kbSourceIngestConfigSchema>;
 
 export const kbSourceUpdateSchema = z.object({
@@ -496,13 +533,93 @@ export const kbSourceRunBodySchema = z.object({
   trigger: kbSourceTriggerSchema.optional().default("manual"),
 });
 
-export const kbSourceIngestBodySchema = z.object({
-  category_id: z.string().nullable().optional(),
-  template_id: z.string().nullable().optional(),
-  template_mode: kbTemplateBindingModeSchema.optional(),
-  content_mode: kbTemplateContentModeSchema.optional(),
-  instructions: z.string().max(2000).optional(),
-  item_ids: z.array(z.string()).optional(),
-  parent_article_id: z.string().optional(),
-  strategy: kbSourceIngestStrategySchema,
+/**
+ * Structure proposal for a source: the concepts the material establishes, the
+ * pages those concepts should become, and a ready-to-edit authoring brief.
+ *
+ * Concepts come FIRST and pages are derived from them, because the obvious
+ * failure mode is proposing the source's own table of contents back. A wiki
+ * organised by document section is just the document again; a wiki organised
+ * by concept is a thing you can look something up in.
+ */
+export const kbSourceAnalysisSchema = z.object({
+  /** The ideas the material establishes, before any page structure. */
+  concepts: z.array(
+    z.object({
+      /** What the material actually establishes about it. */
+      claim: z.string(),
+      /** The term as the material names it — what a reader would look up. */
+      name: z.string(),
+    })
+  ),
+  /** What the material is, in one or two sentences. */
+  overview: z.string(),
+  /** Proposed pages, in reading order, each carrying named concepts. */
+  pages: z.array(
+    z.object({
+      /** Which content-type category this page belongs under. */
+      category: z.string(),
+      /** Names of the concepts this page carries. */
+      covers: z.array(z.string()),
+      /** Why these concepts belong on one page. */
+      rationale: z.string(),
+      title: z.string(),
+    })
+  ),
+  /** The drafted `agentic_instructions` value. */
+  suggested_instructions: z.string(),
 });
+export type KbSourceAnalysis = z.infer<typeof kbSourceAnalysisSchema>;
+
+/**
+ * A template proposed from the source's own entries.
+ *
+ * Deliberately not the stored template shape: ids and key slugs are ours to
+ * mint, and letting a model invent them is how you get duplicate keys and
+ * `property_definitions` the API rejects. It proposes labels and types; the
+ * normalizer turns those into something storable.
+ */
+export const kbSourceTemplateSuggestionSchema = z.object({
+  content_markdown: z.string(),
+  description: z.string(),
+  name: z.string(),
+  properties: z.array(
+    z.object({
+      description: z.string(),
+      label: z.string(),
+      // Not `.optional()`: strict structured output requires every property to
+      // appear in `required`, and an optional field makes the provider reject
+      // the whole schema. Non-select types simply answer with an empty array,
+      // and the normalizer drops it.
+      options: z.array(z.string()),
+      type: kbTemplatePropertyTypeSchema,
+    })
+  ),
+  rationale: z.string(),
+});
+export type KbSourceTemplateSuggestion = z.infer<
+  typeof kbSourceTemplateSuggestionSchema
+>;
+
+export const kbSourceSuggestTemplateBodySchema = z.object({
+  hint: z.string().max(1000).optional(),
+  sample_size: z.number().int().min(1).max(20).optional().default(6),
+});
+
+export const kbSourceAnalyzeBodySchema = z.object({
+  /** Extra steer for the analyzer ("group by chapter", "focus on duties"). */
+  hint: z.string().max(1000).optional(),
+  /** How many synced items to sample. */
+  sample_size: z.number().int().min(1).max(50).optional().default(12),
+});
+
+export const kbSourceIngestBodySchema =
+  kbSourceIngestContentOptionsSchema.extend({
+    category_id: z.string().nullable().optional(),
+    template_id: z.string().nullable().optional(),
+    template_mode: kbTemplateBindingModeSchema.optional(),
+    instructions: z.string().max(2000).optional(),
+    item_ids: z.array(z.string()).optional(),
+    parent_article_id: z.string().optional(),
+    strategy: kbSourceIngestStrategySchema,
+  });

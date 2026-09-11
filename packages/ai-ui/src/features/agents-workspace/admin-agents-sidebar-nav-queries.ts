@@ -11,9 +11,11 @@ import {
 } from "./admin-agents-sidebar-nav-api";
 import {
   type AdminAgentsSidebarNavStateV1,
+  type CatalogFiltersTab,
   clampAdminAgentsAsideWidthPx,
   DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE,
   parseAdminAgentsSidebarNavFromUnknown,
+  type WorkspaceNavCatalogFiltersState,
   type WorkspaceNavModuleFoldersState,
   type WorkspaceNavSectionsState,
 } from "./admin-agents-sidebar-nav-state";
@@ -78,15 +80,11 @@ export function useAdminAgentsSidebarNavPersistence() {
       const prev = queryClient.getQueryData<AdminAgentsSidebarNavStateV1>(
         adminAgentsSidebarNavKeys.all
       ) ?? { ...DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE };
-      const next: AdminAgentsSidebarNavStateV1 = {
-        asideWidthPx: prev.asideWidthPx,
-        moduleFolders: prev.moduleFolders,
-        pinnedAgents: prev.pinnedAgents,
-        pinnedSessions: prev.pinnedSessions,
+      patchAndSave({
+        ...prev,
         sections: { ...prev.sections, ...partial },
         v: 1,
-      };
-      patchAndSave(next);
+      });
     },
     [patchAndSave, queryClient]
   );
@@ -101,12 +99,26 @@ export function useAdminAgentsSidebarNavPersistence() {
         ...prev.moduleFolders,
         [section]: { ...prev.moduleFolders[section], [moduleId]: !current },
       };
+      patchAndSave({ ...prev, moduleFolders: nextFolders, v: 1 });
+    },
+    [patchAndSave, queryClient]
+  );
+
+  /** Patch one catalog tab's group / filter / sort, leaving the others alone. */
+  const setCatalogFilters = useCallback(
+    <T extends CatalogFiltersTab>(
+      tab: T,
+      partial: Partial<WorkspaceNavCatalogFiltersState[T]>
+    ) => {
+      const prev = queryClient.getQueryData<AdminAgentsSidebarNavStateV1>(
+        adminAgentsSidebarNavKeys.all
+      ) ?? { ...DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE };
       patchAndSave({
-        asideWidthPx: prev.asideWidthPx,
-        moduleFolders: nextFolders,
-        pinnedAgents: prev.pinnedAgents,
-        pinnedSessions: prev.pinnedSessions,
-        sections: prev.sections,
+        ...prev,
+        catalogFilters: {
+          ...prev.catalogFilters,
+          [tab]: { ...prev.catalogFilters[tab], ...partial },
+        },
         v: 1,
       });
     },
@@ -196,6 +208,8 @@ export function useAdminAgentsSidebarNavPersistence() {
   return {
     actionsOpen: merged.sections.actionsOpen,
     agentsOpen: merged.sections.agentsOpen,
+    catalogFilters: merged.catalogFilters,
+    setCatalogFilters,
     isFolderOpen: (section: "actions" | "skills", moduleId: string) =>
       merged.moduleFolders[section][moduleId] === true,
     asideWidthPx: merged.asideWidthPx,

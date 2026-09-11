@@ -1,22 +1,22 @@
 import { readActiveArtifactMetadata } from "@engenty/ag-ui-bridge";
 import {
-  PaneResizeHandle,
   setWorkspaceEndPaneExpanded,
   useCopilotShell,
-  usePersistedEwResizePaneWidth,
   useWorkspaceEndPaneTarget,
+  WorkspaceEndPaneItem,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { subscribePostgresChanges } from "@engenty/live-cache";
 import { useMutation, useQueryClient } from "@engenty/query-client";
 import { Button, cn, topbarIconButtonClassName } from "@engenty/ui-core";
+import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Layers } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
 import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
+import type { ArtifactStoreTarget } from "./artifact-move-menu.js";
 import { ArtifactPane } from "./artifact-pane.js";
-import type { ArtifactStoreTarget } from "./artifact-pin-menu.js";
 import {
   activateArtifact,
   closeObjectPaneTab,
@@ -54,7 +54,7 @@ export interface WorkspaceArtifactPaneProps {
   /**
    * Work container whose aggregated artifacts fill the pane (Phase 2 resolver).
    * Merged after the primary/extra scopes — the WorkPanel passes this so one
-   * pane shows everything reachable inside a task/goal/routine/project/global.
+   * pane shows everything reachable inside a task/routine/project/global.
    */
   container?: WorkContainerRef | null;
   /**
@@ -68,6 +68,20 @@ export interface WorkspaceArtifactPaneProps {
    * explicit scope on surfaces without a chat (e.g. the project Artifacts tab).
    */
   scope?: ArtifactPaneScope;
+}
+
+/**
+ * Everything the current space holds, offered in the pane's chooser: an
+ * artifact belongs to the space we share, not to the chat that made it. Null
+ * outside a space — the chooser then shows only what the pane itself holds.
+ */
+function useSpaceLibraryContainer(): WorkContainerRef | null {
+  const { currentSpace } = useWorkspaceContext();
+  const spaceId = currentSpace?.id ?? null;
+  return useMemo(
+    () => (spaceId ? { id: spaceId, tier: "space" as const } : null),
+    [spaceId]
+  );
 }
 
 function mergeArtifacts(
@@ -125,9 +139,19 @@ export function WorkspaceArtifactPane({
     extraScope?.type ?? "task",
     extraScope?.id ?? null
   );
-  const artifacts = mergeArtifacts(
+  const libraryQuery = useContainerArtifactsQuery(useSpaceLibraryContainer());
+  const library = libraryQuery.data ?? [];
+  // Artifacts opened from the chooser that this pane's own scopes do not
+  // carry. They live for the session: closing one drops it here instead of
+  // archiving it, since it belongs to somebody else's chat.
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const scopedArtifacts = mergeArtifacts(
     mergeArtifacts(primaryQuery.data ?? [], containerQuery.data ?? []),
     extraQuery.data ?? []
+  );
+  const artifacts = mergeArtifacts(
+    scopedArtifacts,
+    library.filter((a) => pickedIds.includes(a.id))
   );
 
   useArtifactListSync({
@@ -147,8 +171,19 @@ export function WorkspaceArtifactPane({
   // badge it so a passive window's pane never pops open on its own.
   const { threadsRealtimeClient } = useEngentyAIContext();
   const appliedActiveArtifactRef = useRef<string | null>(null);
+  // Only a presentation made while this window was watching. The key is
+  // durable thread metadata and every run writes thread metadata for its own
+  // reasons, so without this the next unrelated UPDATE re-applies the last
+  // `show_artifact` of the day — live on 2026-09-07 that was an archived
+  // artifact, and the pane activated a tab that no longer exists and drew its
+  // empty state mid-run. Backdated a minute so clock skew cannot swallow a
+  // real presentation.
+  const watchingSinceRef = useRef(new Date(Date.now() - 60_000).toISOString());
+  const [pendingActiveId, setPendingActiveId] = useState<string | null>(null);
   useEffect(() => {
     appliedActiveArtifactRef.current = null;
+    watchingSinceRef.current = new Date(Date.now() - 60_000).toISOString();
+    setPendingActiveId(null);
   }, [primaryScope.type, primaryScope.id]);
   useEffect(() => {
     if (
@@ -176,25 +211,52 @@ export function WorkspaceArtifactPane({
         const active = readActiveArtifactMetadata(
           (signal.record?.metadata as Record<string, unknown>) ?? null
         );
-        if (!active || appliedActiveArtifactRef.current === active.shown_at) {
+        if (
+          !active ||
+          appliedActiveArtifactRef.current === active.shown_at ||
+          active.shown_at <= watchingSinceRef.current
+        ) {
           return;
         }
         appliedActiveArtifactRef.current = active.shown_at;
         // The activation signal can outrun the tenant-wide ai.artifact
         // invalidation: activating an id the stale list doesn't carry renders
         // an empty pane (observed live in the second window). Refetch the
-        // lists on the same signal so the tab always exists by activation.
+        // lists on the same signal, and hold the activation until the list
+        // actually carries the artifact.
         void queryClient.invalidateQueries({ queryKey: artifactsQueryRoot });
-        if (getArtifactPaneOpen(hostKey)) {
-          activateArtifact(hostKey, active.artifact_id);
-        } else {
-          setActiveArtifact(hostKey, active.artifact_id);
-          markUnseenArtifacts(hostKey, [active.artifact_id]);
-        }
+        setPendingActiveId(active.artifact_id);
       },
     });
     return unsubscribe;
   }, [hostKey, primaryScope.type, primaryScope.id, threadsRealtimeClient]);
+
+  // Focus follows the list, never the signal alone: an artifact the pane
+  // cannot draw (archived, or living outside this scope) leaves the current
+  // tab where it is instead of blanking the pane.
+  useEffect(() => {
+    if (!(pendingActiveId && artifacts.some((a) => a.id === pendingActiveId))) {
+      return;
+    }
+    if (getArtifactPaneOpen(hostKey)) {
+      activateArtifact(hostKey, pendingActiveId);
+    } else {
+      // Keep the conversation focused — badge + toggle open the pane.
+      setActiveArtifact(hostKey, pendingActiveId);
+      markUnseenArtifacts(hostKey, [pendingActiveId]);
+    }
+    setPendingActiveId(null);
+  }, [artifacts, hostKey, pendingActiveId]);
+
+  const openArtifact = (id: string) => {
+    if (
+      library.some((a) => a.id === id) &&
+      !artifacts.some((a) => a.id === id)
+    ) {
+      setPickedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }
+    activate(id);
+  };
 
   const activeArtifactId = isTransientPaneTabKey(activeId) ? null : activeId;
   const activeVersion = artifacts.find(
@@ -203,18 +265,6 @@ export function WorkspaceArtifactPane({
   const detailQuery = useArtifactDetailQuery(activeArtifactId, activeVersion);
 
   const target = useWorkspaceEndPaneTarget();
-  const {
-    displayedWidthPx,
-    handleResizeKeyDown,
-    handleResizePointerDown,
-    isResizing,
-  } = usePersistedEwResizePaneWidth({
-    defaultPx: 480,
-    invert: true,
-    maxPx: 880,
-    minPx: 320,
-    storageKey: "engenty.artifact_pane.width_px",
-  });
 
   const archive = useMutation({
     mutationFn: (artifactId: string) =>
@@ -249,12 +299,21 @@ export function WorkspaceArtifactPane({
     ? { id: ctxTaskId, title: ctxTaskTitle }
     : null;
 
+  // The space the route is in — storing there mounts the artifact in the
+  // space's Data tree. The workspace context is the same source every module
+  // page reads, so the offer matches what the user is looking at.
+  const { currentSpace } = useWorkspaceContext();
+  const storeSpaceTarget = currentSpace
+    ? { id: currentSpace.id, name: currentSpace.name }
+    : null;
+
   // Grow the end-pane column over the main area while expanded; always reset
-  // when leaving the route.
+  // when leaving the route. The slot sizes the column and stacks the panes,
+  // so this pane only registers itself and fills its share.
   const expandRow = paneExpanded && paneOpen;
   useEffect(() => {
-    setWorkspaceEndPaneExpanded(expandRow);
-    return () => setWorkspaceEndPaneExpanded(false);
+    setWorkspaceEndPaneExpanded("artifacts", expandRow);
+    return () => setWorkspaceEndPaneExpanded("artifacts", false);
   }, [expandRow]);
 
   if (!(paneOpen && target)) {
@@ -262,26 +321,20 @@ export function WorkspaceArtifactPane({
   }
 
   return createPortal(
-    <div
-      className={cn("flex h-full min-h-0", paneExpanded && "min-w-0 flex-1")}
+    <WorkspaceEndPaneItem
+      paneKey="artifacts"
+      resizeLabel={t("artifacts.resizeStack")}
     >
-      {paneExpanded ? null : (
-        <PaneResizeHandle
-          isResizing={isResizing}
-          label={t("artifacts.resizePane")}
-          onKeyDown={handleResizeKeyDown}
-          onPointerDown={handleResizePointerDown}
-        />
-      )}
       <ArtifactPane
         activeContent={detailQuery.data?.version.content ?? null}
         activeId={activeId}
         artifacts={artifacts}
-        className={paneExpanded ? "my-2 mr-2 ml-2 min-w-0 flex-1" : "my-2 mr-2"}
+        className="min-h-0 flex-1"
         fileTabs={fileTabs}
         isContentLoading={detailQuery.isLoading}
+        library={library}
         objectTabs={objectTabs}
-        onActivate={activate}
+        onActivate={openArtifact}
         onClose={(id) => {
           // Object/file tabs are transient view state; artifact tabs archive.
           if (isObjectPaneTabKey(id)) {
@@ -298,6 +351,12 @@ export function WorkspaceArtifactPane({
               id,
               artifacts.map((a) => a.id)
             );
+            return;
+          }
+          // A chooser-opened artifact only leaves this pane; the list sync
+          // moves focus on. Closing one of the pane's own artifacts archives it.
+          if (pickedIds.includes(id)) {
+            setPickedIds((prev) => prev.filter((picked) => picked !== id));
             return;
           }
           archive.mutate(id);
@@ -319,10 +378,10 @@ export function WorkspaceArtifactPane({
         onStore={(params) => storeMutation.mutate(params)}
         paneExpanded={paneExpanded}
         storePending={storeMutation.isPending}
+        storeSpaceTarget={storeSpaceTarget}
         storeTaskTarget={storeTaskTarget}
-        style={paneExpanded ? undefined : { width: displayedWidthPx }}
       />
-    </div>,
+    </WorkspaceEndPaneItem>,
     target
   );
 }
@@ -364,6 +423,7 @@ export function ArtifactPaneToggle({
     extraScope?.type ?? "task",
     extraScope?.id ?? null
   );
+  const libraryQuery = useContainerArtifactsQuery(useSpaceLibraryContainer());
   const artifacts = useMemo(
     () =>
       mergeArtifacts(
@@ -372,8 +432,13 @@ export function ArtifactPaneToggle({
       ),
     [containerQuery.data, extraQuery.data, primaryQuery.data]
   );
+  // The chooser reaches the whole space, so anything in it is reason enough to
+  // offer the pane.
   const hasContent =
-    artifacts.length > 0 || objectTabs.length > 0 || fileTabs.length > 0;
+    artifacts.length > 0 ||
+    objectTabs.length > 0 ||
+    fileTabs.length > 0 ||
+    (libraryQuery.data?.length ?? 0) > 0;
   const badgeLabel =
     unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;
 

@@ -12,11 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { ListTodo, Plus, Target } from "lucide-react";
+import { ListTodo, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 
 export interface TasksModuleAddMenuHandlers {
-  onAddGoal: () => void;
   onAddTask: () => void;
 }
 
@@ -42,10 +41,6 @@ function TasksModuleAddMenuItems({
         <DropdownMenuItem {...itemProps} onSelect={handlers.onAddTask}>
           <ListTodo aria-hidden className="h-4 w-4" />
           {t("list.newTask")}
-        </DropdownMenuItem>
-        <DropdownMenuItem {...itemProps} onSelect={handlers.onAddGoal}>
-          <Target aria-hidden className="h-4 w-4" />
-          {t("goals.newGoal")}
         </DropdownMenuItem>
       </DropdownMenuGroup>
     </>

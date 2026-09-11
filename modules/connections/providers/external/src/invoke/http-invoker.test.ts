@@ -7,6 +7,11 @@ import {
   MAX_RESPONSE_CHARS,
 } from "./http-invoker.js";
 
+/** Stub DNS so the SSRF guard sees a public address for `api.example`. */
+const publicLookup = vi.fn(async () => [
+  { address: "93.184.216.34", family: 4 },
+]);
+
 const httpInvoke = (
   overrides: Partial<Extract<ActionInvoke, { kind: "http" }>> = {}
 ): Extract<ActionInvoke, { kind: "http" }> => ({
@@ -101,9 +106,11 @@ describe("executeHttpAction", () => {
       fetchImpl,
       input: {},
       invoke: httpInvoke({ path_template: "/ping" }),
+      lookupImpl: publicLookup,
       record: {
         auth_config: { kind: "none" },
         base_url: "https://api.example",
+        required_headers: [],
       },
     });
     expect(output).toEqual({ ok: true });
@@ -119,9 +126,11 @@ describe("executeHttpAction", () => {
         fetchImpl,
         input: {},
         invoke: httpInvoke({ path_template: "/ping" }),
+        lookupImpl: publicLookup,
         record: {
           auth_config: { kind: "none" },
           base_url: "https://api.example",
+          required_headers: [],
         },
       })
     ).rejects.toMatchObject({ name: "ExternalActionError", status: 503 });
@@ -141,9 +150,11 @@ describe("executeHttpAction", () => {
       fetchImpl,
       input: {},
       invoke: httpInvoke({ path_template: "/big" }),
+      lookupImpl: publicLookup,
       record: {
         auth_config: { kind: "none" },
         base_url: "https://api.example",
+        required_headers: [],
       },
     })) as { body: string; truncated: boolean };
     expect(output.truncated).toBe(true);
@@ -157,8 +168,57 @@ describe("executeHttpAction", () => {
         fetchImpl: fetch,
         input: {},
         invoke: httpInvoke(),
-        record: { auth_config: { kind: "none" }, base_url: null },
+        record: {
+          auth_config: { kind: "none" },
+          base_url: null,
+          required_headers: [],
+        },
       })
     ).rejects.toThrow(/no base URL/u);
+  });
+});
+
+describe("required headers", () => {
+  it("sends registry-required headers, and never lets them shadow auth", () => {
+    const request = buildHttpRequest({
+      accessToken: JSON.stringify({ api_key: "k" }),
+      auth: {
+        fields: [{ key: "api_key", label: "API key" }],
+        kind: "api_key",
+        placement: {
+          in: "header",
+          name: "Authorization",
+          value_template: "Bearer {{api_key}}",
+        },
+      },
+      baseUrl: "https://api.example",
+      input: {},
+      invoke: httpInvoke({ path_template: "/things" }),
+      requiredHeaders: [
+        { description: null, name: "Notion-Version", value: "2022-06-28" },
+        { description: null, name: "Authorization", value: "static-loses" },
+      ],
+    });
+    expect(request.headers.get("notion-version")).toBe("2022-06-28");
+    expect(request.headers.get("authorization")).toBe("Bearer k");
+  });
+
+  it("refuses to call a base URL that resolves to a private address", async () => {
+    await expect(
+      executeHttpAction({
+        accessToken: "tok",
+        fetchImpl: vi.fn() as unknown as typeof fetch,
+        input: {},
+        invoke: httpInvoke({ path_template: "/ping" }),
+        lookupImpl: vi.fn(async () => [
+          { address: "169.254.169.254", family: 4 },
+        ]),
+        record: {
+          auth_config: { kind: "none" },
+          base_url: "https://api.example",
+          required_headers: [],
+        },
+      })
+    ).rejects.toThrow(/blocked IP/u);
   });
 });

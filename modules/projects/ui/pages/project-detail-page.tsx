@@ -264,7 +264,6 @@ export function ProjectDetailPage() {
     actions: pageActions,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend.
     topbarOverlap: true,
   });

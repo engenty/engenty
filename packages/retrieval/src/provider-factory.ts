@@ -63,8 +63,16 @@ export function createManagedProvider(
     const mapped = source.retriever?.mapFilters
       ? source.retriever.mapFilters(moduleFilters)
       : {};
+    // Space containment is injected by the host (never mapped from a module's
+    // own filter shape) and forwarded as-is; an empty array must survive.
+    const spaceIds = Array.isArray(moduleFilters.space_ids)
+      ? moduleFilters.space_ids.filter(
+          (value): value is string => typeof value === "string"
+        )
+      : undefined;
     const filters: RetrievalQueryFilters = {
       ...mapped,
+      ...(spaceIds ? { space_ids: spaceIds } : {}),
       scope_id:
         mapped.scope_id ??
         (typeof moduleFilters.scope_id === "string"

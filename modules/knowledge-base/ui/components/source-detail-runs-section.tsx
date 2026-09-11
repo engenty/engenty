@@ -116,7 +116,7 @@ export function SourceDetailRunsSection({
           {t("sources.no_recent_runs")}
         </p>
       ) : (
-        <div className="ui-canvas-panel rounded-lg border-0 bg-card">
+        <div className="ui-card-panel">
           <div className="overflow-x-auto">
             <Table noWrapper>
               <TableHeader className={STICKY_HEADER_CLASS}>

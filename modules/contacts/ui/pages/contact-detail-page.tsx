@@ -1,4 +1,4 @@
-import { ActionButton } from "@engenty/ai-ui/embed";
+import { WorkflowButton } from "@engenty/ai-ui/embed";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -14,7 +14,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { ContactListItem } from "../api.js";
-import { ContactAgentNotesCard } from "../components/contact-agent-notes-card.js";
 import { ContactInfoTab } from "../components/contact-info-tab.js";
 import { ContactOverviewTab } from "../components/contact-overview-tab.js";
 import { ContactRelationsTab } from "../components/contact-relations-tab.js";
@@ -31,10 +30,29 @@ import { useContactsDetailAgentUiSlice } from "../hooks/use-contacts-agent-ui-sl
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import { useContactDetailQuery } from "../queries.js";
 
-export function ContactDetailPage() {
+/**
+ * The contact, as a page or embedded in a host pane.
+ *
+ * `embedded` is what the space Data pane passes, and it suppresses exactly the
+ * parts of this component that are ROUTE-shaped or duplicate the host's own
+ * frame: the id arrives as a prop instead of from the path, the module's
+ * secondary nav stays out of the host's column (the host puts its own tree
+ * there), and the in-content `DetailPageHeader` + tab strip give way to the
+ * host's — the record's name is already on the node the reader clicked, and
+ * two headers stacked is one header too many.
+ *
+ * The topbar keeps the breadcrumb and the Edit action: those are the way back
+ * to the full record, and dropping them would leave the pane a dead end.
+ */
+export function ContactDetailPage(props?: {
+  contactId?: string;
+  embedded?: boolean;
+}) {
+  const embedded = props?.embedded ?? false;
   const { t } = useTranslation("contacts");
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = props?.contactId ?? routeParams.id;
   const detailQuery = useContactDetailQuery(id ?? null);
   const entity = detailQuery.data ?? null;
   useContactsDetailAgentUiSlice(entity);
@@ -82,8 +100,7 @@ export function ContactDetailPage() {
         <div className="flex min-w-0 shrink items-center gap-1">
           {/* Enhance contact runs as a dispatched action (workforce plan R1).
               Results land in the action thread; no inline panel needed. */}
-          <ActionButton
-            actionId="contacts.enhance-contact"
+          <WorkflowButton
             context={{ id: entity.id, type: "contacts.person" }}
             disabled={!canEnhanceContact}
             input={{ id: entity.id }}
@@ -95,6 +112,7 @@ export function ContactDetailPage() {
             }
             size="sm"
             variant="outline"
+            workflowId="contacts.enhance-contact"
           />
           <Button
             className="shrink-0"
@@ -121,11 +139,16 @@ export function ContactDetailPage() {
     actions: pageActions,
     breadcrumbs,
     contentStackBackground: "paper",
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-    // Float the transparent topbar over the white header so the two blend.
-    topbarOverlap: true,
+    // Embedded: the host owns the secondary column, and there is no in-content
+    // header for a transparent topbar to blend into or float over.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems,
+          secondaryNavHeaderSlot,
+          // Float the transparent topbar over the white header so they blend.
+          topbarOverlap: true,
+        }),
   });
 
   if (loading) {
@@ -161,11 +184,13 @@ export function ContactDetailPage() {
         onValueChange={handleDetailTabChange}
         value={activeTab}
       >
-        <DetailPageHeader
-          belowStrip={<ContactSubNav visibleTabs={visibleTabs} />}
-          eyebrow={headerEyebrow}
-          title={entity.display_name ?? ""}
-        />
+        {embedded ? null : (
+          <DetailPageHeader
+            belowStrip={<ContactSubNav visibleTabs={visibleTabs} />}
+            eyebrow={headerEyebrow}
+            title={entity.display_name ?? ""}
+          />
+        )}
 
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
           {/* Padding inside max-w so the column aligns with DetailPageHeader. */}
@@ -178,7 +203,6 @@ export function ContactDetailPage() {
 
             <TabsContent className="space-y-6" value="overview">
               <ContactOverviewTab entity={entity} />
-              <ContactAgentNotesCard entity={entity} />
             </TabsContent>
             <TabsContent className="space-y-6" value="info">
               <ContactInfoTab entity={entity} />

@@ -12,10 +12,9 @@ export function buildEngentyCopilotRuntimeContextSection(): string {
     "",
     `- Base URL: ${baseUrl}`,
     `- Current date: ${today}`,
-    "- Each run includes an AG-UI UI state snapshot (pathname, page module, selection, copilot shell, and Current page brief: page_type/title/description, list filters/search/total, compact previews, dom_entry_points). Use that for where the user is in the app — not the browser address bar and not engenty_tools_context. For live UI inspection, prefer browser_dom_snapshot scoped to dom_entry_points over browser_screenshot.",
-    "- Tenant and user are request-scoped from the current authorization token; use engenty_tools_context for workspace identity lookups — not route or URL.",
-    "- Active modules are dynamic plugin contributions and tenant-scoped. Use engenty_tools_modules when you need module names, slugs, descriptions, base URLs, or tool counts.",
-    "- Do not assume a module exists from static instructions; plugins can be enabled, disabled, installed, or removed per tenant.",
+    "- Each run includes an AG-UI UI state snapshot (pathname, page module, selection, copilot shell, and Current page brief: page_type/title/description, list filters/search/total, compact previews, dom_entry_points). Use that for where the user is in the app — not the browser address bar and not engenty_tools_context. For live UI inspection, prefer ui_dom_snapshot scoped to dom_entry_points over ui_screenshot.",
+    "- Tenant and user are request-scoped from the current authorization token; use engenty_tools_context for workspace identity lookups — not route, URL, or Space membership. That tool is tenant/user identity only.",
+    "- The per-run runtime block is authoritative for current_space and space_mounted_modules. An app can exist in the tenant without being mounted in this Space.",
   ].join("\n");
 }
 

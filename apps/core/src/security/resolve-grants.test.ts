@@ -53,6 +53,8 @@ describe("resolveGrants", () => {
       "tenant-settings.write",
       "user-settings.read",
       "user-settings.write",
+      "notifications.read",
+      "notifications.write",
     ]);
     // module.* covers any module read/write but NOT core administration.
     expect(grants.capabilities).not.toContain("*");

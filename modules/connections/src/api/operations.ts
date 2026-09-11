@@ -10,6 +10,12 @@ import {
   listConnectorDefinitions,
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
+import {
+  capabilityCovers,
+  forbiddenError,
+  notFoundError,
+  PluginOperationError,
+} from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
 
@@ -18,7 +24,28 @@ const connectionIdSchema = z.object({ connection_id: z.string().uuid() });
 const groupSchema = z.enum(["read", "write", "destructive"]);
 const policySchema = z.enum(["allow", "ask", "deny"]);
 
+/** Catalog/list ops: availability is the Space mount; no connection id on input. */
+const ACCOUNT_MOUNTED = { kind: "account_mounted" } as const;
+/** Ops that name a connection UUID — refuse accounts not mounted here. */
+const ACCOUNT_MOUNTED_CONNECTION = {
+  connectionInputKey: "connection_id",
+  kind: "account_mounted",
+} as const;
+
 export interface ConnectionsOperationHooks {
+  /**
+   * Grant this account to the Space the caller is standing in (CN.4).
+   *
+   * Owner settings (autonomous mode, tool policies) are tenant-level, but
+   * saving them from a Space should also make the account usable HERE —
+   * otherwise "Allow read-only" succeeds in the form and still fails for
+   * every agent call.
+   */
+  mountConnectionInSpace?: (params: {
+    connectionId: string;
+    spaceId: string;
+    tenantId: string;
+  }) => Promise<void>;
   onApprovalDecided: (params: {
     approved: boolean;
     /** Connector operation id the approval was gating (grant currency). */
@@ -28,7 +55,58 @@ export interface ConnectionsOperationHooks {
     taskId: string | null;
     tenantId: string;
   }) => Promise<void>;
+  /**
+   * Agent key (`contacts.inbox-importer`) → the core.agents principal uuid the
+   * grant table keys on. An agent only ever knows its own key — the uuid is
+   * not on any surface it can read — so demanding one made this operation
+   * uncallable from chat.
+   */
+  resolveAgentPrincipalId?: (input: {
+    agentKey: string;
+    tenantId: string;
+  }) => Promise<string | null>;
   settings: ConnectionsSettingsResolver;
+}
+
+const UUID =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+/** Accepts either identifier and answers the uuid the grant row needs. */
+async function toAgentPrincipalId(
+  hooks: ConnectionsOperationHooks,
+  tenantId: string,
+  agentId: string
+): Promise<string> {
+  if (UUID.test(agentId)) {
+    return agentId;
+  }
+  const resolved = await hooks.resolveAgentPrincipalId?.({
+    agentKey: agentId,
+    tenantId,
+  });
+  if (!resolved) {
+    throw notFoundError(
+      "agent_not_found",
+      `unknown agent "${agentId}" — pass the agent id from registry_agents_list`
+    );
+  }
+  return resolved;
+}
+
+async function grantToActiveSpace(
+  hooks: ConnectionsOperationHooks,
+  auth: { spaceId?: string; tenantId: string },
+  connectionId: string
+): Promise<void> {
+  const spaceId = auth.spaceId?.trim();
+  if (!(spaceId && hooks.mountConnectionInSpace)) {
+    return;
+  }
+  await hooks.mountConnectionInSpace({
+    connectionId,
+    spaceId,
+    tenantId: auth.tenantId,
+  });
 }
 
 export function registerConnectionsOperations(
@@ -41,6 +119,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_catalog",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "List available connectors and the caller's connection status",
     description:
       "Connector catalog with per-action permission matrix and connection state for the calling user.",
@@ -82,6 +161,15 @@ export function registerConnectionsOperations(
       );
       return {
         connectors: connectors.map((connector) => ({
+          // What this connector can BE to a module — the words a module
+          // manifest declares its need in (PLAN-connections-ux.md B3).
+          // `stream` has no actions of its own, so it is invisible without
+          // this: nothing downstream could tell a mailbox from a drive.
+          capabilities: {
+            files: Boolean(connector.files),
+            storage: Boolean(connector.storage),
+            stream: Boolean(connector.stream),
+          },
           configured: configuredByConnector.get(connector.id) ?? true,
           actions: connector.actions.map((action) => ({
             default_policy: ACTION_GROUP_DEFAULT_POLICY[action.group],
@@ -131,6 +219,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_request_connect",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary:
       "Check a connector's connect state and offer the user a connect card",
     description:
@@ -183,6 +272,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_list_accounts",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary:
       "List the connected accounts usable for a connector (for the `account` param of its actions)",
     description:
@@ -211,6 +301,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_storage_targets",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "List connections that can store files (write capability)",
     description:
       "Active, caller-visible connections whose connector declares the storage (write) capability. Used to pick where project artifacts are mirrored.",
@@ -268,6 +359,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_files_write",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED_CONNECTION,
     summary: "Write a file to a specific storage-capable connection",
     description:
       "Write (create or overwrite) a file on the storage of one connection, addressed by connection id. Used to mirror promoted artifacts to configured project storage.",
@@ -300,12 +392,20 @@ export function registerConnectionsOperations(
         tenantId: ctx.auth.tenantId,
       });
       if (!connection) {
-        throw new Error("connection_not_found");
+        throw notFoundError(
+          "connection_not_found",
+          "No such connection in this tenant."
+        );
       }
       const connector = getConnectorDefinition(connection.connector_id);
       const action = connector?.actions.find((a) => a.id === "files_write");
       if (!(connector && action)) {
-        throw new Error("connection_not_storage_capable");
+        // 400: the connection is real, the request asks it for something it
+        // cannot do. Nothing is broken server-side.
+        throw new PluginOperationError(
+          "connection_not_storage_capable",
+          "This connection cannot store files."
+        );
       }
       const { output } = await executeConnectorAction({
         action,
@@ -335,6 +435,11 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_update_settings",
     moduleId: "connections",
+    // Owner configuration of the ACCOUNT, not a use of it in the Space.
+    // Requiring a mount here blocked "Allow read-only" for a folder that was
+    // already connected from Files. Granting to the active Space happens in
+    // the handler so agents can then use it.
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "Update sharing, autonomous mode, or display name of a connection",
     riskLevel: "medium",
     requiredCapabilities: ["module.connections.write"],
@@ -356,6 +461,7 @@ export function registerConnectionsOperations(
       };
       const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
+      await grantToActiveSpace(hooks, ctx.auth, parsed.connection_id);
       if (parsed.sharing === "org") {
         const connection = await repo.getConnection({
           connectionId: parsed.connection_id,
@@ -389,6 +495,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_set_policy",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "Set or clear an allow/ask/deny policy for an action or group",
     riskLevel: "medium",
     requiredCapabilities: ["module.connections.write"],
@@ -407,6 +514,7 @@ export function registerConnectionsOperations(
       };
       const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
+      await grantToActiveSpace(hooks, ctx.auth, parsed.connection_id);
       await repo.setPolicyOverride({
         connectionId: parsed.connection_id,
         policy: parsed.policy,
@@ -427,6 +535,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_disconnect",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED_CONNECTION,
     summary: "Disconnect and delete a connection (tokens are destroyed)",
     riskLevel: "high",
     requiredCapabilities: ["module.connections.write"],
@@ -454,6 +563,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_approvals_list",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "List pending connection approval requests for this tenant",
     idempotent: true,
     riskLevel: "low",
@@ -480,6 +590,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_approvals_decide",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary: "Approve or deny a pending connection approval request",
     riskLevel: "high",
     requiredCapabilities: ["module.connections.write"],
@@ -553,6 +664,7 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_granted_operations",
     moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
     summary:
       "Operation ids the caller has durably allowed on their connections (merged into chat approval grants)",
     idempotent: true,
@@ -592,11 +704,139 @@ export function registerConnectionsOperations(
       return { operation_ids: [...granted] };
     },
   });
+
+  // ── Agent access (PLAN-spaces.md CN.5) ────────────────────────────────────
+  // Managed from the AGENT's side in the UI — "which accounts may the
+  // Marketing Agent use" — because that is how a person holds the question.
+  // The operations are connection-shaped anyway: a grant is the owner lending
+  // out their account, so the owner is who may write it.
+
+  api.registerOperation({
+    operationId: "connections_agent_grants_list",
+    moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
+    summary: "Agent access grants on the caller's visible connections",
+    description:
+      "Which agents may use which connected accounts for background work.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z
+      .object({ agent_id: z.string().min(1).optional() })
+      .optional(),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const { principalId, tenantId } = ctx.auth;
+      const repo = getRepo(ctx.auth);
+      const parsed = z
+        .object({ agent_id: z.string().min(1).optional() })
+        .optional()
+        .parse(input);
+      // Same either-identifier rule as the grant itself, so a filter written
+      // with the key an agent knows does not silently match nothing.
+      const filterAgentId = parsed?.agent_id
+        ? await toAgentPrincipalId(hooks, tenantId, parsed.agent_id)
+        : null;
+      const connections = await repo.listConnections({ tenantId });
+      // Grants are only reported for accounts the caller can already see, so
+      // this cannot become a way to enumerate a colleague's mailboxes.
+      const visible = new Map(
+        connections
+          .filter((c) => c.sharing === "org" || c.owner_user_id === principalId)
+          .map((c) => [c.id, c])
+      );
+      const grants = (await repo.listAgentGrants()).filter((grant) =>
+        visible.has(grant.connection_id)
+      );
+      const scoped = filterAgentId
+        ? grants.filter((grant) => grant.agent_id === filterAgentId)
+        : grants;
+      return {
+        grants: scoped.map((grant) => {
+          const connection = visible.get(grant.connection_id);
+          return {
+            agent_id: grant.agent_id,
+            connection_id: grant.connection_id,
+            connector_id: connection?.connector_id ?? null,
+            created_at: grant.created_at,
+            display_name: connection?.display_name ?? null,
+            external_account: connection?.external_account ?? null,
+            sharing: connection?.sharing ?? null,
+          };
+        }),
+      };
+    },
+  });
+
+  api.registerOperation({
+    operationId: "connections_agent_grant_set",
+    moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED_CONNECTION,
+    summary: "Let an agent use a connected account, or take it back",
+    description:
+      "Owner-only. Granting is a deliberate sharing act: the agent may then act on this account in unattended runs, subject to the same autonomous-mode and per-action policies as anyone else.",
+    idempotent: true,
+    // Not "low": this hands an unattended runner access to a mailbox. The
+    // level is what decides whether the action itself needs approving.
+    riskLevel: "high",
+    requiredCapabilities: ["module.connections.write"],
+    inputSchema: z.object({
+      // Either the agent's key or its principal uuid; the key is what an agent
+      // can actually see, so it is the one that matters in practice.
+      agent_id: z.string().min(1),
+      connection_id: z.string().uuid(),
+      granted: z.boolean(),
+    }),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      const parsed = z
+        .object({
+          agent_id: z.string().min(1),
+          connection_id: z.string().uuid(),
+          granted: z.boolean(),
+        })
+        .parse(input);
+      const agentPrincipalId = await toAgentPrincipalId(
+        hooks,
+        ctx.auth.tenantId,
+        parsed.agent_id
+      );
+      const repo = getRepo(ctx.auth);
+      await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
+      if (parsed.granted) {
+        await repo.grantConnectionToAgent({
+          agentId: agentPrincipalId,
+          connectionId: parsed.connection_id,
+          grantedBy: ctx.auth.principalId,
+        });
+      } else {
+        await repo.revokeConnectionFromAgent({
+          agentId: agentPrincipalId,
+          connectionId: parsed.connection_id,
+        });
+      }
+      ctx.recordAuditEvent?.({
+        detail: {
+          agent_id: parsed.agent_id,
+          connection_id: parsed.connection_id,
+          granted: parsed.granted,
+        },
+        type: parsed.granted
+          ? "connection.agent_granted"
+          : "connection.agent_revoked",
+      });
+      return { granted: parsed.granted };
+    },
+  });
 }
 
 async function assertOwnerOrThrow(
   repo: ConnectionsRepo,
-  auth: { principalId: string; tenantId: string },
+  auth: { capabilities?: string[]; principalId: string; tenantId: string },
   connectionId: string
 ): Promise<void> {
   const connection = await repo.getConnection({
@@ -604,15 +844,37 @@ async function assertOwnerOrThrow(
     tenantId: auth.tenantId,
   });
   if (!connection) {
-    throw new Error("connection_not_found");
+    // 404, not 500: the id names nothing in this tenant, which is something
+    // the caller did — and the same answer a connection they may not see gets,
+    // deliberately, so this cannot be used to probe for other people's rows.
+    throw notFoundError(
+      "connection_not_found",
+      "No such connection in this tenant."
+    );
   }
-  // Owners manage their connections. Org connections without an owner match
-  // (e.g. the owner left) stay manageable via tenant admin capability, which
-  // the operation-level requiredCapabilities already gate.
-  if (
-    connection.sharing === "personal" &&
-    connection.owner_user_id !== auth.principalId
-  ) {
-    throw new Error("connection_not_owner");
+  if (connection.owner_user_id === auth.principalId) {
+    return;
+  }
+  if (connection.sharing === "personal") {
+    throw forbiddenError(
+      "connection_not_owner",
+      "This is someone else's personal connection."
+    );
+  }
+  // PLAN-spaces.md CN.6/2 — an ORG connection is not therefore self-servable.
+  // The comment here used to say tenant-admin capability gated this, and the
+  // operation-level `module.connections.write` does not: every member holds it
+  // (`module.*` is in the member profile), so any colleague could rewrite the
+  // action policies on the company mailbox, raise the non-owner cap, or flip
+  // it to personal. Ownership or real tenant administration — `core.*` is
+  // deliberately absent from the member profile, so this separates them.
+  //
+  // An owner-less org connection (the owner left the company) stays manageable
+  // by admins, which is the reason this is not simply "owner only".
+  if (!capabilityCovers([...(auth.capabilities ?? [])], "core.users.manage")) {
+    throw forbiddenError(
+      "connection_not_owner",
+      "Only the connection's owner or a tenant admin can change this."
+    );
   }
 }

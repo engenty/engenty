@@ -6,10 +6,8 @@ import type {
 } from "@engenty/ai-core";
 import { defineModuleAi } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
-import { createTasksAssistAgentDefinition } from "./agents/tasks-assist.js";
 
 const moduleAi = defineModuleAi({
-  agentDefinitions: () => [createTasksAssistAgentDefinition()],
   dir: import.meta.url,
   moduleId: "tasks",
 });

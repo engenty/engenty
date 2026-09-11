@@ -50,6 +50,7 @@ export function useProjectsDetailAgentUiSlice(input: {
 export function useProjectsListAgentUiSlice(input: {
   projects: ProjectListItem[];
   search: string;
+  space_id?: string;
 }) {
   const slice = useMemo(() => {
     const q = input.search.trim();
@@ -74,9 +75,10 @@ export function useProjectsListAgentUiSlice(input: {
           list_preview: preview,
         }),
         ...(preview.length > 0 ? { projects_preview: preview } : {}),
+        ...(input.space_id ? { space_id: input.space_id } : {}),
       },
     };
-  }, [input.projects, input.search]);
+  }, [input.projects, input.search, input.space_id]);
 
   useRegisterAgentUiSlice("projects_list", slice);
 }

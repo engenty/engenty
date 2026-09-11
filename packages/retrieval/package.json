@@ -42,7 +42,8 @@
     }
   },
   "devDependencies": {
-    "@mastra/rag": "2.4.2",
+    "@mastra/core": "1.61.0",
+    "@mastra/rag": "2.6.0",
     "@types/node": "^26.0.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",

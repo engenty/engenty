@@ -4,21 +4,23 @@
 
 import { useMutation, useQueryClient } from "@engenty/query-client";
 import {
-  type ArticlesQuery,
-  deleteArticle,
-  deleteFaq,
-  type FaqsQuery,
   fetchInboxSourceFromUrl,
   type InboxListQuery,
   patchInboxItem,
   promoteInboxBatch,
   promoteInboxItem,
-  updateArticle,
-  updateFaq,
 } from "../api.js";
 
 import { invalidateKbGraphQueries } from "./graph.js";
 import { kbArticleKeys, kbFaqKeys, kbInboxKeys } from "./keys.js";
+
+// biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
+export {
+  useDeleteArticleMutation,
+  useDeleteFaqMutation,
+  useUpdateArticleMutation,
+  useUpdateFaqMutation,
+} from "./entity-optimistic-mutations.js";
 
 export function usePromoteInboxMutation(inboxListQuery?: InboxListQuery) {
   const queryClient = useQueryClient();
@@ -97,86 +99,6 @@ export function useFetchInboxSourceMutation(inboxListQuery?: InboxListQuery) {
           queryKey: kbInboxKeys.list(inboxListQuery),
         });
       }
-    },
-  });
-}
-
-export function useDeleteArticleMutation(listQuery?: ArticlesQuery) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteArticle(id),
-    onSuccess: async () => {
-      if (listQuery) {
-        await queryClient.invalidateQueries({
-          queryKey: kbArticleKeys.list(listQuery),
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: kbArticleKeys.all });
-      await invalidateKbGraphQueries(queryClient);
-    },
-  });
-}
-
-export function useUpdateArticleMutation(listQuery?: ArticlesQuery) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: Record<string, unknown>;
-    }) => updateArticle(id, input),
-    onSuccess: async (_data, { id }) => {
-      if (listQuery) {
-        await queryClient.invalidateQueries({
-          queryKey: kbArticleKeys.list(listQuery),
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: kbArticleKeys.all });
-      await queryClient.invalidateQueries({
-        queryKey: ["kb", "articles", "versions", id],
-      });
-      await invalidateKbGraphQueries(queryClient);
-    },
-  });
-}
-
-export function useDeleteFaqMutation(listQuery?: FaqsQuery) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteFaq(id),
-    onSuccess: async () => {
-      if (listQuery) {
-        await queryClient.invalidateQueries({
-          queryKey: kbFaqKeys.list(listQuery),
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: kbFaqKeys.all });
-    },
-  });
-}
-
-export function useUpdateFaqMutation(listQuery?: FaqsQuery) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: Record<string, unknown>;
-    }) => updateFaq(id, input),
-    onSuccess: async (_data, { id }) => {
-      if (listQuery) {
-        await queryClient.invalidateQueries({
-          queryKey: kbFaqKeys.list(listQuery),
-        });
-      }
-      await queryClient.invalidateQueries({ queryKey: kbFaqKeys.all });
-      await queryClient.invalidateQueries({
-        queryKey: ["kb", "faqs", "versions", id],
-      });
     },
   });
 }

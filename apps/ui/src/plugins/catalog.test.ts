@@ -46,7 +46,8 @@ function createGeneratedEntry(
 
 describe("deriveUiPluginCatalogFromSummaries", () => {
   it("includes bundled workspace module UI entries in the generated catalog", () => {
-    expect(generatedUiPluginCatalog.map((entry) => entry.id)).toEqual(
+    const generatedIds = generatedUiPluginCatalog.map((entry) => entry.id);
+    expect(generatedIds).toEqual(
       expect.arrayContaining([
         "auth-ui",
         "ai-ui",
@@ -54,6 +55,10 @@ describe("deriveUiPluginCatalogFromSummaries", () => {
         "context-graph",
       ])
     );
+    expect(generatedIds).not.toContain("engenty-remote");
+    expect(generatedIds).not.toContain("team-chat-slack-bridge");
+    expect(generatedIds).not.toContain("team-hr");
+    expect(generatedIds).not.toContain("time-tracking");
   });
 
   it("falls back to the generated copilot entry when the server summary omits ui metadata", () => {

@@ -12,7 +12,6 @@ import {
   HardDrive,
   ListChecks,
   MessagesSquare,
-  Target,
   User,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -26,7 +25,6 @@ export type IconType = ComponentType<{
 type Translate = (key: string) => string;
 
 const SCOPE_ICON: Record<string, IconType> = {
-  goal: Target,
   project: Boxes,
   task: ListChecks,
   thread: MessagesSquare,

@@ -1,5 +1,6 @@
-// Shell secondary-nav panel for all /mdl/inbox screens: status lanes,
-// connected accounts (filter), and the module settings entry.
+// Shell secondary-nav panel for all /mdl/inbox screens: inbox / archived
+// lanes, connected accounts (filter), and the module settings entry.
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -18,8 +19,6 @@ import {
   Ban,
   Bell,
   Inbox,
-  Mail,
-  MailOpen,
   Megaphone,
   MessagesSquare,
   Newspaper,
@@ -32,17 +31,16 @@ import {
   type InboxCategoryItem,
   visibleInboxCategories,
 } from "../api/inbox-categories-settings.js";
-import type { InboxAccount, InboxMessageStatus } from "../api.js";
+import type { InboxAccount } from "../api.js";
 import { useInboxAccountsQuery, useInboxCategoriesQuery } from "../queries.js";
 
 const LANES: {
   icon: typeof Inbox;
-  key: "all" | InboxMessageStatus;
+  key: "all" | "archived";
+  labelKey: "lanes.inbox" | "lanes.archived";
 }[] = [
-  { icon: Inbox, key: "all" },
-  { icon: Mail, key: "new" },
-  { icon: MailOpen, key: "read" },
-  { icon: Archive, key: "archived" },
+  { icon: Inbox, key: "all", labelKey: "lanes.inbox" },
+  { icon: Archive, key: "archived", labelKey: "lanes.archived" },
 ];
 
 const FIXED_CATEGORY_ICONS: Record<string, typeof Inbox> = {
@@ -89,7 +87,10 @@ export function InboxSidebarPanel() {
   const lane = searchParams.get("lane") ?? "all";
   const account = searchParams.get("account");
   const category = searchParams.get("category");
-  const onSettings = location.pathname.startsWith("/mdl/inbox/settings");
+  // Canonical, not raw: in a space this is `/s/<key>/inbox/settings`.
+  const onSettings = canonicalModulePathname(location.pathname).startsWith(
+    "/mdl/inbox/settings"
+  );
   const accountsQuery = useInboxAccountsQuery();
   const categoriesQuery = useInboxCategoriesQuery();
   const accounts = accountsQuery.data?.accounts ?? [];
@@ -102,7 +103,7 @@ export function InboxSidebarPanel() {
       <SidebarGroup>
         <SidebarGroupContent>
           <SidebarNavList>
-            {LANES.map(({ icon: Icon, key }) => {
+            {LANES.map(({ icon: Icon, key, labelKey }) => {
               const active = !onSettings && lane === key;
               return (
                 <SidebarRow isActive={active} key={key}>
@@ -112,7 +113,7 @@ export function InboxSidebarPanel() {
                       {...shellSecondaryNavItemProps}
                     >
                       <Icon className="size-4" />
-                      <span>{t(`lanes.${key}`)}</span>
+                      <span>{t(labelKey)}</span>
                     </Link>
                   </SidebarRowButton>
                 </SidebarRow>

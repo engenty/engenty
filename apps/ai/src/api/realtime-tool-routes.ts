@@ -20,6 +20,10 @@ import {
 import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { applyApprovedFieldUpdates } from "../ai/jobs/apply-field-updates.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
+import {
+  resolveRunSpaceForThread,
+  toolsSpaceFromResolution,
+} from "../ai/sessions/run-space.js";
 import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js";
 import {
   readToolApprovalGrants,
@@ -145,6 +149,11 @@ export function registerRealtimeToolRoutes(
         scope.scope.tenantId,
         REALTIME_AGENT_KEY
       );
+      const space = await resolveRealtimeToolSpace({
+        getSessionStore: opts.getSessionStore,
+        scope: scope.scope,
+        threadId: body.data.thread_id,
+      });
       const result = await engentyToolsRunAls.run(
         {
           ...current,
@@ -157,6 +166,7 @@ export function registerRealtimeToolRoutes(
           ...(opts.coreFetch ? { fetchImpl: opts.coreFetch } : {}),
           goalId: body.data.thread_id ?? null,
           orchestratorThreadId: body.data.thread_id ?? null,
+          space,
           tenantId: scope.scope.tenantId,
           accessToken: scopeAccessToken(scope.scope),
           userFacingThreadId: body.data.thread_id ?? null,
@@ -271,6 +281,29 @@ export function registerRealtimeToolRoutes(
       );
     }
   });
+}
+
+export async function resolveRealtimeToolSpace(params: {
+  getSessionStore?: () => ThreadStore | null;
+  scope: {
+    tenantId: string;
+    userId: string;
+  };
+  threadId?: string;
+}): Promise<ReturnType<typeof toolsSpaceFromResolution>> {
+  if (!params.threadId) {
+    return getEngentyToolsRunContext().space ?? null;
+  }
+  const store = params.getSessionStore?.();
+  if (!store) {
+    return getEngentyToolsRunContext().space ?? null;
+  }
+  const resolution = await resolveRunSpaceForThread({
+    scope: params.scope,
+    store,
+    threadId: params.threadId,
+  });
+  return toolsSpaceFromResolution(resolution);
 }
 
 async function loadThreadApprovalGrants(params: {

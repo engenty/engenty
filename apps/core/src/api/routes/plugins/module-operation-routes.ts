@@ -3,12 +3,22 @@ import type {
   ApprovalDecision,
   createApprovalService,
 } from "@engenty/approvals-sdk";
+import {
+  capabilityCovers,
+  isPluginOperationError,
+  OPERATION_SPACE_POLICY_KINDS,
+  operationSpacePolicySchema,
+} from "@engenty/plugin-sdk";
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
+import { resolveSpaceResourceSurface } from "../../../dal/space-mounts.js";
+import { findSpaceIdForRecord } from "../../../dal/space-record-lookup.js";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
 import {
+  type ApprovalDecidedEvent,
   emitApprovalRequested,
   fileApprovalRequest,
 } from "../../../security/approval-gate.js";
@@ -25,6 +35,7 @@ import { InProcessPolicyError } from "../../../security/in-process-gate.js";
 import {
   evaluatePolicy,
   evaluateResultPolicy,
+  type PolicyDeps,
 } from "../../../security/policy.js";
 import {
   isApprovedEdge,
@@ -32,6 +43,12 @@ import {
 } from "../../../security/principal-link.js";
 import { buildOperationContracts } from "../../operation-contracts.js";
 import { jsonApiError, jsonApiSuccess } from "../api-response.js";
+import {
+  enforceOperationSpacePolicy,
+  type FindRecordSpaceId,
+  type IsConnectionMounted,
+  prepareOperationSpaceInput,
+} from "./module-operation-space-policy.js";
 
 type ApprovalService = ReturnType<typeof createApprovalService>;
 
@@ -50,6 +67,7 @@ interface OperationRoutesContext {
   config: Record<string, unknown>;
   dataDir: string;
   registry: PluginRegistry;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
   resolvePath: (p: string) => string;
   resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
 }
@@ -81,16 +99,25 @@ function operationEventPayload(params: {
   auth: PrincipalContext;
   input?: unknown;
   moduleId: string;
+  /** The contract, for subscribers that only care about writes by agents. */
+  op?: { idempotent?: boolean; riskLevel?: string };
   operationId: string;
   result?: unknown;
   transport: "gateway" | "http" | "module_ops" | "mcp";
 }): Record<string, unknown> {
   return {
     actor_id: params.auth.principalId,
+    ...(params.auth.agentId ? { agent_id: params.auth.agentId } : {}),
+    ...(params.op?.idempotent === undefined
+      ? {}
+      : { idempotent: params.op.idempotent }),
     input: params.input,
     module_id: params.moduleId,
     operation_id: params.operationId,
+    principal_type: params.auth.principalType,
     result: params.result,
+    ...(params.op?.riskLevel ? { risk_level: params.op.riskLevel } : {}),
+    ...(params.auth.spaceId ? { space_id: params.auth.spaceId } : {}),
     tenant_id: params.auth.tenantId,
     transport: params.transport,
   };
@@ -180,6 +207,64 @@ function isCoreOwnedOperation(pluginId: string): boolean {
   return pluginId === CORE_PLUGIN_ID;
 }
 
+function operationSpacePolicyDeps(
+  registry: PluginRegistry,
+  auth: PrincipalContext
+): {
+  findRecordSpaceId?: FindRecordSpaceId;
+  isConnectionMounted?: IsConnectionMounted;
+} {
+  const getTenantDb = registry.getTenantDb;
+  if (!getTenantDb) {
+    return {};
+  }
+  const findRecordSpaceId: FindRecordSpaceId = async (input) => {
+    const client = getTenantDb({ tenantId: input.tenantId });
+    if (!client) {
+      return null;
+    }
+    return findSpaceIdForRecord(client as SupabaseClient, input);
+  };
+  const spaceId = auth.spaceId?.trim();
+  if (!spaceId) {
+    return { findRecordSpaceId };
+  }
+  const isConnectionMounted: IsConnectionMounted = async (connectionId) => {
+    const client = getTenantDb({ tenantId: auth.tenantId });
+    if (!client) {
+      return false;
+    }
+    const surface = await resolveSpaceResourceSurface(
+      client as SupabaseClient,
+      auth.tenantId,
+      spaceId
+    );
+    return surface.connections.includes(connectionId);
+  };
+  return { findRecordSpaceId, isConnectionMounted };
+}
+
+async function applyDispatchSpacePolicy(params: {
+  auth: PrincipalContext;
+  input: unknown;
+  parse: (input: unknown) => unknown;
+  policy: OperationEntry["operation"]["spacePolicy"];
+  registry: PluginRegistry;
+}): Promise<unknown> {
+  const prepared = prepareOperationSpaceInput({
+    auth: params.auth,
+    input: params.input,
+    policy: params.policy,
+  });
+  const parsed = params.parse(prepared);
+  return enforceOperationSpacePolicy({
+    auth: params.auth,
+    input: parsed,
+    policy: params.policy,
+    ...operationSpacePolicyDeps(params.registry, params.auth),
+  });
+}
+
 const schemaSummarySchema = z.object({
   type: z.enum(["zod", "none"]),
   hint: z.string().optional(),
@@ -204,6 +289,8 @@ const operationContractSchema = z.object({
     allowedPrincipalTypes: z.array(z.enum(["user", "agent", "service"])),
   }),
   transports: z.array(z.enum(["rest", "cli", "mcp"])),
+  record_scope: z.enum(OPERATION_SPACE_POLICY_KINDS).optional(),
+  spacePolicy: operationSpacePolicySchema.optional(),
 });
 
 const apiErrorResponseSchema = z.object({
@@ -541,6 +628,7 @@ export async function invokeOperation(params: {
   transport?: "gateway" | "http" | "module_ops" | "mcp";
   approvalService: ApprovalService;
   auditLog: SecurityAuditLogAdapter;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
   resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
 }): Promise<{ data: unknown }> {
   const {
@@ -554,6 +642,7 @@ export async function invokeOperation(params: {
     transport = "module_ops",
     approvalService,
     auditLog,
+    resolveAgentApproval,
     resolveTenantPluginOverrides,
   } = params;
   const map = buildOperationMap(registry);
@@ -633,7 +722,7 @@ export async function invokeOperation(params: {
       input,
     },
     registry,
-    { approvalService }
+    { approvalService, resolveAgentApproval }
   );
   if (decision.action === "deny") {
     recordModuleAuditEvent(auditLog, moduleId, {
@@ -666,9 +755,12 @@ export async function invokeOperation(params: {
     throw new InvokeOperationError("Approval required", 202, {
       ok: false,
       status: "approval_required",
+      code: "approval_required",
       approvalRequestId: gate.approvalRequestId,
       expiresAt: gate.expiresAt,
       reason: gate.reason,
+      riskLevel: op.riskLevel,
+      requiresApproval: op.requiresApproval,
     });
   }
   const auditRelevance = {
@@ -693,7 +785,14 @@ export async function invokeOperation(params: {
     });
   };
   try {
-    const parsed = entry.inputSchema ? entry.inputSchema.parse(input) : input;
+    const parsed = await applyDispatchSpacePolicy({
+      auth,
+      input,
+      parse: (value) =>
+        entry.inputSchema ? entry.inputSchema.parse(value) : value,
+      policy: op.spacePolicy,
+      registry,
+    });
     const result = await entry.handler(parsed, {
       config,
       pluginConfig: entry.pluginConfig,
@@ -716,6 +815,13 @@ export async function invokeOperation(params: {
           // can audit the acting agent instead of the impersonated user.
           ...(auth.agentId ? { agentId: auth.agentId } : {}),
           ...(auth.goalId ? { goalId: auth.goalId } : {}),
+          // The space the call happens in (CN.3), so a handler that LISTS what a
+          // space contains can narrow to it. Filtering only, never widening.
+          ...(auth.spaceId ? { spaceId: auth.spaceId } : {}),
+          // The routine subject, for handlers that verify a claimed space
+          // binding against the routine's stored one (personal-space owner
+          // resolution, PLAN-space-computer.md §2.1).
+          ...(auth.triggerId ? { triggerId: auth.triggerId } : {}),
         },
         {
           principal: auth,
@@ -786,6 +892,7 @@ export async function invokeOperation(params: {
         auth,
         input,
         moduleId,
+        op,
         operationId,
         result: validated,
         transport,
@@ -818,6 +925,17 @@ export async function invokeOperation(params: {
         400,
         formatZodErrorForApiError(e)
       );
+    }
+    // A handler that knows the answer says so. Everything else still falls
+    // through to 500, which is what an unrecognised throw genuinely is — this
+    // only stops "no such connection" from being reported as a server fault to
+    // the client, the retry policy and the alerting alike.
+    if (isPluginOperationError(e)) {
+      throw new InvokeOperationError(e.message, e.status, {
+        code: e.code,
+        message: e.message,
+        ...(e.details ? { details: e.details } : {}),
+      });
     }
     throw e;
   }
@@ -886,8 +1004,16 @@ async function requireAuth(
   // treat them as autonomous. Only ever ADDS an approval requirement, and only
   // the value "app" is recognised, so a forged header cannot widen anything.
   const headerOrigin = c.req.header("x-engenty-call-origin");
+  // CN.3: the space the run is in, so a policy can intersect what the principal
+  // may reach with what the space mounts. Taken on trust for the same reason as
+  // the ids above — it only ever NARROWS. A caller naming a space they are not
+  // in removes candidates from their own set; it cannot add one, because
+  // sharing, capabilities and the connection's own policy still decide what is
+  // in that set to begin with.
+  const headerSpaceId = c.req.header("x-engenty-space-id")?.trim();
   const auth = {
     ...resolved,
+    ...(headerSpaceId ? { spaceId: headerSpaceId } : {}),
     agentId:
       resolved.principalType === "agent"
         ? resolved.principalId
@@ -1056,6 +1182,9 @@ async function invokeOperationFromRoute(
     approvalService: params.approvalService,
     auditLog: params.auditLog,
     resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+    ...(params.resolveAgentApproval
+      ? { resolveAgentApproval: params.resolveAgentApproval }
+      : {}),
   });
 }
 
@@ -1076,6 +1205,7 @@ export async function executeModuleOperation(params: {
   authProvider: AuthProvider;
   approvalService: ApprovalService;
   auditLog: SecurityAuditLogAdapter;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
   resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
 }) {
   const authResult = await requireAuth(params.c, params.authProvider);
@@ -1155,6 +1285,17 @@ export async function executeModuleOperation(params: {
       registry: params.registry,
     });
   } catch (e) {
+    // A typed handler error that reached here without being translated — the
+    // in-process lane rethrows before `runHandler`'s catch. Same answer either
+    // way, so the code and status the module chose are not lost to whichever
+    // path the call happened to take.
+    if (isPluginOperationError(e)) {
+      return jsonApiError(params.c, e.status, {
+        code: e.code,
+        message: e.message,
+        ...(e.details ? { details: e.details } : {}),
+      });
+    }
     if (e instanceof InvokeOperationError) {
       // `body` is `unknown` and the shapes thrown here (e.g. the interceptor
       // block's `{ error, reason }`) carry no `message` — passing it straight
@@ -1181,7 +1322,10 @@ export async function executeModuleOperation(params: {
       input: params.input,
     },
     params.registry,
-    { approvalService: params.approvalService }
+    {
+      approvalService: params.approvalService,
+      resolveAgentApproval: params.resolveAgentApproval,
+    }
   );
   if (decision.action === "deny") {
     recordModuleAuditEvent(params.auditLog, moduleId, {
@@ -1219,6 +1363,8 @@ export async function executeModuleOperation(params: {
         approvalRequestId: gate.approvalRequestId,
         expiresAt: gate.expiresAt,
         reason: gate.reason,
+        riskLevel: op.riskLevel,
+        requiresApproval: op.requiresApproval,
       },
     });
   }
@@ -1247,9 +1393,14 @@ export async function executeModuleOperation(params: {
   };
 
   try {
-    const parsed = entry.inputSchema
-      ? entry.inputSchema.parse(params.input)
-      : params.input;
+    const parsed = await applyDispatchSpacePolicy({
+      auth,
+      input: params.input,
+      parse: (value) =>
+        entry.inputSchema ? entry.inputSchema.parse(value) : value,
+      policy: op.spacePolicy,
+      registry: params.registry,
+    });
     const result = await entry.handler(parsed, {
       config: params.config,
       pluginConfig: entry.pluginConfig,
@@ -1272,6 +1423,13 @@ export async function executeModuleOperation(params: {
           // can audit the acting agent instead of the impersonated user.
           ...(auth.agentId ? { agentId: auth.agentId } : {}),
           ...(auth.goalId ? { goalId: auth.goalId } : {}),
+          // The space the call happens in (CN.3), so a handler that LISTS what a
+          // space contains can narrow to it. Filtering only, never widening.
+          ...(auth.spaceId ? { spaceId: auth.spaceId } : {}),
+          // The routine subject, for handlers that verify a claimed space
+          // binding against the routine's stored one (personal-space owner
+          // resolution, PLAN-space-computer.md §2.1).
+          ...(auth.triggerId ? { triggerId: auth.triggerId } : {}),
         },
         {
           principal: auth,
@@ -1342,6 +1500,7 @@ export async function executeModuleOperation(params: {
         auth,
         input: params.input,
         moduleId,
+        op,
         operationId: params.operationId,
         result: validated,
         transport,
@@ -1373,6 +1532,13 @@ export async function executeModuleOperation(params: {
         details: { reason: e.reason, operationId: e.operationId },
       });
     }
+    if (isPluginOperationError(e)) {
+      return jsonApiError(params.c, e.status, {
+        code: e.code,
+        message: e.message,
+        ...(e.details ? { details: e.details } : {}),
+      });
+    }
     if (e instanceof InvokeOperationError) {
       const body = e.body as
         | { code?: string; fields?: Record<string, string[]> }
@@ -1400,6 +1566,7 @@ export function registerModuleOperationRoutes(params: {
   approvalService: ApprovalService;
   auditLog: SecurityAuditLogAdapter;
   tenantPluginOverrides?: TenantPluginOverridesDal;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
 }) {
   const resolveTenantPluginOverrides = params.tenantPluginOverrides
     ? (tenantId: string) => params.tenantPluginOverrides!.getOverrides(tenantId)
@@ -1413,6 +1580,9 @@ export function registerModuleOperationRoutes(params: {
     approvalService: params.approvalService,
     auditLog: params.auditLog,
     resolveTenantPluginOverrides,
+    ...(params.resolveAgentApproval
+      ? { resolveAgentApproval: params.resolveAgentApproval }
+      : {}),
   };
 
   params.app.openapi(
@@ -1530,6 +1700,9 @@ export function registerModuleOperationRoutes(params: {
       approvalService: params.approvalService,
       auditLog: params.auditLog,
       resolveTenantPluginOverrides,
+      ...(params.resolveAgentApproval
+        ? { resolveAgentApproval: params.resolveAgentApproval }
+        : {}),
     });
   });
 
@@ -1584,6 +1757,8 @@ export function registerApprovalRoutes(params: {
   authProvider: AuthProvider;
   approvalService: ApprovalService;
   auditLog: SecurityAuditLogAdapter;
+  /** After a decision lands: `emitApprovalDecided` (notifications resolve on it). */
+  onDecided?: (event: ApprovalDecidedEvent) => Promise<void>;
 }) {
   params.app.get("/api/security/approvals", async (c) => {
     const authResult = await requireAuth(c, params.authProvider);
@@ -1631,6 +1806,46 @@ export function registerApprovalRoutes(params: {
     if (!existing || existing.tenantId !== authResult.auth.tenantId) {
       return jsonApiError(c, 404, { message: "Approval request not found" });
     }
+    // First to answer wins: a request is decidable by everyone who sees it,
+    // so the second person to click learns who was faster, not "not found".
+    if (existing.status !== "pending") {
+      return jsonApiError(c, 409, {
+        code: "approvals.alreadyDecided",
+        details: {
+          decided_by: existing.decidedBy ?? null,
+          status: existing.status,
+        },
+        message:
+          existing.status === "expired"
+            ? "This request expired before anyone decided it."
+            : "This request was already decided by someone else.",
+      });
+    }
+    // PLAN-spaces.md CN.6/3 — being in the tenant is not being the person the
+    // request was addressed to. A module that knows who owns the thing at
+    // stake says so in the request context; without it, tenant scope remains
+    // the rule, which is the pre-existing behaviour for every other module.
+    //
+    // 403 rather than 404 here: the caller can already SEE this request in
+    // their queue, so hiding it would be theatre — what they need to be told
+    // is that it is not theirs to answer.
+    const approverUserId =
+      typeof existing.context?.owner_user_id === "string"
+        ? existing.context.owner_user_id
+        : null;
+    if (
+      approverUserId &&
+      approverUserId !== authResult.auth.principalId &&
+      !capabilityCovers(
+        [...(authResult.auth.capabilities ?? [])],
+        "core.users.manage"
+      )
+    ) {
+      return jsonApiError(c, 403, {
+        message:
+          "Only the owner of the connection this request is about (or a tenant admin) can decide it.",
+      });
+    }
     const decided = await params.approvalService.decide({
       requestId: c.req.param("id"),
       tenantId: authResult.auth.tenantId,
@@ -1652,6 +1867,14 @@ export function registerApprovalRoutes(params: {
         requestId: decided.id,
         decision,
       },
+    });
+    await params.onDecided?.({
+      actorId: authResult.auth.principalId ?? null,
+      decision,
+      moduleId: decided.moduleId,
+      operationId: decided.operationId,
+      requestId: decided.id,
+      tenantId: authResult.auth.tenantId,
     });
     return jsonApiSuccess(c, decided);
   });

@@ -1,11 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { surfaceFixture } from "./__fixtures__/registry-v3.js";
+import { ImportValidationError } from "./errors.js";
 import type { PreparedImport } from "./import-service.js";
 import {
   assembleRecord,
-  ImportValidationError,
+  assertNoRegistryVariables,
+  connectorIdFromSlug,
+  resolveRequiredHeaders,
+  toolPrefixFromSlug,
   validateConnectorNaming,
 } from "./import-service.js";
+import { findSurfaceForSource, registrySurfaces } from "./registry-client.js";
 
 beforeAll(() => {
   vi.stubEnv("CONNECTIONS_TOKEN_ENC_KEY", randomBytes(32).toString("base64"));
@@ -45,6 +51,7 @@ const prepared: PreparedImport = {
         tags: [],
       },
     ],
+    applied_overrides: 0,
     base_url: "https://api.things.example",
     description: null,
     dropped_count: 0,
@@ -53,7 +60,6 @@ const prepared: PreparedImport = {
     title: "Things API",
   },
   spec_hash: "hash-1",
-  spec_snapshot_text: "{}",
 };
 
 const baseParams = {
@@ -166,5 +172,140 @@ describe("assembleRecord", () => {
         },
       })
     ).toThrow(/no server URL/u);
+  });
+});
+
+describe("registry surface identity", () => {
+  it("derives the suggested connector id and tool prefix from the slug", () => {
+    expect(connectorIdFromSlug("stripe-mcp-server")).toBe("stripe-mcp-server");
+    expect(toolPrefixFromSlug("stripe-mcp-server")).toBe("stripe_mcp_server");
+  });
+
+  it("persists the slug on the record", () => {
+    const surface = findSurfaceForSource(
+      surfaceFixture("stripe"),
+      "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json"
+    );
+    const { record } = assembleRecord({ ...baseParams, surface });
+    expect(record.registry_surface_slug).toBe("stripe-api");
+  });
+
+  it("leaves the slug null for a manually pasted URL", () => {
+    expect(assembleRecord(baseParams).record.registry_surface_slug).toBeNull();
+  });
+});
+
+describe("required headers", () => {
+  const githubApi = registrySurfaces(surfaceFixture("github")).find(
+    (surface) => surface.slug === "github-rest-api"
+  );
+
+  it("stores static headers the registry says the API requires", () => {
+    expect(resolveRequiredHeaders(githubApi!)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "X-GitHub-Api-Version",
+          value: "2022-11-28",
+        }),
+      ])
+    );
+    const { record } = assembleRecord({ ...baseParams, surface: githubApi });
+    expect(record.required_headers.map((header) => header.name)).toContain(
+      "X-GitHub-Api-Version"
+    );
+  });
+
+  it("refuses an env-sourced header instead of dropping it", () => {
+    expect(() =>
+      resolveRequiredHeaders({
+        ...githubApi!,
+        required_headers: [
+          {
+            name: "X-Tenant",
+            source: { kind: "env", value: null },
+          },
+        ],
+      })
+    ).toThrow(/only static header values/u);
+  });
+
+  it("refuses a static header the registry publishes no value for", () => {
+    expect(() =>
+      resolveRequiredHeaders({
+        ...githubApi!,
+        required_headers: [{ name: "X-Tenant", source: { kind: "static" } }],
+      })
+    ).toThrow(/publishes no value/u);
+  });
+});
+
+describe("registry variables", () => {
+  const jira = registrySurfaces(surfaceFixture("atlassian"))[0];
+
+  it("refuses a templated surface, naming the variable", () => {
+    expect(() => assertNoRegistryVariables(jira!)).toThrow(/site/u);
+    expect(() => assembleRecord({ ...baseParams, surface: jira })).toThrow(
+      ImportValidationError
+    );
+  });
+});
+
+describe("mcp transport on the record", () => {
+  const mcpPrepared: PreparedImport = {
+    ...prepared,
+    normalized: {
+      ...prepared.normalized,
+      base_url: null,
+      security_schemes: null,
+    },
+  };
+
+  it("stores the surface's transport for mcp sources", () => {
+    const discover = surfaceFixture("resend");
+    const surface = findSurfaceForSource(
+      discover,
+      "https://mcp.resend.com/mcp"
+    );
+    const { record } = assembleRecord({
+      ...baseParams,
+      discover,
+      prepared: mcpPrepared,
+      sourceKind: "mcp",
+      sourceUrl: "https://mcp.resend.com/mcp",
+      surface,
+    });
+    expect(record.mcp_transport).toBe("streamable-http");
+    expect(record.auth_config.kind).toBe("oauth2");
+  });
+
+  it("refuses an MCP surface whose auth alternatives are all unmappable", () => {
+    const discover = surfaceFixture("stripe");
+    expect(() =>
+      assembleRecord({
+        ...baseParams,
+        discover,
+        prepared: mcpPrepared,
+        sourceKind: "mcp",
+        sourceUrl: "https://mcp.stripe.com",
+        surface: findSurfaceForSource(discover, "https://mcp.stripe.com"),
+      })
+    ).toThrow(/cannot map authentication/u);
+  });
+
+  it("is null for openapi sources", () => {
+    expect(assembleRecord(baseParams).record.mcp_transport).toBeNull();
+  });
+});
+
+describe("applied spec overrides", () => {
+  it("warns that registry corrections were applied", () => {
+    const { warnings } = assembleRecord({
+      ...baseParams,
+      prepared: {
+        ...prepared,
+        normalized: { ...prepared.normalized, applied_overrides: 1 },
+      },
+    });
+    expect(warnings.join(" ")).toMatch(/registry spec override/u);
   });
 });

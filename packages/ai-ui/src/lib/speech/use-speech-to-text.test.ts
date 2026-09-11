@@ -206,4 +206,58 @@ describe("useSpeechToText", () => {
     rerender();
     expect(result.current.isListening).toBe(true);
   });
+
+  it("does not re-commit earlier final results when continuous events accumulate", () => {
+    installSpeechRecognitionMock();
+    const onDraftChange = vi.fn();
+    const { result } = renderHook(() =>
+      useSpeechToText({
+        draft: "",
+        enabled: true,
+        lang: "de-DE",
+        onDraftChange,
+      })
+    );
+
+    act(() => {
+      result.current.toggle();
+    });
+    const instance = MockSpeechRecognition.lastInstance;
+
+    act(() => {
+      instance?.onresult?.({
+        resultIndex: 0,
+        results: [
+          { isFinal: true, 0: { transcript: "bitte den kontaktmanager" } },
+        ],
+      });
+    });
+    expect(onDraftChange).toHaveBeenLastCalledWith("bitte den kontaktmanager");
+
+    act(() => {
+      instance?.onresult?.({
+        resultIndex: 1,
+        results: [
+          { isFinal: true, 0: { transcript: "bitte den kontaktmanager" } },
+          { isFinal: false, 0: { transcript: "ob er" } },
+        ],
+      });
+    });
+    expect(onDraftChange).toHaveBeenLastCalledWith(
+      "bitte den kontaktmanager ob er"
+    );
+
+    act(() => {
+      instance?.onresult?.({
+        resultIndex: 1,
+        results: [
+          { isFinal: true, 0: { transcript: "bitte den kontaktmanager" } },
+          { isFinal: true, 0: { transcript: "ob er den Kontakt" } },
+        ],
+      });
+    });
+    expect(onDraftChange).toHaveBeenLastCalledWith(
+      "bitte den kontaktmanager ob er den Kontakt"
+    );
+  });
 });

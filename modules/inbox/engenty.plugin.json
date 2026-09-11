@@ -16,5 +16,10 @@
     "ai": true,
     "frontendTools": true
   },
-  "requires": ["module.connections"]
+  "requires": ["module.connections"],
+  "connections": [
+    { "capability": "stream", "bindOperation": "inbox_account_bind" }
+  ],
+  "mountOperation": "inbox_space_mount",
+  "placement": "space"
 }

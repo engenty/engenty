@@ -78,4 +78,45 @@ describe("prod-gateway-static", () => {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("writes runtime settings into HTML but never into assets", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-ui-"));
+    fs.writeFileSync(
+      path.join(root, "index.html"),
+      "<!doctype html><html><head></head><body></body></html>"
+    );
+    fs.writeFileSync(path.join(root, "app.js"), "console.log('bundle');");
+    const runtimeEnv = { VITE_SUPABASE_URL: "https://example.supabase.co" };
+
+    const serve = (url: string) => {
+      let body = "";
+      const req = {
+        method: "GET",
+        url,
+        headers: {},
+      } as import("node:http").IncomingMessage;
+      const res = {
+        writeHead: () => {
+          // status is not under test here
+        },
+        end: (chunk?: string | Buffer) => {
+          body =
+            chunk === undefined
+              ? ""
+              : typeof chunk === "string"
+                ? chunk
+                : chunk.toString("utf8");
+        },
+      } as unknown as import("node:http").ServerResponse;
+      tryServeStatic(req, res, { rootDir: root, runtimeEnv, urlPrefix: "/" });
+      return body;
+    };
+
+    try {
+      expect(serve("/")).toContain("https://example.supabase.co");
+      expect(serve("/app.js")).toBe("console.log('bundle');");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

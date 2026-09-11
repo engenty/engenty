@@ -1,7 +1,3127 @@
 [
   {
+    "version": "v0.2.0",
+    "timestamp": 1789146617,
+    "commits": [
+      {
+        "id": "09c81ab",
+        "message": "bring feat/spaces into main for 0.2.0",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "0611acf",
+        "message": "stop engenty setup deleting the UI's module dependencies",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b585276",
+        "message": "rehearse the 0.1→0.2 upgrade, and correct what it disproved",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "f3b4e9a",
+        "message": "finish the 0.2.0 deletion inventory",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "164a362",
+        "message": "publish the per-user browser image like every other one",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "34687af",
+        "message": "a runbook for the 0.1.x install, and a banner that tells the truth",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "e7b1362",
+        "message": "say what 0.2.0 actually promises about upgrades",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "3cb83eb",
+        "message": "give the server install the same shape as the local one",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "34a3349",
+        "message": "a wizard for the database you already run, wherever it runs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c405ccf",
+        "message": "scope cross-schema expense reads to the scope too",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ce4f3ed",
+        "message": "ask for what only the operator knows, derive the rest",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "eb39cc9",
+        "message": "name deploy images in full, and drop the -pro on publish",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "566964f",
+        "message": "declare the user-browser env in the manifest",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ee79bbc",
+        "message": "let the blue-green orchestrator follow ENGENTY_IMAGE_PREFIX",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ec1396c",
+        "message": "publish public images, and let one image serve any install",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b20c563",
+        "message": "put engenty Apps behind the apps compose profile",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "129f7ba",
+        "message": "one list decides what stays out of the public mirror",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "356a137",
+        "message": "check the two Supabase settings migrations cannot make",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d3964ae",
+        "message": "call it Fair Source, not open source",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "4b90001",
+        "message": "Put the browser's tabs in the pane's own top bar, and let the page reach the edges.\n\nThe tab strip lived inside the view on a card of its own, below a pane\nheader that only repeated the pane's name — two bars and a margin before\nthe page began. The strip now portals into the pane top bar, the way the\nartifact pane puts its chooser there; while no browser runs the panel\nportals the name instead. Inside the pane the view drops its rounded card\nand padding, so the toolbar and the page span the full width.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "8354bea",
+        "message": "Real browser chrome for the live view — tabs, back, reload, address pill — and a page sized to the pane, streamed 1:1.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "09449cd",
+        "message": "Give the browser view a tab strip and one toolbar row, and let the page fill the pane.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "f7c688f",
+        "message": "Give the agent browser_evaluate for hidden DOM; keep recording off.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5763c45",
+        "message": "Draw a draggable divider between stacked side panels; the split persists.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "9d59d84",
+        "message": "Stack side panels vertically in one end-pane column with a single width and handle.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5d80dc1",
+        "message": "Let an Engenty start the person's browser: ask in the chat, or without asking once allowed.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "f55c5b0",
+        "message": "Give the browser pane the artifact pane's chrome: end-pane slot, card, resize handle, expand.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "fb1d358",
+        "message": "Open the browser sidebar from any desk view, and explain it before it is started.\n\nThe pane now wraps the whole desk body, so the monitor toggle has somewhere\nto open on the engagement list too, not only inside a conversation. Without\na running browser the pane reads as instructions: what the browser is,\nStart → watch → take over → hand back, the unattended switch, and what Stop\nand Sign out keep or forget.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "0f5ca16",
+        "message": "Forget a burnt refresh token wherever the bearer is fetched, not only on first load.\n\nThe access token usually outlives the crash, so the first getSession() still\nsucceeds and the failure arrives minutes later, on the refresh inside the\nnext bearer lookup — thrown into ensure-current-user and shown verbatim on\nthe setup card. The bearer getter now treats that as a dead session (local\nsign-out, no token) and the bootstrap's stale-session matcher knows the\nmessage, so the shell reaches the login screen from either direction.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "87e20ba",
+        "message": "A burnt refresh token means \"sign in again\", not \"check your env vars\".\n\nAfter a hard crash mid-rotation the token in the browser is one Supabase\nhas already used, and getSession() reports it as an error. The shell showed\nthat message on the setup card with no way out. Now the dead token is\nforgotten locally and the shell falls through to the login screen; any\nother auth failure still shows its message.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "84b7a5c",
+        "message": "Keep the draft of the Mastra issue about the CDP process-group kill next to the code that works around it.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "9fed8e2",
+        "message": "Pin the disarm against Mastra's real disconnect handler.\n\nThe control case shows the armed path does call process.kill on the\nremembered group (with a PID that cannot exist); the disarmed handle\nnever does, even after Mastra writes the container's PID 1.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "c8b4b7d",
+        "message": "Never let the browser handle signal a host process; reach the browser by IP or loopback port.\n\nMastra's AgentBrowser reads the connected Chromium's PID over CDP and, on\ndisconnect or close, runs process.kill(-pid). Our Chromium is the container's\nPID 1, so that was kill(-1) on the host — every process the apps/ai user owns.\nIt took the desktop down twice. The registry now makes the PID fields on our\nhandle write-ignoring, so the kill helper always returns before signalling;\na test pins it.\n\nThe container is created with the docker CLI carrying Mastra's labels. On a\ndev host without a view network it publishes DevTools on an ephemeral\nloopback port; on a deployment apps/ai dials the container's IP on the view\nnetwork — DevTools refuses a container-name Host header. Attaching a viewer\nnow launches the CDP session, waking a sleeping container, so the live view\nshows a page without a tool call first.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "0dafa88",
+        "message": "Give the browser sidebar one header and a drag handle.\n\nState, Start/Stop and Close sit on one row; the seat is shown once, next to\nTake over. The left edge resizes the pane (min 320 px, the chat keeps 480 px)\nand the width is remembered per browser. The canvas box keeps the page's\naspect ratio so the column does not jump while frames arrive.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "3ab50b1",
+        "message": "Show the person's browser as a right sidebar on the agent desk.\n\nA Monitor toggle next to the thread-context and artefact toggles opens a\n420 px column beside the chat (an overlay when the content stack is narrow)\nwith the browser's state, Start, and the live view with take over / hand\nback. The agent desk chat is where a person actually watches an Engenty work\nin their browser, so this is where the button lives — the copilot drawer's\ninline panel stays for the drawer.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "7070f42",
+        "message": "Put the person's browser beside the chat, behind a monitor button.\n\nA Monitor icon in the copilot header opens a panel above the transcript: the\nstate of your browser in the current Space, Start when there is none, and the\nlive view with take over / hand back when it runs. The view moves into\n@engenty/ai-ui so the settings page and the copilot share one component.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "65d3786",
+        "message": "Keep the space's name on the column inside a module, and drop the home line that only counts waiting and working.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "4c01750",
+        "message": "Give each person their own browser in a Space, driven in their name and sealed off.\n\nOne headless Chromium per user per Space (engenty-browser-<tenant>-<space>-<user>),\nstarted only when the person asks, driven host-side through Mastra's browser tools\nwrapped with a seat the human always wins, streamed live with takeover, and reachable\nfrom a routine only when the person switched on unattended use.\n\nEgress is sealed: engenty-egress is internal, the allowlist proxy sits on the app\nnetwork for its own way out, browsers get their own internal network and an open but\nlogged blocklist proxy, and engenty-ai meets browsers on a view network only.\n\nThe copilot's frontend browser_* tools become ui_* so the two toolsets can share an\nagent. browser_evaluate is excluded from day one.\n\nPLAN-user-browser.md §4.1 records what landed and which host gates are still unrun.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "e7784c5",
+        "message": "Let artifacts move to a space, task, project or Engenty, and pin the ones you want on Work.\n\nStoring was named pin, which hid that it changes where the artifact lives. Pin now means a personal shortcut on the Work sidebar and dashboard.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "289c635",
+        "message": "Let Data list Ablage like any other folder, and let people edit many rows at once.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "2353fcb",
+        "message": "Split Belege mail import into accounts and a list.\n\nThe space-home click dummy is caught up; scanner drops an unused env import.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "a9ff14a",
+        "message": "Let Copilot keep its own sidebar, and let a Data folder be a list.\n\nWork opens the chat module instead of mixing threads into the space column. Contacts, invoices and offers folders get a real table. The bell is a compact inbox, and home has its own topbar actions.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "a31fff8",
+        "message": "Put the space on the collapsed trail, and mark the current rail tile.\n\nThe name shrinks to the tile when the path is long or the screen is narrow. Close sits clear of the first crumb.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "ba0d6c1",
+        "message": "Let the space's name carry its own pencil, and say nothing when there is nothing\n\nThe home header named the space at the same size as a list row. It is the\npage's identity: the tile goes to 48px and the name to 17px, and a pencil\nappears beside it on hover, so the one thing you do FROM a space's name —\nchange it — is where the name is.\n\n\"0 waiting for you, 0 working.\" is a line that says nothing. It renders now\nonly when one of the counts is not zero.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "8dcc0ca",
+        "message": "Grow menus from the trigger, card and contents on one beat.\n\nScaling the glass Positioner fought placement transform and collapsed\nthe origin to the top-left. Fill and enter/exit now live on the Popup,\nwith a little more room from the button.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "c8eb73e",
+        "message": "Let the rail switch Spaces, and Close ride the column's seam.\n\nThe name stays a label on Work/Data/Plan and drops inside a module; Open lives in the topbar once the column is gone.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "3061244",
+        "message": "Stop waiting on a question the conversation already moved past\n\nA desk row said \"Wartet auf dich\" about an ask from the day before. Nothing\nwas open: `requires_action` is how a suspended run ENDS, it is never cleared,\nand both the sidebar and the home read every run in the feed and let the\noldest parked one speak for the agent for good — even though a later run in\nthe same thread had since completed.\n\nEach conversation now answers for itself, judged by its own newest run, and\nthe agent takes the most urgent of them. An ask in ANOTHER thread still\noutranks work in progress, so a desk running jobs in parallel keeps saying\nthe thing a person can act on.\n\nAnd an App now reloads when it is activated. The frame in the chat was built\nwhile the version was still proposed, so every engenty call it made came back\n`apps.operationNotDeclared` — and it had no way to learn that the answer had\nchanged. The decision refetches the frontend and the release's state rides in\nthe frame key, so approving reloads the App where it stands.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "335dc16",
+        "message": "Say what an App asks for, and let the person answer where they are\n\nAn App built by a colleague came to rest with nobody knowing they were the\nblocker. The home said \"Wartet auf deine Antwort\" and offered to open a chat;\nthe chat offered a row of chips reading `expenses · expenses_list` and\n`table · 01a0862f-…`. Identifiers, not consequences — and the card could not\neven name which App, because a release is a marker message and a decision\nnotification, neither of which the home ever read.\n\nIt reads them now. The Space home unions the release markers, asks core once\nper App whether those versions are still proposed, and the card carries the\nverdict itself: `apps.approve` is a plain POST with no run to resume, so a\nbutton there IS the decision rather than a weaker copy of the one in the chat.\n\nAnd the consent surface reads like consent. The manifest is grouped by what\nit lets the App DO — work in a module, read and write these tables, reach\nthese addresses, keep its own files, ask you again every time — each group\none collapsed line with a count, opening to the sentences that were already\nbeing fetched and thrown away: the operation contract's summary, the table's\ntitle. The high-risk group opens itself, because that is the part a person\nmost needs to have read. Card and banner derive their groups from the same\nhook, so what the card promises is what the banner shows.\n\nAround it, the smaller things that made the feature hard to use: the message\nexcerpt drops its markdown before it is cut, the App can move to the artifact\npanel beside the conversation it belongs to, and closing the Data pane goes\nback where you opened it from instead of stranding you in a file list.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "194f456",
+        "message": "Let a home card show the words, not the markdown around them.\n\nThe last-message excerpt is two lines of plain text, so asterisks and fences were showing through. Strip the notation, put the time next to the title so the description can run full width, and sit the bubble and composer in the same inset column. The inbox bell is a Button so its badge lands at the corner, not on the icon.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "e14887e",
+        "message": "Do not treat /import as a record in legacy module links.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "361cb4d",
+        "message": "Give Belege an Import page for files, tables, mail, and connected apps.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "4555713",
+        "message": "Count what still waits, and let the row's menu have the corner\n\nThe badge on Dashboard and on the home's bell counted UNSEEN notifications,\nso it went quiet the moment you glanced at the list — a space with an open\napproval showed nothing. It now counts this space's open needs-you items,\nthe same set the notifications page groups under \"Braucht deine Antwort\",\nvia one shared hook so the two numbers cannot disagree.\n\nAnd on hover a conversation row now yields its right edge: the timestamp\nand the NEW badge fade, and the menu trigger drops its own background, so\nthe three dots land on the row's hover surface instead of on top of a word.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "06b91f2",
+        "message": "The Space's home is its sidebar, unfolded\n\nA card per conversation, in the sidebar's own order: Favoriten first, then\nthe rest. A pinned row always has a card; an unpinned one only while it is\nlive — waiting on you, paused at the room's turn budget, running, or\nfinished since your last visit. Everything else is one line of names.\n\n`GET /ai/spaces/:id/home` answers the states in one round trip: open\ninterrupts, `room_paused`, `ai.agent_run` rows since a cursor, and each\nthread's newest message. `active-thread-runs.ts` is deliberately not a\nsource — it is an in-process map a second instance cannot see.\n\nA thread shows at most one LIVE job per state (one room takes one run at a\ntime), while finished runs are counted rather than listed. Verdicts stay\nwhere they can be given: the room's pause lifts on the card, an interrupt\nopens the conversation, where its decision card already waits.\n\nBeside the cards, what the Space keeps: its promoted artifacts and its\nmounts. The same artifacts get a Work-tab section with the Data tree's own\nrow menu, and the Work list's Inbox row becomes the Dashboard, whose count\nmoved to a bell on the home.\n\nSpaces gain a description — a name, an icon and a colour could not say what\na space is FOR — shown in the home's heading and edited in settings.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "de20288",
+        "message": "keep the whole hand-off message on the colleague's desk",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7cf5c3c",
+        "message": "let an agent declare the tier its work runs at",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7b82af6",
+        "message": "put an App's source in git on the spaces tree",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c9c3c89",
+        "message": "Keep Belege on one page for list and detail, and edit contacts, currency, and tags on the pane.\n\nSplit uses a hash on the list; the path with an id is fullscreen. Lieferant and Klient go through the contacts plugin, amounts carry a currency (plus a home-currency value when it differs), and tags commit as chips.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "4c3e451",
+        "message": "give each App a /data volume",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "681fef9",
+        "message": "Upgrade agentOS to 0.2.19 and carry the build patch forward\n\ndeployApp() is still broken as published: the build VM has the guest tar\nwrite the packed release through a host directory mount, and the guest\ncannot write to it — \"tar: Permission denied (os error 2)\" — so every\ndeploy fails, including the package's own README example. createBuildVm\nis byte-identical to the 0.2.14 original, so the patch is regenerated\nunchanged against the new version.\n\nVerified on 0.2.19: an App backend deploys, serves requests, and has a\nreal filesystem — node:fs works and /home/agentos survives sleep and a\ncold start. It does not survive a release: the actor key is\n<appId>/<releaseHash>/default, so publishing a new version creates a\ndifferent actor with an empty disk. App data therefore cannot live in\nthe isolate.\n\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5dbbbff",
+        "message": "A colleague's turn is somebody else's words\n\nA room is one thread several agents answer in, and recall handed every\nmember the other members' answers as bare assistant messages — its own\nwords, as far as the model could tell. Live on 2026-09-08 a woken player\nreasoned \"I am the one agent in this conversation\", concluded it had\nalready moved, answered nothing, and the room fell silent with every run\nreported completed: no error, no pause, just a game that stopped at move\nthree.\n\nAnother agent's row now arrives as a user turn under the same\n**Message from <name>** header the room's relays already carry — the\nshape the shared-room instructions promised all along. Only what it\nposted survives; its reasoning and its tool calls were its own work, and\nread as the reader's they are the confusion itself. Rows carry the\nauthor's name alongside the id so the header reads as a name.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "03bae83",
+        "message": "Let a room's engenties overlap as shapes\n\nA disc behind each blob punched a hole in the one beside it, so the\ncluster read as three cut-out circles instead of one mark.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "f2d2427",
+        "message": "Give Belege a list-and-detail workspace and extract through the scanner pipeline.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "50fef87",
+        "message": "Allow catalog search entries to carry a null connector id.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "77fdc2b",
+        "message": "Route document extraction through the provider pipeline.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "24389bd",
+        "message": "A room is its own page, not a desk's engagement\n\n/s/<key>/rooms/<threadId>: no agent header, a cluster-and-title crumb\nthat opens the room's info drawer (name, purpose, visibility, agents,\npeople), and a chevron that switches between every conversation of the\nSpace — desks and rooms alike, on desks too. The strip above the chat\nis gone; old desk links naming a room redirect.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "78ba7d5",
+        "message": "Keep the new finance modules off the public tree.\n\nExpense categories can carry a bookkeeping account number, and the workspace plugin list enables Belege, Bank, and Reports in pro only.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5c1fea4",
+        "message": "Add incoming receipts, bank statement upload, and finance reports.\n\nSales invoices stay outgoing; Belege, uploaded statements, and period reports live as closed modules with the existing document-scanner extract path.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "cf9eed1",
+        "message": "Mention a room or an artifact, not just a colleague\n\nThe `@` picker offered agents and people only, so the two things a Space chat\ntalks about most — the rooms its agents work in and the artifacts they built —\ncould only be named in prose. Rooms and artifacts join the list, and every row\nnow leads with a glyph: each agent as its own Engenty, an artifact by its type,\na room by the chat mark. Without one a mixed list is a single column of text\nwhere a room reads like an agent.\n\nEach ref kind carries its own instruction instead of one undifferentiated\n\"here are some references\": an artifact says read it with `artifact_read`\nfirst, a room says speak in it with `message_agent`'s new `room_id`.\n\n`room_id` is what makes a mentioned room addressable. `agent_ids` names a room\nby its member set, which from a desk always opens a NEW one — so the agent\nwould have answered in a second room beside the one the person named. With\n`room_id` the room is the id: everyone in it takes a turn, `agent_ids` narrows\nthat to the members named. Membership, the turn budget and the pause stay\n`deliverToRoom`'s; this refuses only a thread that is not a room of this Space.\n\nReading a room from a desk is still not possible, and the room entry says so\nrather than letting the agent claim it read one.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "540579f",
+        "message": "A built App asks for its approval in the chat\n\n`app_build` left a version proposed and inert and told nobody. The preview\nartifact carries the Approve/Reject banner, but a colleague builds it in its\nown run, so the conversation the person is watching held no tool call to\nrender it in — and no notification was emitted on either hire path.\n\nThe publish step now writes an `engenty_app_release` marker row into that\nconversation, which the transcript draws as the App itself, review banner and\nall, and emits an `app_release_proposed` decision row for the bell. A decision\non either surface resolves the record.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "c296d60",
+        "message": "Rank catalog pickers lexically and load search-index from source\n\nSkills, tools, agents, workflows and slash commands now share the wizard's\nBM25/stem ranking, so coding matches code. Vite and Vitest resolve\n@engenty/search-index from src so a stale dist cannot hide that.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "e4556f1",
+        "message": "Keep desk composer pills and gutters aligned with the textarea\n\nHorizontal mention rings stole space next to the token, a flush lane\ndrew the composer to both edges, and the thinking line still said\nsending after the run had already started.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "6fa3b35",
+        "message": "Show when a Space agent is working or waiting for you\n\nA last-active timestamp while a run is in flight reads as stalled. Poll\nthe tenant run feed once for the sidebar, and refresh Space queries when\na desk turn finishes so a hired colleague appears without a reload.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "93ec652",
+        "message": "Update pnpm-lock.yaml and enhance Space components with catalog search functionality\n\n- Updated dependencies in pnpm-lock.yaml, including a version bump for esbuild.\n- Integrated `registerCatalogRankRoutes` in `app.ts` to support catalog ranking.\n- Refactored `api-catalog-search-store.ts` to streamline imports and improve code clarity.\n- Enhanced `catalog-ranking.ts` by exporting additional functions for better modularity.\n- Implemented `useSpaceCatalogSearch` in various Space components to improve search capabilities and user experience.\n- Updated localization files to include new strings for catalog searching feedback.\n- Added tests for scoring prefix and inflection-style token matches in `catalog-lexical.test.ts`.\n\nThis commit improves the overall functionality and performance of the Space components while ensuring better dependency management.",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "c3e52e8",
+        "message": "A new Space starts with its creator on the roster\n\n`core.space_member` was written in exactly two places — an explicit invite\nand claiming an orphaned personal space — so a freshly created Space had\nno rows at all, not even for the person who made it. An open Space is\nenterable without them, so nothing noticed: its People section, the room\nbar's add-someone picker and the composer's `@` list were empty in a Space\nsomebody was working in every day. Creating one now writes the creator's\nrow as `owner`, which is also the row that keeps them in when the Space\nlater goes private. A failed write is logged, not fatal — the Space\nexists and is usable.\n\n`useSpacePeople` is the one place those rows are read, so the three\nsurfaces cannot disagree about who is here. The composer's `@` list also\noffers every agent on the roster, the desk's own included: in a room the\nhost is one participant among the others, and Game Master was the one\nname you could not mention.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5f94240",
+        "message": "Artifact pane picks from the whole Space, not from tabs\n\nAn artifact belongs to the Space we share, not to the chat that made it,\nso the pane's tab strip is now one dropdown: what the pane already holds\non top, the rest of the Space's artifacts below it, and a search box once\nthe two groups pass five entries. The Space's list is the existing\n`container=space:<id>` route, so it carries the Space's own artifacts plus\nits projects' and tasks'.\n\nClosing keeps the two meanings apart: an artifact of the pane's own scope\narchives as it always did, while one opened from the chooser only leaves\nthe pane — it belongs to somebody else's chat. Opening the pane is offered\nwhenever the Space holds anything, not only when the current chat does.\n\n`PaneTabStrip` goes with the strip it drew; nothing else used it.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "0b43743",
+        "message": "Sidebar lists conversations, not agents\n\nThe Work tab is a list of conversations, the way Slack's is: Favoriten,\nthen this person's own sections, then the built-ins Agenten (the desks),\nRäume and Direktnachrichten. A row lives in exactly one place; pinning\nmoves it to Favoriten, hiding drops it until the next message, and a desk\ncan never be hidden.\n\nFour kinds, one server-side answer (`threadKind`): a desk is the agent's\nsingle shared line, a room carries `route_context.room`, a DM carries\n`route_context.dm` — one per person × agent × Space, stable id, private —\nand a pair thread stays what it was. Rooms are listed by participation\nonly; everything else in the Space is in `/s/<key>/chats` with a join\nbutton.\n\nThe nav state is per person and lives in the user-settings document\n`shell.spaces.conversation_nav.v1` — sections, order, placement, pins,\nhidden_at — so nothing about one person's arrangement touches another's.\nThe old `agent_nav.v1` folds into it once on read.\n\nRooms also say who is speaking: every assistant row is stamped with the\nagent that wrote it, the message list resolves the name through the\nregistry, and the transcript prints it above the bubble on desks and in\nrooms — never in a DM, where there is only one voice to attribute. A\nroom's breadcrumb names the room and its members instead of offering the\nhost's agent switcher.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "fab7453",
+        "message": "first to answer wins — space audience, seen per viewer, desk interrupts",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "74563b3",
+        "message": "agents open and grow group rooms, people join them, threads get a visibility",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c81f69b",
+        "message": "add reply style instructions for non-copilot agents and refactor test utility functions",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7d9e3e7",
+        "message": "mark a space deleted, purge it later",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "aac6e16",
+        "message": "a person's words go into the turn already answering",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ffd5919",
+        "message": "the roster as a tree — coordinators with their reports",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "668e291",
+        "message": "open a room with other agents, see who is in it, lift a pause",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2da992b",
+        "message": "a message delivered to a room wakes the agent it addresses",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4d5b5ca",
+        "message": "a room has agent members, its agent_id is the host",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "284eb84",
+        "message": "a Space table write can wake an event routine",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d79210b",
+        "message": "show a colleague at work while the hand-off is in flight",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "58dac19",
+        "message": "the desk pane lists what the chat produced, and keeps its tab",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7736c1d",
+        "message": "an App reads and writes the Space tables it declares",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "82b8a8a",
+        "message": "top-level engenties set the space up and hire, capped at 20",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3c07b1a",
+        "message": "pause routines whose owner vanished, resume when they return",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a872fd6",
+        "message": "markdown interrupt bodies; keep only the last assistant turn",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "412007e",
+        "message": "origin labels, decide-in-place, resolve-by-subject",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "857c7ac",
+        "message": "center colleague markers; quiet Streamdown tables",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b63a7ee",
+        "message": "optically align Work-tab Engenty avatars with Inbox icons",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c386aae",
+        "message": "agent-run tracing through Mastra observability sinks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "56840a0",
+        "message": "agent-name pills, clustered bubbles, and hover rails",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "29754bd",
+        "message": "open an article without a skeleton",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "c211df4",
+        "message": "pen icon on hover, counter at the card's bottom edge",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "56f00cf",
+        "message": "store fetched HTML once per inbox row",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "71bb81d",
+        "message": "workflow_self_revise — a specialist proposes a new version of a Workflow it owns",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f6c31b6",
+        "message": "module workflows no longer read as awaiting publish",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b7d509c",
+        "message": "instructions pad in the agent drawer, capped pad heights",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a45df7e",
+        "message": "TASKS.md — a private task pad per engenty, next to MEMORY.md",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5b36e69",
+        "message": "spacer should not have a hight",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5cf7a7e",
+        "message": "stop voice input repeating finalized phrases",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1e8cbab",
+        "message": "workflow detail header, sync button, canvas expand, persisted catalog filters",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9f3d623",
+        "message": "mountOperation for Inbox and Files",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2b65d88",
+        "message": "say which mounted module is not ready after the wizard or dialog saves",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4a6781d",
+        "message": "module mountOperation — a module's first-use setup runs on mount",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1404649",
+        "message": "the create wizard's agents hint names the baseline agents",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7f1483c",
+        "message": "the cross-space work overview is a plugin contribution",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3fd99fb",
+        "message": "drop the Chat tab from the module sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c435dea",
+        "message": "one knowledge base per space, /s/<key>/kb URLs, settings by scope",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "54e1687",
+        "message": "interrupt-card dismiss and reconcile, contacts enhance workflow",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "3da77db",
+        "message": "module operations return a `link` into the record's space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d1ea43e",
+        "message": "let specialists and delegated children obtain tool approvals",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5a9409f",
+        "message": "popup design fix",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "99239fa",
+        "message": "cleanup",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "8407c57",
+        "message": "integrations.sh v3, guarded fetch, official MCP client",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3321707",
+        "message": "let the create wizard drop suggested modules from the list",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "06caadb",
+        "message": "restore overlay shadow on glass menus",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9f592ad",
+        "message": "pin and sort Work-tab agents with two-line activity",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cf1b320",
+        "message": "let a row drive SidebarRowTitleMarquee with an `active` prop",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f88cc18",
+        "message": "denser specialist settings with hover-edit fields and module pill",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c2432b5",
+        "message": "blended topbar is the default, band is the opt-in; rail zones by spacing",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2b781c8",
+        "message": "give the space tiles the same margin above as beside them",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a75cfd8",
+        "message": "shell chrome without hairlines — rail on the canvas, blended topbar, one row grid",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2ac9a5c",
+        "message": "give Settings the same row geometry as a space",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2014904",
+        "message": "make Tasks a chosen mount and take tenant switching off the rail",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ab74f64",
+        "message": "runs get their own drawer, settings end with the last three",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "14b03b0",
+        "message": "open extra spaces from a chooser instead of unfolding the rail",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "48f0cfa",
+        "message": "desk toolbar opens settings and artefacts, menus read as glass",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "686b3ad",
+        "message": "desk header on the canvas, agent names instead of ids",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7f2076e",
+        "message": "agent identity is name + module, breadcrumb switches engenties",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "13068ff",
+        "message": "desk is one long conversation — new chat demoted, transcript paged",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4149d88",
+        "message": "space agent desk is chat plus a drawer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "34ff2e4",
+        "message": "desk composer mentions, agent pair rooms, memory break line",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d7fefe4",
+        "message": "move the bell into the app rail below Settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f06c6c5",
+        "message": "core notification package, bell, streams",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "aebe347",
+        "message": "retire product Goals from the tasks module",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8fe9668",
+        "message": "retire the durable-records Memory module",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b2d3fad",
+        "message": "standardize terminology from 'specialist' to 'engenty' across documentation and code",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "c4f26a8",
+        "message": "add a hire wizard for custom engenties",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7d2b111",
+        "message": "add a blank purpose and apply apps when switching",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3fe7a2f",
+        "message": "streamline code formatting and improve readability",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "9075383",
+        "message": "retarget run-kind strings from action-graph to workflow",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7781d4a",
+        "message": "retire domain Action — the published runnable is a Workflow",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bd56c94",
+        "message": "removed outdated concept",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "fa7a5d1",
+        "message": "the workspace timezone rides into every sandbox as TZ",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "de523e8",
+        "message": "name the composer approval level and let a space override tenant either way",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e6dfe72",
+        "message": "enhance action and agent tools with improved descriptions and new caller thread functionality",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d103705",
+        "message": "move Mastra Studio to Setup and tighten settings section spacing",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3db597f",
+        "message": "Active/All tabs on Settings modules so admins can enable plugins without Setup",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f798b54",
+        "message": "pin one tenant onto Mastra Studio for local Play",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "96f5337",
+        "message": "refactor routing and navigation structure for setup and settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dad6f92",
+        "message": "integrate ActionEditor and enhance flow graph interactions",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5d9879e",
+        "message": "enhance graph action definitions and UI components",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d59d436",
+        "message": "enhance contract editing and UI interactions",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e9781ee",
+        "message": "add retired workflows handling in reconcile module",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e61bdda",
+        "message": "cleanup",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "5a77331",
+        "message": "remove deprecated action flows path and update references",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "b3a392c",
+        "message": "enhance agent capabilities with self-revision and thread state tools",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4a3fc29",
+        "message": "routine unification — the routine is the entity, triggers are rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "75b8549",
+        "message": "per-space internet access for the space computer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5186c9c",
+        "message": "mounted engentys — actions are workflows, triggers are bindings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b19c953",
+        "message": "web_search joins the hired-specialist floor",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bdd0102",
+        "message": "space engenty roster in the prompt + harmony leak scrub",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4692ebc",
+        "message": "space computer always on + shared-room thread ownership fix",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "281ef57",
+        "message": "space computer, one worker default, and the space switch",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "859bbb7",
+        "message": "use eye and code icons for the ledger text switch",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7c69c55",
+        "message": "use eye and code icons for the ledger text switch",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6edfa8d",
+        "message": "format trajectory ledger and wire payloads",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "94243cf",
+        "message": "format trajectory ledger and wire payloads",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1318736",
+        "message": "let a registered specialist declare its network tier",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "61b81c8",
+        "message": "give registered specialists a computer, not just files",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "755a867",
+        "message": "give each agent in a thread its own sandbox container",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7ec0fc6",
+        "message": "how claude shoudl answer",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "0625dfa",
+        "message": "give headless runs a real computer, and bound the host",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c08acd5",
+        "message": "highlight trajectory rows and expand them from the gantt",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3f6a75b",
+        "message": "highlight trajectory rows and expand them from the gantt",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0d920d3",
+        "message": "show a thread's turns as a session stack and waterfall",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "43c5bf7",
+        "message": "observe a chat as stacked turns instead of isolated runs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d477c80",
+        "message": "collapse the empty full-page drawer and keep the blob home",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e823c39",
+        "message": "add canvas-design skill with font handling and sibling file support",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9fb1dcb",
+        "message": "show run trigger and human vs agent history",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2b18943",
+        "message": "tag recalled history as human vs agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "613a607",
+        "message": "skills from anthopic and hermes",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "ec0495b",
+        "message": "distinguish action vs agent runs on the trajectory",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6998307",
+        "message": "record recalled history as pointers on run trajectories",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4aaf6b2",
+        "message": "resolve every kind of Mastra resource id to its threads",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "df26c49",
+        "message": "show prompt breakdown and a readable run breadcrumb",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "432423b",
+        "message": "capture assembled instructions on run trajectories",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "87be796",
+        "message": "poll the local-files bridge only while folder UI is open",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6c3211f",
+        "message": "drive conversation turns through native Mastra AG-UI",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ccbf2a4",
+        "message": "add a cross-tenant AI run trajectory observer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2572f20",
+        "message": "capture SYSTEM/CONTEXT trajectory headers for the inspector",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "18b55fe",
+        "message": "show space and file names in the admin inspector",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0272b2b",
+        "message": "promote Copilot out of the Agents roster",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9d1d681",
+        "message": "resume last Copilot chat from the Work roster",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f5b1337",
+        "message": "preview Files-tree PDFs in the native viewer",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3269e87",
+        "message": "load connected local folders from inside Files",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a2de387",
+        "message": "load the shared reader paper surface",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "be10895",
+        "message": "paint markdown reader on shared paper",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a8103ac",
+        "message": "distinguish single-line, multiline, and markdown table cells",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c245302",
+        "message": "rename and nest artifacts in the Data tree",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4107df2",
+        "message": "edit database and CSV table artifacts in one grid",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ab500fb",
+        "message": "keep Data overview under Copilot and hide row ⋮ until hover",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "42e5cdd",
+        "message": "show chat sender names only in shared rooms, above the bubble",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0f2d7e1",
+        "message": "drop markdown-only page dialogs after shared overflow",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1d85027",
+        "message": "add Artifacts + and row overflow menus by type",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b703255",
+        "message": "icon artifacts by type and expand folders with a chevron",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "86e38f3",
+        "message": "keep the topbar and copilot header at one compact height",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e3502eb",
+        "message": "mix markdown pages into Artifacts with a reader-first editor",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1b74578",
+        "message": "drop the Chats list from the Work tab",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "3f54305",
+        "message": "list a Space's chats and keep a routine on one thread",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "92dde55",
+        "message": "teach specialists to write Space Data and keep updating it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3586442",
+        "message": "give agents typed tables instead of CSV dumps",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6fcdb4c",
+        "message": "type the author-less thread honestly, and answer what it means",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bb92f71",
+        "message": "say what the specialist is doing while a routine runs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c9ac783",
+        "message": "open Folder, Upload, and Connect from the Dateien +",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3a6134d",
+        "message": "let a Space member open a routine run from the desk",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1e08b01",
+        "message": "collapse Data roots and list pages without a library folder",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2dfe609",
+        "message": "make the ai.routines migration re-runnable",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "39513ba",
+        "message": "make a routine fire actually reach its Space and its desk",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9bff523",
+        "message": "a routine is a job that produces runs, not a standing task",
+        "group": "Added",
+        "breaking": true
+      },
+      {
+        "id": "5bf547a",
+        "message": "move task settings onto core.tenant_settings typed KV",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "f76989d",
+        "message": "record headless task runs' events and usage on the desk run detail",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "10a3173",
+        "message": "make agent-granted mailboxes visible to headless reads (CN.5)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "518ab62",
+        "message": "let a headless task run resolve its own private Space's surface",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e6806d1",
+        "message": "add UC-10 daily digest scenario and harness",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f9422b4",
+        "message": "split space work into focused agent skills",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bf4486e",
+        "message": "key shared-room Mastra working memory on the Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c061975",
+        "message": "add the agents roster and hire through Copilot",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "39e5e3b",
+        "message": "honor Mastra recall filters; keep semantic recall opt-in",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7f60c75",
+        "message": "one Action screen — sectioned detail, inline steps, honest list",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b689154",
+        "message": "the Action is the word — no agent surface says \"flow\" anymore",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "fbd71a4",
+        "message": "a hire for recurring work is told the routine is still owed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "402fbc4",
+        "message": "show what was asked above the run",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e708392",
+        "message": "record how a run actually started, instead of calling everything a message",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f59dc12",
+        "message": "a run's timeline shows the call, its arguments and its answer",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1a73694",
+        "message": "grant an account to the agent id an agent actually has",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "171f339",
+        "message": "a hired specialist keeps the catalog floor whatever it declares",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "32377ff",
+        "message": "open a run from the Runs tab, and date the ones that predate the hire",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "754c82a",
+        "message": "a recurring job gets an agent and a routine, not a lone flow",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "912505e",
+        "message": "a run that cannot start says so instead of reporting \"queued\"",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "516cfad",
+        "message": "lint",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "894de6b",
+        "message": "enhance secondary navigation components with footer handling",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2ace7c1",
+        "message": "a graph node inside a task gets the task's tools",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "518973c",
+        "message": "a graph node may ask for approval mid-run",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ecd0fe4",
+        "message": "unify the action detail screen; count readiness, not plumbing",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "562330b",
+        "message": "one list, one name — Actions",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "8e561d2",
+        "message": "drop the ten legacy admin redirects",
+        "group": "chore",
+        "breaking": true
+      },
+      {
+        "id": "6acce4b",
+        "message": "promote 500, edit mode as the view, flows authored in place",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "14bf1a0",
+        "message": "copilot and coordinator can see, run, and author flows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "099c93a",
+        "message": "Agent Space routine UI — canvas, in-place designer, prompt edit rounds",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f0569b3",
+        "message": "promote an instruction routine to a flow — nothing is deleted",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7421077",
+        "message": "rename action_graph -> flow_graph, ring 4 — the tool ids",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "c6ddbd9",
+        "message": "rename action_graph -> flow_graph, ring 3 — the HTTP surface",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "4b64069",
+        "message": "ring-2 sweep fallout + the long-standing TS2571",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c868153",
+        "message": "updateTask persists flow_graph_id and flow_input",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f2a7fde",
+        "message": "rename action_graph -> flow_graph, ring 2 — identifiers",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "35eafc6",
+        "message": "rename action_graph -> flow_graph, ring 1 — the database",
+        "group": "Changed",
+        "breaking": true
+      },
+      {
+        "id": "b1016bb",
+        "message": "a press is a subject-bound run, never a task",
+        "group": "Fixed",
+        "breaking": true
+      },
+      {
+        "id": "94756ce",
+        "message": "inline routine editor, the routine drawn as a diagram, corpses swept",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "66f842a",
+        "message": "unpressed Actions in the routine flow picker; copilot declares invoke_action",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c89cd5b",
+        "message": "routines declare an outcome and a report floor",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3bb80da",
+        "message": "routine detail in the Plan tab, and leaving/deleting an agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3d8f8dd",
+        "message": "overflow menu on the agent page",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c57bc26",
+        "message": "draw the Manage tab in the admin design language",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "346e1f3",
+        "message": "Manage tab; fix admin showing no routines for an agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b0155f9",
+        "message": "tabs in the header, identity in the header, collapse on scroll",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "73f6f17",
+        "message": "Plan and Runs tabs on the agent page",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "60e7833",
+        "message": "one request, one routine",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "999fc86",
+        "message": "drop the agent silhouette CHECK so hiring works again",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0d6a6d7",
+        "message": "one routine, one page — close the Routines/Tasks split",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "cce7521",
+        "message": "a routine gets an agent of its own",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "07f4bae",
+        "message": "a live chat agent can never own a routine",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1baa972",
+        "message": "put routines on the agent desk",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fb98d1d",
+        "message": "routines are standing tasks - task templates retire",
+        "group": "Added",
+        "breaking": true
+      },
+      {
+        "id": "505d2e3",
+        "message": "surface the autonomous-mode gate before it bites",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5636dfd",
+        "message": "render timezone-carrying routine schedules verbatim",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c0445b3",
+        "message": "make agent-created routines actually fire, attribute, and honor pre-approvals",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b03dede",
+        "message": "add OpenRouter as a second model gateway",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bba18f0",
+        "message": "give sources their own sidebar tab",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c121f11",
+        "message": "prefill source name when editing an existing source",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e08bd1c",
+        "message": "pick and propose article templates during ingest",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "59ccb30",
+        "message": "open the add-source wizard as a large modal",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "349f1dc",
+        "message": "add sources through a guided wizard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ba2d4bb",
+        "message": "let one large item fill the analysis budget",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f076325",
+        "message": "read uploaded documents, not just store them",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5bef329",
+        "message": "analyze concepts first, then derive the pages",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "daf83d3",
+        "message": "make agentic ingestion plannable and repeatable",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "99b0223",
+        "message": "let long ingest calls outlive the client timeout",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3b2f037",
+        "message": "one ingest flow, independent content options",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d540571",
+        "message": "open an attached web original instead of signing it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b604b2c",
+        "message": "ingest large documents whole",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "837d090",
+        "message": "govern approvals and model per goal",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e97a925",
+        "message": "only a human may resolve a tool approval",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4771ad7",
+        "message": "headless runs survive token expiry and never repeat a write",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7e19d47",
+        "message": "give the work coordinator its own model tier",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9ccfb5b",
+        "message": "enhance approval handling and task artifact management",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "284acfe",
+        "message": "space-scope the module and give agents the full surface",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fbc35d9",
+        "message": "replay an approved parked tool call exactly once on resume",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "496014f",
+        "message": "make always-on loaders actually spin",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5da8eb9",
+        "message": "reviews become to-dos and the trust dial governs completion",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4b45677",
+        "message": "make goals a live coordinator surface",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ce6e90b",
+        "message": "include module skills automatically with their apps",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e9da0f4",
+        "message": "mark remote and team-hr as settings-placed modules",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "561108b",
+        "message": "make Copilot the live front door and align durable work",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8eec4ab",
+        "message": "enhance agent tools and runtime contracts",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d8ab61a",
+        "message": "show specialist turns and /data results on the chat context card",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a9221c5",
+        "message": "let the Coordinator hire specialists and message them in chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "91d0e07",
+        "message": "mark capable agent models in the Gateway catalog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b9d2e4a",
+        "message": "declare Space policy on closed module operations",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8c2ad81",
+        "message": "hide Gateway models that cannot run a tool-using agent turn",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "35dc832",
+        "message": "declare Space policy on open module operations",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8d928e9",
+        "message": "carry Space contract into the voice lane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7dedb91",
+        "message": "document the runtime contract and fail open-module authoring in CI",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "a024c93",
+        "message": "enforce Space policy on catalog, execute, and every runtime lane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8333bc4",
+        "message": "fail closed on Space resolution and enforce operation policy",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "324516d",
+        "message": "inject a canonical Space contract into SDK and prompts",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "acad8fd",
+        "message": "keep home Coordinator sends and close approval on choose",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bd8e4c2",
+        "message": "make the space home talk to the Coordinator",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d2f1feb",
+        "message": "assign engenty kinds on closed module agents",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d43dab2",
+        "message": "show each agent's engenty in the sidebar roster",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2743ef8",
+        "message": "fixed failing tests",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "618ec85",
+        "message": "unblock lint and the www production build",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "318ec84",
+        "message": "drop unused SittingCrew and keep HeadlinePerch",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "9287099",
+        "message": "sit small engenties on the headlines, and lift the product mocks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9ec8486",
+        "message": "paint the landing in brand colour bands, with the locale chooser on dark chrome",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d8d37a3",
+        "message": "put English and German on /en and /de, advertised with hreflang",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c5ac832",
+        "message": "the public landing site for self-hosted open source, in English and German",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "848c6e1",
+        "message": "add userId to agent desk starters for personalized caching",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fa9d528",
+        "message": "use dvh for the notes popover max height",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "44b9d6d",
+        "message": "safe-area + dynamic viewport foundation, phone smoke lane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c436e8f",
+        "message": "carry declared starters across the module capability seed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "33e8afd",
+        "message": "carry starter chips on the agent instead of a hardcoded UI map",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a559739",
+        "message": "add starter catalogues for closed-module specialists",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "98c2de8",
+        "message": "probe /api/ready instead of openapi so Portless startup is not killed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7231673",
+        "message": "keep rail overflow tiles opaque so the stack does not smear",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "75d278c",
+        "message": "one chat-input base for every chat lane",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "96c58e2",
+        "message": "per-agent starter chips and FAB clearance on the composer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "20d9dce",
+        "message": "drop the specialist cover wash and merge the topbar",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c3db1df",
+        "message": "greet specialists with identity, not a splash",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "45b248b",
+        "message": "hire allow-listed specialists live from the coordinator",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c8f1cc8",
+        "message": "resolve agent approval per space and grant Plan as named facets",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "95d29aa",
+        "message": "mount a hired agent onto the space it was created for",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3819102",
+        "message": "turn home into a briefing and specialists into chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "69b9789",
+        "message": "let space members share specialist and task-agent threads",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f3d5e6e",
+        "message": "classify remote agent as shared",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "97e0bc1",
+        "message": "activate cache-friendly observational memory",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5c108e5",
+        "message": "make agent dispatch outcomes visible",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a713bfa",
+        "message": "replace create-space dialog with stepped wizard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "be005e5",
+        "message": "keep empty context visible",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4043459",
+        "message": "streamline task context and rail navigation",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "630b15f",
+        "message": "make mounted agents actionable",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e6027c5",
+        "message": "make eligible mutations optimistic",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fac510c",
+        "message": "put the space's agents next to people, with a plus to add",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8bb14d6",
+        "message": "keep scrolled main content clear of the copilot FAB",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "68f7838",
+        "message": "the home column scrolls as one, not the briefing alone",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "aaffff8",
+        "message": "keep the space switcher in the breadcrumb when the column is closed",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "00c1bff",
+        "message": "tighten the space sidebar header against the name",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2afe666",
+        "message": "let plugins own space tabs and mount tasks on every space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ad2c8da",
+        "message": "keep the mailbox menu to Inbox and Archived",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ab331c1",
+        "message": "give cards, tables, and list shells one chrome class",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a34af3e",
+        "message": "use the shared card chrome on tenant and user grids",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "dd66adb",
+        "message": "the Data CTA takes the shell's create-button shape",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6da266c",
+        "message": "no cards inside cards on the Data landing",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fc50b38",
+        "message": "rebuild the Data landing on the design system",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c76472d",
+        "message": "make the Data tab landing a real dashboard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a98aede",
+        "message": "the Data tab becomes a place you can do things",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a8c7b01",
+        "message": "connected folders become write targets",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5eb0888",
+        "message": "guard workspace delete, add move/copy, resume headless approvals",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "27c68b3",
+        "message": "/data becomes a real filesystem, and delete lands gated",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b984b6d",
+        "message": "let the Files adapter save an edit",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "016bd70",
+        "message": "the space's own files become a Data adapter root",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "021c8a1",
+        "message": "keep editor reset/delete in overflow menus and mark instruction overrides",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "40b7d94",
+        "message": "show nested skill files in the instructions editor",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ae3c460",
+        "message": "search and install from skills.sh, not agentskill.sh",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d21a554",
+        "message": "a module mounted in a space knows which of its pages is open",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4c6dc3c",
+        "message": "do not offer a composer on a thread nobody may write to",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "55af174",
+        "message": "a chat link opens the chat it names, inside a space too",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c132481",
+        "message": "a comment posted mid-run reaches the running agent (U4)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b97efe4",
+        "message": "surface a task's agent threads, and close an append hole (U3)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b297f09",
+        "message": "an answer in the comment thread carries its question",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a32ec3d",
+        "message": "give an agent one durable thread per task (U1)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cc9f876",
+        "message": "lint fix",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "4b17780",
+        "message": "upgrade Mastra 1.57.0 → 1.59.0 (U0)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4ebbac2",
+        "message": "one run-history row per run",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3b5a8bd",
+        "message": "hire an agent from a role instead of from an empty form",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "513a680",
+        "message": "one page for how work starts, lives and runs",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "827650e",
+        "message": "answering a question resumes the run, instead of starting another",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8a62729",
+        "message": "the background substrate IS the dispatch path now",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "610cf2c",
+        "message": "run a dispatched task on Mastra's background-task substrate",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4854a14",
+        "message": "a gate decision is written where the question was asked",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f01ee7f",
+        "message": "HEARTBEAT.md finally reaches the runs it was written for",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2345de6",
+        "message": "an event can start a flow, because its payload becomes the input",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1f62615",
+        "message": "one catalog for everything this workspace can run",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c3ab941",
+        "message": "a button press is a trigger fire, and the action lane is gone",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c809c3b",
+        "message": "review the field updates a flow's agent proposed",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4af1d83",
+        "message": "a flow with an agent node could not run headlessly at all",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ba242db",
+        "message": "seed an Action's flow on first use, not by migration",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6a43a1b",
+        "message": "compile an Action into the one-node flow it always was",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "58a06cb",
+        "message": "a fire carries the values and the subject it was fired with",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b331c35",
+        "message": "run a trigger now and watch the run it started",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dac4696",
+        "message": "a module's agent can read its own module from the start",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "35792f0",
+        "message": "grant a role to an agent by name, not by uuid",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5ef2dec",
+        "message": "a routine can run a flow instead of an agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "952a403",
+        "message": "filter the list down to work that runs itself",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ef00fc1",
+        "message": "say what a flow task is actually doing",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c45ec4a",
+        "message": "hand a task to a flow, not just to an agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "02bfad3",
+        "message": "find and install public skills from chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "097f41f",
+        "message": "split the Data pane so chrome, records, files, folders, and artifacts each have their own module",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "0bea2e4",
+        "message": "a question carries how it can be answered",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "53f7fc3",
+        "message": "read the activity feed in the same direction as comments",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "db31730",
+        "message": "put created folders in the Data tree, and give Data a home",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6b159ab",
+        "message": "a comment has a kind, instead of a leading emoji",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "491f6c2",
+        "message": "a task run's transcript was never saved, and never readable",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6816ca8",
+        "message": "answer an agent's question from the task",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "67546fd",
+        "message": "the flow mirror called an op that does not exist",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ac0f14e",
+        "message": "let a run speak on the task it is working",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ea88285",
+        "message": "\"plan only\" now actually plans instead of starting",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ac87a0c",
+        "message": "show that a scrollport has more, without painting over it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c43f6f0",
+        "message": "let the description flex instead of measuring it",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "23b0b1c",
+        "message": "cap the growing fields, and put belongs-to at the foot of the step",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8e2daa7",
+        "message": "make the wizard header the navigation",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "db4fb4a",
+        "message": "put where-it-belongs back under the title, and phases in it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "962f84a",
+        "message": "create a task in two steps, not one wall of pills",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c63f69e",
+        "message": "backdate server-lane JWT iat so PostgREST clock skew cannot reject scheduled fires",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3aa074b",
+        "message": "code lint",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "cd7396b",
+        "message": "detach timesheet rows before task delete so SET NULL does not collide on the unique index",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "129d6ca",
+        "message": "keep closed plugins out of the public apps/ui catalog so open snapshot install stays valid",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7290118",
+        "message": "unbreak db:migrate and the thread-run route test after the merge",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "729e172",
+        "message": "let a scheduled task run a flow without an agent turn",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1228f6f",
+        "message": "tenant-key the action_request sweep and run lookup",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "99e4b44",
+        "message": "teach the drafting model the mapConfig rules it kept breaking",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6cf30e6",
+        "message": "make the canvas's \"N to fix\" badge actually fix things",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "84ede9f",
+        "message": "live progress while a flow is being drafted",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7df7cf4",
+        "message": "put Flows and Artifacts on the Engenty dashboard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "46e4f51",
+        "message": "open the filter row on the first click, not the second",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6480558",
+        "message": "move the Flows filters into the filter row",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4c416ac",
+        "message": "let drafting run as long as the planning model actually takes",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9dee82b",
+        "message": "give Flows the catalog chrome, and a place in the nav",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "56ea9bc",
+        "message": "resolve the tenant's models for every graph delegation",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1c7834f",
+        "message": "search, filters and a list view for the Flows catalog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "88dd9f3",
+        "message": "blend the flow header into the topbar, and let skill cards breathe",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e684368",
+        "message": "draft flows on the planning tier, and give the designer a toolbar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "57af608",
+        "message": "draw a branch as a branch",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0f79f9c",
+        "message": "reject nested containers, and stop calling a loop \"For each\"",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ad529c1",
+        "message": "teach and draw every control-flow entry type",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7f515ed",
+        "message": "durable long waits, and a create dialog that drafts the flow",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d14b46e",
+        "message": "two bugs only the signed-in app could show",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "984b2b7",
+        "message": "refuse waits the engine cannot durably hold",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "90d60b9",
+        "message": "invoke_action tool, and fix two bugs found by rendering the real UI",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "02255fe",
+        "message": "LLM authoring, run monitoring and gate approval for graph actions",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0247d9d",
+        "message": "action canvas — one picture for authoring, monitoring and approving",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f5418a3",
+        "message": "dispatch, resume and HTTP surface for graph actions",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ef3e234",
+        "message": "graph action primitives, data model and save-path validation",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8d605c0",
+        "message": "one roster, two rooms",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "09ea6ee",
+        "message": "the server registrars speak the SDK's route type",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6450e32",
+        "message": "apps/ui joins the typecheck gate",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4824b4c",
+        "message": "the dev session stats read fields that exist",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "65aa50f",
+        "message": "one name for what an interrupt resume accepts",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "aca150d",
+        "message": "the types catch up with the plugin runtime",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6b9a6f9",
+        "message": "a single-signature rule guards query_chunks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8b25f3b",
+        "message": "select all means the files, and the tree opens in one go",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0a0f3af",
+        "message": "state the function ACLs the spaces migrations left implicit",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ba9e002",
+        "message": "the tree stops dressing for a page that no longer exists",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "4ef1eb4",
+        "message": "the last two hand-rolled CSV parsers are gone",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "8a7cffb",
+        "message": "the stage counts read the envelope's total",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fbc49fb",
+        "message": "derive the query allow-lists from the schemas",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "29f5806",
+        "message": "the Data tree's Projects folder follows the mount",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b6b15d2",
+        "message": "retire the filesystem-sync module — the space Data lane is the sync",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "05a3cf2",
+        "message": "reset space-blind index rows and scope artifact docs",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "36e5503",
+        "message": "a rename stops resetting what it never touched, on every lane",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d33f2bd",
+        "message": "the bundle's prose members are HTML, and say so",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "960dc40",
+        "message": "folder rows in the files admin expand in place",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3479237",
+        "message": "close the migration hazards the v0.2.x audit found",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8fa7c03",
+        "message": "give fast-csv the workspace's @types/node, not its own 14",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c2108ea",
+        "message": "the knowledge base is a Data adapter, and the legacy drive lane retires",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ae5def1",
+        "message": "raise sidebar contrast — opaque when pinned, weight for selection",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "960a73c",
+        "message": "stop the space's Settings link bleeding into module sidebars",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b7e35eb",
+        "message": "keep the space rail's stack front tile still while it opens",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "53941f0",
+        "message": "the Contacts root is the address book's index",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4507d96",
+        "message": "the space Data folders are receivables, not a list of five words",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ad31bec",
+        "message": "the app the copilot builds lands in the space's Data tree",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b0ed5c4",
+        "message": "a real list in the folder pane, and modules that own their index",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7928b5f",
+        "message": "a folder is a thing you can open, and its module can render it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7c26784",
+        "message": "one grid for CSV and .xlsx, and a pane that tells the copilot what is open",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0d5bfbd",
+        "message": "the Data tab — files as protocol, one tree, module-rendered nodes",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b33d6da",
+        "message": "connections are mounted per account, agents get grants (Phase CN)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "14a0d8e",
+        "message": "a space home you can ask, over the plan you already have",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fba7926",
+        "message": "contacts, the inbox and time tracking leave the app rail",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "37264c3",
+        "message": "a mount stops claiming a record scope nobody chose",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "61bd00d",
+        "message": "a General section, controls on the right, removals that ask",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "05d43e6",
+        "message": "one modal per mount kind, and a create dialog that only creates",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fe612ac",
+        "message": "space settings become settings, not a second home screen",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a7672ff",
+        "message": "a real space settings page, under the space's own URL",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "02dbf47",
+        "message": "headless task runs follow their task's space; fix appearance saves",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e083e18",
+        "message": "connectors and delegation follow the space too (Phase C3b)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "685c674",
+        "message": "a run reaches only what its space mounts (Phase C3a)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4d9f16e",
+        "message": "the copilot knows its space, and space URLs read like places",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "07e0ee4",
+        "message": "chat lives in a space (Phase C1 + C2)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4095eb3",
+        "message": "restore the check:space-storage-scope gate lost in the rebase",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e060b93",
+        "message": "reconcile the rebase with main",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "92890f4",
+        "message": "scope the predev Supabase check to the worktree's own stack",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4c9080b",
+        "message": "read-only roster, Settings in the sidebar foot, spaces on Team profiles",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "16a4407",
+        "message": "personal spaces have no members; space roster lives in Settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b92de86",
+        "message": "real personal spaces, built the home-directory way",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0ba66df",
+        "message": "one sidebar column with the space on top and modules inside it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3e8f3b8",
+        "message": "bind triggers to a space so fired tasks stay in it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1c9c132",
+        "message": "bind work containers and knowledge bases to a space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "91bd709",
+        "message": "make the space the entry point in the UI",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e0c684a",
+        "message": "add the Space tier between Project and Global",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bf00754",
+        "message": "keep parsed PDFs inspectable with page sentinels and reparse",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2948b4f",
+        "message": "parse chat PDFs without stuffing originals into the prompt",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a6418b8",
+        "message": "call it Fair Source, not open source",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ab19905",
+        "message": "Change slogan",
+        "group": "Other",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.1.137",
-    "timestamp": 1788358580,
+    "timestamp": 1788358583,
     "commits": [
       {
         "id": "f9e6bd6",

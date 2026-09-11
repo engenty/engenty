@@ -27,7 +27,7 @@ export async function scanIndexState(
   source: RetrievalSourceRegistration,
   store: RetrievalStore,
   tenantId: string,
-  options?: { force?: boolean }
+  options?: { force?: boolean; metadata?: Record<string, string> }
 ): Promise<ScanResult> {
   const trimmed = tenantId.trim();
   if (!trimmed) {
@@ -35,6 +35,7 @@ export async function scanIndexState(
   }
   const sourceRows = await source.listDocuments({
     limit: MAX_STATUS_SCAN,
+    ...(options?.metadata ? { metadata: options.metadata } : {}),
     tenant_id: trimmed,
   });
   const indexed = await store.listIndexedDocs(trimmed, source.source_type);

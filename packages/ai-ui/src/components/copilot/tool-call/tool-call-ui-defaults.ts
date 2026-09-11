@@ -7,6 +7,7 @@ import {
   objectRenderToolCallMatch,
 } from "../../../objects/object-render-tool-call-card";
 import { A2uiToolCallCard } from "./a2ui-tool-call-card";
+import { AgentMessageToolCallCard } from "./agent-message-tool-call-card";
 import {
   AppBuildToolCallCard,
   matchesAppBuildOutput,
@@ -28,6 +29,10 @@ import {
   matchesSandboxCommandToolCall,
   SandboxCommandConfirmToolCallCard,
 } from "./sandbox-command-confirm-tool-call-card";
+import {
+  matchesSkillsFindOutput,
+  SkillsFindToolCallCard,
+} from "./skills-find-tool-call-card";
 import { SubAgentTaskToolCallCard } from "./sub-agent-task-tool-call-card";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 import { ToolCallGenericCard } from "./tool-call-generic-card";
@@ -68,9 +73,12 @@ export function registerDefaultToolCallUiCards() {
     // alone routed every suspended chooser to the generic card, which rendered a
     // spinning "Decision needed" row and no way to answer it. Tool-approval
     // cards still arrive as an output artifact under a different tool name, so
-    // both arms are load-bearing.
+    // both arms are load-bearing. `workflow_propose` parks on its Publish card
+    // the same way; once answered, its rich result has no artifact to parse
+    // and the card falls back to the generic row by design.
     match: (ctx) =>
       ctx.toolName === "requestDecision" ||
+      ctx.toolName === "workflow_propose" ||
       matchesDecisionArtifactOutput(ctx.output),
     Card: DecisionArtifactToolCallCard,
   });
@@ -118,10 +126,23 @@ export function registerDefaultToolCallUiCards() {
     Card: AppBuildToolCallCard,
   });
   registerToolCallUi({
+    id: "core.skills-find",
+    priority: 50,
+    match: (ctx) => matchesSkillsFindOutput(ctx),
+    Card: SkillsFindToolCallCard,
+    standalone: true,
+  });
+  registerToolCallUi({
     id: "core.sub-agent-task",
     priority: 80,
     match: (ctx) => ctx.toolName.startsWith("agent-"),
     Card: SubAgentTaskToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.agent-message",
+    priority: 90,
+    match: (ctx) => ctx.toolName === "message_agent",
+    Card: AgentMessageToolCallCard,
   });
 }
 

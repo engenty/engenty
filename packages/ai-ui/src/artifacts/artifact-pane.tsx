@@ -1,4 +1,4 @@
-import { Pane, PaneTabStrip, PaneTopBar } from "@engenty/app-shell";
+import { Pane, PaneTopBar } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button, cn, Spinner } from "@engenty/ui-core";
 import {
@@ -12,9 +12,10 @@ import {
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { ObjectPaneBody } from "../objects/object-pane-body.js";
 import {
-  ArtifactPinMenu,
+  ArtifactMoveMenu,
   type ArtifactStoreTarget,
-} from "./artifact-pin-menu.js";
+} from "./artifact-move-menu.js";
+import { ArtifactPicker, type ArtifactPickerItem } from "./artifact-picker.js";
 import {
   resolveArtifactEditor,
   resolveArtifactRenderer,
@@ -58,6 +59,12 @@ export interface ArtifactPaneProps {
   /** Workspace-file tabs sharing the strip with artifact tabs (see artifact-store). */
   fileTabs?: WorkFilePaneTab[];
   isContentLoading: boolean;
+  /**
+   * The rest of the space's artifacts, offered in the chooser below what the
+   * pane already holds — an artifact belongs to the space, not to the chat
+   * that made it.
+   */
+  library?: ArtifactSummary[];
   /** Module-object tabs sharing the strip with artifact tabs (see artifact-store). */
   objectTabs?: ObjectPaneTab[];
   onActivate: (id: string) => void;
@@ -73,19 +80,21 @@ export interface ArtifactPaneProps {
   }) => Promise<void>;
   onSetExpanded: (expanded: boolean) => void;
   onSetPaneOpen: (open: boolean) => void;
-  /** Store ("pin") the active artifact to a task/project scope; omitting hides the pin menu. */
+  /** Store ("pin") the active artifact to a task/project/space scope; omitting hides the pin menu. */
   onStore?: (target: ArtifactStoreTarget & { artifactId: string }) => void;
   paneExpanded: boolean;
   storePending?: boolean;
+  /** Space offered as a one-click store target (set inside a space). */
+  storeSpaceTarget?: { id: string; name?: string } | null;
   /** Task offered as a one-click store target (set on task detail routes). */
   storeTaskTarget?: { id: string; title?: string } | null;
   style?: CSSProperties;
 }
 
 /**
- * The Artifact Pane: a typed pane whose top bar holds artifact tabs (never
- * mixed with other tab kinds) plus pane controls; the body renders the active
- * artifact via the renderer registry, or its editor while editing.
+ * The Artifact Pane: a typed pane whose top bar holds the artifact chooser
+ * plus pane controls; the body renders the active artifact via the renderer
+ * registry, or its editor while editing.
  * Presentational — the list, active content, and actions are provided by
  * WorkspaceArtifactPane.
  */
@@ -95,6 +104,7 @@ export function ArtifactPane({
   artifacts,
   className,
   isContentLoading,
+  library = [],
   onActivate,
   onClose,
   onSaveContent,
@@ -105,6 +115,7 @@ export function ArtifactPane({
   objectTabs = [],
   paneExpanded,
   storePending,
+  storeSpaceTarget,
   storeTaskTarget,
   style,
 }: ArtifactPaneProps) {
@@ -210,6 +221,41 @@ export function ArtifactPane({
 
   const isEditingActive = Boolean(editing && editing.artifactId === activeId);
 
+  const scopeLabelFor = (artifact: ArtifactSummary) =>
+    artifact.scope_type === "thread"
+      ? null
+      : t(`artifacts.scope.${artifact.scope_type}`);
+  const openItems: ArtifactPickerItem[] = [
+    ...artifacts.map((a) => ({
+      closable: true,
+      id: a.id,
+      label: a.title,
+      scopeLabel: scopeLabelFor(a),
+      type: a.type,
+    })),
+    ...objectTabs.map((tab) => ({
+      closable: true,
+      id: tab.key,
+      label: tab.title,
+      type: "app",
+    })),
+    ...fileTabs.map((tab) => ({
+      closable: true,
+      id: tab.key,
+      label: tab.filename,
+      type: "file",
+    })),
+  ];
+  const openArtifactIds = new Set(artifacts.map((a) => a.id));
+  const libraryItems: ArtifactPickerItem[] = library
+    .filter((a) => !openArtifactIds.has(a.id))
+    .map((a) => ({
+      id: a.id,
+      label: a.title,
+      scopeLabel: scopeLabelFor(a),
+      type: a.type,
+    }));
+
   return (
     <Pane
       aria-label={t("artifacts.paneLabel")}
@@ -275,11 +321,12 @@ export function ArtifactPane({
                   </Button>
                 ) : null}
                 {active && onStore ? (
-                  <ArtifactPinMenu
+                  <ArtifactMoveMenu
                     disabled={storePending}
                     onStore={(target) =>
                       onStore({ ...target, artifactId: active.id })
                     }
+                    spaceTarget={storeSpaceTarget}
                     taskTarget={storeTaskTarget}
                   />
                 ) : null}
@@ -307,16 +354,12 @@ export function ArtifactPane({
             )
           }
         >
-          <PaneTabStrip
+          <ArtifactPicker
             activeId={activeId}
-            closeLabel={t("artifacts.closeTab")}
-            items={[
-              ...artifacts.map((a) => ({ id: a.id, label: a.title })),
-              ...objectTabs.map((tab) => ({ id: tab.key, label: tab.title })),
-              ...fileTabs.map((tab) => ({ id: tab.key, label: tab.filename })),
-            ]}
-            onActivate={onActivate}
+            items={openItems}
+            library={libraryItems}
             onClose={onClose}
+            onSelect={onActivate}
           />
           {/* Stored artifacts carry their home scope; thread scope is implied. */}
           {active && active.scope_type !== "thread" ? (
@@ -335,13 +378,17 @@ export function ArtifactPane({
       {activeObjectTab ? (
         <ObjectPaneBody objectRef={activeObjectTab.ref} />
       ) : activeFileTab ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <WorkFilePreview
             entryKey={activeFileTab.entryKey}
             filename={activeFileTab.filename}
             labels={{
+              extractedTextLoading: t("workPanel.extractedTextLoading"),
               loading: t("workPanel.filePreviewLoading"),
+              noExtractedText: t("workPanel.noExtractedText"),
               noPreview: t("workPanel.fileNoPreview"),
+              original: t("workPanel.original"),
+              parsed: t("workPanel.parsed"),
               truncated: t("workPanel.filePreviewTruncated"),
             }}
           />

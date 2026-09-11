@@ -6,24 +6,36 @@ describe("resolveSandboxStorageRelativePath", () => {
   it("uses run-scoped sandbox prefix by default", () => {
     expect(
       resolveSandboxStorageRelativePath("run", {
+        agentId: "engenty.cli",
         runId: "run-1",
         threadId: "thread-1",
       })
     ).toBe("ai/sandboxes/run-run-1/workspace/");
   });
 
-  it("uses session-scoped prefix when lifecycle is session", () => {
+  it("scopes a session prefix by thread AND agent", () => {
+    // Two agents in one conversation each get their own scratch: sharing the
+    // dir would have two containers writing one staging path.
     expect(
       resolveSandboxStorageRelativePath("session", {
+        agentId: "engenty.cli",
         runId: "run-1",
         threadId: "thread-abc",
       })
-    ).toBe("ai/sandboxes/session-thread-abc/workspace/");
+    ).toBe("ai/sandboxes/session-thread-abc-engenty.cli/workspace/");
+    expect(
+      resolveSandboxStorageRelativePath("session", {
+        agentId: "engenty.copilot",
+        runId: "run-1",
+        threadId: "thread-abc",
+      })
+    ).toBe("ai/sandboxes/session-thread-abc-engenty.copilot/workspace/");
   });
 
   it("uses task checkout path for task lifecycle", () => {
     expect(
       resolveSandboxStorageRelativePath("task", {
+        agentId: "engenty.cli",
         runId: "run-1",
         taskIdentifier: "ENG-142",
         threadId: "thread-1",
@@ -35,6 +47,7 @@ describe("resolveSandboxStorageRelativePath", () => {
 describe("resolveSandboxStorageLayout", () => {
   it("maps storage prefix to local staging path", () => {
     const layout = resolveSandboxStorageLayout({
+      agentId: "engenty.cli",
       lifecycle: "run",
       runId: "abc",
       tenantId: "tenant-1",

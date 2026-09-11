@@ -172,6 +172,35 @@ describe("registry store governance", () => {
     const records = await store.listAgentRecords(TENANT_ID);
     expect(records).toHaveLength(1);
     expect(records[0].status).toBe("proposed");
+    expect(records[0].proposed_space_id).toBeNull();
+  });
+
+  it("proposeAgent on a new id stamps proposed_space_id; a revision does not", async () => {
+    const rows: RegistryAgentRow[] = [];
+    const store = createRegistryStore(createFakeSupabase(rows));
+    const spaceId = "00000000-0000-4000-8000-000000000010";
+
+    const proposed = await store.proposeAgent(TENANT_ID, config(), {
+      proposedByAgent: "engenty.coordinator",
+      proposedSpaceId: spaceId,
+    });
+    expect(proposed.status).toBe("proposed");
+    expect(proposed.proposed_space_id).toBe(spaceId);
+
+    await store.approveAgent(TENANT_ID, "sales.researcher");
+    const afterApprove = await store.getAgentRecord(
+      TENANT_ID,
+      "sales.researcher"
+    );
+    expect(afterApprove?.proposed_space_id).toBeNull();
+
+    const revision = await store.proposeAgent(
+      TENANT_ID,
+      config({ name: "v2" }),
+      { proposedSpaceId: "00000000-0000-4000-8000-000000000099" }
+    );
+    expect(revision.status).toBe("active");
+    expect(revision.proposed_space_id).toBeNull();
   });
 
   it("approveAgent activates a proposal; the runtime then sees it", async () => {

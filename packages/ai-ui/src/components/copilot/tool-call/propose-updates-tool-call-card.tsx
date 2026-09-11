@@ -43,7 +43,7 @@ function ProposeUpdatesResolvedCard({
   title?: string;
 }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+    <section className="rounded-lg border border-border-soft bg-muted/20 px-3 py-2.5">
       <p className="font-medium text-foreground/90 text-sm">
         {title ?? "Suggested updates"}
       </p>

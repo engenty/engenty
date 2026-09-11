@@ -3,16 +3,12 @@ import { useQuery } from "@engenty/query-client";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
+import { AgentTasksSection } from "../components/operations/agent-tasks-section.js";
 import { DispatchStatusStrip } from "../components/operations/dispatch-status-strip.js";
-import { OperationsTree } from "../components/operations/operations-tree.js";
-import { UnplannedTasksSection } from "../components/operations/unplanned-tasks-section.js";
 import { useTasksOperationsAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { cancelTaskAgentRun } from "../lib/task-run-observer-api.js";
-import {
-  activeGoalsOptions,
-  dispatchStatusOptions,
-} from "../operations-queries.js";
+import { dispatchStatusOptions } from "../operations-queries.js";
 import { useTaskSettingsQuery } from "../tasks-queries.js";
 
 export function OperationsPage() {
@@ -34,7 +30,6 @@ export function OperationsPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const settingsQuery = useTaskSettingsQuery();
@@ -43,7 +38,6 @@ export function OperationsPage() {
     BUILTIN_TASK_STATUS_DEFINITIONS;
 
   const dispatchQuery = useQuery(dispatchStatusOptions());
-  const goalsQuery = useQuery(activeGoalsOptions());
 
   const handleCancelRun = (runId: string) => {
     void cancelTaskAgentRun(runId, {
@@ -62,14 +56,7 @@ export function OperationsPage() {
 
       <DispatchStatusStrip dispatch={dispatchQuery.data} />
 
-      <OperationsTree
-        definitions={taskStatusDefinitions}
-        goals={goalsQuery.data?.data}
-        goalsLoading={goalsQuery.isLoading}
-        onCancelRun={handleCancelRun}
-      />
-
-      <UnplannedTasksSection
+      <AgentTasksSection
         definitions={taskStatusDefinitions}
         onCancelRun={handleCancelRun}
       />

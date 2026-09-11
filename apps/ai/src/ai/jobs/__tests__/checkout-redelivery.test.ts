@@ -16,6 +16,7 @@ vi.mock("../task-job-run-record.js", () => ({
 }));
 vi.mock("../../../notifications/inbox.js", () => ({
   emitInboxNotification: vi.fn(),
+  resolveNotifications: vi.fn(async () => 0),
 }));
 
 describe("checkoutStep redelivery idempotency", () => {

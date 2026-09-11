@@ -48,3 +48,22 @@ export function parseKbOpenSourceAddFromLocation(
 export function shouldOpenSourceAddFromLocation(state: unknown): boolean {
   return parseKbOpenSourceAddFromLocation(state) !== null;
 }
+
+/**
+ * Query param that opens the add flow after landing on the sources list.
+ *
+ * Router state cannot carry this: a Space rewrites `/mdl/...` to `/s/<key>/...`
+ * with its own navigation, and the state does not survive that hop. A search
+ * param does, and it makes the flow linkable.
+ */
+export const KB_SOURCE_ADD_QUERY_PARAM = "add";
+
+export function kbSourceAddSearch(preset: "wizard"): string {
+  return `?${KB_SOURCE_ADD_QUERY_PARAM}=${preset}`;
+}
+
+/** Reads the add-flow request out of a location's search string. */
+export function parseKbSourceAddFromSearch(search: string): "wizard" | null {
+  const value = new URLSearchParams(search).get(KB_SOURCE_ADD_QUERY_PARAM);
+  return value === "wizard" ? "wizard" : null;
+}

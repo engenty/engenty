@@ -29,7 +29,7 @@ export function ToolApprovalResolvedCard(props: {
     : t("copilot.toolApproval.denied", { defaultValue: "Denied" });
 
   return (
-    <section className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-1.5">
+    <section className="flex items-center gap-2 rounded-lg border border-border-soft bg-muted/20 px-3 py-1.5">
       <Shield
         aria-hidden="true"
         className="size-4 shrink-0 text-muted-foreground"

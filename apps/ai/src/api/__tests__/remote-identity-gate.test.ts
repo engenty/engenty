@@ -13,11 +13,15 @@ import { createIdentityGateHandler } from "../remote-channels.js";
 const ENV_KEYS = ["ENGENTY_AI_SERVICE_SECRET", "PUBLIC_APP_URL"] as const;
 
 /**
- * Mastra 1.55 passes a 4th `ChannelHandlerContext` to every `ChannelHandler`.
- * The gate ignores it (it reads nothing off `mastra`/`requestContext`), but the
- * call sites still have to satisfy the signature.
+ * Mastra 1.55 passes a 4th `ChannelHandlerContext` to every `ChannelHandler`,
+ * and 1.61 made `signalMetadata` a required member of it. The gate ignores the
+ * whole context (it reads nothing off `mastra`/`requestContext`/`signalMetadata`),
+ * but the call sites still have to satisfy the signature.
  */
-const handlerCtx = { requestContext: new RequestContext() };
+const handlerCtx = {
+  requestContext: new RequestContext(),
+  signalMetadata: {},
+};
 let savedEnv: Record<string, string | undefined>;
 
 interface FakeScenario {

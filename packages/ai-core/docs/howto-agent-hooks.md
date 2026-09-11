@@ -60,7 +60,7 @@ know the config came from a function instead of a file.
 | `useModel(id)` | `modelOverride` | Grant-checked downstream exactly like a row's pin — a render can *request* a model, only tenant governance decides. |
 | `usePurpose(p)` | `purpose` | Inherit the tenant's model tier (`chat`, `routing`, `research`, `planning_coding`, `safeguard`). Mutually exclusive with `useModel` — at most one model declaration per render. |
 | `useInstruction(md)` | appended after the returned string | For always-on blocks composed from a custom hook; joined with blank lines. |
-| `useSkillHint(name)` | `skillIds` | Same semantics as `agent.json`'s `skillIds`: a hint in the prompt. `SKILL.md` content still loads on demand via the workspace skill tools — never inlined here. |
+| `useSkillHint(name)` | `skillIds` | Same semantics as `agent.json`'s `skills`: a hint in the prompt. `name` must be a skill this module owns. Other modules' skills become visible through Space mounts, not through this hint. `SKILL.md` content still loads on demand via the workspace skill tools — never inlined here. |
 | `useRegisteredTool(id)` | `toolIds` | Attaches a tool the registry already knows how to resolve. |
 | `useTool(name, def)` | inline, closures allowed | For tools that need to close over local render state (see the phase machine below). Rides a private channel into the assembler's tool merge — never serialized. |
 | `useSubagent(id, alias?)` | `subAgents` | Same as `agent.json`'s `subAgents`. |

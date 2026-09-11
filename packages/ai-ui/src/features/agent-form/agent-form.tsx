@@ -11,6 +11,8 @@ import {
 } from "@engenty/ui-core";
 import { AgentDetailsFields } from "./agent-details-fields";
 import type { AgentDraft } from "./agent-draft";
+import { AgentStartersFields } from "./agent-starters-fields";
+import type { HireSpaceOption } from "./hire-spaces";
 import { SkillPicker } from "./skill-picker";
 import { ToolPicker } from "./tool-picker";
 
@@ -19,9 +21,12 @@ interface AgentFormProps {
   error: string | null;
   idReadOnly?: boolean;
   isSaving: boolean;
+  lockedSpaceName?: string | null;
   onCancel: () => void;
   onChange: (patch: Partial<AgentDraft>) => void;
   onSubmit: () => void;
+  showSpacePicker?: boolean;
+  spaces?: HireSpaceOption[];
 }
 
 export function AgentForm({
@@ -29,9 +34,12 @@ export function AgentForm({
   error,
   idReadOnly = false,
   isSaving,
+  lockedSpaceName,
   onCancel,
   onChange,
   onSubmit,
+  showSpacePicker = false,
+  spaces,
 }: AgentFormProps) {
   const { t } = useTranslation("ai-ui");
   return (
@@ -60,8 +68,13 @@ export function AgentForm({
         <AgentDetailsFields
           draft={draft}
           idReadOnly={idReadOnly}
+          lockedSpaceName={lockedSpaceName}
           onChange={onChange}
+          showSpacePicker={showSpacePicker}
+          spaces={spaces}
         />
+
+        <AgentStartersFields draft={draft} onChange={onChange} />
 
         <Card>
           <CardHeader className="pb-3">

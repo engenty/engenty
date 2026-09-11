@@ -19,10 +19,10 @@ describe("deriveSessionStatsSummary", () => {
 
   it("rolls up running + waiting into active sessions", () => {
     const summary = deriveSessionStatsSummary({
-      sessions_total: 9,
+      threads_total: 9,
       runs_total: 17,
       last_message_at: "2026-05-01T10:00:00.000Z",
-      sessions_by_status: {
+      threads_by_status: {
         idle: 4,
         running: 2,
         waiting: 1,
@@ -41,10 +41,10 @@ describe("deriveSessionStatsSummary", () => {
 
   it("tolerates partial status maps from older payloads", () => {
     const summary = deriveSessionStatsSummary({
-      sessions_total: 2,
+      threads_total: 2,
       runs_total: 0,
       last_message_at: null,
-      sessions_by_status: {
+      threads_by_status: {
         running: 1,
       } as never,
     });

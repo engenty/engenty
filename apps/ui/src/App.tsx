@@ -18,20 +18,21 @@ import { applyDockModuleOrder } from "@engenty/app-shell/navigation";
 import {
   gateFailureToNavigationState,
   getSupabaseAuthClient,
-  refreshSupabaseAuthSession,
   ServiceUnavailablePage,
   useCoreAuthSession,
 } from "@engenty/auth-ui";
 import { isFullPageCopilotChatRoute } from "@engenty/engenty-copilot/paths";
 import { useTranslation } from "@engenty/i18n/ui";
+import type { PostgresChangeRealtimeClient } from "@engenty/live-cache";
+import { NotificationBell } from "@engenty/notifications-ui";
 import { useQueryClient } from "@engenty/query-client";
 import {
   type UiBrandInfo,
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Toaster, toast } from "sonner";
+import { useLocation } from "react-router-dom";
+import { Toaster } from "sonner";
 import { AboutDialog } from "@/components/AboutDialog";
 import { AppErrorCard } from "@/components/AppErrorCard";
 import { AppearanceBootstrap } from "@/components/AppearanceBootstrap";
@@ -40,18 +41,34 @@ import { BrandProbe } from "@/components/BrandProbe";
 import { SidebarUserMenu } from "@/components/layout/SidebarUserMenu";
 import { LiveDataSync } from "@/components/live-data-sync";
 import { NavigationPrefetchRoot } from "@/components/navigation-prefetch-root";
+import { SettingsAboutFooter } from "@/components/settings/SettingsAboutFooter";
+import {
+  SpaceNavCrumbSlot,
+  SpaceNavFooterSlot,
+  SpaceNavLeadingSlot,
+  SpaceNavTitleSlot,
+} from "@/components/spaces/SpaceShellNavSlots";
+import { SpacesRailZone } from "@/components/spaces/SpacesRailZone";
 import { AppActiveCopilotProvider } from "@/copilot/app-active-copilot-provider";
 import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
 import { GuideOverlayHostWithBridge } from "@/copilot/guide-overlay-host-with-bridge";
+import { useCopilotSpaceId } from "@/copilot/use-copilot-space-id";
 import { DesktopBridge } from "@/desktop/DesktopBridge";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
-import { switchCurrentTenant } from "@/lib/api/client";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
 import { buildLiveBindingMaps } from "@/lib/live-bindings";
 import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
 import { useShellDockModuleOrderPersistence } from "@/lib/shell-dock-module-order-persistence";
 import { useShellSecondaryNavPinnedPersistence } from "@/lib/shell-secondary-nav-pinned-persistence";
+import { spaceNavLevel } from "@/lib/space-nav";
+import { spacePlacedModuleIds } from "@/lib/space-route-mirrors";
+import {
+  parseModulePath,
+  parseSpacePath,
+  spaceRootPath,
+} from "@/lib/space-routes";
 import { useAuthenticatedAppBootstrap } from "@/lib/use-authenticated-app-bootstrap";
+import { rememberedSpaceKey, useRouteSpace } from "@/lib/use-route-space";
 import { usePublicUiPluginContributions } from "@/plugins/public-ui-plugin-contributions";
 import { AuthenticatedRoutes } from "@/routes/AuthenticatedRoutes";
 import { UnauthenticatedRoutes } from "@/routes/UnauthenticatedRoutes";
@@ -77,9 +94,15 @@ function EngentyAiShellProvider({
   const frontendTools = useAgentUiFrontendTools();
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
   const stateSnapshot = useAgentUiStateSnapshot();
+  // Which space the copilot's PERSISTED active thread is remembered under.
+  // Same answer the binding provider files new threads with, from one hook, so
+  // the dock cannot resume Company's chat while standing in Marketing
+  // (PLAN-space-chats.md).
+  const copilotSpaceId = useCopilotSpaceId();
 
   return (
     <EngentyAI
+      activeThreadSpaceId={copilotSpaceId}
       agentToolInvalidation={agentToolInvalidation}
       executeFrontendTool={executeFrontendTool}
       formatRequestError={formatCopilotRunError}
@@ -89,7 +112,11 @@ function EngentyAiShellProvider({
       serviceBaseUrl={serviceBaseUrl}
       stateSnapshot={stateSnapshot}
       tenantId={tenantId}
-      threadsRealtimeClient={getSupabaseAuthClient()}
+      threadsRealtimeClient={
+        // Structurally compatible at runtime; live-cache's minimal interface
+        // exists precisely so this file does not import supabase-js types.
+        getSupabaseAuthClient() as unknown as PostgresChangeRealtimeClient
+      }
       userId={userId}
     >
       {children}
@@ -125,9 +152,7 @@ function workspaceErrorToServiceUnavailableState(error: unknown) {
 function App() {
   const { t } = useTranslation("common");
   const location = useLocation();
-  const navigate = useNavigate();
   const { isAuthenticated, loading, error } = useCoreAuthSession();
-  const queryClient = useQueryClient();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [brand, setBrand] = useState<UiBrandInfo>({});
   const appVersion = import.meta.env.VITE_APP_VERSION ?? "";
@@ -153,7 +178,7 @@ function App() {
     [contributions.liveBindings]
   );
 
-  // Brand shown in the sidebar switcher + About dialog. A module (company-profile)
+  // Brand shown in the About footer + About dialog. A module (company-profile)
   // contributes the tenant's own name/logo via `brandSource`; fall back to the
   // product brand when none is set.
   const handleBrandChange = useCallback(
@@ -182,6 +207,83 @@ function App() {
     enabled: shellPersistenceEnabled,
     tenantId: workspaceContext?.currentTenant?.id ?? "",
   });
+
+  // The URL decides which space the shell and every module are in; the server's
+  // default space is only the fallback outside `/s/…`. Resolved above the
+  // loading guard because it is a hook.
+  const routeSpace = useRouteSpace(workspaceContext?.currentSpace ?? null);
+
+  // Inside a space, the shell's secondary column belongs to the SPACE: it names
+  // it on Work/Data/Plan and its tabs sit above whatever the open module
+  // contributes (PLAN-spaces.md Phase 5a). Switching is the rail. One column,
+  // two levels — which is how "no surface shows two sidebars" is honoured
+  // without asking any module to change. Read from the URL, not from
+  // `routeSpace`: that falls back to the tenant default outside `/s/…`, so it
+  // is truthy everywhere and cannot tell us which routes are space routes.
+  const spacePath = parseSpacePath(location.pathname);
+
+  // Hold the space chrome across the `/mdl/…` hop.
+  //
+  // Modules build their internal links from an absolute `/mdl/<module>` base —
+  // `TasksRedirectPage` sends `/s/<key>/tasks` to `/mdl/tasks/briefing` — so a
+  // click inside a space leaves it for a frame or two before LegacyModuleRedirect
+  // lands it back. Without this the column unmounts and remounts in that gap and
+  // the content jumps left and back, which is what read as a page reload.
+  //
+  // Gated on the module being SPACE-PLACED, because only those redirect: a global
+  // app like the inbox stays at `/mdl/` and must not borrow a space's sidebar
+  // just because the user visited one earlier.
+  const spacePlacedModules = useMemo(
+    () => spacePlacedModuleIds(contributions.adminMenuItems),
+    [contributions.adminMenuItems]
+  );
+  const inFlightSpaceNav = useMemo(() => {
+    if (spacePath) {
+      return null;
+    }
+    const legacy = parseModulePath(location.pathname);
+    if (!(legacy && spacePlacedModules.has(legacy.moduleId))) {
+      return null;
+    }
+    const spaceKey = rememberedSpaceKey();
+    return spaceKey ? { moduleId: legacy.moduleId, spaceKey } : null;
+  }, [location.pathname, spacePath, spacePlacedModules]);
+
+  const spaceNav = spacePath
+    ? {
+        moduleId: spacePath.moduleId,
+        // The raw segment, so the space's OWN pages (Data, settings) can read
+        // as active. `moduleId` is deliberately undefined for those.
+        segment: spacePath.segment,
+        spaceKey: spacePath.spaceKey,
+      }
+    : inFlightSpaceNav
+      ? { ...inFlightSpaceNav, segment: inFlightSpaceNav.moduleId }
+      : null;
+
+  const spaceColumnLevel = useMemo(() => {
+    if (!spaceNav) {
+      return null;
+    }
+    return spaceNavLevel(spaceNav.moduleId, contributions.spaceTabs ?? []);
+  }, [contributions.spaceTabs, spaceNav]);
+
+  // Which way the column slides needs no history: going deeper always lands on
+  // the module level and coming back always lands on the space level, so the
+  // destination alone says the direction.
+  const spaceNavTransition = useMemo(() => {
+    if (!(spaceNav && spaceColumnLevel)) {
+      return null;
+    }
+    return {
+      enterFrom:
+        spaceColumnLevel === "module" ? ("right" as const) : ("left" as const),
+      // Keyed on the level, not the module: moving between two Work modules is
+      // a change of contents, not of level, and re-playing the slide there
+      // would animate something the user did not experience as a step.
+      key: `${spaceNav.spaceKey}:${spaceColumnLevel}`,
+    };
+  }, [spaceColumnLevel, spaceNav]);
 
   const orderedSections = useMemo(
     () =>
@@ -285,6 +387,9 @@ function App() {
   const isSuperAdmin = workspaceContext.isSuperAdmin;
   const isTenantAdmin = workspaceContext.isTenantAdmin;
   const aiServiceBaseUrl = resolveEngentyAiServiceBaseUrl() ?? "";
+  const onSettingsChrome =
+    location.pathname.startsWith("/settings") ||
+    location.pathname.startsWith("/setup");
 
   // Portal paths render without the app shell for a neutral/standalone look
   if (isPortalPath) {
@@ -312,6 +417,10 @@ function App() {
       <CopilotShellProvider
         copilotLayout={copilotLayoutPersistence}
         defaultDockMode="mini-floating"
+        hideCopilotChrome={
+          isFullPageCopilotChatRoute(location.pathname) ||
+          isModuleHubChatRoute(location.pathname)
+        }
         pathname={location.pathname}
       >
         <EngentyAiShellProvider
@@ -330,10 +439,7 @@ function App() {
               tenantId={workspaceContext.currentTenant?.id ?? ""}
               userId={workspaceContext.userId}
             />
-            <DesktopBridge
-              sections={orderedSections}
-              tenantId={workspaceContext.currentTenant?.id ?? ""}
-            />
+            <DesktopBridge sections={orderedSections} />
             {contributions.backgroundComponents.map((entry) => (
               <entry.component key={entry.id} />
             ))}
@@ -349,6 +455,8 @@ function App() {
             <UiContributionsProvider contributions={contributions}>
               <AppLayout
                 appMenuActions={appMenuActions}
+                currentSpace={routeSpace}
+                currentTenant={workspaceContext.currentTenant}
                 currentUserId={workspaceContext.userId}
                 defaultTopbarTitle={t("navigation.dashboard")}
                 fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
@@ -356,7 +464,58 @@ function App() {
                 isTenantAdmin={isTenantAdmin}
                 modulesReorderable={isTenantAdmin || isSuperAdmin}
                 onModulesReorder={dockModuleOrderPersistence.setOrder}
+                railEndSlot={<NotificationBell />}
+                secondaryNavFooterSlot={
+                  spaceNav ? (
+                    <SpaceNavFooterSlot
+                      moduleId={spaceNav.moduleId}
+                      spaceKey={spaceNav.spaceKey}
+                    />
+                  ) : onSettingsChrome ? (
+                    <SettingsAboutFooter
+                      aboutLabel={t("sidebar.appMenu.about")}
+                      appVersion={appVersion}
+                      brandLabel={brandName}
+                      logoUrl={brandLogoUrl}
+                      onAboutClick={() => setAboutOpen(true)}
+                      planLabel={
+                        workspaceContext.planLabel || t("sidebar.plan")
+                      }
+                    />
+                  ) : undefined
+                }
+                secondaryNavHeaderOverride={
+                  spaceNav ? (
+                    <SpaceNavTitleSlot spaceKey={spaceNav.spaceKey} />
+                  ) : undefined
+                }
+                secondaryNavLeadingSlot={
+                  spaceNav ? (
+                    <SpaceNavLeadingSlot
+                      moduleId={spaceNav.moduleId}
+                      segment={spaceNav.segment}
+                      spaceKey={spaceNav.spaceKey}
+                    />
+                  ) : undefined
+                }
                 secondaryNavPersistence={secondaryNavPersistence}
+                // Collapsed, the column takes the name with it. Put that
+                // identity on the trail — tile + name, shrinking to the tile
+                // when the path is long or the screen is narrow. Switching
+                // stays on the rail.
+                secondaryNavRouteBreadcrumb={
+                  spaceNav
+                    ? {
+                        compactKept: true,
+                        label: (
+                          <SpaceNavCrumbSlot spaceKey={spaceNav.spaceKey} />
+                        ),
+                        menuLabel: routeSpace?.name ?? spaceNav.spaceKey,
+                        to: spaceRootPath(spaceNav.spaceKey),
+                      }
+                    : null
+                }
+                secondaryNavRouteTransition={spaceNavTransition ?? undefined}
                 sections={orderedSections}
                 shell={{
                   appTitle: t("sidebar.brand"),
@@ -366,41 +525,6 @@ function App() {
                   }),
                   searchShortcut: "K",
                   userMenu: (compact) => <SidebarUserMenu compact={compact} />,
-                  tenantSwitcher: {
-                    currentTenant: workspaceContext.currentTenant,
-                    availableTenants: workspaceContext.tenants,
-                    canSwitchTenant:
-                      workspaceContext.canSwitchTenant && isSuperAdmin,
-                    onSwitchTenant: async (tenantId: string) => {
-                      await switchCurrentTenant(tenantId);
-                      try {
-                        await refreshSupabaseAuthSession();
-                      } catch {
-                        toast.error(
-                          "Tenant switched, but live updates need a fresh sign-in. Please reload or sign in again."
-                        );
-                      }
-                      await queryClient.invalidateQueries({
-                        queryKey: ["workspace-context"],
-                      });
-                      await queryClient.invalidateQueries({
-                        queryKey: ["tasks"],
-                      });
-                      await queryClient.invalidateQueries({
-                        queryKey: ["engenty-copilot", "agent-sessions"],
-                      });
-                    },
-                    brandLabel: brandName,
-                    logoUrl: brandLogoUrl,
-                    planLabel: workspaceContext.planLabel || t("sidebar.plan"),
-                    noTenantLabel: t("sidebar.tenantSwitcher.noTenant"),
-                    switchTenantAriaLabel: t("sidebar.appMenu.aria"),
-                    appVersion,
-                    settingsLabel: t("sidebar.appMenu.settings"),
-                    onOpenSettings: () => navigate("/settings"),
-                    aboutLabel: t("sidebar.appMenu.about"),
-                    onAboutClick: () => setAboutOpen(true),
-                  },
                 }}
                 shellUiHost={
                   <>
@@ -408,6 +532,7 @@ function App() {
                     <GuideOverlayHostWithBridge />
                   </>
                 }
+                spacesZone={<SpacesRailZone />}
               >
                 <NavigationPrefetchRoot
                   navigationPrefetch={contributions.navigationPrefetch}

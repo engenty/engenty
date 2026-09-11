@@ -67,7 +67,6 @@ export interface KbAddInTreeDialogProps {
   /** Initial mode the dialog opens with. */
   defaultMode?: KbAddInTreeMode;
   kbId: string;
-  kbSlug: string;
   /** When true, the page/sub-category mode toggle is hidden. */
   lockMode?: boolean;
   /** Callback fired after a category is successfully created (e.g. expand it). */
@@ -85,7 +84,6 @@ export function KbAddInTreeDialog(props: KbAddInTreeDialogProps) {
     defaultCategoryIdForRootPage,
     defaultMode = "category",
     kbId,
-    kbSlug,
     lockMode = false,
     onCategoryCreated,
     onClose,
@@ -232,7 +230,7 @@ export function KbAddInTreeDialog(props: KbAddInTreeDialogProps) {
       await queryClient.invalidateQueries({ queryKey: kbArticleKeys.all });
       toast.success(t("sidebar.tree_page_created"));
       onClose();
-      navigate(kbArticleEditPath(kbSlug, created.id));
+      navigate(kbArticleEditPath(created.id));
     } catch (err) {
       toast.error(
         err instanceof Error

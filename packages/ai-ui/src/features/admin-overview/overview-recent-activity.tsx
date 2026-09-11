@@ -65,7 +65,7 @@ export function OverviewRecentActivity() {
         </p>
       ) : null}
       {entries.length > 0 ? (
-        <div className="ui-canvas-raised overflow-hidden rounded-md bg-card">
+        <div className="ui-card-raised overflow-hidden">
           {entries.map((entry) => (
             <ActivityFeedItem
               agentName={

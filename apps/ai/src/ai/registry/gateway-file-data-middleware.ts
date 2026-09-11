@@ -1,15 +1,16 @@
 // Normalizes `file` parts in the model prompt so attachments survive the
-// Vercel AI Gateway. Mastra's Session file path leaves `data` as the string it
-// was handed (raw base64 / data URL), but the wire format is the AI SDK v4
-// `SharedV4FileData` discriminated union — inline bytes must be
-// `{ type: "data", data: <base64 string> }`. Two rejected alternatives, kept
-// for the record:
-//   - a bare string fails the remote schema ("expected object, received
-//     string");
-//   - `{ type: "data", data: <Uint8Array> }` is valid per spec but triggers
-//     the gateway provider's local `maybeEncodeFileParts`, which rewrites it
-//     to `{ type: "url", url: "data:..." }` — forwarded to Vertex as a
-//     fileUri, which Google rejects.
+// Vercel AI Gateway. Inline bytes must be `{ type: "data", data: <base64 string> }`.
+//
+// Shapes that fail on the wire (kept for the record):
+//   - a bare string — remote schema ("expected object, received string")
+//   - `{ type: "data", data: <Uint8Array> }` — the gateway's `maybeEncodeFileParts`
+//     rewrites it to `{ type: "url", url: "data:..." }`, forwarded to Vertex as a
+//     fileUri, which Google rejects
+//   - `{ type: "url", url: "data:..." }` — same fileUri rejection
+//
+// Mastra's llmPrompt downloads `data:` URLs (gateway `supportedUrls` is https-only)
+// into a Uint8Array before this middleware runs. We must untag that result too,
+// not only the original string data-URL path.
 import type { LanguageModelMiddleware } from "ai";
 
 const DATA_URL_PATTERN = /^data:([^;,]*)(;base64)?,(.*)$/s;
@@ -44,25 +45,112 @@ function toDiscriminatedData(data: string): {
   return { data: { data, type: "data" } };
 }
 
-function normalizePart(part: unknown): unknown {
+function bytesToBase64(bytes: Uint8Array | ArrayBuffer): string {
+  return Buffer.from(
+    bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  ).toString("base64");
+}
+
+function dataUrlFromUnknown(value: unknown): string | null {
+  if (typeof value === "string" && value.startsWith("data:")) {
+    return value;
+  }
+  if (value instanceof URL && value.protocol === "data:") {
+    return value.toString();
+  }
+  return null;
+}
+
+function withMediaType(
+  part: object,
+  mediaType: string | undefined
+): Record<string, unknown> {
+  const record = part as { mediaType?: string };
+  if (mediaType && !record.mediaType) {
+    return { ...record, mediaType };
+  }
+  return record;
+}
+
+function taggedDataPart(
+  part: object,
+  data: { data: string; type: "data" } | { type: "url"; url: string },
+  mediaType?: string
+): unknown {
+  return {
+    ...withMediaType(part, mediaType),
+    data,
+  };
+}
+
+function normalizeTaggedData(part: object, tagged: object): unknown {
+  const record = tagged as { data?: unknown; type?: unknown; url?: unknown };
+  if (record.type === "data") {
+    if (
+      record.data instanceof Uint8Array ||
+      record.data instanceof ArrayBuffer
+    ) {
+      return taggedDataPart(part, {
+        data: bytesToBase64(record.data),
+        type: "data",
+      });
+    }
+    if (typeof record.data === "string") {
+      const dataUrl = dataUrlFromUnknown(record.data);
+      if (dataUrl) {
+        const converted = toDiscriminatedData(dataUrl);
+        return converted
+          ? taggedDataPart(part, converted.data, converted.mediaType)
+          : part;
+      }
+      // Already a base64 string — the wire shape we want.
+      return part;
+    }
+    return part;
+  }
+  if (record.type === "url") {
+    const dataUrl = dataUrlFromUnknown(record.url);
+    if (!dataUrl) {
+      return part;
+    }
+    const converted = toDiscriminatedData(dataUrl);
+    return converted
+      ? taggedDataPart(part, converted.data, converted.mediaType)
+      : part;
+  }
+  return part;
+}
+
+export function normalizeGatewayFilePart(part: unknown): unknown {
   if (!part || typeof part !== "object") {
     return part;
   }
   const record = part as { data?: unknown; mediaType?: string; type?: string };
-  if (record.type !== "file" || typeof record.data !== "string") {
+  if (record.type !== "file") {
     return part;
   }
-  const converted = toDiscriminatedData(record.data);
+
+  const { data } = record;
+  if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
+    return taggedDataPart(record, { data: bytesToBase64(data), type: "data" });
+  }
+  if (data instanceof URL) {
+    const converted = toDiscriminatedData(data.toString());
+    return converted
+      ? taggedDataPart(record, converted.data, converted.mediaType)
+      : part;
+  }
+  if (data && typeof data === "object") {
+    return normalizeTaggedData(record, data);
+  }
+  if (typeof data !== "string") {
+    return part;
+  }
+  const converted = toDiscriminatedData(data);
   if (!converted) {
     return part;
   }
-  return {
-    ...record,
-    data: converted.data,
-    ...(converted.mediaType && !record.mediaType
-      ? { mediaType: converted.mediaType }
-      : {}),
-  };
+  return taggedDataPart(record, converted.data, converted.mediaType);
 }
 
 export const gatewayFileDataMiddleware: LanguageModelMiddleware = {
@@ -78,7 +166,7 @@ export const gatewayFileDataMiddleware: LanguageModelMiddleware = {
       }
       return {
         ...(message as object),
-        content: content.map((part) => normalizePart(part)),
+        content: content.map((part) => normalizeGatewayFilePart(part)),
       };
     });
     return Promise.resolve({

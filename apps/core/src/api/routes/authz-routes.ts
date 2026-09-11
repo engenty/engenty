@@ -4,6 +4,7 @@ import { createCoreUsersDal } from "../../dal/core-users.js";
 import {
   assignRole,
   listAssignmentsForTenant,
+  listTenantAgents,
   unassignRole,
 } from "../../dal/role-assignments.js";
 import {
@@ -305,6 +306,21 @@ export function registerAuthzRoutes(params: {
       tenantId
     );
     return jsonApiSuccess(c, { assignments });
+  });
+
+  // The agent principals a role can be granted to — the agent-shaped sibling of
+  // GET /api/users, which the assignment picker already uses for people.
+  app.get("/api/tenants/:tenantId/agents", async (c) => {
+    const auth = await resolveRouteAuth(c, config);
+    if (!auth) {
+      return jsonApiError(c, 401, { message: "Unauthorized" });
+    }
+    const tenantId = c.req.param("tenantId");
+    if (!auth.isPlatformSuperAdmin && auth.tenantId !== tenantId) {
+      return jsonApiError(c, 403, { message: "Forbidden" });
+    }
+    const agents = await listTenantAgents(serviceClient(), tenantId);
+    return jsonApiSuccess(c, { agents });
   });
 
   app.post("/api/tenants/:tenantId/role-assignments", async (c) => {

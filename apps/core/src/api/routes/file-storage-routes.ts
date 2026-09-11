@@ -5,6 +5,7 @@ import {
   createSupabaseFileStorageProvider,
   type FileStorageService,
   FileStorageTenantScopeError,
+  fileStorageExplorerPathLabel,
   guessFileStorageMimeFromFilename,
   inboxMessageIdFromFileStorageKey,
   isFileStorageOfficePdfPreviewMime,
@@ -16,6 +17,7 @@ import {
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { OpenAPIHono } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import type { Context } from "hono";
 import { createDatabaseAdapter } from "../../infra/index.js";
@@ -26,6 +28,11 @@ import {
 import { renderPdfFirstPageWebp } from "../../lib/pdf-first-page-webp.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireAuth } from "./authz.js";
+import {
+  applyExplorerFileOverlay,
+  applyExplorerFolderOverlay,
+  loadExplorerLabelMaps,
+} from "./file-storage-explorer-labels.js";
 import {
   assertKeyInTenant,
   FILE_EXPLORER_BUCKETS,
@@ -74,9 +81,14 @@ function isFileStorageThumbWebpSidecarKey(key: string): boolean {
   return key.endsWith(FILE_STORAGE_THUMB_WEBP_SUFFIX);
 }
 
+function isFileStorageExtractMarkdownSidecarKey(key: string): boolean {
+  return key.endsWith(".extracted.md");
+}
+
 function isFileStorageListingHiddenKey(key: string): boolean {
   return (
     isFileStorageExtractSidecarKey(key) ||
+    isFileStorageExtractMarkdownSidecarKey(key) ||
     isFileStoragePreviewPdfSidecarKey(key) ||
     isFileStorageThumbWebpSidecarKey(key)
   );
@@ -139,6 +151,20 @@ async function loadOrCreateOfficePreviewPdf(
   return { ok: true, pdf };
 }
 
+function parseDocConverterProvider(
+  raw: unknown
+): import("@engenty/doc-converter").ConverterProviderName | undefined {
+  if (
+    raw === "local" ||
+    raw === "liteparse" ||
+    raw === "llamaparse" ||
+    raw === "mistral" ||
+    raw === "gemini"
+  ) {
+    return raw;
+  }
+}
+
 async function resolveDocConverterConfig(
   config: Record<string, unknown>,
   tenantId: string | null
@@ -154,16 +180,8 @@ async function resolveDocConverterConfig(
   const row = await repo.get(TENANT_AI_CONFIG_KEY);
   const tenantAi = parseTenantAiSettings(row?.value);
   const dc = tenantAi.doc_converter;
-  const p = dc?.provider ?? "local";
   return {
-    provider:
-      p === "llamaparse" ||
-      p === "mistral" ||
-      p === "gemini" ||
-      p === "liteparse" ||
-      p === "local"
-        ? p
-        : "local",
+    provider: parseDocConverterProvider(dc?.provider) ?? "local",
     gemini_model: dc?.gemini_model ?? undefined,
     mistral_model: dc?.mistral_model ?? undefined,
   };
@@ -223,8 +241,9 @@ function createFileStorageServiceFactory(config: Record<string, unknown>) {
 export function registerFileStorageRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
+  getTenantDb?: ((auth: { tenantId: string }) => SupabaseClient) | null;
 }) {
-  const { app, config } = params;
+  const { app, config, getTenantDb } = params;
 
   let _factory: ReturnType<typeof createFileStorageServiceFactory> | undefined;
   const getFactory = () => {
@@ -278,6 +297,16 @@ export function registerFileStorageRoutes(params: {
       };
     }
     return { bucket, bucketId: bucket.id, service: factory(bucket.id) };
+  }
+
+  async function explorerLabels(
+    tenantId: string | null | undefined,
+    paths: { keys?: readonly string[]; prefixes?: readonly string[] }
+  ) {
+    if (!(tenantId && getTenantDb)) {
+      return { files: {}, segments: {}, titles: {} };
+    }
+    return loadExplorerLabelMaps(getTenantDb({ tenantId }), tenantId, paths);
   }
 
   // ── GET /api/file-storage/buckets — list known buckets ──
@@ -386,12 +415,10 @@ export function registerFileStorageRoutes(params: {
         const result = service.listChildren
           ? await service.listChildren(basePrefix, { limit: 1000 })
           : { folders: [], files: (await service.list(basePrefix)).files };
-        const folders = result.folders
-          .map((d) => ({
-            name: d.name,
-            prefix: relativeToTenantRoot(bucket, tenantId as string, d.prefix),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
+        const rawFolders = result.folders.map((d) => ({
+          name: d.name,
+          prefix: relativeToTenantRoot(bucket, tenantId as string, d.prefix),
+        }));
         const files: typeof result.files = [];
         for (const entry of result.files) {
           if (isFileStorageListingHiddenKey(entry.key)) {
@@ -401,15 +428,32 @@ export function registerFileStorageRoutes(params: {
           withRelKey(entry);
           files.push(entry);
         }
+        const queryPrefix = c.req.query("prefix") ?? "";
+        const maps = await explorerLabels(tenantId, {
+          keys: files.map((file) => file.key),
+          prefixes: [queryPrefix, ...rawFolders.map((folder) => folder.prefix)],
+        });
+        const folders = rawFolders
+          .map((folder) => applyExplorerFolderOverlay(folder, maps))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        for (const file of files) {
+          applyExplorerFileOverlay(file, maps);
+        }
         return jsonApiSuccess(
           c,
-          { folders, files },
+          { folders, files, segment_labels: maps.segments },
           { meta: { total: folders.length + files.length, bucket: bucket.id } }
         );
       }
 
       // Flat (recursive) listing — used for search and back-compat callers.
       const allFiles = await walkFiles();
+      const maps = await explorerLabels(tenantId, {
+        keys: allFiles.map((file) => file.key),
+      });
+      for (const file of allFiles) {
+        applyExplorerFileOverlay(file, maps);
+      }
       const paged = allFiles.slice(0, limit);
       return jsonApiSuccess(c, paged, {
         meta: {
@@ -457,7 +501,18 @@ export function registerFileStorageRoutes(params: {
         signed: true,
         expiresIn: 3600,
       });
-      return jsonApiSuccess(c, { url, key, bucket: resolved.bucketId });
+      const maps = await explorerLabels(tenantId, { keys: [key] });
+      const overlay = maps.files[key];
+      const filename = overlay?.filename ?? key.split("/").pop() ?? key;
+      return jsonApiSuccess(c, {
+        url,
+        key,
+        bucket: resolved.bucketId,
+        filename,
+        ...(overlay?.mimeType ? { mime_type: overlay.mimeType } : {}),
+        path_label: fileStorageExplorerPathLabel(key, maps.segments),
+        segment_labels: maps.segments,
+      });
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));
       logger.error("File storage getUrl failed", { error: error.message, key });
@@ -677,12 +732,7 @@ export function registerFileStorageRoutes(params: {
     }
 
     const key = c.req.query("key");
-    if (
-      !key ||
-      isFileStorageExtractSidecarKey(key) ||
-      isFileStoragePreviewPdfSidecarKey(key) ||
-      isFileStorageThumbWebpSidecarKey(key)
-    ) {
+    if (!key || isFileStorageListingHiddenKey(key)) {
       return jsonApiError(c, 400, { message: "Missing or invalid 'key'" });
     }
 
@@ -762,12 +812,7 @@ export function registerFileStorageRoutes(params: {
     }
 
     const key = c.req.query("key");
-    if (
-      !key ||
-      isFileStorageExtractSidecarKey(key) ||
-      isFileStoragePreviewPdfSidecarKey(key) ||
-      isFileStorageThumbWebpSidecarKey(key)
-    ) {
+    if (!key || isFileStorageListingHiddenKey(key)) {
       return jsonApiError(c, 400, { message: "Missing or invalid 'key'" });
     }
 
@@ -941,12 +986,7 @@ export function registerFileStorageRoutes(params: {
     }
 
     const key = c.req.query("key");
-    if (
-      !key ||
-      isFileStorageExtractSidecarKey(key) ||
-      isFileStoragePreviewPdfSidecarKey(key) ||
-      isFileStorageThumbWebpSidecarKey(key)
-    ) {
+    if (!key || isFileStorageListingHiddenKey(key)) {
       return jsonApiError(c, 400, { message: "Missing or invalid 'key'" });
     }
 
@@ -991,9 +1031,13 @@ export function registerFileStorageRoutes(params: {
       return authResult.error;
     }
 
-    let body: { key?: string; bucket?: string };
+    let body: { bucket?: string; key?: string; provider?: string };
     try {
-      body = (await c.req.json()) as { key?: string; bucket?: string };
+      body = (await c.req.json()) as {
+        bucket?: string;
+        key?: string;
+        provider?: string;
+      };
     } catch {
       return jsonApiError(c, 400, { message: "Invalid JSON body" });
     }
@@ -1008,12 +1052,7 @@ export function registerFileStorageRoutes(params: {
     }
 
     const key = typeof body.key === "string" ? body.key.trim() : "";
-    if (
-      !key ||
-      isFileStorageExtractSidecarKey(key) ||
-      isFileStoragePreviewPdfSidecarKey(key) ||
-      isFileStorageThumbWebpSidecarKey(key)
-    ) {
+    if (!key || isFileStorageListingHiddenKey(key)) {
       return jsonApiError(c, 400, { message: "Missing or invalid 'key'" });
     }
 
@@ -1029,8 +1068,12 @@ export function registerFileStorageRoutes(params: {
       config,
       authResult.auth.tenantId
     );
+    const providerOverride = parseDocConverterProvider(body.provider);
     const { Converter } = await import("@engenty/doc-converter");
-    const converter = new Converter(converterConfig);
+    const converter = new Converter({
+      ...converterConfig,
+      ...(providerOverride ? { provider: providerOverride } : {}),
+    });
 
     if (!converter.canConvert(mimeType)) {
       return jsonApiError(c, 400, {

@@ -1,4 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  EngentyCoreClient,
+  getEngentyCoreBaseUrlFromEnv,
+} from "../../ai/core-http-client.js";
+import {
+  getServiceAccessToken,
+  isServiceCredentialConfigured,
+} from "../../ai/service-credential.js";
 
 /**
  * Resolves the core.agents principal uuid for an AI-plane agent key
@@ -7,19 +15,42 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * Registry agents carry the mapping on ai.engenty_ai_agents.core_agent_id.
  * Builtin agents have no registry row, so their principal is found-or-created
- * by (tenant_id, name) — race-safe via the agents_tenant_name_key unique
- * index. Idempotent; the registry mapping column is written back when a
- * registry row exists without one.
+ * through CORE (`core_agents_ensure`), which also attaches the module's read
+ * role the first time an agent appears — a module agent that cannot read its
+ * own module is broken on arrival. Minting lives in core because an agent
+ * principal is an authz subject and the grant is an authz write; the AI plane
+ * knows keys, core knows what a key means as a subject.
+ *
+ * Idempotent; the registry mapping column (an AI-plane table) is written back
+ * here when a registry row exists without one.
  */
-
-interface CoreAgentRow {
-  id: string;
-}
 
 const cache = new Map<string, string>();
 
 function cacheKey(tenantId: string, agentKey: string): string {
   return `${tenantId}:${agentKey}`;
+}
+
+/** Ask core to find-or-create the principal. Returns null when unconfigured. */
+async function ensureViaCore(
+  tenantId: string,
+  agentKey: string
+): Promise<string | null> {
+  if (!isServiceCredentialConfigured()) {
+    return null;
+  }
+  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+  const accessToken = await getServiceAccessToken({ tenantId });
+  if (!(coreBaseUrl && accessToken)) {
+    return null;
+  }
+  const result = (await new EngentyCoreClient({
+    accessToken,
+    coreBaseUrl,
+  }).invokeTool("core_agents_ensure", { name: agentKey })) as {
+    id?: string;
+  } | null;
+  return result?.id ?? null;
 }
 
 export async function ensureCoreAgentId(
@@ -33,7 +64,6 @@ export async function ensureCoreAgentId(
   }
 
   const ai = client.schema("ai");
-  const core = client.schema("core");
 
   const { data: registryRow, error: registryError } = await ai
     .from("engenty_ai_agents")
@@ -51,18 +81,12 @@ export async function ensureCoreAgentId(
     return linked;
   }
 
-  const { data: agentRow, error: upsertError } = await core
-    .from("agents")
-    .upsert(
-      { tenant_id: tenantId, name: agentKey, status: "active" },
-      { onConflict: "tenant_id, name" }
-    )
-    .select("id")
-    .single();
-  if (upsertError) {
-    throw new Error(`ensureCoreAgentId: ${upsertError.message}`);
+  const coreAgentId = await ensureViaCore(tenantId, agentKey);
+  if (!coreAgentId) {
+    throw new Error(
+      "ensureCoreAgentId: core could not mint the agent principal (service credential or core base URL missing)"
+    );
   }
-  const coreAgentId = (agentRow as CoreAgentRow).id;
 
   if (registryRow) {
     const { error: linkError } = await ai

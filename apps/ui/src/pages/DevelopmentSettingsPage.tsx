@@ -45,7 +45,6 @@ export function DevelopmentSettingsPage() {
 
   usePageConfig({
     breadcrumbs,
-    topbarChrome: "contentBlend",
     secondaryNavHeaderSlot,
   });
 

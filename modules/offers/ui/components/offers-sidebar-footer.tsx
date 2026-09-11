@@ -11,7 +11,7 @@ export function OffersSidebarFooter({ pathname }: OffersSidebarFooterProps) {
   const { t } = useTranslation("offers");
 
   return (
-    <div className="shrink-0 border-border/50 border-t pt-2 pr-1 pb-2">
+    <div className="shrink-0 border-border-soft border-t pt-2 pr-1 pb-2">
       <SidebarNavList>
         <SidebarNavRow
           active={pathname === "/mdl/offers/settings"}

@@ -234,6 +234,18 @@ function ListToolbarFilterToggle({
         className
       )}
       onClick={onClick}
+      // Keep the mouse press from moving focus into the search wrapper.
+      //
+      // This button is anchored to the right edge of ListToolbarSearch, which
+      // widens on `focus-within` (measured: 196px → 448px). Taking focus on
+      // mousedown therefore slides the button ~250px right, out from under the
+      // cursor — mouseup lands somewhere else and the browser never synthesizes
+      // a click. The first press only expanded the field; the filter row stayed
+      // shut. Suppressing the focus keeps the button still, so the click lands.
+      //
+      // Mouse focus only: Tab still reaches the button and Enter/Space still
+      // fire onClick, which is position-independent.
+      onMouseDown={(event) => event.preventDefault()}
       type="button"
     >
       <span className="relative inline-flex">

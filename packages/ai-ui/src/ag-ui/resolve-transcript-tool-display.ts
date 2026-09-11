@@ -1,4 +1,5 @@
 import { readDecisionResumeAnswer } from "@engenty/ai-core/browser";
+import { readAgentDisplayName } from "./agent-display-names.js";
 import {
   isToolApprovalArtifactOutput,
   parseToolApprovalResolution,
@@ -613,13 +614,24 @@ export function resolveTranscriptToolDisplay(
   };
 }
 
-// Known sub-agent IDs mapped to human-readable display names.
+// Platform agents that never appear in a tenant's agent catalog, so nothing
+// can publish a name for them.
 const AGENT_ID_DISPLAY_NAMES: Record<string, string> = {
   engenty_cli: "CLI Agent",
+  file_analyst: "File Analyst",
 };
 
+/**
+ * A run hands us an agent ID, never a name. Prefer the name a surface has
+ * actually loaded ({@link registerAgentDisplayNames}); the humanised id is the
+ * last resort, and is what made a delegation read as "Inbox.Overview".
+ */
 export function resolveAgentDisplayName(agentId: string): string {
-  return AGENT_ID_DISPLAY_NAMES[agentId] ?? humanizeSegment(agentId);
+  return (
+    readAgentDisplayName(agentId) ??
+    AGENT_ID_DISPLAY_NAMES[agentId] ??
+    humanizeSegment(agentId)
+  );
 }
 
 function resolveAgentToolDisplay(wireToolName: string): {

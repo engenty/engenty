@@ -25,7 +25,8 @@
   "dependencies": {
     "@engenty/feature-flags": "workspace:*",
     "@engenty/retrieval": "workspace:*",
-    "@engenty/search-index": "workspace:*"
+    "@engenty/search-index": "workspace:*",
+    "yaml": "2.9.0"
   },
   "peerDependencies": {
     "commander": ">=11.0.0",

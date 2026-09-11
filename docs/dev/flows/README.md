@@ -1,8 +1,8 @@
 # Flow explorer
 
-`index.html` is a fully self-contained, dependency-free page that maps how actions
-travel between apps, packages, and modules. Open it directly in any browser
-(`file://`, a preview panel, or a static server — no siblings needed).
+`index.html` is a fully self-contained, dependency-free page that maps how
+app wiring (HTTP, packages, modules) travels. **This is not the work-model
+Workflow** (the published runnable) — see `docs/content/dev/work-model.md`.
 
 Everything it shows is driven by the JSON document embedded near the bottom of
 `index.html`, inside the clearly marked block:

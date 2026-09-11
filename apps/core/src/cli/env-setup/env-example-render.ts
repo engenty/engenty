@@ -3,6 +3,7 @@ import {
   defaultValueForScope,
   type EnvScope,
   type EnvVarSpec,
+  requirementForScope,
 } from "./env-manifest-types.js";
 
 const GENERATED_HEADER = [
@@ -48,7 +49,11 @@ function renderVar(
     }
   }
   const assignment = `${spec.key}=${templateValue(spec, scope)}`;
-  lines.push(spec.required === "optional" ? `# ${assignment}` : assignment);
+  lines.push(
+    requirementForScope(spec, scope) === "optional"
+      ? `# ${assignment}`
+      : assignment
+  );
   return lines;
 }
 

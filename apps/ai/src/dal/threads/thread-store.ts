@@ -1,13 +1,20 @@
 import { sessionMatchesHostKey } from "../../ai/sessions/thread-host-key.js";
+import { APP_RELEASE_MARKER_KEY } from "../../ai/threads/app-release-marker.js";
 import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
+import { scrubHarmonyLeakFromParts } from "./harmony-leak-scrub.js";
 import type {
   AgentSessionStatus,
+  ThreadAgentRole,
+  ThreadAgentRow,
   ThreadMessageRole,
   ThreadMessageRow,
   ThreadParticipantRole,
   ThreadPrincipalType,
   ThreadRow,
+  ThreadUserParticipantRow,
+  ThreadVisibility,
 } from "./types.js";
+import { THREAD_DM_KEY, THREAD_ROOM_KEY } from "./types.js";
 
 const AI_SCHEMA = "ai";
 
@@ -20,7 +27,14 @@ function mapThreadRow(raw: DbThreadRow): ThreadRow {
 }
 
 function mapMessageRow(raw: DbThreadMessageRow): ThreadMessageRow {
-  return raw;
+  // Read-side Harmony scrub: rows poisoned before the write-side scrub existed
+  // must not keep feeding prompts and snapshots. User rows stay verbatim — a
+  // pasted trace is the user's own content.
+  if (raw.role !== "assistant") {
+    return raw;
+  }
+  const parts = scrubHarmonyLeakFromParts(raw.parts);
+  return parts === raw.parts ? raw : { ...raw, parts: parts as never };
 }
 
 export interface CreateThreadInput {
@@ -30,10 +44,18 @@ export interface CreateThreadInput {
   id?: string;
   metadata?: Record<string, unknown>;
   routeContext?: Record<string, unknown>;
+  /**
+   * The space this chat belongs to (PLAN-spaces.md Phase C2). Undefined leaves
+   * an existing thread's space alone — the RPC coalesces rather than
+   * overwriting, because upsert is also the idempotent re-save path.
+   */
+  spaceId?: string | null;
   status?: AgentSessionStatus;
   summary?: string | null;
   tenantId: string;
   title?: string | null;
+  /** Undefined leaves an existing thread's visibility alone. */
+  visibility?: ThreadVisibility;
   workspaceKey?: string | null;
 }
 
@@ -51,6 +73,18 @@ export interface AppendThreadMessageInput {
   threadId: string;
 }
 
+/** Observational memory on one thread, as the transcript shows it. */
+export interface ThreadObservationalMemoryRow {
+  active_observations: string;
+  buffered_message_ids: string[];
+  generation_count: number;
+  last_observed_at: string | null;
+  last_reflection_at: string | null;
+  observation_token_count: number;
+  observed_message_ids: string[];
+  total_tokens_observed: number;
+}
+
 export interface UpdateThreadMessagePartsInput {
   messageId: string;
   parts: unknown;
@@ -65,6 +99,39 @@ export function createThreadStore(source: DbSource) {
   const { forTenant, service } = normalizeDbSource(source);
   const dbFor = (tenantId: string) => forTenant(tenantId).schema(AI_SCHEMA);
   const serviceDb = () => service.schema(AI_SCHEMA);
+
+  /** The agents of each thread, host first — one query for a whole list. */
+  async function attachAgentMembers(
+    tenantId: string,
+    rows: ThreadRow[]
+  ): Promise<{ members: ThreadAgentRow[]; thread: ThreadRow }[]> {
+    if (rows.length === 0) {
+      return [];
+    }
+    const { data: agents, error } = await dbFor(tenantId)
+      .from("thread_agent")
+      .select()
+      .eq("tenant_id", tenantId)
+      .in(
+        "thread_id",
+        rows.map((row) => row.id)
+      )
+      .order("role", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) {
+      throw new Error(`thread_agent list for rooms: ${error.message}`);
+    }
+    const byThread = new Map<string, ThreadAgentRow[]>();
+    for (const row of (agents ?? []) as ThreadAgentRow[]) {
+      const list = byThread.get(row.thread_id) ?? [];
+      list.push({ ...row });
+      byThread.set(row.thread_id, list);
+    }
+    return rows.map((thread) => ({
+      members: byThread.get(thread.id) ?? [],
+      thread,
+    }));
+  }
 
   return {
     // One RPC, not two writes: the thread row and its owner participant row
@@ -85,6 +152,7 @@ export function createThreadStore(source: DbSource) {
           p_id: input.id ?? null,
           p_metadata: input.metadata ?? {},
           p_route_context: input.routeContext ?? {},
+          p_space_id: input.spaceId ?? null,
           p_status: input.status ?? "idle",
           p_summary: input.summary ?? null,
           p_tenant_id: input.tenantId,
@@ -95,7 +163,37 @@ export function createThreadStore(source: DbSource) {
       if (error) {
         throw new Error(`thread upsert: ${error.message}`);
       }
-      return { thread: mapThreadRow(thread as DbThreadRow) };
+      const row = mapThreadRow(thread as DbThreadRow);
+      // Visibility is not part of the owner RPC: it is set on the row after,
+      // and only when the caller means it.
+      if (input.visibility && row.visibility !== input.visibility) {
+        return {
+          thread: await this.setThreadVisibility({
+            tenantId: input.tenantId,
+            threadId: row.id,
+            visibility: input.visibility,
+          }),
+        };
+      }
+      return { thread: row };
+    },
+
+    async setThreadVisibility(params: {
+      tenantId: string;
+      threadId: string;
+      visibility: ThreadVisibility;
+    }): Promise<ThreadRow> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .update({ visibility: params.visibility })
+        .eq("tenant_id", params.tenantId)
+        .eq("id", params.threadId)
+        .select()
+        .single();
+      if (error) {
+        throw new Error(`thread visibility update: ${error.message}`);
+      }
+      return mapThreadRow(data as DbThreadRow);
     },
 
     async createThread(
@@ -118,6 +216,65 @@ export function createThreadStore(source: DbSource) {
         throw new Error(`thread select: ${error.message}`);
       }
       return (data ? mapThreadRow(data as DbThreadRow) : null) ?? null;
+    },
+
+    /**
+     * Where observational memory stands on this thread: the Mastra record the
+     * observer keeps (`ai.mastra_observational_memory`, scope `thread`). The
+     * table carries no tenant column — callers check thread access first.
+     */
+    async getThreadObservationalMemory(params: {
+      tenantId: string;
+      threadId: string;
+    }): Promise<ThreadObservationalMemoryRow | null> {
+      // Mastra owns this table and it carries no tenant column, so the
+      // tenant-locked handle has nothing to lock on; the service lane reads
+      // it, after the caller has checked access to the thread itself.
+      const { data, error } = await serviceDb()
+        .from("mastra_observational_memory")
+        .select(
+          "threadId,activeObservations,generationCount,lastObservedAtZ,lastReflectionAtZ,observedMessageIds,bufferedMessageIds,observationTokenCount,totalTokensObserved,updatedAtZ"
+        )
+        .eq("threadId", params.threadId)
+        .eq("scope", "thread")
+        .order("updatedAtZ", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`observational memory select: ${error.message}`);
+      }
+      if (!data) {
+        return null;
+      }
+      const row = data as Record<string, unknown>;
+      const ids = (value: unknown): string[] =>
+        Array.isArray(value)
+          ? value.filter((id): id is string => typeof id === "string")
+          : [];
+      return {
+        active_observations:
+          typeof row.activeObservations === "string"
+            ? row.activeObservations
+            : "",
+        buffered_message_ids: ids(row.bufferedMessageIds),
+        generation_count:
+          typeof row.generationCount === "number" ? row.generationCount : 0,
+        last_observed_at:
+          typeof row.lastObservedAtZ === "string" ? row.lastObservedAtZ : null,
+        last_reflection_at:
+          typeof row.lastReflectionAtZ === "string"
+            ? row.lastReflectionAtZ
+            : null,
+        observation_token_count:
+          typeof row.observationTokenCount === "number"
+            ? row.observationTokenCount
+            : 0,
+        observed_message_ids: ids(row.observedMessageIds),
+        total_tokens_observed:
+          typeof row.totalTokensObserved === "number"
+            ? row.totalTokensObserved
+            : 0,
+      };
     },
 
     // SERVICE lane (Phase A residual, commented on purpose): this lookup
@@ -155,7 +312,10 @@ export function createThreadStore(source: DbSource) {
         tenantId: params.tenantId,
         threadId: params.threadId,
       });
-      if (!(thread && thread.created_by_user_id === params.userId)) {
+      // Access is decided by the caller (`canAccessThread`). This write is
+      // tenant + thread only so a space member or task reader can persist HITL
+      // metadata and status on a room they did not create.
+      if (!thread) {
         return { thread: null };
       }
       const patch: Record<string, unknown> = {};
@@ -196,6 +356,25 @@ export function createThreadStore(source: DbSource) {
       return { thread: mapThreadRow(data as DbThreadRow) };
     },
 
+    // Status only, no owner check — the caller is the SERVICE running a headless
+    // task job, and that thread has no `created_by_user_id` for
+    // `updateThreadForUser` to match on. Kept deliberately narrow (one column)
+    // so it cannot become a back door for the fields ownership does guard.
+    async setThreadStatus(params: {
+      status: AgentSessionStatus;
+      tenantId: string;
+      threadId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread")
+        .update({ status: params.status })
+        .eq("tenant_id", params.tenantId)
+        .eq("id", params.threadId);
+      if (error) {
+        throw new Error(`thread status update: ${error.message}`);
+      }
+    },
+
     // Fold keys into metadata against the CURRENT row, in one statement.
     // `updateThreadForUser` takes a whole metadata object and replaces the
     // column, so a caller that only wants to change one key has to read first
@@ -215,7 +394,12 @@ export function createThreadStore(source: DbSource) {
       removeKeys?: string[];
       tenantId: string;
       threadId: string;
-      userId: string;
+      /**
+       * Who is merging, for the RPC's record. Not an access check since
+       * 20260819200000: apps/ai is the gate, and an ownerless room (a pair two
+       * agents opened) merges too.
+       */
+      userId: string | null;
     }): Promise<{ thread: ThreadRow | null }> {
       const { data, error } = await dbFor(params.tenantId)
         .rpc("merge_thread_metadata", {
@@ -230,29 +414,110 @@ export function createThreadStore(source: DbSource) {
       if (error) {
         throw new Error(`thread metadata merge: ${error.message}`);
       }
-      // Zero rows = not owned by this user (or gone); same not-found contract
-      // the read-then-write path had.
+      // Zero rows = gone; same not-found contract the read-then-write path had.
       return { thread: data ? mapThreadRow(data as DbThreadRow) : null };
     },
 
     async listMessagesOrdered(params: {
+      after?: Date;
+      afterExclusive?: boolean;
+      before?: Date;
+      beforeExclusive?: boolean;
+      /**
+       * With `before`: the id of the row at that instant, so a page boundary
+       * falling between two rows written in the same millisecond drops none
+       * of them. The order is (created_at, id), the same one rows come back in.
+       */
+      beforeId?: string;
+      /**
+       * Take `limit` from the END of the thread instead of its start — the
+       * rows a transcript opens on. Still returned oldest first.
+       */
+      latest?: boolean;
       tenantId: string;
       threadId: string;
-      limit?: number;
+      limit?: number | false;
     }): Promise<ThreadMessageRow[]> {
-      const lim = params.limit ?? 500;
+      const pageSize = 1000;
+      const ascending = !params.latest;
+      const messages: DbThreadMessageRow[] = [];
+      let offset = 0;
+      let shouldFetch = true;
+      while (shouldFetch) {
+        let query = dbFor(params.tenantId)
+          .from("thread_message")
+          .select()
+          .eq("tenant_id", params.tenantId)
+          .eq("thread_id", params.threadId)
+          .order("created_at", { ascending })
+          .order("id", { ascending });
+        if (params.after) {
+          const iso = params.after.toISOString();
+          query = params.afterExclusive
+            ? query.gt("created_at", iso)
+            : query.gte("created_at", iso);
+        }
+        if (params.before) {
+          const iso = params.before.toISOString();
+          if (params.beforeId) {
+            query = query.or(
+              `created_at.lt.${iso},and(created_at.eq.${iso},id.lt.${params.beforeId})`
+            );
+          } else {
+            query = params.beforeExclusive
+              ? query.lt("created_at", iso)
+              : query.lte("created_at", iso);
+          }
+        }
+        const requested =
+          params.limit === false ? pageSize : (params.limit ?? 500);
+        const { data, error } =
+          params.limit === false
+            ? await query.range(offset, offset + requested - 1)
+            : await query.limit(requested);
+        if (error) {
+          throw new Error(`thread_message list: ${error.message}`);
+        }
+        const page = (data as DbThreadMessageRow[]) ?? [];
+        messages.push(...page);
+        shouldFetch = params.limit === false && page.length === pageSize;
+        if (shouldFetch) {
+          offset += pageSize;
+        }
+      }
+      if (!ascending) {
+        messages.reverse();
+      }
+      return messages.map(mapMessageRow);
+    },
+
+    async listMessagesByIds(params: {
+      messageIds: string[];
+      tenantId: string;
+    }): Promise<ThreadMessageRow[]> {
+      const ids = [
+        ...new Set(params.messageIds.map((id) => id.trim()).filter(Boolean)),
+      ];
+      if (ids.length === 0) {
+        return [];
+      }
       const { data, error } = await dbFor(params.tenantId)
         .from("thread_message")
         .select()
         .eq("tenant_id", params.tenantId)
-        .eq("thread_id", params.threadId)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(lim);
+        .in("id", ids);
       if (error) {
-        throw new Error(`thread_message list: ${error.message}`);
+        throw new Error(`thread_message list by id: ${error.message}`);
       }
-      return ((data as DbThreadMessageRow[]) ?? []).map(mapMessageRow);
+      const byId = new Map(
+        ((data as DbThreadMessageRow[]) ?? []).map((row) => [
+          row.id,
+          mapMessageRow(row),
+        ])
+      );
+      return ids
+        .map((id) => byId.get(id))
+        .filter((row): row is ThreadMessageRow => row != null);
     },
 
     async appendMessage(
@@ -263,9 +528,44 @@ export function createThreadStore(source: DbSource) {
         tenant_id: input.tenantId,
         thread_id: input.threadId,
         role: input.role,
-        parts: input.parts,
+        // Write-side Harmony scrub: a leaked raw channel must never become
+        // durable history (it re-enters the next prompt and compounds).
+        parts:
+          input.role === "assistant"
+            ? scrubHarmonyLeakFromParts(input.parts)
+            : input.parts,
         author_user_id: input.authorUserId ?? null,
         metadata: input.metadata ?? {},
+      };
+
+      const ensureMemberParticipant = async () => {
+        const authorUserId = input.authorUserId?.trim();
+        if (!authorUserId) {
+          return;
+        }
+        // First write into a shared/task room: Realtime + delete membership
+        // still key off thread_participant. ignoreDuplicates keeps an existing
+        // owner row from being demoted.
+        const { error: participantError } = await db
+          .from("thread_participant")
+          .upsert(
+            {
+              tenant_id: input.tenantId,
+              thread_id: input.threadId,
+              principal_type: "user" satisfies ThreadPrincipalType,
+              principal_id: authorUserId,
+              role: "member" satisfies ThreadParticipantRole,
+            },
+            {
+              ignoreDuplicates: true,
+              onConflict: "thread_id,principal_type,principal_id",
+            }
+          );
+        if (participantError) {
+          throw new Error(
+            `thread_participant upsert: ${participantError.message}`
+          );
+        }
       };
 
       // With a caller id, upsert idempotently: a re-save of the same message id
@@ -283,6 +583,7 @@ export function createThreadStore(source: DbSource) {
           throw new Error(`thread_message upsert: ${error.message}`);
         }
         if (data && data.length > 0) {
+          await ensureMemberParticipant();
           return { message: mapMessageRow(data[0] as DbThreadMessageRow) };
         }
         const existing = await db
@@ -296,6 +597,7 @@ export function createThreadStore(source: DbSource) {
             `thread_message read-after-upsert: ${existing.error.message}`
           );
         }
+        await ensureMemberParticipant();
         return { message: mapMessageRow(existing.data as DbThreadMessageRow) };
       }
 
@@ -307,6 +609,7 @@ export function createThreadStore(source: DbSource) {
       if (error) {
         throw new Error(`thread_message insert: ${error.message}`);
       }
+      await ensureMemberParticipant();
       return { message: mapMessageRow(data as DbThreadMessageRow) };
     },
 
@@ -315,7 +618,9 @@ export function createThreadStore(source: DbSource) {
     ): Promise<{ message: ThreadMessageRow }> {
       const { data, error } = await dbFor(input.tenantId)
         .from("thread_message")
-        .update({ parts: input.parts })
+        // Only assistant rows are ever patched through here (turn-transcript
+        // teardown, tool-result resolution), so the Harmony scrub applies.
+        .update({ parts: scrubHarmonyLeakFromParts(input.parts) })
         .eq("tenant_id", input.tenantId)
         .eq("thread_id", input.threadId)
         .eq("id", input.messageId)
@@ -332,6 +637,16 @@ export function createThreadStore(source: DbSource) {
       hostKey?: string;
       includeArchived?: boolean;
       limit?: number;
+      /**
+       * Narrow to one space's history (PLAN-spaces.md Phase C2). Omitted means
+       * every space — that is what the history panel's "All spaces" toggle
+       * sends, and what every non-copilot caller wants.
+       *
+       * Pre-space threads (`space_id is null`) are deliberately NOT included in
+       * a space's list. They belong to no space, and showing them in all of
+       * them would make the same chat appear everywhere.
+       */
+      spaceId?: string;
       tenantId: string;
       userId: string;
     }): Promise<ThreadRow[]> {
@@ -362,6 +677,9 @@ export function createThreadStore(source: DbSource) {
       if (params.agentId) {
         q = q.eq("agent_id", params.agentId);
       }
+      if (params.spaceId) {
+        q = q.eq("space_id", params.spaceId);
+      }
       const { data: threads, error } = await q;
       if (error) {
         throw new Error(`thread list: ${error.message}`);
@@ -385,6 +703,513 @@ export function createThreadStore(source: DbSource) {
         return true;
       });
       return filtered.slice(0, lim);
+    },
+
+    /**
+     * Every thread for a shared agent in one space — Agent Desk "Ask…" rooms
+     * are visible to anyone who may enter the space, not only the creator.
+     * Access is decided one level up (space surface / canAccessThread).
+     */
+    /**
+     * The rooms an agent is in, in a Space: the ones it hosts and the ones it
+     * was added to. Membership is `thread_agent`; the host row is there too,
+     * so one id list covers both, but `agent_id` is matched as well so a
+     * thread written before the table existed still lists.
+     */
+    /** The threads this person is in — the ones a private room opens to. */
+    async listParticipantThreadIds(params: {
+      tenantId: string;
+      userId: string;
+    }): Promise<string[]> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_participant")
+        .select("thread_id")
+        .eq("tenant_id", params.tenantId)
+        .eq("principal_type", "user" satisfies ThreadPrincipalType)
+        .eq("principal_id", params.userId);
+      if (error) {
+        throw new Error(`thread_participant list: ${error.message}`);
+      }
+      return [
+        ...new Set(
+          ((data ?? []) as { thread_id: string }[]).map((row) => row.thread_id)
+        ),
+      ];
+    },
+
+    async listThreadsForSpaceAgent(params: {
+      agentId: string;
+      includeArchived?: boolean;
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+      /**
+       * The person looking. With one, private threads they are not in stay
+       * out; without one (the service, memory) everything is listed.
+       */
+      viewerUserId?: string;
+    }): Promise<ThreadRow[]> {
+      const db = dbFor(params.tenantId);
+      const lim = params.limit ?? 50;
+      const { data: membership, error: mErr } = await db
+        .from("thread_agent")
+        .select("thread_id")
+        .eq("tenant_id", params.tenantId)
+        .eq("agent_id", params.agentId);
+      if (mErr) {
+        throw new Error(`thread_agent list: ${mErr.message}`);
+      }
+      const memberIds = [
+        ...new Set(
+          ((membership ?? []) as { thread_id: string }[]).map(
+            (row) => row.thread_id
+          )
+        ),
+      ].slice(0, 300);
+      let q = db
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("space_id", params.spaceId)
+        .order("updated_at", { ascending: false })
+        .limit(lim);
+      q =
+        memberIds.length > 0
+          ? q.or(`agent_id.eq.${params.agentId},id.in.(${memberIds.join(",")})`)
+          : q.eq("agent_id", params.agentId);
+      if (!params.includeArchived) {
+        q = q.is("archived_at", null);
+      }
+      if (params.viewerUserId) {
+        const mine = (
+          await this.listParticipantThreadIds({
+            tenantId: params.tenantId,
+            userId: params.viewerUserId,
+          })
+        ).slice(0, 300);
+        q =
+          mine.length > 0
+            ? q.or(`visibility.eq.space,id.in.(${mine.join(",")})`)
+            : q.eq("visibility", "space" satisfies ThreadVisibility);
+      }
+      const { data: threads, error } = await q;
+      if (error) {
+        throw new Error(`thread list for space agent: ${error.message}`);
+      }
+      return ((threads as DbThreadRow[]) ?? []).map(mapThreadRow);
+    },
+
+    /**
+     * The rooms one person is IN, in a Space: threads opened as rooms
+     * (`route_context.room`) with this person among their people, newest
+     * first, each with its agents. A room they may read but never joined is
+     * the directory's (`listSpaceRoomsDirectory`), not their sidebar's. Pair
+     * rooms are not rooms: they are reached from the hand-off line in a chat.
+     * Archived rooms stay out.
+     */
+    async listRoomsForSpace(params: {
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+      viewerUserId: string;
+    }): Promise<{ members: ThreadAgentRow[]; thread: ThreadRow }[]> {
+      const mine = (
+        await this.listParticipantThreadIds({
+          tenantId: params.tenantId,
+          userId: params.viewerUserId,
+        })
+      ).slice(0, 300);
+      if (mine.length === 0) {
+        return [];
+      }
+      const { data: threads, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("space_id", params.spaceId)
+        .eq(`route_context->>${THREAD_ROOM_KEY}`, "true")
+        .in("id", mine)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 50);
+      if (error) {
+        throw new Error(`thread list for space rooms: ${error.message}`);
+      }
+      const rows = ((threads as DbThreadRow[]) ?? [])
+        .map(mapThreadRow)
+        .filter((row) => row.route_context.delegated !== true);
+      return attachAgentMembers(params.tenantId, rows);
+    },
+
+    /**
+     * Every room one person MAY read in a Space, joined or not: the Space's
+     * own (`visibility: space`) plus the private ones they are in. The
+     * directory (`/s/<key>/chats`) lists these with a way in.
+     */
+    async listSpaceRoomsDirectory(params: {
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+      viewerUserId: string;
+    }): Promise<
+      { joined: boolean; members: ThreadAgentRow[]; thread: ThreadRow }[]
+    > {
+      const { data: threads, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("space_id", params.spaceId)
+        .eq(`route_context->>${THREAD_ROOM_KEY}`, "true")
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(300);
+      if (error) {
+        throw new Error(`thread list for room directory: ${error.message}`);
+      }
+      const mine = new Set(
+        await this.listParticipantThreadIds({
+          tenantId: params.tenantId,
+          userId: params.viewerUserId,
+        })
+      );
+      const rows = ((threads as DbThreadRow[]) ?? [])
+        .map(mapThreadRow)
+        .filter(
+          (row) =>
+            row.route_context.delegated !== true &&
+            (row.visibility === "space" || mine.has(row.id))
+        )
+        .slice(0, params.limit ?? 100);
+      const withMembers = await attachAgentMembers(params.tenantId, rows);
+      return withMembers.map((row) => ({
+        ...row,
+        joined: mine.has(row.thread.id),
+      }));
+    },
+
+    /**
+     * One person's direct messages in a Space: the private lines they own
+     * with one agent each (`route_context.dm`), newest first. Never listed
+     * empty — a DM exists once it was opened.
+     */
+    async listDmsForUser(params: {
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+      userId: string;
+    }): Promise<ThreadRow[]> {
+      const { data: threads, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("space_id", params.spaceId)
+        .eq("created_by_user_id", params.userId)
+        .eq(`route_context->>${THREAD_DM_KEY}`, "true")
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 100);
+      if (error) {
+        throw new Error(`thread list for dms: ${error.message}`);
+      }
+      return ((threads as DbThreadRow[]) ?? []).map(mapThreadRow);
+    },
+
+    /** Let an agent speak in a room. Idempotent; a host stays a host. */
+    async addAgentMember(params: {
+      agentId: string;
+      tenantId: string;
+      threadId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread_agent")
+        .upsert(
+          {
+            agent_id: params.agentId,
+            role: "member" satisfies ThreadAgentRole,
+            tenant_id: params.tenantId,
+            thread_id: params.threadId,
+          },
+          { ignoreDuplicates: true, onConflict: "thread_id,agent_id" }
+        );
+      if (error) {
+        throw new Error(`thread_agent upsert: ${error.message}`);
+      }
+    },
+
+    /** Take an agent out of a room. The host cannot leave; the room is its desk. */
+    async removeAgentMember(params: {
+      agentId: string;
+      tenantId: string;
+      threadId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread_agent")
+        .delete()
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .eq("agent_id", params.agentId)
+        .eq("role", "member" satisfies ThreadAgentRole);
+      if (error) {
+        throw new Error(`thread_agent delete: ${error.message}`);
+      }
+    },
+
+    /** The agents in a room, host first. */
+    async listAgentMembers(params: {
+      tenantId: string;
+      threadId: string;
+    }): Promise<ThreadAgentRow[]> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_agent")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .order("role", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) {
+        throw new Error(`thread_agent select: ${error.message}`);
+      }
+      return ((data ?? []) as ThreadAgentRow[]).map((row) => ({ ...row }));
+    },
+
+    /** The people in a room, owner first. */
+    async listUserParticipants(params: {
+      tenantId: string;
+      threadId: string;
+    }): Promise<ThreadUserParticipantRow[]> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_participant")
+        .select("principal_id, role")
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .eq("principal_type", "user" satisfies ThreadPrincipalType);
+      if (error) {
+        throw new Error(`thread_participant select: ${error.message}`);
+      }
+      const rows = (
+        (data ?? []) as { principal_id: string; role: string }[]
+      ).map((row) => ({
+        role: row.role as ThreadParticipantRole,
+        user_id: row.principal_id,
+      }));
+      return rows.sort((left, right) =>
+        left.role === right.role ? 0 : left.role === "owner" ? -1 : 1
+      );
+    },
+
+    /** Put a person in a room. An owner row is never demoted. */
+    async addUserParticipant(params: {
+      tenantId: string;
+      threadId: string;
+      userId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread_participant")
+        .upsert(
+          {
+            principal_id: params.userId,
+            principal_type: "user" satisfies ThreadPrincipalType,
+            role: "member" satisfies ThreadParticipantRole,
+            tenant_id: params.tenantId,
+            thread_id: params.threadId,
+          },
+          {
+            ignoreDuplicates: true,
+            onConflict: "thread_id,principal_type,principal_id",
+          }
+        );
+      if (error) {
+        throw new Error(`thread_participant upsert: ${error.message}`);
+      }
+    },
+
+    /** Take a person out of a room. The owner stays; the room is theirs. */
+    async removeUserParticipant(params: {
+      tenantId: string;
+      threadId: string;
+      userId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread_participant")
+        .delete()
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .eq("principal_type", "user" satisfies ThreadPrincipalType)
+        .eq("principal_id", params.userId)
+        .neq("role", "owner" satisfies ThreadParticipantRole);
+      if (error) {
+        throw new Error(`thread_participant delete: ${error.message}`);
+      }
+    },
+
+    /**
+     * The agent's UNATTENDED run threads in a Space — routine fires.
+     *
+     * Separate from `listThreadsForUser` on purpose: a routine run has no
+     * owner (nobody typed it), so it matches no user's thread list, and it is
+     * not a private chat either. It is the specialist's work in this Space,
+     * which is exactly what its desk should show.
+     */
+    async listRunThreadsForSpaceAgent(params: {
+      agentId: string;
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+    }): Promise<ThreadRow[]> {
+      const { data: threads, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("agent_id", params.agentId)
+        .eq("space_id", params.spaceId)
+        .is("created_by_user_id", null)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 50);
+      if (error) {
+        throw new Error(`thread list run threads: ${error.message}`);
+      }
+      return ((threads as DbThreadRow[]) ?? []).map(mapThreadRow);
+    },
+
+    /**
+     * The newest message of each of these threads — the line a card shows
+     * under a conversation's name (PLAN-space-home.md H12).
+     *
+     * One query for the whole Space, not one per card: rows come back newest
+     * first and the first hit per thread wins. The window is generous rather
+     * than exact — a Space where one thread carries the last 400 messages
+     * simply reports fewer lines, and a card without a line says nothing
+     * instead of something wrong.
+     */
+    /**
+     * The App releases announced in these conversations, newest first.
+     *
+     * `announceAppRelease` writes one marker message per proposed version, so
+     * this is where the Space home learns that a thread has an App waiting on
+     * a person — the AG-UI interrupt metadata knows nothing about Apps, and a
+     * release parks no run of its own.
+     *
+     * Whether a marker is still WAITING is not decided here: a version can be
+     * approved days later, and only core knows its status. The caller filters.
+     */
+    async listAppReleaseMarkersForThreads(params: {
+      limit?: number;
+      tenantId: string;
+      threadIds: readonly string[];
+    }): Promise<ThreadMessageRow[]> {
+      const threadIds = [...new Set(params.threadIds)].slice(0, 300);
+      if (threadIds.length === 0) {
+        return [];
+      }
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_message")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .in("thread_id", threadIds)
+        .not(`metadata->${APP_RELEASE_MARKER_KEY}`, "is", null)
+        .order("created_at", { ascending: false })
+        .limit(params.limit ?? 100);
+      if (error) {
+        throw new Error(`thread_message app releases: ${error.message}`);
+      }
+      return ((data as DbThreadMessageRow[]) ?? []).map(mapMessageRow);
+    },
+
+    async listLatestMessagesForThreads(params: {
+      tenantId: string;
+      threadIds: readonly string[];
+      window?: number;
+    }): Promise<Map<string, ThreadMessageRow>> {
+      const threadIds = [...new Set(params.threadIds)].slice(0, 300);
+      if (threadIds.length === 0) {
+        return new Map();
+      }
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_message")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .in("thread_id", threadIds)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(params.window ?? 400);
+      if (error) {
+        throw new Error(`thread_message latest for threads: ${error.message}`);
+      }
+      const latest = new Map<string, ThreadMessageRow>();
+      for (const row of ((data as DbThreadMessageRow[]) ?? []).map(
+        mapMessageRow
+      )) {
+        if (!latest.has(row.thread_id)) {
+          latest.set(row.thread_id, row);
+        }
+      }
+      return latest;
+    },
+
+    /**
+     * Every UNATTENDED thread in a Space — the routine and task fires of all
+     * its agents at once, for the Space home (PLAN-space-home.md §4).
+     *
+     * The per-agent variant above answers one desk; the home asks about the
+     * whole Space and would otherwise fan out one query per hire. Pair rooms
+     * are dropped here as everywhere: they are reached from the hand-off line
+     * in a chat, never listed (PLAN-agent-rooms.md §10.1).
+     */
+    async listUnattendedThreadsForSpace(params: {
+      limit?: number;
+      spaceId: string;
+      tenantId: string;
+    }): Promise<ThreadRow[]> {
+      const { data: threads, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("space_id", params.spaceId)
+        .is("created_by_user_id", null)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 100);
+      if (error) {
+        throw new Error(`thread list unattended for space: ${error.message}`);
+      }
+      return ((threads as DbThreadRow[]) ?? [])
+        .map(mapThreadRow)
+        .filter((row) => row.route_context.delegated !== true);
+    },
+
+    /**
+     * The HEADLESS threads a task was worked on — one per agent that has had
+     * it (see `threadIdForTaskActor`).
+     *
+     * Separate from `listThreadsForUser` because these threads have no
+     * participants: nobody owns an agent's working memory, so a participant
+     * join returns nothing and the task page's "linked sessions" panel stayed
+     * empty however many runs a task had. Owned threads are deliberately
+     * excluded — a person's chat that happens to name a task is their private
+     * chat, and the participant list is already where it belongs.
+     *
+     * Access is the CALLER's right to read the task, decided one level up
+     * (task-thread-access.ts) rather than here.
+     */
+    async listHeadlessThreadsForTask(params: {
+      limit?: number;
+      taskId: string;
+      tenantId: string;
+    }): Promise<ThreadRow[]> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("route_context->>task_id", params.taskId)
+        .is("created_by_user_id", null)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(params.limit ?? 20);
+      if (error) {
+        throw new Error(`thread list for task: ${error.message}`);
+      }
+      return ((data as DbThreadRow[]) ?? []).map(mapThreadRow);
     },
 
     async deleteThreadForUser(params: {

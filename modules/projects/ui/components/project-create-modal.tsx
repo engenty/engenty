@@ -17,6 +17,7 @@ import {
 } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createProject } from "../api.js";
+import { useProjectSpaceScope } from "../lib/use-project-space-scope.js";
 import { getContactsPluginApi } from "../plugins.js";
 import { useProjectEntitySearchQuery } from "../queries.js";
 
@@ -35,6 +36,7 @@ export function ProjectCreateModal({
 }: ProjectCreateModalProps) {
   const { t } = useTranslation("projects");
   const contactsPlugin = useMemo(() => getContactsPluginApi(), []);
+  const spaceId = useProjectSpaceScope();
 
   const [title, setTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -126,6 +128,7 @@ export function ProjectCreateModal({
           portal_intro_text: null,
           created_by: null,
           timeplan_enabled: timeplanEnabled,
+          ...(spaceId ? { space_id: spaceId } : {}),
           // Dates only mean something for a project that plans time - drop
           // whatever was typed before the switch was turned off.
           start_date: timeplanEnabled ? startDate || null : null,
@@ -151,6 +154,7 @@ export function ProjectCreateModal({
       timeplanEnabled,
       startDate,
       endDate,
+      spaceId,
       onOpenChange,
       onSuccess,
       t,

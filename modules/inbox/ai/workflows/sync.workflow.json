@@ -1,0 +1,24 @@
+{
+  "id": "inbox.sync",
+  "description": "Pull new mail",
+  "inputSchema": {
+    "type": "object"
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Pull new mail",
+    "owner_agent_id": "inbox.assist"
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"inbox.assist\"},\"brief\":{\"value\":\"Pull new mail for every mailbox this workspace has bound, and stop.\\n\\n1. Call `inbox_sync_run` with **no arguments**. It pulls each stream-capable\\n   account whose sync is enabled, and skips the rest by itself — never\\n   enumerate accounts first, and never pass a `connection_id`.\\n2. If every connection came back with `error: null`, this cycle is a no-op:\\n   say nothing further and stop. Do not summarize counts, do not open threads,\\n   do not triage.\\n3. Report ONLY connections whose `error` is set: the account and the message,\\n   one line each. A mailbox that has been failing for several cycles is worth\\n   saying out loud once — the owner may have to reconnect it.\\n\\nNever classify, reply, archive, or read a thread here. This routine exists so\\na mailbox placed in a Space stays current between visits; everything else is\\nsomeone's explicit request.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"reuse\"}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

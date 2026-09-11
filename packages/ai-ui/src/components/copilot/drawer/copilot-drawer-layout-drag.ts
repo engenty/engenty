@@ -23,7 +23,7 @@ import {
 } from "./copilot-drawer-constants";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import type { CopilotFloatingSnapTarget } from "./copilot-drawer-utils";
-import { computeFabAnchor } from "./copilot-fab-anchor";
+import { resolveFabFreeDropAnchor } from "./copilot-fab-anchor";
 
 const FAB_SIZE = { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE };
 
@@ -59,6 +59,8 @@ export function useCopilotDrawerFloatingDrag(input: {
   });
   // Tracks the last computed position during any drag (FAB or panel)
   const lastDragPositionRef = useRef({ x: 0, y: 0 });
+  const iconDragMovedRef = useRef(false);
+  const suppressFabTriggerClickRef = useRef(false);
   // Which surface is being dragged — determines what finalizeFloatingDrag
   // commits on drop. The FAB and the floating panel never share state, so a
   // drag on one can never bleed a stale/foreign position into the other.
@@ -232,12 +234,20 @@ export function useCopilotDrawerFloatingDrag(input: {
         }
       } else {
         // Free drop — commit the corner the avatar was dropped nearest to.
-        input.setFabAnchor(
-          computeFabAnchor(lastDragPositionRef.current, FAB_SIZE, {
+        // Clicks (no move) must not rewrite the anchor; lastDragPositionRef
+        // starts at {0,0} and that is what parked the blob in the top-left.
+        const nextAnchor = resolveFabFreeDropAnchor({
+          lastPosition: lastDragPositionRef.current,
+          moved: iconDragMovedRef.current,
+          size: FAB_SIZE,
+          viewport: {
             width: window.innerWidth,
             height: window.innerHeight,
-          })
-        );
+          },
+        });
+        if (nextAnchor) {
+          input.setFabAnchor(nextAnchor);
+        }
       }
       return;
     }
@@ -548,9 +558,6 @@ export function useCopilotDrawerFloatingDrag(input: {
     ]
   );
 
-  const iconDragMovedRef = useRef(false);
-  const suppressFabTriggerClickRef = useRef(false);
-
   const handleFabTriggerPointerDown = useCallback(
     (e: PointerEvent, anchor: { x: number; y: number }) => {
       e.preventDefault();
@@ -559,6 +566,7 @@ export function useCopilotDrawerFloatingDrag(input: {
       clearSnapTarget();
       suppressTextSelection();
       dragKindRef.current = "fab";
+      lastDragPositionRef.current = { x: anchor.x, y: anchor.y };
       input.setFabDragPosition(anchor);
       dragRef.current = {
         isDragging: true,
@@ -585,8 +593,8 @@ export function useCopilotDrawerFloatingDrag(input: {
       applyFloatingDragMove(
         e.clientX,
         e.clientY,
-        BUTTON_SNAP_FAB_SIZE,
-        BUTTON_SNAP_FAB_SIZE,
+        FAB_SIZE.width,
+        FAB_SIZE.height,
         input.setFabDragPosition
       );
     },

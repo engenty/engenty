@@ -3,7 +3,9 @@
   "id": "contacts.manager",
   "name": "Contacts Manager",
   "description": "Persona agent for researching contacts, enriching organisation records from public sources, extracting contacts from email, and HITL field suggestions.",
+  "engenty": "drop",
   "module_id": "contacts",
+  "agent_scope": "shared",
   "instruction_keys": ["contacts.manager.agents", "contacts.manager.soul"],
   "skills": ["contacts-search"],
   "tools": [
@@ -13,9 +15,41 @@
     "loadContact",
     "createContactRelation",
     "extractContactFromEmail",
-    "web_search",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
+    "web_search"
+  ],
+  "starters": [
+    {
+      "id": "contacts-find",
+      "label": "Find a contact",
+      "prompt": "Help me find the right contact for a new lead and open their record.",
+      "locales": {
+        "de": {
+          "label": "Kontakt finden",
+          "prompt": "Hilf mir, den richtigen Kontakt f\u00fcr einen neuen Lead zu finden und den Datensatz zu \u00f6ffnen."
+        }
+      }
+    },
+    {
+      "id": "contacts-enrich",
+      "label": "Enrich a company",
+      "prompt": "Research a company from public sources and suggest field updates I can review.",
+      "locales": {
+        "de": {
+          "label": "Firma anreichern",
+          "prompt": "Recherchiere eine Firma aus \u00f6ffentlichen Quellen und schlage Feld\u00e4nderungen vor, die ich pr\u00fcfen kann."
+        }
+      }
+    },
+    {
+      "id": "contacts-from-email",
+      "label": "Extract from email",
+      "prompt": "Extract a contact from an email signature and propose the fields to save.",
+      "locales": {
+        "de": {
+          "label": "Aus E-Mail extrahieren",
+          "prompt": "Extrahiere einen Kontakt aus einer E-Mail-Signatur und schlage die zu speichernden Felder vor."
+        }
+      }
+    }
   ]
 }

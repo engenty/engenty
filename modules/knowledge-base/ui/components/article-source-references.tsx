@@ -9,11 +9,9 @@ import type { SourceReference } from "../../src/schema/types.js";
 import { kbSourcesPath } from "../kb-paths.js";
 
 export function ArticleSourceReferencesBlock({
-  kbSlug,
   refs,
   variant = "card",
 }: {
-  kbSlug: string;
   refs: SourceReference[];
   /** `plain` = no bordered panel (e.g. article edit). */
   variant?: "card" | "plain";
@@ -44,7 +42,7 @@ export function ArticleSourceReferencesBlock({
                 <Database className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <Link
                   className="text-primary hover:underline"
-                  to={kbSourcesPath(kbSlug)}
+                  to={kbSourcesPath()}
                 >
                   {t("article.provenance.source_capture")}
                 </Link>

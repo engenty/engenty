@@ -1,11 +1,11 @@
 // Line tabs in DetailPageHeader.aboveStrip — switch Plan list hubs.
 import { useInboxListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
+import { countOpenHitl } from "@engenty/notifications-ui";
 import { TabsList, TabsTrigger } from "@engenty/ui-core";
 import { useMemo } from "react";
-import { countOpenHitl } from "../lib/inbox-classification.js";
 
-export type PlanListTab = "inbox" | "tasks" | "goals" | "routines";
+export type PlanListTab = "inbox" | "tasks";
 
 function TabBadge({ count }: { count: number }) {
   if (count <= 0) {
@@ -36,8 +36,6 @@ export function PlanListSubNav() {
         <TabBadge count={hitlCount} />
       </TabsTrigger>
       <TabsTrigger value="tasks">{t("tabs.tasks")}</TabsTrigger>
-      <TabsTrigger value="goals">{t("tabs.goals")}</TabsTrigger>
-      <TabsTrigger value="routines">{t("tabs.routines")}</TabsTrigger>
     </TabsList>
   );
 }

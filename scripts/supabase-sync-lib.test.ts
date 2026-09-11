@@ -3,10 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { resolveMigrationOwners } from "./lib/migration-owners.mjs";
 import {
   assertCommittedSupabaseConfigIsModuleAgnostic,
   BASE_API_SCHEMAS,
   composeApiSchemas,
+  composeApiSchemasFromOwners,
   discoverPostgresSchemasFromMigrations,
   parseProjectIdFromConfigToml,
   renderApiSchemasBlock,
@@ -68,6 +70,24 @@ describe("supabase-sync-lib", () => {
     expect(schemas.slice(0, BASE_API_SCHEMAS.length)).toEqual(BASE_API_SCHEMAS);
     expect(schemas).toContain("module_company_profile");
     expect(schemas).not.toContain("private");
+  });
+
+  it("composes the same schemas from committed sources as from the aggregate", () => {
+    // The deploy wizard reads the source side, because a fresh clone has
+    // neither the aggregated migrations nor a config.toml. If the two ever
+    // disagree, a hosted install gets an exposed-schema list that does not
+    // match the migrations it is about to run.
+    const owners = resolveMigrationOwners(repoRoot);
+    const fromSources = composeApiSchemasFromOwners(owners);
+
+    expect(fromSources.slice(0, BASE_API_SCHEMAS.length)).toEqual(
+      BASE_API_SCHEMAS
+    );
+    expect(fromSources).toContain("module_company_profile");
+    expect(fromSources).not.toContain("private");
+    expect(fromSources).toEqual(
+      composeApiSchemas(path.join(repoRoot, "supabase/migrations"))
+    );
   });
 
   it("replaces a bare schemas line with managed markers", () => {

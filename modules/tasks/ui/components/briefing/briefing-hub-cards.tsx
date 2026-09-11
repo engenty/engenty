@@ -1,21 +1,15 @@
-import { useInboxListQuery, useRoutinesListQuery } from "@engenty/ai-ui/embed";
+import { useInboxListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn } from "@engenty/ui-core";
-import { Inbox, ListTodo, type LucideIcon, Target, Zap } from "lucide-react";
+import { countOpenHitl } from "@engenty/notifications-ui";
+import { Inbox, ListTodo, type LucideIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { TasksBriefingMode } from "../../../src/schema/types.js";
-import { countOpenHitl } from "../../lib/inbox-classification.js";
-import { tasksPaths } from "../../lib/tasks-routes.js";
-import {
-  useGoalsListQuery,
-  useTasksBriefingQuery,
-} from "../../tasks-queries.js";
+import { useTasksPaths } from "../../lib/use-tasks-paths.js";
+import { useTasksBriefingQuery } from "../../tasks-queries.js";
 
 interface BriefingHubCardsProps {
   mode: TasksBriefingMode;
-  onCreateGoal: () => void;
-  onCreateRoutine: () => void;
   onCreateTask: () => void;
 }
 
@@ -39,12 +33,7 @@ function HubCard({
   to: string;
 }) {
   return (
-    <div
-      className={cn(
-        "ui-canvas-raised group relative flex min-h-[5.5rem] flex-col gap-2.5 rounded-md bg-card px-3.5 py-3",
-        "transition-colors hover:bg-accent/40"
-      )}
-    >
+    <div className="ui-card-raised ui-card-interactive group relative flex min-h-[5.5rem] flex-col gap-2.5 px-3.5 py-3">
       <Link
         aria-label={title}
         className="absolute inset-0 z-0 rounded-md"
@@ -87,15 +76,12 @@ function HubCard({
 
 export function BriefingHubCards({
   mode,
-  onCreateGoal,
-  onCreateRoutine,
   onCreateTask,
 }: BriefingHubCardsProps) {
   const { t } = useTranslation("tasks");
+  const tasksPaths = useTasksPaths();
   const inboxQuery = useInboxListQuery({ limit: 100, status: "open" });
   const briefingQuery = useTasksBriefingQuery(mode);
-  const goalsQuery = useGoalsListQuery({ page: 1, pageSize: 1 });
-  const routinesQuery = useRoutinesListQuery(true);
 
   const hitlCount = useMemo(
     () => countOpenHitl(inboxQuery.data?.notifications ?? []),
@@ -103,13 +89,11 @@ export function BriefingHubCards({
   );
   const openInboxCount = inboxQuery.data?.notifications?.length ?? 0;
   const openTasksCount = briefingQuery.data?.summary.open ?? 0;
-  const goalsCount = goalsQuery.data?.total ?? 0;
-  const routinesCount = routinesQuery.data?.routines?.length ?? 0;
 
   return (
     <nav
       aria-label={t("briefing.hubs.navAria")}
-      className="grid grid-cols-2 gap-2.5 md:grid-cols-4"
+      className="grid grid-cols-2 gap-2.5 md:grid-cols-3"
     >
       <HubCard
         badge={hitlCount}
@@ -128,26 +112,6 @@ export function BriefingHubCards({
         onCta={onCreateTask}
         title={t("tabs.tasks")}
         to={tasksPaths.list}
-      />
-      <HubCard
-        ctaKind="create"
-        ctaLabel={t("goals.newGoal")}
-        description={t("briefing.hubs.goalsCount", { count: goalsCount })}
-        icon={Target}
-        onCta={onCreateGoal}
-        title={t("tabs.goals")}
-        to={tasksPaths.goals}
-      />
-      <HubCard
-        ctaKind="create"
-        ctaLabel={t("routines.newRoutine")}
-        description={t("briefing.hubs.routinesCount", {
-          count: routinesCount,
-        })}
-        icon={Zap}
-        onCta={onCreateRoutine}
-        title={t("tabs.routines")}
-        to={tasksPaths.routines}
       />
     </nav>
   );

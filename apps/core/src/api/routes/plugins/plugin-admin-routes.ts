@@ -316,6 +316,7 @@ export function registerPluginAdminRoutes(params: {
         version: plugin.version,
         kind: plugin.kind,
         category: plugin.category,
+        placement: plugin.placement,
         sourceType: plugin.sourceType,
         source: plugin.source,
         rootDir: plugin.rootDir,

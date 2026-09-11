@@ -31,6 +31,30 @@ describe("engenty workspace contracts", () => {
       "tenants/abc/ai/workspace/skills",
     ]);
   });
+
+  it("accepts allowedSkillNames on the runtime spec", () => {
+    const spec = parseEngentyWorkspaceRuntimeSpec({
+      agentConfig: {
+        id: "demo",
+        instructions: "",
+        model: "openai/gpt-4.1-mini",
+        name: "Demo",
+        tenantId: "tenant-1",
+      },
+      allowedSkillNames: ["projects-management", "pr-review"],
+      mounts: [
+        {
+          fileStorageRelativePath: "ai/skills/",
+          mountPath: "/skills",
+          readOnly: true,
+        },
+      ],
+    });
+    expect(spec.allowedSkillNames).toEqual([
+      "projects-management",
+      "pr-review",
+    ]);
+  });
 });
 
 describe("createEngentyAgentWorkspace", () => {

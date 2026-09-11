@@ -8,7 +8,12 @@ import {
   resolveEngentyAiServiceBaseUrl,
 } from "../ag-ui/apps-ai/apps-ai-api.js";
 
-export type ArtifactScopeType = "thread" | "task" | "project" | "goal";
+export type ArtifactScopeType =
+  | "thread"
+  | "task"
+  | "project"
+  | "space"
+  | "agent";
 
 /**
  * Work container tiers (the containment hierarchy — see PLAN-where-work-lives).
@@ -17,9 +22,9 @@ export type ArtifactScopeType = "thread" | "task" | "project" | "goal";
  */
 export type WorkContainerTier =
   | "task"
-  | "goal"
   | "routine"
   | "project"
+  | "space"
   | "global";
 
 export interface WorkContainerRef {
@@ -34,8 +39,12 @@ export function formatWorkContainer(container: WorkContainerRef): string {
 
 /** List/tab row (no content). */
 export interface ArtifactSummary {
+  created_at?: string;
+  created_by?: string | null;
+  created_by_kind?: "agent" | "user";
   current_version: number;
   id: string;
+  parent_id?: string | null;
   scope_id: string;
   scope_type: ArtifactScopeType;
   title: string;
@@ -43,9 +52,27 @@ export interface ArtifactSummary {
   updated_at: string;
 }
 
+export interface ArtifactVersionSummary {
+  content: string | null;
+  created_at?: string;
+  created_by?: string | null;
+  created_by_kind?: "agent" | "user";
+  summary?: string | null;
+  version: number;
+}
+
 export interface ArtifactWithContent {
   artifact: ArtifactSummary;
-  version: { version: number; content: string | null };
+  version: ArtifactVersionSummary;
+}
+
+/** Version history row (no content). */
+export interface ArtifactVersionListEntry {
+  created_at: string;
+  created_by: string | null;
+  created_by_kind: "agent" | "user";
+  summary: string | null;
+  version: number;
 }
 
 function artifactsPath(serviceBaseUrl: string): string {
@@ -183,6 +210,7 @@ export function createArtifactVersion(params: {
   content: string;
   expectedVersion: number;
   summary?: string;
+  title?: string;
 }): Promise<ArtifactWithContent> {
   return requestJson<ArtifactWithContent>(
     `${artifactsPath(params.serviceBaseUrl)}/${encodeURIComponent(params.artifactId)}/versions`,
@@ -192,6 +220,7 @@ export function createArtifactVersion(params: {
         content: params.content,
         expected_version: params.expectedVersion,
         ...(params.summary ? { summary: params.summary } : {}),
+        ...(params.title ? { title: params.title } : {}),
       }),
     }
   );

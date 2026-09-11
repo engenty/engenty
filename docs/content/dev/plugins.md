@@ -159,7 +159,7 @@ automatically. Plugins are loaded from source via `jiti`, so they need no build.
 
 ## What a module can contribute
 
-- **UI** — routes, navigation entries, widgets, settings entries, and copilot frontend tools.
+- **UI** — routes, navigation entries, space tabs, widgets, settings entries, and copilot frontend tools.
 - **AI** — agents, tools, and instruction documents for the agent runtime.
 - **Data** — Supabase migrations and storage buckets, aggregated at sync time.
 - **Settings** — environment keys and admin configuration.
@@ -196,6 +196,23 @@ Every `register*` shares the same contract:
 - **Idempotent by `id`** — re-registering the same id replaces the entry. Safe
   across hot-reloads and re-runs; never produces duplicates.
 - **Ordered by `order`** — position is data, independent of plugin load order.
+
+A module that should appear as a **space section** (Work · Data · *yours*)
+registers a space tab. Work and Data stay host-owned; the plugin tab only
+renders in a space that has that module mounted:
+
+```ts
+engenty.UI.registerSpaceTab({
+  id: "plan",
+  label: "Plan",
+  labelKey: "tasks:menu.tasks",
+  icon: ListTodo,
+  order: 30,
+  path: "briefing",     // /s/<key>/tasks/briefing
+  embedOnHome: true,    // also show this page below the space-home composer
+                        // (same scroller as the composer — not a nested pane)
+});
+```
 
 Core's discovery, activation, tenant gating, and lifecycle then operate on these
 registries (see the manifest's `provides` / `requires` for capability gating).

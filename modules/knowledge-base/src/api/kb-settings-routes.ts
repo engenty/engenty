@@ -7,9 +7,14 @@ import type { KbSettings } from "../schema/types.js";
 import { kbSettingsSchema } from "../schema/zod.js";
 import type { GetKbRepo, KbServerApi } from "./kb-api-shared.js";
 
+/**
+ * Module settings: the tenant-wide index infrastructure (embedding model,
+ * retrieval-quality knobs). Per-library values (`*_by_id` maps) are read here
+ * for transport but written through the KB record endpoint — except the
+ * sidebar defaults, whose per-KB form still saves through this PUT and is
+ * merged key-by-key so a stale page cannot clobber another library's row.
+ */
 export function registerKbSettingsRoutes(api: KbServerApi, getRepo: GetKbRepo) {
-  /* ── Settings ── */
-
   api.registerHttpRoute({
     method: "get",
     path: "/api/kb/settings",
@@ -54,22 +59,10 @@ export function registerKbSettingsRoutes(api: KbServerApi, getRepo: GetKbRepo) {
       }
 
       const payload: KbSettings = {
-        default_kb_id:
-          raw.default_kb_id === undefined
-            ? current.default_kb_id
-            : (raw.default_kb_id as string | null),
         embedding_model:
           typeof raw.embedding_model === "string"
             ? raw.embedding_model
             : current.embedding_model,
-        auto_generate_summary:
-          typeof raw.auto_generate_summary === "boolean"
-            ? raw.auto_generate_summary
-            : current.auto_generate_summary,
-        auto_generate_questions:
-          typeof raw.auto_generate_questions === "boolean"
-            ? raw.auto_generate_questions
-            : current.auto_generate_questions,
         search_vector_min_similarity:
           typeof raw.search_vector_min_similarity === "number"
             ? raw.search_vector_min_similarity
@@ -82,35 +75,20 @@ export function registerKbSettingsRoutes(api: KbServerApi, getRepo: GetKbRepo) {
           typeof raw.search_verifier_max_candidates === "number"
             ? raw.search_verifier_max_candidates
             : current.search_verifier_max_candidates,
-        chunk_strategy:
-          typeof raw.chunk_strategy === "string"
-            ? (raw.chunk_strategy as KbSettings["chunk_strategy"])
-            : current.chunk_strategy,
-        chunk_max_length:
-          typeof raw.chunk_max_length === "number"
-            ? raw.chunk_max_length
-            : current.chunk_max_length,
-        chunk_overlap:
-          typeof raw.chunk_overlap === "number"
-            ? raw.chunk_overlap
-            : current.chunk_overlap,
-        sidebar_article_tree_defaults_by_kb:
-          raw.sidebar_article_tree_defaults_by_kb === undefined
-            ? current.sidebar_article_tree_defaults_by_kb
-            : mergedByKb,
-        /* Preserve kb_display_by_id — managed via the KB update endpoint. */
+        sidebar_article_tree_defaults_by_kb: mergedByKb,
+        // Per-library rows are owned by `PUT /api/kb/knowledge-bases/:id`.
+        kb_chunking_by_id: current.kb_chunking_by_id,
         kb_display_by_id: current.kb_display_by_id,
         kb_page_layout_by_id: current.kb_page_layout_by_id,
       };
 
       const parsed = kbSettingsSchema.parse(payload);
-      const settings = await repos.settings.set({
+      return repos.settings.set({
         ...parsed,
-        default_kb_id: parsed.default_kb_id ?? null,
+        kb_chunking_by_id: payload.kb_chunking_by_id,
         kb_display_by_id: payload.kb_display_by_id,
         kb_page_layout_by_id: payload.kb_page_layout_by_id,
       } as KbSettings);
-      return settings;
     },
   });
 }

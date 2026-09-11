@@ -15,10 +15,10 @@ const COMMANDS: ChatCommandDefinition[] = [
     template: "Summarize the conversation. Focus: {input}",
   },
   {
-    action_id: "offers-create-and-edit",
+    workflow_id: "offers-create-and-edit",
     command: "create-offer",
     id: "offers.create-offer",
-    kind: "action",
+    kind: "workflow",
     module_id: "offers",
   },
 ];

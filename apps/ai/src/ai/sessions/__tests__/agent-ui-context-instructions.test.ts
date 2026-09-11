@@ -2,12 +2,10 @@ import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildAgentUiContextInstructions } from "../agent-ui-context-instructions.js";
 
-const resolveAgentSystemPromptFromUiState = vi.fn();
-
 vi.mock("../../core-http-client.js", () => ({
-  EngentyCoreClient: class MockEngentyCoreClient {
-    resolveAgentSystemPromptFromUiState = resolveAgentSystemPromptFromUiState;
-  },
+  // The skill-hint path constructs a core file-storage client over this class;
+  // the hint resolver itself is mocked below, so construction is all it needs.
+  EngentyCoreClient: class MockEngentyCoreClient {},
   getEngentyCoreBaseUrlFromEnv: () => "http://127.0.0.1:8787",
 }));
 
@@ -20,7 +18,6 @@ vi.mock("../../skills/module-skill-hint.js", () => ({
 
 describe("buildAgentUiContextInstructions", () => {
   afterEach(() => {
-    resolveAgentSystemPromptFromUiState.mockReset();
     resolveModuleSkillCatalogHint.mockReset();
   });
 
@@ -36,7 +33,6 @@ describe("buildAgentUiContextInstructions", () => {
     });
     expect(result).toContain("run in the user's browser");
     expect(result).toContain("navigate");
-    expect(resolveAgentSystemPromptFromUiState).not.toHaveBeenCalled();
   });
 
   it("includes client-provided frontend tools in runtime instructions", async () => {
@@ -66,7 +62,7 @@ describe("buildAgentUiContextInstructions", () => {
     // only need to name the browser tools so the model knows they exist.
     expect(result).toContain("test.openPanel");
     expect(result).toContain("Browser tools available now:");
-    expect(result).not.toContain("Prefer browser_dom_snapshot");
+    expect(result).not.toContain("Prefer ui_dom_snapshot");
   });
 
   it("adds DOM-first guidance when browser DOM tools are registered", async () => {
@@ -77,7 +73,7 @@ describe("buildAgentUiContextInstructions", () => {
           createFrontendToolDefinition({
             availability: "enabled",
             description: "DOM snapshot",
-            name: "browser_dom_snapshot",
+            name: "ui_dom_snapshot",
             parameters: {
               type: "object",
               properties: { root_selector: { type: "string" } },
@@ -86,7 +82,7 @@ describe("buildAgentUiContextInstructions", () => {
           createFrontendToolDefinition({
             availability: "enabled",
             description: "Screenshot",
-            name: "browser_screenshot",
+            name: "ui_screenshot",
             parameters: { type: "object", properties: {} },
           }),
         ],
@@ -97,16 +93,11 @@ describe("buildAgentUiContextInstructions", () => {
         userId: "u1",
       },
     });
-    expect(result).toContain(
-      "Prefer browser_dom_snapshot over browser_screenshot"
-    );
+    expect(result).toContain("Prefer ui_dom_snapshot over ui_screenshot");
     expect(result).toContain("dom_entry_points");
   });
 
   it("includes generic AG-UI snapshot instructions when snapshot is present", async () => {
-    resolveAgentSystemPromptFromUiState.mockResolvedValue({
-      system_prompt: "",
-    });
     const snapshot = {
       observed_at: new Date().toISOString(),
       route: {
@@ -133,46 +124,7 @@ describe("buildAgentUiContextInstructions", () => {
     expect(result).toContain("page_module: team");
   });
 
-  it("returns system prompt from core when snapshot is present", async () => {
-    resolveAgentSystemPromptFromUiState.mockResolvedValue({
-      system_prompt: "Current task (preloaded)",
-    });
-    const snapshot = {
-      observed_at: new Date().toISOString(),
-      page: { task_snapshot: { identifier: "ENG-1" } },
-      route: {
-        module_id: "tasks",
-        pathname: "/mdl/tasks/x",
-        route_key: "detail",
-      },
-      sequence: 1,
-      shell: { copilot_open: true },
-      snapshot_id: "snap-1",
-      version: 1 as const,
-    };
-    const result = await buildAgentUiContextInstructions({
-      agentId: "tasks.assist",
-      agentUi: { frontend_tools: [], state_snapshot: snapshot },
-      scope: {
-        tenantId: "t1",
-        credential: { kind: "user", token: "token" },
-        userId: "u1",
-      },
-    });
-    // A specialist still gets its page context — it just holds no browser tools.
-    expect(result).not.toContain("run in the user's browser");
-    expect(result).toContain("pathname: /mdl/tasks/x");
-    expect(result).toContain("Current task (preloaded)");
-    expect(resolveAgentSystemPromptFromUiState).toHaveBeenCalledWith(
-      "tasks.assist",
-      snapshot
-    );
-  });
-
   it("injects the module skill catalog hint for copilot runs with a module context", async () => {
-    resolveAgentSystemPromptFromUiState.mockResolvedValue({
-      system_prompt: "",
-    });
     resolveModuleSkillCatalogHint.mockResolvedValue(
       "## Skills for the current module (contacts)\n- contacts-search — find contacts"
     );
@@ -204,9 +156,6 @@ describe("buildAgentUiContextInstructions", () => {
   });
 
   it("skips the skill hint for non-copilot agents and module-less snapshots", async () => {
-    resolveAgentSystemPromptFromUiState.mockResolvedValue({
-      system_prompt: "",
-    });
     const snapshot = {
       observed_at: new Date().toISOString(),
       route: {

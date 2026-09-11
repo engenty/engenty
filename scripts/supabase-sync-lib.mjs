@@ -58,8 +58,7 @@ export function discoverPostgresSchemasFromMigrations(migrationsDir) {
   return created;
 }
 
-export function composeApiSchemas(migrationsDir) {
-  const discovered = discoverPostgresSchemasFromMigrations(migrationsDir);
+function orderApiSchemas(discovered) {
   const baseSet = new Set(BASE_API_SCHEMAS);
   const moduleSchemas = [...discovered]
     .filter(
@@ -69,6 +68,29 @@ export function composeApiSchemas(migrationsDir) {
     .sort((left, right) => left.localeCompare(right));
 
   return [...BASE_API_SCHEMAS, ...moduleSchemas];
+}
+
+export function composeApiSchemas(migrationsDir) {
+  return orderApiSchemas(discoverPostgresSchemasFromMigrations(migrationsDir));
+}
+
+/**
+ * The same list, read from the migration owners' own directories instead of the
+ * aggregated (gitignored) output. A fresh clone can answer "which schemas must
+ * this install expose?" with no install, no database and no config.toml — which
+ * is what the deploy wizard needs, and what the public repo needs so its
+ * answer reflects its own module set rather than the one it was filtered from.
+ */
+export function composeApiSchemasFromOwners(owners) {
+  const discovered = new Set();
+  for (const owner of owners) {
+    for (const schema of discoverPostgresSchemasFromMigrations(
+      owner.migrationsPath
+    )) {
+      discovered.add(schema);
+    }
+  }
+  return orderApiSchemas(discovered);
 }
 
 export function parseProjectIdFromConfigToml(content) {

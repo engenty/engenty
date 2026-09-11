@@ -18,16 +18,17 @@ Use this skill when answering questions from Knowledge Base content, finding pag
 
 ## Knowledge Base Selection
 
+- A Space has exactly one Knowledge Base; `kb_list` returns it.
+- Search and list operations in a Space-bound run resolve to that Knowledge Base; `kb_id` is optional there.
 - List available KBs with `kb_list` when the user asks which KBs exist, says "all knowledge bases", needs a `kb_id`, or the current scope is ambiguous.
-- If the UI context pins a specific `kb_id`, use that id for reads unless the user asks for another KB.
-- If the UI context has `kb_chat_scope: "all"`, call `kb_list`, then query each returned `kb_id` explicitly. Do not silently use the default KB.
+- If the UI context pins a specific `kb_id`, use that id for reads unless the user asks for another KB in this Space.
 - If a write target is ambiguous, ask which KB to modify before running a write —
   with `requestDecision` (one choice per candidate KB) when your tools include
   it, in plain prose otherwise. Never invent a tool for this.
 
 ## Search Modes
 
-- Use `knowledge_base_article_search` for natural-language questions and hybrid (vector + FTS) search over article chunks. Omit `kb_id` to fan out across every accessible tenant KB.
+- Use `knowledge_base_article_search` for natural-language questions and hybrid (vector + FTS) search over article chunks in current_space. Pass the current `kb_id` when known; do not fan out across every tenant KB from a Space-bound run.
 - Pin `strategy: "lexical"` on `knowledge_base_article_search` for exact title / id / keyword lookups — that path skips the embedder entirely and runs BM25 / FTS only (cheap and quick).
 - Use `kb_articles_list` with `search` and `search_fts: true` for paginated keyword listings, status filters, or title scans.
 - Use both `knowledge_base_article_search` and `kb_articles_list` when the user needs high recall or when semantic and exact keywords may differ.
@@ -45,9 +46,8 @@ Use this skill when answering questions from Knowledge Base content, finding pag
 ## Answering Rules
 
 - Cite article titles and ids. Cite FAQ ids when FAQs are used.
-- If results came from multiple KBs, include the KB name or id with each citation.
 - If evidence is insufficient, say so and suggest the next retrieval step instead of guessing.
 - Refer to "full-text search" in user-facing explanations; do not mention BM25.
 - Do not expose UUID ids - you are talking to a human beeing. Not a robot.
 - Use bold, italic, links if needed
-- Check what's the base URL of the installation and module - to generate correct links
+- Link records with the `url` field of a search hit or the `link` field of a list/get row, verbatim. These are path-only URLs inside the active Space (`/s/<space_key>/kb/…`); never build one from ids or slugs and never prepend a host.

@@ -7,8 +7,12 @@ import { normalizeCommercialBlock } from "@engenty/commercial-editor/blocks";
 import {
   actorUserIdFromAuth,
   createPluginServerGatewayCaller,
+  createRecordLinker,
   type PluginAuthContext,
   type PluginServerApi,
+  type RecordLinkAuth,
+  withRecordLink,
+  withRecordLinks,
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createOfferRepoSupabase } from "../dal/supabase.js";
@@ -192,17 +196,22 @@ async function ensureClientRoleOnEntity(
 export function registerOffersGatewayMethods(
   api: Pick<
     PluginServerApi,
-    "callGatewayMethod" | "hasOperation" | "registerOperation"
+    "callGatewayMethod" | "getTenantDb" | "hasOperation" | "registerOperation"
   >,
   repoOrFactory: RepoOrFactory,
   getRepo: GetRepoFn
 ) {
   const ops = createPluginServerGatewayCaller(api as PluginServerApi);
+  // Offers are tenant-shared: the link lands in the space the call runs in.
+  const link = createRecordLinker(api);
+  const offerLink = (auth: RecordLinkAuth | undefined, offer: { id: string }) =>
+    link(auth, "offers", [offer.id]);
 
   api.registerOperation({
     operationId: "offers_list",
     summary: "List offers (status filter, search, pagination)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.read"],
     riskLevel: "low",
     idempotent: true,
@@ -211,7 +220,13 @@ export function registerOffersGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const parsed = offersListQuerySchema.parse(input ?? {});
-      return repo.listPaginated(parsed);
+      const result = await repo.listPaginated(parsed);
+      return {
+        ...result,
+        data: await withRecordLinks(result.data, (offer) =>
+          offerLink(ctx.auth, offer)
+        ),
+      };
     },
   });
 
@@ -219,6 +234,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_get",
     summary: "Get offer by ID or offer number",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.read"],
     riskLevel: "low",
     idempotent: true,
@@ -227,9 +243,11 @@ export function registerOffersGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const parsed = offerIdParamsSchema.parse(input);
-      return (
-        (await repo.getById(parsed.id)) ?? (await repo.getByNumber(parsed.id))
-      );
+      const offer =
+        (await repo.getById(parsed.id)) ?? (await repo.getByNumber(parsed.id));
+      return offer
+        ? withRecordLink(offer, (row) => offerLink(ctx.auth, row))
+        : offer;
     },
   });
 
@@ -237,6 +255,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_get_blocks",
     summary: "Get the content blocks of an offer (positions, phases, text)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.read"],
     riskLevel: "low",
     idempotent: true,
@@ -253,6 +272,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_get_next_number",
     summary: "Preview the next offer number",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.read"],
     riskLevel: "low",
     idempotent: true,
@@ -267,6 +287,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_create",
     summary: "Create an offer (title suffices; UI defaults apply)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -322,7 +343,7 @@ export function registerOffersGatewayMethods(
       };
       const created = await repo.create(createInput);
       await ensureClientRoleOnEntity(ops, parsed.client_id, ctx.auth);
-      return created;
+      return withRecordLink(created, (offer) => offerLink(ctx.auth, offer));
     },
   });
 
@@ -330,6 +351,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_update",
     summary: "Update offer fields (metadata, intro/notes, display toggles)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -346,7 +368,9 @@ export function registerOffersGatewayMethods(
       };
       const updated = await repo.update(parsed.id, parsed.patch);
       await ensureClientRoleOnEntity(ops, parsed.patch.client_id, ctx.auth);
-      return updated;
+      return updated
+        ? withRecordLink(updated, (offer) => offerLink(ctx.auth, offer))
+        : updated;
     },
   });
 
@@ -354,6 +378,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_set_status",
     summary: "Transition offer status (draft → ready → accepted)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -376,6 +401,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_replace_blocks",
     summary: "Replace all content blocks of an offer (atomic full write)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -418,6 +444,7 @@ export function registerOffersGatewayMethods(
     summary:
       "Partially edit offer blocks by id (update/insert/delete without resending the full list)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -459,6 +486,7 @@ export function registerOffersGatewayMethods(
     summary:
       "Get offer module settings (number format, defaults, validity days)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.read"],
     riskLevel: "low",
     idempotent: true,
@@ -475,6 +503,7 @@ export function registerOffersGatewayMethods(
     summary:
       "Update offer module settings (partial: offer_id_prefix/offset/postfix, default_intro, default_final_notes, valid_until_days)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -490,6 +519,7 @@ export function registerOffersGatewayMethods(
     operationId: "offers_delete",
     summary: "Delete an offer (irreversible)",
     moduleId: "offers",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "critical",
     requiresApproval: true,

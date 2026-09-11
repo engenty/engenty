@@ -1,6 +1,6 @@
-import type { AiAdminSessionStats, AiSessionRecord } from "@engenty/ai-ui";
+import type { AiAdminThreadStats, AiThreadRecord } from "@engenty/ai-ui";
 
-export type AiSessionStatus = AiSessionRecord["status"];
+export type AiSessionStatus = AiThreadRecord["status"];
 
 export interface SessionStatsSummary {
   activeSessions: number;
@@ -28,7 +28,7 @@ const ZERO_BY_STATUS: Record<AiSessionStatus, number> = {
  * separately because they typically dominate counts and are not actionable.
  */
 export function deriveSessionStatsSummary(
-  stats: AiAdminSessionStats | null | undefined
+  stats: AiAdminThreadStats | null | undefined
 ): SessionStatsSummary {
   if (!stats) {
     return {
@@ -43,10 +43,10 @@ export function deriveSessionStatsSummary(
   }
   const byStatus: Record<AiSessionStatus, number> = {
     ...ZERO_BY_STATUS,
-    ...stats.sessions_by_status,
+    ...stats.threads_by_status,
   };
   return {
-    totalSessions: stats.sessions_total,
+    totalSessions: stats.threads_total,
     totalRuns: stats.runs_total,
     activeSessions: byStatus.running + byStatus.waiting,
     failedSessions: byStatus.failed,

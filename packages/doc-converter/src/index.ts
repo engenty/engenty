@@ -20,6 +20,14 @@ export {
   LLAMA_PARSE_EXPAND_FIELDS,
   markdownFromLlamaCloudParsingResult,
 } from "./llama-cloud-markdown.js";
+export type { PageBreakAttrs, PageSlice, SplitPage } from "./page-break.js";
+export {
+  formatPageBreak,
+  joinPagesWithBreaks,
+  markdownFromPagedParseResult,
+  PAGE_BREAK_TAG,
+  splitMarkdownByPageBreaks,
+} from "./page-break.js";
 // Providers
 export { GeminiProvider } from "./providers/gemini/index.js";
 export { LiteParseProvider } from "./providers/liteparse/index.js";

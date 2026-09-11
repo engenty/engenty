@@ -12,6 +12,7 @@ import {
   resolveDbReadyTimeoutMs,
   waitForDatabaseReady,
 } from "./db-readiness.js";
+import { ensureMastraSchemaApplied } from "./mastra-schema-readiness.js";
 import { resolveRunSnapshotConnectionString } from "./mastra-storage.js";
 
 const SUPABASE_HINT =
@@ -22,6 +23,8 @@ export interface EnsureMastraStorageReachableOptions {
   logger?: RuntimeLogger;
   // Injectable probe for tests; defaults to a real pg `SELECT 1` (db-readiness).
   probe?: (connectionString: string) => Promise<void>;
+  // Injectable schema probe for tests; returns the missing Mastra tables.
+  schemaProbe?: (connectionString: string) => Promise<readonly string[]>;
   timeoutMs?: number;
 }
 
@@ -42,5 +45,12 @@ export async function ensureMastraStorageReachable(
     logger: options.logger,
     probe: options.probe,
     timeoutMs: options.timeoutMs ?? resolveDbReadyTimeoutMs(),
+  });
+  // Reachable is not the same as migrated. The runtime store creates nothing
+  // (mastra-storage.ts explains why), so an un-applied schema has to be caught
+  // here — otherwise it surfaces mid-turn as a missing relation.
+  await ensureMastraSchemaApplied({
+    connectionString,
+    ...(options.schemaProbe ? { probe: options.schemaProbe } : {}),
   });
 }

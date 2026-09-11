@@ -6,6 +6,7 @@ import {
   getResolvedAppearanceWithoutTenant,
   type ResolvedAppearance,
 } from "../resolved-appearance.js";
+import { getDefaultSpace } from "../spaces.js";
 import {
   getTenantIdForAuthUser,
   resolveAuthUser,
@@ -35,6 +36,13 @@ export interface WorkspaceContext {
    * surfaces must keep gating on {@link isSuperAdmin}.
    */
   capabilities: string[];
+  /**
+   * The space the caller is working in — the steady container above Project
+   * (PLAN-spaces.md). Until the rail can switch spaces this is the tenant's
+   * default (Company) space; modules read it to build space-rooted storage
+   * prefixes (`tenants/<t>/spaces/<s>/…`).
+   */
+  currentSpace: { id: string; key: string; name: string } | null;
   currentTenant: { id: string; slug: string; name: string } | null;
   currentUser: {
     display_name: string | null;
@@ -179,6 +187,7 @@ export async function getWorkspaceContext(
       },
       isSuperAdmin: false,
       isTenantAdmin: false,
+      currentSpace: null,
       currentTenant: null,
       tenants: [],
       canSwitchTenant: false,
@@ -202,11 +211,12 @@ export async function getWorkspaceContext(
           .order("name", { ascending: true })
       ).data ?? [])
     : await listTenantsForUser(client, authUser.id);
-  const [resolvedAppearance, tenantSupportedLocales, planLabel] =
+  const [resolvedAppearance, tenantSupportedLocales, planLabel, defaultSpace] =
     await Promise.all([
       getResolvedAppearance(client, tenantId, authUser.id),
       loadTenantSupportedLocales(client, tenantId),
       resolveTenantPlanLabel(client, tenantId),
+      getDefaultSpace(client, tenantId).catch(() => null),
     ]);
   return {
     onboarded: true,
@@ -224,6 +234,9 @@ export async function getWorkspaceContext(
     },
     isSuperAdmin,
     isTenantAdmin: isSuperAdmin || row?.role === "admin",
+    currentSpace: defaultSpace
+      ? { id: defaultSpace.id, key: defaultSpace.key, name: defaultSpace.name }
+      : null,
     currentTenant: tenant,
     tenants,
     canSwitchTenant: tenants.length > 1,
@@ -253,18 +266,27 @@ export async function getServiceWorkspaceContext(
   client: SupabaseClient,
   params: { capabilities: string[]; principalId: string; tenantId: string }
 ): Promise<WorkspaceContext> {
-  const [tenant, resolvedAppearance, tenantSupportedLocales, planLabel] =
-    await Promise.all([
-      getTenantById(client, params.tenantId),
-      getResolvedAppearance(client, params.tenantId, params.principalId),
-      loadTenantSupportedLocales(client, params.tenantId),
-      resolveTenantPlanLabel(client, params.tenantId),
-    ]);
+  const [
+    tenant,
+    resolvedAppearance,
+    tenantSupportedLocales,
+    planLabel,
+    defaultSpace,
+  ] = await Promise.all([
+    getTenantById(client, params.tenantId),
+    getResolvedAppearance(client, params.tenantId, params.principalId),
+    loadTenantSupportedLocales(client, params.tenantId),
+    resolveTenantPlanLabel(client, params.tenantId),
+    getDefaultSpace(client, params.tenantId).catch(() => null),
+  ]);
   return {
     // The credential's own claims — a service principal has no membership and
     // therefore no role bundle to derive from. Never widen these into a role.
     capabilities: params.capabilities,
     canSwitchTenant: false,
+    currentSpace: defaultSpace
+      ? { id: defaultSpace.id, key: defaultSpace.key, name: defaultSpace.name }
+      : null,
     currentTenant: tenant,
     currentUser: {
       display_name: null,

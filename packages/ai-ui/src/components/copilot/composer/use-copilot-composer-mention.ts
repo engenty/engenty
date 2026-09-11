@@ -7,7 +7,7 @@ import {
   offset,
   shift,
 } from "@floating-ui/dom";
-import type { KeyboardEvent } from "react";
+import type { ComponentType, KeyboardEvent } from "react";
 import {
   useCallback,
   useEffect,
@@ -22,13 +22,20 @@ import {
   stripLeadingMentionToken,
 } from "./copilot-agent-mention";
 import { getTextareaCaretViewportRect } from "./textarea-caret-viewport-rect";
+import { useCloseOnOutsidePointerDown } from "./use-close-on-outside-pointer-down";
 
-/** A non-agent @-mention candidate (user, contact, object, artifact, file). */
+/** A non-agent @-mention candidate (user, contact, room, object, artifact, file). */
 export interface MentionRefCandidate {
   /** Entity key for chip rendering, e.g. "contacts:contact" | "core:user" | "artifact". */
   entity: string;
   /** Section heading in the picker (localized by the supplier), e.g. "People". */
   group: string;
+  /**
+   * Leading glyph for the picker row. The supplier picks it because only it
+   * knows what the row is — an App and a table are both artifacts, and a list
+   * of same-looking rows is what makes a mixed picker unreadable.
+   */
+  icon?: ComponentType<{ className?: string }>;
   label: string;
   /** Canonical ObjectRef emitted on pick. */
   ref: string;
@@ -347,6 +354,16 @@ export function useCopilotComposerMention(input: {
   const clearMentionOnSubmit = useCallback(() => {
     closeMention();
   }, [closeMention]);
+
+  const mentionInsideRefs = useMemo(
+    () => [mentionComposerWrapRef, mentionFloatRef],
+    []
+  );
+  useCloseOnOutsidePointerDown({
+    active: mentionOpen,
+    insideRefs: mentionInsideRefs,
+    onClose: closeMention,
+  });
 
   return {
     applyMentionPick,

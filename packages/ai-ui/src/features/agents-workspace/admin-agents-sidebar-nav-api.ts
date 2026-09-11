@@ -25,11 +25,12 @@ export async function saveAdminAgentsSidebarNavUserSetting(
   return request<UserSettingHttpResponse>(
     `/api/user-settings/${encodeURIComponent(ADMIN_AGENTS_SIDEBAR_NAV_USER_SETTING_NAME)}`,
     {
-      body: JSON.stringify({
-        type: "json",
-        value_jsonb: state,
-      }),
-      headers: { "Content-Type": "application/json" },
+      // The object, not a JSON string, and no content-type of our own: the
+      // client sets `content-type` itself, and a second spelling of the same
+      // header is sent as `application/json, application/json`, which the
+      // route does not recognize as JSON — the body then never parses and the
+      // save fails its schema on a field we did send.
+      body: { type: "json", value_jsonb: state },
       method: "PATCH",
     }
   );

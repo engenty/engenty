@@ -3,6 +3,8 @@ import { Badge } from "@engenty/ui-core";
 import { toast } from "sonner";
 import type { CatalogConnection, CatalogConnector } from "../api.js";
 import { useSetConnectionPolicyMutation } from "../queries.js";
+import { AutonomousModeCallout } from "./autonomous-mode-callout.js";
+import { ConnectionAgentsCard } from "./connection-agents-card.js";
 import { ConnectionSettingsCard } from "./connection-settings-card.js";
 import { PermissionsMatrix } from "./permissions-matrix.js";
 
@@ -43,6 +45,8 @@ export function ConnectionPanel({
         </p>
       ) : null}
 
+      <AutonomousModeCallout connection={connection} editable={editable} />
+
       {showSettings ? (
         <ConnectionSettingsCard
           connection={connection}
@@ -50,6 +54,10 @@ export function ConnectionPanel({
           disabled={!editable}
         />
       ) : null}
+
+      {/* Where this account has been lent out (CN.5). Renders nothing until
+          there is a grant to show — granting itself happens on the agent. */}
+      <ConnectionAgentsCard connectionId={connection.id} editable={editable} />
 
       <div className="space-y-1">
         <h4 className="font-medium text-sm">{t("matrix.title")}</h4>

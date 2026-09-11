@@ -2,27 +2,27 @@ import { defineFrontendToolSpec } from "@engenty/ag-ui-bridge";
 import { z } from "zod";
 
 /* -------------------------------------------------------------------------- */
-/*  browser_screenshot                                                        */
+/*  ui_screenshot                                                        */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_SCREENSHOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
-    "Last-resort viewport inventory (text-only, not pixels): visible headings, buttons, links, and form fields. Prefer browser_dom_snapshot with a scoped root_selector from Current page dom_entry_points. Use this only for visual/layout questions the DOM cannot answer (overlap, spacing, what is on screen without a clear region).",
-  name: "browser_screenshot",
+    "Last-resort viewport inventory (text-only, not pixels): visible headings, buttons, links, and form fields. Prefer ui_dom_snapshot with a scoped root_selector from Current page dom_entry_points. Use this only for visual/layout questions the DOM cannot answer (overlap, spacing, what is on screen without a clear region).",
+  name: "ui_screenshot",
   schema: z.object({}),
   title: "Browser Screenshot",
 });
 
 /* -------------------------------------------------------------------------- */
-/*  browser_dom_snapshot                                                       */
+/*  ui_dom_snapshot                                                       */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_DOM_SNAPSHOT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
-    "Preferred way to inspect the UI: pruned interactive DOM (tag, text, CSS selector, type, value, bounds). Always prefer this over browser_screenshot. Scope with root_selector from Current page dom_entry_points (main, list, detail, app_bar, sidebar, topbar) — do not snapshot document.body/chrome unless the question is about that chrome.",
-  name: "browser_dom_snapshot",
+    "Preferred way to inspect the UI: pruned interactive DOM (tag, text, CSS selector, type, value, bounds). Always prefer this over ui_screenshot. Scope with root_selector from Current page dom_entry_points (main, list, detail, app_bar, sidebar, topbar) — do not snapshot document.body/chrome unless the question is about that chrome.",
+  name: "ui_dom_snapshot",
   schema: z.object({
     root_selector: z
       .string()
@@ -34,14 +34,14 @@ export const BROWSER_DOM_SNAPSHOT_SPEC = defineFrontendToolSpec({
   title: "DOM Snapshot",
 });
 /* -------------------------------------------------------------------------- */
-/*  browser_scroll                                                             */
+/*  ui_scroll                                                             */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_SCROLL_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
     "Scroll the page smoothly. Provide exactly one of: 'to' (absolute Y in px), 'by' (relative Y offset in px, positive = down), or 'to_selector' (CSS selector to scroll into view).",
-  name: "browser_scroll",
+  name: "ui_scroll",
   schema: z.object({
     to: z.number().optional().describe("Absolute Y position in pixels."),
     by: z
@@ -57,14 +57,14 @@ export const BROWSER_SCROLL_SPEC = defineFrontendToolSpec({
 });
 
 /* -------------------------------------------------------------------------- */
-/*  browser_click                                                              */
+/*  ui_click                                                              */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_CLICK_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
     "Click an element on the page. Provide either a CSS 'selector' or x/y coordinates. Prefer selector when available.",
-  name: "browser_click",
+  name: "ui_click",
   schema: z.object({
     selector: z
       .string()
@@ -83,14 +83,14 @@ export const BROWSER_CLICK_SPEC = defineFrontendToolSpec({
 });
 
 /* -------------------------------------------------------------------------- */
-/*  browser_hover                                                              */
+/*  ui_hover                                                              */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_HOVER_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
     "Hover over an element on the page (triggers pointerenter/mouseover). Provide either a CSS 'selector' or x/y coordinates.",
-  name: "browser_hover",
+  name: "ui_hover",
   schema: z.object({
     selector: z
       .string()
@@ -109,14 +109,14 @@ export const BROWSER_HOVER_SPEC = defineFrontendToolSpec({
 });
 
 /* -------------------------------------------------------------------------- */
-/*  browser_focus                                                              */
+/*  ui_focus                                                              */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_FOCUS_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
     "Focus an element on the page via CSS selector. The element will receive keyboard focus.",
-  name: "browser_focus",
+  name: "ui_focus",
   schema: z.object({
     selector: z.string().describe("CSS selector of the element to focus."),
   }),
@@ -124,14 +124,14 @@ export const BROWSER_FOCUS_SPEC = defineFrontendToolSpec({
 });
 
 /* -------------------------------------------------------------------------- */
-/*  browser_input                                                              */
+/*  ui_input                                                              */
 /* -------------------------------------------------------------------------- */
 
 export const BROWSER_INPUT_SPEC = defineFrontendToolSpec({
   availability: "enabled",
   description:
     "Type text into a form field (input, textarea, or contenteditable). Dispatches React-compatible input events so frameworks pick up the change.",
-  name: "browser_input",
+  name: "ui_input",
   schema: z.object({
     selector: z
       .string()

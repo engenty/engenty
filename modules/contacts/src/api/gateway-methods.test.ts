@@ -321,6 +321,7 @@ describe("registerContactsApi server operations", () => {
       "contacts_get",
       "contacts_update",
       "contacts_delete",
+      "contacts_bulk_import",
       "contacts_add_contact_role",
       "contacts_settings_get",
       "contacts_linkedin_get_profile",
@@ -335,13 +336,20 @@ describe("registerContactsApi server operations", () => {
       requiredCapabilities: ["module.contacts.read"],
       riskLevel: "low",
       idempotent: true,
+      spacePolicy: { kind: "tenant_shared" },
     });
     expect(getOperation(serverOperations, "contacts_create")).toMatchObject({
       moduleId: "contacts",
       requiredCapabilities: ["module.contacts.write"],
       riskLevel: "high",
       requiresApproval: true,
+      spacePolicy: { kind: "tenant_shared" },
     });
+    expect(
+      serverOperations.every(
+        (operation) => operation.spacePolicy?.kind === "tenant_shared"
+      )
+    ).toBe(true);
   });
 
   it("preserves contact and relation operation handlers", async () => {

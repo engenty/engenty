@@ -1,15 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { z } from "zod";
 import {
   listActiveAiRegistrations,
   listModuleDynamicCapabilitySeeds,
   listRegisteredRoutines,
   listRegisteredSkills,
   registerAiRegistration,
-  resolveActionDefinitionById,
-  resolveAgentDefinitionById,
   resolveRoutineDefinitionById,
   resolveSkillDefinitionById,
+  resolveWorkflowDefinitionById,
   unregisterAiRegistration,
   unregisterAiRegistrationsByOwner,
 } from "../registry.js";
@@ -34,42 +32,40 @@ describe("ai-core registry", () => {
           layer: "agent",
         },
       ],
-      agents: [
+      workflows: [
         {
-          id: "contacts.manager",
-          module_id: "contacts",
-          name: "Contacts Manager",
-          instruction_keys: ["contacts_manager_agents"],
-          build_tools: () => ({}),
-          skills: ["contacts-search"],
-        },
-      ],
-      actions: [
-        {
+          definition: {
+            graph: [
+              {
+                id: "prepare",
+                mapConfig: "{}",
+                type: "mapping",
+              },
+              { id: "run", toolId: "run_specialist", type: "tool" },
+            ],
+            id: "contacts.search-action",
+            inputSchema: { type: "object" },
+            metadata: { owner_agent_id: "contacts.manager" },
+            outputSchema: {},
+          },
           id: "contacts.search-action",
           module_id: "contacts",
           name: "Search contacts",
-          agent_id: "contacts.manager",
-          prompt: "Search and summarize matching contacts.",
-          input_schema: z.object({}),
-          default_thread_mode: "new",
+          owner_agent_id: "contacts.manager",
           skills: ["contacts-search"],
         },
       ],
       routines: [
         {
+          agent_id: "contacts.manager",
+          cron: "0 * * * *",
           enabled_by_default: true,
           id: "contacts.search-routine",
+          kind: "schedule" as const,
           module_id: "contacts",
           name: "Contacts search routine",
-          schedule: "0 * * * *",
-          target: {
-            kind: "task_template",
-            task_template: {
-              agent_type_key: "contacts.manager",
-              title: "Contacts search routine",
-            },
-          },
+          scope: "space" as const,
+          workflow: "contacts.search-action",
         },
       ],
       skills: [
@@ -100,21 +96,15 @@ describe("ai-core registry", () => {
         (registration) => registration.module_id === "contacts"
       )
     ).toBe(true);
-    expect(resolveAgentDefinitionById("contacts.manager")?.module_id).toBe(
-      "contacts"
-    );
-    expect(resolveAgentDefinitionById("contacts.manager")?.skills).toEqual([
-      "contacts-search",
-    ]);
     expect(
-      resolveActionDefinitionById("contacts.search-action")?.agent_id
+      resolveWorkflowDefinitionById("contacts.search-action")?.owner_agent_id
     ).toBe("contacts.manager");
     expect(
-      resolveActionDefinitionById("contacts.search-action")?.skills
+      resolveWorkflowDefinitionById("contacts.search-action")?.skills
     ).toEqual(["contacts-search"]);
     expect(
-      resolveRoutineDefinitionById("contacts.search-routine")?.target.kind
-    ).toBe("task_template");
+      resolveRoutineDefinitionById("contacts.search-routine")?.workflow
+    ).toBe("contacts.search-action");
     expect(
       listRegisteredRoutines().some(
         (routine) => routine.id === "contacts.search-routine"
@@ -141,34 +131,36 @@ describe("ai-core registry", () => {
     ).toBe(false);
   });
 
-  it("carries serializable actions and routines on the capability seed", () => {
+  it("carries workflows and triggers on the capability seed", () => {
     registerAiRegistration({
       module_id: "tasks",
-      actions: [
+      workflows: [
         {
-          agent_id: "tasks.manager",
-          default_thread_mode: "new",
+          definition: {
+            graph: [{ id: "run", toolId: "run_specialist", type: "tool" }],
+            id: "tasks.cleanup",
+            inputSchema: {
+              properties: { scope: { type: "string" } },
+              type: "object",
+            },
+            outputSchema: {},
+          },
           id: "tasks.cleanup",
-          input_schema: z.object({ scope: z.string() }),
           module_id: "tasks",
           name: "Cleanup tasks",
-          prompt: "Clean up stale tasks.",
         },
       ],
       routines: [
         {
+          agent_id: "tasks.manager",
+          cron: "0 3 * * *",
           enabled_by_default: true,
           id: "tasks.nightly",
+          kind: "schedule" as const,
           module_id: "tasks",
           name: "Nightly tasks sweep",
-          schedule: "0 3 * * *",
-          target: {
-            kind: "task_template",
-            task_template: {
-              agent_type_key: "tasks.manager",
-              title: "Nightly tasks sweep",
-            },
-          },
+          scope: "space" as const,
+          workflow: "tasks.cleanup",
         },
       ],
     });
@@ -180,11 +172,9 @@ describe("ai-core registry", () => {
     expect(seed?.routines?.map((routine) => routine.id)).toEqual([
       "tasks.nightly",
     ]);
-    const action = seed?.actions?.[0];
+    const action = seed?.workflows?.[0];
     expect(action?.id).toBe("tasks.cleanup");
-    // zod input_schema is projected to JSON Schema for transport.
-    expect(action).not.toHaveProperty("input_schema");
-    expect(action?.input_schema_json).toMatchObject({
+    expect(action?.definition.inputSchema).toMatchObject({
       properties: { scope: { type: "string" } },
       type: "object",
     });
@@ -195,7 +185,6 @@ describe("ai-core registry", () => {
   it("unregisters only matching plugin generation registrations", () => {
     registerAiRegistration(
       {
-        agents: [],
         module_id: "contacts",
         triggers: [],
       },
@@ -203,7 +192,6 @@ describe("ai-core registry", () => {
     );
     registerAiRegistration(
       {
-        agents: [],
         module_id: "projects",
         triggers: [],
       },
@@ -211,7 +199,6 @@ describe("ai-core registry", () => {
     );
     registerAiRegistration(
       {
-        agents: [],
         module_id: "tasks",
         triggers: [],
       },

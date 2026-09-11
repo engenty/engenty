@@ -86,8 +86,56 @@ describe("resolvePurposeModel with bindings", () => {
 
   it("uses the bound model as the platform layer", () => {
     expect(resolvePurposeModel({ purpose: "chat", bindings })).toEqual({
+      gateway: "vercel",
       purpose: "chat",
       value: "anthropic/claude-sonnet-5",
+      source: "platform",
+    });
+  });
+
+  // The gateway is the half that used to be dropped: it was read from the
+  // binding row, carried in `ModelBindings`, and then thrown away by the
+  // resolver, so a role bound to OpenRouter still ran on Vercel.
+  it("carries a non-default gateway from the binding into the ref", () => {
+    const openRouterBindings = bindingsFromList([
+      {
+        gateway: "openrouter",
+        modelId: "meta-llama/llama-3.1-70b-instruct",
+        role: "model.medium",
+      },
+    ]);
+    expect(
+      resolvePurposeModel({ purpose: "chat", bindings: openRouterBindings })
+    ).toEqual({
+      gateway: "openrouter",
+      purpose: "chat",
+      value: "openrouter:meta-llama/llama-3.1-70b-instruct",
+      source: "platform",
+    });
+  });
+
+  it("leaves the default gateway implicit in the ref", () => {
+    // A Vercel-bound role must resolve to the exact string it always did, or
+    // every stored value and usage row shifts under an unrelated feature.
+    expect(resolvePurposeModel({ purpose: "chat", bindings }).value).toBe(
+      "anthropic/claude-sonnet-5"
+    );
+  });
+
+  it("keeps an OpenRouter variant suffix intact through resolution", () => {
+    const freeTier = bindingsFromList([
+      {
+        gateway: "openrouter",
+        modelId: "meta-llama/llama-3.1-8b-instruct:free",
+        role: "model.medium",
+      },
+    ]);
+    expect(
+      resolvePurposeModel({ purpose: "chat", bindings: freeTier })
+    ).toEqual({
+      gateway: "openrouter",
+      purpose: "chat",
+      value: "openrouter:meta-llama/llama-3.1-8b-instruct:free",
       source: "platform",
     });
   });
@@ -129,6 +177,7 @@ describe("resolvePurposeModel with bindings", () => {
         bindings: withLowAndClassifier,
       })
     ).toEqual({
+      gateway: "vercel",
       purpose: "classifier",
       value: "openai/gpt-5-nano",
       source: "platform",
@@ -151,6 +200,7 @@ describe("resolvePurposeModel with bindings", () => {
         readEnv: () => undefined,
       })
     ).toEqual({
+      gateway: "vercel",
       purpose: "classifier",
       value: DEFAULT_AI_CLASSIFIER_MODEL_ID,
       source: "default",
@@ -164,7 +214,12 @@ describe("resolvePurposeModel with bindings", () => {
         bindings,
         tenantDefault: "openai/gpt-5",
       })
-    ).toEqual({ purpose: "chat", value: "openai/gpt-5", source: "tenant" });
+    ).toEqual({
+      gateway: "vercel",
+      purpose: "chat",
+      value: "openai/gpt-5",
+      source: "tenant",
+    });
   });
 
   it("still filters a bound model against the allow-list", () => {

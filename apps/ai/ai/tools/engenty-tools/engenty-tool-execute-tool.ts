@@ -1,65 +1,52 @@
+import type { PublicSchema } from "@mastra/core/schema";
 import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
+import { jsonSchema } from "ai";
 import { EngentyCoreHttpError } from "../../../src/ai/core-http-client.js";
-import { emitInboxNotification } from "../../../src/notifications/inbox.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
-import { coreErrorToToolResult } from "./lib/errors.js";
+import { coerceRunInput } from "./lib/coerce-run-input.js";
+import { coreErrorToToolResult, noToolResultError } from "./lib/errors.js";
+import {
+  approvalDeniedResult,
+  approvalPendingResult,
+  approvalUnavailableResult,
+  gateRequiresApproval,
+  parseToolRiskLevel,
+  sandboxApprovalRequiredResult,
+  sandboxRequiresGrant,
+  settleCoreApprovalAndRetry,
+  type ToolApprovalSuspendPayload,
+  toolApprovalResumeSchema,
+  toolApprovalSuspendSchema,
+} from "./lib/execute-approval.js";
+import { normalizeExecuteEvidence } from "./lib/execute-result.js";
 import { isRecord, normalizeToolContract } from "./lib/format.js";
+import {
+  duplicateCallResult,
+  invocationKey,
+  splitRepeatFlag,
+} from "./lib/invocation-dedupe.js";
 import type { ToolRequestContextCarrier } from "./lib/run-context.js";
 import { getEngentyToolsRunContext } from "./lib/run-context.js";
+import { checkOperationAgainstSpace } from "./lib/space-gate.js";
 import {
-  buildToolApprovalArtifact,
   resolveToolApprovalDecision,
   type ToolRiskLevel,
 } from "./lib/tool-approval.js";
-import { type RunEngentyToolInput, runInputSchema } from "./schema/schemas.js";
+import {
+  type RunEngentyToolInput,
+  runExecuteModelInputJsonSchema,
+} from "./schema/schemas.js";
 
 export const ENGENTY_TOOL_EXECUTE_TOOL_ID = "engenty_tool_execute";
 
-/**
- * Suspend payload when a gated operation needs the user's approval (native
- * Mastra HITL): the run parks, the chat shows the Approve/Deny card, and the
- * resume re-executes this tool with {@link ToolApprovalResumeData} set.
- */
-export const toolApprovalSuspendSchema = z.object({
-  kind: z.literal("tool_approval"),
-  operation_id: z.string(),
-  requires_approval: z.boolean(),
-  risk_level: z.enum(["low", "medium", "high", "critical"]),
-  // Narrow, allow-listed grant context: the secret a secrets_reveal approval
-  // covers, so approving can persist a durable goal-scoped grant. Never the
-  // raw tool input (it may hold sensitive values and this lands in metadata).
-  secret_id: z.string().uuid().optional(),
-  // The core.approval_requests row behind a 202 backstop card. Approving
-  // decides THAT request, which is what mints the grant core's own policy
-  // reads on the retry.
-  approval_request_id: z.string().uuid().optional(),
-  title: z.string().optional(),
-  // Bulk pre-approval (engenty_tools_preapprove): every operation this ONE
-  // card covers — approving persists a grant for each. `operation_id` stays
-  // the primary op so existing single-op parsing keeps working.
-  operation_ids: z.array(z.string()).optional(),
-  // Agent-authored plan summary shown in the card body (bulk cards only).
-  body: z.string().optional(),
-});
-
-export type ToolApprovalSuspendPayload = z.infer<
-  typeof toolApprovalSuspendSchema
->;
-
-/** What the resume delivers back into the suspended tool: the user's decision. */
-export const toolApprovalResumeSchema = z.object({
-  approved: z.boolean(),
-  choice_id: z.string().optional(),
-});
-
-export type ToolApprovalResumeData = z.infer<typeof toolApprovalResumeSchema>;
-
-export function isToolApprovalSuspendPayload(
-  value: unknown
-): value is ToolApprovalSuspendPayload {
-  return toolApprovalSuspendSchema.safeParse(value).success;
-}
+export {
+  gateRequiresApproval,
+  isToolApprovalSuspendPayload,
+  type ToolApprovalResumeData,
+  type ToolApprovalSuspendPayload,
+  toolApprovalResumeSchema,
+  toolApprovalSuspendSchema,
+} from "./lib/execute-approval.js";
 
 /**
  * Inject harness-controlled fields into tool inputs so the LLM cannot
@@ -83,11 +70,16 @@ function injectRunContextFields(
 export const engentyToolExecuteTool = createTool({
   id: ENGENTY_TOOL_EXECUTE_TOOL_ID,
   description:
-    "Execute a selected Engenty tool by id through core. Use only after discover has selected the tool id. For read-only list tools, an empty input object is often valid.",
-  inputSchema: runInputSchema,
+    'Execute a selected Engenty tool by id through core. Use only after discover/search has selected the tool id. Pass `input` as a JSON STRING of the operation arguments (not a nested object — providers strip nested objects to {}). Example: {"type":"organisation","display_name":"SFG"}. For read-only list tools that take no arguments, pass "{}". A catalog hit is not app data — only this tool\'s ok:true result is evidence for record facts.',
+  inputSchema: jsonSchema(
+    runExecuteModelInputJsonSchema as unknown as Parameters<
+      typeof jsonSchema
+    >[0]
+  ) as unknown as PublicSchema<Record<string, unknown>>,
   suspendSchema: toolApprovalSuspendSchema,
   resumeSchema: toolApprovalResumeSchema,
-  execute: async (input, context) => executeEngentyTool(input, context),
+  execute: async (input, context) =>
+    executeEngentyTool(input as RunEngentyToolInput, context),
 });
 
 export function createEngentyToolExecuteTool() {
@@ -129,137 +121,6 @@ function appAuthoringRedirectResult(operationId: string) {
   };
 }
 
-/** The model-facing result when a gated operation does not run. */
-function approvalUnavailableResult(operationId: string) {
-  return {
-    ok: false as const,
-    error: "approval_required",
-    message: `Operation ${operationId} requires the user's approval, which is not available in this run. Report that this step needs approval instead of retrying.`,
-  };
-}
-
-/**
- * Sandbox (Code Mode) result for a gated operation with no covering grant. A
- * program cannot suspend for a human mid-flight, so the call fails INTO the
- * program with the recovery path spelled out: get the grant first (one bulk
- * pre-approval card in chat), then re-run the program.
- */
-function sandboxApprovalRequiredResult(
-  operationId: string,
-  riskLevel: ToolRiskLevel
-) {
-  return {
-    ok: false as const,
-    error: "approval_required",
-    message:
-      `Operation ${operationId} (${riskLevel} risk) needs the user's approval before it can run from a sandbox program. ` +
-      "From chat, call engenty_tools_preapprove with EVERY write operation the program will use (one approval card covers them all), " +
-      "or run the operation once via engenty_tool_execute so the user can approve it; then re-run the program.",
-  };
-}
-
-/**
- * The sandbox gate mirrors core's unattended-principal rule: a program runs
- * without a human watching each call, so anything explicitly approval-gated or
- * high/critical risk needs a pre-existing grant. Deliberately STRICTER than the
- * interactive pre-gate (which only gates on `requiresApproval` and lets core
- * decide risk) — bulk mutation from generated code earns the extra bar. Core
- * remains authoritative behind it either way.
- */
-function sandboxRequiresGrant(input: {
-  requiresApproval: boolean;
-  riskLevel: ToolRiskLevel;
-}): boolean {
-  return (
-    input.requiresApproval ||
-    input.riskLevel === "high" ||
-    input.riskLevel === "critical"
-  );
-}
-
-/**
- * Spend a consent the user already gave on the approval request core filed, then
- * retry the invoke once.
- *
- * Two gates can fire for one operation: the AI pre-gate (contract
- * `requiresApproval`) and core's own policy (escalation, connections). Each
- * raised its own card, so a single `projects_create` asked the user twice — the
- * pre-gate card, then core's 202 card — and answering the first bought nothing.
- * Here the user has just answered the pre-gate card for THIS operation, so we
- * decide core's request with that same answer instead of asking again.
- *
- * Deliberately narrow: same principal (the run's user token), same operation id,
- * same turn, and core still records the decider and mints the grant, so nothing
- * is bypassed — only the second question is. Returns null when there is no
- * request id to decide or the retry still gates, letting the caller report a
- * genuine policy mismatch.
- */
-async function settleCoreApprovalAndRetry(params: {
-  choiceId?: string;
-  // The NARROWED client: `client.ok` is already checked before the try block
-  // whose catch calls this, but that narrowing does not survive into a helper.
-  client: Extract<
-    ReturnType<typeof getCurrentEngentyToolsClient>,
-    { ok: true }
-  >;
-  err: EngentyCoreHttpError;
-  input: Record<string, unknown>;
-  operationId: string;
-}): Promise<{ data: unknown; ok: true } | null> {
-  const details = isRecord(params.err.details) ? params.err.details : {};
-  const approvalRequestId =
-    typeof details.approvalRequestId === "string"
-      ? details.approvalRequestId
-      : undefined;
-  if (!approvalRequestId) {
-    return null;
-  }
-  const ctx = getEngentyToolsRunContext();
-  // "Always (this chat)" elevates for the whole goal; "once" is spent on use.
-  // Same mapping the resume route uses, so both paths agree.
-  const always = params.choiceId === "approve_always";
-  try {
-    await params.client.client.decideApproval(approvalRequestId, {
-      decision: always ? "allow_policy" : "allow_once",
-      ...(always && ctx.goalId ? { subject_id: ctx.goalId } : {}),
-    });
-    const data = await params.client.client.invokeTool(
-      params.operationId,
-      params.input
-    );
-    return { data, ok: true };
-  } catch (retryErr) {
-    console.error(
-      `core approval settle+retry failed for ${params.operationId}`,
-      retryErr
-    );
-    return null;
-  }
-}
-
-function approvalDeniedResult(operationId: string) {
-  return {
-    ok: false as const,
-    error: "approval_denied",
-    message: `The user denied approval for ${operationId}. Do not retry it; continue without this operation.`,
-  };
-}
-
-/**
- * Defer-policy result for core's 202: a human approval request is now pending
- * (durable, e.g. a connections approval routed to the connection owner). The
- * task should report the block; a re-dispatch after approval will pass.
- */
-function approvalPendingResult(operationId: string, reason?: string) {
-  return {
-    ok: false as const,
-    error: "approval_pending",
-    message: `Operation ${operationId} needs human approval before it can run.${
-      reason ? ` ${reason}` : ""
-    } The approval request has been recorded; do not retry in this run. Report that this step is blocked on approval and continue with what you can finish without it.`,
-  };
-}
-
 /** Required property names from an operation contract's input JSON schema. */
 function requiredInputKeys(
   jsonSchema: Record<string, unknown> | undefined
@@ -280,96 +141,8 @@ function emptyToolInputResult(operationId: string, required: string[]) {
   return {
     ok: false as const,
     error: "empty_tool_input",
-    message: `The ${operationId} call was rejected before execution: its input object arrived empty, but the operation requires: ${required.join(", ")}. If arguments were provided, they were lost in transport — some models fail to emit function-call arguments reliably. Retry once with the full input object; if it arrives empty again, stop and report this failure and its likely cause (the currently selected model's function calling) so the user can decide how to proceed, e.g. with a different model.`,
+    message: `The ${operationId} call was rejected before execution: its input arrived empty, but the operation requires: ${required.join(", ")}. Pass those fields as a JSON string in the input argument, not as a nested object (nested objects are stripped in transport). Example: {"type":"organisation","display_name":"SFG"}. Retry once with the full JSON string; if it arrives empty again, stop and report this failure.`,
   };
-}
-
-/**
- * Handle an operation that requires approval, per the run's approval policy:
- * suspend the Mastra run (interactive chat — the resume re-executes this tool
- * with the decision), return the decision artifact (voice AND the interactive
- * start lane, which gates under "artifact" and re-runs with the grant), or
- * return a clear denial (leaf runs: delegated children and headless jobs have
- * no interactive channel).
- *
- * `operationIds`/`body` make it a BULK card (engenty_tools_preapprove): one
- * decision covering several operations, with the agent's plan as the body.
- * Exported so the preapprove tool shares this exact cascade — a second copy
- * would drift on the next policy change.
- */
-export async function gateRequiresApproval(input: {
-  /**
-   * Set only on the core-202 backstop path: the durable approval request core
-   * filed. Rides the card so the approve hook can decide it in core — a chat
-   * grant that never reaches core leaves the retry gated by the same policy.
-   */
-  approvalRequestId?: string;
-  body?: string;
-  context: ToolRequestContextCarrier<ToolApprovalSuspendPayload> | undefined;
-  operationId: string;
-  operationIds?: string[];
-  requiresApproval: boolean;
-  riskLevel: ToolRiskLevel;
-  secretId?: string;
-  title?: string;
-}) {
-  const ctx = getEngentyToolsRunContext();
-  const policy = ctx.approvalPolicy ?? "deny";
-  if (policy === "request") {
-    // Durable run with a needs-input channel: record the request and end
-    // gracefully. The workflow surfaces the inbox notification + task comment;
-    // a human approves and the task re-dispatches. Bulk: one request per
-    // operation, so each grant lands individually.
-    for (const operationId of input.operationIds ?? [input.operationId]) {
-      ctx.onApprovalRequired?.({
-        operationId,
-        riskLevel: input.riskLevel,
-        ...(input.title ? { title: input.title } : {}),
-      });
-    }
-    return approvalPendingResult(input.operationId);
-  }
-  const suspend = input.context?.agent?.suspend;
-  if (policy === "suspend" && suspend) {
-    await suspend({
-      kind: "tool_approval",
-      operation_id: input.operationId,
-      requires_approval: input.requiresApproval,
-      risk_level: input.riskLevel,
-      ...(input.secretId ? { secret_id: input.secretId } : {}),
-      ...(input.approvalRequestId
-        ? { approval_request_id: input.approvalRequestId }
-        : {}),
-      ...(input.operationIds?.length
-        ? { operation_ids: input.operationIds }
-        : {}),
-      ...(input.body ? { body: input.body } : {}),
-      ...(input.title ? { title: input.title } : {}),
-    } satisfies ToolApprovalSuspendPayload);
-    // Unreachable once resumed (execute re-runs with resumeData set), but Mastra
-    // requires a value/void return on the suspend path.
-    return undefined as never;
-  }
-  if (policy === "artifact") {
-    const grantContext = {
-      ...(input.secretId ? { secret_id: input.secretId } : {}),
-      ...(input.approvalRequestId
-        ? { approval_request_id: input.approvalRequestId }
-        : {}),
-    };
-    return buildToolApprovalArtifact({
-      operationId: input.operationId,
-      requiresApproval: input.requiresApproval,
-      riskLevel: input.riskLevel,
-      ...(Object.keys(grantContext).length > 0 ? { grantContext } : {}),
-      ...(input.operationIds?.length
-        ? { operationIds: input.operationIds }
-        : {}),
-      ...(input.body ? { body: input.body } : {}),
-      ...(input.title ? { title: input.title } : {}),
-    });
-  }
-  return approvalUnavailableResult(input.operationId);
 }
 
 export async function executeEngentyTool(
@@ -406,18 +179,40 @@ export async function executeEngentyTool(
   );
   const resumedApproval = resume.success ? resume.data : null;
   let operationId = "";
+  let contractRisk: ToolRiskLevel = "medium";
+  let contractRequiresApproval = true;
   // Grant context for the approval card (secrets_reveal only): captured out
   // here so the core-202 backstop in the catch block can carry it too.
   let gateSecretId: string | undefined;
   let resolvedInputForRetry: Record<string, unknown> = {};
+  // Set for a non-read-only call when the run carries a dedupe map, so the
+  // catch block's settle-and-retry success can register the invocation too.
+  let dedupeKey: string | null = null;
   try {
-    const parsed = runInputSchema.parse(input);
+    const parsed = coerceRunInput(input);
     operationId = parsed.id;
     const contract = await client.client.describeTool(parsed.id);
     const entry = normalizeToolContract(contract);
     operationId = entry.tool.toolId;
+    contractRisk = entry.auth.riskLevel;
+    contractRequiresApproval = entry.auth.requiresApproval;
     if (APP_AUTHORING_OPERATIONS.has(operationId)) {
       return appAuthoringRedirectResult(operationId);
+    }
+    // The space gate runs BEFORE the approval gate on purpose: never ask a
+    // human to approve a call that this space was never going to allow.
+    const spaceRefusal = checkOperationAgainstSpace({
+      operationId,
+      // The contract's own `readOnly` when it states one; the normalized
+      // derivation (low risk, no approval) only as a fallback. Deriving it
+      // would treat a medium-risk READ as a write and refuse it in a
+      // read-only space, which is the wrong direction to be wrong in.
+      readOnly: contract.readOnly ?? entry.execution.readOnly,
+      space: getEngentyToolsRunContext().space,
+      ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
+    });
+    if (spaceRefusal) {
+      return spaceRefusal;
     }
     if (
       options?.sandbox &&
@@ -435,7 +230,9 @@ export async function executeEngentyTool(
     // Empty-input guard BEFORE the approval gate: never ask the user to approve
     // a call that cannot succeed. (An input with wrong/partial fields still goes
     // to core for a precise validation error.)
-    const rawInput = isRecord(parsed.input) ? parsed.input : {};
+    // `_repeat` (invocation-dedupe) is model-facing only: split off here so it
+    // never reaches the approval gate, the recorded replay call, or core.
+    const { input: rawInput, repeat } = splitRepeatFlag(parsed.input);
     if (
       entry.tool.toolId === "secrets_reveal" &&
       typeof rawInput.secret_id === "string"
@@ -464,6 +261,7 @@ export async function executeEngentyTool(
       approvalPolicy !== "defer"
     ) {
       return gateRequiresApproval({
+        callInput: rawInput,
         context: executionContext,
         operationId: entry.tool.toolId,
         requiresApproval: entry.auth.requiresApproval,
@@ -475,14 +273,32 @@ export async function executeEngentyTool(
     const resolvedInput = injectRunContextFields(rawInput);
     // Kept for the catch block's retry-after-settling-core path.
     resolvedInputForRetry = resolvedInput;
+    // Exactly-once for identical writes (invocation-dedupe.ts): a repeat of a
+    // call that already SUCCEEDED in this run is refused with the first result
+    // attached, instead of writing a second record. Approval grants make
+    // repeats free to execute silently, which is how an approved
+    // kb_source_create ran twice on 2026-08-22 — the gate above cannot catch
+    // that, only this can. `_repeat: true` is the deliberate-repeat escape.
+    const executedWriteCalls = getEngentyToolsRunContext().executedWriteCalls;
+    const operationReadOnly = contract.readOnly ?? entry.execution.readOnly;
+    if (!operationReadOnly && executedWriteCalls) {
+      dedupeKey = invocationKey(entry.tool.toolId, resolvedInput);
+      if (!repeat && executedWriteCalls.has(dedupeKey)) {
+        return duplicateCallResult(
+          entry.tool.toolId,
+          executedWriteCalls.get(dedupeKey)
+        );
+      }
+    }
     const data = await client.client.invokeTool(
       entry.tool.toolId,
       resolvedInput
     );
-    return {
-      ok: true,
-      data,
-    };
+    const evidence = normalizeExecuteEvidence(entry.tool.toolId, data);
+    if (dedupeKey && evidence.ok) {
+      executedWriteCalls?.set(dedupeKey, evidence);
+    }
+    return evidence;
   } catch (err) {
     // BACKSTOP: core is authoritative. If the invoke itself returns 202
     // `approval_required` (the pre-gate let it through, e.g. contract metadata
@@ -510,30 +326,42 @@ export async function executeEngentyTool(
             : {}),
         });
         if (retried) {
-          return retried;
+          const evidence = normalizeExecuteEvidence(operationId, retried.data);
+          if (dedupeKey && evidence.ok) {
+            getEngentyToolsRunContext().executedWriteCalls?.set(
+              dedupeKey,
+              evidence
+            );
+          }
+          return evidence;
         }
         // No request id to decide, or core gated again after the grant landed —
         // a real policy mismatch a re-prompt cannot fix. Say so plainly.
         return approvalUnavailableResult(operationId);
       }
       if ((getEngentyToolsRunContext().approvalPolicy ?? "deny") === "defer") {
-        // Headless defer run: core recorded the durable approval request; ping
-        // the tenant inbox so a human sees it without watching the task list.
         const ctx = getEngentyToolsRunContext();
-        if (ctx.tenantId) {
-          await emitInboxNotification({
-            dedupeKey: `connection-approval:${ctx.tenantId}:${operationId}`,
-            kind: "connection_approval_requested",
-            metadata: {
-              operation_id: operationId,
-              ...(ctx.runId ? { run_id: ctx.runId } : {}),
-            },
-            priority: "high",
-            source: "connections",
-            summary: `An autonomous run needs approval to execute ${operationId}. Review it under Settings → Connections.`,
-            tenantId: ctx.tenantId,
+        const details = isRecord(err.details) ? err.details : {};
+        if (ctx.onApprovalRequired) {
+          // Task lane under `auto`/`pass-all`: the pre-gate stood aside, core
+          // decided, and core said a human is needed. Translate its 202 into
+          // the SAME park the "request" path produces — record the op (with
+          // the exact call input, so the approval can replay it once) via the
+          // run's collector; the workflow then pauses `needs_approval` and a
+          // grant + re-dispatch clears it. The task workflow files its own
+          // needs-input notification, so the connections inbox ping below is
+          // for runs with no collector only.
+          ctx.onApprovalRequired({
+            input: resolvedInputForRetry,
+            operationId,
+            riskLevel: parseToolRiskLevel(details.riskLevel) ?? contractRisk,
           });
+          return approvalPendingResult(operationId, err.message);
         }
+        // Headless defer run with no task collector: core recorded the
+        // durable approval request and announced it (`approval.requested` →
+        // one decidable `approval_requested` record with actor and space);
+        // nothing to add here.
         return approvalPendingResult(operationId, err.message);
       }
       if (options?.sandbox) {
@@ -541,7 +369,11 @@ export async function executeEngentyTool(
         // recovery path (core stayed authoritative — its 202 lands here even
         // when the local sandbox gate let the call through, e.g. stale
         // contract metadata or a policy only core can evaluate).
-        return sandboxApprovalRequiredResult(operationId, "high");
+        const details = isRecord(err.details) ? err.details : {};
+        return sandboxApprovalRequiredResult(
+          operationId,
+          parseToolRiskLevel(details.riskLevel) ?? contractRisk
+        );
       }
       // Carry core's own request id onto the card. The approve hook decides it
       // in core, which mints the grant `evaluatePolicy` spends on the retry —
@@ -552,13 +384,44 @@ export async function executeEngentyTool(
           ? details.approvalRequestId
           : undefined;
       return gateRequiresApproval({
+        callInput: resolvedInputForRetry,
         context: executionContext,
         operationId,
-        requiresApproval: true,
-        riskLevel: "high",
+        requiresApproval:
+          typeof details.requiresApproval === "boolean"
+            ? details.requiresApproval
+            : contractRequiresApproval,
+        riskLevel: parseToolRiskLevel(details.riskLevel) ?? contractRisk,
         ...(gateSecretId ? { secretId: gateSecretId } : {}),
         ...(approvalRequestId ? { approvalRequestId } : {}),
       });
+    }
+    if (
+      err instanceof EngentyCoreHttpError &&
+      (err.code === "invalid_core_response" ||
+        err.code === "invalid_core_json") &&
+      operationId
+    ) {
+      return noToolResultError(operationId);
+    }
+    // The catalog holds MODULE operations only. A model routing one of its own
+    // chat tools (routines_list, agent_propose, invoke_workflow, …) through here
+    // gets a bare 404 — and a bare "Tool contract not found" reads as "the
+    // feature is missing", so the model gives up instead of correcting course.
+    if (
+      err instanceof EngentyCoreHttpError &&
+      err.status === 404 &&
+      operationId
+    ) {
+      const result = coreErrorToToolResult(err);
+      return {
+        ...result,
+        message:
+          `${result.message}. "${operationId}" is not a module operation in ` +
+          "the catalog. If a tool with this name is already on your own tool " +
+          "list, call it directly — chat tools never go through " +
+          "engenty_tool_execute.",
+      };
     }
     return coreErrorToToolResult(err);
   }

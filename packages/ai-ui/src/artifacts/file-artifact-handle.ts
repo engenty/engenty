@@ -2,7 +2,7 @@
  * A `file` artifact's content is a HANDLE to an object in tenant storage, not
  * the bytes — the same shape of idea as an `app` artifact. That is what lets a
  * spreadsheet, a PDF or a generated image be an ordinary artifact (previewed,
- * downloaded, promoted to a task/goal/project) instead of a chat-only download
+ * downloaded, promoted to a task/project) instead of a chat-only download
  * offer nothing can reopen.
  */
 export interface FileArtifactHandle {

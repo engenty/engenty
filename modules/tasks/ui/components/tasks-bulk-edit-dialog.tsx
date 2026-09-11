@@ -10,32 +10,25 @@ import {
   DialogHeader,
   DialogTitle,
   Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@engenty/ui-core";
-import { ChevronDown, Target } from "lucide-react";
 import { useCallback, useState } from "react";
 import type {
-  Goal,
   TaskPriority,
   TaskStatusDefinition,
   TaskUpdateInput,
 } from "../../src/schema/types.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
-import { GoalSelectorContent } from "./new-task-selectors.js";
 import {
   TaskAssigneePicker,
   type TaskAssigneeValue,
 } from "./task-assignee-picker.js";
 
 interface TasksBulkEditDialogProps {
-  goals: Goal[];
   onClose: () => void;
   onSubmit: (input: TaskUpdateInput) => Promise<void>;
   open: boolean;
@@ -59,7 +52,6 @@ export function TasksBulkEditDialog({
   onSubmit,
   selectedCount,
   taskStatusDefinitions,
-  goals,
   teamMembersCatalog = [],
   teamMembersEnabled = false,
   teamMembersLoading = false,
@@ -70,7 +62,6 @@ export function TasksBulkEditDialog({
   const [updateStatus, setUpdateStatus] = useState(false);
   const [updatePriority, setUpdatePriority] = useState(false);
   const [updateAssignee, setUpdateAssignee] = useState(false);
-  const [updateGoal, setUpdateGoal] = useState(false);
   const [updateDueDate, setUpdateDueDate] = useState(false);
 
   // Field values
@@ -79,14 +70,10 @@ export function TasksBulkEditDialog({
   );
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [assignee, setAssignee] = useState<TaskAssigneeValue>(EMPTY_ASSIGNEE);
-  const [goalId, setGoalId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<string | null>(null);
 
-  const [goalOpen, setGoalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const selectedGoal = goals.find((g) => g.id === goalId) ?? null;
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -111,10 +98,6 @@ export function TasksBulkEditDialog({
         input.primary_assignee_agent_type_key =
           assignee.primary_assignee_agent_type_key;
         input.collaborator_user_ids = assignee.collaborator_user_ids;
-        hasUpdates = true;
-      }
-      if (updateGoal) {
-        input.goal_id = goalId;
         hasUpdates = true;
       }
       if (updateDueDate) {
@@ -146,8 +129,6 @@ export function TasksBulkEditDialog({
       priority,
       updateAssignee,
       assignee,
-      updateGoal,
-      goalId,
       updateDueDate,
       dueDate,
       onSubmit,
@@ -177,7 +158,7 @@ export function TasksBulkEditDialog({
             </p>
           </DialogHeader>
 
-          <div className="flex-1 space-y-4 divide-y divide-border/50 overflow-y-auto p-6 pt-2">
+          <div className="flex-1 space-y-4 divide-y divide-border-soft overflow-y-auto p-6 pt-2">
             {/* Status Field */}
             <div className="flex items-start gap-3.5 py-3 first:pt-0">
               <div className="flex h-8 items-center">
@@ -263,57 +244,6 @@ export function TasksBulkEditDialog({
               </div>
             </div>
 
-            {/* Goal Field */}
-            <div className="flex items-start gap-3.5 py-3">
-              <div className="flex h-8 items-center">
-                <Checkbox
-                  checked={updateGoal}
-                  onCheckedChange={(val) => setUpdateGoal(!!val)}
-                />
-              </div>
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <Label
-                  className={cn(
-                    "font-medium text-xs",
-                    !updateGoal && "text-muted-foreground opacity-60"
-                  )}
-                >
-                  {t("detail.goal")}
-                </Label>
-                <Popover modal onOpenChange={setGoalOpen} open={goalOpen}>
-                  <PopoverTrigger asChild disabled={!updateGoal}>
-                    <button
-                      className="flex h-8 w-full items-center justify-between gap-1.5 whitespace-nowrap rounded-[4px] border border-input bg-transparent py-1.5 pr-2 pl-2.5 text-left text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:hover:bg-input/50"
-                      disabled={!updateGoal}
-                      type="button"
-                    >
-                      {selectedGoal ? (
-                        <span className="inline-flex min-w-0 items-center gap-2 text-foreground text-sm">
-                          <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{selectedGoal.title}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {t("detail.noGoal")}
-                        </span>
-                      )}
-                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-72 p-0">
-                    <GoalSelectorContent
-                      goalId={goalId}
-                      goals={goals}
-                      onSelect={(id) => {
-                        setGoalId(id);
-                        setGoalOpen(false);
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
             {/* Due Date Field */}
             <div className="flex items-start gap-3.5 py-3">
               <div className="flex h-8 items-center">
@@ -376,7 +306,6 @@ export function TasksBulkEditDialog({
                   updateStatus ||
                   updatePriority ||
                   updateAssignee ||
-                  updateGoal ||
                   updateDueDate
                 )
               }

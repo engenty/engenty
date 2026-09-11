@@ -15,15 +15,25 @@ import {
 } from "./thread-context-store.js";
 import {
   THREAD_CONTEXT_FLOAT_GAP_PX,
+  THREAD_CONTEXT_FLOAT_RESERVE_PX,
   THREAD_CONTEXT_FLOAT_WIDTH_PX,
   THREAD_CONTEXT_INLINE_MIN_WIDTH_PX,
   THREAD_CONTEXT_INLINE_PAD_VAR,
 } from "./thread-context-types.js";
 import { useThreadContextSummary } from "./use-thread-context-summary.js";
 
-/** Card width + left gutter (vs chat) + right page gutter. */
-const FLOAT_RESERVE_PX =
-  THREAD_CONTEXT_FLOAT_WIDTH_PX + THREAD_CONTEXT_FLOAT_GAP_PX * 2;
+function readTopbarOverlapPadPx(): number {
+  if (typeof document === "undefined") {
+    return THREAD_CONTEXT_FLOAT_GAP_PX;
+  }
+  const topbar = document.querySelector<HTMLElement>(
+    "[data-engenty-region='topbar'][data-topbar-overlap='true']"
+  );
+  if (!topbar) {
+    return THREAD_CONTEXT_FLOAT_GAP_PX;
+  }
+  return topbar.offsetHeight + THREAD_CONTEXT_FLOAT_GAP_PX;
+}
 
 /**
  * Floating thread-context card over the chat surface — not a sidebar column.
@@ -44,16 +54,19 @@ export function ThreadContextPane({
   const summary = useThreadContextSummary(hostKey);
   const { paneOpen } = useArtifacts(hostKey);
   const [enoughWidth, setEnoughWidth] = useState(true);
+  const [overlapPadPx, setOverlapPadPx] = useState(THREAD_CONTEXT_FLOAT_GAP_PX);
 
   useLayoutEffect(() => {
     const element =
       typeof document === "undefined"
         ? null
         : document.querySelector<HTMLElement>("[data-engenty-content-stack]");
+    const updatePad = () => setOverlapPadPx(readTopbarOverlapPadPx());
 
     if (!element) {
       const updateFromViewport = () => {
         setEnoughWidth(window.innerWidth >= THREAD_CONTEXT_INLINE_MIN_WIDTH_PX);
+        updatePad();
       };
       updateFromViewport();
       window.addEventListener("resize", updateFromViewport);
@@ -66,6 +79,7 @@ export function ThreadContextPane({
         return;
       }
       setEnoughWidth(width >= THREAD_CONTEXT_INLINE_MIN_WIDTH_PX);
+      updatePad();
     };
     update();
     const observer = new ResizeObserver(update);
@@ -98,7 +112,7 @@ export function ThreadContextPane({
 
   const rootStyle = showFloating
     ? ({
-        [THREAD_CONTEXT_INLINE_PAD_VAR]: `${FLOAT_RESERVE_PX}px`,
+        [THREAD_CONTEXT_INLINE_PAD_VAR]: `${THREAD_CONTEXT_FLOAT_RESERVE_PX}px`,
       } as CSSProperties)
     : undefined;
 
@@ -112,12 +126,15 @@ export function ThreadContextPane({
       </div>
       {showFloating ? (
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-20 flex justify-end pt-3 pr-3 pb-3"
-          style={{ width: FLOAT_RESERVE_PX }}
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 flex justify-end pr-3 pb-3"
+          style={{
+            paddingTop: overlapPadPx,
+            width: THREAD_CONTEXT_FLOAT_RESERVE_PX,
+          }}
         >
           <div
-            className="pointer-events-auto sticky top-3 max-h-full self-start overflow-y-auto"
-            style={{ width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
+            className="pointer-events-auto sticky max-h-full self-start overflow-y-auto"
+            style={{ top: overlapPadPx, width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
           >
             <ThreadContextBox hostKey={hostKey} summary={summary} />
           </div>

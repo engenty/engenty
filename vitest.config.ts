@@ -36,14 +36,19 @@ export default defineConfig({
       "modules/**/*.test.tsx",
       "scripts/**/*.test.ts",
     ],
-    // apps/manage has its own vitest project (its `@/` alias + happy-dom setup);
-    // run it via `pnpm --filter @engenty/manage test`.
+    // apps/manage and apps/ui have their own vitest projects, because `@/` is a
+    // PER-APP alias — `apps/ui/src` in one, the app root in `apps/docs` — and a
+    // single `@` here would silently resolve one app's imports into another.
+    // Run them via `pnpm --filter @engenty/manage test` / `--filter @engenty/ui`;
+    // `turbo run test` invokes both through their own `test` scripts, so
+    // excluding them here removes nothing from CI.
     exclude: [
       "**/node_modules/**",
       "**/dist/**",
       "**/*.d.ts",
       "**/*.e2e.test.ts",
       "apps/manage/**",
+      "apps/ui/**",
     ],
     setupFiles: [
       path.join(repoRoot, "apps/core/test/vitest-setup-root-chdir.ts"),
@@ -64,6 +69,18 @@ export default defineConfig({
       "@engenty/ai-core": path.resolve(
         repoRoot,
         "packages/ai-core/src/index.ts"
+      ),
+      "@engenty/ai-skills": path.resolve(
+        repoRoot,
+        "packages/ai-skills/src/index.ts"
+      ),
+      "@engenty/notifications": path.resolve(
+        repoRoot,
+        "packages/notifications/index.ts"
+      ),
+      "@engenty/search-index": path.resolve(
+        repoRoot,
+        "packages/search-index/src/index.ts"
       ),
     },
   },

@@ -308,15 +308,42 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 115,
   });
 
-  engenty.UI.registerAdminMenuItem({
+  // Team leaves the app rail for Settings (PLAN-spaces.md Phase 5a ④): it is a
+  // directory, not a place you work, and the rail's zone ③ is for tools you
+  // carry across spaces.
+  //
+  // `requiresAdmin: false` is load-bearing, not optional: module settings rows
+  // are ADMIN-ONLY by default (`isAdmin || item.requiresAdmin === false` in
+  // app-shell's navigation.ts), and Team is member-facing — "who works here".
+  // Without this line every non-admin silently loses the team directory.
+  engenty.UI.registerSettingsItem({
     id: "team_module_menu",
-    section: "modules",
     label: "Team",
     labelKey: "team:menu",
     to: TEAM_MODULE_BASE,
     icon: DockTeamMembersIcon,
+    requiresAdmin: false,
     // Within work category (matches settings order)
     order: 20,
+  });
+
+  // …and a rail tile in the ADMIN stack, above Settings (Matthias, 2026-08-11).
+  //
+  // Phase 5a moved Team off the rail entirely on the grounds that it is a
+  // directory rather than a place you work. That reasoning holds for zone ③,
+  // which is for tools you carry BETWEEN spaces — and it is why this is not a
+  // revert. The admin stack is a different argument: "who works here" is
+  // administration, it belongs with the other admin surfaces, and settings-menu
+  // -only made it two clicks from everywhere.
+  engenty.UI.registerAdminMenuItem({
+    id: "team_admin_menu",
+    section: "admin",
+    label: "Team",
+    labelKey: "team:menu",
+    to: TEAM_MODULE_BASE,
+    icon: DockTeamMembersIcon,
+    // Just above Settings, below the module admin surfaces.
+    order: 130,
   });
 
   engenty.UI.registerDashboardWidget({

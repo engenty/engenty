@@ -11,10 +11,9 @@ import { kbArticlePath } from "../kb-paths.js";
 export function createKbArticleLinkBubbleSources(opts: {
   kbs: KnowledgeBase[];
   currentKbId: string;
-  currentKbSlug: string;
   labels: { otherKbs: string; thisKb: string };
 }): LinkSearchSource[] {
-  const { kbs, currentKbId, currentKbSlug, labels } = opts;
+  const { kbs, currentKbId, labels } = opts;
   const slugByKbId = new Map(kbs.map((k) => [k.id, k.slug]));
 
   const thisKb: LinkSearchSource = {
@@ -39,7 +38,7 @@ export function createKbArticleLinkBubbleSources(opts: {
           id: a.id,
           title: a.title,
           subtitle: a.slug,
-          href: kbArticlePath(currentKbSlug, a.id),
+          href: kbArticlePath(a.id),
         })
       );
     },
@@ -78,7 +77,7 @@ export function createKbArticleLinkBubbleSources(opts: {
             id: `${kb.id}:${a.id}`,
             title: a.title,
             subtitle: `${kb.name} · ${a.slug}`,
-            href: kbArticlePath(slug, a.id),
+            href: kbArticlePath(a.id),
           });
         }
       }

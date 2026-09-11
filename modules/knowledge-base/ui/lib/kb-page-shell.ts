@@ -5,9 +5,10 @@
 
 import { cardSectionHeaderTitleVariants } from "@engenty/ui-core";
 
-/** Single outer scroll container — `p-page` lives here. */
+/** Single outer scroll container — `p-page` lives here, plus the main-area
+ *  bottom safe area so last content clears the copilot FAB. */
 export const kbModulePageShellSectionClassName =
-  "flex min-h-0 flex-1 flex-col overflow-y-auto p-page";
+  "flex min-h-0 flex-1 flex-col overflow-y-auto p-page pb-scroll-safe";
 
 /** Inner centered column (source item detail, edit forms). */
 export const kbModulePageShellInnerClassName =
@@ -23,7 +24,7 @@ export const kbModulePageShellInnerWideClassName =
 
 /** KB hub / category scroll body — warm paper canvas, centered column. */
 export const kbModuleHubContentInnerClassName =
-  "mx-auto w-full max-w-5xl space-y-8 p-page pb-10";
+  "mx-auto w-full max-w-5xl space-y-8 p-page pb-scroll-safe";
 
 /** Cover band header row — aligns with hub content column (`p-page` horizontal inset). */
 export const kbModuleHubCoverInnerClassName =
@@ -34,13 +35,8 @@ export const kbHubSectionHeadingClassName = cardSectionHeaderTitleVariants({
   variant: "display",
 });
 
-/** Elevated card hover on `--paper` — paint-only; shadow deepens in place (DESIGN.md). */
-export const kbHubElevatedCardHoverClassName =
-  "bg-card transition-[box-shadow] duration-150 ease-out hover:shadow-[var(--e-3)]";
-
-/** Elevated list/card shell on paper canvas (DESIGN.md ui-canvas-elevated). */
-export const kbHubElevatedSurfaceClassName =
-  "ui-canvas-elevated overflow-hidden rounded-lg border-0 bg-card";
+/** Elevated list/card shell on paper canvas (`ui-card-elevated`). */
+export const kbHubElevatedSurfaceClassName = "ui-card-elevated overflow-hidden";
 
 /** KB hub hero search height (DESIGN.md — prominent pill, not h-8 form fields). */
 export const KB_HUB_HERO_SEARCH_HEIGHT_PX = 44;

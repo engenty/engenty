@@ -10,10 +10,8 @@ import { kbSourcePath } from "../kb-paths.js";
 import type { ArticleSourceProvenance } from "../lib/article-source-provenance.js";
 
 export function ArticleSourceTopline({
-  kbSlug,
   provenance,
 }: {
-  kbSlug: string;
   provenance: ArticleSourceProvenance;
 }) {
   const { t } = useTranslation("kb");
@@ -37,7 +35,7 @@ export function ArticleSourceTopline({
     );
   }
 
-  const adminPath = kbSourcePath(kbSlug, kbSourceId);
+  const adminPath = kbSourcePath(kbSourceId);
 
   return (
     <span className="inline-flex min-w-0 shrink-0 items-center gap-1.5">

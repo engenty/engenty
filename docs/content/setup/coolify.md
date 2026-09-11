@@ -138,8 +138,8 @@ set* rows so a missing one is visible before it breaks a flow:
 | Variable | Generate | What breaks without it |
 |----------|----------|------------------------|
 | `CONNECTIONS_TOKEN_ENC_KEY` | `openssl rand -base64 32` | Every OAuth connect fails at the *end*: the provider returns tokens, storing them raises "cannot encrypt/decrypt connection tokens", and the UI redirects to `?error=exchange_failed` |
-| `ENGENTY_APP_HOST_TOKEN` | `openssl rand -hex 32` | `engenty-app-host` refuses to boot and crash-loops; engenty Apps unavailable |
-| `ENGENTY_AI_SERVICE_SECRET` | `engenty service-token create --name ai-service` | Scheduler stays disabled — no scheduled trigger, routine, or heartbeat fires |
+| `ENGENTY_APP_HOST_TOKEN` | `openssl rand -hex 32` | engenty Apps unavailable. Only needed with the `apps` profile below — without that profile the service is not started at all |
+| `ENGENTY_AI_SERVICE_SECRET` | `engenty service-token create --name ai-service` | Scheduler stays disabled — no routine or system job ever fires |
 
 `CONNECTIONS_TOKEN_ENC_KEY` is permanent: rotating it makes every stored
 connection token undecryptable and all connections have to be re-authorized.
@@ -175,7 +175,7 @@ Coolify will build the images and start the stack (the `engenty-edge`,
 
 ### Optional: docs and the agent playground
 
-Two extras are off by default and enabled with compose **profiles**. Both halves
+Three extras are off by default and enabled with compose **profiles**. Both halves
 matter: the gateway flag alone points the route at a container that was never
 started, and every request to it then returns 502.
 
@@ -185,6 +185,10 @@ started, and every request to it then returns 502.
 - **Studio** (`/studio`): set `ENGENTY_GATEWAY_STUDIO_ENABLED=true` and
   `ENGENTY_GATEWAY_STUDIO_BASIC_AUTH=operator:change-me`, then enable the
   `studio` profile. Studio is protected by HTTP basic auth.
+- **engenty Apps** (`engenty-app-host`): set `ENGENTY_APP_HOST_TOKEN` and enable
+  the `apps` profile. The module that drives it is not part of the open-source
+  build, so the service stays off unless you ask for it. Unlike the two above it
+  has no gateway route to 502 — it simply is not there, and app builds fail.
 
 ### Optional: build images in CI instead of on the server
 

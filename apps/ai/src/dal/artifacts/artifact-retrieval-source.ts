@@ -78,9 +78,15 @@ function createArtifactRetrievalSource(options: {
           type: artifact.type,
         },
         occurred_at: artifact.updated_at,
-        // Artifacts are tenant-visible (matches the API authz today).
+        // Artifacts are tenant-visible (matches the API authz today)…
         owner_user_id: null,
         scope_id: null,
+        // …EXCEPT a space-scoped one (D9: pin-to-space, app_build publishing
+        // to the run's space): its space can be private, and a NULL space_id
+        // is "visible from every space" to search.query_chunks. Re-scoping
+        // re-indexes via withArtifactIndexing, so this tracks the pin.
+        space_id:
+          artifact.scope_type === "space" ? (artifact.scope_id ?? null) : null,
         source_id: doc_id,
         source_type: AI_ARTIFACT_SOURCE_TYPE,
         source_updated_at: artifact.updated_at,

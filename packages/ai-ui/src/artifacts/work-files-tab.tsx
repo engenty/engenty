@@ -7,8 +7,7 @@ import type { WorkContainerRef } from "./artifacts-api.js";
 import { workFileIcon, workFileMime } from "./work-file-preview.js";
 import { useWorkFilesQuery, type WorkFileEntry } from "./work-files-api.js";
 
-const CARD_CN =
-  "ui-canvas-raised cursor-pointer rounded-md bg-card text-left transition-shadow hover:shadow-[var(--e-3)]";
+const CARD_CN = "ui-card-raised cursor-pointer text-left";
 
 function formatBytes(bytes: number | null): string | null {
   if (bytes == null) {

@@ -1,3 +1,4 @@
+import { clearDefaultSpaceCache } from "@engenty/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { createProjectRepoSupabase } from "./supabase.js";
 
@@ -8,10 +9,19 @@ import { createProjectRepoSupabase } from "./supabase.js";
  */
 type Row = Record<string, unknown>;
 
+/** The tenant's Company space, which `create` resolves when none is given. */
+const DEFAULT_SPACE_ID = "00000000-0000-4000-8000-0000000000aa";
+
 function makeFakeSupabase(seed: { projects: Row[]; project_team: Row[] }) {
   const tables: Record<string, Row[]> = {
     projects: [...seed.projects],
     project_team: [...seed.project_team],
+    // `core.spaces`: every project lands in a space, so the create path reads
+    // the tenant default when the caller names none. The fake has to answer it
+    // in the shipping shape — a builder missing `maybeSingle` made `create`
+    // throw here rather than at the assertion, which is the failure mode that
+    // teaches nothing.
+    spaces: [{ id: DEFAULT_SPACE_ID, is_default: true, tenant_id: "t1" }],
   };
 
   function from(table: string) {
@@ -68,6 +78,10 @@ function makeFakeSupabase(seed: { projects: Row[]; project_team: Row[] }) {
         });
       },
       single() {
+        const result = rows.filter((r) => filters.every((f) => f(r)));
+        return Promise.resolve({ data: result[0] ?? null, error: null });
+      },
+      maybeSingle() {
         const result = rows.filter((r) => filters.every((f) => f(r)));
         return Promise.resolve({ data: result[0] ?? null, error: null });
       },
@@ -220,5 +234,26 @@ describe("members-only × portal guard", () => {
       portal_enabled: false,
     } as never);
     expect(created.visibility).toBe("members");
+  });
+
+  it("puts a project with no named space in the tenant's default one", async () => {
+    // "Every work container except Global belongs to exactly one space": a
+    // project created without one must not land space-less.
+    clearDefaultSpaceCache();
+    const supabase = makeFakeSupabase({ projects: [], project_team: [] });
+    const repo = createProjectRepoSupabase(supabase, "t1", "s1", deps);
+    const created = await repo.create({ title: "X" } as never);
+    expect(created.space_id).toBe(DEFAULT_SPACE_ID);
+  });
+
+  it("keeps an explicitly named space", async () => {
+    clearDefaultSpaceCache();
+    const supabase = makeFakeSupabase({ projects: [], project_team: [] });
+    const repo = createProjectRepoSupabase(supabase, "t1", "s1", deps);
+    const created = await repo.create({
+      space_id: "11111111-1111-4111-8111-111111111111",
+      title: "X",
+    } as never);
+    expect(created.space_id).toBe("11111111-1111-4111-8111-111111111111");
   });
 });

@@ -1,7 +1,12 @@
 "use client";
 
+import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
+import { Button } from "@engenty/ui-core";
+import { SquareArrowOutUpRight } from "lucide-react";
+import { useOptionalAgentHost } from "../agent-provider/engenty-agent.js";
 import { AppArtifactView } from "./app-artifact-view.js";
+import { activateArtifact } from "./artifact-store.js";
 import {
   getArtifact,
   resolveEngentyAiServiceBaseUrlSafe,
@@ -15,6 +20,12 @@ import {
  * right in the chat when the version is still proposed.
  */
 export function InlineAppArtifact({ artifactId }: { artifactId: string }) {
+  const { t } = useTranslation("ai-ui");
+  // Sends the App to the thread's artifact panel — beside the conversation,
+  // not over it, which is why the control is a panel and not a fullscreen
+  // expand. Outside an agent boundary (a preview, a story) there is no panel
+  // to send it to, so it simply is not there.
+  const host = useOptionalAgentHost();
   const query = useQuery({
     enabled: Boolean(artifactId),
     queryFn: () =>
@@ -34,7 +45,26 @@ export function InlineAppArtifact({ artifactId }: { artifactId: string }) {
     return null;
   }
   return (
-    <div className="mt-2 flex h-105 flex-col overflow-hidden rounded-lg border bg-background">
+    // Tall enough that the consent banner and the running App both fit: the
+    // banner grew from a row of chips into a read-through of what the App may
+    // do, and at the old 420px it pushed the preview out of the box entirely.
+    <div className="relative mt-2 flex h-[34rem] flex-col overflow-hidden rounded-lg border bg-background">
+      {host ? (
+        <Button
+          aria-label={t("artifacts.openInPane", {
+            defaultValue: "Open in the artifact panel",
+          })}
+          className="absolute top-1.5 right-1.5 z-10 bg-background/80 backdrop-blur"
+          onClick={() => activateArtifact(host.hostKey, artifactId)}
+          size="icon-sm"
+          title={t("artifacts.openInPane", {
+            defaultValue: "Open in the artifact panel",
+          })}
+          variant="ghost"
+        >
+          <SquareArrowOutUpRight aria-hidden className="size-3.5" />
+        </Button>
+      ) : null}
       <AppArtifactView
         artifact={data.artifact}
         content={data.version.content}

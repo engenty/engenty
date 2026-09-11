@@ -1,4 +1,5 @@
 import {
+  beginOptimisticUpdate,
   keepPreviousData,
   type QueryClient,
   queryOptions,
@@ -6,11 +7,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@engenty/query-client";
+import { toast } from "sonner";
 import type {
-  GoalCreateInput,
-  GoalsQueryParams,
-  GoalUpdateInput,
-  TaskCreateInput,
+  Task,
+  TaskDetail,
+  TaskSettings,
   TaskSettingsUpdateInput,
   TasksBriefingMode,
   TasksQueryParams,
@@ -18,12 +19,6 @@ import type {
 } from "../src/schema/types.js";
 import {
   addTaskComment,
-  createGoal,
-  createTask,
-  deleteGoal,
-  deleteTask,
-  getGoal,
-  getGoals,
   getTask,
   getTaskActivity,
   getTaskRuns,
@@ -31,17 +26,31 @@ import {
   getTasks,
   getTasksBriefing,
   getUserDisplayName,
-  handoffGoalToCoordinator,
   type ResolveToolApprovalBody,
   releaseTask,
   resolveTaskToolApproval,
   revokeTaskApprovalGrant,
-  updateGoal,
+  runTaskNow,
   updateTask,
   updateTaskSettings,
 } from "./api.js";
 import { fetchTaskLinkedSessions } from "./lib/task-linked-sessions.js";
+import { patchTask, patchTaskSettings } from "./lib/task-optimistic-cache.js";
 import { TASK_LIVE_POLL_MS } from "./lib/task-run-live.js";
+import {
+  type TaskSpaceScope,
+  useTaskSpaceScope,
+  withTaskSpaceScope,
+} from "./lib/use-task-space-scope.js";
+
+// biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
+export {
+  useBulkDeleteTasksMutation,
+  useBulkUpdateTasksMutation,
+  useCreateTaskMutation,
+  useDeleteTaskMutation,
+  useUpdateTasksListMutation,
+} from "./complex-optimistic-mutations.js";
 
 export function invalidateTaskDetailLiveQueries(
   queryClient: QueryClient,
@@ -62,16 +71,10 @@ export const taskKeys = {
   linkedSessions: (id: string, workspaceKey: string) =>
     [...taskKeys.all, "linked-sessions", id, workspaceKey] as const,
   settings: () => [...taskKeys.all, "settings"] as const,
-  briefing: (mode: TasksBriefingMode) =>
-    [...taskKeys.all, "briefing", mode] as const,
+  briefing: (mode: TasksBriefingMode, spaceId?: string) =>
+    [...taskKeys.all, "briefing", mode, spaceId ?? null] as const,
   userProfile: (userId: string) =>
     [...taskKeys.all, "user-profile", userId] as const,
-  goals: {
-    all: ["tasks", "goals"] as const,
-    list: (params: GoalsQueryParams) =>
-      [...taskKeys.goals.all, "list", params] as const,
-    detail: (id: string) => [...taskKeys.goals.all, "detail", id] as const,
-  },
 };
 
 export function tasksListOptions(params: TasksQueryParams) {
@@ -82,8 +85,18 @@ export function tasksListOptions(params: TasksQueryParams) {
   });
 }
 
-export function useTasksListQuery(params: TasksQueryParams) {
-  return useQuery(tasksListOptions(params));
+/**
+ * Space-scoped by default (PLAN-spaces.md Phase 5/6): the list shows the space
+ * the user is in. Pass `scope: "tenant"` for a surface that is about a person or
+ * the whole tenant rather than about this space, and `space_id` in the params to
+ * pin a specific one — an explicit id always wins.
+ */
+export function useTasksListQuery(
+  params: TasksQueryParams,
+  options: { scope?: TaskSpaceScope } = {}
+) {
+  const spaceId = useTaskSpaceScope(options.scope);
+  return useQuery(tasksListOptions(withTaskSpaceScope(params, spaceId)));
 }
 
 export function taskDetailOptions(id: string) {
@@ -159,32 +172,6 @@ export function useTaskLinkedSessionsQuery(
   });
 }
 
-export function goalsListOptions(params: GoalsQueryParams) {
-  return queryOptions({
-    queryKey: taskKeys.goals.list(params),
-    queryFn: ({ signal }) => getGoals(params, signal),
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useGoalsListQuery(params: GoalsQueryParams) {
-  return useQuery(goalsListOptions(params));
-}
-
-export function goalDetailOptions(id: string) {
-  return queryOptions({
-    queryKey: taskKeys.goals.detail(id),
-    queryFn: ({ signal }) => getGoal(id, signal),
-  });
-}
-
-export function useGoalDetailQuery(id: string | null) {
-  return useQuery({
-    ...goalDetailOptions(id ?? ""),
-    enabled: !!id,
-  });
-}
-
 export function useTaskSettingsQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: taskKeys.settings(),
@@ -197,59 +184,67 @@ export function useUpdateTaskSettingsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: TaskSettingsUpdateInput) => updateTaskSettings(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.settings() });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    onMutate: async (input) => {
+      const transaction = await beginOptimisticUpdate<TaskSettings>(
+        queryClient,
+        {
+          queryKey: taskKeys.settings(),
+          update: (current) => patchTaskSettings(current, input),
+        }
+      );
+      return { transaction };
+    },
+    onError: (_error, _input, context) => {
+      context?.transaction.rollback();
+      toast.error("Could not save task settings.");
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData(taskKeys.settings(), saved);
     },
   });
 }
 
-export function tasksBriefingOptions(mode: TasksBriefingMode) {
+export function tasksBriefingOptions(
+  mode: TasksBriefingMode,
+  spaceId?: string
+) {
   return queryOptions({
-    queryKey: taskKeys.briefing(mode),
-    queryFn: ({ signal }) => getTasksBriefing(mode, signal),
+    // The space belongs in the key: without it, walking from one space to
+    // another would show the previous space's briefing from cache.
+    queryKey: taskKeys.briefing(mode, spaceId),
+    queryFn: ({ signal }) => getTasksBriefing(mode, spaceId, signal),
   });
 }
 
-export function useTasksBriefingQuery(mode: TasksBriefingMode) {
-  return useQuery(tasksBriefingOptions(mode));
-}
-
-export function useCreateTaskMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: TaskCreateInput) => createTask(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-    },
-  });
+export function useTasksBriefingQuery(
+  mode: TasksBriefingMode,
+  options: { scope?: TaskSpaceScope } = {}
+) {
+  const spaceId = useTaskSpaceScope(options.scope);
+  return useQuery(tasksBriefingOptions(mode, spaceId));
 }
 
 export function useUpdateTaskMutation(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: TaskUpdateInput) => updateTask(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.activity(id) });
+    onMutate: async (input) => {
+      const transaction = await beginOptimisticUpdate<Task>(queryClient, {
+        queryKey: taskKeys.detail(id),
+        update: (current) => patchTask(current, input),
+      });
+      return { transaction };
     },
-  });
-}
-
-export function useUpdateTasksListMutation(_listParams: TasksQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      taskId,
-      input,
-    }: {
-      taskId: string;
-      input: TaskUpdateInput;
-    }) => updateTask(taskId, input),
-    onSuccess: (_, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+    onError: (_error, _input, context) => {
+      context?.transaction.rollback();
+      toast.error("Could not save the task.");
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<TaskDetail | undefined>(
+        taskKeys.detail(id),
+        (current) => (current ? { ...current, ...saved } : current)
+      );
+      void queryClient.invalidateQueries({ queryKey: taskKeys.activity(id) });
     },
   });
 }
@@ -259,6 +254,28 @@ export function useAddTaskCommentMutation(taskId: string) {
   return useMutation({
     mutationFn: (content: string) => addTaskComment(taskId, content),
     onSuccess: () => {
+      invalidateTaskDetailLiveQueries(queryClient, taskId);
+    },
+  });
+}
+
+/**
+ * Answer an agent's question and let it carry on.
+ *
+ * Two calls, deliberately in this order and not merged into one op: the reply
+ * is a plain comment (so it reads like any other, and survives if the dispatch
+ * fails), and the dispatch is the same `run now` a person could press by hand.
+ * The agent sees the answer because the brief replays prior comments.
+ */
+export function useAnswerTaskQuestionMutation(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (content: string) => {
+      await addTaskComment(taskId, content);
+      return await runTaskNow(taskId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       invalidateTaskDetailLiveQueries(queryClient, taskId);
     },
   });
@@ -301,94 +318,6 @@ export function useRevokeApprovalGrantMutation(taskId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       invalidateTaskDetailLiveQueries(queryClient, taskId);
-    },
-  });
-}
-
-export function useDeleteTaskMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (taskId: string) => deleteTask(taskId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-    },
-  });
-}
-
-export function useBulkDeleteTasksMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (taskIds: string[]) => {
-      await Promise.all(taskIds.map((id) => deleteTask(id)));
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-    },
-  });
-}
-
-export function useBulkUpdateTasksMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      taskIds,
-      input,
-    }: {
-      taskIds: string[];
-      input: TaskUpdateInput;
-    }) => {
-      await Promise.all(taskIds.map((id) => updateTask(id, input)));
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-    },
-  });
-}
-
-export function useCreateGoalMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: GoalCreateInput) => createGoal(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
-    },
-  });
-}
-
-export function useUpdateGoalMutation(id: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: GoalUpdateInput) => updateGoal(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
-      void queryClient.invalidateQueries({
-        queryKey: taskKeys.goals.detail(id),
-      });
-    },
-  });
-}
-
-export function useDeleteGoalMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (goalId: string) => deleteGoal(goalId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
-    },
-  });
-}
-
-export function useHandoffGoalMutation(id: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => handoffGoalToCoordinator(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: taskKeys.goals.all });
-      void queryClient.invalidateQueries({
-        queryKey: taskKeys.goals.detail(id),
-      });
-      // The coordinator creates tasks under the goal; refresh their list.
-      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
   });
 }

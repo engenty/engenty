@@ -6,7 +6,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { Button, Skeleton } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -15,12 +15,7 @@ import {
   type SourceAdapterEditorHandle,
 } from "../components/source-adapter-editor.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import {
-  KB_MODULE_BASE,
-  kbSourceEditPath,
-  kbSourcePath,
-  kbSourcesPath,
-} from "../kb-paths.js";
+import { kbSourcePath, kbSourcesPath } from "../kb-paths.js";
 import { mergeKbSourceAdaptersForPicker } from "../kb-source-adapters-merge.js";
 import {
   kbModulePageShellInnerClassName,
@@ -28,33 +23,27 @@ import {
 } from "../lib/kb-page-shell.js";
 import {
   kbSourceDetailQueryOptions,
-  kbsQueryOptions,
   sourceAdaptersQueryOptions,
   useKbSourceMutations,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function SourceEditPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const editorRef = useRef<SourceAdapterEditorHandle>(null);
   const [canSubmit, setCanSubmit] = useState(false);
-  const { kbSlug: kbSlugParam, sourceId } = useParams<{
-    kbSlug?: string;
-    sourceId: string;
-  }>();
+  const { sourceId } = useParams<{ sourceId: string }>();
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const { data: adaptersRaw = [] } = useQuery(sourceAdaptersQueryOptions);
   const adapters = useMemo(
     () => mergeKbSourceAdaptersForPicker(adaptersRaw),
     [adaptersRaw]
   );
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
-  const kbIdFromUrl = useMemo(
-    () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
-    [kbSlugParam, kbs]
-  );
+  const kbIdFromUrl = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const {
     data: detail,
@@ -63,22 +52,6 @@ export function SourceEditPage() {
   } = useQuery(kbSourceDetailQueryOptions(sourceId ?? ""));
   const source = detail?.data;
 
-  const canonicalSlug = useMemo(
-    () => (source ? slugFromKbId(kbs, source.kb_id) : undefined),
-    [kbs, source]
-  );
-
-  useEffect(() => {
-    if (!(source && canonicalSlug && sourceId)) {
-      return;
-    }
-    if (kbSlugParam === canonicalSlug) {
-      return;
-    }
-    navigate(kbSourceEditPath(canonicalSlug, sourceId), { replace: true });
-  }, [canonicalSlug, kbSlugParam, navigate, source, sourceId]);
-
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
   const kbId = source?.kb_id ?? kbIdFromUrl ?? "";
 
   const listQuery = useMemo(
@@ -102,30 +75,11 @@ export function SourceEditPage() {
     }
   }, [source?.id]);
 
-  useEffect(() => {
-    if (!kbsLoading && kbSlugParam && !kbIdFromUrl && !source) {
-      navigate(KB_MODULE_BASE, { replace: true });
-    }
-  }, [kbIdFromUrl, kbSlugParam, kbsLoading, navigate, source]);
-
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (nextSlug) {
-        navigate(kbSourcesPath(nextSlug));
-      }
-    },
-    [kbs, navigate]
-  );
-
-  const sourcesListHref = kbSlug ? kbSourcesPath(kbSlug) : KB_MODULE_BASE;
-  const detailHref =
-    kbSlug && sourceId ? kbSourcePath(kbSlug, sourceId) : sourcesListHref;
+  const sourcesListHref = kbSourcesPath();
+  const detailHref = sourceId ? kbSourcePath(sourceId) : sourcesListHref;
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbId || "",
-    kbSlug: kbSlug || "",
-    onKbChange: navigateKb,
   });
 
   const pageActions = useMemo(() => {
@@ -155,7 +109,6 @@ export function SourceEditPage() {
   }, [canSubmit, detailHref, mutations.update.isPending, navigate, source, t]);
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: source
@@ -181,7 +134,7 @@ export function SourceEditPage() {
     try {
       await mutations.update.mutateAsync({ id: source.id, input });
       toast.success(t("sources.updated"));
-      navigate(kbSourcePath(kbSlug, source.id));
+      navigate(kbSourcePath(source.id));
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("sources.save_failed")

@@ -2,13 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   isPluginCategory,
+  isPluginPlacement,
   PLUGIN_CATEGORIES,
+  PLUGIN_PLACEMENTS,
   type PluginCategory,
+  type PluginPlacement,
 } from "@engenty/plugin-sdk";
 import { collectManifestDiagnostics } from "./manifest-diagnostics.js";
 
-export type { PluginCategory } from "@engenty/plugin-sdk";
-export { PLUGIN_CATEGORIES } from "@engenty/plugin-sdk";
+export type { PluginCategory, PluginPlacement } from "@engenty/plugin-sdk";
+export { PLUGIN_CATEGORIES, PLUGIN_PLACEMENTS } from "@engenty/plugin-sdk";
 
 export const ENGENTY_PLUGIN_MANIFEST_FILENAME = "engenty.plugin.json";
 
@@ -48,6 +51,65 @@ export function resolvePluginCategory(
   return { ok: true, category: value };
 }
 
+/**
+ * Parse optional `placement`. Absent → undefined, which the resolver reads as
+ * `"space"` while emitting a diagnostic. Present but unknown → error, exactly
+ * like `category`: a typo'd placement must not degrade to a default, because
+ * the default it would land on decides whether the module appears on the rail.
+ */
+export function resolvePluginPlacement(
+  value: unknown
+): { ok: true; placement?: PluginPlacement } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true };
+  }
+  if (!isPluginPlacement(value)) {
+    return {
+      ok: false,
+      error: `engenty.plugin.json placement must be one of: ${PLUGIN_PLACEMENTS.join(", ")}`,
+    };
+  }
+  return { ok: true, placement: value };
+}
+
+const CONNECTION_NEED_CAPABILITIES = new Set(["files", "storage", "stream"]);
+
+/**
+ * Read `connections: [{ capability, required? }]`.
+ *
+ * Unknown capabilities are dropped rather than rejected: a module built against
+ * a newer SDK must still load on an older host, and a need nobody understands
+ * is a need nobody can satisfy — silently demanding one would make the module
+ * unmountable.
+ */
+export function readConnectionNeeds(
+  value: unknown
+): PluginManifestConnectionNeed[] | undefined {
+  if (!Array.isArray(value)) {
+    return;
+  }
+  const needs: PluginManifestConnectionNeed[] = [];
+  for (const entry of value) {
+    const capability = (entry as { capability?: unknown })?.capability;
+    if (typeof capability !== "string") {
+      continue;
+    }
+    if (!CONNECTION_NEED_CAPABILITIES.has(capability)) {
+      continue;
+    }
+    const required = (entry as { required?: unknown })?.required;
+    const bindOperation = (entry as { bindOperation?: unknown })?.bindOperation;
+    needs.push({
+      capability: capability as PluginManifestConnectionNeed["capability"],
+      ...(typeof bindOperation === "string" && bindOperation.trim()
+        ? { bindOperation: bindOperation.trim() }
+        : {}),
+      ...(required === false ? { required: false } : {}),
+    });
+  }
+  return needs.length > 0 ? needs : undefined;
+}
+
 export interface PluginManifestCapabilityFlags {
   ai?: boolean;
   frontendTools?: boolean;
@@ -55,15 +117,61 @@ export interface PluginManifestCapabilityFlags {
   ui?: boolean;
 }
 
+/**
+ * An external account this module needs to do its job, named by the CONNECTOR
+ * CAPABILITY it must provide (`ConnectorDefinition.stream` / `.files` /
+ * `.storage`) rather than by a connector — Inbox needs a mailbox to pull from,
+ * not Gmail specifically.
+ *
+ * This is what lets one flow know that "add Inbox to this space" is an
+ * unfinished sentence until a mailbox is placed here too
+ * (PLAN-connections-ux.md B3).
+ */
+export interface PluginManifestConnectionNeed {
+  /**
+   * The module operation that makes an account USABLE here
+   * (PLAN-connections-ux.md B3b) — called with `{ connection_id, space_id }`
+   * when this module and a matching account end up in the same space. A
+   * module whose binding is tenant-wide (a mailbox's sync state) ignores the
+   * space; one whose binding is per space (a drive's folder in this space's
+   * Files) needs it.
+   *
+   * Without it, placing a mailbox and adding Inbox leaves two rows and no
+   * mail: the module's own binding (a sync state row, a file source) is the
+   * step that turns availability into something that works. Idempotent by
+   * contract — it runs again whenever either side is re-added.
+   */
+  bindOperation?: string;
+  capability: "files" | "storage" | "stream";
+  /** Absent ⇒ required. An optional need is offered, never demanded. */
+  required?: boolean;
+}
+
 export interface PluginManifest {
   capabilities?: PluginManifestCapabilityFlags;
   /** Catalog group — see {@link PluginCategory}. */
   category?: PluginCategory;
+  /** External accounts this module needs — see {@link PluginManifestConnectionNeed}. */
+  connections?: PluginManifestConnectionNeed[];
   description?: string;
   id: string;
   kind?: string;
+  /**
+   * The module operation that makes a fresh mount USABLE in a space — called
+   * with `{ space_id }` by every path that mounts the module (the create
+   * wizard, the space's setup dialog, the `space_setup` tool). A module whose
+   * pages need a row to exist first (the space's knowledge base) creates it
+   * here; one that is ready as soon as it is mounted declares nothing.
+   *
+   * Idempotent by contract: it runs again on every re-add, which is also how a
+   * setup that could not finish is retried. A failure never fails the mount —
+   * the placement stands and the caller is told which app is not ready.
+   */
+  mountOperation?: string;
   name?: string;
   optional?: string[];
+  /** Shell placement — see {@link PluginPlacement}. Absent ⇒ treated as "space". */
+  placement?: PluginPlacement;
   provides?: string[];
   requires?: string[];
   server?: {
@@ -489,6 +597,15 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
       manifestPath,
     };
   }
+  const placementResult = resolvePluginPlacement(merged.placement);
+  if (!placementResult.ok) {
+    return {
+      ok: false,
+      code: "plugin.manifest.invalid",
+      error: placementResult.error,
+      manifestPath,
+    };
+  }
   const manifest: PluginManifest = {
     id,
     name: typeof merged.name === "string" ? merged.name.trim() : undefined,
@@ -500,6 +617,7 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
       typeof merged.version === "string" ? merged.version.trim() : undefined,
     kind: typeof merged.kind === "string" ? merged.kind.trim() : undefined,
     category: categoryResult.category,
+    placement: placementResult.placement,
     tier: resolvePluginTier(merged.tier),
     server,
     ui,
@@ -507,6 +625,11 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
     requires: readStringArray(merged.requires),
     optional: readStringArray(merged.optional),
     capabilities: readCapabilityFlags(merged.capabilities),
+    connections: readConnectionNeeds(merged.connections),
+    ...(typeof merged.mountOperation === "string" &&
+    merged.mountOperation.trim()
+      ? { mountOperation: merged.mountOperation.trim() }
+      : {}),
   };
   const diagnostics: PluginManifestDiagnostic[] = [];
   collectManifestDiagnostics({

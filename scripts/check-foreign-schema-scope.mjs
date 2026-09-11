@@ -46,6 +46,22 @@ const SCAN_DIRS = ["modules", "apps", "packages"];
  */
 const UNSCOPED_TABLES = new Set();
 
+/**
+ * Tables that carry tenant_id but have never had a scope_id column, so the
+ * scope half of the rule is unsatisfiable — foreignSelect() would 400 on a
+ * column that does not exist. tenant_id is still REQUIRED on every read.
+ * Verify against the owning module's migrations before adding anything here;
+ * if the table gains scope_id, remove the entry so the full rule applies.
+ */
+const TENANT_ONLY_TABLES = new Set([
+  "module_connections.connections",
+  // Verified against 20260616000900_plugin_files_manager.sql: file_entries
+  // scopes by (tenant_id, owner_type, owner_id) and has never had a scope_id
+  // column, so foreignSelect would 400 on it. The admin explorer's label
+  // lookup filters tenant_id and an id list it already listed for that tenant.
+  "module_files.file_entries",
+]);
+
 /** Schemas every module may read: not tenant-partitioned data. */
 const SHARED_SCHEMAS = new Set(["public", "storage", "auth"]);
 
@@ -266,6 +282,7 @@ export function findForeignSchemaScopeViolations(root = ROOT) {
         }
         if (
           !(
+            TENANT_ONLY_TABLES.has(`${schema}.${table}`) ||
             chain.includes('.eq("scope_id"') ||
             (isWrite && setsColumn("scope_id"))
           )

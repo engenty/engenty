@@ -79,7 +79,6 @@ export function RolesSettingsPage() {
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend into
     // one continuous surface (matches the contact detail page).
     topbarOverlap: true,

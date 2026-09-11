@@ -9,18 +9,28 @@ import type {
   ConnectionPolicyPrincipal,
   ConnectionsModuleClient,
 } from "@engenty/connections-sdk";
+import {
+  mountConnectionInSpace,
+  resolveSpaceRecordAccounts,
+} from "@engenty/connections-sdk";
 import type { FileSourceContext } from "@engenty/file-storage";
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import type { z } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FileMountStore } from "../dal/file-manager-store.js";
 import {
   createMountBodySchema,
+  fileAccountBindInputSchema,
+  fileAccountBindResultSchema,
   fileSpaceItemParamsSchema,
+  fileSpaceMountInputSchema,
+  fileSpaceMountResultSchema,
   fileSpaceParamsSchema,
   folderNodeSchema,
   readFileSourceBodySchema,
 } from "../schema/file-manager-zod.js";
 import { decodeConnectorNodeId } from "../sources/connector-ref.js";
+import { connectorDownloadHeaders } from "./connector-download-headers.js";
 
 const READ_OP = {
   requiredCapabilities: ["module.files.read"],
@@ -53,10 +63,149 @@ export function registerFileSourcesRoutes(
   server: PluginServerApi,
   deps: {
     client: ConnectionsModuleClient;
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
     mounts: FileMountStore;
   }
 ): void {
-  const { client, mounts } = deps;
+  const { client, getDb, mounts } = deps;
+
+  type FileSource = Awaited<
+    ReturnType<ConnectionsModuleClient["listFileSources"]>
+  >[number];
+
+  /**
+   * Show one placed drive's folders in a space's Files (PLAN-connections-ux.md
+   * B3b). Without it, placing a Drive leaves a mount row nobody can see: the
+   * account is available to the space and its folders appear nowhere.
+   *
+   * Mounts the PROVIDER ROOT (`source_folder_id: null`), not a picked folder.
+   * Choosing a subfolder is a decision only the person can make, and the picker
+   * is still there for it — a root mount is the answer that is right without
+   * asking, and narrowing it later is an edit rather than a second mount.
+   *
+   * Idempotent: an owner that already has a mount for this connection keeps it.
+   * Binding runs again whenever either side is re-added, and a second root for
+   * the same drive is a duplicate tree nobody asked for.
+   */
+  async function bindDrive(
+    auth: PluginAuthContext,
+    spaceId: string,
+    connection: FileSource | undefined
+  ): Promise<z.infer<typeof fileAccountBindResultSchema>> {
+    // Not a failure: most accounts are not drives, and the module declares
+    // its need by CAPABILITY rather than by connector.
+    if (!connection) {
+      return { bound: false, created: false, folder_id: null };
+    }
+    const source = CONNECTOR_SOURCE_KINDS[connection.connector_id];
+    if (!source) {
+      return { bound: false, created: false, folder_id: null };
+    }
+    const sctx: FileSourceContext = {
+      owner: { id: spaceId, type: "space" },
+      principalId: auth.principalId,
+      tenantId: auth.tenantId,
+    };
+    const existing = await mounts.findByConnection(sctx, connection.id);
+    if (existing) {
+      return { bound: true, created: false, folder_id: existing.id };
+    }
+    const mount = await mounts.create(sctx, {
+      connectionId: connection.id,
+      name:
+        connection.display_name?.trim() ||
+        connection.external_account?.trim() ||
+        connection.connector_name,
+      parentId: null,
+      source,
+      sourceFolderId: null,
+    });
+    return { bound: true, created: true, folder_id: mount.id };
+  }
+
+  /**
+   * An account placed in a space where Files already is — the manifest names
+   * this operation in `connections[].bindOperation`, and core calls it from
+   * `POST /api/spaces/:id/setup/add` for that pair. When Files itself is being
+   * mounted, `files_space_mount` mounts every drive the space has instead.
+   */
+  server.registerOperation({
+    operationId: "files_account_bind",
+    moduleId: "files",
+    spacePolicy: {
+      connectionInputKey: "connection_id",
+      kind: "account_mounted",
+    },
+    summary: "Show a placed drive's folders in this space's Files",
+    requiredCapabilities: ["module.files.write"],
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: fileAccountBindInputSchema,
+    outputSchema: fileAccountBindResultSchema,
+    handler: async (input, ctx) => {
+      const auth = ctx.auth;
+      if (!auth) {
+        throw new Error("files_account_bind requires authentication");
+      }
+      const parsed = fileAccountBindInputSchema.parse(input ?? {});
+      const sources = await client.listFileSources({ tenantId: auth.tenantId });
+      return await bindDrive(
+        auth,
+        parsed.space_id,
+        sources.find((source) => source.id === parsed.connection_id)
+      );
+    },
+  });
+
+  /**
+   * The module's `mountOperation` (engenty.plugin.json): core calls it with
+   * `{ space_id }` from every path that mounts Files into a space — the create
+   * wizard, the setup dialog, the `space_setup` tool. Every drive the space
+   * has already placed gets its root mounted here, the same way
+   * `files_account_bind` mounts one.
+   *
+   * A space's Files needs no row to exist (the root is `parent_id is null`
+   * under the space owner) and works with native folders alone, so it is
+   * always ready and never `needs` anything.
+   */
+  server.registerOperation({
+    operationId: "files_space_mount",
+    moduleId: "files",
+    spacePolicy: {
+      kind: "space_owned",
+    },
+    summary: "Set up this space's Files (runs on mount)",
+    description:
+      "Runs automatically when Files is mounted into a space (space_setup action='add'): shows every drive the space has placed in its Files. Idempotent. Not a tool to reach for — mount the module and this runs.",
+    requiredCapabilities: ["module.files.write"],
+    riskLevel: "low",
+    idempotent: true,
+    inputSchema: fileSpaceMountInputSchema,
+    outputSchema: fileSpaceMountResultSchema,
+    handler: async (input, ctx) => {
+      const auth = ctx.auth;
+      if (!auth) {
+        throw new Error("files_space_mount requires authentication");
+      }
+      const parsed = fileSpaceMountInputSchema.parse(input ?? {});
+      const placed = await resolveSpaceRecordAccounts(
+        getDb({ tenantId: auth.tenantId }),
+        { spaceId: parsed.space_id, tenantId: auth.tenantId }
+      );
+      const sources = await client.listFileSources({ tenantId: auth.tenantId });
+      const bound: z.infer<typeof fileSpaceMountResultSchema>["bound"] = [];
+      for (const source of sources) {
+        if (!placed?.has(source.id)) {
+          continue;
+        }
+        bound.push({
+          ...(await bindDrive(auth, parsed.space_id, source)),
+          connection_id: source.id,
+        });
+      }
+      return { bound, needs: [], ready: true };
+    },
+  });
 
   // ── List file-capable connections visible to the caller ──
   server.registerHttpRoute({
@@ -264,6 +413,16 @@ export function registerFileSourcesRoutes(
         source: sourceKind,
         sourceFolderId: body.folderRef,
       });
+      // A folder in this space's files is also a grant of the account to the
+      // space (CN.4): connecting from Files should not leave the connection
+      // usable only from tenant settings.
+      if (params.ownerType === "space") {
+        await mountConnectionInSpace(getDb({ tenantId: ctx.auth.tenantId }), {
+          connectionId: body.connectionId,
+          spaceId: params.ownerId,
+          tenantId: ctx.auth.tenantId,
+        });
+      }
       ctx.recordAuditEvent?.({
         detail: {
           connection_id: body.connectionId,
@@ -313,10 +472,10 @@ export function registerFileSourcesRoutes(
           : new TextEncoder().encode(result.content);
       const filename = result.name ?? decoded.ref.split("/").pop() ?? "file";
       return new Response(bytes, {
-        headers: {
-          "content-disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
-          "content-type": result.mime_type ?? "application/octet-stream",
-        },
+        headers: connectorDownloadHeaders({
+          filename,
+          mimeType: result.mime_type,
+        }),
       });
     },
   });

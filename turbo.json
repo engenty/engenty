@@ -10,6 +10,7 @@
     "ENGENTY_CORE_PORT",
     "ENGENTY_AI_PORT",
     "ENGENTY_DOCS_PORT",
+    "ENGENTY_WWW_PORT",
     "ENGENTY_STUDIO_PORT",
     "ENGENTY_MANAGE_PORT",
     "ENGENTY_APP_HOST_PORT",
@@ -19,7 +20,9 @@
     "ENGENTY_DEV_GATEWAY_AI_URL",
     "ENGENTY_DEV_GATEWAY_DOCS_URL",
     "ENGENTY_DEV_GATEWAY_STUDIO_URL",
-    "ENGENTY_DEV_GATEWAY_MANAGE_URL"
+    "ENGENTY_DEV_GATEWAY_MANAGE_URL",
+    "ENGENTY_MASTRA_STUDIO_API",
+    "ENGENTY_STUDIO_TENANT_ID"
   ],
   "tasks": {
     "build": {
@@ -31,7 +34,8 @@
       "cache": false,
       "outputs": [
         "apps/ui/src/plugins/generated-catalog.ts",
-        "apps/ui/src/plugins/generated-tailwind-sources.css"
+        "apps/ui/src/plugins/generated-tailwind-sources.css",
+        "apps/ui/src/plugins/pro/generated-catalog.ts"
       ]
     },
     "dev": {

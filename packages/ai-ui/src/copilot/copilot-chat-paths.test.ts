@@ -3,6 +3,7 @@ import {
   COPILOT_CHAT_NEW,
   COPILOT_CHAT_ROOT,
   COPILOT_SUB_RUN_QUERY,
+  canonicalCopilotChatPathname,
   copilotChatSubRunPath,
   defaultCopilotSessionPath,
   readCopilotSubRunToolCallId,
@@ -45,6 +46,48 @@ describe("copilot-chat-paths", () => {
     expect(copilotChatSubRunPath(THREAD_ID, toolCallId)).toBe(
       `${COPILOT_CHAT_ROOT}/${THREAD_ID}?${COPILOT_SUB_RUN_QUERY}=${encodeURIComponent(toolCallId)}`
     );
+  });
+
+  describe("canonicalCopilotChatPathname", () => {
+    it("strips the space prefix off a chat deep link", () => {
+      expect(
+        canonicalCopilotChatPathname(`/s/matthias/copilot/chat/${THREAD_ID}`)
+      ).toBe(`${COPILOT_CHAT_ROOT}/${THREAD_ID}`);
+      expect(canonicalCopilotChatPathname("/s/company/copilot/chat/new")).toBe(
+        COPILOT_CHAT_NEW
+      );
+      expect(canonicalCopilotChatPathname("/s/company/copilot/chat")).toBe(
+        COPILOT_CHAT_ROOT
+      );
+    });
+
+    it("accepts the canonical module id as a space segment", () => {
+      // Links minted before the `copilot` alias existed are still in flight.
+      expect(
+        canonicalCopilotChatPathname(
+          `/s/company/engenty-copilot/chat/${THREAD_ID}`
+        )
+      ).toBe(`${COPILOT_CHAT_ROOT}/${THREAD_ID}`);
+    });
+
+    it("leaves another module's space route alone", () => {
+      expect(canonicalCopilotChatPathname("/s/company/tasks/chat/x")).toBe(
+        "/s/company/tasks/chat/x"
+      );
+      expect(canonicalCopilotChatPathname("/s/company/settings")).toBe(
+        "/s/company/settings"
+      );
+    });
+
+    it("passes an already-canonical path through untouched", () => {
+      expect(
+        canonicalCopilotChatPathname(`${COPILOT_CHAT_ROOT}/${THREAD_ID}`)
+      ).toBe(`${COPILOT_CHAT_ROOT}/${THREAD_ID}`);
+      expect(canonicalCopilotChatPathname("/mdl/tasks/briefing")).toBe(
+        "/mdl/tasks/briefing"
+      );
+      expect(canonicalCopilotChatPathname("/s/company")).toBe("/s/company");
+    });
   });
 
   it("reads subRun query param from search strings", () => {

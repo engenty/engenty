@@ -33,9 +33,12 @@ export function ListViewModeToggle({
           onChange(next);
         }
       }}
+      // Cards first: it is the default view on the catalogs that use this, and
+      // a toggle whose first segment isn't the default reads as "you are on the
+      // second option" at a glance.
       segments={[
-        { value: "table", label: labels.table, icon: List },
         { value: "cards", label: labels.cards, icon: LayoutGrid },
+        { value: "table", label: labels.table, icon: List },
       ]}
       value={value}
     />

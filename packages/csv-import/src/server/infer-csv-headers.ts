@@ -51,7 +51,6 @@ export async function inferCsvHeaders(
     model: resolveChatModelId({ purpose: "chat" }),
     output: Output.object({ schema: inferredHeadersSchema }),
     prompt,
-    telemetry: { isEnabled: true },
   });
 
   if (!output || output.headers.length !== input.columnCount) {

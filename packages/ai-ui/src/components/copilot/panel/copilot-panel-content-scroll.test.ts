@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCopilotTranscriptScrollTop,
   isCopilotScrollViewportNearBottom,
+  resolveCopilotEmptyLandingAlign,
   resolveCopilotTranscriptBottomPaddingClass,
   shouldCenterCopilotEmptyLanding,
 } from "./copilot-panel-content";
@@ -68,5 +69,31 @@ describe("CopilotPanelContent scroll helpers", () => {
         showEmptyLanding: true,
       })
     ).toBe(false);
+  });
+
+  it("pins specialist desks to a top-aligned empty landing", () => {
+    expect(
+      resolveCopilotEmptyLandingAlign({
+        bodyOnly: true,
+        composerDockStyle: true,
+        emptyLandingAlign: "start",
+        showEmptyLanding: true,
+      })
+    ).toBe("start");
+    expect(
+      resolveCopilotEmptyLandingAlign({
+        bodyOnly: true,
+        composerDockStyle: true,
+        showEmptyLanding: true,
+      })
+    ).toBe("center");
+    expect(
+      resolveCopilotEmptyLandingAlign({
+        bodyOnly: true,
+        composerDockStyle: true,
+        emptyLandingAlign: "start",
+        showEmptyLanding: false,
+      })
+    ).toBeUndefined();
   });
 });

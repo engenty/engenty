@@ -127,11 +127,13 @@ export function TaskCard({
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    const isAction =
-      target.closest("button") || target.closest('[role="button"]');
-    if (!isAction) {
-      onClick?.(task);
+    const interactiveTarget = target.closest(
+      'a, button, input, select, textarea, [role="button"]'
+    );
+    if (interactiveTarget && interactiveTarget !== e.currentTarget) {
+      return;
     }
+    onClick?.(task);
   };
 
   const handleDeleteConfirm = async () => {
@@ -151,10 +153,9 @@ export function TaskCard({
     <>
       <div
         className={cn(
-          "ui-canvas-raised relative flex select-none items-center gap-4 rounded-md bg-card p-3",
+          "ui-card-raised relative flex select-none items-center gap-4 p-3",
           showActions ? "pr-20" : "pr-4",
-          onClick &&
-            "cursor-pointer transition-shadow hover:shadow-[var(--e-3)]"
+          onClick && "cursor-pointer"
         )}
         onClick={handleCardClick}
         onKeyDown={(e) => {

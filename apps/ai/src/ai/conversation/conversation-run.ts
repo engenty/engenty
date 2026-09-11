@@ -1,13 +1,11 @@
-// The conversation chat executor — the single live chat substrate. Drives a run on
-// a Mastra `Session` (created by a per-run `AgentController`) over our assembled
-// agent + our memory adapter + a single default mode, bound to the Engenty thread,
-// and bridges the session's high-level events to the run-event-bus via
-// `SessionAgUiConverter`.
+// The conversation chat executor — the single live chat substrate. Drives a run
+// on `@ag-ui/mastra` (`runInteractiveViaMastraAgent`) over our assembled agent +
+// our memory adapter, bound to the Engenty thread, and publishes the AG-UI events
+// to the run-event-bus.
 //
 // Covers text + tools + real cancel + usage + runtime-context, native sub-agent
-// cards, frontend-tool HITL (suspend/park/resume), decision/feedback artifacts, and
-// the execute-boundary tool-approval gate. Events arrive as
-// agent_start → message_* → usage_update → agent_end; recall flows through
+// cards, frontend-tool HITL (native suspend/resume), decision/feedback artifacts,
+// and the execute-boundary tool-approval gate. Recall flows through
 // EngentySessionMemoryStorage.
 import {
   type AGUIEvent,
@@ -18,6 +16,10 @@ import {
 } from "@engenty/ag-ui-bridge";
 import type { AiEffort, AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
+import {
+  MASTRA_AUTH_TOKEN_KEY,
+  RequestContext,
+} from "@mastra/core/request-context";
 import type { Workspace } from "@mastra/core/workspace";
 import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
@@ -25,26 +27,55 @@ import { isToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/in
 import {
   engentyToolsRunAls,
   getEngentyToolsRunContext,
+  withEnvCoreBaseUrl,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
 import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
-import { createEngentySessionMemoryRuntime } from "../memory/invocation-options.js";
+import {
+  createUserBrowserTools,
+  releaseUserBrowserForRun,
+} from "../browser/user-browser-tools.js";
+import {
+  createEngentyMastraResourceId,
+  createEngentySessionMemoryRuntime,
+} from "../memory/invocation-options.js";
+import { resolveSharedObservationsScope } from "../memory/shared-observational-memory.js";
 import {
   type AiRegistry,
   assembleDynamicAgent,
   type RuntimeModelConfig,
 } from "../registry/index.js";
+import { noteHumanTurnInRoom } from "../rooms/deliver.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
+import { registerActiveThreadRun } from "../sessions/active-thread-runs.js";
+import {
+  emitExecutionLaneRunStarted,
+  executionSpaceId,
+} from "../sessions/execution-lane.js";
+import { agentRunErrorCode } from "../sessions/mastra-stream-failure.js";
+import { resolveAgentMaxSteps } from "../sessions/max-steps.js";
 import { registerActiveRunAbortController } from "../sessions/run-abort-registry.js";
 import {
   markRunDone,
   markRunLive,
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
+import {
+  resolvedRunSpace,
+  resolveRunSpaceForThread,
+  toolsSpaceFromResolution,
+} from "../sessions/run-space.js";
 import { createSessionRunTracker } from "../sessions/run-tracking.js";
-import { buildSessionRuntimeInstructions } from "../sessions/runtime-instructions.js";
+import {
+  buildSessionRuntimeInstructions,
+  resolveUiLanguage,
+} from "../sessions/runtime-instructions.js";
+import {
+  requireStoredThreadAccess,
+  sharedMastraRoomFromThread,
+} from "../sessions/thread-access.js";
 import {
   isDecisionArtifactPayload,
   isFeedbackArtifactPayload,
@@ -54,22 +85,30 @@ import {
   type AiSessionScope,
   scopeAccessToken,
 } from "../sessions/types.js";
-import {
-  type ConversationController,
-  createConversationSession,
-} from "./controller-session.js";
-import { createDelegationTools } from "./delegate-tool.js";
+import { setTraceContext } from "../trace-context.js";
+import { workspaceApprovalSuspendPayload } from "../workspace/workspace-tool-guards.js";
+import { runInteractiveViaMastraAgent } from "./agui-start-driver.js";
+import { AgUiTurnAccumulator } from "./agui-turn-accumulator.js";
 import {
   emitArtifactInterrupt,
   emitFrontendToolInterrupt,
   emitToolApprovalInterrupt,
 } from "./emit-interrupt.js";
+import {
+  emitTrajectoryHeader,
+  listKnownToolNames,
+  recallTrajectoryMessagePointers,
+} from "./emit-trajectory-header.js";
+import { isMastraToolApprovalSuspend } from "./mastra-stream-intercept.js";
 import { persistSubAgentProgress } from "./persist-sub-agent-progress.js";
 import { persistTurnTranscript } from "./persist-turn-transcript.js";
 import { repairDanglingToolCallsInHistory } from "./repair-dangling-tool-calls.js";
-import { recordSessionUsage, usageFromSession } from "./run-usage.js";
-import { SessionAgUiConverter } from "./session-agui-bridge.js";
-import { parkSessionRun } from "./session-park.js";
+import { createRootDelegationTools } from "./root-delegation-tools.js";
+import {
+  persistRunFailureNotice,
+  runFailureNoticeText,
+} from "./run-failure-notice.js";
+import { recordSessionUsage } from "./run-usage.js";
 import { patchThreadStatus } from "./thread-status.js";
 
 /** A tool that suspended the run, captured for the post-run interrupt. */
@@ -81,13 +120,16 @@ interface SuspendedTool {
   toolName: string;
 }
 
-const MASTRA_SESSION_NOTE =
-  "You are running on the Mastra `Session` chat substrate (AgentController), the target chat runtime.";
+// Goes into the run's system prompt, so it must describe the runtime the model
+// is ACTUALLY on: the agent's own durable stream, driven by `MastraAgent` and
+// resumed from Mastra's snapshot. Keep it in step with the code.
+const MASTRA_RUNTIME_NOTE =
+  "You are running on Mastra's durable agent stream, driven through AG-UI, the target chat runtime.";
 
 export interface StartConversationRunInput {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
-  // Operation ids the user already approved for this chat (Phase 3.2c). Threaded
+  // Operation ids the user already approved for this chat. Threaded
   // into the engenty-tools run context so the execute-boundary gate skips them.
   approvalGrants?: readonly string[];
   // Durable AG-UI `image`/`document` parts for the user turn (with their
@@ -114,6 +156,16 @@ export interface StartConversationRunInput {
     reason?: string;
     source?: string;
   } | null;
+  /**
+   * The tier this run's model was resolved from, however it was chosen — the
+   * user's explicit pick or the auto sizing. Distinct from
+   * `autoEffortResolved`, which is only set when Auto did the choosing and
+   * exists to drive the composer toast.
+   *
+   * Persisted onto the open interrupt when the run suspends, so the resume
+   * lands on the same model. See AgUiOpenInterruptMetadata.effort.
+   */
+  effort?: AiEffort | null;
   /**
    * Singleton Mastra instance (Postgres workflow storage when configured).
    * Must be attached to the assembled agent so frontend-tool suspend snapshots
@@ -171,6 +223,33 @@ export interface StartConversationRunInput {
 export async function startConversationRun(
   input: StartConversationRunInput
 ): Promise<{ runId: string }> {
+  await requireStoredThreadAccess({
+    action: "write",
+    agentId: input.agentId,
+    ...(typeof input.registry?.getAgentConfig === "function"
+      ? {
+          getAgentConfig: (agentId: string) =>
+            input.registry.getAgentConfig(agentId),
+        }
+      : {}),
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+  });
+  // A person spoke: whatever agents did in this room since, the budget
+  // restarts and a pause lifts (rooms/room-turns.ts).
+  await noteHumanTurnInRoom({
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+  });
+  const spaceResolution = await resolveRunSpaceForThread({
+    runId: input.runId,
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+  });
+  const runSpace = resolvedRunSpace(spaceResolution);
   markRunLive(input.runId);
   const abort = registerActiveRunAbortController(input.runId);
   // With a run store, the tracker owns publishing: `append` forwards to the
@@ -185,6 +264,8 @@ export async function startConversationRun(
         runStore: input.runStore,
         threadId: input.threadId,
         tenantId: input.scope.tenantId,
+        // The interactive lane: a person is at the keyboard.
+        trigger: "message",
       })
     : null;
   let seq = 0;
@@ -193,11 +274,16 @@ export async function startConversationRun(
         void tracker.append(event);
       }
     : (event: AGUIEvent) => publishRunEvent(input.runId, { event, seq: seq++ });
-  emit({
-    runId: input.runId,
-    threadId: input.threadId,
-    type: EventType.RUN_STARTED,
-  });
+  emitExecutionLaneRunStarted(
+    {
+      agentId: input.agentId,
+      runId: input.runId,
+      source: { kind: "live" },
+      spaceId: executionSpaceId(spaceResolution),
+      threadId: input.threadId,
+    },
+    { emit }
+  );
   // Auto-sized turns: tell the composer which tier (and model) won so it can
   // toast + briefly flash the effort control. Explicit picks stay silent.
   if (input.autoEffortResolved?.effort) {
@@ -218,9 +304,15 @@ export async function startConversationRun(
   }
   // The user turn, for OTHER attached clients (reload, second window), as the
   // protocol-native role:"user" text message (AG-UI TEXT_MESSAGE_START carries
-  // a role union). The sending client already renders it optimistically and
-  // never attaches to its own run; attachers dedupe by message id. Artifact
-  // resume nudges skip this — they are not a user utterance.
+  // a role union).
+  //
+  // This is emitted so the durable log stays complete for late attachers
+  // replaying `?since=`. It is NOT safe to deliver to the client that supplied
+  // the message: that client already holds this id, and TEXT_MESSAGE_START
+  // means "begin a new message", so a spec-compliant client appends and doubles
+  // the user's text. The originating SSE stream filters it out — see
+  // `isOwnUserTurnEcho` in api/thread-run-routes.ts. Artifact resume nudges skip
+  // this — they are not a user utterance.
   if (
     input.persistCurrentUserTurn !== false &&
     input.userMessageId &&
@@ -242,13 +334,16 @@ export async function startConversationRun(
     } as AGUIEvent);
   }
 
-  let controller: ConversationController | null = null;
   // The converter is built inside the try; the finally reads its usage for the
   // durable run row.
-  let converterRef: SessionAgUiConverter | null = null;
-  // Set when a frontend tool suspends and we park the session for resume — guards
-  // the finally from destroying the parked controller.
-  let parkedForResume = false;
+  let converterRef: AgUiTurnAccumulator | null = null;
+  let windowInputTokens: number | null = null;
+  // Set when the turn ended on a suspension the user will answer. The transcript
+  // pass reads it: Mastra flushes the assistant turn when a run parks, so writing
+  // ours too would DUPLICATE it — memory's row and ours carry the same tool call
+  // under different message ids, the chat renders two cards, and only memory's is
+  // ever resolved, leaving ours spinning forever.
+  let suspendedForResume = false;
   // Terminal thread status written in `finally` so session-list dots stay in sync.
   let threadStatus: AgentSessionStatus = "completed";
   // Why the run failed, stamped onto the durable run row in `finally`. Without
@@ -256,21 +351,14 @@ export async function startConversationRun(
   // limit, content-policy block, timeout) left `error_message` NULL, so the one
   // place you look after the fact could not tell you what happened.
   let failureMessage: string | null = null;
+  // Set for a run that ended in SILENCE (finishReason "length"/"content-filter",
+  // no assistant text): the wording persisted as a visible assistant message in
+  // `finally`. Doubles as the "memory already flushed this turn" marker — those
+  // finishes reach end-of-generation, so re-writing our transcript would render
+  // every tool card twice.
+  let failureNotice: string | null = null;
   await patchThreadStatus({ ...input, status: "running" });
   try {
-    const { memory } = createEngentySessionMemoryRuntime({
-      agentId: input.agentId,
-      scope: input.scope,
-      store: input.store,
-      threadId: input.threadId,
-      ...(input.attachmentParts && input.attachmentParts.length > 0
-        ? { userAttachmentParts: input.attachmentParts }
-        : {}),
-      ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
-      ...(input.persistCurrentUserTurn === false
-        ? { persistCurrentUserTurn: false }
-        : {}),
-    });
     const mergedDefinitions = resolveFrontendToolsForAgent({
       agentId: input.agentId,
       clientTools: input.agentUi?.frontend_tools,
@@ -278,18 +366,50 @@ export async function startConversationRun(
     const frontendTools = createNativeFrontendTools(mergedDefinitions);
     // Built early so the delegation tools' onProgress can fold lines onto the
     // sub-agent card (recordSubAgentProgress) and tag live progress events.
-    const converter = new SessionAgUiConverter();
+    const converter = new AgUiTurnAccumulator();
     converterRef = converter;
-    // Phase 3 — child-run delegation: expose one `agent-<alias>` tool per declared
-    // sub-agent that spawns it as its own child run, and skip the in-process Mastra
-    // subagent mechanism so there is a single delegation path.
+    // What this thread's space mounts, validated against the caller's access
+    // (PLAN-spaces.md Phase C3a). Resolved here rather than passed in because
+    // BOTH chat lanes — this one and the resume — have to agree, and a value
+    // threaded from two routes is a value that eventually diverges.
+    const rootConfig = await input.registry.getAgentConfig?.(input.agentId);
+    const threadRow =
+      typeof input.store.getThread === "function"
+        ? await input.store.getThread({
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+          })
+        : null;
+    const sharedRoom = sharedMastraRoomFromThread({
+      agentId: input.agentId,
+      agentScope: rootConfig?.agentScope,
+      thread: threadRow,
+    });
+    const { memory, memoryProcessors, memoryTools } =
+      createEngentySessionMemoryRuntime({
+        agentId: input.agentId,
+        ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
+        observationalModelId: input.modelConfig?.memoryModelId,
+        scope: input.scope,
+        sharedObservations: rootConfig
+          ? resolveSharedObservationsScope(rootConfig)
+          : "disabled",
+        sharedRoom,
+        spaceId: runSpace?.spaceId ?? threadRow?.space_id,
+        store: input.store,
+        threadId: input.threadId,
+        ...(input.attachmentParts && input.attachmentParts.length > 0
+          ? { userAttachmentParts: input.attachmentParts }
+          : {}),
+        ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
+        ...(input.persistCurrentUserTurn === false
+          ? { persistCurrentUserTurn: false }
+          : {}),
+      });
     const resolveChildWorkspace = input.resolveChildWorkspace;
-    let delegationTools: Record<string, object> = {};
-    if (resolveChildWorkspace) {
-      const rootConfig = await input.registry.getAgentConfig(input.agentId);
-      if (rootConfig?.subAgents?.length) {
-        delegationTools = createDelegationTools(rootConfig.subAgents, {
-          onProgress: (toolCallId, line) => {
+    const rootDelegation = resolveChildWorkspace
+      ? createRootDelegationTools({
+          onProgress: (toolCallId, line, origin) => {
             converter.recordSubAgentProgress(toolCallId, line);
             emit({
               name: "engenty.sub_agent.progress",
@@ -298,21 +418,44 @@ export async function startConversationRun(
                 line,
                 messageId: converter.currentMessageId || toolCallId,
                 toolCallId,
+                // Who is working, and under which tool. The bridge holds a
+                // server tool's TOOL_CALL_* back until the call returns, so
+                // these are all the transcript has to draw a row from while a
+                // colleague works.
+                ...(origin ?? {}),
               },
             } as AGUIEvent);
           },
+          parentRunId: input.runId,
           parentThreadId: input.threadId,
           registry: input.registry,
           resolveChildWorkspace,
+          rootAgentId: input.agentId,
+          rootConfig,
+          ...(input.runStore ? { runStore: input.runStore } : {}),
           scope: input.scope,
+          spaceResolution,
           store: input.store,
           ...(abort.abortSignal ? { abortSignal: abort.abortSignal } : {}),
           ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
-        });
-      }
-    }
-    const useChildRunDelegation = Object.keys(delegationTools).length > 0;
-    const extraTools = { ...frontendTools, ...delegationTools };
+        })
+      : { extraTools: {}, skipNativeSubAgents: false };
+    // The acting user's browser, when they have one in this space (D11).
+    // Audit rides the run-event lane as agent steps only.
+    const browserTools = await createUserBrowserTools({
+      browser: runSpace?.browser ?? null,
+      emit: (name, value) =>
+        emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
+      headless: false,
+      spaceId: runSpace?.spaceId ?? null,
+      tenantId: input.scope.tenantId,
+    });
+    const extraTools = {
+      ...frontendTools,
+      ...rootDelegation.extraTools,
+      ...memoryTools,
+      ...browserTools,
+    };
     const { resolveAgentInstructionExtras } = await import(
       "../instructions/resolve-agent-instruction-extras.js"
     );
@@ -332,13 +475,25 @@ export async function startConversationRun(
         routeContext: input.routeContext ?? null,
         runContext: input.runContext,
         scope: input.scope,
+        // The already-resolved surface, so the prompt names the same Space
+        // the tool gate enforces — including unresolved, which must not
+        // degrade to a route-context uuid.
+        spaceResolution,
         threadId: input.threadId,
       })
     ).trim();
-    // Assemble WITHOUT memory — the Harness provides memory to its mode agents.
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
+      space: toolsSpaceFromResolution(spaceResolution),
+      // The Memory INSTANCE has to live ON the agent — `agent.stream()` takes no
+      // memory argument. Without it the memory processors (observational memory) throw
+      // "computeStateSignal requires Mastra memory with an active resourceId and
+      // threadId" — the instance is missing, not the ids — and Mastra recalls no
+      // history and persists nothing.
+      memory,
       instructionExtras,
+      memoryProcessors,
+      ...(sharedRoom ? { sharedRoom: true } : {}),
       ...(runtimeInstructions
         ? { runtimeContextInstructions: runtimeInstructions }
         : {}),
@@ -352,7 +507,7 @@ export async function startConversationRun(
         threadId: input.threadId,
         userId: input.scope.userId,
       },
-      ...(useChildRunDelegation ? { skipSubAgents: true } : {}),
+      ...(rootDelegation.skipNativeSubAgents ? { skipSubAgents: true } : {}),
       ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
       ...(input.workspace ? { workspace: input.workspace } : {}),
     });
@@ -361,19 +516,27 @@ export async function startConversationRun(
     // browser tools by contract, so union it with the ones we inject ourselves.
     // Used to tell a hallucinated tool name apart from a real tool that merely
     // failed — and to name valid alternatives in the correction.
-    let knownToolNames: string[] = [];
-    try {
-      knownToolNames = [
-        ...new Set([
-          ...Object.keys(await agent.listTools()),
-          ...Object.keys(extraTools),
-        ]),
-      ];
-    } catch (err) {
-      // An empty set degrades the correction to "did not complete" rather than
-      // wrongly asserting a tool does not exist. Never fail the turn for it.
-      console.error("[conversation] listTools failed:", err);
-    }
+    const knownToolNames = await listKnownToolNames(agent, extraTools);
+    const resourceId = createEngentyMastraResourceId({
+      scope: input.scope,
+      sharedRoom,
+      spaceId: runSpace?.spaceId ?? threadRow?.space_id,
+      threadId: input.threadId,
+    });
+    await emitTrajectoryHeader({
+      agent,
+      emit,
+      extraSystemNote: MASTRA_RUNTIME_NOTE,
+      modelId: input.modelId,
+      recalledMessages: await recallTrajectoryMessagePointers({
+        memory,
+        resourceId,
+        threadId: input.threadId,
+      }),
+      runtimeInstructions,
+      toolNames: knownToolNames,
+      userMessage: input.prompt,
+    });
 
     // Answer tool calls left dangling by EARLIER turns (a hallucinated tool name
     // is persisted at state:"call" and never resolves on its own). Doing it here
@@ -402,114 +565,8 @@ export async function startConversationRun(
     // Controller instructions carry the STABLE note only. The volatile runtime
     // context went to the agent's input processor above — anything here is
     // merged into the run's system prompt, i.e. the cache prefix.
-    const instructions = MASTRA_SESSION_NOTE;
+    const instructions = MASTRA_RUNTIME_NOTE;
 
-    // Construction recipe (top-level agent, thread binding, yolo rationale):
-    // see createConversationSession.
-    const created = await createConversationSession({
-      agent,
-      id: `engenty-hs-${input.threadId}`,
-      instructions,
-      memory,
-      threadId: input.threadId,
-      userId: input.scope.userId,
-      ...(input.workspace ? { workspace: input.workspace } : {}),
-    });
-    controller = created.controller;
-    const session = created.session;
-
-    let runError: string | null = null;
-    // A suspending tool (browser-executed frontend tool, or the execute tool's
-    // approval gate): the session emits `tool_suspended` + parks the run in
-    // session.suspensions. Capture it (with the current run id, for reattach)
-    // and handle the interrupt after sendMessage idles.
-    let suspended: SuspendedTool | null = null;
-    // A decision/feedback artifact arrives as a tool RESULT (not a suspend): the
-    // requestDecision/requestFeedback tool returns the artifact and the agent would
-    // talk past it. Capture it, ABORT the run (so it stops), and emit the interactive
-    // interrupt instead of a plain result — same as the control plane.
-    let artifact: { result: unknown; toolCallId: string } | null = null;
-    // A suspended run's processStream does NOT terminate, so `sendMessage` never
-    // resolves on a frontend-tool suspend (or a decision/feedback artifact, which
-    // aborts). Resolve this signal from the listener the instant we see one, and
-    // race it against sendMessage so we emit the interrupt immediately instead of
-    // hanging forever waiting for sendMessage.
-    let signalInterrupt: () => void = () => {
-      // replaced below
-    };
-    const interruptSignal = new Promise<void>((resolve) => {
-      signalInterrupt = resolve;
-    });
-    const unsub = session.subscribe((event) => {
-      const typed = event as {
-        args?: unknown;
-        error?: { message?: string };
-        result?: unknown;
-        suspendPayload?: unknown;
-        toolCallId?: string;
-        toolName?: string;
-        type?: string;
-      };
-      if (typed.type === "error") {
-        runError = typed.error?.message ?? "Session run error";
-      }
-      if (typed.type === "tool_suspended") {
-        suspended = {
-          args: typed.args,
-          runId: session.getCurrentRunId() ?? "",
-          suspendPayload: typed.suspendPayload,
-          toolCallId: typed.toolCallId ?? "",
-          toolName: typed.toolName ?? "",
-        };
-        signalInterrupt();
-      }
-      if (
-        typed.type === "tool_end" &&
-        !artifact &&
-        (isDecisionArtifactPayload(typed.result) ||
-          isFeedbackArtifactPayload(typed.result))
-      ) {
-        artifact = {
-          result: typed.result,
-          toolCallId: typed.toolCallId ?? "",
-        };
-        // Settle the DURABLE part before aborting — this tool_end never reaches
-        // the converter (we return below), so without it the persisted turn
-        // keeps the call at `input-streaming` and the next turn cannot see what
-        // was asked or which choices were offered.
-        converter.recordToolResultPart({
-          result: typed.result,
-          toolCallId: typed.toolCallId ?? "",
-          ...(typed.toolName ? { toolName: typed.toolName } : {}),
-        });
-        // Stop the run so the model doesn't continue past the interrupt; skip
-        // converting this tool_end to a plain TOOL_CALL_RESULT.
-        session.abort();
-        signalInterrupt();
-        return;
-      }
-      for (const agui of converter.convert(event as never)) {
-        emit(agui);
-      }
-    });
-
-    // Route cancel → real session abort.
-    if (abort.abortSignal.aborted) {
-      session.abort();
-    } else {
-      abort.abortSignal.addEventListener("abort", () => session.abort(), {
-        once: true,
-      });
-    }
-
-    // `sendMessage` resolves on a NORMAL finish, but a frontend-tool SUSPEND leaves
-    // it pending forever (the suspended run's stream never terminates). Race it
-    // against the interrupt signal so a suspend/artifact is handled immediately. On
-    // suspend, sendMessage stays pending against the parked session — the resume
-    // continues it; we drop our await (errors are caught so it never rejects loudly).
-    // Run the send (and thus every tool execution it drives) inside the
-    // engenty-tools run context so the execute-boundary approval gate sees the
-    // user's grants (and the run identity). ALS propagates to the async tool calls.
     // Agent identity for core: policies (e.g. the secrets reveal gate) must see
     // the AGENT as principal, not the user whose bearer token it runs under.
     // Goal = the conversation thread; approval grants persist against it.
@@ -517,22 +574,24 @@ export async function startConversationRun(
       input.scope.tenantId,
       input.agentId
     );
-    const toolsRunContext = {
+    const toolsRunContext = withEnvCoreBaseUrl({
       ...getEngentyToolsRunContext(),
       ...(coreAgentId ? { agentId: coreAgentId } : {}),
+      // The registry key of the agent answering — self-scoped tools
+      // (`agent_self_revise`, `routines_list`, `skill_propose`'s proposer)
+      // read it; without it a specialist on its own desk could not name
+      // itself. The AG-UI session lane and child runs already set it.
+      agentTypeKey: input.agentId,
       approvalGrants: input.approvalGrants ?? [],
-      // Interactive chat: a gated operation returns a decision ARTIFACT (the
-      // Approve/Deny card) instead of suspending the Mastra run. The artifact
-      // rides the existing decision-interrupt pipeline: the run loop detects it
-      // (isDecisionArtifactPayload), aborts, and emits the interrupt; the resume
-      // RE-RUNS the turn with the persisted grant so the tool executes. We do NOT
-      // use Mastra's native suspend here on purpose — two approval-gated calls in
-      // one step would both suspend, and Mastra 1.52 cannot resume the first when
-      // a second suspension shares the step (see
-      // [[mastra-1-52-parallel-approval-regression]]). The artifact path keeps
-      // parallel tool calls AND is immune to that bug. Frontend/sandbox HITL tools
-      // still suspend via their own execute (a different mechanism, unaffected).
-      approvalPolicy: "artifact" as const,
+      space: toolsSpaceFromResolution(spaceResolution),
+      // Interactive chat: a gated operation SUSPENDS the run natively
+      // (context.agent.suspend in lib/execute-approval.ts) and resumes from
+      // Mastra's snapshot — the same mechanism the resume lane uses, so one
+      // thread runs ONE approval mechanism instead of two.
+      //
+      // An artifact card is a tool result, and @ag-ui/mastra cannot map a tool
+      // result to a canonical AG-UI interrupt. A native suspension it can.
+      approvalPolicy: "suspend" as const,
       // This run parks on a suspend and a human answer resumes it, so
       // `requestDecision` may suspend natively instead of returning an artifact
       // the executor has to abort on. Headless/child runs leave this unset and
@@ -548,133 +607,158 @@ export async function startConversationRun(
       ...(scopeAccessToken(input.scope)
         ? { accessToken: scopeAccessToken(input.scope) }
         : {}),
-    };
-    const sendDone = engentyToolsRunAls
-      .run(toolsRunContext, () =>
-        session.sendMessage({
-          content: input.prompt,
+    });
+
+    // Belt-and-suspenders alongside the ALS: the token also rides the Mastra
+    // requestContext (the `mastra__authToken` key the server sets from the HTTP
+    // Authorization header), for tools that forward the execution context.
+    const requestContext = new RequestContext();
+    if (scopeAccessToken(input.scope)) {
+      requestContext.set(MASTRA_AUTH_TOKEN_KEY, scopeAccessToken(input.scope));
+    }
+    // Identity for the run's trace — see trace-context.ts.
+    setTraceContext(requestContext, {
+      agentId: input.agentId,
+      lane: "interactive",
+      runId: input.runId,
+      spaceId: executionSpaceId(spaceResolution),
+      tenantId: input.scope.tenantId,
+      threadId: input.threadId,
+      userId: input.scope.userId,
+    });
+
+    // Drive the turn. Every tool execution it triggers runs inside the
+    // engenty-tools run context so the execute-boundary approval gate sees the
+    // user's grants (and the run identity); ALS propagates to the async calls.
+    // Lend the driving agent to the steer seam while the turn runs: a message
+    // arriving for this thread meanwhile goes into this loop, not behind it.
+    const releaseActiveRun = registerActiveThreadRun(input.threadId, {
+      agent,
+      resourceId,
+      runId: input.runId,
+    });
+    let turn: Awaited<ReturnType<typeof runInteractiveViaMastraAgent>>;
+    try {
+      turn = await engentyToolsRunAls.run(toolsRunContext, () =>
+        runInteractiveViaMastraAgent({
+          accumulator: converter,
+          agent,
+          agentId: input.agentId,
+          emit,
+          // Without this the loop halts at Mastra's own default (5 steps) —
+          // a survey-heavy first turn ended mid tool-chain with no reply.
+          maxSteps: resolveAgentMaxSteps(rootConfig?.limits?.max_steps),
+          // `requestFeedback` returns its artifact as a tool RESULT rather than
+          // suspending (`requestDecision` suspends — see
+          // native-request-decision.ts), and the model would answer straight past
+          // it. Recognising it stops the run from inside the stream.
+          isStopOnResult: (result: unknown) =>
+            isDecisionArtifactPayload(result) ||
+            isFeedbackArtifactPayload(result),
+          prompt: input.prompt,
+          requestContext,
+          resourceId,
+          runId: input.runId,
+          threadId: input.threadId,
+          ...(abort.abortSignal ? { abortSignal: abort.abortSignal } : {}),
           ...(input.attachments && input.attachments.length > 0
-            ? { files: [...input.attachments] }
+            ? { attachments: [...input.attachments] }
             : {}),
         })
-      )
-      .catch((error: unknown) => {
-        if (!runError) {
-          runError =
-            error instanceof Error ? error.message : "Session run error";
-        }
-      });
-    await Promise.race([sendDone, interruptSignal]);
-    unsub();
-
-    // A suspend surfaced — tool-approval (native HITL from the execute tool's
-    // gate) or frontend tool. Either way: persist the open interrupt keyed by
-    // the suspended run id, emit the RUN_FINISHED interrupt outcome, and PARK
-    // the session so the resume POST reattaches and continues the SAME run.
-    const sus = suspended as SuspendedTool | null;
-    if (sus && !abort.abortSignal.aborted) {
-      if (isToolApprovalSuspendPayload(sus.suspendPayload)) {
-        await emitToolApprovalInterrupt({
-          busRunId: input.runId,
-          emit,
-          payload: sus.suspendPayload,
-          resumeRunId: sus.runId,
-          scope: input.scope,
-          sessionMetadata: input.sessionMetadata ?? {},
-          store: input.store,
-          threadId: input.threadId,
-          toolCallId: sus.toolCallId,
-        });
-        parkSessionRun(sus.runId, {
-          controller,
-          mergedDefinitions,
-          session,
-          threadId: input.threadId,
-          // Hand the sandbox's lifecycle to the park along with the controller:
-          // the parked Workspace keeps using this instance on resume, so the
-          // finally below must not destroy it.
-          ...(input.sandboxProvider
-            ? { sandboxProvider: input.sandboxProvider }
-            : {}),
-        });
-        parkedForResume = true;
-        threadStatus = "waiting";
-        return { runId: input.runId };
-      }
-      // `requestDecision` suspends natively (see native-request-decision.ts), so
-      // its card arrives as a SUSPEND payload rather than a tool result. Emit the
-      // interactive interrupt carrying the parked run id and park the session —
-      // the answer resumes this run in place instead of re-running the turn.
-      if (isDecisionArtifactPayload(sus.suspendPayload)) {
-        await emitArtifactInterrupt({
-          busRunId: input.runId,
-          emit,
-          result: sus.suspendPayload,
-          resumeRunId: sus.runId,
-          scope: input.scope,
-          sessionMetadata: input.sessionMetadata ?? {},
-          store: input.store,
-          threadId: input.threadId,
-          toolCallId: sus.toolCallId,
-        });
-        parkSessionRun(sus.runId, {
-          controller,
-          mergedDefinitions,
-          session,
-          threadId: input.threadId,
-          // Hand the sandbox's lifecycle to the park along with the controller:
-          // the parked Workspace keeps using this instance on resume, so the
-          // finally below must not destroy it.
-          ...(input.sandboxProvider
-            ? { sandboxProvider: input.sandboxProvider }
-            : {}),
-        });
-        parkedForResume = true;
-        threadStatus = "waiting";
-        return { runId: input.runId };
-      }
-      const handled = await emitFrontendToolInterrupt({
-        busRunId: input.runId,
-        resumeRunId: sus.runId,
-        emit,
-        mergedDefinitions,
-        payload: {
-          args: sus.args,
-          toolCallId: sus.toolCallId,
-          toolName: sus.toolName,
+      );
+    } finally {
+      releaseActiveRun();
+      // The agent's seat goes with the run (§2.3); a suspended run's owner
+      // may be taking over right now, and must not find the seat held.
+      releaseUserBrowserForRun(
+        {
+          browser: runSpace?.browser ?? null,
+          spaceId: runSpace?.spaceId ?? null,
+          tenantId: input.scope.tenantId,
         },
+        input.runId
+      );
+    }
+    windowInputTokens = turn.windowInputTokens ?? null;
+    const runError = turn.runError;
+
+    // A suspend surfaced — the execute tool's approval gate, `requestDecision`,
+    // or a browser-executed frontend tool. Persist the open interrupt keyed by
+    // the SUSPENDED run id and emit the RUN_FINISHED interrupt outcome. Nothing
+    // is parked in memory: the answer resumes from Mastra's snapshot.
+    const sus = turn.suspended;
+    if (sus && !abort.abortSignal.aborted) {
+      const common = {
+        busRunId: input.runId,
+        ...(input.effort ? { effort: input.effort } : {}),
+        emit,
+        ...(typeof input.registry?.getAgentConfig === "function"
+          ? {
+              getAgentConfig: (agentId: string) =>
+                input.registry.getAgentConfig(agentId),
+            }
+          : {}),
+        resumeRunId: sus.mastraRunId,
         scope: input.scope,
         sessionMetadata: input.sessionMetadata ?? {},
         store: input.store,
         threadId: input.threadId,
-      });
-      if (handled) {
-        parkSessionRun(sus.runId, {
-          controller,
-          mergedDefinitions,
-          session,
-          threadId: input.threadId,
-          // Hand the sandbox's lifecycle to the park along with the controller:
-          // the parked Workspace keeps using this instance on resume, so the
-          // finally below must not destroy it.
-          ...(input.sandboxProvider
-            ? { sandboxProvider: input.sandboxProvider }
-            : {}),
+        toolCallId: sus.toolCallId,
+      };
+      let handled = true;
+      if (isToolApprovalSuspendPayload(sus.suspendPayload)) {
+        await emitToolApprovalInterrupt({
+          ...common,
+          payload: sus.suspendPayload,
         });
-        parkedForResume = true;
+      } else if (isMastraToolApprovalSuspend(sus.suspendPayload)) {
+        // A workspace tool's `requireApproval` gate. Mastra states the pause as
+        // a tool name and args; the card is the same one every gated call gets,
+        // and approving writes the grant keyed on this call.
+        await emitToolApprovalInterrupt({
+          ...common,
+          payload: workspaceApprovalSuspendPayload(
+            sus.suspendPayload.requireToolApproval
+          ),
+        });
+      } else if (isDecisionArtifactPayload(sus.suspendPayload)) {
+        // `requestDecision` suspends natively, so its card arrives as a SUSPEND
+        // payload rather than a tool result.
+        await emitArtifactInterrupt({ ...common, result: sus.suspendPayload });
+      } else {
+        handled = await emitFrontendToolInterrupt({
+          ...common,
+          mergedDefinitions,
+          payload: {
+            args: sus.args,
+            toolCallId: sus.toolCallId,
+            toolName: sus.toolName,
+          },
+        });
+      }
+      if (handled) {
+        suspendedForResume = true;
         threadStatus = "waiting";
         return { runId: input.runId };
       }
     }
 
-    // A decision/feedback artifact surfaced (run already aborted). Persist the open
-    // interrupt + emit the RUN_FINISHED outcome so the chat shows the picker/form.
-    // Resume re-runs via the route's artifact branch (no parked session).
-    const art = artifact as { result: unknown; toolCallId: string } | null;
+    // A `requestFeedback` artifact surfaced and STOPPED the run. Persist the open
+    // interrupt + emit the RUN_FINISHED outcome so the chat shows the form. Resume
+    // re-runs via the route's artifact branch — there is no snapshot to continue,
+    // because the tool returned rather than suspending.
+    const art = turn.artifact;
     if (art) {
       await emitArtifactInterrupt({
         busRunId: input.runId,
+        ...(input.effort ? { effort: input.effort } : {}),
         emit,
+        ...(typeof input.registry?.getAgentConfig === "function"
+          ? {
+              getAgentConfig: (agentId: string) =>
+                input.registry.getAgentConfig(agentId),
+            }
+          : {}),
         result: art.result,
         scope: input.scope,
         sessionMetadata: input.sessionMetadata ?? {},
@@ -686,9 +770,9 @@ export async function startConversationRun(
       return { runId: input.runId };
     }
 
-    for (const agui of converter.finish()) {
-      emit(agui);
-    }
+    // No `finish()`: the accumulator is a sink, and the driver closes its own text
+    // messages on every exit path.
+    //
     // The run reached its end with tool calls still open — a call the model
     // invented never dispatched, so no `tool_end` ever arrived. Without a
     // result the card spins forever in the live window. Emit the same error
@@ -710,6 +794,31 @@ export async function startConversationRun(
     });
 
     if (runError && !abort.abortSignal.aborted) {
+      // A silent stop (the window ran out / the provider filtered the reply,
+      // and no text was written) gets a visible assistant bubble ON the wire —
+      // the RUN_ERROR banner alone is session state and dies with the tab.
+      // The durable copy is written in `finally`, under the same message id.
+      failureNotice = runFailureNoticeText(
+        runError,
+        resolveUiLanguage(input.routeContext)
+      );
+      if (failureNotice) {
+        const noticeId = `${input.runId}-notice`;
+        emit({
+          messageId: noticeId,
+          role: "assistant",
+          type: EventType.TEXT_MESSAGE_START,
+        } as AGUIEvent);
+        emit({
+          delta: failureNotice,
+          messageId: noticeId,
+          type: EventType.TEXT_MESSAGE_CONTENT,
+        } as AGUIEvent);
+        emit({
+          messageId: noticeId,
+          type: EventType.TEXT_MESSAGE_END,
+        } as AGUIEvent);
+      }
       emit({ message: runError, type: EventType.RUN_ERROR });
       threadStatus = "failed";
       failureMessage = runError;
@@ -725,7 +834,7 @@ export async function startConversationRun(
         threadId: input.threadId,
         // The RUN's tokens, not the last step's: `usage_update` fires per step,
         // so metering `lastUsage` billed a multi-step turn as a single call.
-        usage: converter.totalUsage,
+        usage: converter.runUsage,
         usageStore: input.usageStore,
       });
     }
@@ -743,19 +852,24 @@ export async function startConversationRun(
     failureMessage = message;
   } finally {
     // Shared teardown: persist this turn on EVERY exit path. Memory flushes at
-    // end-of-generation and when a run PARKS on a native suspend; the paths it
-    // still misses (an artifact that aborts the run, a mid-stream failure, a
-    // cancel) used to leave the thread with no messages at all, and the next
-    // turn read an empty history and re-asked the question the user had already
-    // answered.
+    // end-of-generation and when a run suspends natively; on the paths it misses
+    // (an artifact that aborts the run, a mid-stream failure, a cancel) nothing
+    // else writes the turn, so the thread would be left with no messages at all
+    // and the next turn would re-ask a question the user already answered.
     //
-    // `parkedForResume` is exactly the natively-suspended set, and writing there
+    // `suspendedForResume` is exactly the natively-suspended set, and writing there
     // too would DUPLICATE the turn rather than rescue it: memory's row and ours
     // carry the same tool call under different message ids and different part
     // shapes, so the chat renders two cards — and only memory's is ever resolved
     // by `resolveToolCallResultInHistory`, leaving ours spinning forever.
     await persistTurnTranscript({
-      memoryFlushedAssistant: threadStatus === "completed" || parkedForResume,
+      // `failureNotice` marks the "length"/"content-filter" finishes: those DO
+      // reach end-of-generation, so memory flushed the turn even though the run
+      // is recorded as failed — writing ours would duplicate every tool card.
+      memoryFlushedAssistant:
+        threadStatus === "completed" ||
+        suspendedForResume ||
+        failureNotice !== null,
       prompt: input.prompt,
       runId: input.runId,
       scope: input.scope,
@@ -770,6 +884,17 @@ export async function startConversationRun(
         ? { persistCurrentUserTurn: false }
         : {}),
     });
+    if (failureNotice) {
+      // The durable copy of the silent-stop bubble emitted above — without it a
+      // reload reads the turn as "no response" again.
+      await persistRunFailureNotice({
+        runId: input.runId,
+        scope: input.scope,
+        store: input.store,
+        text: failureNotice,
+        threadId: input.threadId,
+      });
+    }
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {
       // Close the durable run row so recovery/other windows see a settled run.
@@ -777,13 +902,13 @@ export async function startConversationRun(
       // requires_action: the turn ended awaiting human input — recovery must
       // NOT treat it as in-flight (the interrupt card re-renders from thread
       // metadata, not from an attached stream).
-      const usage = usageFromSession(converterRef?.totalUsage);
+      const usage = converterRef?.runUsage ?? null;
       // Window occupancy is the LAST step's prompt; the row's prompt_tokens
       // stays the run total so billing and the run feed keep their meaning.
-      const lastStep = usageFromSession(converterRef?.lastUsage);
+      const lastStep = converterRef?.windowUsage ?? null;
       await tracker
         .complete({
-          contextPromptTokens: lastStep?.input ?? null,
+          contextPromptTokens: windowInputTokens ?? lastStep?.input ?? null,
           status:
             threadStatus === "waiting"
               ? "requires_action"
@@ -796,7 +921,9 @@ export async function startConversationRun(
           promptTokens: usage?.input ?? null,
           ...(threadStatus === "failed" && failureMessage
             ? {
-                errorCode: "run_error",
+                // Named codes for the silent finishes ("context_window_exceeded",
+                // "content_filtered") so the runs UI can say WHY, not just that.
+                errorCode: agentRunErrorCode(failureMessage),
                 errorMessage: failureMessage.slice(0, 2000),
               }
             : {}),
@@ -814,14 +941,15 @@ export async function startConversationRun(
     // /shared + /home to file storage. Delegated child runs own + tear down their
     // own sandboxes (runDelegatedConversation), so this only covers the root.
     //
-    // A PARKED run is not over: its Session (and that Session's Workspace, which
-    // holds this very sandbox instance) stays alive for the resume. Destroying
-    // the instance here left the resume with a permanently dead sandbox —
-    // `execute_typescript` after an approval threw SandboxNotReadyError with no
-    // container ever created. Keep it alive and let the park dispose it, exactly
-    // as the controller below is already handled.
+    // A SUSPENDED run is torn down here too. Nothing reattaches to a live
+    // Workspace: a resume rebuilds it and reconnects to the same container by its
+    // `engenty-session-<threadId>` label, so keeping the instance alive would
+    // leak a container and skip the syncOut that persists staged /shared + /home.
+    // Do not "optimize" this by holding it open — Mastra latches
+    // `status = "destroyed"` permanently, so a reattached-then-destroyed
+    // Workspace throws SandboxNotReadyError with no container ever created.
     await destroyRunSandboxes({
-      keepParentSandboxAlive: parkedForResume,
+      keepParentSandboxAlive: false,
       subAgentSandboxProviders: [],
       ...(input.sandboxProvider
         ? { sandboxProvider: input.sandboxProvider }
@@ -832,13 +960,6 @@ export async function startConversationRun(
         error
       );
     });
-    // Release the per-run controller — UNLESS it's parked for a frontend-tool
-    // resume (the resume reattaches to it; the park's TTL owns its disposal).
-    if (!parkedForResume) {
-      await controller?.destroy().catch(() => {
-        // best-effort cleanup
-      });
-    }
   }
   return { runId: input.runId };
 }

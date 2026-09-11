@@ -20,7 +20,6 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  ListFilterSelectTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -39,12 +38,7 @@ import {
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { HelpCircle, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { FaqSortColumn, FaqStatus } from "../../src/schema/shared.js";
 import type { Faq } from "../../src/schema/types.js";
 import { FaqsCards } from "../components/faqs-cards.js";
@@ -56,28 +50,17 @@ import {
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { useKbFaqsListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbDisplayName } from "../kb-display-name.js";
-import {
-  KB_FAQS_LIST_PATH,
-  kbFaqPath,
-  kbFaqsListPath,
-  kbNewFaqEditPath,
-} from "../kb-paths.js";
+import { kbFaqPath, kbNewFaqEditPath } from "../kb-paths.js";
 import { getFaqsToolbarLabels } from "../lib/faqs-toolbar-labels.js";
 import { kbModulePageListShellSectionClassName } from "../lib/kb-page-shell.js";
 import {
   kbSettingsQueryOptions,
-  kbsQueryOptions,
   useDeleteFaqMutation,
   useFaqsListQuery,
+  useKbsQuery,
   useUpdateFaqMutation,
 } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const FAQS_DISPLAY_DEFAULTS = {
   viewMode: "table" as const,
@@ -115,7 +98,6 @@ export function FaqListPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const location = useLocation();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState("");
@@ -126,57 +108,17 @@ export function FaqListPage() {
     }
   }, [qFromUrl]);
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
-  const kbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId), [kbs, kbId]);
-
-  useEffect(() => {
-    if (kbsLoading || !kbs.length || !kbId) {
-      return;
-    }
-    const slug = slugFromKbId(kbs, kbId);
-    if (!slug) {
-      return;
-    }
-    if (kbSlugParam) {
-      return;
-    }
-    if (location.pathname === KB_FAQS_LIST_PATH) {
-      navigate(`${kbFaqsListPath(slug)}${faqListSearchQuery(search)}`, {
-        replace: true,
-      });
-    }
-  }, [kbsLoading, kbs, kbId, kbSlugParam, location.pathname, navigate, search]);
-
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (!nextSlug) {
-        return;
-      }
-      navigate(`${kbFaqsListPath(nextSlug)}${faqListSearchQuery(search)}`);
-    },
-    [kbs, navigate, search]
-  );
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug ?? "",
-    onKbChange: navigateKb,
   });
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
-    actions: kbSlug ? <KbModuleShellActions kbSlug={kbSlug} /> : null,
+    actions: kbId ? <KbModuleShellActions /> : null,
     breadcrumbs: [
       ...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : []),
       { label: t("faq.title") },
@@ -362,7 +304,7 @@ export function FaqListPage() {
             <Skeleton className="h-9 w-64" />
             <Skeleton className="h-9 w-24" />
           </div>
-          <Skeleton className="min-h-0 flex-1 rounded-lg border bg-card" />
+          <Skeleton className="ui-card-elevated min-h-0 flex-1 overflow-hidden" />
         </div>
       </section>
     );
@@ -390,28 +332,6 @@ export function FaqListPage() {
 
   const toolbarHeader = (
     <>
-      <Select
-        onValueChange={(v) => {
-          setPage(1);
-          navigateKb(v);
-        }}
-        value={kbId || undefined}
-      >
-        <ListFilterSelectTrigger className="w-[220px]">
-          <SelectValue placeholder={t("list.kb_placeholder")}>
-            {kbs.find((kb) => kb.id === kbId)
-              ? kbDisplayName(kbs.find((kb) => kb.id === kbId)!, t)
-              : null}
-          </SelectValue>
-        </ListFilterSelectTrigger>
-        <SelectContent>
-          {kbs.map((kb) => (
-            <SelectItem key={kb.id} value={kb.id}>
-              {kbDisplayName(kb, t)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       <FaqsTableToolbar
         bulkActions={bulkActions}
         clearSelectionLabel={t("list.clear_selection")}
@@ -525,9 +445,7 @@ export function FaqListPage() {
             columnVisibility={columnVisibility}
             faqs={faqs}
             onDataChange={() => refetchList()}
-            onRowClick={(faq: Faq) =>
-              kbSlug ? navigate(kbFaqPath(kbSlug, faq.id)) : undefined
-            }
+            onRowClick={(faq: Faq) => navigate(kbFaqPath(faq.id))}
             onSelectAll={handleSelectAll}
             onSelectOne={handleSelectOne}
             onSortChange={handleSortChange}
@@ -543,9 +461,7 @@ export function FaqListPage() {
         <AdminListCardsView header={toolbarHeader}>
           <FaqsCards
             faqs={faqs}
-            onCardClick={(faq) =>
-              kbSlug ? navigate(kbFaqPath(kbSlug, faq.id)) : undefined
-            }
+            onCardClick={(faq) => navigate(kbFaqPath(faq.id))}
             tableSize={tableSize}
           />
         </AdminListCardsView>
@@ -580,10 +496,7 @@ export function FaqListPage() {
               ) : (
                 <Button
                   className="mt-4"
-                  disabled={!kbSlug}
-                  onClick={() =>
-                    kbSlug ? navigate(kbNewFaqEditPath(kbSlug)) : undefined
-                  }
+                  onClick={() => navigate(kbNewFaqEditPath())}
                   size="sm"
                 >
                   <Plus className="mr-1.5 h-4 w-4" />

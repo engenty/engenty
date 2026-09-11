@@ -268,7 +268,6 @@ export function OffersListPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
   useOffersListAgentUiSlice({ search, offers });
 
@@ -373,7 +372,7 @@ export function OffersListPage() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {loading && (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="ui-card-elevated overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>

@@ -36,4 +36,22 @@ describe("resolveEngentyDevServiceUrls", () => {
     expect(isEngentyCorsOriginAllowed("https://engenty.localhost")).toBe(true);
     expect(isEngentyCorsOriginAllowed("https://evil.example")).toBe(false);
   });
+
+  it("falls back to PUBLIC_APP_URL's origin when no list is set", () => {
+    // A single-origin deployment's allow-list is its own public URL, so making
+    // the operator restate it only creates a way to get it wrong.
+    vi.stubEnv("ENGENTY_CORS_ORIGINS", "");
+    vi.stubEnv("PUBLIC_APP_URL", "https://app.example.com");
+
+    expect(isEngentyCorsOriginAllowed("https://app.example.com")).toBe(true);
+    expect(isEngentyCorsOriginAllowed("https://evil.example")).toBe(false);
+  });
+
+  it("prefers an explicit list over PUBLIC_APP_URL", () => {
+    vi.stubEnv("ENGENTY_CORS_ORIGINS", "https://studio.example.com");
+    vi.stubEnv("PUBLIC_APP_URL", "https://app.example.com");
+
+    expect(isEngentyCorsOriginAllowed("https://studio.example.com")).toBe(true);
+    expect(isEngentyCorsOriginAllowed("https://app.example.com")).toBe(false);
+  });
 });

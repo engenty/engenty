@@ -59,4 +59,5 @@ export {
   sidebarRowPaddingLeftPx,
   sidebarRowPaddingLeftPxNoLeadingIcon,
 } from "./sidebar-row";
+export { SidebarRowTitleMarquee } from "./sidebar-row-title-marquee";
 export { SidebarTab, SidebarTabStrip } from "./sidebar-tab-strip";

@@ -69,4 +69,15 @@ describe("catalog lexical scoring", () => {
     expect(text).toContain("moduleId: contacts");
     expect(text).not.toContain("summary:");
   });
+
+  it("scores prefix and inflection-style token matches", () => {
+    expect(scoreCatalogEntry({ title: "Projects" }, "proj")).toBeGreaterThan(0);
+    expect(
+      scoreCatalogEntry({ description: "one project at a time" }, "projects")
+    ).toBeGreaterThan(0);
+    expect(scoreCatalogEntry({ title: "Invoices" }, "coding")).toBe(0);
+    expect(
+      scoreCatalogEntry({ title: "sandbox-code-execution" }, "coding")
+    ).toBeGreaterThan(0);
+  });
 });

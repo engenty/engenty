@@ -50,6 +50,7 @@
     "expenseCategories": "Expense Categories",
     "expenseCategoriesDesc": "Define categories for expense tracking and AI auto-classification",
     "categoryCode": "Code",
+    "categoryAccount": "Account",
     "categoryName": "Name",
     "categoryDeductible": "Tax Deductible",
     "categoryRate": "Rate %",

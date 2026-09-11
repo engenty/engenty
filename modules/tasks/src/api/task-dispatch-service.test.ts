@@ -14,12 +14,12 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     id: overrides.id ?? `task-${seq}`,
     tenant_id: "tenant",
     scope_id: "scope",
+    space_id: "space-1",
     identifier: `ENG-${seq}`,
     title: "T",
     description: null,
     status: "todo",
     priority: "medium",
-    goal_id: null,
     parent_id: null,
     project_id: null,
     primary_assignee_kind: "agent",
@@ -98,6 +98,26 @@ describe("dispatchTaskIfReady", () => {
       task_id: task.id,
       tenant_id: "tenant",
     });
+  });
+
+  it("refuses dispatch when the task assignee is no longer mounted", async () => {
+    const task = makeTask();
+    const { repo } = makeRepo([task]);
+    const { queue, send } = makeQueue();
+    await expect(
+      dispatchTaskIfReady(
+        {
+          queue,
+          repo,
+          tenantId: "tenant",
+          validateAgentAssignment: async () => {
+            throw new Error("agent_not_mounted");
+          },
+        },
+        task
+      )
+    ).rejects.toThrow("agent_not_mounted");
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("does NOT enqueue a non-agent task", async () => {

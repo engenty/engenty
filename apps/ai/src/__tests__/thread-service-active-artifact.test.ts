@@ -20,6 +20,8 @@ function makeSession(metadata: Record<string, unknown> = {}): ThreadRow {
     tenant_id: tenantId,
     title: null,
     updated_at: "2026-05-17T00:00:00.000Z",
+    space_id: null,
+    visibility: "space",
     workspace_key: null,
   };
 }

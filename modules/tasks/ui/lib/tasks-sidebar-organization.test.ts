@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Goal, Task } from "../../src/schema/types.js";
+import type { Task } from "../../src/schema/types.js";
 import {
   collectTaskAgentFilterOptions,
   collectTaskUserFilterOptions,
   DEFAULT_TASKS_SIDEBAR_PREFS,
-  organizeSidebarRoutines,
   organizeSidebarTasks,
-  type SidebarRoutineItem,
   type TasksSidebarOrganizationLabels,
 } from "./tasks-sidebar-organization.js";
 
@@ -18,14 +16,6 @@ const LABELS: TasksSidebarOrganizationLabels = {
   dueThisWeek: "This week",
   dueToday: "Today",
   dueTomorrow: "Tomorrow",
-  goalGeneral: "General",
-  goalMissing: "Missing goal",
-  goalStatus: {
-    planned: "Planned",
-    active: "Active",
-    achieved: "Achieved",
-    cancelled: "Cancelled",
-  },
   priority: {
     critical: "Critical",
     high: "High",
@@ -47,7 +37,6 @@ function makeTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
     created_by_user_id: null,
     description: null,
     due_date: null,
-    goal_id: null,
     identifier: "T-1",
     parent_id: null,
     primary_assignee_agent_type_key: null,
@@ -55,29 +44,11 @@ function makeTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
     primary_assignee_user_id: null,
     priority: "medium",
     scope_id: "scope-1",
+    space_id: "space-1",
     started_at: null,
     status: "todo",
     tenant_id: "tenant-1",
     title: "Task",
-    updated_at: "2026-01-02T00:00:00.000Z",
-    project_id: null,
-    ...overrides,
-  };
-}
-
-function makeGoal(overrides: Partial<Goal> & Pick<Goal, "id" | "title">): Goal {
-  return {
-    created_at: "2026-01-01T00:00:00.000Z",
-    description: null,
-    level: "team",
-    owner_agent_id: null,
-    owner_user_id: null,
-    owner_agent_type_key: null,
-    parent_id: null,
-    scope_id: "scope-1",
-    status: "active",
-    target_date: null,
-    tenant_id: "tenant-1",
     updated_at: "2026-01-02T00:00:00.000Z",
     project_id: null,
     ...overrides,
@@ -92,7 +63,6 @@ describe("organizeSidebarTasks", () => {
     ];
 
     const groups = organizeSidebarTasks({
-      goalTitleById: new Map(),
       labels: LABELS,
       prefs: { ...DEFAULT_TASKS_SIDEBAR_PREFS.tasks, groupBy: "none" },
       statusDefinitions: [{ color: "slate", id: "todo", label: "Todo" }],
@@ -111,7 +81,6 @@ describe("organizeSidebarTasks", () => {
     ];
 
     const groups = organizeSidebarTasks({
-      goalTitleById: new Map(),
       labels: LABELS,
       prefs: { ...DEFAULT_TASKS_SIDEBAR_PREFS.tasks, groupBy: "status" },
       statusDefinitions: [
@@ -145,7 +114,6 @@ describe("organizeSidebarTasks", () => {
     ];
 
     const groups = organizeSidebarTasks({
-      goalTitleById: new Map(),
       labels: LABELS,
       prefs: {
         ...DEFAULT_TASKS_SIDEBAR_PREFS.tasks,
@@ -158,26 +126,6 @@ describe("organizeSidebarTasks", () => {
     });
 
     expect(groups[0]?.items.map((task) => task.id)).toEqual(["t1"]);
-  });
-
-  it("groups tasks by goal title", () => {
-    const tasks = [
-      makeTask({ id: "t1", goal_id: "goal-a", title: "In goal" }),
-      makeTask({ id: "t2", goal_id: null, title: "General" }),
-    ];
-
-    const groups = organizeSidebarTasks({
-      goalTitleById: new Map([["goal-a", "Alpha goal"]]),
-      labels: LABELS,
-      prefs: { ...DEFAULT_TASKS_SIDEBAR_PREFS.tasks, groupBy: "goal" },
-      statusDefinitions: [{ color: "slate", id: "todo", label: "Todo" }],
-      tasks,
-    });
-
-    expect(groups.map((group) => group.label)).toEqual([
-      "Alpha goal",
-      "General",
-    ]);
   });
 });
 
@@ -205,86 +153,5 @@ describe("collectTaskFilterOptions", () => {
         new Map([["user-1", { full_name: "Alex", id: "user-1" }]])
       )
     ).toEqual([{ id: "user-1", label: "Alex" }]);
-  });
-});
-
-describe("organizeSidebarRoutines", () => {
-  const routineLabels = {
-    custom: "Custom",
-    disabled: "Disabled",
-    enabled: "Enabled",
-    system: "System",
-  };
-
-  function makeRoutine(
-    overrides: Partial<SidebarRoutineItem> & Pick<SidebarRoutineItem, "id">
-  ): SidebarRoutineItem {
-    return {
-      enabled: true,
-      last_run_at: null,
-      name: "Routine",
-      source: "custom",
-      ...overrides,
-    };
-  }
-
-  it("groups by source by default", () => {
-    const routines = [
-      makeRoutine({ id: "r1", name: "Custom A", source: "custom" }),
-      makeRoutine({ id: "r2", name: "System A", source: "module" }),
-    ];
-
-    const groups = organizeSidebarRoutines({
-      labels: routineLabels,
-      prefs: DEFAULT_TASKS_SIDEBAR_PREFS.routines,
-      routines,
-    });
-
-    expect(groups.map((group) => group.id)).toEqual([
-      "source:custom",
-      "source:system",
-    ]);
-  });
-
-  it("returns a flat list when groupBy is none", () => {
-    const routines = [
-      makeRoutine({ id: "r2", name: "Beta" }),
-      makeRoutine({ id: "r1", name: "Alpha" }),
-    ];
-
-    const groups = organizeSidebarRoutines({
-      labels: routineLabels,
-      prefs: {
-        ...DEFAULT_TASKS_SIDEBAR_PREFS.routines,
-        groupBy: "none",
-        sortBy: "name",
-        sortOrder: "asc",
-      },
-      routines,
-    });
-
-    expect(groups).toHaveLength(1);
-    expect(groups[0]?.id).toBe("all");
-    expect(groups[0]?.items.map((routine) => routine.id)).toEqual(["r1", "r2"]);
-  });
-
-  it("filters by enabled and groups by status", () => {
-    const routines = [
-      makeRoutine({ enabled: true, id: "r1", name: "On" }),
-      makeRoutine({ enabled: false, id: "r2", name: "Off" }),
-    ];
-
-    const groups = organizeSidebarRoutines({
-      labels: routineLabels,
-      prefs: {
-        ...DEFAULT_TASKS_SIDEBAR_PREFS.routines,
-        enabled: "enabled",
-        groupBy: "enabled",
-      },
-      routines,
-    });
-
-    expect(groups.map((group) => group.id)).toEqual(["enabled"]);
-    expect(groups[0]?.items.map((routine) => routine.id)).toEqual(["r1"]);
   });
 });

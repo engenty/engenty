@@ -5,7 +5,7 @@ import {
 } from "./llama-cloud-markdown.js";
 
 describe("markdownFromLlamaCloudParsingResult", () => {
-  it("prefers markdown_full", () => {
+  it("prefers markdown_full when per-page markdown is absent", () => {
     expect(
       markdownFromLlamaCloudParsingResult({
         markdown_full: "  # Hi  ",
@@ -22,6 +22,30 @@ describe("markdownFromLlamaCloudParsingResult", () => {
     ).toBe("plain text");
   });
 
+  it("joins markdown.pages with page-break sentinels even when markdown_full exists", () => {
+    expect(
+      markdownFromLlamaCloudParsingResult({
+        markdown_full: "ignored",
+        markdown: {
+          pages: [
+            { success: true, page_number: 1, markdown: "A" },
+            { success: true, page_number: 2, markdown: "B" },
+          ],
+        },
+      })
+    ).toBe(
+      [
+        '<page-break number="1" total="2"></page-break>',
+        "",
+        "A",
+        "",
+        '<page-break number="2" total="2"></page-break>',
+        "",
+        "B",
+      ].join("\n")
+    );
+  });
+
   it("concatenates markdown.pages when full fields are absent", () => {
     expect(
       markdownFromLlamaCloudParsingResult({
@@ -32,7 +56,17 @@ describe("markdownFromLlamaCloudParsingResult", () => {
           ],
         },
       })
-    ).toBe("A\n\nB");
+    ).toBe(
+      [
+        '<page-break number="1" total="2"></page-break>',
+        "",
+        "A",
+        "",
+        '<page-break number="2" total="2"></page-break>',
+        "",
+        "B",
+      ].join("\n")
+    );
   });
 
   it("uses markdown string on pages even when success is missing", () => {
@@ -42,7 +76,7 @@ describe("markdownFromLlamaCloudParsingResult", () => {
           pages: [{ page_number: 1, markdown: "  loose  " }],
         },
       })
-    ).toBe("loose");
+    ).toBe('<page-break number="1" total="1"></page-break>\n\nloose');
   });
 
   it("builds markdown from structured items when pages lack full markdown", () => {
@@ -68,7 +102,17 @@ describe("markdownFromLlamaCloudParsingResult", () => {
           ],
         },
       })
-    ).toBe("# Title\n\n- a\n\nnested");
+    ).toBe(
+      [
+        '<page-break number="1" total="1"></page-break>',
+        "",
+        "# Title",
+        "",
+        "- a",
+        "",
+        "nested",
+      ].join("\n")
+    );
   });
 
   it("falls back to legacy markdown_content", () => {

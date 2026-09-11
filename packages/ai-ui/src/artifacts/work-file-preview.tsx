@@ -9,14 +9,16 @@ import {
   isFileStorageOfficePdfPreviewMime,
   isFileStorageTextPreviewMime,
 } from "@engenty/file-storage";
+import { CsvTable } from "@engenty/import";
 import { useQuery } from "@engenty/query-client";
 import { Spinner } from "@engenty/ui-core";
 import { File, FileImage, FileText } from "lucide-react";
+import type { ReactNode } from "react";
 import { MessageResponse } from "../components/presentation.js";
 import { getFileStorageSignedUrl } from "../lib/file-storage-signed-url.js";
+import { WorkFilePdfPreview } from "./work-file-pdf-preview.js";
 
 const TEXT_PREVIEW_MAX_BYTES = 512 * 1024;
-const CSV_PREVIEW_MAX_ROWS = 200;
 
 export function workFileMime(filename: string): string {
   const base = filename.split("/").pop() ?? filename;
@@ -46,89 +48,8 @@ function NoPreview({ label }: { label: string }) {
   );
 }
 
-function parseDelimitedText(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += char;
-      }
-      continue;
-    }
-    if (char === '"') {
-      inQuotes = true;
-    } else if (char === delimiter) {
-      row.push(field);
-      field = "";
-    } else if (char === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (char !== "\r") {
-      field += char;
-    }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
-}
-
-function CsvTable({ mimeType, text }: { mimeType: string; text: string }) {
-  const delimiter = mimeType === "text/tab-separated-values" ? "\t" : ",";
-  const rows = parseDelimitedText(text, delimiter).slice(
-    0,
-    CSV_PREVIEW_MAX_ROWS
-  );
-  if (rows.length === 0) {
-    return null;
-  }
-  const [header, ...body] = rows;
-  return (
-    <div className="max-h-[min(60vh,640px)] overflow-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 bg-card">
-          <tr>
-            {header?.map((cell, i) => (
-              <th
-                className="border-border border-b px-2 py-1.5 text-left font-medium"
-                key={`h-${i}`}
-              >
-                {cell}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {body.map((cells, r) => (
-            <tr className="odd:bg-muted/30" key={`r-${r}`}>
-              {cells.map((cell, ci) => (
-                <td
-                  className="border-border/60 border-b px-2 py-1 align-top font-mono text-xs"
-                  key={`c-${r}-${ci}`}
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function PaddedPreview({ children }: { children: ReactNode }) {
+  return <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>;
 }
 
 function TextPreview({
@@ -170,9 +91,19 @@ function TextPreview({
   }
 
   return (
-    <div className="ui-canvas-panel rounded-lg bg-card">
+    <div className="ui-card-panel">
       {isFileStorageCsvMime(mimeType) ? (
-        <CsvTable mimeType={mimeType} text={query.data.text} />
+        // The shared grid from @engenty/import — the same parser the import
+        // wizard reads with, so the preview and the importer cannot disagree
+        // about the same bytes. Delimiter is detected, TSV included; the
+        // grid's row window keeps large files cheap without a row cap.
+        <div className="max-h-[min(60vh,640px)] overflow-auto">
+          <CsvTable
+            className="rounded-none border-0"
+            readOnly
+            value={query.data.text}
+          />
+        </div>
       ) : isFileStorageMarkdownMime(mimeType) ? (
         <div className="max-h-[min(60vh,640px)] overflow-y-auto p-3">
           <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -185,7 +116,7 @@ function TextPreview({
         </pre>
       )}
       {query.data.truncated ? (
-        <p className="border-border/60 border-t px-3 py-1.5 text-muted-foreground text-xs">
+        <p className="border-border-soft border-t px-3 py-1.5 text-muted-foreground text-xs">
           {labels.truncated}
         </p>
       ) : null}
@@ -194,8 +125,12 @@ function TextPreview({
 }
 
 export interface WorkFilePreviewLabels {
+  extractedTextLoading: string;
   loading: string;
+  noExtractedText: string;
   noPreview: string;
+  original: string;
+  parsed: string;
   truncated: string;
 }
 
@@ -227,73 +162,102 @@ export function WorkFilePreview({
 
   if (urlQuery.isPending) {
     return (
-      <div className="flex min-h-[12rem] items-center justify-center">
-        <Spinner />
-      </div>
+      <PaddedPreview>
+        <div className="flex min-h-[12rem] items-center justify-center">
+          <Spinner />
+        </div>
+      </PaddedPreview>
     );
   }
   if (!urlQuery.data) {
-    return <NoPreview label={labels.noPreview} />;
+    return (
+      <PaddedPreview>
+        <NoPreview label={labels.noPreview} />
+      </PaddedPreview>
+    );
   }
   const url = urlQuery.data;
 
   if (isFileStorageOfficePdfPreviewMime(mimeType)) {
     if (officeQuery.isPending) {
       return (
-        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2">
-          <Spinner />
-          <p className="text-muted-foreground text-sm">{labels.loading}</p>
-        </div>
+        <PaddedPreview>
+          <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2">
+            <Spinner />
+            <p className="text-muted-foreground text-sm">{labels.loading}</p>
+          </div>
+        </PaddedPreview>
       );
     }
     if (!officeQuery.data?.url) {
-      return <NoPreview label={labels.noPreview} />;
+      return (
+        <PaddedPreview>
+          <NoPreview label={labels.noPreview} />
+        </PaddedPreview>
+      );
     }
     return (
-      <iframe
-        className="ui-canvas-panel h-full min-h-[20rem] w-full rounded-lg border-0"
-        src={officeQuery.data.url}
-        title={filename}
-      />
+      <PaddedPreview>
+        <iframe
+          className="ui-card-panel h-full min-h-[20rem] w-full"
+          src={officeQuery.data.url}
+          title={filename}
+        />
+      </PaddedPreview>
     );
   }
 
   if (mimeType === "application/pdf") {
     return (
-      <iframe
-        className="ui-canvas-panel h-full min-h-[20rem] w-full rounded-lg border-0"
-        src={url}
-        title={filename}
+      <WorkFilePdfPreview
+        filename={filename}
+        labels={{
+          extractedTextLoading: labels.extractedTextLoading,
+          noExtractedText: labels.noExtractedText,
+          original: labels.original,
+          parsed: labels.parsed,
+          truncated: labels.truncated,
+        }}
+        storageKey={entryKey}
+        url={url}
       />
     );
   }
 
   if (mimeType.startsWith("image/")) {
     return (
-      <div className="ui-canvas-panel flex items-center justify-center rounded-lg bg-card p-4">
-        <img
-          alt={filename}
-          className="max-h-[min(60vh,640px)] w-auto rounded object-contain"
-          height={640}
-          src={url}
-          width={800}
-        />
-      </div>
+      <PaddedPreview>
+        <div className="ui-card-panel flex items-center justify-center p-4">
+          <img
+            alt={filename}
+            className="max-h-[min(60vh,640px)] w-auto rounded object-contain"
+            height={640}
+            src={url}
+            width={800}
+          />
+        </div>
+      </PaddedPreview>
     );
   }
 
   if (isFileStorageTextPreviewMime(mimeType)) {
     return (
-      <TextPreview
-        fileKey={entryKey}
-        labels={labels}
-        mimeType={mimeType}
-        url={url}
-      />
+      <PaddedPreview>
+        <TextPreview
+          fileKey={entryKey}
+          labels={labels}
+          mimeType={mimeType}
+          url={url}
+        />
+      </PaddedPreview>
     );
   }
 
-  return <NoPreview label={labels.noPreview} />;
+  return (
+    <PaddedPreview>
+      <NoPreview label={labels.noPreview} />
+    </PaddedPreview>
+  );
 }
 
 export async function downloadWorkFile(

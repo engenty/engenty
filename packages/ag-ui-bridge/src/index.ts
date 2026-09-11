@@ -46,10 +46,23 @@ export {
   AGENT_UI_STATE_SNAPSHOT_MAX_BYTES,
   agentUiBaseShellSignature,
   agentUiSharedStateSignature,
+  agentUiStateForwardedProps,
   assertAgentUiStateSnapshotWithinLimit,
   getAgentUiStateSnapshotByteLength,
   isAgentUiStateSnapshotV1,
+  readAgentUiStateSnapshot,
 } from "./agent-ui-state.js";
+export type {
+  EngentyDebugInitialPromptPayload,
+  RecalledMessagePointer,
+} from "./engenty-debug-initial-prompt.js";
+export {
+  ENGENTY_DEBUG_INITIAL_PROMPT_EVENT,
+  historySpeakerKey,
+  RECALLED_MESSAGE_PREVIEW_CHARS,
+  readEngentyDebugInitialPrompt,
+  readEngentyDebugInitialPromptEventValue,
+} from "./engenty-debug-initial-prompt.js";
 export type {
   EngentyEffortResolvedPayload,
   EngentyResolvedEffort,
@@ -108,7 +121,78 @@ export type {
   JsonPrimitive,
   JsonValue,
 } from "./json-value.js";
+export type { LedgerMarkupPart } from "./ledger-markup.js";
+export {
+  isLedgerMetaLine,
+  ledgerTagTone,
+  ledgerTextAsCode,
+  ledgerTextAsMarkdown,
+  parseLedgerMarkup,
+  splitLedgerDetail,
+  unwrapLedgerText,
+} from "./ledger-markup.js";
+export type { ResumableHttpAgentConfig } from "./resumable-http-agent.js";
+export { ResumableHttpAgent } from "./resumable-http-agent.js";
+export type {
+  RunLlmCall,
+  RunTokenUsageEntry,
+  RunTraceStats,
+} from "./run-trace.js";
+export {
+  buildRunLlmCalls,
+  readRunFinishedUsage,
+  runTraceStats,
+} from "./run-trace.js";
+export type {
+  TrajectoryGanttLane,
+  TrajectoryGanttModel,
+  TrajectoryGanttSectionLabel,
+  TrajectoryGanttSpan,
+  TrajectoryGanttTurnBoundary,
+} from "./run-trace-gantt.js";
+export {
+  deriveTrajectoryGantt,
+  GANTT_LABEL_ROW_PX,
+  GANTT_LANE_COUNT,
+  GANTT_LANE_PAD_PX,
+  GANTT_LANE_PITCH_PX,
+  ganttLaneFor,
+  trajectoryRowAnchorId,
+} from "./run-trace-gantt.js";
+export type {
+  SessionGanttBand,
+  SessionGanttModel,
+  SessionGanttSpan,
+  SessionTurnInput,
+  SessionTurnNode,
+} from "./session-gantt.js";
+export {
+  deriveSessionGantt,
+  nestSessionTurns,
+} from "./session-gantt.js";
+export type {
+  RunEventRecordLike,
+  TrajectoryCellKind,
+  TrajectoryRow,
+  TrajectorySpeechMessage,
+} from "./trajectory.js";
+export {
+  buildInspectorTrajectory,
+  runEventRecordsToAgUi,
+  SYSTEM_INSTRUCTIONS_NOT_CAPTURED,
+  trajectoryRowKeyPreview,
+  trajectoryTranscript,
+} from "./trajectory.js";
 export { getFrontendToolInputValidationError } from "./validate-frontend-tool-input.js";
+export type {
+  JsonHighlightToken,
+  JsonHighlightTokenKind,
+} from "./wire-json.js";
+export {
+  formatWireJson,
+  reviveJsonStrings,
+  tokenizeJson,
+} from "./wire-json.js";
 export type { EngentyFrontendToolSpec } from "./zod-frontend-tool.js";
 export {
   buildFrontendToolDefinitionFromZod,

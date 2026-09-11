@@ -5,14 +5,12 @@ import { cn } from "../../lib/utils";
 const cardVariants = cva("", {
   variants: {
     variant: {
-      default:
-        "rounded-lg border-0 bg-card p-2 text-card-foreground ui-canvas-panel sm:p-4",
-      form: "rounded-lg border-0 bg-card ui-canvas-panel space-y-2 p-2 text-foreground sm:space-y-3 sm:p-4",
+      default: "ui-card-panel p-2 text-card-foreground sm:p-4",
+      form: "ui-card-panel space-y-2 p-2 text-foreground sm:space-y-3 sm:p-4",
       /** Page-embedded section: no fill, no frame, no outer padding (use with `CardHeader`/`CardContent` `p-0`). */
       panel:
         "rounded-none border-0 bg-transparent p-0 text-foreground shadow-none",
-      settings:
-        "rounded-lg border-0 bg-card ui-canvas-panel space-y-1 p-0 text-foreground",
+      settings: "ui-card-panel space-y-1 p-0 text-foreground",
     },
   },
   defaultVariants: {

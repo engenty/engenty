@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("./load-closed-ui-catalog", () => ({
+  loadClosedUiPluginCatalog: () => [],
+}));
+
 vi.mock("../lib/config", () => ({
   config: {
     apiBaseUrl: "http://127.0.0.1:8787",

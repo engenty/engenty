@@ -1,74 +1,183 @@
-// Shared form state for custom triggers — used by the create dialog and the
-// tasks-module edit page so payload shaping/validation lives in one place.
-// The trigger name doubles as the materialized task's title; the instructions
-// become the task description. A trigger fires on a schedule (cron via
-// preset), a module event (bus event name + optional payload filter), or an
-// inbound webhook (secret URL shown after creation).
-import type { CustomRoutineInput, RoutineDto } from "./routines-api.js";
+// Shared form state for custom routines — used by the create dialog, the
+// agent desk's detail panel and the triggers dialog, so payload shaping and
+// validation live in one place.
+//
+// A routine is the standing arrangement: the owning specialist, the published
+// Action it runs, its outcome promise and report floor. Its wake sources are
+// TRIGGER rows (1..n). The combined form here edits the routine plus its
+// PRIMARY trigger (the first self-waking one); the triggers dialog edits any
+// single trigger through the trigger half alone.
+import type {
+  CustomRoutineInput,
+  RoutineDto,
+  RoutineReportMode,
+  RoutineTriggerDto,
+  RoutineTriggerInput,
+} from "./routines-api.js";
 import {
   cronToPreset,
   type PresetSchedule,
   presetToCron,
 } from "./schedule-cron.js";
 
-export type RoutineTriggerType = "schedule" | "module-events" | "webhook";
+export type RoutineTriggerType =
+  | "schedule"
+  | "module-events"
+  | "webhook"
+  | "manual"
+  | "agent";
 
-export interface RoutineFormValue {
-  agentId: string;
-  description: string;
+/** One trigger's editable fields, in form shape. */
+export interface TriggerFormValue {
+  enabled: boolean;
   /** module-events only: JSON object text, shallow payload match. */
   eventFilter: string;
-  name: string;
-  prompt: string;
+  /**
+   * Event → Action input mapping: JSON object text in the graph mapping
+   * grammar, with the event payload as `initData`. Blank means the payload
+   * itself is the Action's input.
+   */
+  inputMapping: string;
   /** module-events only: canonical bus event name (`module.entity.verb`). */
   resource: string;
   schedule: PresetSchedule;
+  /** manual only: a short key a person can invoke the routine by. */
+  shortcode: string;
   triggerType: RoutineTriggerType;
+}
+
+/** What the routine runs: a prompt in prose, or a workflow from the canvas. */
+export type RoutineBodyMode = "prompt" | "workflow";
+
+export interface RoutineFormValue extends TriggerFormValue {
+  /** The specialist that owns the routine. The Action is what runs; only a
+   * specialist owns a routine. */
+  agentId: string;
+  description: string;
+  /** Prompt mode is the default: one instruction, one trigger, no canvas. */
+  mode: RoutineBodyMode;
+  name: string;
+  /** The promise: what a fire must have achieved to count as done. */
+  outcome: string;
+  /** The prompt, in prompt mode. Submitted as `prompt`. */
+  prompt: string;
+  /** How loudly a finished run reports; the declared floor. */
+  reportMode: RoutineReportMode;
+  /** The bound workflow — the published Workflow this routine runs. Required.
+   * Submitted as `workflow_id`. */
+  workflowId: string;
 }
 
 export type RoutineFormErrorKey =
   | "nameRequired"
   | "agentRequired"
+  | "actionRequired"
   | "promptRequired"
   | "resourceRequired"
-  | "filterInvalid";
+  | "filterInvalid"
+  | "mappingInvalid";
 
-export function defaultRoutineFormValue(
-  defaultAgentId?: string | null
-): RoutineFormValue {
+export function defaultTriggerFormValue(
+  triggerType: RoutineTriggerType = "schedule"
+): TriggerFormValue {
   return {
-    agentId: defaultAgentId ?? "",
-    description: "",
+    enabled: true,
     eventFilter: "",
-    name: "",
-    prompt: "",
+    inputMapping: "",
     resource: "",
     schedule: { type: "weekdays", hour: 9, minute: 0 },
-    triggerType: "schedule",
+    shortcode: "",
+    triggerType,
   };
+}
+
+export function defaultRoutineFormValue(
+  defaultAgentId?: string | null,
+  defaultActionId?: string | null
+): RoutineFormValue {
+  return {
+    ...defaultTriggerFormValue(),
+    workflowId: defaultActionId ?? "",
+    agentId: defaultAgentId ?? "",
+    description: "",
+    // A host that hands in a workflow wants that workflow; everyone else
+    // starts from a prompt.
+    mode: defaultActionId ? "workflow" : "prompt",
+    name: "",
+    outcome: "",
+    prompt: "",
+    // `quiet` is the right default for a recurring check: silence when there is
+    // nothing to say, a card on the desk when there is.
+    reportMode: "quiet",
+  };
+}
+
+export function triggerTypeOf(trigger: RoutineTriggerDto): RoutineTriggerType {
+  if (trigger.kind === "event") {
+    return trigger.provider_id === "webhook" ? "webhook" : "module-events";
+  }
+  return trigger.kind;
+}
+
+export function triggerToFormValue(
+  trigger: RoutineTriggerDto
+): TriggerFormValue {
+  return {
+    enabled: trigger.enabled,
+    eventFilter: trigger.event_filter
+      ? JSON.stringify(trigger.event_filter, null, 2)
+      : "",
+    inputMapping: trigger.input_mapping
+      ? JSON.stringify(trigger.input_mapping, null, 2)
+      : "",
+    resource: trigger.resource ?? "",
+    // A timezone-carrying cron (agent-created) is written in THAT zone's
+    // local time. The preset picker thinks in UTC crons — round-tripping it
+    // through `cronToPreset`/`presetToCron` would shift the hours while the
+    // trigger keeps its timezone (a double conversion). Fall back to the
+    // custom preset: the raw cron passes through unchanged and the PATCH
+    // never touches `timezone`.
+    schedule: trigger.timezone
+      ? { type: "custom", hour: 0, minute: 0, cron: trigger.cron ?? "" }
+      : cronToPreset(trigger.cron ?? ""),
+    shortcode: trigger.shortcode ?? "",
+    triggerType: triggerTypeOf(trigger),
+  };
+}
+
+/**
+ * The routine's PRIMARY trigger for the combined form: the first self-waking
+ * one (schedule/event), or the first row at all. Null only for a routine with
+ * no triggers, which the server refuses to produce.
+ */
+export function primaryTrigger(routine: RoutineDto): RoutineTriggerDto | null {
+  const triggers = routine.triggers ?? [];
+  return (
+    triggers.find(
+      (trigger) => trigger.kind === "schedule" || trigger.kind === "event"
+    ) ??
+    triggers[0] ??
+    null
+  );
 }
 
 export function routineToFormValue(routine: RoutineDto): RoutineFormValue {
+  const primary = primaryTrigger(routine);
   return {
-    agentId: routine.agent_id ?? "",
+    ...(primary ? triggerToFormValue(primary) : defaultTriggerFormValue()),
+    workflowId: routine.workflow_id,
+    agentId: routine.agent_id,
     description: routine.description ?? "",
-    eventFilter: routine.event_filter
-      ? JSON.stringify(routine.event_filter, null, 2)
-      : "",
+    mode: routine.prompt ? "prompt" : "workflow",
     name: routine.name,
+    outcome: routine.outcome ?? "",
     prompt: routine.prompt ?? "",
-    resource: routine.resource ?? "",
-    schedule: cronToPreset(routine.cron ?? ""),
-    triggerType:
-      routine.kind === "event"
-        ? routine.provider_id === "webhook"
-          ? "webhook"
-          : "module-events"
-        : "schedule",
+    reportMode: routine.report,
   };
 }
 
-function parseEventFilter(
+/** Shared by the payload filter and the input mapping — both are JSON objects. */
+function parseJsonObject(
   text: string
 ): Record<string, unknown> | null | "invalid" {
   const trimmed = text.trim();
@@ -85,6 +194,27 @@ function parseEventFilter(
   }
 }
 
+/** First validation error of one trigger's form half, or null. */
+export function validateTriggerForm(
+  value: TriggerFormValue
+): RoutineFormErrorKey | null {
+  const isEvent =
+    value.triggerType === "module-events" || value.triggerType === "webhook";
+  // An event wakes the Action through its INPUT: the payload becomes
+  // `initData`, mapped when the trigger says how and passed whole when it
+  // doesn't. A malformed mapping is the one thing to refuse here.
+  if (isEvent && parseJsonObject(value.inputMapping) === "invalid") {
+    return "mappingInvalid";
+  }
+  if (value.triggerType === "module-events" && !value.resource.trim()) {
+    return "resourceRequired";
+  }
+  if (isEvent && parseJsonObject(value.eventFilter) === "invalid") {
+    return "filterInvalid";
+  }
+  return null;
+}
+
 // Returns the first validation error as a translation-key suffix, or null.
 export function validateRoutineForm(
   value: RoutineFormValue
@@ -92,43 +222,91 @@ export function validateRoutineForm(
   if (!value.name.trim()) {
     return "nameRequired";
   }
+  // The Action is what runs; only a specialist owns a routine.
   if (!value.agentId) {
     return "agentRequired";
   }
-  if (!value.prompt.trim()) {
-    return "promptRequired";
+  if (value.mode === "prompt") {
+    if (!value.prompt.trim()) {
+      return "promptRequired";
+    }
+  } else if (!value.workflowId) {
+    return "actionRequired";
   }
-  if (value.triggerType === "module-events" && !value.resource.trim()) {
-    return "resourceRequired";
-  }
-  if (
-    value.triggerType !== "schedule" &&
-    parseEventFilter(value.eventFilter) === "invalid"
-  ) {
-    return "filterInvalid";
-  }
-  return null;
+  return validateTriggerForm(value);
 }
 
-export function routineFormToPayload(
-  value: RoutineFormValue
-): CustomRoutineInput {
-  const base = {
-    agent_id: value.agentId,
-    description: value.description.trim() || null,
-    name: value.name.trim(),
-    prompt: value.prompt.trim(),
-  };
+/** One trigger's wire body, from its form half. */
+export function triggerFormToInput(
+  value: TriggerFormValue
+): RoutineTriggerInput {
+  const base = { enabled: value.enabled };
   if (value.triggerType === "schedule") {
     return { ...base, cron: presetToCron(value.schedule), kind: "schedule" };
   }
-  const filter = parseEventFilter(value.eventFilter);
+  if (value.triggerType === "manual") {
+    return {
+      ...base,
+      kind: "manual",
+      shortcode: value.shortcode.trim() || null,
+    };
+  }
+  if (value.triggerType === "agent") {
+    return { ...base, kind: "agent" };
+  }
+  const filter = parseJsonObject(value.eventFilter);
+  const mapping = parseJsonObject(value.inputMapping);
   return {
     ...base,
     event_filter: filter === "invalid" ? null : filter,
+    input_mapping: mapping === "invalid" ? null : mapping,
     kind: "event",
-    provider_id: value.triggerType,
+    provider_id: value.triggerType === "webhook" ? "webhook" : "module-events",
     resource:
       value.triggerType === "module-events" ? value.resource.trim() : null,
+  };
+}
+
+/** The routine-level half — what a PATCH sends. */
+export function routineFormToRoutinePatch(
+  value: RoutineFormValue
+): Partial<CustomRoutineInput> {
+  return {
+    description: value.description.trim() || null,
+    name: value.name.trim(),
+    outcome: value.outcome.trim() || null,
+    report: value.reportMode,
+    ...routineBody(value),
+  };
+}
+
+/** The body half of a payload: the prompt, or the workflow it binds. */
+function routineBody(
+  value: RoutineFormValue
+): Partial<Pick<CustomRoutineInput, "prompt" | "workflow_id">> {
+  return value.mode === "prompt"
+    ? { prompt: value.prompt.trim() }
+    : { workflow_id: value.workflowId };
+}
+
+/**
+ * The full create body: routine + initial triggers. The chosen wake source is
+ * joined by the standard manual + agent pair (unless it IS one of them), the
+ * same defaults every wrapped workflow carries.
+ */
+export function routineFormToPayload(
+  value: RoutineFormValue
+): CustomRoutineInput {
+  const primary = triggerFormToInput(value);
+  const triggers: RoutineTriggerInput[] = [primary];
+  for (const kind of ["manual", "agent"] as const) {
+    if (primary.kind !== kind) {
+      triggers.push({ kind });
+    }
+  }
+  return {
+    ...routineFormToRoutinePatch(value),
+    agent_id: value.agentId,
+    triggers,
   };
 }

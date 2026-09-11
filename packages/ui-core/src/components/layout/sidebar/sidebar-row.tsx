@@ -115,21 +115,21 @@ export function SidebarRow({
 
 export interface SidebarRowLeadingIconProps {
   /**
-   * When true, the chevron is always visible (replaces icon at rest), so users
-   * can immediately see which rows have sub-items. When false (default), the
-   * chevron only swaps in on row hover/focus.
+   * When true (default), the chevron replaces the icon so folders read as
+   * expandable at rest. Pass false to keep the glyph and swap the chevron in
+   * only on row hover/focus (adapter/source rows that need their identity).
    */
   alwaysShowChevron?: boolean;
-  /** Expand/collapse control; swaps in over {@link icon} on row hover/focus. */
+  /** Expand/collapse control; shown in place of {@link icon} when present. */
   chevronSlot?: React.ReactNode;
   className?: string;
-  /** Default leading icon (e.g. document glyph). */
+  /** Default leading icon (e.g. document glyph) when the row is not expandable. */
   icon: React.ReactNode;
 }
 
-/** Leading icon column with optional chevron swap on row hover/focus. */
+/** Leading icon column; expandable rows show the chevron in place of the glyph. */
 export function SidebarRowLeadingIcon({
-  alwaysShowChevron = false,
+  alwaysShowChevron = true,
   chevronSlot,
   className,
   icon,

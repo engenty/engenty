@@ -91,7 +91,7 @@ function statusCell(entry: ScopeReport["vars"][number]): Cell {
     return { paint: cyan, text: `${symbol} ${entry.status} (portless)` };
   }
   // Unset optional vars are informational, not warnings.
-  if (entry.spec.required === "optional" && entry.status !== "invalid") {
+  if (entry.requirement === "optional" && entry.status !== "invalid") {
     return entry.status === "ok"
       ? { paint, text: `${symbol} ok` }
       : { paint: dim, text: "· unset" };
@@ -106,10 +106,7 @@ function summaryLine(report: ScopeReport): string {
   for (const entry of report.vars) {
     if (entry.status === "ok") {
       ok++;
-    } else if (
-      entry.spec.required === "optional" &&
-      entry.status !== "invalid"
-    ) {
+    } else if (entry.requirement === "optional" && entry.status !== "invalid") {
       optionalUnset++;
     } else {
       problems++;
@@ -216,7 +213,7 @@ export function checkResultToJson(
         error: entry.error,
         key: entry.spec.key,
         portlessOwned: entry.portlessOwned,
-        required: entry.spec.required,
+        required: entry.requirement,
         secret: entry.spec.secret,
         status: entry.status,
       })),

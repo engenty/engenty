@@ -1,19 +1,19 @@
-import { revokeGoalGrants } from "@engenty/approvals-sdk";
 import {
+  capabilitiesForModuleAccess,
   createPluginServerGatewayCaller,
   type EngentyPluginFactory,
+  resolveDefaultSpaceId,
+  resolveSpaceAgentMount,
 } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tasksAiRegistration } from "../ai/registrar.js";
 import { subscribeConnectionsApprovalResume } from "./api/connections-approval-subscriber.js";
-import { registerTasksApi } from "./api/index.js";
-import { createTriggerEventSubscriber } from "./api/trigger-event-subscriber.js";
 import {
-  createTriggersRepoFactory,
-  registerTriggerGatewayMethods,
-} from "./api/trigger-gateway-methods.js";
-import { registerTriggerWebhookRoute } from "./api/trigger-webhook-route.js";
+  type TasksGatewayOptions,
+  taskAssignmentValidator,
+} from "./api/gateway-shared.js";
+import { registerTasksApi } from "./api/index.js";
 import { createCoreGrantsWriter } from "./dal/core-grants.js";
 import { createTasksRepoSupabase } from "./dal/supabase.js";
 
@@ -23,27 +23,23 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
     {
       id: "tasks.viewer",
       title: "Tasks viewer",
-      capabilities: ["module.tasks.read"],
+      capabilities: capabilitiesForModuleAccess("tasks", "read"),
     },
     {
       id: "tasks.editor",
       title: "Tasks editor",
-      capabilities: [
-        "module.tasks.read",
-        "module.tasks.write",
-        "module.goals.read",
-        "module.goals.write",
-      ],
+      capabilities: capabilitiesForModuleAccess("tasks", "write"),
     },
   ]);
   const { server } = engenty;
-  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
-  // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
-  // remains ONLY for the two context-less reads that resolve tenancy themselves:
-  // webhook trigger lookup by id+secret, and the boot-time resource replay.
-  const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
+  // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): ALL work in this module
+  // runs on tenant-locked handles (engenty_server lane, RLS-enforced). There is
+  // no service-client path left — the two context-less reads that needed one
+  // (webhook lookup by id+secret, boot-time resource replay) went with the
+  // triggers surface. A deployment without a tenant handle has no database at
+  // all, so that is the only thing worth aborting on.
   const getTenantDb = server.getTenantDb;
-  if (!(serviceDb && getTenantDb)) {
+  if (!getTenantDb) {
     return;
   }
   const getDb = (auth: { tenantId: string }) =>
@@ -111,59 +107,45 @@ const registerTasksPlugin: EngentyPluginFactory = (engenty) => {
       "queue service unavailable — agent task auto-dispatch disabled"
     );
   }
-  const triggersRepoFactory = createTriggersRepoFactory(getDb);
   // Tool approvals live in core.approval_grants — the ONE grant store. The
   // task-row grant columns this used to dual-write were dropped in
   // 20260803210000; the task DTO's approval_grants fields are hydrated from
   // core on read.
   const coreGrantsFactory = (auth: { tenantId: string }) =>
     createCoreGrantsWriter(getDb(auth), auth.tenantId);
-  registerTasksApi(server, repoOrFactory, {
+  const resolveSpaceId: NonNullable<
+    TasksGatewayOptions["resolveSpaceId"]
+  > = async (auth) => {
+    const fromAuth = auth.spaceId?.trim();
+    if (fromAuth) {
+      return fromAuth;
+    }
+    return resolveDefaultSpaceId(getDb(auth) as never, auth.tenantId);
+  };
+  const gatewayOptions: TasksGatewayOptions = {
     coreGrantsFactory,
     queue,
-    reapGoalGrants: (auth, goalId) =>
-      revokeGoalGrants(getDb(auth), {
-        goalId,
-        tenantId: auth.tenantId,
-      }),
-    triggersRepoFactory,
-  });
-
-  // Event-trigger ingestion edges: the in-process module event bus and the
-  // public webhook route. Bus subscriptions are exact-name, replayed from the
-  // database — DEFERRED off the boot path (awaiting module capabilities during
-  // createApp deadlocks the loader).
-  const eventSubscriber = createTriggerEventSubscriber({
-    events: engenty.events,
-    getDb,
-    queue,
-    serviceDb,
-  });
-  setTimeout(() => {
-    eventSubscriber.replayFromDatabase().catch((error: unknown) => {
-      createLogger({ name: "tasks-plugin" }).warn(
-        "event trigger subscription replay failed",
-        { message: error instanceof Error ? error.message : String(error) }
-      );
-    });
-  }, 3000);
-  registerTriggerWebhookRoute(server, {
-    getDb,
-    queue,
-    serviceDb,
-  });
+    // Checkout workspace bytes: task-row Space, then validated auth Space,
+    // then the tenant default only for a true global/legacy run.
+    // `as never`: resolveDefaultSpaceId takes a structural client slice, and
+    // matching it against SupabaseClient's full generic chain exceeds tsc's
+    // instantiation depth (TS2589). The shape is asserted by its own unit test.
+    resolveSpaceAgentMount: (input) =>
+      resolveSpaceAgentMount(
+        getDb({ tenantId: input.tenantId }) as never,
+        input
+      ),
+    resolveSpaceId,
+  };
+  const validateMountedTaskAssignment = taskAssignmentValidator(gatewayOptions);
+  registerTasksApi(server, repoOrFactory, gatewayOptions);
 
   // Approving a task-linked connections request resumes the blocked task.
   subscribeConnectionsApprovalResume({
     events: engenty.events,
     getDb,
     queue,
-  });
-
-  registerTriggerGatewayMethods(server, triggersRepoFactory, {
-    getDb,
-    onEventResourceAdded: eventSubscriber.ensureSubscribed,
-    queue,
+    validateAgentAssignment: validateMountedTaskAssignment,
   });
 };
 

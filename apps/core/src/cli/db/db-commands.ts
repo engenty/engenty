@@ -6,6 +6,7 @@ import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { runSetupScript } from "../setup/run-setup-script.js";
 import { runDbSnapshotScript } from "./run-db-snapshot.js";
+import { runMastraSchemaInitScript } from "./run-mastra-schema-init.js";
 import { runSupabaseCli, runSupabaseCliStreaming } from "./run-supabase-cli.js";
 import { runSupabaseSyncScript } from "./run-supabase-sync.js";
 
@@ -68,10 +69,28 @@ function runSharedMigrationPlaceholdersStep(): void {
 }
 
 /** Compose module migrations, then apply pending Supabase migrations locally. */
+function runMastraSchemaInitStep(): void {
+  const result = runMastraSchemaInitScript();
+  if (!result.ran) {
+    return;
+  }
+  if (result.output.length > 0) {
+    console.log(result.output);
+  }
+  if (!result.ok) {
+    throw new Error("Mastra schema init failed.");
+  }
+}
+
 export function applyLocalDbMigrations(): void {
   runDbSyncStep();
   runSharedMigrationPlaceholdersStep();
   runSupabaseOrThrow(["migration", "up", "--include-all"]);
+  // Mastra owns its own tables and applies them through its store, not through
+  // a .sql file — so this runs alongside the migrations rather than inside
+  // them. apps/ai deliberately cannot do it at boot: the DDL reloads
+  // PostgREST's schema cache and 502s in-flight requests.
+  runMastraSchemaInitStep();
 }
 
 /**
@@ -141,12 +160,25 @@ export function registerDbCommands(program: Command): void {
       })
     );
 
+  db.command("mastra-init")
+    .description(
+      "Apply Mastra's own storage schema (run by `db migrate`; safe to re-run)"
+    )
+    .action(
+      runCliAction(async () => {
+        runMastraSchemaInitStep();
+      })
+    );
+
   db.command("reset")
     .description("Sync module migrations, then reset the local database")
     .action(
       runCliAction(async () => {
         runDbSyncStep();
         runSupabaseOrThrow(["db", "reset"]);
+        // A reset drops Mastra's tables with everything else, and nothing
+        // recreates them at boot any more.
+        runMastraSchemaInitStep();
       })
     );
 

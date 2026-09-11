@@ -6,36 +6,44 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
   Textarea,
 } from "@engenty/ui-core";
 import type { Article } from "../../src/schema/types.js";
 import type { CategoryWithPath } from "../lib/category-display-paths.js";
+import { SourceAnalyzeProposal } from "./source-analyze-proposal.js";
 
 interface SourceAgenticIngestPanelProps {
+  active: boolean;
   articles: Article[];
   categoryId: string;
   decoratedCategories: CategoryWithPath[];
   instructions: string;
+  onActiveChange: (value: boolean) => void;
   onCategoryChange: (value: string) => void;
   onSave: () => void;
   parentArticleId: string;
   savePending: boolean;
   setInstructions: (value: string) => void;
   setParentArticleId: (value: string) => void;
+  sourceId: string;
   updatePending: boolean;
 }
 
 export function SourceAgenticIngestPanel({
+  active,
   articles,
   categoryId,
   decoratedCategories,
   instructions,
+  onActiveChange,
   onCategoryChange,
   onSave,
   parentArticleId,
   savePending,
   setInstructions,
   setParentArticleId,
+  sourceId,
   updatePending,
 }: SourceAgenticIngestPanelProps) {
   const { t } = useTranslation("kb");
@@ -57,6 +65,15 @@ export function SourceAgenticIngestPanel({
 
   return (
     <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+      <IngestActiveSwitch
+        active={active}
+        description={t("sources.ingest_active_agentic_desc")}
+        id="ingest-agentic-active"
+        onChange={onActiveChange}
+      />
+
+      <SourceAnalyzeProposal onApply={setInstructions} sourceId={sourceId} />
+
       <div className="space-y-1">
         <label className="font-medium text-sm" htmlFor="ingest-agentic">
           {t("sources.ingest_agentic_instructions_label")}
@@ -169,6 +186,37 @@ export function SourceAgenticIngestPanel({
             : t("sources.ingest_agentic_save")}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Arms a mode to ingest after every sync. Modes are armed independently — a
+ * source can have both the authored and the agentic wiki refreshing itself.
+ */
+export function IngestActiveSwitch({
+  active,
+  description,
+  id,
+  onChange,
+}: {
+  active: boolean;
+  description: string;
+  id: string;
+  onChange: (value: boolean) => void;
+}) {
+  const { t } = useTranslation("kb");
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border bg-background px-3 py-2">
+      <div className="min-w-0">
+        <label className="font-medium text-sm" htmlFor={id}>
+          {t("sources.ingest_active_label")}
+        </label>
+        <p className="text-muted-foreground text-xs leading-snug">
+          {description}
+        </p>
+      </div>
+      <Switch checked={active} id={id} onCheckedChange={onChange} />
     </div>
   );
 }

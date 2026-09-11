@@ -1,48 +1,8 @@
 /**
- * Resolve the active knowledge base id from the URL and loaded KB list.
- * Tenant default is `KbSettings.default_kb_id` only (see module settings).
+ * The knowledge base a page works in: the space's one library. There is no
+ * choice to make — a space has exactly one — so the first (and only) row of
+ * the space-scoped list is it. Empty means the space has none yet.
  */
-
-export function tenantDefaultKbId(
-  settings: { default_kb_id: string | null } | undefined
-): string | null {
-  const id = settings?.default_kb_id?.trim();
-  return id ? id : null;
-}
-
-export function kbIdFromSlug(
-  kbs: Array<{ id: string; slug: string }>,
-  slug: string
-): string {
-  const decoded = decodeURIComponent(slug.trim());
-  return kbs.find((k) => k.slug === decoded)?.id ?? "";
-}
-
-export function slugFromKbId(
-  kbs: Array<{ id: string; slug: string }>,
-  kbId: string
-): string | undefined {
-  return kbs.find((k) => k.id === kbId)?.slug;
-}
-
-export function resolveKbIdFromUrl(
-  searchParams: URLSearchParams,
-  kbs: Array<{ id: string }>,
-  tenantDefaultKbId: string | null
-): string {
-  const raw = searchParams.get("kb_id")?.trim();
-  if (
-    raw &&
-    raw.length > 0 &&
-    raw !== "undefined" &&
-    raw !== "null" &&
-    kbs.some((k) => k.id === raw)
-  ) {
-    return raw;
-  }
-  const defaultId = tenantDefaultKbId?.trim();
-  if (defaultId && kbs.some((k) => k.id === defaultId)) {
-    return defaultId;
-  }
-  return "";
+export function spaceKbId(kbs: Array<{ id: string }>): string {
+  return kbs[0]?.id ?? "";
 }

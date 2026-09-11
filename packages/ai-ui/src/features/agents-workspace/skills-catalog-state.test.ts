@@ -87,6 +87,27 @@ describe("skills catalog state", () => {
     ).toEqual(["contacts-search"]);
   });
 
+  it("treats coding as a match for skills that talk about code", () => {
+    const skills = [
+      normalizeSkillRecord(
+        skill({
+          description: "Run Python or shell scripts in a sandbox",
+          name: "sandbox-code-execution",
+        })
+      ),
+      normalizeSkillRecord(
+        skill({ description: "Invoice CRUD", name: "invoices-list" })
+      ),
+    ];
+
+    expect(
+      filterAndSortSkills(skills, {
+        ...baseState,
+        searchQuery: "coding",
+      }).map((item) => item.name)
+    ).toEqual(["sandbox-code-execution"]);
+  });
+
   it("sorts descending by display name", () => {
     const skills = [
       normalizeSkillRecord(skill({ name: "a-skill", title: "Alpha" })),

@@ -15,7 +15,7 @@ const LAYER_PRIORITY = new Map([
   ["tenant", 1],
   ["module", 2],
   ["agent", 3],
-  ["action", 4],
+  ["workflow", 4],
   ["tenant_override", 5],
   ["user_override", 6],
 ]);

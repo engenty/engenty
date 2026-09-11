@@ -68,7 +68,7 @@ export function SourceRunProgressBanner({
   const barValue = pct ?? sweepVal;
 
   return (
-    <div className="ui-canvas-panel relative overflow-hidden rounded-lg border-0 bg-card">
+    <div className="ui-card-panel relative overflow-hidden">
       {/* Background progress fill */}
       <Progress
         className={cn(

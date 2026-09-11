@@ -402,7 +402,7 @@ export function InlineEditableRichText({
       role="group"
     >
       {showTopToolbar && (
-        <div className="flex flex-wrap items-center gap-px border-border/60 border-b px-1 py-0.5">
+        <div className="flex flex-wrap items-center gap-px border-border-soft border-b px-1 py-0.5">
           {toolbarButtons}
         </div>
       )}

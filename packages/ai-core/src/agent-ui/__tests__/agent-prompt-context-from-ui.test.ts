@@ -1,14 +1,9 @@
 import type { AgentUiStateSnapshotV1 } from "@engenty/ag-ui-bridge";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  registerAiRegistration,
-  unregisterAiRegistration,
-} from "../../registry.js";
-import {
-  buildAgentSystemPromptFromUiState,
-  extractAgentPromptContextFromAgentUi,
   formatAgentUiStateHarnessInstructions,
   resolveCurrentPageModule,
+  resolveCurrentPageSpaceKey,
 } from "../agent-prompt-context-from-ui.js";
 
 function makeSnapshot(
@@ -28,74 +23,6 @@ function makeSnapshot(
     ...overrides,
   };
 }
-
-describe("extractAgentPromptContextFromAgentUi", () => {
-  it("maps route, selection, and page keys for task detail", () => {
-    const context = extractAgentPromptContextFromAgentUi(
-      makeSnapshot({
-        page: {
-          task_snapshot: { identifier: "ENG-1", title: "Ship module" },
-          task_title: "Ship module",
-        },
-        selection: { entity_id: "task-1", entity_type: "task" },
-      })
-    );
-
-    expect(context.pathname).toBe("/mdl/tasks/task-1");
-    expect(context.current_page_module).toBe("task");
-    expect(context.current_module).toBe("task");
-    expect(context.entityId).toBe("task-1");
-    expect(context.entity_type).toBe("task");
-    expect(context.route_key).toBe("detail");
-    expect(context.task_snapshot).toEqual({
-      identifier: "ENG-1",
-      title: "Ship module",
-    });
-  });
-
-  it("maps projects list preview from page", () => {
-    const context = extractAgentPromptContextFromAgentUi(
-      makeSnapshot({
-        route: {
-          module_id: "projects",
-          pathname: "/mdl/projects",
-          route_key: "list",
-        },
-        page: {
-          list_search: "acme",
-          projects_preview: [{ id: "p1", title: "Alpha" }],
-        },
-      })
-    );
-
-    expect(context.currentModule).toBe("projects");
-    expect(context.list_search).toBe("acme");
-    expect(context.projects_preview).toHaveLength(1);
-  });
-
-  it("maps contacts contact_snapshot from page", () => {
-    const context = extractAgentPromptContextFromAgentUi(
-      makeSnapshot({
-        route: {
-          module_id: "contacts",
-          pathname: "/mdl/contacts/c1",
-          route_key: "chat",
-        },
-        page: {
-          contact_snapshot: { id: "c1", display_name: "Acme" },
-          entity_title: "Acme",
-        },
-        selection: { entity_id: "c1", entity_type: "contact" },
-      })
-    );
-
-    expect(context.contact_snapshot).toEqual({
-      id: "c1",
-      display_name: "Acme",
-    });
-    expect(context.entity_title).toBe("Acme");
-  });
-});
 
 describe("resolveCurrentPageModule", () => {
   it("matches /mdl/<module> when selection is absent", () => {
@@ -241,56 +168,111 @@ describe("formatAgentUiStateHarnessInstructions", () => {
       formatAgentUiStateHarnessInstructions(makeSnapshot({ shared: {} }))
     ).not.toContain("set_state");
   });
+
+  it("includes the canonical navigation section so text runtime receives it", () => {
+    const text = formatAgentUiStateHarnessInstructions(makeSnapshot());
+    expect(text).toContain("## App navigation paths (canonical)");
+    expect(text).toContain("`/s/<space_key>/<module-segment>/…`");
+    expect(text).toContain("do not assume `moduleId === segment`");
+  });
 });
 
-describe("buildAgentSystemPromptFromUiState", () => {
-  afterEach(() => {
-    unregisterAiRegistration("tasks");
+describe("module and space resolution inside a space", () => {
+  // PLAN-spaces.md Phase 5a mirrors every module route at `/s/<key>/<module>`,
+  // so once the space is the entry point a module page's pathname no longer
+  // starts with `/mdl/`. This resolver is what tells the agent which module the
+  // user is looking at — anchored on `/mdl/` it resolved NOTHING in a space, so
+  // the copilot had no page prompt and no skill hint, and answered "where am
+  // I?" by asking the user which page they were on.
+  it("resolves the module from a space-mirrored path", () => {
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: {
+            module_id: "",
+            pathname: "/s/company/engenty-copilot/chat/abc",
+            route_key: "chat",
+          },
+        })
+      )
+    ).toBe("engenty-copilot");
   });
 
-  it("invokes registered build_system_prompt from AG-UI page state", async () => {
-    registerAiRegistration({
-      module_id: "tasks",
-      agents: [
-        {
-          build_system_prompt: async ({ context }) => {
-            const snapshot = context?.task_snapshot;
-            return snapshot
-              ? `Task preload: ${JSON.stringify(snapshot)}`
-              : "No task preload";
-          },
-          build_tools: () => ({}),
-          id: "tasks.assist",
-          instruction_keys: [],
-          module_id: "tasks",
-          name: "Tasks Assist",
-        },
-      ],
-    });
-
-    const prompt = await buildAgentSystemPromptFromUiState(
-      "tasks.assist",
-      makeSnapshot({
-        page: {
-          task_snapshot: {
-            identifier: "ENG-1",
-            title: "Ship tasks module",
-            status: "in_progress",
-          },
-        },
-        selection: { entity_id: "task-1", entity_type: "task" },
-      })
-    );
-
-    expect(prompt).toContain("Task preload:");
-    expect(prompt).toContain("Ship tasks module");
+  it("still resolves the legacy /mdl and /module shapes", () => {
+    for (const [pathname, expected] of [
+      ["/mdl/tasks/task-1", "tasks"],
+      ["/module/offers", "offers"],
+    ] as const) {
+      expect(
+        resolveCurrentPageModule(
+          makeSnapshot({
+            route: { module_id: "", pathname, route_key: "detail" },
+          })
+        )
+      ).toBe(expected);
+    }
   });
 
-  it("returns empty string when agent has no builder", async () => {
-    const prompt = await buildAgentSystemPromptFromUiState(
-      "unknown.agent",
-      makeSnapshot()
-    );
-    expect(prompt).toBe("");
+  it("reports NO module at the space root", () => {
+    // `/s/company` is the Work list, not a module. Returning the space key here
+    // would send every module-scoped lookup after a module that does not exist.
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: { module_id: "", pathname: "/s/company", route_key: "work" },
+        })
+      )
+    ).toBeUndefined();
+  });
+
+  it("resolves a short space segment back to the module ID", () => {
+    // `/s/company/copilot/…` is the URL; `engenty-copilot` is what the skill
+    // catalog and the tool contracts are keyed by.
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: {
+            module_id: "",
+            pathname: "/s/company/copilot/chat/x",
+            route_key: "chat",
+          },
+        })
+      )
+    ).toBe("engenty-copilot");
+  });
+
+  it("still resolves the pre-alias space URL", () => {
+    expect(
+      resolveCurrentPageModule(
+        makeSnapshot({
+          route: {
+            module_id: "",
+            pathname: "/s/company/engenty-copilot/chat/x",
+            route_key: "chat",
+          },
+        })
+      )
+    ).toBe("engenty-copilot");
+  });
+
+  it("reads the space key, and nothing outside /s/", () => {
+    expect(
+      resolveCurrentPageSpaceKey(
+        makeSnapshot({
+          route: {
+            module_id: "",
+            pathname: "/s/marketing/tasks",
+            route_key: "list",
+          },
+        })
+      )
+    ).toBe("marketing");
+    expect(
+      resolveCurrentPageSpaceKey(
+        makeSnapshot({
+          route: { module_id: "", pathname: "/mdl/inbox", route_key: "list" },
+        })
+      )
+    ).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@ import {
 } from "@engenty/app-shell";
 import { queryOptions, useQuery, useQueryClient } from "@engenty/query-client";
 import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import { getTenantSetting, setTenantSetting } from "@/lib/api/client";
 
 /** Tenant-settings `shell.dock_module_order`: org-wide modules rail order. */
@@ -66,13 +67,26 @@ export function useShellDockModuleOrderPersistence(
         v: 1,
         order,
       };
+      const previousSnapshot =
+        queryClient.getQueryData<ShellDockModuleOrderSnapshotV1 | null>(
+          queryKey
+        );
       queryClient.setQueryData(queryKey, nextSnapshot);
       // Persist immediately — rearrange mode only saves once on exit.
       void setTenantSetting(SHELL_DOCK_MODULE_ORDER_TENANT_SETTING_NAME, {
         type: "json",
         value_jsonb: nextSnapshot,
       }).catch(() => {
-        // Keep optimistic cache; next load will reconcile if the write failed.
+        const current =
+          queryClient.getQueryData<ShellDockModuleOrderSnapshotV1 | null>(
+            queryKey
+          );
+        if (current === nextSnapshot) {
+          queryClient.setQueryData(queryKey, previousSnapshot);
+        } else {
+          void queryClient.invalidateQueries({ exact: true, queryKey });
+        }
+        toast.error("Could not save the dock order.");
       });
     },
     [options.enabled, options.tenantId, queryClient, queryKey]

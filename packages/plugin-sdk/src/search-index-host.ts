@@ -35,6 +35,7 @@ import {
   type SearchIndexEventBinding,
   type SearchIndexProvider,
 } from "./search-index-registration.js";
+import type { OperationSpacePolicy } from "./space-policy.js";
 import { normalizeLegacyToolId } from "./tool-id.js";
 
 // Avoid cyclic import for the operation type by quoting it locally.
@@ -49,6 +50,7 @@ interface MinimalServerOperation {
   requiredCapabilities?: string[];
   requiresApproval?: boolean;
   riskLevel?: PluginOperationRisk;
+  spacePolicy?: OperationSpacePolicy;
   summary?: string;
 }
 
@@ -59,6 +61,7 @@ interface MinimalServerOperation {
 interface SynthesizedHandlerCtx {
   auth?: {
     scopeId?: string | null;
+    spaceId?: string | null;
     tenantId?: string | null;
     userId?: string | null;
   };
@@ -133,6 +136,7 @@ export function synthesizeSearchOperation(
       const ctx = readSynthesizedHandlerCtx(rawCtx);
       const tenantId = ctx.auth?.tenantId ?? null;
       const userId = ctx.auth?.userId ?? null;
+      const spaceId = ctx.auth?.spaceId?.trim() || null;
       // Drop the spoofable identity fields from caller filters, then merge in
       // only authenticated values. An LLM-driven payload is untrusted.
       const callerFilters =
@@ -140,6 +144,7 @@ export function synthesizeSearchOperation(
           ? (parsed.filters as Record<string, unknown>)
           : {};
       const {
+        space_ids: _spoofSpaces,
         tenant_id: _spoofTenant,
         user_id: _spoofUser,
         ...safeCallerFilters
@@ -150,6 +155,13 @@ export function synthesizeSearchOperation(
       }
       if (userId) {
         filters.user_id = userId;
+      }
+      // A space-owned source searched from a Space-bound run sees that space
+      // only. Search never passes a `/s/<key>` route, so this is the one
+      // guard between a private space's records and the rest of the tenant.
+      // Unbound runs (no space) stay unscoped — bounded by the tenant alone.
+      if (options.spacePolicy?.kind === "space_owned" && spaceId) {
+        filters.space_ids = [spaceId];
       }
       const { filters: _omit, ...rest } = parsed;
       const request: SearchRequest<unknown> = {
@@ -172,6 +184,7 @@ export function synthesizeSearchOperation(
     requiredCapabilities: options.operationOverrides?.requiredCapabilities,
     requiresApproval: options.operationOverrides?.requiresApproval ?? false,
     riskLevel: options.operationOverrides?.riskLevel ?? "low",
+    ...(options.spacePolicy ? { spacePolicy: options.spacePolicy } : {}),
     summary:
       options.operationOverrides?.summary ??
       `Search ${options.entityName}s indexed by ${provider.id}`,

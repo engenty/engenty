@@ -26,6 +26,7 @@ import { ToolCallGenericCard } from "./tool-call-generic-card";
  */
 export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
   const {
+    dismissInterrupt,
     openInterrupt,
     pendingInterruptToolCallIds,
     optimisticInterruptResults,
@@ -138,6 +139,13 @@ export function DecisionArtifactToolCallCard(props: ToolCallCardProps) {
           interruptId: artifact.interruptId,
         });
       }}
+      // Only the card the run is parked on can be closed; a chooser rendered
+      // from transcript output alone has no open interrupt to clear.
+      onDismiss={
+        isOpenHere && dismissInterrupt && openInterrupt
+          ? () => dismissInterrupt(openInterrupt)
+          : undefined
+      }
     />
   );
 }

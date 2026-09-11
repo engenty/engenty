@@ -53,3 +53,18 @@ export const ENGENTY_KINDS: EngentyKind[] = [
   "tower",
   "wedge",
 ];
+
+/** Which landing fill each silhouette wears. Keep in sync with the SVG bodies. */
+export const ENGENTY_KIND_FILL: Record<EngentyKind, keyof typeof ENGENTY_FILL> =
+  {
+    bean: "teal",
+    dome: "moss",
+    drop: "amber",
+    flame: "rose",
+    oval: "ember",
+    pebble: "slate",
+    round: "cobalt",
+    sprout: "citron",
+    tower: "violet",
+    wedge: "magenta",
+  };

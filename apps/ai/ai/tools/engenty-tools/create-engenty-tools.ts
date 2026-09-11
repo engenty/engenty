@@ -1,3 +1,4 @@
+import { createNotifyTools } from "../notify-tool.js";
 import { engentyToolExecuteTool } from "./engenty-tool-execute-tool.js";
 import { engentyToolsContextTool } from "./engenty-tools-context-tool.js";
 import { engentyToolsDiscoverTool } from "./engenty-tools-discover-tool.js";
@@ -14,5 +15,8 @@ export function createEngentyCatalogTools() {
     engenty_tool_execute: engentyToolExecuteTool,
     engenty_tools_preapprove: engentyToolsPreapproveTool,
     engenty_tools_search: engentyToolsSearchTool,
+    // Raising something for the people watching a stream is part of every
+    // Engenty's vocabulary, not a copilot privilege.
+    ...createNotifyTools(),
   };
 }

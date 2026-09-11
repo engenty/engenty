@@ -29,6 +29,7 @@ const DEFAULT_PORT_LABELS = {
   8787: "core (gateway)",
   8790: "ai",
   3002: "docs",
+  3003: "www",
   43111: "studio",
 };
 

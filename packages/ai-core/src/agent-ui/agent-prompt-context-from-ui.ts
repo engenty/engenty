@@ -3,7 +3,11 @@ import {
   AGENT_UI_PAGE_BRIEF_KEYS,
   isAgentUiPageBriefKey,
 } from "@engenty/ag-ui-bridge";
-import { resolveAgentDefinitionById } from "../registry.js";
+import { buildAppNavigationPathsPromptSection } from "./app-navigation-paths-prompt.js";
+import {
+  isSpaceReservedSegment,
+  spaceModuleIdFromUrlSegment,
+} from "./space-module-url.js";
 
 function readString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -15,6 +19,23 @@ function readString(value: unknown): string | undefined {
 
 /** Matches `/module/<name>` (legacy) and `/mdl/<name>` (live host routes). */
 const MODULE_PATH_RE = /^\/(?:module|mdl)\/([^/]+)/i;
+
+/**
+ * The same module, reached inside a space: `/s/<spaceKey>/<name>/…`
+ * (PLAN-spaces.md Phase 5a, Routing).
+ *
+ * A space mirrors every module route, so once the space is the entry point a
+ * module page's pathname stops starting with `/mdl/` — and this file is what
+ * tells the agent WHICH module the user is looking at. Without the second
+ * shape the copilot inside a space resolved no module at all: no page prompt,
+ * no skill-catalog hint, and "where am I?" answered by asking the user which
+ * page they were on.
+ *
+ * `/s/<key>` alone yields no module on purpose — the space root is the Work
+ * list, not a module, and reporting the space key as a module id would send
+ * every module-scoped lookup after something that does not exist.
+ */
+const SPACE_MODULE_PATH_RE = /^\/s\/[^/]+\/([^/]+)/i;
 
 /** Soft cap for the harness "Current page" section (~5 KiB). */
 const PAGE_HARNESS_SECTION_MAX_CHARS = 5 * 1024;
@@ -32,12 +53,41 @@ export function resolveCurrentPageModule(
   }
   const pathname = readString(snapshot.route?.pathname);
   if (pathname) {
-    const match = pathname.match(MODULE_PATH_RE);
-    if (match?.[1]) {
-      return match[1];
+    const legacy = pathname.match(MODULE_PATH_RE)?.[1];
+    if (legacy) {
+      return legacy;
+    }
+    const segment = pathname.match(SPACE_MODULE_PATH_RE)?.[1];
+    if (segment) {
+      // The space's OWN pages (`/s/company/settings`) are not module pages —
+      // reporting one would send the skill catalog after a module nobody ships.
+      if (isSpaceReservedSegment(segment)) {
+        return;
+      }
+      // A space URL carries the SHORT segment (`/s/company/copilot/…`); the
+      // agent needs the module ID, because that is what the skill catalog and
+      // the tool contracts are keyed by.
+      return spaceModuleIdFromUrlSegment(segment);
     }
   }
   return;
+}
+
+/**
+ * The space key the user is standing in, or undefined outside `/s/…`.
+ *
+ * Read from the route rather than from the run's scope because it is the same
+ * source the shell itself uses (the URL is the truth — PLAN-spaces.md Phase
+ * 5a), so what the agent is told and what the user sees cannot disagree.
+ */
+export function resolveCurrentPageSpaceKey(
+  snapshot: AgentUiStateSnapshotV1
+): string | undefined {
+  const pathname = readString(snapshot.route?.pathname);
+  if (!pathname) {
+    return;
+  }
+  return readString(pathname.match(/^\/s\/([^/]+)/i)?.[1]);
 }
 
 function formatPageValueCompact(value: unknown): string {
@@ -134,6 +184,7 @@ export function formatAgentUiStateHarnessInstructions(
   const routeModuleId = readString(snapshot.route?.module_id);
   const routeKey = readString(snapshot.route?.route_key);
   const pageModule = resolveCurrentPageModule(snapshot);
+  const spaceKey = resolveCurrentPageSpaceKey(snapshot);
   const entityId = readString(snapshot.selection?.entity_id);
   const entityType = readString(snapshot.selection?.entity_type);
   const lines = [
@@ -144,6 +195,12 @@ export function formatAgentUiStateHarnessInstructions(
   }
   if (pageModule) {
     lines.push(`- page_module: ${pageModule}`);
+  }
+  if (spaceKey) {
+    // The KEY, not the id — this is the name the user sees in the URL and says
+    // out loud. The run's own space (id, name, personal-or-not) comes from the
+    // runtime context block, which resolves it against the caller's memberships.
+    lines.push(`- space_key: ${spaceKey}`);
   }
   if (routeModuleId) {
     lines.push(`- route_module_id: ${routeModuleId}`);
@@ -198,96 +255,7 @@ export function formatAgentUiStateHarnessInstructions(
     }
   }
 
-  return lines.join("\n");
-}
-
-function copyPageContext(
-  page: Record<string, unknown> | undefined
-): Record<string, unknown> {
-  if (!page || typeof page !== "object" || Array.isArray(page)) {
-    return {};
-  }
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(page)) {
-    if (typeof value === "function") {
-      continue;
-    }
-    out[key] = value;
-  }
-  return out;
-}
-
-/**
- * Maps bounded AG-UI state into the flat context record consumed by
- * {@link AgentDefinition.build_system_prompt}. This is the only supported path
- * for page preloads on apps/ai runs — not copilot scope snapshots.
- */
-export function extractAgentPromptContextFromAgentUi(
-  snapshot: AgentUiStateSnapshotV1
-): Record<string, unknown> {
-  const context: Record<string, unknown> = {
-    ...copyPageContext(snapshot.page),
-  };
-
-  const pathname = readString(snapshot.route?.pathname);
-  if (pathname) {
-    context.pathname = pathname;
-    context.current_pathname = pathname;
-  }
-
-  const pageModule = resolveCurrentPageModule(snapshot);
-  if (pageModule) {
-    context.current_page_module = pageModule;
-    context.page_module = pageModule;
-  }
-
-  const moduleId = readString(snapshot.route?.module_id);
-  if (moduleId) {
-    context.route_module_id = moduleId;
-    context.current_module = pageModule ?? moduleId;
-    context.currentModule = pageModule ?? moduleId;
-  }
-
-  const routeKey = readString(snapshot.route?.route_key);
-  if (routeKey) {
-    context.route_key = routeKey;
-    context.routeKey = routeKey;
-  }
-
-  const entityId = readString(snapshot.selection?.entity_id);
-  if (entityId) {
-    context.entityId = entityId;
-    context.entity_id = entityId;
-  }
-
-  const entityType = readString(snapshot.selection?.entity_type);
-  if (entityType) {
-    context.entity_type = entityType;
-  }
-
-  return context;
-}
-
-/** Resolves module agent system prompt text from AG-UI state via registered builders. */
-export async function buildAgentSystemPromptFromUiState(
-  agentId: string,
-  snapshot: AgentUiStateSnapshotV1
-): Promise<string> {
-  const agent = resolveAgentDefinitionById(agentId);
-  if (!agent?.build_system_prompt) {
-    return "";
-  }
-  const context = extractAgentPromptContextFromAgentUi(snapshot);
-  const prompt = await agent.build_system_prompt({
-    action: null,
-    context,
-    scope: {
-      role: null,
-      scope_id: "default",
-      source: "user",
-      tenant_id: null,
-      user_id: null,
-    },
-  });
-  return typeof prompt === "string" ? prompt.trim() : "";
+  return [lines.join("\n"), buildAppNavigationPathsPromptSection()]
+    .filter(Boolean)
+    .join("\n\n");
 }

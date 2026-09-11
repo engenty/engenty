@@ -1,0 +1,75 @@
+{
+  "id": "contacts.enhance-contact",
+  "description": "Research missing or divergent organisation fields from public sources, then apply the changes the user approves.",
+  "inputSchema": {
+    "type": "object",
+    "description": "The organisation contact to enhance.",
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Organisation contact id to load and enhance."
+      }
+    },
+    "required": ["id"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "description": "How many fields were written. Zero when the user rejected the changes or there were none.",
+    "properties": {
+      "applied": {
+        "type": "integer"
+      }
+    },
+    "required": ["applied"]
+  },
+  "metadata": {
+    "title": "Enhance contact from public sources",
+    "owner_agent_id": "contacts.manager",
+    "allowed_tools": ["contacts_get", "web_search"],
+    "skills": ["contacts-enhance-contact"]
+  },
+  "graph": [
+    {
+      "type": "mapping",
+      "id": "prep-load",
+      "mapConfig": "{\"tool_id\": {\"value\": \"contacts_get\"}, \"input\": {\"initData\": true, \"path\": \"\"}}"
+    },
+    {
+      "type": "tool",
+      "id": "load",
+      "toolId": "engenty_tool"
+    },
+    {
+      "type": "mapping",
+      "id": "prep-research",
+      "mapConfig": "{\"agent_type_key\": {\"value\": \"contacts.manager\"}, \"brief\": {\"value\": \"# Enhance Contact From Public Sources\\n\\n## Task\\n\\nYou are given one organisation contact record. Research its missing or divergent\\nfields from public sources and return the changes you would make. You do not\\nwrite anything — a later step asks the user to approve your changes and applies\\nthem.\\n\\n## Steps\\n\\n1. Read the contact record in `input`. It is the current stored state; do not\\n   fetch it again.\\n2. Check the company, address, legal, and tax field groups against public\\n   sources with `web_search`.\\n3. Prefer official and first-party evidence (the company's own site, imprint,\\n   commercial register) over directories and aggregators.\\n4. When sources diverge, prefer the one that is clearly newer. When that is not\\n   evident, leave the field out rather than guessing — a wrong value that the\\n   user waves through is worse than a gap.\\n5. Return only fields whose researched value differs from the stored one, or\\n   fills a gap. A field you confirmed unchanged is not a change.\\n\\n## Rules\\n\\n- Use schema-real field names, exactly as they appear on the record in `input`.\\n- This is organisation enrichment. Ignore person-only fields.\\n- Values are literal field values, not sentences about them: `\\\"AT12345678\\\"`,\\n  not `\\\"the VAT number is AT12345678\\\"`.\\n- `evidence_summary` is one line the user reads on the approval card before\\n  deciding. Name your sources: \\\"Company imprint + EU VIES; address confirmed on\\n  both.\\\"\\n- With nothing to change, return an empty `updates` object and say so in\\n  `evidence_summary`.\"}, \"input\": {\"step\": \"load\", \"path\": \"output\"}, \"output_schema\": {\"value\": {\"type\": \"object\", \"properties\": {\"updates\": {\"type\": \"object\", \"description\": \"Changed or newly found fields, keyed by schema-real contact field name.\", \"additionalProperties\": true}, \"evidence_summary\": {\"type\": \"string\", \"description\": \"One line naming the sources behind these changes, shown on the approval card.\"}}, \"required\": [\"updates\", \"evidence_summary\"]}}, \"allowed_tools\": {\"value\": [\"web_search\"]}}"
+    },
+    {
+      "type": "tool",
+      "id": "research",
+      "toolId": "run_specialist"
+    },
+    {
+      "type": "mapping",
+      "id": "prep-review",
+      "mapConfig": "{\"kind\": {\"value\": \"field_updates\"}, \"title\": {\"template\": \"Apply these researched field changes? ${stepResults.research.output.evidence_summary}\"}, \"payload\": {\"step\": \"research\", \"path\": \"output.updates\"}}"
+    },
+    {
+      "type": "tool",
+      "id": "review",
+      "toolId": "approval_gate"
+    },
+    {
+      "type": "mapping",
+      "id": "prep-apply",
+      "mapConfig": "{\"patch\": {\"step\": \"review\", \"path\": \"data\"}}"
+    },
+    {
+      "type": "tool",
+      "id": "apply",
+      "toolId": "apply_field_updates"
+    }
+  ]
+}

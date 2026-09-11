@@ -5,6 +5,8 @@ import { isFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, Input } from "@engenty/ui-core";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { InterruptCardBody } from "./interrupt-card-body.js";
+import { InterruptCardDismissButton } from "./interrupt-card-dismiss-button.js";
 import { parseToolApprovalArtifactId } from "./tool-approval-artifact-id.js";
 
 /** Server tool-approval artifacts use stable ids — localize their display
@@ -273,16 +275,14 @@ export function DecisionArtifactResolvedCard(props: {
 }) {
   const { t } = useTranslation("common");
   return (
-    <section className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+    <section className="rounded-lg border border-border-soft bg-muted/20 px-3 py-2.5">
       <p className="font-medium text-foreground/90 text-sm">
         {props.artifact.title}
       </p>
       {props.artifact.body ? (
-        <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
-          {props.artifact.body}
-        </p>
+        <InterruptCardBody body={props.artifact.body} className="mt-1" />
       ) : null}
-      <p className="mt-2 border-border/60 border-l-2 pl-2 text-foreground/80 text-sm">
+      <p className="mt-2 border-border-soft border-l-2 pl-2 text-foreground/80 text-sm">
         <span className="text-muted-foreground text-xs uppercase tracking-wide">
           {t("copilot.decisionAnswered")}
         </span>
@@ -299,6 +299,8 @@ export function DecisionArtifactCard(props: {
     choiceId: string,
     customLabel?: string
   ) => void;
+  /** Close the card without answering. Absent on cards that cannot be dismissed (display-only rows). */
+  onDismiss?: () => void;
 }) {
   const { t } = useTranslation("common");
   const [inputValue, setInputValue] = useState("");
@@ -489,14 +491,22 @@ export function DecisionArtifactCard(props: {
     <section
       aria-busy={submitting}
       className={cn(
-        "space-y-3 rounded-lg border bg-card p-3 shadow-sm transition-opacity",
+        "ui-card-panel space-y-3 p-3 transition-opacity",
         submitting && "pointer-events-none opacity-70"
       )}
     >
-      <div className="space-y-1">
-        <h3 className="font-medium text-foreground text-sm">{displayTitle}</h3>
-        {displayBody ? (
-          <p className="text-muted-foreground text-sm">{displayBody}</p>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-medium text-foreground text-sm">
+            {displayTitle}
+          </h3>
+          {displayBody ? <InterruptCardBody body={displayBody} /> : null}
+        </div>
+        {props.onDismiss ? (
+          <InterruptCardDismissButton
+            disabled={submitting}
+            onDismiss={props.onDismiss}
+          />
         ) : null}
       </div>
 
@@ -512,7 +522,7 @@ export function DecisionArtifactCard(props: {
                 "flex w-full items-center rounded-[4px] border px-3 py-2 text-left text-sm transition-colors",
                 active
                   ? "border-primary bg-primary/5 text-primary"
-                  : "border-border/60 text-foreground hover:bg-muted/40"
+                  : "border-border-soft text-foreground hover:bg-muted/40"
               )}
               disabled={submitting}
               key={choice.id}

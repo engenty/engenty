@@ -1,8 +1,12 @@
 import { normalizeCommercialBlock } from "@engenty/commercial-editor/blocks";
 import {
   createPluginServerGatewayCaller,
+  createRecordLinker,
   type PluginAuthContext,
   type PluginServerApi,
+  type RecordLinkAuth,
+  withRecordLink,
+  withRecordLinks,
 } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createInvoiceRepo } from "../dal/index.js";
@@ -86,10 +90,18 @@ export function registerInvoicesGatewayMethods(
   getRepo: GetRepoFn
 ) {
   const ops = createPluginServerGatewayCaller(api);
+  // Invoices are tenant-shared: the link lands in the space the call runs in.
+  const link = createRecordLinker(api);
+  const invoiceLink = (
+    auth: RecordLinkAuth | undefined,
+    invoice: { id: string }
+  ) => link(auth, "invoices", [invoice.id]);
+
   api.registerOperation({
     operationId: "invoices_create",
     summary: "Create invoice",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -108,7 +120,9 @@ export function registerInvoicesGatewayMethods(
       if (recipientData.clientId) {
         await ensureClientRoleOnEntity(ops, recipientData.clientId, ctx.auth);
       }
-      return created;
+      return withRecordLink(created, (invoice) =>
+        invoiceLink(ctx.auth, invoice)
+      );
     },
   });
 
@@ -116,6 +130,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_list",
     summary: "List invoices",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -123,7 +138,9 @@ export function registerInvoicesGatewayMethods(
     outputSchema: z.array(invoiceSchema),
     handler: async (_input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
-      return repo.list();
+      return withRecordLinks(await repo.list(), (invoice) =>
+        invoiceLink(ctx.auth, invoice)
+      );
     },
   });
 
@@ -131,6 +148,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_get",
     summary: "Get invoice by ID or number",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -139,7 +157,10 @@ export function registerInvoicesGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const parsed = input as z.infer<typeof invoiceIdOrNumberParamsSchema>;
-      return repo.get(parsed.idOrNumber);
+      const invoice = await repo.get(parsed.idOrNumber);
+      return invoice
+        ? withRecordLink(invoice, (row) => invoiceLink(ctx.auth, row))
+        : invoice;
     },
   });
 
@@ -147,6 +168,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_update",
     summary: "Update invoice",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -183,7 +205,9 @@ export function registerInvoicesGatewayMethods(
       ) {
         await ensureClientRoleOnEntity(ops, recipientPatch.clientId, ctx.auth);
       }
-      return updated;
+      return updated
+        ? withRecordLink(updated, (invoice) => invoiceLink(ctx.auth, invoice))
+        : updated;
     },
   });
 
@@ -191,6 +215,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_delete",
     summary: "Delete invoice",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "critical",
     requiresApproval: true,
@@ -208,6 +233,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_list_by_client",
     summary: "List invoices by client ID",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -216,7 +242,9 @@ export function registerInvoicesGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const parsed = input as z.infer<typeof invoiceClientIdParamsSchema>;
-      return repo.listByClient(parsed.clientId);
+      return withRecordLinks(await repo.listByClient(parsed.clientId), (row) =>
+        invoiceLink(ctx.auth, row)
+      );
     },
   });
 
@@ -224,6 +252,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_count_by_client_ids",
     summary: "Count non-deleted invoices per client ID (batched)",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -242,6 +271,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_get_blocks",
     summary: "Get invoice blocks",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -258,6 +288,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_replace_blocks",
     summary: "Replace invoice blocks",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -289,6 +320,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_get_settings",
     summary: "Get invoice settings",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -302,6 +334,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_set_settings",
     summary: "Update invoice settings",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -319,6 +352,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_get_next_number",
     summary: "Get next invoice number",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.read"],
     riskLevel: "low",
     idempotent: true,
@@ -335,6 +369,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_issue",
     summary: "Issue (finalize) an invoice — owner approval gate",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -351,6 +386,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_set_status",
     summary: "Set invoice status (sent / paid)",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "high",
     requiresApproval: true,
@@ -373,6 +409,7 @@ export function registerInvoicesGatewayMethods(
     operationId: "invoices_cancel",
     summary: "Cancel an invoice via a linked Storno",
     moduleId: "invoices",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.invoices.write"],
     riskLevel: "critical",
     requiresApproval: true,

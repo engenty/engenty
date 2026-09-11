@@ -1,121 +1,63 @@
 /**
- * Renders KB switcher in the shell column header slot and {@link KbModuleSidebar}
- * in the secondary column body (full tree when a KB is active, module overview otherwise).
+ * Wires the KB module into the shell's secondary column: the space's
+ * knowledge base name in the header slot and {@link KbModuleSidebar} as the
+ * body (the article tree when the space has a library, the empty hint when
+ * it has none).
  *
- * Also returns `kbRootCrumb` — a context-aware first breadcrumb segment: shows the KB
- * picker when the sidebar is closed, or null when the sidebar is open
- * (the KB switcher is already visible in the sidebar header).
+ * Also returns `kbRootCrumb` — the first breadcrumb segment (the library's
+ * name, linking to its hub) when the sidebar is collapsed; null while the
+ * sidebar is open, where the header already shows it.
  */
 
 import { useShellSecondaryNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
-import { type ReactNode, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { kbPickerBreadcrumbSegment } from "../components/kb-breadcrumb-picker.js";
-import { KbShellKnowledgeBaseLinks } from "../components/kb-shell-knowledge-base-links.js";
+import { type ReactNode, useMemo } from "react";
+import { KbShellHeader } from "../components/kb-shell-header.js";
 import { KbModuleSidebar } from "../components/kb-sidebar/kb-module-sidebar.js";
+import { kbDisplayName } from "../kb-display-name.js";
 import { kbHubPath } from "../kb-paths.js";
-import { kbsQueryOptions } from "../queries.js";
+import { useKbsQuery } from "../queries.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function useKbModuleSecondaryShellNav(options: {
   activeArticleId?: string;
-  kbId: string;
-  kbSlug: string;
-  /**
-   * Called when the user picks a different KB from the breadcrumb switcher.
-   * Defaults to navigating to the new KB's hub page.
-   */
-  onKbChange?: (nextKbId: string) => void;
+  /** The page's knowledge base; falls back to the space's one library while the page resolves it. */
+  kbId?: string;
 }): {
   secondaryNavAfterItems: ReactNode;
-  /** @deprecated Prefer secondaryNavHeaderSlot; kept null — switcher lives in the header slot only. */
-  secondaryNavBeforeItems: ReactNode;
   secondaryNavHeaderSlot: ReactNode;
   /**
-   * First breadcrumb segment for KB pages: KB picker when the sidebar is closed.
+   * First breadcrumb segment for KB pages: the library's name when the sidebar is collapsed.
    * Spread into `breadcrumbs` as `...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : [])`.
    */
   kbRootCrumb: PageBreadcrumb | null;
 } {
-  const { activeArticleId, kbId: kbIdProp, kbSlug, onKbChange } = options;
+  const { activeArticleId, kbId: kbIdProp } = options;
   const { t } = useTranslation("kb");
-  const navigate = useNavigate();
   const { secondaryNavOpen } = useShellSecondaryNav();
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const kbs = useMemo(() => (Array.isArray(kbsRaw) ? kbsRaw : []), [kbsRaw]);
+  const kbId = kbIdProp || spaceKbId(kbs);
+  const kb = useMemo(() => kbs.find((k) => k.id === kbId), [kbs, kbId]);
 
-  // Resolve kbId from slug when the page hasn't finished loading its own KB data yet.
-  // This ensures kbRootCrumb is available immediately (slug is always in the URL).
-  const kbId =
-    kbIdProp || (kbSlug ? (kbs.find((k) => k.slug === kbSlug)?.id ?? "") : "");
-
-  const handleKbChange = useCallback(
-    (nextKbId: string) => {
-      if (onKbChange) {
-        onKbChange(nextKbId);
-        return;
-      }
-      const next = kbs.find((k) => k.id === nextKbId);
-      if (next) {
-        navigate(kbHubPath(next.slug));
-      }
-    },
-    [kbs, navigate, onKbChange]
-  );
-
-  // Sidebar header switcher shares the hook's KB list and `onKbChange`-aware
-  // handler so it navigates identically to the breadcrumb picker (no separate fetch).
-  const kbSwitcher = useMemo(
-    () => (
-      <KbShellKnowledgeBaseLinks
-        activeKbId={kbId}
-        isLoading={kbsLoading}
-        kbs={kbs}
-        onSelect={handleKbChange}
-        secondaryNavOpen={secondaryNavOpen}
-      />
-    ),
-    [handleKbChange, kbId, kbs, kbsLoading, secondaryNavOpen]
+  const secondaryNavHeaderSlot = useMemo(
+    () => <KbShellHeader isLoading={kbsLoading} kb={kb ?? null} />,
+    [kb, kbsLoading]
   );
 
   const kbRootCrumb = useMemo<PageBreadcrumb | null>(() => {
-    // Sidebar open: KB switcher visible in the header slot — omit from breadcrumb.
-    if (secondaryNavOpen) {
+    if (secondaryNavOpen || !kb) {
       return null;
     }
-    // KBs not yet loaded — breadcrumb will appear once the query resolves.
-    if (kbs.length === 0) {
-      return null;
-    }
-    // kbId still resolving (should be brief after kbs load).
-    if (!kbId) {
-      return null;
-    }
-    return kbPickerBreadcrumbSegment({
-      kbId,
-      kbs,
-      onSelect: handleKbChange,
-      t,
-    });
-  }, [handleKbChange, kbId, kbs, secondaryNavOpen, t]);
+    const name = kbDisplayName(kb, t);
+    return { compactKept: true, label: name, menuLabel: name, to: kbHubPath() };
+  }, [kb, secondaryNavOpen, t]);
 
   const secondaryNavAfterItems = useMemo(
-    () => (
-      <KbModuleSidebar
-        activeArticleId={activeArticleId}
-        kbId={kbId}
-        kbSlug={kbSlug}
-      />
-    ),
-    [activeArticleId, kbId, kbSlug]
+    () => <KbModuleSidebar activeArticleId={activeArticleId} kbId={kbId} />,
+    [activeArticleId, kbId]
   );
 
-  return {
-    secondaryNavAfterItems,
-    secondaryNavBeforeItems: null,
-    secondaryNavHeaderSlot: kbSwitcher,
-    kbRootCrumb,
-  };
+  return { secondaryNavAfterItems, secondaryNavHeaderSlot, kbRootCrumb };
 }

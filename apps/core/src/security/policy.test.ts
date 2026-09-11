@@ -32,7 +32,7 @@ function highRiskWrite(auth: PrincipalContext): PolicyInput {
   return {
     auth,
     moduleId: "tasks",
-    operationId: "triggers_create",
+    operationId: "routines_create",
     requiredCapabilities: ["module.tasks.write"],
     requiresApproval: true,
     riskLevel: "high",
@@ -55,7 +55,7 @@ describe("evaluatePolicy", () => {
   it("allows the platform service credential acting on its own behalf", async () => {
     // The scheduler's reconcile/fire lane: unattended by definition, so an
     // approval escalation would deadlock it. This is the exact call shape that
-    // left prod with zero triggers ("Approval required" on triggers_create).
+    // left prod with zero routines ("Approval required" on routines_create).
     const decision = await evaluatePolicy(
       highRiskWrite(
         principal({
@@ -197,6 +197,68 @@ describe("evaluatePolicy", () => {
     });
   });
 
+  it("pass-all skips the human on a capable high-risk op without adding caps", async () => {
+    const decision = await evaluatePolicy(
+      highRiskWrite(principal({ principalType: "agent" })),
+      undefined,
+      {
+        resolveAgentApproval: async () => ({
+          mode: "pass-all",
+          spaceWriteMounted: false,
+        }),
+      }
+    );
+    expect(decision.action).toBe("allow");
+  });
+
+  it("pass-all still denies when the token lacks the cap", async () => {
+    const decision = await evaluatePolicy(
+      highRiskWrite(
+        principal({
+          capabilities: ["module.read"],
+          principalType: "agent",
+        })
+      ),
+      undefined,
+      {
+        resolveAgentApproval: async () => ({
+          mode: "pass-all",
+          spaceWriteMounted: false,
+        }),
+      }
+    );
+    expect(decision.action).toBe("deny");
+  });
+
+  it("auto passes a medium space-mounted write and still asks for high", async () => {
+    const mediumWrite: PolicyInput = {
+      auth: principal({ principalType: "agent" }),
+      moduleId: "tasks",
+      operationId: "tasks_update",
+      requiredCapabilities: ["module.tasks.write"],
+      requiresApproval: true,
+      riskLevel: "medium",
+    };
+    const autoMounted = await evaluatePolicy(mediumWrite, undefined, {
+      resolveAgentApproval: async () => ({
+        mode: "auto",
+        spaceWriteMounted: true,
+      }),
+    });
+    expect(autoMounted.action).toBe("allow");
+    const autoHigh = await evaluatePolicy(
+      highRiskWrite(principal({ principalType: "agent" })),
+      undefined,
+      {
+        resolveAgentApproval: async () => ({
+          mode: "auto",
+          spaceWriteMounted: true,
+        }),
+      }
+    );
+    expect(autoHigh.action).toBe("require_approval");
+  });
+
   it("lets a profile policy override the platform-service exemption", async () => {
     // Profile policies (e.g. connections per-connection state) run first and
     // must keep the last word — the exemption only relaxes the generic gate.
@@ -294,7 +356,7 @@ describe("evaluatePolicy", () => {
       expect(store.calls[0]).toMatchObject({
         actorId: "p-1",
         moduleId: "tasks",
-        operationId: "triggers_create",
+        operationId: "routines_create",
         sessionId: "sess-1",
         subjectIds: ["task-1", "trig-1", "goal-1"],
         tenantId: "t-1",
@@ -308,7 +370,7 @@ describe("evaluatePolicy", () => {
       const req = await approvalService.request({
         actorId: auth.principalId,
         moduleId: "tasks",
-        operationId: "triggers_create",
+        operationId: "routines_create",
         reason: "high risk",
         tenantId: auth.tenantId,
       });

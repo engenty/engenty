@@ -4,37 +4,32 @@ import {
   PaneResizeHandle,
   usePersistedEwResizePaneWidth,
 } from "@engenty/app-shell";
-import {
-  Badge,
-  Button,
-  ScrollArea,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@engenty/ui-core";
-import { History, Plus, RotateCcw, Save } from "lucide-react";
+import { Badge, Button, ScrollArea } from "@engenty/ui-core";
+import { Plus, Save } from "lucide-react";
 import { type CSSProperties, useState } from "react";
 import type {
   AiInstructionChange,
   AiInstructionFileDocument,
   InstructionEditScope,
 } from "../../lib/admin/instruction-settings-api";
+import type { InstructionOverrideFlags } from "../ai-settings/instruction-groups";
+import { EditorOverflowMenu } from "./editor-overflow-menu";
 import {
   InstructionBodyEditor,
   InstructionModeToggle,
 } from "./instruction-body-editor";
 import { InstructionFilesList } from "./instruction-files-list";
+import { InstructionHistoryDialog } from "./instruction-history-dialog";
 import type { InstructionEditorMode } from "./instruction-markdown-editor";
 import { InstructionNewFileDialog } from "./instruction-new-file-dialog";
-import { InstructionVersionDialog } from "./instruction-version-dialog";
+import { InstructionOverwriteDialog } from "./instruction-overwrite-dialog";
 
 const TREE_WIDTH_STORAGE_KEY = "engenty.agent_instructions.tree_width_px";
 const TREE_WIDTH_DEFAULT_PX = 220;
 const TREE_WIDTH_MIN_PX = 160;
 const TREE_WIDTH_MAX_PX = 420;
+const SPLIT_TOOLBAR_CLASS =
+  "flex h-10 shrink-0 items-center gap-2 overflow-hidden border-b px-2";
 
 interface AgentFilesTabProps {
   canReset: boolean;
@@ -54,6 +49,7 @@ interface AgentFilesTabProps {
   onRollback: (changeId: string) => void;
   onSave: () => void;
   onSelectFile: (documentKey: string) => void;
+  overrideFlagsByKey: Map<string, InstructionOverrideFlags>;
   scope: InstructionEditScope;
   selectedDocument: AiInstructionFileDocument | null;
   selectedKey: string;
@@ -81,6 +77,7 @@ export function AgentFilesTab({
   onRollback,
   onSave,
   onSelectFile,
+  overrideFlagsByKey,
   scope,
   selectedDocument,
   selectedKey,
@@ -89,8 +86,8 @@ export function AgentFilesTab({
   tenantOverrideActive,
   userOverrideActive,
 }: AgentFilesTabProps) {
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
+  const [overwriteOpen, setOverwriteOpen] = useState(false);
   const [editorMode, setEditorMode] =
     useState<InstructionEditorMode>("wysiwyg");
   const {
@@ -106,34 +103,63 @@ export function AgentFilesTab({
   });
 
   const filePath = selectedDocument?.filename ?? "instructions.md";
+  const scopedOverrideActive =
+    scope === "user" ? userOverrideActive : tenantOverrideActive;
+  const selectedOverridden = tenantOverrideActive || userOverrideActive;
+  const selectedOverrideLabel = userOverrideActive
+    ? t("instructions.layerUser")
+    : tenantOverrideActive
+      ? t("instructions.layerTenant")
+      : t("instructions.overriddenBadge");
+
+  function handleSaveClick() {
+    if (!(isDirty && !isBusy)) {
+      return;
+    }
+    if (!scopedOverrideActive) {
+      setOverwriteOpen(true);
+      return;
+    }
+    onSave();
+  }
+
+  function overrideMarkerLabel(flags: InstructionOverrideFlags) {
+    if (flags.user && flags.tenant) {
+      return t("instructions.overriddenBoth");
+    }
+    if (flags.user) {
+      return t("instructions.layerUser");
+    }
+    if (flags.tenant) {
+      return t("instructions.layerTenant");
+    }
+    return t("instructions.overriddenBadge");
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <p className="shrink-0 text-muted-foreground text-xs">
-        {t("instructions.overlayHint")}
-      </p>
       {createErrorMessage ? (
         <p className="shrink-0 text-destructive text-xs">
           {createErrorMessage}
         </p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card lg:h-[calc(100dvh-11rem)] lg:min-h-[28rem] lg:flex-row">
+      <div className="ui-card-elevated flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         <aside
-          className="flex min-h-0 w-full flex-col border-b lg:w-(--instructions-tree-width) lg:shrink-0 lg:border-b-0"
+          className="relative flex min-h-0 w-full flex-col border-b lg:w-(--instructions-tree-width) lg:shrink-0 lg:border-r lg:border-b-0"
           style={
             {
               "--instructions-tree-width": `${displayedWidthPx}px`,
             } as CSSProperties
           }
         >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b px-2 py-1.5">
-            <span className="font-medium text-muted-foreground text-xs">
+          <div className={SPLIT_TOOLBAR_CLASS}>
+            <span className="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs">
               {t("workspace.files")}
             </span>
             <Button
               aria-label={t("instructions.newFileTitle")}
-              className="size-7"
+              className="size-7 shrink-0"
               onClick={() => setNewFileOpen(true)}
               size="icon"
               type="button"
@@ -149,50 +175,46 @@ export function AgentFilesTab({
                 emptyLabel={t("agents.filesEmpty")}
                 onSelect={onSelectFile}
                 openBadgeLabel={t("workspace.instructionFileOpenBadge")}
+                overrideFlagsByKey={overrideFlagsByKey}
+                overrideMarkerLabel={overrideMarkerLabel}
                 selectedKey={selectedKey}
               />
             </div>
           </ScrollArea>
+          <div className="absolute inset-y-0 -right-1 z-10 hidden w-2 lg:flex">
+            <PaneResizeHandle
+              isResizing={isResizing}
+              label={t("workspace.resizeTree")}
+              onKeyDown={handleResizeKeyDown}
+              onPointerDown={handleResizePointerDown}
+            />
+          </div>
         </aside>
-
-        <div className="hidden shrink-0 lg:flex">
-          <PaneResizeHandle
-            isResizing={isResizing}
-            label={t("workspace.resizeTree")}
-            onKeyDown={handleResizeKeyDown}
-            onPointerDown={handleResizePointerDown}
-          />
-        </div>
 
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {selectedDocument ? (
             <>
-              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-2 py-1.5">
+              <div className={SPLIT_TOOLBAR_CLASS}>
                 <code className="min-w-0 truncate font-mono text-muted-foreground text-xs">
                   {selectedDocument.filename}
                 </code>
+                {selectedOverridden ? (
+                  <Badge
+                    className="hidden h-5 shrink-0 px-1.5 text-[10px] lg:inline-flex"
+                    title={selectedOverrideLabel}
+                  >
+                    {t("instructions.overriddenBadge")}
+                  </Badge>
+                ) : null}
                 <InstructionModeToggle
                   mode={editorMode}
                   onModeChange={setEditorMode}
                   t={t}
                 />
                 <div className="min-w-0 flex-1" />
-                <Badge className="h-5 px-1.5 text-[10px]" variant="secondary">
-                  {t("instructions.layerBase")}
-                </Badge>
-                {tenantOverrideActive ? (
-                  <Badge className="h-5 px-1.5 text-[10px]">
-                    {t("instructions.layerTenant")}
-                  </Badge>
-                ) : null}
-                {userOverrideActive ? (
-                  <Badge className="h-5 px-1.5 text-[10px]">
-                    {t("instructions.layerUser")}
-                  </Badge>
-                ) : null}
-                <div className="flex rounded-md border bg-muted/20 p-0.5">
+                <div className="flex h-7 shrink-0 items-center rounded-md border bg-muted/20 p-px">
                   <Button
-                    className="h-7 px-2 text-xs"
+                    className="h-6 px-2 text-xs"
                     onClick={() => setScope("tenant")}
                     size="sm"
                     type="button"
@@ -201,7 +223,7 @@ export function AgentFilesTab({
                     {t("instructions.scopeTenant")}
                   </Button>
                   <Button
-                    className="h-7 px-2 text-xs"
+                    className="h-6 px-2 text-xs"
                     onClick={() => setScope("user")}
                     size="sm"
                     type="button"
@@ -210,92 +232,32 @@ export function AgentFilesTab({
                     {t("instructions.scopeUser")}
                   </Button>
                 </div>
-                <Sheet onOpenChange={setHistoryOpen} open={historyOpen}>
-                  <SheetTrigger asChild>
-                    <Button
-                      aria-label={t("instructions.historyTitle")}
-                      className="size-7"
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <History className="size-3.5" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent className="flex w-full flex-col sm:max-w-md">
-                    <SheetHeader>
-                      <SheetTitle>{t("instructions.historyTitle")}</SheetTitle>
-                      <SheetDescription>
-                        {t("instructions.historyDescription")}
-                      </SheetDescription>
-                    </SheetHeader>
-                    <div className="flex items-center justify-end px-4">
-                      <InstructionVersionDialog
-                        disabled={!isDirty || isBusy}
-                        isSubmitting={isSaving}
-                        onConfirm={onCreateVersion}
-                        t={t}
-                      />
-                    </div>
-                    <ScrollArea className="min-h-0 flex-1 px-4 pb-4">
-                      {history.length ? (
-                        <div className="space-y-2">
-                          {history.map((change) => (
-                            <div
-                              className="rounded-md border p-3"
-                              key={change.id}
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="font-medium text-sm">
-                                    {change.created_at}
-                                  </p>
-                                  <p className="text-muted-foreground text-xs">
-                                    {change.change_reason ||
-                                      t("instructions.noReason")}
-                                  </p>
-                                </div>
-                                <Button
-                                  disabled={!change.previous_body || isBusy}
-                                  onClick={() => onRollback(change.id)}
-                                  size="sm"
-                                  type="button"
-                                  variant="outline"
-                                >
-                                  <RotateCcw className="size-3.5" />
-                                  {t("instructions.rollback")}
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-sm">
-                          {t("instructions.noHistory")}
-                        </p>
-                      )}
-                    </ScrollArea>
-                  </SheetContent>
-                </Sheet>
+                <InstructionHistoryDialog
+                  history={history}
+                  isBusy={isBusy}
+                  isDirty={isDirty}
+                  isSaving={isSaving}
+                  onCreateVersion={onCreateVersion}
+                  onRollback={onRollback}
+                  t={t}
+                />
                 <Button
-                  disabled={!canReset || isBusy}
-                  onClick={onReset}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <RotateCcw className="size-3.5" />
-                  {t("actions.reset")}
-                </Button>
-                <Button
+                  className="h-7 shrink-0"
                   disabled={!isDirty || isBusy}
-                  onClick={onSave}
+                  onClick={handleSaveClick}
                   size="sm"
                   type="button"
                 >
                   <Save className="size-3.5" />
                   {isSaving ? t("actions.saving") : t("actions.save")}
                 </Button>
+                <EditorOverflowMenu
+                  isBusy={isBusy}
+                  moreActionsLabel={t("instructions.moreActions")}
+                  onReset={onReset}
+                  resetDisabled={!canReset || isBusy}
+                  t={t}
+                />
               </div>
               {errorMessage ? (
                 <p className="shrink-0 px-2 py-1 text-destructive text-xs">
@@ -324,6 +286,12 @@ export function AgentFilesTab({
         onCreate={onCreateFile}
         onOpenChange={setNewFileOpen}
         open={newFileOpen}
+        t={t}
+      />
+      <InstructionOverwriteDialog
+        onConfirm={onSave}
+        onOpenChange={setOverwriteOpen}
+        open={overwriteOpen}
         t={t}
       />
     </div>

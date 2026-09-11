@@ -57,8 +57,10 @@ describe("createAgentThreadRealtimeSubscription", () => {
       userId: "user-1",
     });
 
+    // live-cache appends a per-subscription "#<n>" so a second subscriber
+    // cannot adopt this joined channel; the caller's name is the prefix.
     expect(client.channel).toHaveBeenCalledWith(
-      "copilot-agent-threads:tenant-1:user-1"
+      expect.stringMatching(/^copilot-agent-threads:tenant-1:user-1#\d+$/)
     );
     expect(realtime.channel.on).toHaveBeenCalledWith(
       "postgres_changes",

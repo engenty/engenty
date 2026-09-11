@@ -17,7 +17,7 @@ Archived implementation: `.trash/schema-split-core-ai-complete-2026-05-21/`
 | Agent catalog (read) | `ai-admin-routes` + `registerAiRegistration` merge | `apps/ai` registry + module discovery |
 | Chat prefs | `engenty_tenant_agent_chat_prefs` | `apps/ai` tenant agent policy |
 | Instructions CRUD | `engenty_instruction_*` (already dropped) | Module `ai/` markdown + workspace `SKILL.md` |
-| Heartbeat / triggers | `ai-heartbeat-*`, `ai.action_request` queue | `apps/ai` `/ai/v1/automation/*` |
+| Heartbeat / triggers | `ai-heartbeat-*`, `ai.workflow_run` queue | `apps/ai` `/ai/v1/automation/*` |
 | Sessions / runs / usage | orchestrator stubs | `apps/ai` `/ai/sessions`, `/ai/v1/runs`, usage routes |
 | Doc converter probe | `GET /api/ai/doc-converter/availability` | `apps/ai` or shared infra route |
 | Dashboard widget AI | `apps/core/ai/workflows/*` | `apps/ai` or separate service |
@@ -27,14 +27,14 @@ Core now registers **`registerCoreAiRemovedRoutes`** → uniform **404** with `C
 ### DAL / boot
 
 - `apps/core/src/dal/orchestrator/*` — instructions, chat prefs, workspaces, heartbeat requests, ai run reads
-- Boot: `configureInstructionStore`, `configureActionRequestStore`, `configureWorkspaceStore`, `syncInstructionSeeds`, `registerCoreAiRegistrations` (copilot/dashboard seeds)
+- Boot: `configureInstructionStore`, `configureWorkflowRunStore`, `configureWorkspaceStore`, `syncInstructionSeeds`, `registerCoreAiRegistrations` (copilot/dashboard seeds)
 - `ensureAutomationHookRuntime` + `core.engenty_automation_rules`
 
 ### Tables dropped (core schema)
 
 - `engenty_instruction_docs`, `engenty_instruction_changes` (20260521190000)
 - `engenty_tenant_agent_chat_prefs`, `engenty_automation_rules` (20260521200000)
-- Earlier: sessions, runs, usage, catalog, `engenty_action_requests` (queue → `ai.action_request`)
+- Earlier: sessions, runs, usage, catalog, `engenty_workflow_runs` (queue → `ai.workflow_run`)
 
 ### Kept in core (not orchestrator runtime)
 

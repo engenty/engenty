@@ -48,6 +48,7 @@ const sampleInvoice: Invoice = {
   recipientEmail: "max@mustermann.de",
   recipientAddress: "Musterstraße 123, 10115 Berlin, Deutschland",
   createdAt: "2026-03-01T00:00:00.000Z",
+  updatedAt: "2026-03-01T00:00:00.000Z",
 };
 
 const invoicePdfTemplateHelpSections: PdfTemplateHelpSection[] = [

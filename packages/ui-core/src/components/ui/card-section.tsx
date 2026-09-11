@@ -13,7 +13,7 @@ const cardSectionHeaderTitleVariants = cva("", {
        * Form / detail section above a card — Geist `font-medium text-lg`.
        * Default for settings + entity info blocks.
        */
-      default: "font-medium text-lg text-foreground",
+      default: "font-medium text-lg leading-none text-foreground",
       /**
        * Quiet overview / meta label — muted uppercase micro type.
        * Prefer for labeled blocks without (or beside) a raised card.
@@ -25,6 +25,11 @@ const cardSectionHeaderTitleVariants = cva("", {
        */
       display:
         "font-heading font-semibold text-lg leading-7 tracking-tight text-foreground",
+      /**
+       * Drawer / doc-sidebar sections — matches commercial `SettingsSection`
+       * (`font-semibold text-sm`, description `text-xs`).
+       */
+      compact: "font-semibold text-sm leading-none text-foreground",
     },
   },
   defaultVariants: { variant: "default" },
@@ -47,6 +52,7 @@ export interface CardSectionHeaderProps {
    * - `default` — form/detail section (`font-medium text-lg`)
    * - `meta` — overview/meta label (muted uppercase)
    * - `display` — hub section (`font-heading`)
+   * - `compact` — drawer / doc-sidebar (`font-semibold text-sm`)
    */
   variant?: CardSectionHeaderVariant;
 }
@@ -63,31 +69,36 @@ export function CardSectionHeader({
   title,
   variant = "default",
 }: CardSectionHeaderProps) {
-  const HeadingTag = variant === "meta" ? "h3" : "h2";
+  const HeadingTag = variant === "meta" || variant === "compact" ? "h3" : "h2";
   return (
     <div
-      className={cn(className)}
+      className={cn("flex items-start justify-between gap-2", className)}
       data-slot="card-section-header"
       data-variant={variant}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
         <HeadingTag
           className={cardSectionHeaderTitleVariants({ variant })}
         >
           {title}
         </HeadingTag>
-        {action ?? null}
+        {description == null ? null : (
+          <p
+            className={cn(
+              "whitespace-normal text-pretty break-words text-muted-foreground leading-snug",
+              variant === "compact" ? "mt-0.5 text-xs" : "mt-1 text-sm"
+            )}
+          >
+            {description}
+          </p>
+        )}
+        {note == null ? null : (
+          <p className="mt-1 text-muted-foreground text-xs leading-snug">
+            {note}
+          </p>
+        )}
       </div>
-      {description == null ? null : (
-        <p className="whitespace-normal text-pretty break-words text-muted-foreground text-sm">
-          {description}
-        </p>
-      )}
-      {note == null ? null : (
-        <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
-          {note}
-        </p>
-      )}
+      {action ?? null}
     </div>
   );
 }
@@ -163,7 +174,7 @@ function CardSectionRoot({
   if (title != null) {
     return (
       <section
-        className={cn("space-y-2", className)}
+        className={cn("space-y-1.5", className)}
         data-slot="card-section"
       >
         <CardSectionHeader
@@ -182,7 +193,7 @@ function CardSectionRoot({
 
   // Compound: caller supplies Header / Body / Caption as children.
   return (
-    <section className={cn("space-y-2", className)} data-slot="card-section">
+    <section className={cn("space-y-1.5", className)} data-slot="card-section">
       {children}
     </section>
   );

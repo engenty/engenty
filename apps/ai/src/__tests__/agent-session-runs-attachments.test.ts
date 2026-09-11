@@ -73,7 +73,7 @@ describe("latestUserAttachments", () => {
 
   it("gates model-feedable MIME types", () => {
     expect(isModelFeedableMime("image/png")).toBe(true);
-    expect(isModelFeedableMime("application/pdf")).toBe(true);
+    expect(isModelFeedableMime("application/pdf")).toBe(false);
     expect(isModelFeedableMime("application/zip")).toBe(false);
     expect(isModelFeedableMime("text/plain")).toBe(false);
   });

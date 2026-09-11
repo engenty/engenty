@@ -1,9 +1,11 @@
 /**
- * KB module settings: knowledge bases list and tenant-wide configuration.
+ * KB module settings: admin test search across every library in the tenant.
+ * Deliberately unscoped by space — it is a diagnostic for the index, so each
+ * hit names its library and space.
  */
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery, useQueryClient } from "@engenty/query-client";
+import { useQuery } from "@engenty/query-client";
 import {
   Badge,
   Input,
@@ -15,19 +17,19 @@ import {
   SettingsFormSection,
 } from "@engenty/ui-core";
 import { Loader2, Search } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { KbSearchResult } from "../../../src/schema/types.js";
+import { kbSpacesQueryOptions } from "../../api/spaces.js";
 import { searchKb } from "../../api.js";
 import { kbDisplayName } from "../../kb-display-name.js";
 import { kbsQueryOptions } from "../../queries.js";
-import { runKbArticleReindex } from "./kb-article-reindex.js";
 
 /* ── Test search panel ── */
 
 interface KbSearchTestResult {
   article_id: string;
   chunk_text: string;
+  kb_id?: string;
   rejected?: boolean;
   score: number;
   title: string;
@@ -41,7 +43,17 @@ export function KbSearchTestPanel({
   vectorMinSimilarity: number;
 }) {
   const { t } = useTranslation("kb");
-  const { data: kbs = [] } = useQuery(kbsQueryOptions);
+  const { data: kbs = [] } = useQuery(kbsQueryOptions(null));
+  const { data: spaces = [] } = useQuery(kbSpacesQueryOptions);
+  const kbLabelById = useMemo(() => {
+    const spaceNameById = new Map(spaces.map((s) => [s.id, s.name]));
+    return new Map(
+      kbs.map((kb) => [
+        kb.id,
+        `${kbDisplayName(kb, t)} · ${spaceNameById.get(kb.space_id) ?? kb.slug}`,
+      ])
+    );
+  }, [kbs, spaces, t]);
   const [selectedKb, setSelectedKb] = useState(ALL_KBS);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<KbSearchTestResult[] | null>(null);
@@ -56,34 +68,6 @@ export function KbSearchTestPanel({
     number
   > | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const queryClient = useQueryClient();
-
-  // Reindex state
-  const [reindexing, setReindexing] = useState(false);
-  const [reindexProgress, setReindexProgress] = useState<string | null>(null);
-
-  const runReindex = useCallback(async () => {
-    setReindexing(true);
-    setReindexProgress(t("settings.embedding_reindex_preparing"));
-    try {
-      await runKbArticleReindex({
-        onProgress: (done, total) =>
-          setReindexProgress(
-            `${t("settings.embedding_reindex_batch")} ${done}/${total}`
-          ),
-      });
-      setReindexProgress(t("settings.embedding_reindex_done"));
-      toast.success(t("settings.embedding_reindex_success"));
-      queryClient.invalidateQueries({ queryKey: ["kb"] });
-    } catch (e) {
-      const msg =
-        e instanceof Error ? e.message : t("settings.embedding_reindex_failed");
-      setReindexProgress(msg);
-      toast.error(msg);
-    } finally {
-      setReindexing(false);
-    }
-  }, [queryClient, t]);
 
   const runSearch = useCallback(
     async (q: string, kbId: string) => {
@@ -126,7 +110,7 @@ export function KbSearchTestPanel({
             }
             resArray = res.results || [];
           }
-          return resArray;
+          return resArray.map((hit) => ({ ...hit, kb_id: id }));
         };
 
         let raw: KbSearchTestResult[] = [];
@@ -212,7 +196,7 @@ export function KbSearchTestPanel({
 
   return (
     <SettingsFormSection
-      description="Hybrid vector + keyword search with optional LLM verifier."
+      description={t("settings.test_search_description")}
       title={t("development.kbIndex.testSearchTitle")}
     >
       <div className="space-y-3">
@@ -220,24 +204,25 @@ export function KbSearchTestPanel({
         <div className="flex items-center gap-2">
           <Select onValueChange={onKbChange} value={selectedKb}>
             <SelectTrigger
-              className="w-40 shrink-0"
+              className="w-56 shrink-0"
               id="kb-test-search-kb-select"
             >
               <SelectValue>
                 {(value: string | null) => {
                   if (!value || value === ALL_KBS) {
-                    return "All KBs";
+                    return t("settings.test_search_all_kbs");
                   }
-                  const kb = kbs.find((k) => k.id === value);
-                  return kb ? kbDisplayName(kb, t) : value;
+                  return kbLabelById.get(value) ?? value;
                 }}
               </SelectValue>
             </SelectTrigger>
             <SelectContent className="min-w-fit">
-              <SelectItem value={ALL_KBS}>All KBs</SelectItem>
+              <SelectItem value={ALL_KBS}>
+                {t("settings.test_search_all_kbs")}
+              </SelectItem>
               {kbs.map((kb) => (
                 <SelectItem key={kb.id} value={kb.id}>
-                  {kbDisplayName(kb, t)}
+                  {kbLabelById.get(kb.id)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -289,7 +274,7 @@ export function KbSearchTestPanel({
         {loading && (
           <div className="flex items-center gap-2 py-3 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Searching…</span>
+            <span>{t("hub.searching")}</span>
           </div>
         )}
 
@@ -390,6 +375,11 @@ export function KbSearchTestPanel({
                             {r.chunk_text.slice(0, 120)}
                             {r.chunk_text.length > 120 ? "…" : ""}
                           </p>
+                          {selectedKb === ALL_KBS && r.kb_id ? (
+                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
+                              {kbLabelById.get(r.kb_id) ?? r.kb_id}
+                            </p>
+                          ) : null}
                         </div>
 
                         {/* Muted indicator for below-cutoff */}

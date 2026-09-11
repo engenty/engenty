@@ -1,6 +1,7 @@
 import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { safeArticleExportBasename } from "../../ui/lib/article-markdown-export.js";
+import { onlyRequestedKeys } from "../schema/only-requested-keys.js";
 import type { ArticlesQueryParams } from "../schema/types.js";
 import {
   articleCommentCreateSchema,
@@ -156,15 +157,32 @@ export function registerKbArticleRoutes(api: KbServerApi, getRepo: GetKbRepo) {
       if (!article) {
         return notFound();
       }
-      if (article.parent_article_id) {
-        const parentSlug = await repos.articles.getSlugById(
-          article.parent_article_id
-        );
-        if (parentSlug) {
-          article.parent_article_slug = parentSlug;
-        }
+      // The reader waits on this request, so everything that does not depend on
+      // another result is fetched at once; only the data-source link (needs the
+      // source references) and the comment count (needs the comments mode) run
+      // after.
+      const [
+        parentSlug,
+        nav,
+        attachments,
+        source_references,
+        effective,
+        effective_comments_mode,
+        effective_cover,
+      ] = await Promise.all([
+        article.parent_article_id
+          ? repos.articles.getSlugById(article.parent_article_id)
+          : Promise.resolve(null),
+        repos.articles.getNavigationContext(article.id),
+        repos.attachments.listByArticle(article.id),
+        repos.source_references.listByArticle(article.id),
+        resolveKbTemplateForArticle(repos, article),
+        resolveKbEffectiveCommentsModeForArticle(repos, article),
+        resolveKbInheritedCoverForArticle(repos, article),
+      ]);
+      if (parentSlug) {
+        article.parent_article_slug = parentSlug;
       }
-      const nav = await repos.articles.getNavigationContext(article.id);
       if (nav) {
         article.parent_chain = nav.parent_chain;
         article.prev_sibling = nav.prev;
@@ -173,26 +191,12 @@ export function registerKbArticleRoutes(api: KbServerApi, getRepo: GetKbRepo) {
           article.prev_to_kb_hub = true;
         }
       }
-      const attachments = await repos.attachments.listByArticle(article.id);
-      const source_references = await repos.source_references.listByArticle(
-        article.id
-      );
-      const kb_data_source = await resolveKbArticleDataSourceLink(
-        repos,
-        article,
-        source_references
-      );
-      const effective = await resolveKbTemplateForArticle(repos, article);
-      const effective_comments_mode =
-        await resolveKbEffectiveCommentsModeForArticle(repos, article);
-      const effective_cover = await resolveKbInheritedCoverForArticle(
-        repos,
-        article
-      );
-      const comment_count =
+      const [kb_data_source, comment_count] = await Promise.all([
+        resolveKbArticleDataSourceLink(repos, article, source_references),
         effective_comments_mode === "none"
-          ? 0
-          : await repos.article_comments.countByArticle(article.id);
+          ? Promise.resolve(0)
+          : repos.article_comments.countByArticle(article.id),
+      ]);
       return {
         ...article,
         effective_comments_mode,
@@ -516,8 +520,12 @@ export function registerKbArticleRoutes(api: KbServerApi, getRepo: GetKbRepo) {
       if (!articleDetails) {
         return notFound();
       }
-      const { tag_ids, ...rest } = articleUpdateSchema.parse(
-        await ctx.request.json().catch(() => ({}))
+      const rawPatch = await ctx.request.json().catch(() => ({}));
+      // Filter by the RAW body's keys: `.partial()` keeps `.default()` firing,
+      // so the parsed patch invents status/sort_order/questions for renames.
+      const { tag_ids, ...rest } = onlyRequestedKeys(
+        rawPatch,
+        articleUpdateSchema.parse(rawPatch)
       );
       let article: Awaited<ReturnType<typeof repos.articles.update>>;
       try {

@@ -128,13 +128,21 @@ export function emitApprovalRequested(
         "approval.requested",
         {
           actor_id: auth.principalId,
+          // Origin for whoever surfaces this: the agent that asked, the space
+          // it asked in, the thread/task/routine it was working — everything
+          // the notification row needs to say who, where and why.
+          ...(auth.agentId ? { agent_id: auth.agentId } : {}),
           approval_request_id: request.approvalRequestId,
           context: request.context ?? null,
           expires_at: request.expiresAt,
+          ...(auth.goalId ? { goal_id: auth.goalId } : {}),
           module_id: request.moduleId,
           operation_id: request.operationId,
           reason: request.reason,
+          ...(auth.spaceId ? { space_id: auth.spaceId } : {}),
+          ...(auth.taskId ? { task_id: auth.taskId } : {}),
           tenant_id: auth.tenantId,
+          ...(auth.triggerId ? { trigger_id: auth.triggerId } : {}),
         },
         {
           actorId: auth.principalId,
@@ -145,6 +153,53 @@ export function emitApprovalRequested(
       );
     } catch {
       // Notification is best-effort; the request row is already durable.
+    }
+  };
+}
+
+/** What every decide route reports after `approvalService.decide`. */
+export interface ApprovalDecidedEvent {
+  actorId: string | null;
+  decision: string;
+  moduleId: string;
+  operationId: string;
+  requestId: string;
+  tenantId: string;
+}
+
+/**
+ * The other half of the gate's lifecycle: one platform-wide
+ * `approval.decided` core event after a request is decided, wherever it was
+ * decided (tenant route, superadmin route, a chat card settling through the
+ * tenant route). The notifications package resolves the request's record on
+ * it. Emit failures are swallowed like the request side — the decision is
+ * already durable.
+ */
+export function emitApprovalDecided(
+  registry: Pick<PluginRegistry, "eventsRuntime">
+): (event: ApprovalDecidedEvent) => Promise<void> {
+  return async (event) => {
+    try {
+      await registry.eventsRuntime?.api.core.emit(
+        "approval.decided",
+        {
+          actor_id: event.actorId,
+          approval_request_id: event.requestId,
+          decision: event.decision,
+          module_id: event.moduleId,
+          operation_id: event.operationId,
+          tenant_id: event.tenantId,
+        },
+        {
+          ...(event.actorId
+            ? { actorId: event.actorId, principalId: event.actorId }
+            : {}),
+          sourceModuleId: "core",
+          tenantId: event.tenantId,
+        }
+      );
+    } catch {
+      // Best-effort; the sweep closes the record on its next pass.
     }
   };
 }

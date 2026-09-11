@@ -2,6 +2,7 @@ import type {
   AiUsageStore,
   DynamicAiModuleCapabilityLoader,
 } from "@engenty/ai-core";
+import { installGatewayAwareDefaultProvider } from "@engenty/ai-core";
 import { isEngentyCorsOriginAllowed } from "@engenty/environment";
 import {
   createPluginEventsRuntime,
@@ -23,28 +24,39 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { UpgradeWebSocket } from "hono/ws";
 import { mastra } from "../ai/index.js";
-import { engentyToolsRunAls } from "../ai/tools/engenty-tools/lib/run-context.js";
+import {
+  engentyToolsRunAls,
+  withEnvCoreBaseUrl,
+} from "../ai/tools/engenty-tools/lib/run-context.js";
+import { registerAgentDeskRoutes } from "./agent-desk/routes.js";
 import { mirrorArtifactToBoundStorage } from "./ai/artifacts/artifact-mirror.js";
 import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "./ai/core-http-client.js";
 import {
-  createActionRequestStoreFromEnv,
   createAgentRunStoreFromEnv,
   createAiService,
   createAiUsageStoreFromEnv,
   createArtifactStoreFromEnv,
   createChatSearchRetrievalFromEnv,
+  createDataTableStoreFromEnv,
   createDefaultAiRegistry,
   createDefaultModuleCapabilityLoader,
+  createRoutineStoreFromEnv,
+  createRoutineTriggerStoreFromEnv,
   createSessionAgentStateChannel,
   createTenantModelConfigResolverFromEnv,
   createThreadStoreFromEnv,
+  createWorkflowRunStoreFromEnv,
+  createWorkflowStoreFromEnv,
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
 import { setRunEventPubSub } from "./ai/sessions/run-event-bus.js";
-import { registerActionRoutes } from "./api/action-routes.js";
+import {
+  activateStudioTenant,
+  resolveStudioPlayAlsContext,
+} from "./ai/studio-tenant-agents.js";
 import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
@@ -53,11 +65,13 @@ import { generateCascadeTicketSecret } from "./api/cascade/cascade-tickets.js";
 import { createElevenLabsTtsLeg } from "./api/cascade/elevenlabs-tts.js";
 import { createSessionAgentTurn } from "./api/cascade/session-agent-turn.js";
 import { createVoxtralSttLeg } from "./api/cascade/voxtral-stt.js";
+import { registerCatalogRankRoutes } from "./api/catalog-rank-routes.js";
 import { registerChatCommandRoutes } from "./api/chat-command-routes.js";
 import {
   createAgUiDebugEventBus,
   registerCopilotKitDebugEventRoutes,
 } from "./api/copilotkit-debug-events.js";
+import { registerDataTableRoutes } from "./api/data-table-routes.js";
 import { registerDispatchRoutes } from "./api/dispatch-routes.js";
 import {
   isGatewayModelStore,
@@ -66,9 +80,7 @@ import {
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
-import { startMemoryApprovalConsumer } from "./api/memory-approval-consumer.js";
 import { registerModelBindingRoutes } from "./api/model-binding-routes.js";
-import { registerNotificationRoutes } from "./api/notification-routes.js";
 import {
   createVoxtralElevenLabsProvider,
   readElevenLabsApiKeyFromEnv,
@@ -90,22 +102,31 @@ import {
   registerRemoteChannels,
   startRemoteOutboundConsumer,
 } from "./api/remote-channels.js";
+import { registerRoomRoutes } from "./api/room-routes.js";
+import { registerRoutineRoutes } from "./api/routine-routes.js";
+import { generateBrowserTicketSecret } from "./api/browser/browser-tickets.js";
+import { registerBrowserStreamWs } from "./api/browser-stream-ws.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerAiSettingsRoutes } from "./api/settings-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
+import { registerSpaceHomeRoutes } from "./api/space-home-routes.js";
+import { registerStudioTenantRoutes } from "./api/studio-tenant-routes.js";
+import { registerTaskJobExecutor } from "./api/task-background-dispatch.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
+import { registerTaskFieldUpdateRoutes } from "./api/task-field-updates-routes.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
-import { startTeamChatNotificationConsumer } from "./api/team-chat-notification-consumer.js";
 import { registerThreadRoutes } from "./api/thread-routes.js";
 import { registerThreadRunRoutes } from "./api/thread-run-routes.js";
-import { registerTriggerRoutes } from "./api/trigger-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkFilesRoutes } from "./api/work-files-routes.js";
+import { registerWorkflowPressRoutes } from "./api/workflow-press-routes.js";
+import { registerWorkflowRoutes } from "./api/workflow-routes.js";
 import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
 import { isMastraStudioApiEnabled } from "./config/mastra-studio-api.js";
+import { readStudioTenantIdFromEnv } from "./config/mastra-studio-tenant.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
 import type { ArtifactStore } from "./dal/artifacts/index.js";
 import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
@@ -116,9 +137,9 @@ import {
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
 import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
-import { startEmailNotifier } from "./notifications/email-notifier.js";
+import { startNotificationDelivery } from "./notifications/inbox.js";
+import { resolveRunNotifications } from "./notifications/run-notifications.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
-import { createSchedulerOperationInvoker } from "./scheduler/service-invoker.js";
 
 const logger = createLogger({ name: "apps/ai" });
 
@@ -188,50 +209,10 @@ export async function createApp(options: CreateAppOptions = {}) {
   // delivery semantics are preserved — see run-event-bus.ts.
   setRunEventPubSub(mastra.pubsub);
 
-  // Hydrate PLATFORM-scoped settings (AI provider keys, channel bot tokens) from
-  // core.platform_settings into process.env so the synchronous env readers and
-  // the Vercel AI SDK transparently pick up any Setup-UI override. Platform
-  // scope only — a change made in the UI takes effect on the next restart.
-  // SERVICE lane (Phase A residual, on purpose): platform settings have no
-  // tenant dimension — there is no tenant to mint a handle for at boot.
-  if (!skipBackgroundTasks) {
-    try {
-      const [{ createAiDatabaseAdapter }, { hydratePlatformSettingsIntoEnv }] =
-        await Promise.all([
-          import("./infra/database.js"),
-          import("@engenty/platform-settings"),
-        ]);
-      const settingsDb = createAiDatabaseAdapter();
-      if (settingsDb) {
-        const hydrated = await hydratePlatformSettingsIntoEnv({
-          supabase: settingsDb,
-          keys: [
-            "AI_GATEWAY_API_KEY",
-            "ELEVENLABS_API_KEY",
-            // The remote-channel master switch is platform-configurable, so the
-            // Setup UI offers it — without hydration that toggle would silently
-            // do nothing here, since isRemoteChannelsEnabled() reads process.env.
-            "ENGENTY_REMOTE_CHANNELS_ENABLED",
-            "MISTRAL_API_KEY",
-            "OPENAI_API_KEY",
-            "SLACK_BOT_TOKEN",
-            "SLACK_SIGNING_SECRET",
-            "TELEGRAM_BOT_TOKEN",
-          ],
-          logger: (msg, err) => logger.warn(msg, { error: String(err) }),
-        });
-        if (hydrated.length > 0) {
-          logger.info("hydrated platform settings from DB", {
-            keys: hydrated,
-          });
-        }
-      }
-    } catch (err) {
-      logger.warn("platform settings hydration failed (non-fatal)", {
-        error: String(err),
-      });
-    }
-  }
+  // Platform settings are already hydrated (index.ts, before this module was
+  // imported), so the install logs the gateways that are actually configured
+  // rather than only those set in the process environment.
+  installGatewayAwareDefaultProvider();
 
   /**
    * Mastra Studio runs on another origin (e.g. `http://localhost:3000`) while this API
@@ -270,12 +251,24 @@ export async function createApp(options: CreateAppOptions = {}) {
       },
     })
   );
+  const studioPlayScope: { current: AiScopeResolver | null } = {
+    current: null,
+  };
   app.use(`${AI_BASE_PATH}/*`, async (c, next) => {
     const accessToken = parseBearerToken(c.req.header("authorization"));
     if (!accessToken) {
       return next();
     }
-    return engentyToolsRunAls.run({ accessToken }, next);
+    const resolver = studioPlayScope.current;
+    if (isMastraStudioApiEnabled() && resolver) {
+      const ctx = await resolveStudioPlayAlsContext({
+        accessToken,
+        authorization: c.req.header("authorization"),
+        scopeResolver: resolver,
+      });
+      return engentyToolsRunAls.run(withEnvCoreBaseUrl(ctx), next);
+    }
+    return engentyToolsRunAls.run(withEnvCoreBaseUrl({ accessToken }), next);
   });
 
   app.get(`${AI_BASE_PATH}/health`, (c) =>
@@ -297,7 +290,8 @@ export async function createApp(options: CreateAppOptions = {}) {
     ("agentRunStore" in options
       ? options.agentRunStore
       : createAgentRunStoreFromEnv()) ?? null;
-  const actionRequestStore = createActionRequestStoreFromEnv();
+  const workflowRunStore = createWorkflowRunStoreFromEnv();
+  const flowGraphStore = createWorkflowStoreFromEnv();
   const artifactStore =
     "artifactStore" in options
       ? options.artifactStore
@@ -314,9 +308,22 @@ export async function createApp(options: CreateAppOptions = {}) {
     // D6: startup sweep — any run still "running" from a previous process cannot
     // be live. Mark as failed so clients never wait on a zombie run.
     if (!skipBackgroundTasks) {
-      agentRunStore.sweepStalledRuns?.().catch((err: unknown) => {
-        logger.warn("startup sweep failed", { error: String(err) });
-      });
+      agentRunStore
+        .sweepStalledRuns?.()
+        .then(async (result) => {
+          // A swept run's open decision records point at a question nobody
+          // will answer any more — close them with the run.
+          for (const run of result?.runs ?? []) {
+            await resolveRunNotifications({
+              outcome: "failed",
+              subject: { id: run.id, type: "run" },
+              tenantId: run.tenantId,
+            });
+          }
+        })
+        .catch((err: unknown) => {
+          logger.warn("startup sweep failed", { error: String(err) });
+        });
     }
   }
   const chatSearchRetrieval =
@@ -335,6 +342,10 @@ export async function createApp(options: CreateAppOptions = {}) {
     "moduleCapabilityLoader" in options
       ? (options.moduleCapabilityLoader ?? undefined)
       : createDefaultModuleCapabilityLoader();
+  // Sandbox host time rides the same ledger as tokens (`compute_lease` events).
+  (
+    await import("./ai/sandbox/sandbox-lease-metering.js")
+  ).installSandboxLeaseMetering(aiUsageStore);
   if (aiUsageStore && !("usageStore" in options)) {
     try {
       const seeded = await seedAiUsageModelPricing(aiUsageStore);
@@ -381,7 +392,17 @@ export async function createApp(options: CreateAppOptions = {}) {
         const thread = await threadStore.getThreadGlobally({
           threadId: input.threadId,
         });
-        if (thread?.agent_id.startsWith("chatbot.")) {
+        // The grant is "this guest may act as the person whose chatbot thread
+        // this is". An UNATTENDED thread has no such person — so there is
+        // nobody to act as, and the request falls through to the original
+        // denial rather than minting a scope with no identity in it. (Before
+        // `ThreadRow.created_by_user_id` was typed honestly this branch could
+        // hand a null `userId` to every DAL filter and to the memory resource
+        // resolver.)
+        if (
+          thread?.agent_id.startsWith("chatbot.") &&
+          thread.created_by_user_id
+        ) {
           return {
             ok: true,
             scope: {
@@ -403,6 +424,7 @@ export async function createApp(options: CreateAppOptions = {}) {
 
     return resolved;
   };
+  studioPlayScope.current = scopeResolver;
 
   // Plugin-events runtime + search-index registry wire chat-search through
   // the unified `SearchIndexProvider` contract. Routes emit canonical
@@ -539,6 +561,37 @@ export async function createApp(options: CreateAppOptions = {}) {
     onThreadPersisted: emitChatSessionUpdated,
     scopeResolver,
   });
+  if (threadStore) {
+    registerRoomRoutes(app, {
+      aiService,
+      getRegistry: (tenantId) =>
+        createDefaultAiRegistry({
+          databaseStore: registryStore,
+          moduleLoader: moduleCapabilityLoader,
+          tenantId,
+        }),
+      scopeResolver,
+      store: threadStore,
+    });
+    registerSpaceHomeRoutes(app, {
+      getRunStore: () => agentRunStore,
+      scopeResolver,
+      store: threadStore,
+    });
+  }
+  registerAgentDeskRoutes(app, {
+    aiService,
+    coreBaseUrl: options.coreBaseUrl,
+    coreFetch: options.coreFetch,
+    getRegistry: (tenantId) =>
+      createDefaultAiRegistry({
+        databaseStore: registryStore,
+        moduleLoader: moduleCapabilityLoader,
+        tenantId,
+      }),
+    getStore: () => registryStore ?? null,
+    scopeResolver,
+  });
   if (artifactStore) {
     registerArtifactRoutes(app, {
       artifactStore,
@@ -561,8 +614,31 @@ export async function createApp(options: CreateAppOptions = {}) {
           tenantId,
         });
       },
+      listSpaceAgentIds: async ({ authorization, spaceId }) => {
+        const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+        if (!(coreBaseUrl && authorization)) {
+          return [];
+        }
+        try {
+          const coreClient = new EngentyCoreClient({
+            coreBaseUrl,
+            accessToken: authorization,
+          });
+          const surface = await coreClient.getSpaceSurface(spaceId);
+          return surface.agents ?? [];
+        } catch {
+          return [];
+        }
+      },
       scopeResolver,
     });
+    const dataTableStore = createDataTableStoreFromEnv();
+    if (dataTableStore) {
+      registerDataTableRoutes(app, {
+        scopeResolver,
+        tables: dataTableStore,
+      });
+    }
   } else if (!("artifactStore" in options)) {
     logger.warn(
       "artifact store unavailable — artifact routes skipped and copilot artifact tools will fail; set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY and SUPABASE_JWT_SECRET (or ENGENTY_SECURITY_JWT_SECRET)"
@@ -619,21 +695,35 @@ export async function createApp(options: CreateAppOptions = {}) {
     scopeResolver,
   });
   registerAgentRunRoutes(app, {
+    getRegistryStore: () => registryStore,
     getRunStore: () => agentRunStore,
     aiService,
     scopeResolver,
   });
 
+  // The WS upgrade helper serves two brokers: the voice cascade below and the
+  // user-browser live view. Both mint short-lived tickets with a secret that
+  // is shared across instances when configured and process-local otherwise.
+  const upgradeWebSocket = options.createUpgradeWebSocket?.(app) ?? null;
+  const browserTicketSecret = upgradeWebSocket
+    ? env("ENGENTY_REALTIME_TICKET_SECRET", "") || generateBrowserTicketSecret()
+    : null;
   registerSandboxRoutes(app, {
+    browserTicketSecret,
     getRunStore: () => agentRunStore,
     getSessionStore: () => threadStore,
     scopeResolver,
   });
+  if (upgradeWebSocket && browserTicketSecret) {
+    registerBrowserStreamWs(app, {
+      ticketSecret: browserTicketSecret,
+      upgradeWebSocket,
+    });
+  }
   registerAudioTranscriptionRoutes(app, { scopeResolver });
   // Voxtral+ElevenLabs cascade: only registered when a WS upgrade factory
   // and both vendor keys are configured; otherwise the provider stays
   // unregistered and tenant prefs selecting it get a clean 501.
-  const upgradeWebSocket = options.createUpgradeWebSocket?.(app) ?? null;
   const cascadeMistralKey = readMistralApiKeyFromEnv();
   const cascadeElevenLabsKey = readElevenLabsApiKeyFromEnv();
   const cascadeConfigured = Boolean(
@@ -722,15 +812,22 @@ export async function createApp(options: CreateAppOptions = {}) {
     moduleLoader: moduleCapabilityLoader,
     scopeResolver,
   });
-  registerActionRoutes(app, {
-    getActionRequestStore: () => actionRequestStore,
+  registerWorkflowPressRoutes(app, {
+    getWorkflowRunStore: () => workflowRunStore,
     moduleLoader: moduleCapabilityLoader,
+    scopeResolver,
+  });
+  registerTaskFieldUpdateRoutes(app, { scopeResolver });
+  registerWorkflowRoutes(app, {
+    getWorkflowStore: () => flowGraphStore,
+    getWorkflowRunStore: () => workflowRunStore,
     scopeResolver,
   });
   registerChatCommandRoutes(app, {
     moduleLoader: moduleCapabilityLoader,
     scopeResolver,
   });
+  registerCatalogRankRoutes(app, { scopeResolver });
   registerSkillsRoutes(app, { scopeResolver });
   registerWorkspaceRoutes(app, {
     getRegistry: (tenantId) =>
@@ -767,7 +864,7 @@ export async function createApp(options: CreateAppOptions = {}) {
         scopeResolver,
       });
     }
-    registerTriggerRoutes(app, {
+    registerRoutineRoutes(app, {
       mastra,
       moduleLoader: moduleCapabilityLoader,
       scopeResolver,
@@ -778,8 +875,15 @@ export async function createApp(options: CreateAppOptions = {}) {
           tenantId,
         }),
     });
-    registerNotificationRoutes(app, { scopeResolver });
-    registerWorkingMemoryRoutes(app, { scopeResolver });
+    registerWorkingMemoryRoutes(app, {
+      getRegistry: (tenantId) =>
+        createDefaultAiRegistry({
+          databaseStore: registryStore,
+          moduleLoader: moduleCapabilityLoader,
+          tenantId,
+        }),
+      scopeResolver,
+    });
 
     // UI-4 Part A: dispatch status endpoint. getQueue is populated by the
     // task dispatcher below — until then it returns null and the endpoint
@@ -866,6 +970,21 @@ export async function createApp(options: CreateAppOptions = {}) {
           message: err instanceof Error ? err.message : String(err),
         });
       }
+      // Phase 8: the background-task substrate. Order matters on Mastra 1.59:
+      // `startWorkers` DISCARDS a producer-mode manager and builds a new one,
+      // so the suspend-capable executor must be registered on the manager that
+      // survives — i.e. AFTER startWorkers. Recovery never depends on this
+      // registration: the config-level `taskJobRecoveryTool` (ai/index.ts) is
+      // registered by the Mastra constructor on every manager instance before
+      // its init/recovery runs.
+      try {
+        await mastra.startWorkers("backgroundTasks");
+        registerTaskJobExecutor(mastra);
+      } catch (err) {
+        logger.warn("background task workers not started", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
       dispatchQueueService = createQueueService(queueAdapter);
       const stop = startTaskDispatchConsumer({
         mastra,
@@ -873,44 +992,44 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
       process.once("SIGTERM", stop);
       process.once("SIGINT", stop);
-      // "Hand to Coordinator" goal handoffs materialize a coordination task
-      // that rides the agent_task_dispatch queue above — no separate consumer.
       // Team-chat @-mentions ride the same queue infrastructure (Phase 3).
       const stopMentions = startTeamChatMentionConsumer({
         queue: dispatchQueueService,
       });
       process.once("SIGTERM", stopMentions);
       process.once("SIGINT", stopMentions);
-      // Team-chat user notifications → platform inbox (N1).
-      const stopNotifications = startTeamChatNotificationConsumer({
-        queue: dispatchQueueService,
-      });
-      process.once("SIGTERM", stopNotifications);
-      process.once("SIGINT", stopNotifications);
-      // Org-memory proposals → approver inbox (memory Phase 4).
-      const stopMemoryApprovals = startMemoryApprovalConsumer({
-        queue: dispatchQueueService,
-      });
-      process.once("SIGTERM", stopMemoryApprovals);
-      process.once("SIGINT", stopMemoryApprovals);
       // Remote channels proactive sends (remote_notify op → messenger thread).
       const stopRemoteOutbound = startRemoteOutboundConsumer({
         queue: dispatchQueueService,
       });
       process.once("SIGTERM", stopRemoteOutbound);
       process.once("SIGINT", stopRemoteOutbound);
-      // Still-unread notifications → email via the tenant's connector (N4).
-      // The scan is cross-tenant; each tenant's batch rides a service token
-      // minted for that tenant (platform credential serves all tenants; a
-      // tenant-bound one quietly leaves foreign tenants' records pending).
-      const stopEmailNotifier = startEmailNotifier({
-        invokerFor: (tenantId) => createSchedulerOperationInvoker(tenantId),
-      });
-      process.once("SIGTERM", stopEmailNotifier);
-      process.once("SIGINT", stopEmailNotifier);
+      // Notification delivery (web push, email): this process holds the VAPID
+      // keys and the per-tenant service invoker, so it drives the ledger.
+      const stopNotificationDelivery = await startNotificationDelivery();
+      process.once("SIGTERM", stopNotificationDelivery);
+      process.once("SIGINT", stopNotificationDelivery);
     } else {
       logger.warn("task dispatch consumer not started (no database adapter)");
     }
+
+    // This process's own record events (Space tables) → event routines. The
+    // module-event door is the HTTP intake in routine-routes; this is the
+    // in-process one, same dispatcher.
+    const { startRoutineEventListener } = await import(
+      "./ai/routines/dispatch-event.js"
+    );
+    const stopRoutineEvents = startRoutineEventListener(() => {
+      const routines = createRoutineStoreFromEnv();
+      const flowGraphs = createWorkflowStoreFromEnv();
+      const requests = createWorkflowRunStoreFromEnv();
+      const triggers = createRoutineTriggerStoreFromEnv();
+      return routines && flowGraphs && requests && triggers
+        ? { flowGraphs, requests, routines, triggers }
+        : null;
+    });
+    process.once("SIGTERM", stopRoutineEvents);
+    process.once("SIGINT", stopRoutineEvents);
 
     // Trigger scheduler (Mastra schedules): starts workers + reconciles
     // triggers ↔ schedules. Replaces the pg_cron routines tick.
@@ -937,6 +1056,34 @@ export async function createApp(options: CreateAppOptions = {}) {
   // apps/core proxies all of `/ai`. Mounted only for Mastra Studio, never in
   // production. See config/mastra-studio-api.ts.
   if (isMastraStudioApiEnabled()) {
+    const createStudioRegistry = (tenantId: string) =>
+      createDefaultAiRegistry({
+        databaseStore: registryStore,
+        moduleLoader: moduleCapabilityLoader,
+        tenantId,
+      });
+    registerStudioTenantRoutes(app, {
+      createRegistry: createStudioRegistry,
+      mastra,
+      scopeResolver,
+      threadStore,
+    });
+    const envTenant = readStudioTenantIdFromEnv();
+    if (envTenant) {
+      try {
+        await activateStudioTenant({
+          createRegistry: createStudioRegistry,
+          mastra,
+          tenantId: envTenant,
+          threadStore,
+        });
+      } catch (err) {
+        logger.warn("studio tenant: boot pin failed", {
+          tenantId: envTenant,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
     const server = new MastraServer({
       app,
       mastra,

@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { tryReadClosedPrefixes } from "../../../scripts/lib/closed-prefixes.mjs";
 import { resolveEnabledModules } from "../../../scripts/lib/engenty-modules.mjs";
 import {
   collectChangedGeneratedArtifacts,
@@ -10,6 +11,7 @@ import {
   enrichManifestForUiArtifacts,
   normalizeAndSortUiPlugins,
   normalizeManifestUiEntry,
+  partitionUiPluginsByVisibility,
   renderCatalog,
   renderTailwindSources,
 } from "./plugin-artifact-generator-lib.mjs";
@@ -27,6 +29,12 @@ const targetManifestFileName = "engenty.plugin.json";
 const generatedCatalogPath = path.join(
   uiSrcDir,
   "plugins",
+  "generated-catalog.ts"
+);
+const generatedClosedCatalogPath = path.join(
+  uiSrcDir,
+  "plugins",
+  "pro",
   "generated-catalog.ts"
 );
 const generatedTailwindSourcesPath = path.join(
@@ -116,16 +124,23 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
-function renderGeneratedArtifacts(entries) {
+function renderGeneratedArtifacts(openEntries, closedEntries) {
   return [
     {
       filePath: generatedCatalogPath,
-      content: renderCatalog(entries),
+      content: renderCatalog(openEntries),
+    },
+    {
+      filePath: generatedClosedCatalogPath,
+      content: renderCatalog(closedEntries, {
+        catalogTypeImport: "../catalog",
+        loaderImport: "../runtime-ui-loader",
+      }),
     },
     {
       filePath: generatedTailwindSourcesPath,
       content: renderTailwindSources({
-        entries,
+        entries: [...openEntries, ...closedEntries],
         staticTailwindSources,
         uiSrcDir,
       }),
@@ -164,8 +179,10 @@ function main() {
 
   const packageDirs = listWorkspacePackageDirs();
   const entries = discoverUiPlugins(packageDirs);
+  const { open: openEntries, closed: closedEntries } =
+    partitionUiPluginsByVisibility(entries, tryReadClosedPrefixes(repoRootDir));
 
-  const artifacts = renderGeneratedArtifacts(entries);
+  const artifacts = renderGeneratedArtifacts(openEntries, closedEntries);
   if (args.has("--check")) {
     checkGeneratedArtifacts(artifacts);
     console.log("Generated plugin artifacts are up to date.");

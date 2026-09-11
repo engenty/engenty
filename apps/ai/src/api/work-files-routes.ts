@@ -1,5 +1,5 @@
 // `GET /ai/work-files?container=<tier>:<id>` — list the workspace files that
-// live under a container's resolved prefixes (task/goal/routine/project/global).
+// live under a container's resolved prefixes (task/routine/project/global).
 // The file counterpart to the artifact container list: same resolver, different
 // medium (the files bucket instead of ai.artifact).
 import type { WorkContainerTier } from "@engenty/file-storage";
@@ -8,6 +8,7 @@ import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../ai/sessions/task-workspace-hook.js";
 import { scopeAccessToken } from "../ai/sessions/types.js";
+import { resolveTenantDefaultSpaceId } from "../ai/work-scope/resolve-space.js";
 import { resolveWorkContainer } from "../ai/work-scope/resolve-work-container.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
@@ -20,9 +21,9 @@ import {
 const containerTierSchema = z.enum([
   "thread",
   "task",
-  "goal",
   "routine",
   "project",
+  "space",
   "global",
 ]);
 
@@ -83,7 +84,11 @@ export function registerWorkFilesRoutes(
     try {
       const invoke = createScopeModuleOperationInvoker(scope.scope);
       const resolved = await resolveWorkContainer(
-        { invoke, tenantId: scope.scope.tenantId },
+        {
+          invoke,
+          spaceId: await resolveTenantDefaultSpaceId(scope.scope.tenantId),
+          tenantId: scope.scope.tenantId,
+        },
         ref
       );
       const client = createEngentyCoreFileStorageClient({
@@ -97,6 +102,12 @@ export function registerWorkFilesRoutes(
           limit: MAX_FILES_PER_PREFIX,
         });
         for (const file of files) {
+          // Hide dotfiles — e.g. the ".keep" markers every task checkout
+          // writes to materialize its folders. `workspacePrefixes` still
+          // carries the folder itself, so an empty folder stays addressable.
+          if (file.filename.startsWith(".")) {
+            continue;
+          }
           entries.push({
             filename: file.filename,
             key: file.key,

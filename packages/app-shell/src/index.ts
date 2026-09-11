@@ -30,6 +30,7 @@ export {
   setWorkspaceEndPaneExpanded,
   useWorkspaceEndPaneTarget,
 } from "./components/app-layout/workspace-end-pane";
+export { WorkspaceEndPaneItem } from "./components/app-layout/workspace-end-pane-item";
 export { AppSidebar } from "./components/app-sidebar";
 export { type AppMenuActions, AppTopbar } from "./components/app-topbar";
 export {
@@ -38,11 +39,14 @@ export {
   type PaneProps,
   PaneResizeHandle,
   type PaneResizeHandleProps,
-  type PaneTabItem,
-  PaneTabStrip,
-  type PaneTabStripProps,
   PaneTopBar,
 } from "./components/pane/pane";
+export {
+  SidebarSpacesZone,
+  type SidebarSpacesZoneLabels,
+  type SidebarSpacesZoneProps,
+} from "./components/sidebar-spaces-zone";
+export { SpaceIconFace } from "./components/space-icon-face";
 export type {
   AgentUiBaseSnapshotInput,
   AgentUiDialogOpener,
@@ -118,6 +122,10 @@ export {
   queryAgentUiFieldElement,
 } from "./lib/agent-ui-field-element";
 export {
+  isCopilotShellSlotOpen,
+  shouldShowInlineCopilotSidebar,
+} from "./lib/copilot-chrome";
+export {
   SHELL_SECONDARY_NAV_ITEM_ATTR,
   shellSecondaryNavItemProps,
 } from "./lib/module-secondary-nav-keyboard";
@@ -126,6 +134,19 @@ export {
   persistPaneWidthPx,
   readInitialPaneWidthPx,
 } from "./lib/persisted-pane-width";
+export {
+  isSpaceImageIcon,
+  RAIL_SPACE_BUDGET,
+  RAIL_SPACE_NO_STACK_MAX,
+  type RailSpace,
+  type RailSpaceIndicator,
+  type RailSpaceTile,
+  type ResolveRailSpacesInput,
+  type ResolveRailSpacesResult,
+  railSpaceInitials,
+  resolveRailSpaces,
+  rollUpIndicators,
+} from "./lib/rail-spaces";
 export {
   isShellSecondaryNavPinnedViewport,
   SHELL_SECONDARY_NAV_PINNED_MIN_WIDTH_PX,
@@ -141,6 +162,7 @@ export {
   SHELL_SECONDARY_NAV_WIDTH_STORAGE_KEY,
 } from "./lib/shell-secondary-nav-width";
 export {
+  COPILOT_BOTTOM_DOCK_CLEARANCE,
   COPILOT_BOTTOM_DOCK_HEIGHT,
   COPILOT_LAYOUT_USER_SETTING_NAME,
   type CopilotFabAnchor,
@@ -149,6 +171,9 @@ export {
   type CopilotLayoutSnapshotV1,
   type CopilotPersistedPanelMode,
   reconcileCopilotLayoutSnapshot,
+  UI_SCROLL_SAFE_BOTTOM,
+  UI_SCROLL_SAFE_BOTTOM_DOCKED,
+  UI_SCROLL_SAFE_BOTTOM_PX,
 } from "./types/copilot-layout";
 export {
   COPILOT_LAYOUT_NOOP,
@@ -161,8 +186,6 @@ export type {
   NavigationSection,
   NavigationSectionId,
   ShellSidebarConfig,
-  ShellTenant,
-  TenantSwitcherConfig,
 } from "./types/shell";
 export {
   createDefaultShellDockModuleOrderSnapshot,

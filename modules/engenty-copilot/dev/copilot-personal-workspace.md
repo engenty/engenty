@@ -12,14 +12,22 @@ preset and attaches a Mastra `Workspace` per run.
 | Mount | Access | Storage (tenant-relative) | When |
 |-------|--------|---------------------------|------|
 | `/home` | rw | `ai/workspace/users/<user-id>/` | Always |
-| `/shared` | rw | `ai/workspace/commons/` | Always (tenant scratch) |
+| `/shared` | rw | tenant `ai/workspace/commons/` | Non-confined tenant run |
+| `/space` | rw | Space `ai/workspace/commons/` | Space-confined run; replaces `/shared` |
 | `/skills` | ro | `ai/skills/` | Always (`managed` + `custom` discovery) |
 | `/task` | rw | task checkout prefix | Task-bound only |
-| `/goal`, `/project` | rw | work-scope prefixes | When containment binding resolves |
+| `/project` | rw | work-scope prefix | When containment binding resolves |
+| `/data` | rw via module operations | no storage prefix | Resolved Space only |
 | `/sandbox` | rw | `ai/sandboxes/session-<threadId>/…` | Sandbox enabled (session lifecycle) |
 
 - **Threads:** transcript-only (`ai.thread` / `ai.thread_message`); no per-thread FS root.
 - **Skills discovery:** `/skills/managed`, `/skills/custom` (see `DEFAULT_SKILL_DISCOVERY_PATHS`).
+- **Shared context:** a run receives `/shared` or `/space`, never both. These are
+  working/context files, not the module-record store.
+- **Space Data:** `/data` projects mounted module records. It is never scratch or
+  a conversation notebook.
+- **Deliverables:** publish user-facing files to Files and authored output to
+  artifacts; a workspace path alone is not a handoff.
 
 ## Capabilities (current `engenty.copilot` config)
 
@@ -42,8 +50,10 @@ native frontend tools (suspend/resume), `chatThreadSearch`, `web_search`,
 `requestDecision` / `requestFeedback`, artifacts, memory, widgets, etc. — see
 `ENGENTY_COPILOT_TOOL_IDS` in `ai/agents/engenty.copilot/tools.ts`.
 
-**Write policy:** mount-level — `/skills` is read-only; `/home` and `/shared` are
-writable; `/task` follows checkout; sandbox commands may require approval.
+**Write policy:** mount-level — `/skills` is read-only; `/home` and whichever of
+`/shared` or `/space` is present are writable; bound work mounts follow their
+containers; `/data` writes invoke module operations and their approval policy;
+sandbox commands may require approval.
 
 ## Code map
 

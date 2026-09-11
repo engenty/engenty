@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   iconForArtifactType,
+  iconForAttachment,
   iconForObjectRef,
   iconForSourceUrl,
+  iconForSubAgent,
 } from "./thread-context-icons.js";
 
 describe("thread-context-icons", () => {
@@ -11,6 +13,10 @@ describe("thread-context-icons", () => {
       iconForArtifactType("table")
     );
     expect(iconForArtifactType("html")).not.toBe(iconForArtifactType("app"));
+    expect(iconForArtifactType("page")).toBe(iconForArtifactType("markdown"));
+    expect(iconForArtifactType("file")).not.toBe(
+      iconForArtifactType("markdown")
+    );
     expect(iconForArtifactType("mystery")).toBe(
       iconForArtifactType("markdown")
     );
@@ -31,5 +37,16 @@ describe("thread-context-icons", () => {
     expect(iconForSourceUrl("/kb/abc/slug")).not.toBe(
       iconForSourceUrl("https://example.com")
     );
+  });
+
+  it("picks image vs file icons for attachments", () => {
+    expect(iconForAttachment("image/png", "photo.png")).not.toBe(
+      iconForAttachment("application/pdf", "notes.pdf")
+    );
+    expect(iconForAttachment("application/zip", "archive.zip")).toBeTruthy();
+  });
+
+  it("uses a bot icon for sub-agents", () => {
+    expect(iconForSubAgent()).toBeTruthy();
   });
 });

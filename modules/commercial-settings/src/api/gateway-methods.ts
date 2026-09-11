@@ -81,6 +81,7 @@ export function registerCommercialSettingsGatewayMethods(
     operationId: "commercial_settings_get",
     summary: "Get commercial defaults",
     moduleId: "commercial-settings",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.commercial-settings.read"],
     riskLevel: "low",
     idempotent: true,
@@ -99,6 +100,7 @@ export function registerCommercialSettingsGatewayMethods(
       operationId: collection.operationId,
       summary: collection.summary,
       moduleId: "commercial-settings",
+      spacePolicy: { kind: "tenant_shared" },
       requiredCapabilities: ["module.commercial-settings.write"],
       riskLevel: collection.riskLevel,
       // Replacing a list with the same list is a no-op.
@@ -122,6 +124,7 @@ export function registerCommercialSettingsGatewayMethods(
     summary:
       "Update the scalar commercial defaults (currency, currency symbol, locales, no-tax reason). Omitted fields are left unchanged.",
     moduleId: "commercial-settings",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.commercial-settings.write"],
     // Currency reprices everything downstream.
     riskLevel: "high",

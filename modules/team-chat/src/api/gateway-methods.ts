@@ -1,4 +1,5 @@
 import type {
+  NotificationsHostLike,
   PluginAuthContext,
   PluginServerApi,
   QueueServiceLike,
@@ -50,7 +51,7 @@ import {
 import { enqueueAgentMentions } from "./agent-mention-queue.js";
 import {
   computeMessageNotificationTargets,
-  enqueueNotificationDispatch,
+  type NotificationReason,
   notificationPreview,
 } from "./notification-queue.js";
 
@@ -60,6 +61,8 @@ const WRITE = ["module.team-chat.write"];
 const MANAGE = ["module.team-chat.manage"];
 
 export interface RegisterTeamChatGatewayMethodsOptions {
+  /** The platform notification host; absent → no user notifications. */
+  notifications?: NotificationsHostLike | null;
   queue?: QueueServiceLike | null;
   repoForAuth: (auth: PluginAuthContext | undefined) => TeamChatRepo;
 }
@@ -67,20 +70,21 @@ export interface RegisterTeamChatGatewayMethodsOptions {
 /**
  * User notification fan-out for a freshly posted message (§13): resolves the
  * conversation + members (service-role repo, so agent/service authors work
- * too), computes targets and enqueues ONE dispatch for the apps/ai consumer.
- * Best-effort by contract — a notification hiccup must never fail the post.
+ * too), computes targets and writes one record per target through the
+ * platform notification host. Best-effort by contract — a notification hiccup
+ * must never fail the post.
  */
 async function dispatchUserNotifications(params: {
   authorAgentKey: string | null;
   authorUserId: string | null;
   mentions: MentionRecord[];
   message: TeamChatMessage;
-  queue: QueueServiceLike | null;
+  notifications: NotificationsHostLike | null;
   repo: TeamChatRepo;
   tenantId: string;
 }): Promise<void> {
   const { message, repo } = params;
-  if (!params.queue) {
+  if (!params.notifications) {
     return;
   }
   const [state, members] = await Promise.all([
@@ -108,19 +112,54 @@ async function dispatchUserNotifications(params: {
     mentions: params.mentions,
     threadParticipants,
   });
-  await enqueueNotificationDispatch(params.queue, {
-    author_agent_key: params.authorAgentKey,
-    author_user_id: params.authorUserId,
-    conversation_id: message.conversation_id,
-    conversation_name: state.conversation.name,
-    conversation_type: state.conversation.type,
-    kind: "message",
-    message_ts: message.ts,
-    targets,
-    tenant_id: params.tenantId,
-    text_preview: notificationPreview(message.text),
-    thread_ts: message.thread_ts,
-  });
+  const label = state.conversation.name
+    ? `#${state.conversation.name}`
+    : "a direct message";
+  const preview = notificationPreview(message.text);
+  const summaryFor = (reason: NotificationReason): string => {
+    const tail = preview ? `: ${preview}` : "";
+    switch (reason) {
+      case "mention":
+        return `Mentioned in ${label}${tail}`;
+      case "dm":
+        return `New direct message${tail}`;
+      case "thread":
+        return `New reply in ${label}${tail}`;
+      default:
+        return `New message in ${label}${tail}`;
+    }
+  };
+  await Promise.all(
+    targets.map((target) =>
+      params.notifications?.emit({
+        actor: params.authorUserId
+          ? { id: params.authorUserId, kind: "user" }
+          : { id: params.authorAgentKey, kind: "agent" },
+        audience: { kind: "user", userId: target.user_id },
+        dedupeKey: `team-chat:${message.conversation_id}:${message.ts}:${target.user_id}`,
+        kind: "team_chat.message",
+        metadata: { reason: target.reason },
+        payload: {
+          author_agent_key: params.authorAgentKey,
+          author_user_id: params.authorUserId,
+          conversation_id: message.conversation_id,
+          conversation_label: label,
+          conversation_type: state.conversation.type,
+          message_ts: message.ts,
+          route: `/mdl/team-chat/${message.conversation_id}?ts=${message.ts}`,
+          text_preview: preview,
+          thread_ts: message.thread_ts,
+        },
+        // A mention is pressing; everything else is FYI that the class gate
+        // keeps off the phone.
+        priority: target.reason === "mention" ? "high" : "medium",
+        source: "team-chat",
+        subject: { id: message.conversation_id, type: "conversation" },
+        summary: summaryFor(target.reason),
+        tenantId: params.tenantId,
+      })
+    )
+  );
 }
 
 export function registerTeamChatGatewayMethods(
@@ -128,13 +167,15 @@ export function registerTeamChatGatewayMethods(
   options: RegisterTeamChatGatewayMethodsOptions
 ) {
   const { repoForAuth } = options;
+  const notifications = options.notifications ?? null;
   const queue = options.queue ?? null;
 
   api.registerOperation({
     operationId: "team_chat_conversations_list",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
-      "List the caller's team-chat conversations (channels + DMs) with unread counts; include_public adds unjoined public channels",
+      "List the caller's tenant-wide team-chat conversations (channels + DMs) with unread counts; include_public adds unjoined public channels. Channels are tenant-shared today — there is no conversation space_id. A Space mount controls whether Team Chat is available here, not which channels exist.",
     requiredCapabilities: READ,
     riskLevel: "low",
     idempotent: true,
@@ -154,8 +195,9 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_info",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
-      "Get one team-chat conversation with the caller's membership state",
+      "Get one tenant-wide team-chat conversation with the caller's membership state. Channels have no space_id today.",
     requiredCapabilities: READ,
     riskLevel: "low",
     idempotent: true,
@@ -177,6 +219,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_create",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Create a team-chat channel (public or private)",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -193,6 +236,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_open",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Open (find or create) a DM or group DM with the given users",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -209,6 +253,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_join",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Join a public team-chat channel",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -224,6 +269,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_leave",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Leave a team-chat channel",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -239,6 +285,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_invite",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Invite users or agents into a team-chat conversation",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -257,6 +304,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_kick",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Remove a member from a team-chat conversation",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -275,6 +323,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_archive",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Archive a team-chat channel",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -293,6 +342,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_unarchive",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Unarchive a team-chat channel",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -311,6 +361,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_rename",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Rename a team-chat channel",
     requiredCapabilities: MANAGE,
     riskLevel: "medium",
@@ -329,6 +380,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_set_topic",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Set the topic of a team-chat conversation",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -347,6 +399,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_set_purpose",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Set the purpose of a team-chat conversation",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -365,6 +418,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_members",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "List the members of a team-chat conversation",
     requiredCapabilities: READ,
     riskLevel: "low",
@@ -383,6 +437,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_mark",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Set the caller's read cursor in a conversation (conversations.mark)",
     requiredCapabilities: READ,
@@ -392,19 +447,31 @@ export function registerTeamChatGatewayMethods(
     handler: async (input, ctx) => {
       const parsed = conversationsMarkInputSchema.parse(input);
       await repoForAuth(ctx.auth).conversations.mark(parsed.channel, parsed.ts);
-      // Read-sync: pending inbox notifications for now-read messages flip to
-      // seen (apps/ai consumer). Best-effort, like the post-side dispatches.
-      if (ctx.auth?.tenantId) {
+      // Read-sync: pending notifications for now-read messages flip to seen.
+      // Best-effort, like the post-side fan-out.
+      if (ctx.auth?.tenantId && notifications) {
         try {
-          await enqueueNotificationDispatch(queue, {
-            conversation_id: parsed.channel,
-            kind: "read",
-            tenant_id: ctx.auth.tenantId,
-            up_to_ts: parsed.ts,
-            user_id: ctx.auth.principalId,
+          const upTo = Number(parsed.ts);
+          await notifications.markSeenWhere({
+            predicate: (record) => {
+              const row = record as {
+                payload?: Record<string, unknown> | null;
+                source?: string;
+              };
+              const conversationId = row.payload?.conversation_id;
+              const ts = row.payload?.message_ts;
+              return (
+                row.source === "team-chat" &&
+                conversationId === parsed.channel &&
+                typeof ts === "string" &&
+                Number(ts) <= upTo
+              );
+            },
+            tenantId: ctx.auth.tenantId,
+            userId: ctx.auth.principalId,
           });
         } catch (err) {
-          ctx.logger?.warn?.("team-chat read-sync enqueue failed", {
+          ctx.logger?.warn?.("team-chat read-sync failed", {
             message: err instanceof Error ? err.message : String(err),
           });
         }
@@ -416,6 +483,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_history",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Fetch a conversation's root messages, newest first (conversations.history)",
     requiredCapabilities: READ,
@@ -439,6 +507,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_replies",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Fetch a thread: the parent message and its replies (conversations.replies)",
     requiredCapabilities: READ,
@@ -460,7 +529,9 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_post_message",
     moduleId: MODULE_ID,
-    summary: "Post a message to a team-chat conversation (chat.postMessage)",
+    spacePolicy: { kind: "tenant_shared" },
+    summary:
+      "Post a message to a tenant-wide team-chat conversation (chat.postMessage). Channels have no space_id today.",
     requiredCapabilities: WRITE,
     riskLevel: "medium",
     inputSchema: postMessageInputSchema,
@@ -500,12 +571,12 @@ export function registerTeamChatGatewayMethods(
             authorUserId: ctx.auth.principalId,
             mentions,
             message,
-            queue,
+            notifications,
             repo,
             tenantId: ctx.auth.tenantId,
           });
         } catch (err) {
-          ctx.logger?.warn?.("team-chat notification enqueue failed", {
+          ctx.logger?.warn?.("team-chat notification fan-out failed", {
             message: err instanceof Error ? err.message : String(err),
           });
         }
@@ -517,6 +588,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_post_as_agent",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Post a channel message authored by an agent (member agents, or public channels); optionally links the thread to the agent's ai.thread",
     requiredCapabilities: WRITE,
@@ -560,12 +632,12 @@ export function registerTeamChatGatewayMethods(
             authorUserId: null,
             mentions: extractMentions(parsed.text),
             message,
-            queue,
+            notifications,
             repo,
             tenantId: ctx.auth.tenantId,
           });
         } catch (err) {
-          ctx.logger?.warn?.("team-chat notification enqueue failed", {
+          ctx.logger?.warn?.("team-chat notification fan-out failed", {
             message: err instanceof Error ? err.message : String(err),
           });
         }
@@ -577,6 +649,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_update_message",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Edit a team-chat message you authored (chat.update)",
     requiredCapabilities: WRITE,
     riskLevel: "medium",
@@ -596,6 +669,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_reactions_add",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Add an emoji reaction to a team-chat message (reactions.add)",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -615,6 +689,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_reactions_remove",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Remove your emoji reaction from a team-chat message (reactions.remove)",
     requiredCapabilities: WRITE,
@@ -635,6 +710,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_reactions_get",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Get the reactions on a team-chat message (reactions.get)",
     requiredCapabilities: READ,
     riskLevel: "low",
@@ -654,6 +730,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_pins_add",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Pin a message in a team-chat conversation (pins.add)",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -669,6 +746,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_pins_remove",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Unpin a message in a team-chat conversation (pins.remove)",
     requiredCapabilities: WRITE,
     riskLevel: "low",
@@ -684,6 +762,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_pins_list",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "List the pinned messages of a team-chat conversation (pins.list)",
     requiredCapabilities: READ,
     riskLevel: "low",
@@ -700,6 +779,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_project_channel_get",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Get the channel bound to a project (null when none)",
     requiredCapabilities: READ,
     riskLevel: "low",
@@ -718,6 +798,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_conversations_update_settings",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Shallow-merge conversation settings (e.g. activity feed opt-out)",
     requiredCapabilities: MANAGE,
     riskLevel: "low",
@@ -737,6 +818,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_bind_project",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Bind a channel to a project (project tab + activity feed); null unbinds",
     requiredCapabilities: MANAGE,
@@ -756,8 +838,9 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_search_messages",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
-      "Full-text search over team-chat messages the caller can see (search.messages)",
+      "Full-text search over tenant-wide team-chat messages the caller can see (search.messages). Channels have no space_id today.",
     requiredCapabilities: READ,
     riskLevel: "low",
     idempotent: true,
@@ -772,6 +855,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_activity_feed",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Dashboard feed for the caller: recent mentions of them plus threads they participate in (activity.feed)",
     requiredCapabilities: READ,
@@ -788,6 +872,7 @@ export function registerTeamChatGatewayMethods(
   api.registerOperation({
     operationId: "team_chat_delete_message",
     moduleId: MODULE_ID,
+    spacePolicy: { kind: "tenant_shared" },
     summary:
       "Delete a team-chat message (author or channel owner; soft delete, chat.delete)",
     requiredCapabilities: WRITE,

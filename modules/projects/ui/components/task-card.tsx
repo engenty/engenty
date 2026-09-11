@@ -185,9 +185,8 @@ export function TaskCard({
       )}
       <div
         className={cn(
-          "relative flex select-none items-center gap-4 rounded-lg border bg-card p-3 pl-8",
-          viewMode === "internal" &&
-            "cursor-pointer transition-colors hover:border-primary/50",
+          "ui-card-raised relative flex select-none items-center gap-4 p-3 pl-8",
+          viewMode === "internal" && "ui-card-interactive cursor-pointer",
           isDragging && "cursor-grabbing"
         )}
         onClick={handleCardClick}

@@ -46,6 +46,7 @@ function makeUsageStore(overrides: Partial<AiUsageStore> = {}): AiUsageStore {
       output_tokens: 10,
       cached_tokens: 2,
       reasoning_tokens: 1,
+      compute_ms: 0,
       cost_micros: 250,
       currency: "usd",
       event_count: 2,

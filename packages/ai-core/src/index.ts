@@ -14,11 +14,6 @@ export {
   chatThreadIndexStatusPayloadSchema,
 } from "../ai/artifacts/chat-thread-index-status.js";
 export {
-  type ActionSchemaReferenceMap,
-  loadActionDefinitionsFromDirectory,
-  resolveModuleActionsDir,
-} from "./actions/loader.js";
-export {
   encodeAgUiSseEvent,
   frontendToolCallToAgUiEvents,
   frontendToolResultToAgUiEvent,
@@ -45,14 +40,46 @@ export {
 } from "./ag-ui/mastra-ui-projection.js";
 export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
 export {
-  buildAgentSystemPromptFromUiState,
+  AGENT_DESK_LANES,
+  type AgentDeskAgent,
+  type AgentDeskCapabilityChip,
+  type AgentDeskEngagement,
+  type AgentDeskEngagementKind,
+  type AgentDeskFeed,
+  type AgentDeskLane,
+  type AgentDeskLaneCounts,
+  type AgentDeskStarter,
+  agentDeskCapabilityChips,
+  emptyAgentDeskLaneCounts,
+  formatAgentDeskCapabilityLabel,
+} from "./agent-desk/contracts.js";
+export {
   formatAgentUiStateHarnessInstructions,
   resolveCurrentPageModule,
+  resolveCurrentPageSpaceKey,
 } from "./agent-ui/agent-prompt-context-from-ui.js";
 export {
   filterAgentUiFrontendToolsByTenant,
   stripModuleOwnedAgentUiFrontendTools,
 } from "./agent-ui/agent-ui-frontend-tool-gating.js";
+export { SPACE_CONTRACT_PROMPT } from "./agent-ui/space-contract-prompt.js";
+export {
+  canonicalModulePathname,
+  isSpaceReservedSegment,
+  SPACE_MODULE_URL_ALIASES,
+  SPACE_RESERVED_SEGMENTS,
+  spaceChatsPathname,
+  spaceKeyFromPathname,
+  spaceModuleIdFromUrlSegment,
+  spaceModuleUrlSegment,
+  spaceRoomPathname,
+} from "./agent-ui/space-module-url.js";
+export {
+  AGENT_ENGENTY_KINDS,
+  type AgentEngentyKind,
+  isAgentEngentyKind,
+  resolveAgentEngenty,
+} from "./agents/agent-engenty.js";
 export type {
   AgentAssetLocator,
   AiAgentManifest,
@@ -65,10 +92,32 @@ export {
   resolveAgentAssetDir,
 } from "./agents/agent-manifest.js";
 export {
+  type AgentMessageHeader,
+  formatAgentMessageHeader,
+  parseAgentMessageHeader,
+} from "./agents/agent-message-header.js";
+export {
+  AGENT_STARTER_DECLARE_MAX,
+  AGENT_STARTER_MAX,
+  AGENT_STARTER_WHAT_CAN_YOU_DO_ID,
+  type AgentStarter,
+  type AgentStarterCondition,
+  type AgentStarterContext,
+  agentStarterSchema,
+  mergeGeneratedStarters,
+  type ResolvedAgentStarter,
+  selectAgentDeskStarters,
+} from "./agents/agent-starters.js";
+export {
   type CopilotAgentManifest,
   copilotAgentManifestSchema,
 } from "./agents/copilot-agent-manifest.js";
 export { GENERAL_CHAT_AGENT_ID } from "./agents/copilot-constants.js";
+export {
+  FIRST_ENGENTY_SKILL_ID,
+  FIRST_ENGENTY_TEMPLATE_ID,
+  FIRST_ENGENTY_TOOL_IDS,
+} from "./agents/first-engenty.js";
 export {
   composeAllowedToolsIntersection,
   normalizeAllowedToolsInput,
@@ -101,7 +150,15 @@ export {
   parseLeadingChatCommand,
 } from "./chat-commands/contracts.js";
 export { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
-export { readAiGatewayApiKeyFromEnv } from "./config/ai-gateway-api-key.js";
+export {
+  configuredModelGateways,
+  gatewayApiKeyEnvName,
+  hasAnyModelGatewayApiKey,
+  readAiGatewayApiKeyFromEnv,
+  readGatewayApiKeyFromEnv,
+  readOpenRouterApiKeyFromEnv,
+} from "./config/ai-gateway-api-key.js";
+export { isCapableAgentModel } from "./config/capable-agent-model.js";
 export {
   type ChatModelResolutionPurpose,
   DEFAULT_AI_CHAT_MODEL_ID,
@@ -114,6 +171,13 @@ export {
   resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
 export {
+  installGatewayAwareDefaultProvider,
+  openRouterLanguageModel,
+  resetGatewayAwareDefaultProviderForTests,
+  UnconfiguredModelGatewayError,
+} from "./config/gateway-provider.js";
+export { withLlmTrace } from "./config/llm-trace.js";
+export {
   AI_MODEL_PURPOSE_SPECS,
   AI_MODEL_PURPOSES,
   type AiModelPurpose,
@@ -124,6 +188,17 @@ export {
   resolvePurposeModel,
   resolvePurposeModelId,
 } from "./config/model-purposes.js";
+export {
+  DEFAULT_MODEL_GATEWAY_ID,
+  formatModelRef,
+  gatewayOfRef,
+  isNonDefaultGatewayRef,
+  MODEL_GATEWAY_IDS,
+  type ModelRef,
+  modelIdOfRef,
+  OPENROUTER_GATEWAY_ID,
+  parseModelRef,
+} from "./config/model-ref.js";
 export {
   AI_EFFORT_LEVELS,
   AI_PLATFORM_ROLES,
@@ -141,19 +216,36 @@ export {
   seedBindings,
 } from "./config/model-roles.js";
 export type {
-  ActionDefinition,
-  AgentDefinition,
   AgentSessionStatus,
   AiRegistration,
   InstructionDocumentDefinition,
   ModelRoleDefinition,
   RoutineDefinition,
-  RoutineTarget,
-  RoutineTargetKind,
-  RoutineTaskTemplate,
   SkillDefinition,
+  WorkflowDefinition,
+  WorkflowGraphDefinition,
 } from "./contracts.js";
 export type { TriggerDefinition } from "./copilot-trigger-contracts.js";
+export {
+  type ColumnEdit,
+  coerceColumnValue,
+  coerceRowValues,
+  columnEdit,
+  DATA_TABLE_ARTIFACT_TYPE,
+  DATA_TABLE_MIME_TYPE,
+  type DataTableHandle,
+  dataTableHandleSchema,
+  formatTableCell,
+  mergeRowValues,
+  parseTableColumns,
+  type TableColumn,
+  TableColumnValueError,
+  type TableColumnWire,
+  type TextStyle,
+  tableColumnsSchema,
+  tableColumnsWireSchema,
+  textColumnStyle,
+} from "./data-tables/index.js";
 export {
   type AgentConfigOverride,
   type DefineModuleAiOptions,
@@ -166,6 +258,7 @@ export {
   type AgentLimitsConfig,
   type AgentModelPurpose,
   type AgentResolveContext,
+  type AgentToolGatingConfig,
   type AgentWorkspaceConfig,
   type AgentWorkspaceMount,
   type AiCapabilitySource,
@@ -175,14 +268,19 @@ export {
   agentConfigSchema,
   agentGuardrailsConfigSchema,
   agentLimitsConfigSchema,
+  agentToolGatingConfigSchema,
   agentWorkspaceConfigSchema,
+  agentWorkspaceSandboxSchema,
+  applyWorkerSandboxDefault,
+  COMPUTER_NETWORK_TIERS,
+  type ComputerNetworkTier,
   type DynamicAiModuleCapability,
   type DynamicAiModuleCapabilityLoader,
   type MastraToolDefinition,
-  type ModuleActionCapability,
+  parseComputerNetworkTier,
   type ToolConfig,
-  toModuleActionCapability,
   toolConfigSchema,
+  WORKER_SANDBOX_DEFAULT,
 } from "./dynamic-contracts.js";
 export type { EmailContactExtraction } from "./extract/email-contact.js";
 export { extractEmailContactInfo } from "./extract/email-contact.js";
@@ -229,6 +327,8 @@ export {
   ENGENTY_COPILOT_AGENTS_KEY,
   ENGENTY_COPILOT_SKILLS_KEY,
   ENGENTY_COPILOT_SOUL_KEY,
+  listRegisteredInstructionDocuments,
+  resolveRegisteredInstructionDocumentByKey,
 } from "./instructions/registry.js";
 export {
   type ResolvedCopilotPromptLayers,
@@ -295,15 +395,14 @@ export type { ModuleDynamicCapabilitySeed } from "./registry.js";
 export {
   listActiveAiRegistrations,
   listModuleDynamicCapabilitySeeds,
-  listRegisteredActions,
   listRegisteredChatCommands,
   listRegisteredModelRoles,
   listRegisteredRoutines,
+  listRegisteredWorkflows,
   registerAiRegistration,
-  resolveActionDefinitionById,
-  resolveAgentDefinitionById,
   resolveRoutineDefinitionById,
   resolveSkillDefinitionById,
+  resolveWorkflowDefinitionById,
   unregisterAiRegistration,
   unregisterAiRegistrationsByOwner,
 } from "./registry.js";
@@ -324,9 +423,15 @@ export {
   resolveModuleSkillsDir,
 } from "./skills/loader.js";
 export {
+  AGENT_APPROVAL_MODES,
+  type AgentApprovalMode,
+  type AgentApprovalTenantPrefs,
   type AiCapsConfig,
+  type BrowserParseProvider,
   type DocConverterTenantPrefs,
+  parseAgentApprovalMode,
   parseTenantAiSettings,
+  resolveBrowserParse,
   TENANT_AI_CONFIG_KEY,
   type TenantAiSettings,
 } from "./tenant-ai-settings.js";
@@ -414,7 +519,10 @@ export {
   setStateInputSchema,
   setStateToolDefinition,
 } from "./tools/set-state-tool.js";
-export type { ToolExecutionContext } from "./tools/types.js";
+export {
+  forwardSpaceOnGatewayCall,
+  type ToolExecutionContext,
+} from "./tools/types.js";
 export {
   buildMastraWebSearchTool,
   runWebSearch,
@@ -429,6 +537,7 @@ export {
 export {
   type AutoEffortConfidence,
   type AutoEffortGuess,
+  agentDefaultEffort,
   type GuessEffortFromPromptInput,
   guessEffortFromPrompt,
 } from "./usage/auto-effort-guess.js";
@@ -494,3 +603,8 @@ export {
   type PeriodTotalsBumpInput,
   type UsageEventInsert,
 } from "./usage/store.js";
+export {
+  loadModuleWorkflowsFromDirectory,
+  toWorkflowDefinition,
+  workflowBrief,
+} from "./workflows/loader.js";

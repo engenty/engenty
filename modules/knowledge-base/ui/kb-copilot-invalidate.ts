@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import type { CopilotAssistantTurnFinishQueryClient } from "@engenty/ui-plugin-sdk";
 import { kbArticleKeys } from "./queries.js";
 
@@ -11,13 +12,17 @@ const ARTICLE_UUID =
 export function extractKbArticleIdFromPathname(
   pathname: string
 ): string | null {
-  const scoped = pathname.match(
+  // Canonical, not raw: in a space the article is at
+  // `/s/<key>/kb/<id>`, and missing it means the open article
+  // keeps showing pre-edit content after the copilot changes it.
+  const canonical = canonicalModulePathname(pathname);
+  const scoped = canonical.match(
     /^\/mdl\/knowledge-base\/[^/]+\/([^/]+)(?:\/edit)?\/?$/i
   );
   if (scoped?.[1] && ARTICLE_UUID.test(scoped[1])) {
     return scoped[1];
   }
-  const legacy = pathname.match(
+  const legacy = canonical.match(
     /^\/mdl\/knowledge-base\/([^/]+)(?:\/edit)?\/?$/i
   );
   if (legacy?.[1] && ARTICLE_UUID.test(legacy[1])) {

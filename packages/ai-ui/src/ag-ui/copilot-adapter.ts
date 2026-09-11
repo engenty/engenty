@@ -60,6 +60,49 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+/** A person's name, or the agent's when an agent wrote the row. */
+function readAuthorName(metadata: Record<string, unknown>): string | null {
+  const name = metadata.author_name ?? metadata.author_agent_name;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
+/**
+ * A desk-room row that points at an agent pair's thread (apps/ai writes it
+ * under `engenty_agent_message` — see agent-pair-thread.ts).
+ */
+function readAgentMessageMarker(
+  metadata: Record<string, unknown>
+): { agentId: string; threadId: string } | null {
+  const marker = metadata.engenty_agent_message;
+  if (!isRecord(marker)) {
+    return null;
+  }
+  // The link opens the desk that lists the pair thread, not the sender's.
+  const agentId = marker.thread_agent_id ?? marker.agent_id;
+  const threadId = marker.thread_id;
+  return typeof agentId === "string" && typeof threadId === "string"
+    ? { agentId, threadId }
+    : null;
+}
+
+/**
+ * A row saying an App version is built and waiting for approval (apps/ai
+ * writes it under `engenty_app_release` — see app-release-marker.ts). The
+ * build usually happens in a colleague's own run, so this conversation never
+ * saw the tool call; the marker is what puts the App — and its Approve
+ * button — back into it.
+ */
+function readAppReleaseMarker(
+  metadata: Record<string, unknown>
+): { artifactId: string } | null {
+  const marker = metadata.engenty_app_release;
+  if (!isRecord(marker)) {
+    return null;
+  }
+  const artifactId = marker.artifact_id;
+  return typeof artifactId === "string" && artifactId ? { artifactId } : null;
+}
+
 function hasToolInputFields(value: unknown): boolean {
   return isRecord(value) && Object.keys(value).length > 0;
 }
@@ -653,10 +696,23 @@ export function agUiMessagesToCopilotMessages(
       continue;
     }
     flushOrphanToolGroup();
+    const authorName = isRecord(message.metadata)
+      ? readAuthorName(message.metadata)
+      : null;
+    const agentMessage =
+      message.role === "user" && isRecord(message.metadata)
+        ? readAgentMessageMarker(message.metadata)
+        : null;
+    const appRelease = isRecord(message.metadata)
+      ? readAppReleaseMarker(message.metadata)
+      : null;
     copilotMessages.push({
       id: message.id,
       role: message.role,
       parts: partsFromAgUiMessage(message, toolResults),
+      ...(authorName ? { authorName } : {}),
+      ...(agentMessage ? { agentMessage } : {}),
+      ...(appRelease ? { appRelease } : {}),
     });
   }
   flushOrphanToolGroup();

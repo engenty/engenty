@@ -9,25 +9,72 @@ export type ExternalSourceKind = "openapi" | "mcp";
 export type ActionClassification = "read" | "write" | "destructive";
 export type ImportedConnectorStatus = "enabled" | "disabled";
 
+/** Surface summary carried on a search hit. */
+export interface RegistrySearchSurface {
+  auth?: {
+    header?: string | null;
+    kind?: string | null;
+    note?: string | null;
+  } | null;
+  icon?: string | null;
+  kind: string;
+  slug: string;
+  url?: string | null;
+}
+
 export interface RegistrySearchResult {
   description: string;
   domain: string;
   kinds: string[];
   name: string;
+  surfaces: RegistrySearchSurface[];
+  /** The registry's catalog page — never a spec or MCP endpoint. */
   url: string;
 }
 
+export interface RegistryRequiredHeader {
+  description: string | null;
+  name: string;
+  /** "static" is the only kind an import can store; anything else blocks. */
+  source_kind: string;
+  value: string | null;
+}
+
+/**
+ * A registry surface as the console shows it. `slug` is the stable identity
+ * the server derives the suggested id/prefix from and persists on the import.
+ */
+export interface RegistrySurfaceSummary {
+  auth_status: string;
+  connect_url: string | null;
+  docs: string | null;
+  kind: string;
+  name: string | null;
+  required_headers: RegistryRequiredHeader[];
+  slug: string;
+  spec: string | null;
+  spec_alternates: string[];
+  spec_override_count: number;
+  suggested_id: string;
+  suggested_tool_prefix: string;
+  transports: string[];
+  variables: Array<{ name: string; resolve_from: string | null }>;
+}
+
 export interface DiscoveredSource {
-  /** MCP registry facts may carry an auth hint (e.g. "oauth"); openapi entries never do. */
-  auth_hint?: string | null;
+  /** Non-null when the surface is listed but cannot be imported. */
+  blocked_reason: string | null;
   source_kind: ExternalSourceKind;
   source_url: string;
+  surface: RegistrySurfaceSummary;
+  transport: "streamable-http" | "sse" | null;
 }
 
 export interface DiscoverDomainResult {
   domain: string;
   oauth_found: boolean;
   sources: DiscoveredSource[];
+  summary: string | null;
 }
 
 export interface PreviewAction {
@@ -41,13 +88,19 @@ export interface PreviewAction {
 
 export interface SourcePreview {
   actions: PreviewAction[];
+  /** Registry spec-override patches applied before normalization. */
+  applied_overrides: number;
   base_url: string | null;
   discover_found: boolean;
   /** Actions dropped by the per-connector cap — surfaced, never silent. */
   dropped_count: number;
+  /** Reasons the import would be refused; empty means importable. */
+  import_blockers: string[];
   /** Raw `components.securitySchemes` (openapi sources). */
   security_schemes: Record<string, unknown> | null;
   skipped: Array<{ id: string; reason: string }>;
+  /** Registry surface the source resolved to; null for a manual URL. */
+  surface: RegistrySurfaceSummary | null;
   title: string | null;
 }
 
@@ -71,8 +124,15 @@ export interface ImportedConnector {
   id: string;
   imported_at: string;
   imported_by: string;
+  mcp_transport: "streamable-http" | "sse" | null;
   name: string;
   refreshed_at: string | null;
+  registry_surface_slug: string | null;
+  required_headers: Array<{
+    description: string | null;
+    name: string;
+    value: string;
+  }>;
   source_kind: ExternalSourceKind;
   source_url: string;
   spec_hash: string;

@@ -1,5 +1,5 @@
 /**
- * KB Sidebar — KB chooser + search + nested article tree + scoped nav links.
+ * KB Sidebar — search + nested article tree + scoped nav links.
  *
  * Rendered in the app shell secondary column via
  * `useKbModuleSecondaryShellNav`.
@@ -40,10 +40,10 @@ import {
 import { CategoryForestRows } from "./category-tree/category-tree-rows.js";
 import { KbFavoritesNavSection } from "./favorites/kb-favorites-nav-section.js";
 import { KbAddInTreeDialog } from "./kb-add-in-tree-dialog.js";
-import { KbSidebarChatSection } from "./kb-sidebar-chat-section.js";
 import { KbSidebarChrome } from "./kb-sidebar-chrome.js";
 import { KbSidebarFaqsSection } from "./kb-sidebar-faqs-section.js";
 import { KbSidebarSearch } from "./kb-sidebar-search.js";
+import { KbSidebarSourcesSection } from "./kb-sidebar-sources-section.js";
 import type { KbSidebarModel } from "./use-kb-sidebar-model.js";
 
 export interface KbSidebarViewProps {
@@ -75,10 +75,9 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
     folderHasContent,
     hasSearch,
     isArticlesTab,
-    isChatTab,
     isFavoritesTab,
+    isSourcesTab,
     kbId,
-    kbSlug,
     manualReorderDrag,
     navigate,
     onAddCategory,
@@ -90,7 +89,6 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
     onCategorySettings,
     onDeleteCategory,
     onEditCategory,
-    onPickArticle,
     onPickCategory,
     onRequestDeleteArticle,
     prefs,
@@ -114,10 +112,9 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <KbSidebarSearch
-        kbSlug={kbSlug}
-        onAddArticle={() => navigate(kbNewArticleEditPath(kbSlug))}
+        onAddArticle={() => navigate(kbNewArticleEditPath())}
         onAddCategory={onAddCategory}
-        onAddFaq={() => navigate(kbNewFaqEditPath(kbSlug))}
+        onAddFaq={() => navigate(kbNewFaqEditPath())}
         onCollapseAll={() => {
           setArticleExpanded(new Set());
           setCategoryTreeExpansion(collapseAllCategoryBranches());
@@ -133,9 +130,7 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
         search={search}
         setPrefs={setPrefs}
         showArticleTreeMenu={isArticlesTab}
-        sidebarChrome={
-          <KbSidebarChrome kbSlug={kbSlug} onTabChange={setTab} tab={tab} />
-        }
+        sidebarChrome={<KbSidebarChrome onTabChange={setTab} tab={tab} />}
       />
 
       <SidebarContent className="min-h-0 flex-1 gap-0.5 overflow-x-hidden px-0 py-0">
@@ -170,10 +165,8 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                             articlePropertyDefinitions={
                               articlePropertyDefinitions
                             }
-                            kbSlug={kbSlug}
                             key={article.id}
                             onAddSubPage={onAddSubPage}
-                            onPickArticle={onPickArticle}
                             onRequestDeleteArticle={onRequestDeleteArticle}
                           />
                         );
@@ -182,10 +175,10 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                         <li key={hit.id}>
                           <a
                             className="flex min-w-0 flex-col rounded-md px-2 py-1.5 text-sm hover:bg-accent"
-                            href={kbArticlePath(kbSlug, hit.id)}
+                            href={kbArticlePath(hit.id)}
                             onClick={(e) => {
                               e.preventDefault();
-                              navigate(kbArticlePath(kbSlug, hit.id));
+                              navigate(kbArticlePath(hit.id));
                             }}
                           >
                             <span className="truncate font-medium">
@@ -245,10 +238,8 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                         article={article}
                         articleManualReorderDrag={manualReorderDrag}
                         articlePropertyDefinitions={articlePropertyDefinitions}
-                        kbSlug={kbSlug}
                         key={article.id}
                         onAddSubPage={onAddSubPage}
-                        onPickArticle={onPickArticle}
                         onRequestDeleteArticle={onRequestDeleteArticle}
                       />
                     ))}
@@ -263,7 +254,6 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                     categoryTreeExpansion={categoryTreeExpansion}
                     depth={0}
                     forest={filteredCategoryForest}
-                    kbSlug={kbSlug}
                     onAddInCategory={onAddInCategory}
                     onAddSubPage={onAddSubPage}
                     onApplyCategoryCommentsMode={onApplyCategoryCommentsMode}
@@ -271,7 +261,6 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                     onCategorySettings={onCategorySettings}
                     onDeleteCategory={onDeleteCategory}
                     onEditCategory={onEditCategory}
-                    onPickArticle={onPickArticle}
                     onPickCategory={onPickCategory}
                     onRequestDeleteArticle={onRequestDeleteArticle}
                     query={query}
@@ -297,7 +286,7 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
               </SidebarGroupContent>
             </SidebarGroup>
           </div>
-        ) : isChatTab ? (
+        ) : isSourcesTab ? (
           <div
             className={cn(
               "flex min-h-0 flex-1 flex-col overflow-y-auto pt-3 pb-2",
@@ -305,7 +294,7 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
               sidebarColumnContentInsetEndClassName
             )}
           >
-            <KbSidebarChatSection kbSlug={kbSlug} />
+            <KbSidebarSourcesSection kbId={kbId} />
           </div>
         ) : (
           <div
@@ -315,19 +304,19 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
               sidebarColumnContentInsetEndClassName
             )}
           >
-            <KbSidebarFaqsSection embedded kbId={kbId} kbSlug={kbSlug} />
+            <KbSidebarFaqsSection embedded kbId={kbId} />
           </div>
         )}
       </SidebarContent>
 
       <div
         className={cn(
-          "shrink-0 border-border/50 border-t pt-2 pb-2",
+          "shrink-0 border-border-soft border-t pt-2 pb-2",
           sidebarColumnContentInsetClassName,
           sidebarColumnContentInsetEndClassName
         )}
       >
-        <KbModuleScopedNavLinks kbSlug={kbSlug} secondaryOnly />
+        <KbModuleScopedNavLinks secondaryOnly />
       </div>
 
       <AlertDialog
@@ -367,8 +356,8 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
                 deleteArticleMutation.mutate(id, {
                   onSuccess: () => {
                     toast.success(t("sidebar.tree_article_deleted"));
-                    if (id === fallbackActiveId && kbSlug) {
-                      navigate(kbHubPath(kbSlug));
+                    if (id === fallbackActiveId) {
+                      navigate(kbHubPath());
                     }
                     setDeleteTarget(null);
                   },
@@ -388,7 +377,6 @@ export function KbSidebarView({ state }: KbSidebarViewProps) {
         defaultCategoryIdForRootPage={defaultCategoryId ?? undefined}
         defaultMode={addDialogState?.defaultMode ?? "page"}
         kbId={kbId}
-        kbSlug={kbSlug}
         lockMode={addDialogState?.lockMode ?? false}
         onCategoryCreated={(created) => {
           setCategoryTreeExpansion((prev) =>

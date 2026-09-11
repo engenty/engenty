@@ -123,7 +123,7 @@ function TasksKanbanCard({
     <>
       <div
         className={cn(
-          "ui-canvas-raised group relative block min-w-0 cursor-pointer rounded-md bg-card p-4 transition-shadow hover:shadow-[var(--e-3)]",
+          "ui-card-raised group relative block min-w-0 cursor-pointer p-4",
           showActions && "pr-12"
         )}
         onClick={handleCardClick}

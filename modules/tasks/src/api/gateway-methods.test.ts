@@ -17,6 +17,7 @@ function makeRegistryResponse(ids: string[]): Response {
 const AI_BASE_URL = "http://ai.test";
 const AI_JWT = "service-jwt";
 const VALID_KEY = "knowledge-base.manager";
+const SPACE_ID = "00000000-0000-4000-8000-000000000010";
 
 describe("registerTasksGatewayMethods — agent key validation", () => {
   let repo: ReturnType<typeof makeMockTasksRepo>;
@@ -64,6 +65,27 @@ describe("registerTasksGatewayMethods — agent key validation", () => {
       { auth: defaultAuth }
     );
     expect((result as { title: string }).title).toBe("Test task");
+  });
+
+  it("tasks_list filters by primary agent type key", async () => {
+    await repo.createTask({
+      title: "Research",
+      primary_assignee_agent_type_key: VALID_KEY,
+      primary_assignee_kind: "agent",
+    });
+    await repo.createTask({
+      title: "Other",
+      primary_assignee_agent_type_key: "other.agent",
+      primary_assignee_kind: "agent",
+    });
+    registerTasksGatewayMethods(api, repo);
+
+    const result = (await getHandler("tasks_list")(
+      { primary_assignee_agent_type_key: VALID_KEY },
+      { auth: defaultAuth }
+    )) as { data: Array<{ title: string }> };
+
+    expect(result.data.map((task) => task.title)).toEqual(["Research"]);
   });
 
   it("tasks_create with unknown agent key throws unknown_agent_type_key", async () => {
@@ -175,6 +197,146 @@ describe("registerTasksGatewayMethods — agent key validation", () => {
       )
     ).rejects.toThrow("unknown_agent_type_key");
   });
+
+  it("allows a mounted Space assignment", async () => {
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    const resolveSpaceAgentMount = vi.fn(async () => "mounted" as const);
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount,
+    });
+
+    await expect(
+      getHandler("tasks_create")(
+        {
+          primary_assignee_agent_type_key: VALID_KEY,
+          primary_assignee_kind: "agent",
+          space_id: SPACE_ID,
+          title: "Mounted",
+        },
+        { auth: defaultAuth }
+      )
+    ).resolves.toMatchObject({ title: "Mounted" });
+    expect(resolveSpaceAgentMount).toHaveBeenCalledWith({
+      agentTypeKey: VALID_KEY,
+      spaceId: SPACE_ID,
+      tenantId: defaultAuth.tenantId,
+    });
+  });
+
+  it("rejects an unmounted Space assignment without exposing ids", async () => {
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount: async () => "agent_not_mounted",
+    });
+
+    const error = await getHandler("tasks_create")(
+      {
+        primary_assignee_agent_type_key: VALID_KEY,
+        primary_assignee_kind: "agent",
+        space_id: SPACE_ID,
+        title: "Unmounted",
+      },
+      { auth: defaultAuth }
+    ).catch((caught: unknown) => caught);
+    expect(error).toEqual(new Error("agent_not_mounted"));
+  });
+
+  it("keeps intentional tenant-global assignment on registry validation", async () => {
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    const resolveSpaceAgentMount = vi.fn(async () => "mounted" as const);
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount,
+    });
+
+    await getHandler("tasks_create")(
+      {
+        primary_assignee_agent_type_key: VALID_KEY,
+        primary_assignee_kind: "agent",
+        title: "Global",
+      },
+      { auth: defaultAuth }
+    );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(resolveSpaceAgentMount).not.toHaveBeenCalled();
+  });
+
+  it("fails a claimed but unresolved Space closed", async () => {
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount: async () => "space_context_unresolved",
+    });
+
+    await expect(
+      getHandler("tasks_create")(
+        {
+          primary_assignee_agent_type_key: VALID_KEY,
+          primary_assignee_kind: "agent",
+          space_id: SPACE_ID,
+          title: "Unresolved",
+        },
+        { auth: defaultAuth }
+      )
+    ).rejects.toThrow("space_context_unresolved");
+  });
+
+  it("rejects an update that assigns an unmounted agent", async () => {
+    const task = await repo.createTask({
+      primary_assignee_kind: "none",
+      space_id: SPACE_ID,
+      title: "Existing",
+    });
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount: async () => "agent_not_mounted",
+    });
+
+    await expect(
+      getHandler("tasks_update")(
+        {
+          id: task.id,
+          primary_assignee_agent_type_key: VALID_KEY,
+          primary_assignee_kind: "agent",
+        },
+        { auth: defaultAuth }
+      )
+    ).rejects.toThrow("agent_not_mounted");
+  });
+
+  it("rejects checkout by an unmounted agent", async () => {
+    const task = await repo.createTask({
+      primary_assignee_agent_type_key: VALID_KEY,
+      primary_assignee_kind: "agent",
+      space_id: SPACE_ID,
+      title: "Checkout",
+    });
+    mockFetch.mockResolvedValueOnce(makeRegistryResponse([VALID_KEY]));
+    registerTasksGatewayMethods(api, repo, {
+      aiBaseUrl: AI_BASE_URL,
+      aiServiceJwt: AI_JWT,
+      resolveSpaceAgentMount: async () => "agent_not_mounted",
+    });
+
+    await expect(
+      getHandler("tasks_checkout")(
+        {
+          agent_session_run_id: "00000000-0000-4000-8000-000000000030",
+          agent_type_key: VALID_KEY,
+          id: task.id,
+        },
+        { auth: defaultAuth }
+      )
+    ).rejects.toThrow("agent_not_mounted");
+  });
 });
 
 describe("approval grant store ops (D2 2d)", () => {
@@ -246,90 +408,5 @@ describe("approval grant store ops (D2 2d)", () => {
       { auth: defaultAuth }
     );
     expect(core.calls.revoked).toBe(task.id);
-  });
-});
-
-/**
- * Capability elevation granted "for this goal" must not outlive the goal. The
- * reap existed as a DAL function with zero callers until 2026-08-04, so grants
- * lingered until their TTL — these pin that it actually fires now (TRK-03).
- */
-describe("registerTasksGatewayMethods — goal grant reaping", () => {
-  function setup() {
-    const reaped: string[] = [];
-    const repo = makeMockTasksRepo();
-    const mock = makeMockApi();
-    registerTasksGatewayMethods(mock.api, repo, {
-      reapGoalGrants: (_auth, goalId) => {
-        reaped.push(goalId);
-        return Promise.resolve();
-      },
-    });
-    const run = (operationId: string, input: unknown) => {
-      const op = mock.serverOperations.find(
-        (o) => o.operationId === operationId
-      );
-      if (!op) {
-        throw new Error(`operation ${operationId} not found`);
-      }
-      return (op.handler as (i: unknown, c: unknown) => Promise<unknown>)(
-        input,
-        { auth: defaultAuth }
-      );
-    };
-    return { reaped, repo, run };
-  }
-
-  it.each([
-    "achieved",
-    "cancelled",
-  ] as const)("reaps when a goal becomes %s", async (status) => {
-    const { reaped, repo, run } = setup();
-    const goal = await repo.createGoal({ title: "G" });
-
-    await run("goals_update", { id: goal.id, status });
-
-    expect(reaped).toEqual([goal.id]);
-  });
-
-  it.each([
-    "planned",
-    "active",
-  ] as const)("does not reap while a goal is still %s", async (status) => {
-    const { reaped, repo, run } = setup();
-    const goal = await repo.createGoal({ title: "G" });
-
-    await run("goals_update", { id: goal.id, status });
-
-    expect(reaped).toEqual([]);
-  });
-
-  it("reaps when a goal is deleted", async () => {
-    const { reaped, repo, run } = setup();
-    const goal = await repo.createGoal({ title: "G" });
-
-    await run("goals_delete", { id: goal.id });
-
-    expect(reaped).toEqual([goal.id]);
-  });
-
-  it("keeps the goal update when the reap fails", async () => {
-    const repo = makeMockTasksRepo();
-    const mock = makeMockApi();
-    registerTasksGatewayMethods(mock.api, repo, {
-      reapGoalGrants: () => Promise.reject(new Error("core unreachable")),
-    });
-    const goal = await repo.createGoal({ title: "G" });
-    const op = mock.serverOperations.find(
-      (o) => o.operationId === "goals_update"
-    );
-
-    const updated = (await (
-      op!.handler as (i: unknown, c: unknown) => Promise<unknown>
-    )({ id: goal.id, status: "achieved" }, { auth: defaultAuth })) as {
-      status: string;
-    };
-
-    expect(updated.status).toBe("achieved");
   });
 });

@@ -36,6 +36,7 @@ export interface ThreadListLabels {
   groupDate: string;
   groupNone: string;
   groupNoneShort: string;
+  groupSpace: string;
   groupStatus: string;
   groupType: string;
   listLoadFailedTitle: string;
@@ -58,6 +59,10 @@ export interface ThreadListLabels {
   sortDescending: string;
   sortTitle: string;
   sortUpdated: string;
+  spaceNone: string;
+  spaceScope: string;
+  spaceScopeAll: string;
+  spaceScopeCurrent: string;
   status: string;
   statusCompleted: string;
   statusDraft: string;
@@ -93,6 +98,11 @@ export interface ThreadListState {
   searchQuery: string;
   selectedThreadId: string | null;
   serviceBaseUrlPresent: boolean;
+  /**
+   * Inside a space the list cannot widen to other spaces — the column is
+   * already that space's Copilot, one level down.
+   */
+  spaceScopeLocked: boolean;
   statusOptions: { label: string; value: AgentThreadStatus }[];
   threadAgentLabel: (row: AgentThreadDto) => string;
   threadLabel: (row: AgentThreadDto) => string;

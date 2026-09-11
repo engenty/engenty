@@ -1,6 +1,4 @@
 import type {
-  Goal,
-  GoalStatus,
   Task,
   TaskPriority,
   TaskStatusDefinition,
@@ -10,18 +8,13 @@ import {
   resolveTaskAssigneeLabel,
 } from "./format-assignee.js";
 
-export type TasksSidebarTab = "tasks" | "goals" | "routines";
-
 export type TasksSidebarGroupBy =
   | "none"
   | "status"
   | "priority"
   | "assignee"
-  | "goal"
   | "project"
   | "due_date";
-
-export type GoalsSidebarGroupBy = "none" | "status";
 
 export type TasksSidebarSortBy =
   | "updated_at"
@@ -29,18 +22,6 @@ export type TasksSidebarSortBy =
   | "title"
   | "status"
   | "identifier";
-
-export type GoalsSidebarSortBy =
-  | "updated_at"
-  | "created_at"
-  | "title"
-  | "status";
-
-export type RoutinesSidebarGroupBy = "none" | "source" | "enabled";
-
-export type RoutinesSidebarSortBy = "name" | "last_run_at" | "enabled";
-
-export type RoutinesSidebarEnabledFilter = "all" | "enabled" | "disabled";
 
 export type TasksSidebarAssigneeFilter =
   | "all"
@@ -56,24 +37,7 @@ export interface TasksSidebarTasksPrefs {
   status: string | "all";
 }
 
-export interface TasksSidebarGoalsPrefs {
-  groupBy: GoalsSidebarGroupBy;
-  sortBy: GoalsSidebarSortBy;
-  sortOrder: "asc" | "desc";
-  status: GoalStatus | "all";
-}
-
-export interface TasksSidebarRoutinesPrefs {
-  enabled: RoutinesSidebarEnabledFilter;
-  groupBy: RoutinesSidebarGroupBy;
-  sortBy: RoutinesSidebarSortBy;
-  sortOrder: "asc" | "desc";
-}
-
 export interface TasksSidebarPrefs {
-  goals: TasksSidebarGoalsPrefs;
-  routines: TasksSidebarRoutinesPrefs;
-  tab: TasksSidebarTab;
   tasks: TasksSidebarTasksPrefs;
 }
 
@@ -92,34 +56,18 @@ export interface TasksSidebarOrganizationLabels {
   dueThisWeek: string;
   dueToday: string;
   dueTomorrow: string;
-  goalGeneral: string;
-  goalMissing: string;
-  goalStatus: Record<GoalStatus, string>;
   priority: Record<TaskPriority, string>;
   projectNone: string;
   status: (statusId: string) => string;
 }
 
 export const DEFAULT_TASKS_SIDEBAR_PREFS: TasksSidebarPrefs = {
-  tab: "tasks",
   tasks: {
     assigneeFilter: "all",
     groupBy: "status",
     sortBy: "updated_at",
     sortOrder: "desc",
     status: "all",
-  },
-  goals: {
-    groupBy: "none",
-    sortBy: "updated_at",
-    sortOrder: "desc",
-    status: "all",
-  },
-  routines: {
-    enabled: "all",
-    groupBy: "source",
-    sortBy: "name",
-    sortOrder: "asc",
   },
 };
 
@@ -134,7 +82,6 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
 
 export function organizeSidebarTasks(params: {
   assigneeProfiles?: Map<string, { full_name: string; id: string }>;
-  goalTitleById: ReadonlyMap<string, string>;
   labels: TasksSidebarOrganizationLabels;
   now?: Date;
   prefs: TasksSidebarTasksPrefs;
@@ -199,157 +146,6 @@ export function organizeSidebarTasks(params: {
   return list.toSorted((a, b) => compareText(a.label, b.label));
 }
 
-export function organizeSidebarGoals(params: {
-  goalTitleById: ReadonlyMap<string, string>;
-  goals: readonly Goal[];
-  labels: TasksSidebarOrganizationLabels;
-  prefs: TasksSidebarGoalsPrefs;
-}): TasksSidebarListGroup<Goal>[] {
-  const filtered = params.goals
-    .filter((goal) =>
-      params.prefs.status === "all" ? true : goal.status === params.prefs.status
-    )
-    .toSorted((a, b) => compareGoals(a, b, params.prefs));
-
-  if (params.prefs.groupBy === "none") {
-    return [
-      {
-        count: filtered.length,
-        id: "all",
-        items: filtered,
-        label: "",
-      },
-    ];
-  }
-
-  const groups = new Map<string, TasksSidebarListGroup<Goal>>();
-  for (const goal of filtered) {
-    const group = resolveGoalGroup(goal, params);
-    const existing = groups.get(group.id);
-    if (existing) {
-      existing.items.push(goal);
-      existing.count += 1;
-    } else {
-      groups.set(group.id, {
-        ...group,
-        count: 1,
-        items: [goal],
-      });
-    }
-  }
-
-  return [...groups.values()].toSorted((a, b) => compareText(a.label, b.label));
-}
-
-/** Minimal routine shape for sidebar grouping — matches RoutineDto fields we use. */
-export interface SidebarRoutineItem {
-  enabled: boolean;
-  id: string;
-  last_run_at: string | null;
-  name: string;
-  source: "module" | "custom";
-}
-
-export interface RoutinesSidebarOrganizationLabels {
-  custom: string;
-  disabled: string;
-  enabled: string;
-  system: string;
-}
-
-export function organizeSidebarRoutines(params: {
-  labels: RoutinesSidebarOrganizationLabels;
-  prefs: TasksSidebarRoutinesPrefs;
-  routines: readonly SidebarRoutineItem[];
-}): TasksSidebarListGroup<SidebarRoutineItem>[] {
-  const filtered = params.routines
-    .filter((routine) => {
-      if (params.prefs.enabled === "enabled") {
-        return routine.enabled;
-      }
-      if (params.prefs.enabled === "disabled") {
-        return !routine.enabled;
-      }
-      return true;
-    })
-    .toSorted((a, b) => compareRoutines(a, b, params.prefs));
-
-  if (params.prefs.groupBy === "none") {
-    return [
-      {
-        count: filtered.length,
-        id: "all",
-        items: filtered,
-        label: "",
-      },
-    ];
-  }
-
-  const groups = new Map<string, TasksSidebarListGroup<SidebarRoutineItem>>();
-  for (const routine of filtered) {
-    const group =
-      params.prefs.groupBy === "enabled"
-        ? routine.enabled
-          ? {
-              id: "enabled",
-              label: params.labels.enabled,
-            }
-          : {
-              id: "disabled",
-              label: params.labels.disabled,
-            }
-        : routine.source === "custom"
-          ? {
-              id: "source:custom",
-              label: params.labels.custom,
-            }
-          : {
-              id: "source:system",
-              label: params.labels.system,
-            };
-
-    const existing = groups.get(group.id);
-    if (existing) {
-      existing.items.push(routine);
-      existing.count += 1;
-    } else {
-      groups.set(group.id, {
-        ...group,
-        count: 1,
-        items: [routine],
-      });
-    }
-  }
-
-  const order =
-    params.prefs.groupBy === "enabled"
-      ? ["enabled", "disabled"]
-      : ["source:custom", "source:system"];
-
-  return order
-    .map((id) => groups.get(id))
-    .filter((group): group is TasksSidebarListGroup<SidebarRoutineItem> =>
-      Boolean(group)
-    );
-}
-
-function compareRoutines(
-  a: SidebarRoutineItem,
-  b: SidebarRoutineItem,
-  prefs: TasksSidebarRoutinesPrefs
-): number {
-  const dir = prefs.sortOrder === "asc" ? 1 : -1;
-  if (prefs.sortBy === "enabled") {
-    return (Number(a.enabled) - Number(b.enabled)) * dir;
-  }
-  if (prefs.sortBy === "last_run_at") {
-    const aTime = a.last_run_at ? Date.parse(a.last_run_at) : 0;
-    const bTime = b.last_run_at ? Date.parse(b.last_run_at) : 0;
-    return (aTime - bTime) * dir;
-  }
-  return compareText(a.name, b.name) * dir;
-}
-
 function matchesTaskFilters(
   task: Task,
   prefs: TasksSidebarTasksPrefs
@@ -407,24 +203,10 @@ function compareTasks(
   return result === 0 ? compareText(a.id, b.id) : result * direction;
 }
 
-function compareGoals(a: Goal, b: Goal, prefs: TasksSidebarGoalsPrefs): number {
-  const direction = prefs.sortOrder === "asc" ? 1 : -1;
-  let result = 0;
-  if (prefs.sortBy === "title") {
-    result = compareText(a.title, b.title);
-  } else if (prefs.sortBy === "status") {
-    result = compareText(a.status, b.status);
-  } else {
-    result = compareText(a[prefs.sortBy], b[prefs.sortBy]);
-  }
-  return result === 0 ? compareText(a.id, b.id) : result * direction;
-}
-
 function resolveTaskGroup(
   task: Task,
   params: {
     assigneeProfiles?: Map<string, { full_name: string; id: string }>;
-    goalTitleById: ReadonlyMap<string, string>;
     labels: TasksSidebarOrganizationLabels;
     now?: Date;
     prefs: TasksSidebarTasksPrefs;
@@ -461,19 +243,6 @@ function resolveTaskGroup(
       label,
     };
   }
-  if (params.prefs.groupBy === "goal") {
-    if (!task.goal_id) {
-      return {
-        id: "goal:none",
-        label: params.labels.goalGeneral,
-      };
-    }
-    return {
-      id: `goal:${task.goal_id}`,
-      label:
-        params.goalTitleById.get(task.goal_id) ?? params.labels.goalMissing,
-    };
-  }
   if (params.prefs.groupBy === "project") {
     if (!task.project_id) {
       return { id: "project:none", label: params.labels.projectNone };
@@ -489,18 +258,6 @@ function resolveTaskGroup(
     params.now
   );
   return { id: `due:${dueGroup.key}`, label: dueGroup.label };
-}
-
-function resolveGoalGroup(
-  goal: Goal,
-  params: {
-    labels: TasksSidebarOrganizationLabels;
-  }
-): Pick<TasksSidebarListGroup<Goal>, "id" | "label"> {
-  return {
-    id: `status:${goal.status}`,
-    label: params.labels.goalStatus[goal.status],
-  };
 }
 
 function resolveDueDateGroup(

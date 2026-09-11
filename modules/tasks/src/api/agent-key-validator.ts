@@ -1,5 +1,10 @@
 // Validates primary_assignee_agent_type_key against the live AI registry.
 // Results are cached per base URL for 60 s to avoid one fetch per task create.
+//
+// NOTE: this path is inert unless the host injects `aiBaseUrl` + `aiServiceJwt`
+// into the tasks gateway options, which nothing does today. Rules that must
+// always hold belong somewhere that needs no network — which is why routine
+// ownership is decided in apps/ai, next to the routine record itself.
 
 const CACHE_TTL_MS = 60_000;
 

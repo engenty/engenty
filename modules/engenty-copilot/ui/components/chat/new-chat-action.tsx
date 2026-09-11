@@ -1,4 +1,8 @@
 import {
+  spaceChatsPathname,
+  spaceKeyFromPathname,
+} from "@engenty/ai-core/browser";
+import {
   ENGENTY_COPILOT_HOST_KEY,
   ThreadContextMenuItem,
   ThreadContextToggle,
@@ -22,10 +26,73 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@engenty/ui-core";
-import { MessageSquarePlus, MoreVertical } from "lucide-react";
+import { History, MessageSquarePlus, MoreVertical } from "lucide-react";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { ThreadList } from "../thread-list/thread-list.js";
 import { CopilotSandboxesMenuSection } from "./copilot-sandboxes-menu-section.js";
+
+/**
+ * This chat's own history, in a popover — the in-space replacement for the
+ * sidebar list (PLAN-space-chats.md).
+ *
+ * Only inside a space. Outside one the sidebar still IS the list, and a second
+ * copy of it behind a button is the duplication the space column was moved out
+ * of the way to avoid. It renders the very same `ThreadList`, so search,
+ * filters and grouping are the ones that were always there.
+ */
+function ChatHistoryAction() {
+  const { t } = useTranslation("engenty-copilot");
+  const location = useLocation();
+  const spaceKey = spaceKeyFromPathname(location.pathname);
+  if (spaceKey == null) {
+    return null;
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          aria-label={t("chat.history", { defaultValue: "History" })}
+          className="!size-7 !w-7 !min-w-7 !px-0"
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <History className="size-4" />
+        </Button>
+      </PopoverTrigger>
+      {/* Tall and scrolling: this is the whole list, not a "recent 5" — the
+          sidebar's height is what it lost, so the popover has to give it back. */}
+      <PopoverContent
+        align="end"
+        className="flex h-[min(32rem,70vh)] w-96 flex-col overflow-hidden p-0"
+      >
+        {/* `ThreadList` is `h-full shrink-0` — sized for a sidebar column that
+            owns its height. In a fixed-height popover that makes it claim the
+            whole card and push anything after it past the clipped edge, so it
+            gets a flexible box of its own to shrink inside. */}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ThreadList />
+        </div>
+        {/* This list is ONE agent's. The space's own page is every agent's,
+            and this is the only door to it — the Work tab used to carry a
+            Chats list and no longer does. */}
+        <Link
+          className="shrink-0 border-t px-3 py-2 text-muted-foreground text-xs hover:text-foreground"
+          to={spaceChatsPathname(spaceKey)}
+        >
+          {t("chat.allSpaceChats", {
+            defaultValue: "All chats in this space",
+          })}
+        </Link>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function ChatTopbarActions() {
   const { t: tc } = useTranslation("common");
@@ -54,6 +121,7 @@ export function ChatTopbarActions() {
         <MessageSquarePlus className="mr-1.5 size-4" />
         {tc("copilot.newChat")}
       </Button>
+      <ChatHistoryAction />
       <ThreadContextToggle hostKey={ENGENTY_COPILOT_HOST_KEY} />
       <AlertDialog
         onOpenChange={(open) => {

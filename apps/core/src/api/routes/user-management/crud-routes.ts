@@ -11,6 +11,7 @@ import {
   readBearer,
   resolveCoreTokenAuth,
   resolveTenantForSessionToken,
+  toCoreUserWire,
   UpdateUserBodySchema,
   type UserManagementRouteParams,
   UserParamsSchema,
@@ -19,6 +20,22 @@ import {
 export function registerUserManagementCrudRoutes(
   params: UserManagementRouteParams
 ) {
+  /**
+   * Readable by any member of the tenant, and that stays deliberate.
+   *
+   * This is the internal staff directory: the copilot's `@`-mention picker and
+   * the team module's "connect an existing user" modals are member-facing and
+   * read it, so admin-gating the route would break the colleague lookup for
+   * exactly the people who need it. What made the open access a problem was the
+   * payload, not the audience — the DAL's `select("*")` shipped `private_phone`,
+   * `private_address` and `emergency_contact` along with the name and the email.
+   *
+   * That is fixed at the source (`CORE_USER_COLUMNS` in the core-users DAL) and
+   * again on the way out (`toCoreUserWire`), so what a member can read here is
+   * work-contact data: name, email, role, work phone, initials. Anything more
+   * private than that must not be added to `CoreUserSchema` — put it behind an
+   * admin-gated route, the way the HR surface does.
+   */
   const listUsersRoute = createRoute({
     method: "get",
     path: "/api/users",
@@ -68,7 +85,76 @@ export function registerUserManagementCrudRoutes(
       });
     }
     const users = await dal.listUsers(tenantId);
-    return jsonApiSuccess(c, users);
+    return jsonApiSuccess(c, users.map(toCoreUserWire));
+  });
+
+  /**
+   * The member-facing directory: everyone in the tenant, as a name and an id.
+   *
+   * Exists because a picker ("who can I add to this space?") must be usable by
+   * someone who is not an admin — sharing a personal space is done by naming a
+   * person, and its owner is usually an ordinary member. `/api/users` cannot
+   * serve that: it is `select("*")`, so it hands back private phone numbers and
+   * home addresses to render a dropdown.
+   *
+   * **Registered BEFORE `/api/users/:id`, and that is load-bearing.** First
+   * match wins, so with the order reversed `directory` is read as a user id and
+   * this route silently 404s — the same shadowing trap that bit cross-module
+   * routes before (see the `cross-module-route-shadowing` note).
+   */
+  const listDirectoryRoute = createRoute({
+    method: "get",
+    path: "/api/users/directory",
+    tags: ["users"],
+    summary: "Tenant directory (id + name only) — readable by any member",
+    responses: {
+      200: {
+        description: "Directory",
+        content: {
+          "application/json": {
+            schema: apiSuccessSchema(
+              z.array(
+                z.object({
+                  displayName: z.string().nullable(),
+                  email: z.string(),
+                  id: z.string(),
+                })
+              )
+            ),
+          },
+        },
+      },
+      401: {
+        description: "Unauthorized",
+        content: { "application/json": { schema: ErrorSchema } },
+      },
+      403: {
+        description: "Tenant not resolved",
+        content: { "application/json": { schema: ErrorSchema } },
+      },
+    },
+  });
+  (params.app as any).openapi(listDirectoryRoute, async (c: any) => {
+    let dal: ReturnType<typeof params.getDal>;
+    try {
+      dal = params.getDal();
+    } catch (error) {
+      return jsonApiError(c, 500, {
+        message:
+          error instanceof Error ? error.message : "Configuration error.",
+      });
+    }
+    const token = readBearer(c);
+    if (!token) {
+      return jsonApiError(c, 401, { message: "Unauthorized" });
+    }
+    const tenantId = await resolveTenantForSessionToken(dal, token);
+    if (!tenantId) {
+      return jsonApiError(c, 403, {
+        message: "User not yet onboarded to a tenant.",
+      });
+    }
+    return jsonApiSuccess(c, await dal.listUserDirectory(tenantId));
   });
 
   const getUserRoute = createRoute({
@@ -133,7 +219,7 @@ export function registerUserManagementCrudRoutes(
     if (!user) {
       return jsonApiError(c, 404, { message: "User not found" });
     }
-    return jsonApiSuccess(c, user);
+    return jsonApiSuccess(c, toCoreUserWire(user));
   });
 
   const patchUserRoute = createRoute({
@@ -266,7 +352,7 @@ export function registerUserManagementCrudRoutes(
         { component: "user-management-crud" }
       );
     }
-    return jsonApiSuccess(c, user);
+    return jsonApiSuccess(c, toCoreUserWire(user));
   });
 
   const createUserRoute = createRoute({
@@ -358,7 +444,7 @@ export function registerUserManagementCrudRoutes(
         { component: "user-management-crud" }
       );
     }
-    return jsonApiSuccess(c, user);
+    return jsonApiSuccess(c, toCoreUserWire(user));
   });
 
   const deleteUserRoute = createRoute({

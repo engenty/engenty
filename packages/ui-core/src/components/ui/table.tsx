@@ -64,7 +64,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       className={cn(
-        "ui-canvas-table-row transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted/50",
+        "group ui-canvas-table-row transition-colors",
         className
       )}
       data-slot="table-row"

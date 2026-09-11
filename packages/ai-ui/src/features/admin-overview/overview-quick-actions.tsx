@@ -9,7 +9,7 @@ const OPERATIONS_COCKPIT_PATH = "/mdl/tasks/operations";
 export function OverviewFooterLinks() {
   const { t } = useTranslation("ai-ui");
   return (
-    <div className="flex flex-wrap items-center gap-4 border-border/50 border-t pt-4">
+    <div className="flex flex-wrap items-center gap-4 border-border-soft border-t pt-4">
       <Link
         className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
         to="/settings/ai"

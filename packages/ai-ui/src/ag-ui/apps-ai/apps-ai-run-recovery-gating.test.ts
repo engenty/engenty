@@ -22,7 +22,7 @@ function runSummary(
   partial: Partial<AiAgentRunSummary> & Pick<AiAgentRunSummary, "id" | "status">
 ): AiAgentRunSummary {
   return {
-    action_id: null,
+    workflow_id: null,
     agent_id: "engenty.copilot",
     created_at: "2026-01-01T00:00:00.000Z",
     error: null,
@@ -462,6 +462,52 @@ describe("apps-ai-run-recovery-gating", () => {
     ];
     const result = coalesceRunEventText(events);
     expect(result.get("m2")).toBe("partial");
+  });
+
+  it("never coalesces the role:user turn echo into assistant text", () => {
+    // A cancelled run's log starts with the user-turn echo trio. Coalescing it
+    // re-surfaced the user's own prompt as a synthetic assistant message after
+    // Stop — the sent prompt rendered twice (persisted row + echo copy).
+    const events = [
+      {
+        event_type: EventType.TEXT_MESSAGE_START,
+        payload: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "user-echo",
+          role: "user",
+        },
+      },
+      {
+        event_type: EventType.TEXT_MESSAGE_CONTENT,
+        payload: {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "user-echo",
+          delta: "Create a book keeping agent",
+        },
+      },
+      {
+        event_type: EventType.TEXT_MESSAGE_END,
+        payload: { type: EventType.TEXT_MESSAGE_END, messageId: "user-echo" },
+      },
+      {
+        event_type: EventType.TEXT_MESSAGE_START,
+        payload: {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "a1",
+          role: "assistant",
+        },
+      },
+      {
+        event_type: EventType.TEXT_MESSAGE_CONTENT,
+        payload: {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          delta: "Working on it",
+        },
+      },
+    ];
+    const result = coalesceRunEventText(events);
+    expect(result.has("user-echo")).toBe(false);
+    expect(result.get("a1")).toBe("Working on it");
   });
 
   describe("partitionSnapshotForRunAttach", () => {

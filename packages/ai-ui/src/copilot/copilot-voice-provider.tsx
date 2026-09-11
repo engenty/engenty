@@ -1,6 +1,5 @@
 "use client";
 
-import { buildAppNavigationPathsPromptSection } from "@engenty/ai-core/browser";
 import {
   useAgentUiFrontendToolExecutor,
   useAgentUiFrontendTools,
@@ -58,6 +57,7 @@ import {
 import { VoiceConfirmationHost } from "../components/copilot/interrupts/voice-confirmation-host.js";
 import { useCustomAgentDetailQuery } from "../lib/admin/ai-runtime-queries.js";
 import { useCopilotThreadBinding } from "./copilot-thread-binding-provider.js";
+import { formatCopilotVoiceUiStateInstructions } from "./copilot-voice-context.js";
 
 interface CopilotVoiceContextValue {
   /** True while a RealtimeVoiceCallStrip (composer override) is mounted
@@ -92,32 +92,10 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
   const uiState = useAgentUiStateSnapshot();
   const agentQuery = useCustomAgentDetailQuery(ACTIVE_COPILOT_AGENT_ID);
 
-  const appPathsPrompt = useMemo(
-    () => buildAppNavigationPathsPromptSection(),
-    []
+  const uiStatePrompt = useMemo(
+    () => formatCopilotVoiceUiStateInstructions(uiState),
+    [uiState]
   );
-
-  const uiStatePrompt = useMemo(() => {
-    if (!uiState) {
-      return "";
-    }
-    const lines = [
-      "Current app UI state (AG-UI snapshot from the host — authoritative for route and selection; not the browser address bar):",
-    ];
-    if (uiState.route?.pathname) {
-      lines.push(`- pathname: ${uiState.route.pathname}`);
-    }
-    if (uiState.route?.module_id) {
-      lines.push(`- route_module_id: ${uiState.route.module_id}`);
-    }
-    if (uiState.selection?.entity_id) {
-      lines.push(`- entity_id: ${uiState.selection.entity_id}`);
-    }
-    if (uiState.selection?.entity_type) {
-      lines.push(`- entity_type: ${uiState.selection.entity_type}`);
-    }
-    return lines.join("\n");
-  }, [uiState]);
 
   const voiceInstructions = useMemo(() => {
     const rawBase =
@@ -131,7 +109,6 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
 
     const combined = [
       base,
-      appPathsPrompt,
       uiStatePrompt,
       languageInstruction,
       "You are in a live voice session. When the user asks to navigate, go to, show, or open a page, execute the 'navigate' tool using the matching canonical app path from the table above.",
@@ -144,12 +121,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
 
     // Enforce strict 8000 character limit for backend Zod schema
     return combined.slice(0, 8000);
-  }, [
-    agentQuery.data?.agent?.instructions,
-    appPathsPrompt,
-    i18n.language,
-    uiStatePrompt,
-  ]);
+  }, [agentQuery.data?.agent?.instructions, i18n.language, uiStatePrompt]);
 
   const serviceBaseUrl = ai.serviceBaseUrl;
   const isTransportReady = ai.isTransportReady;

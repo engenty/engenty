@@ -1,6 +1,5 @@
 import { loadCoreRuntimeEnvFromCallerSrcDir } from "@engenty/environment/env";
 import { initCoreI18n } from "@engenty/i18n/core";
-import { initLangfuseOtel } from "@engenty/telemetry";
 import { startApiServer } from "./api/server.js";
 
 loadCoreRuntimeEnvFromCallerSrcDir(import.meta.url);
@@ -59,7 +58,6 @@ function ensureSignalHandlers() {
 
 async function main() {
   await initCoreI18n({ coreNamespaces: {} });
-  await initLangfuseOtel();
   await closeRuntime(globalThis.__engentyApiRuntime);
   globalThis.__engentyApiRuntime = await startApiServer();
   ensureSignalHandlers();

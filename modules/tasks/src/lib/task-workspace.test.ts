@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   parseTaskWorkspaceKey,
   taskIdentifierFromStoragePrefix,
+  taskWorkspaceDisplayPath,
   taskWorkspaceKey,
   taskWorkspaceKeySchema,
   taskWorkspaceStoragePrefix,
-  taskWorkspaceTenantRelativeDisplayPath,
 } from "./task-workspace.js";
 
 const TENANT_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const SPACE_ID = "55555555-5555-4555-8555-555555555555";
 const IDENTIFIER = "ENG-142";
 
 describe("taskWorkspaceKey", () => {
@@ -20,15 +21,20 @@ describe("taskWorkspaceKey", () => {
       identifier: IDENTIFIER,
     });
 
-    const storagePrefix = taskWorkspaceStoragePrefix(TENANT_ID, IDENTIFIER);
+    const storagePrefix = taskWorkspaceStoragePrefix(
+      TENANT_ID,
+      SPACE_ID,
+      IDENTIFIER
+    );
     expect(storagePrefix).toBe(
-      `tenants/${TENANT_ID}/ai/workspace/tasks/${IDENTIFIER}`
+      `tenants/${TENANT_ID}/spaces/${SPACE_ID}/ai/workspace/tasks/${IDENTIFIER}`
     );
     expect(taskIdentifierFromStoragePrefix(storagePrefix)).toBe(IDENTIFIER);
     expect(taskIdentifierFromStoragePrefix(`${storagePrefix}/notes.md`)).toBe(
       IDENTIFIER
     );
-    expect(taskWorkspaceTenantRelativeDisplayPath(TENANT_ID, IDENTIFIER)).toBe(
+    // The display path stays space-RELATIVE: the space id is a routing detail.
+    expect(taskWorkspaceDisplayPath(TENANT_ID, SPACE_ID, IDENTIFIER)).toBe(
       `ai/workspace/tasks/${IDENTIFIER}/`
     );
   });

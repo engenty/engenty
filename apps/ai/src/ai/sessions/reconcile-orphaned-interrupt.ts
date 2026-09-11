@@ -12,7 +12,7 @@
 // and mark the dangling tool step(s) resolved so the thread returns to a usable
 // state and the spinner stops on replay.
 //
-// NOTE: the park map is process-local (see run-event-bus D7 — no multi-instance
+// NOTE: the live-run map is process-local (no multi-instance
 // fan-out), so this relies on session-affinity routing sending a thread's loads
 // to the instance that owns its park. The additional expiry check is a
 // deployment-agnostic backstop: an expired interrupt is un-resumable on any
@@ -23,10 +23,8 @@ import {
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
 import type { ThreadStore } from "../../dal/threads/index.js";
-import {
-  isParkedResumeInFlight,
-  isSessionRunParked,
-} from "../conversation/session-park.js";
+import { resolveThreadInterruptNotifications } from "../../notifications/thread-interrupts.js";
+import { isResumeInFlight } from "../conversation/resume-claims.js";
 import {
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   mergeAgUiOpenInterruptMetadata,
@@ -70,8 +68,8 @@ export type OrphanSnapshotProbe = () => Omit<ResumableSnapshotProbe, "runId">;
  * what storage still holds, and this reconciler is the only thing standing
  * between a stale interrupt and a permanently wedged chat.
  *
- * Omitting `probe` keeps the old in-process-only behaviour (used by callers
- * that have no registry to assemble an agent with).
+ * `probe` is optional: callers with no registry to assemble an agent with fall
+ * back to the expiry check alone.
  */
 export async function isOpenInterruptOrphaned(
   open: AgUiOpenInterruptMetadata,
@@ -85,16 +83,12 @@ export async function isOpenInterruptOrphaned(
   if (!runId) {
     return false;
   }
-  if (
-    isRunLiveInProcess(runId) ||
-    isParkedResumeInFlight(runId) ||
-    isSessionRunParked(runId)
-  ) {
+  if (isRunLiveInProcess(runId) || isResumeInFlight(runId)) {
     return false;
   }
-  // Last resort, and the whole point of this change: the park is gone, but
-  // Mastra may still hold a suspended snapshot for the run — in which case the
-  // resume POST can continue it and clearing the interrupt would destroy it.
+  // The authority, now that nothing is kept in memory: Mastra may still hold a
+  // suspended snapshot for the run — in which case the resume POST can continue
+  // it and clearing the interrupt would destroy the only pointer to it.
   if (!probe) {
     return true;
   }
@@ -107,7 +101,7 @@ export async function isOpenInterruptOrphaned(
  * that owns `toolCallId` (the parked call) — its parallel siblings live there
  * too — so earlier turns are never touched. Best-effort.
  */
-async function resolveDanglingToolStepsInWedgedTurn(input: {
+export async function resolveDanglingToolStepsInWedgedTurn(input: {
   scope: AiSessionScope;
   store: ThreadStore;
   threadId: string;
@@ -175,6 +169,55 @@ async function resolveDanglingToolStepsInWedgedTurn(input: {
 }
 
 /**
+ * Close an open interrupt WITHOUT answering it: settle the tool step it parked
+ * on (so the transcript row stops spinning) and drop the metadata key. The
+ * parked run is left alone — nothing resumes it, and the next user turn starts
+ * a fresh run exactly as it does after the orphan heal below.
+ *
+ * Both the orphan heal and the user's dismiss (the card's ✕) go through here so
+ * the thread ends up in the same state either way. Returns the thread metadata
+ * after the write, or null when the write failed (logged, never thrown — a
+ * failed heal must not break the thread load).
+ */
+export async function clearOpenInterrupt(input: {
+  metadata: Record<string, unknown>;
+  open: AgUiOpenInterruptMetadata;
+  scope: AiSessionScope;
+  store: ThreadStore;
+  threadId: string;
+  userId: string;
+}): Promise<Record<string, unknown> | null> {
+  await resolveDanglingToolStepsInWedgedTurn({
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+    toolCallId: input.open.tool_call_id,
+  });
+  // Clear only our key: `input.metadata` may have been read before checks that
+  // hit storage, so rebuilding the whole object here would revert anything
+  // written in that window.
+  const fallbackMetadata = mergeAgUiOpenInterruptMetadata(input.metadata, null);
+  try {
+    const updated = await input.store.mergeThreadMetadataForUser({
+      removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
+      tenantId: input.scope.tenantId,
+      threadId: input.threadId,
+      userId: input.userId,
+    });
+    // Nobody answered it and nobody can now: the row leaves every bell.
+    await resolveThreadInterruptNotifications({
+      interruptId: input.open.interrupt_id,
+      outcome: "abandoned",
+      tenantId: input.scope.tenantId,
+    });
+    return updated.thread?.metadata ?? fallbackMetadata;
+  } catch (error) {
+    console.error("[reconcile-interrupt] failed to clear interrupt:", error);
+    return null;
+  }
+}
+
+/**
  * Detect and heal an orphaned open interrupt for this thread. Returns the
  * updated session metadata when a heal happened, or null when nothing was
  * wedged (the common case). Safe to call on every thread load.
@@ -193,29 +236,5 @@ export async function reconcileOrphanedInterrupt(input: {
   if (!(open && (await isOpenInterruptOrphaned(open, input.probe)))) {
     return null;
   }
-  await resolveDanglingToolStepsInWedgedTurn({
-    scope: input.scope,
-    store: input.store,
-    threadId: input.threadId,
-    toolCallId: open.tool_call_id,
-  });
-  // Clear only our key: `input.metadata` was read before the orphan checks
-  // (which hit storage), so rebuilding the whole object here would revert
-  // anything written in that window.
-  const fallbackMetadata = mergeAgUiOpenInterruptMetadata(input.metadata, null);
-  try {
-    const updated = await input.store.mergeThreadMetadataForUser({
-      removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
-      tenantId: input.scope.tenantId,
-      threadId: input.threadId,
-      userId: input.userId,
-    });
-    return updated.thread?.metadata ?? fallbackMetadata;
-  } catch (error) {
-    console.error(
-      "[reconcile-interrupt] failed to clear orphaned interrupt:",
-      error
-    );
-    return null;
-  }
+  return clearOpenInterrupt({ ...input, open });
 }

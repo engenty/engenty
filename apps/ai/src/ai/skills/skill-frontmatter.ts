@@ -17,16 +17,20 @@ export type SkillTier = "managed" | "custom";
 export type SkillSource = string;
 
 export interface SkillProvenance {
+  category?: string;
   installedSha?: string;
   originRef?: string;
   source: SkillSource;
 }
 
-const skillProvenanceSchema = z.object({
-  installedSha: z.string().optional(),
-  originRef: z.string().optional(),
-  source: z.string().min(1),
-});
+const skillProvenanceSchema = z
+  .object({
+    category: z.string().optional(),
+    installedSha: z.string().optional(),
+    originRef: z.string().optional(),
+    source: z.string().min(1),
+  })
+  .passthrough();
 
 // Loose frontmatter: required name/description (+ optional spec fields) plus the
 // engenty provenance block; unknown keys are preserved on round-trip.
@@ -45,6 +49,7 @@ export type SkillFrontmatter = z.infer<typeof skillFrontmatterSchema>;
 
 export interface SkillSummary {
   allowed_tools: string[];
+  category?: string;
   description: string;
   editable: boolean;
   engenty_modules: string[];
@@ -123,6 +128,34 @@ function allowedToolsFromFrontmatter(frontmatter: SkillFrontmatter): string[] {
   );
 }
 
+const NON_MODULE_SOURCES = new Set(["builtin", "library", "module", "upload"]);
+
+function categoryFromFrontmatter(
+  frontmatter: SkillFrontmatter
+): string | undefined {
+  const fromProvenance = frontmatter.engenty?.category?.trim();
+  if (fromProvenance) {
+    return fromProvenance;
+  }
+  const metadata =
+    "metadata" in frontmatter &&
+    frontmatter.metadata &&
+    typeof frontmatter.metadata === "object" &&
+    !Array.isArray(frontmatter.metadata)
+      ? (frontmatter.metadata as Record<string, unknown>)
+      : {};
+  const engentyMeta =
+    metadata.engenty &&
+    typeof metadata.engenty === "object" &&
+    !Array.isArray(metadata.engenty)
+      ? (metadata.engenty as Record<string, unknown>)
+      : {};
+  const fromMeta = engentyMeta.category;
+  return typeof fromMeta === "string" && fromMeta.trim()
+    ? fromMeta.trim()
+    : undefined;
+}
+
 function moduleIdsFromFrontmatter(frontmatter: SkillFrontmatter): string[] {
   const metadata =
     "metadata" in frontmatter &&
@@ -170,15 +203,17 @@ export function buildSkillSummary(
   const source =
     frontmatter.engenty?.source ?? (tier === "managed" ? "module" : "upload");
   const engentyModules = moduleIdsFromFrontmatter(frontmatter);
+  const category = categoryFromFrontmatter(frontmatter);
   return {
     allowed_tools: allowedTools,
+    ...(category ? { category } : {}),
     description:
       frontmatter.description?.trim() || firstNonHeadingLine(body) || "",
     editable: tier === "custom",
     engenty_modules:
       engentyModules.length > 0
         ? engentyModules
-        : tier === "managed" && source !== "module" && source !== "builtin"
+        : tier === "managed" && !NON_MODULE_SOURCES.has(source)
           ? [source]
           : [],
     name,

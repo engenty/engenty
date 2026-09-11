@@ -5,12 +5,38 @@ import { getSupabaseAuthClient } from "./supabase-auth-client";
 
 export { getApiBaseUrl, getCurrentAccessToken } from "@engenty/api-client";
 
-export function getAccessTokenFromClient(
+import { isDeadRefreshTokenError } from "./auth-session";
+
+/**
+ * The bearer for core, or null when there is no live session.
+ *
+ * `getSession()` refreshes an expiring token on the way, and a refresh
+ * token Supabase has already used (a crash mid-rotation, two tabs racing)
+ * fails there — returned as `error` or thrown, depending on the path. That
+ * is a dead session, not a failed request: forget it locally so the shell
+ * falls through to login instead of relaying "Invalid Refresh Token" on a
+ * setup card the person cannot leave.
+ */
+export async function getAccessTokenFromClient(
   supabase: SupabaseClient
 ): Promise<string | null> {
-  return supabase.auth
-    .getSession()
-    .then((r) => r.data.session?.access_token ?? null);
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error && isDeadRefreshTokenError(error)) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  } catch (thrown) {
+    if (
+      thrown instanceof Error &&
+      isDeadRefreshTokenError({ code: undefined, message: thrown.message })
+    ) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+      return null;
+    }
+    throw thrown;
+  }
 }
 
 function getApiBaseUrlFromEnv(): string {

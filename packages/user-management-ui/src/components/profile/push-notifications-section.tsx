@@ -1,10 +1,11 @@
-// Web-push toggle (notifications N2): per browser/device — the subscription
-// lives in this browser's push manager and is registered with apps/ai
-// (/ai/v1/notifications/push/*). Strings use defaultValue fallbacks so the
-// section works before the common namespace grows translations.
-import { getSupabaseAuthClient } from "@engenty/auth-ui";
+// Web-push toggle: per browser/device — the subscription lives in this
+// browser's push manager and is registered with core
+// (/api/notifications/push/*, @engenty/notifications). Strings use
+// defaultValue fallbacks so the section works before the common namespace
+// grows translations.
+import { requestApiJson } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, Card } from "@engenty/ui-core";
+import { Button, SettingsFormSection } from "@engenty/ui-core";
 import { useCallback, useEffect, useState } from "react";
 
 type PushState =
@@ -13,23 +14,6 @@ type PushState =
   | "loading"
   | "not-configured"
   | "unsupported";
-
-async function aiJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const { data } = await getSupabaseAuthClient().auth.getSession();
-  const token = data.session?.access_token;
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`push api ${path} failed (${response.status})`);
-  }
-  return (await response.json()) as T;
-}
 
 /** VAPID public key (base64url) → applicationServerKey bytes. */
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
@@ -61,8 +45,8 @@ export function PushNotificationsSection() {
         return;
       }
       try {
-        const config = await aiJson<{ publicKey: string | null }>(
-          "/ai/v1/notifications/push/config"
+        const config = await requestApiJson<{ publicKey: string | null }>(
+          "/api/notifications/push/config"
         );
         if (cancelled) {
           return;
@@ -101,8 +85,8 @@ export function PushNotificationsSection() {
         );
         return;
       }
-      const config = await aiJson<{ publicKey: string | null }>(
-        "/ai/v1/notifications/push/config"
+      const config = await requestApiJson<{ publicKey: string | null }>(
+        "/api/notifications/push/config"
       );
       if (!config.publicKey) {
         setState("not-configured");
@@ -120,12 +104,12 @@ export function PushNotificationsSection() {
       if (!(json.endpoint && json.keys?.p256dh && json.keys.auth)) {
         throw new Error("subscription missing keys");
       }
-      await aiJson("/ai/v1/notifications/push/subscriptions", {
-        body: JSON.stringify({
+      await requestApiJson("/api/notifications/push/subscriptions", {
+        body: {
           endpoint: json.endpoint,
           keys: { auth: json.keys.auth, p256dh: json.keys.p256dh },
           user_agent: navigator.userAgent.slice(0, 512),
-        }),
+        },
         method: "POST",
       });
       setState("enabled");
@@ -143,8 +127,8 @@ export function PushNotificationsSection() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        await aiJson("/ai/v1/notifications/push/subscriptions", {
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        await requestApiJson("/api/notifications/push/subscriptions", {
+          body: { endpoint: subscription.endpoint },
           method: "DELETE",
         }).catch(() => undefined);
         await subscription.unsubscribe();
@@ -176,20 +160,17 @@ export function PushNotificationsSection() {
   };
 
   return (
-    <Card className="space-y-3 p-5" variant="form">
-      <div className="space-y-1">
-        <h3 className="font-medium text-sm">
-          {t("settings.pushNotifications", {
-            defaultValue: "Push notifications",
-          })}
-        </h3>
-        <p className="text-muted-foreground text-sm">
-          {t("settings.pushNotificationsHelp", {
-            defaultValue:
-              "Get notified about mentions and direct messages on this device, even when Engenty isn't open.",
-          })}
-        </p>
-      </div>
+    <SettingsFormSection
+      cardClassName="space-y-3"
+      cardVariant="compact"
+      description={t("settings.pushNotificationsHelp", {
+        defaultValue:
+          "Get notified about mentions and direct messages on this device, even when Engenty isn't open.",
+      })}
+      title={t("settings.pushNotifications", {
+        defaultValue: "Push notifications",
+      })}
+    >
       <p className="text-muted-foreground text-sm">{statusText[state]}</p>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
       {state === "disabled" || state === "enabled" ? (
@@ -208,6 +189,6 @@ export function PushNotificationsSection() {
               })}
         </Button>
       ) : null}
-    </Card>
+    </SettingsFormSection>
   );
 }

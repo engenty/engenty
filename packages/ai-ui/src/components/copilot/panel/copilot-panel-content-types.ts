@@ -11,6 +11,8 @@ import type { CopilotDecisionInterruptFeedback } from "../interrupts/copilot-too
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 
+export type CopilotEmptyLandingAlign = "center" | "start";
+
 export interface CopilotPanelContentProps {
   agentDebugPayload?: unknown;
   /** When set, replaces the route context dropdown / title in the header. */
@@ -31,6 +33,10 @@ export interface CopilotPanelContentProps {
   awaitingInterrupt?: boolean;
   /** When true, render only the body (no header). Used when header is wrapped by floating drag bar. */
   bodyOnly?: boolean;
+  /** The person's browser beside the chat; shown while `browserPanelOpen`. */
+  browserPanel?: ReactNode;
+  browserPanelLabel?: string;
+  browserPanelOpen?: boolean;
   cancelLabel: string;
   /** When false, empty-state composer stays bottom-aligned (widget / embed chat). Default: centered dock landing. */
   centerEmptyLanding?: boolean;
@@ -68,21 +74,35 @@ export interface CopilotPanelContentProps {
   debugPayload?: unknown;
   detachLabel: string;
   /**
+   * `tool_call_id` of the interrupt rendered in {@link dockedInterruptSurface}. Its inline
+   * transcript copy is suppressed so the chooser appears only once (docked).
+   */
+  /** The interrupt card's ✕: close it without answering (inline transcript cards). */
+  dismissInterrupt?: (open: AgUiOpenInterruptMetadata) => void;
+  /**
    * Pending HITL surface (message queue, decision / feedback chooser) docked on the
    * composer, outside the scrolling transcript. Rendered as a card-background flap
    * attached directly behind the composer card (no gap).
    */
   dockedInterruptSurface?: ReactNode;
-  /**
-   * `tool_call_id` of the interrupt rendered in {@link dockedInterruptSurface}. Its inline
-   * transcript copy is suppressed so the chooser appears only once (docked).
-   */
   dockedInterruptToolCallId?: string | null;
   draft: string;
+  /**
+   * Empty-chat layout. `start` pins identity + composer to the top of the
+   * column (specialist desks). Default is centered for body-only dock landings.
+   */
+  emptyLandingAlign?: CopilotEmptyLandingAlign;
+  /**
+   * Replaces the default empty-title/subtitle block on dock landings (e.g. the
+   * specialist identity header).
+   */
+  emptyStateHeader?: ReactNode;
   emptyStateSubtitle?: string;
   emptyStateTitle?: string;
   /** When true, the composer shows the animated status flap above the input. Set false to disable (e.g. full-page chat). */
   enableStatusFlap?: boolean;
+  /** When set, the peeking composer uses this styleguide engenty. */
+  engentyKind?: import("@engenty/ai-core/browser").AgentEngentyKind;
   error?: Error | null;
   /** Match app-shell `AppTopbar` chrome (`contentBlend` = compact transparent bar). */
   headerChrome?: CopilotHeaderChrome;
@@ -102,8 +122,12 @@ export interface CopilotPanelContentProps {
   onClose: () => void;
   /** When user picks an agent from the @ mention list, sync shell agent selection (e.g. full-page chat). */
   onComposerMentionAgent?: (agentId: string) => void;
-  /** Header "new chat" action; may be wired to new-session-for-agent when using {@link agentSessionChooser}. */
-  onNewChat: () => void;
+  /**
+   * Header "new chat" action; may be wired to new-session-for-agent when using
+   * {@link agentSessionChooser}. Absent on a desk: one long conversation has
+   * no "new".
+   */
+  onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   /** Approve a pending sandbox command (resumes on the server). */
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
@@ -112,6 +136,8 @@ export interface CopilotPanelContentProps {
   onSelectContext?: (contextId: string) => void;
   /** Abort the in-flight AG-UI run from the composer stop control. */
   onStop?: () => void;
+  /** Present = the header shows the monitor button. */
+  onToggleBrowserPanel?: () => void;
   /** Open AG-UI interrupt metadata for the active session (decision / frontend tool). */
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   /** Optimistic resolved labels keyed by toolCallId (set on `respond`). */
@@ -120,6 +146,8 @@ export interface CopilotPanelContentProps {
   /** Tool call ids the agent is suspended on (CopilotKit-shaped HITL status). */
   pendingInterruptToolCallIds?: ReadonlySet<string>;
   pendingUserInsertIndex?: number | null;
+  /** Optimistic attachment / reference parts while a run is in flight. */
+  pendingUserParts?: readonly unknown[] | null;
   /** Optimistic user text while a run is in flight (rendered outside `messages`). */
   pendingUserText?: string | null;
   /** Docked header: replaces detach/close with shell position menu (⋮). */
@@ -153,11 +181,20 @@ export interface CopilotPanelContentProps {
       | Record<string, boolean>
       | ((prev: Record<string, boolean>) => Record<string, boolean>)
   ) => void;
+  /**
+   * Sender names on user bubbles. Shared rooms pass true; personal /
+   * Copilot chats leave this off so a 1:1 transcript does not label every turn.
+   */
+  showAuthorLabels?: boolean;
   /** Slash-command catalog for the composer ("/" at message start opens the menu). */
   slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   startMode: "manual" | "auto";
   status: "ready" | "streaming" | "submitted" | "error";
+  /** Count of received AG-UI stream events; any growth proves the stream is
+   *  alive and restarts the no-response guard (reasoning/tool deltas don't
+   *  change `messages`, so the guard cannot key on the transcript alone). */
+  streamActivityCount?: number;
   /** Label for sub-agent full-page monitor link (module i18n). */
   subAgentFullViewLabel?: string;
   /** Input / output / log section titles on sub-agent cards + full-page monitor. */
@@ -171,6 +208,18 @@ export interface CopilotPanelContentProps {
   transcribeAudio?: TranscribeSpeechAudio;
   /** Readable max-width wrapper for the transcript (full-page chat). */
   transcriptContainerClassName?: string;
+  /**
+   * Rendered at the END of the transcript column, in the message column's own
+   * width — the position a "just happened" card belongs in. Not part of
+   * `messages`: it carries what the lane knows but the thread does not, such as
+   * work the agent started on its own (see `AgentDeskRunActivity`).
+   */
+  transcriptFooter?: ReactNode;
+  /**
+   * Rendered at the START of the transcript column, above the oldest loaded
+   * message — the "load older" control of a paged transcript lives here.
+   */
+  transcriptHeader?: ReactNode;
   /** Session transcript fetch in progress (skeleton placeholder, not streaming shimmer). */
   transcriptLoading?: boolean;
   /** Accessible label for {@link transcriptLoading} (visually hidden). */

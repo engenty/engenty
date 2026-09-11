@@ -6,18 +6,28 @@
  *   1. Every agents/<id>/agent.json parses; id matches ^[a-z0-9-]+\.[a-z0-9-]+$
  *      or is on the legacy allowlist.
  *   2. Agent ids are globally unique.
- *   3. Every actions/ACTION.md frontmatter agent_id resolves to a declared id
+ *   3. Every workflows/*.workflow.json owner resolves to a declared agent id
  *      (manifest ids + builtin ids).
  *   4. Every skills/SKILL.md has frontmatter name matching ^[a-z0-9-]+$ and
  *      equal to its directory name; skill names globally unique.
  *   5. allowed-tools entries match ^[a-z0-9_]{1,64}$ or known workspace tools.
  *   6. Grep guard: no retired keys under modules ai directories.
+ *   7. Space authoring (see scripts/lib/ai-space-authoring.mjs):
+ *      Space-placed ops need spacePolicy; preferred skills must be
+ *      module-owned; catalog descriptions must not call output "data";
+ *      space_owned list/create schemas must accept a Space; explicit
+ *      record_scope assertions must match declared policy.
+ *      OPEN modules fail CI. Package 10 CLOSED ids are in-flight notes.
  *
  * Exit 1 on any violation.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import {
+  checkAiSpaceAuthoring,
+  formatAuthoringNotes,
+} from "./lib/ai-space-authoring.mjs";
 
 const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
@@ -179,24 +189,34 @@ for (const aiDir of aiDirs) {
   }
 }
 
-// 3: ACTION.md agent_id resolution
+// 3: workflow owner resolution — a module workflow that names an owning
+// specialist must name one the module tree declares.
 for (const aiDir of aiDirs) {
-  for (const actionPath of findFiles(join(aiDir, "actions"), "ACTION.md")) {
-    const content = readFileSync(actionPath, "utf8");
-    const fm = parseFrontmatter(content);
-    if (!fm.agent_id) {
-      continue; // optional field
+  const workflowsDir = join(aiDir, "workflows");
+  if (!existsSync(workflowsDir)) {
+    continue;
+  }
+  for (const name of readdirSync(workflowsDir)) {
+    if (!name.endsWith(".workflow.json")) {
+      continue;
     }
-    if (
-      !(declaredAgentIds.has(fm.agent_id) || LEGACY_AGENT_IDS.has(fm.agent_id))
-    ) {
-      err(actionPath, `agent_id "${fm.agent_id}" is not a declared agent id`);
+    const workflowPath = join(workflowsDir, name);
+    let owner;
+    try {
+      owner = JSON.parse(readFileSync(workflowPath, "utf8"))?.metadata
+        ?.owner_agent_id;
+    } catch {
+      err(workflowPath, "not valid JSON");
+      continue;
+    }
+    if (!owner) {
+      continue; // library workflow
+    }
+    if (!(declaredAgentIds.has(owner) || LEGACY_AGENT_IDS.has(owner))) {
+      err(workflowPath, `owner_agent_id "${owner}" is not a declared agent id`);
     }
   }
 }
-
-// 3b: ROUTINE.md validation retired — the file mechanism is gone (routine =
-// Trigger(schedule) → Task; routines register in code or as ai.custom_routine).
 
 // 4: SKILL.md name validation and uniqueness
 const declaredSkillNames = new Set();
@@ -306,7 +326,18 @@ for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {
   }
 }
 
+// 7: Space-aware module AI authoring
+const authoring = checkAiSpaceAuthoring(ROOT);
+for (const message of authoring.errors) {
+  errors.push(`  ${message}`);
+}
+
 // ── Output ────────────────────────────────────────────────────────────────────
+
+const notes = formatAuthoringNotes(authoring);
+if (notes) {
+  console.log(`${notes}\n`);
+}
 
 if (errors.length > 0) {
   console.error("ai:check FAILED — violations found:\n");

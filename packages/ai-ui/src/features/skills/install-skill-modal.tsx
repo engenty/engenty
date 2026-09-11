@@ -55,23 +55,17 @@ export function InstallSkillModal({
   const { t } = useTranslation("ai-ui");
   const providersQuery = useAiSkillRegistryProvidersQuery(open);
   const providers = providersQuery.data?.providers ?? [];
-  const [provider, setProvider] = useState<string | null>(null);
+  const [provider, setProvider] = useState("");
   const [query, setQuery] = useState("");
   const [installingRef, setInstallingRef] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const installMutation = useInstallAiSkillMutation();
-
-  // Default to the first provider once the list loads.
-  useEffect(() => {
-    if (!provider && providers.length > 0) {
-      setProvider(providers[0].id);
-    }
-  }, [provider, providers]);
+  const selectedProvider = provider || (providers[0]?.id ?? "");
 
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
   const searchEnabled = open && debouncedQuery.length > 0;
   const searchQuery = useAiSkillRegistrySearchQuery(
-    provider,
+    selectedProvider || null,
     debouncedQuery,
     searchEnabled
   );
@@ -96,14 +90,14 @@ export function InstallSkillModal({
 
   const handleInstall = useCallback(
     async (result: SkillRegistrySearchResult) => {
-      if (!provider) {
+      if (!selectedProvider) {
         return;
       }
       setLocalError(null);
       setInstallingRef(result.ref.id);
       try {
         const installed = await installMutation.mutateAsync({
-          provider,
+          provider: selectedProvider,
           ref: { id: result.ref.id },
         });
         reset();
@@ -119,12 +113,12 @@ export function InstallSkillModal({
         setInstallingRef(null);
       }
     },
-    [installMutation, onInstalled, onOpenChange, provider, reset, t]
+    [installMutation, onInstalled, onOpenChange, reset, selectedProvider, t]
   );
 
   const providerPlaceholder = useMemo(
-    () => providers.find((entry) => entry.id === provider)?.label ?? "",
-    [provider, providers]
+    () => providers.find((entry) => entry.id === selectedProvider)?.label ?? "",
+    [providers, selectedProvider]
   );
 
   return (
@@ -142,7 +136,7 @@ export function InstallSkillModal({
             <Select
               disabled={providers.length === 0}
               onValueChange={setProvider}
-              value={provider ?? undefined}
+              value={selectedProvider}
             >
               <SelectTrigger className="h-9 w-40 shrink-0 text-sm">
                 <SelectValue placeholder={providerPlaceholder} />
@@ -279,7 +273,7 @@ function InstallSkillResults(props: {
                 <div className="mt-1 flex flex-wrap gap-1">
                   {result.tags.slice(0, 4).map((tag) => (
                     <Badge
-                      className="border-border/70 bg-card font-normal text-[10px] text-muted-foreground"
+                      className="border-border bg-card font-normal text-[10px] text-muted-foreground"
                       key={tag}
                       variant="outline"
                     >

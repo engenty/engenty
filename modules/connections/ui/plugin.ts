@@ -2,7 +2,10 @@ import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { Blocks } from "lucide-react";
 import { ConnectCompletePage } from "./pages/connect-complete-page.js";
-import { ConnectionsSettingsPage } from "./pages/connections-settings-page.js";
+import {
+  CONNECTIONS_SETTINGS_PATH,
+  ConnectionsSettingsPage,
+} from "./pages/connections-settings-page.js";
 import {
   ConnectionsWorkspacePage,
   LegacyConnectionsAdminRedirect,
@@ -11,6 +14,10 @@ import {
   ConnectorDetailPage,
   ConnectorWorkspaceDetailPage,
 } from "./pages/connector-detail-page.js";
+import {
+  LegacyConnectionsDetailRedirect,
+  LegacyConnectionsSettingsRedirect,
+} from "./pages/legacy-connections-redirect.js";
 import { registerConnectionsToolCallUi } from "./register-tool-call-ui.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
@@ -26,10 +33,18 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   engenty.UI.registerRoute({
     id: "connections_settings",
-    path: "/settings/connections",
+    path: CONNECTIONS_SETTINGS_PATH,
     component: ConnectionsSettingsPage,
     order: 400,
     // Per-user surface: a member links their own accounts for agents to use.
+    requiresAdmin: false,
+  });
+
+  engenty.UI.registerRoute({
+    id: "connections_settings_legacy",
+    path: "/settings/connections",
+    component: LegacyConnectionsSettingsRedirect,
+    order: 400.1,
     requiresAdmin: false,
   });
 
@@ -45,9 +60,17 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   engenty.UI.registerRoute({
     id: "connections_settings_detail",
-    path: "/settings/connections/:connectorId",
+    path: `${CONNECTIONS_SETTINGS_PATH}/:connectorId`,
     component: ConnectorDetailPage,
     order: 401,
+    requiresAdmin: false,
+  });
+
+  engenty.UI.registerRoute({
+    id: "connections_settings_detail_legacy",
+    path: "/settings/connections/:connectorId",
+    component: LegacyConnectionsDetailRedirect,
+    order: 401.1,
     requiresAdmin: false,
   });
 
@@ -78,9 +101,9 @@ export default function plugin(engenty: EngentyPluginContext) {
     id: "connections_settings_menu",
     label: "Connections",
     labelKey: "connections:menu.connections",
-    to: "/settings/connections",
+    to: CONNECTIONS_SETTINGS_PATH,
     icon: Blocks,
-    // Promoted into Settings core (above module separator).
+    // Promoted into Setup for admins; members keep it in Settings.
     order: 5,
     // Personal surface — members manage their own connected accounts.
     requiresAdmin: false,

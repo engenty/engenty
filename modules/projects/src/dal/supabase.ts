@@ -1,3 +1,4 @@
+import { resolveDefaultSpaceId } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
@@ -54,6 +55,7 @@ function rowToProject(row: Record<string, unknown>): Project {
     id: String(row.id),
     tenant_id: String(row.tenant_id),
     scope_id: String(row.scope_id),
+    space_id: row.space_id as string,
     client_id: (row.client_id as string | null) ?? null,
     client_name: (row.client_name as string | null) ?? null,
     lead_id: (row.lead_id as string | null) ?? null,
@@ -362,10 +364,17 @@ export function createProjectRepoSupabase(
           "A members-only project cannot enable the client portal."
         );
       }
+      // A project has no container above it inside the tenant, so there is
+      // nothing to inherit from — explicit, or the tenant's default space.
+      // Never null: a project outside every space is unreachable from the rail.
+      const space_id =
+        projectFields.space_id?.trim() ||
+        (await resolveDefaultSpaceId(supabase as never, tenantId));
       const row = {
         id,
         tenant_id: tenantId,
         scope_id: scopeId,
+        space_id,
         client_id: projectFields.client_id ?? null,
         client_name: projectFields.client_name ?? null,
         lead_id: projectFields.lead_id ?? null,
@@ -469,6 +478,14 @@ export function createProjectRepoSupabase(
         query = query.eq("client_id", params.client_id);
       }
 
+      if (params.space_id) {
+        query = query.eq("space_id", params.space_id);
+      } else if (params.space_ids) {
+        if (params.space_ids.length === 0) {
+          return { data: [], total: 0, page, pageSize };
+        }
+        query = query.in("space_id", [...params.space_ids]);
+      }
       if (params.lead_id) {
         query = query.eq("lead_id", params.lead_id);
       }

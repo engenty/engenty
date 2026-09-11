@@ -500,6 +500,7 @@ export async function listProjectTasksPaginated(
     page,
     pageSize,
     search: params.search ?? undefined,
+    space_id: params.space_id ?? undefined,
     status: params.status ?? undefined,
     context_type: PROJECT_CONTEXT_TYPE,
     context_id: params.project_id ?? undefined,

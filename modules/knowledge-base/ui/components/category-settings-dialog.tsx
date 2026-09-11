@@ -24,8 +24,8 @@ import type { UpdateCategoryInput } from "../api.js";
 import { resolveKbEffectiveCommentsModeClient } from "../lib/kb-effective-comments-mode.js";
 import {
   categoriesQueryOptions,
-  kbsQueryOptions,
   kbTemplatesQueryOptions,
+  useKbsQuery,
   useUpdateCategoryMutation,
 } from "../queries.js";
 import {
@@ -81,7 +81,7 @@ export function CategorySettingsDialog({
   const { data: templates = [] } = useQuery(
     kbTemplatesQueryOptions(category.kb_id)
   );
-  const { data: kbsRaw = [] } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw = [] } = useKbsQuery();
   const { data: categories = [] } = useQuery({
     ...categoriesQueryOptions(category.kb_id),
   });

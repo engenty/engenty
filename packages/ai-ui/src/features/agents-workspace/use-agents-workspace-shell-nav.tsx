@@ -10,23 +10,23 @@
 import { type ReactNode, useMemo } from "react";
 import type {
   AiAgentEntry,
-  AiRegisteredAction,
   AiSkillRecord,
 } from "../../lib/admin/ai-runtime-api";
+import type { WorkflowCatalogEntry } from "../workflow-canvas/workflow-flows-state.js";
 import { AgentsWorkspaceSidebar } from "./agents-workspace-sidebar";
 import { AgentsWorkspaceSidebarHeader } from "./agents-workspace-sidebar-header";
 
 export interface UseAgentsWorkspaceShellNavOptions {
-  actions: AiRegisteredAction[];
-  actionsLoading: boolean;
   agents: AiAgentEntry[];
+  flows: WorkflowCatalogEntry[];
+  flowsLoading: boolean;
   isLandingPage?: boolean;
   onNavigate?: () => void;
-  onSelectAction: (id: string) => void;
   onSelectAgent: (id: string) => void;
+  onSelectFlow: (flow: WorkflowCatalogEntry) => void;
   onSelectSkill: (name: string) => void;
-  selectedActionId?: string;
   selectedAgentId: string;
+  selectedFlowId?: string;
   selectedSkillId?: string;
   skills: AiSkillRecord[];
   skillsLoading: boolean;
@@ -41,16 +41,16 @@ export function useAgentsWorkspaceShellNav(
   options: UseAgentsWorkspaceShellNavOptions
 ): UseAgentsWorkspaceShellNavResult {
   const {
-    actions,
-    actionsLoading,
     agents,
+    flows,
+    flowsLoading,
     isLandingPage = false,
     onNavigate,
-    onSelectAction,
     onSelectAgent,
+    onSelectFlow,
     onSelectSkill,
-    selectedActionId = "",
     selectedAgentId,
+    selectedFlowId = "",
     selectedSkillId = "",
     skills,
     skillsLoading,
@@ -64,32 +64,32 @@ export function useAgentsWorkspaceShellNav(
   const secondaryNavAfterItems = useMemo(
     () => (
       <AgentsWorkspaceSidebar
-        actions={actions}
-        actionsLoading={actionsLoading}
         agents={agents}
+        flows={flows}
+        flowsLoading={flowsLoading}
         isLandingPage={isLandingPage}
         onNavigate={onNavigate}
-        onSelectAction={onSelectAction}
         onSelectAgent={onSelectAgent}
+        onSelectFlow={onSelectFlow}
         onSelectSkill={onSelectSkill}
-        selectedActionId={selectedActionId}
         selectedAgentId={selectedAgentId}
+        selectedFlowId={selectedFlowId}
         selectedSkillId={selectedSkillId}
         skills={skills}
         skillsLoading={skillsLoading}
       />
     ),
     [
-      actions,
-      actionsLoading,
       agents,
+      flows,
+      flowsLoading,
       isLandingPage,
       onNavigate,
-      onSelectAction,
       onSelectAgent,
+      onSelectFlow,
       onSelectSkill,
-      selectedActionId,
       selectedAgentId,
+      selectedFlowId,
       selectedSkillId,
       skills,
       skillsLoading,

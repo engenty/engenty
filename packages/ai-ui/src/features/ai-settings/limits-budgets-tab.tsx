@@ -1,9 +1,14 @@
 import {
+  AGENT_APPROVAL_MODES,
+  parseAgentApprovalMode,
+} from "@engenty/ai-core/browser";
+import {
   Badge,
   Button,
   Input,
   Label,
   SettingsFormSection,
+  Switch,
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { Plus, Save, X } from "lucide-react";
@@ -115,6 +120,13 @@ export function LimitsBudgetsTab({
 
   const capsSteps = settings.caps?.max_steps ?? null;
   const inheritedSteps = effective?.caps.max_steps.inherited.value;
+  const approvalMode = settings.agent_approval?.mode ?? "manual";
+  const approvalHintKey =
+    approvalMode === "pass-all"
+      ? "limits.approval.passAllHint"
+      : approvalMode === "auto"
+        ? "limits.approval.autoHint"
+        : "limits.approval.manualHint";
 
   return (
     <div className="space-y-6">
@@ -131,6 +143,61 @@ export function LimitsBudgetsTab({
           </p>
         </div>
       ) : null}
+      <SettingsFormSection
+        description={t("limits.approvalDesc")}
+        title={t("limits.approvalTitle")}
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="agent-approval-mode">
+            {t("limits.approvalMode")}
+          </Label>
+          <select
+            className="h-8 w-fit rounded-md border bg-background px-2 text-sm"
+            id="agent-approval-mode"
+            onChange={(e) =>
+              updateSettings("agent_approval", {
+                mode: parseAgentApprovalMode(e.target.value) ?? "manual",
+                agents: settings.agent_approval?.agents ?? null,
+              })
+            }
+            value={approvalMode}
+          >
+            {AGENT_APPROVAL_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {t(
+                  mode === "pass-all"
+                    ? "limits.approval.passAll"
+                    : `limits.approval.${mode}`
+                )}
+              </option>
+            ))}
+          </select>
+          <p className="text-muted-foreground text-xs">{t(approvalHintKey)}</p>
+        </div>
+      </SettingsFormSection>
+      <SettingsFormSection
+        description={t("limits.generatedStartersDesc")}
+        title={t("limits.generatedStartersTitle")}
+      >
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={settings.generated_starters === true}
+            id="generated-starters"
+            onCheckedChange={(checked) =>
+              updateSettings("generated_starters", checked === true)
+            }
+          />
+          <Label
+            className="cursor-pointer font-normal"
+            htmlFor="generated-starters"
+          >
+            {t("limits.generatedStartersLabel")}
+          </Label>
+        </div>
+        <p className="text-muted-foreground text-xs">
+          {t("limits.generatedStartersHint")}
+        </p>
+      </SettingsFormSection>
       <SettingsFormSection
         description={t("limits.enforcementDesc")}
         title={t("limits.enforcementTitle")}

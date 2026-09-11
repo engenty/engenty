@@ -44,6 +44,24 @@
         "secret": true
       },
       {
+        "description": "OpenRouter API key — optional second model gateway. Set it to bind roles to OpenRouter models in Settings → AI models; Vercel-bound roles keep using AI_GATEWAY_API_KEY.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "OPENROUTER_API_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "1. Open https://openrouter.ai/settings/keys",
+            "2. Create a key and copy it"
+          ],
+          "url": "https://openrouter.ai/docs/api-reference/authentication"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
         "description": "Default model routed through the AI Gateway (e.g. openai/gpt-5.6-luna).",
         "defaultValue": "openai/gpt-5.6-luna",
         "feature": "ai",
@@ -133,7 +151,131 @@
         "required": "optional",
         "scopes": ["root", "deploy"],
         "secret": true
+      },
+      {
+        "description": "Set to false to disable Mastra thread and shared observational memory for agent chat. Enabled by default.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_OBSERVATIONAL_MEMORY",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Set to true to enable Mastra thread-scoped semantic recall (embeds every saved chat turn and queries pgvector on each turn). Off by default. Requires AI Gateway embeddings and a Postgres vector URL.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_SEMANTIC_RECALL",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Langfuse secret key. Sends every agent run (model steps, tool calls, prompts and completions) to Langfuse; off when unset.",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "LANGFUSE_SECRET_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": ["Project settings → API keys in Langfuse."],
+          "url": "https://cloud.langfuse.com"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "Langfuse public key.",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "LANGFUSE_PUBLIC_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": ["Project settings → API keys in Langfuse."],
+          "url": "https://cloud.langfuse.com"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Langfuse base URL (cloud region or self-hosted instance).",
+        "exampleValue": "https://cloud.langfuse.com",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "LANGFUSE_BASE_URL",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "OTLP traces endpoint (http/protobuf). Any OpenTelemetry backend — Phoenix, Jaeger, Grafana, Honeycomb, Braintrust — receives the same agent-run spans as Langfuse; off when unset.",
+        "exampleValue": "http://localhost:4318/v1/traces",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "manual",
+          "instructions": ["The /v1/traces URL of your collector or vendor."]
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Headers sent with every OTLP export, as key=value pairs separated by commas (vendor API keys go here).",
+        "exampleValue": "x-api-key=...",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "OTEL_EXPORTER_OTLP_HEADERS",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "Persist agent-run traces in the Mastra store (ai.mastra_ai_spans) so Mastra Studio's Traces view can show them. Grows without a retention sweep — keep off in production for now.",
+        "defaultValue": "false",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "ENGENTY_TRACE_STORE",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Wire-level LLM call trace: one JSON file per model call (request as the provider receives it, response, byte accounting per tool schema). `1` writes under <cwd>/.llm-trace; a path writes there. Holds conversation data — never commit it.",
+        "feature": "observability",
+        "group": "Observability",
+        "key": "ENGENTY_LLM_TRACE",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root"],
+        "secret": false
       }
     ]
-  }
+  },
+  "placement": "space"
 }

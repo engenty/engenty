@@ -103,7 +103,7 @@ export function WorkspaceFileBrowser({
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card lg:h-[calc(100dvh-11rem)] lg:min-h-[28rem] lg:flex-row">
+    <div className="ui-card-elevated flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
       <aside
         className="flex min-h-0 w-full flex-col border-b lg:w-(--workspace-tree-width) lg:shrink-0 lg:border-b-0"
         style={

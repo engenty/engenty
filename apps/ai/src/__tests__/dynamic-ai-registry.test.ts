@@ -154,6 +154,8 @@ function makeSession(agentId = "engenty.copilot"): ThreadRow {
     tenant_id: tenantId,
     title: null,
     updated_at: "2026-05-17T00:00:01.000Z",
+    space_id: null,
+    visibility: "space",
     workspace_key: null,
   };
 }
@@ -188,8 +190,30 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
     getThread: vi.fn(async () => thread),
     getThreadGlobally: vi.fn(async () => thread),
+    getThreadObservationalMemory: vi.fn(async () => null),
+    listMessagesByIds: vi.fn(async ({ messageIds }) =>
+      [makeMessage()].filter((message) => messageIds.includes(message.id))
+    ),
     listMessagesOrdered: vi.fn(async () => [makeMessage()]),
+    listHeadlessThreadsForTask: vi.fn(async () => []),
+    listRunThreadsForSpaceAgent: vi.fn(async () => []),
+    listLatestMessagesForThreads: vi.fn(async () => new Map()),
+    listAppReleaseMarkersForThreads: vi.fn(async () => []),
+    listUnattendedThreadsForSpace: vi.fn(async () => []),
+    addAgentMember: vi.fn(async () => {}),
+    listAgentMembers: vi.fn(async () => []),
+    listDmsForUser: vi.fn(async () => []),
+    listRoomsForSpace: vi.fn(async () => []),
+    listSpaceRoomsDirectory: vi.fn(async () => []),
+    listParticipantThreadIds: vi.fn(async () => []),
+    setThreadVisibility: vi.fn(async () => thread),
+    removeAgentMember: vi.fn(async () => {}),
+    addUserParticipant: vi.fn(async () => {}),
+    listUserParticipants: vi.fn(async () => []),
+    removeUserParticipant: vi.fn(async () => {}),
+    listThreadsForSpaceAgent: vi.fn(async () => []),
     listThreadsForUser: vi.fn(async () => [thread]),
+    setThreadStatus: vi.fn(async () => {}),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -497,7 +521,15 @@ describe("dynamic AI registry", () => {
     // Skills are no longer inlined; only a preferred-skill hint is injected.
     expect(agent.config.instructions).not.toContain("### ACTIVE SKILLS ###");
     expect(agent.config.instructions).toContain("Preferred skills: skill-one");
-    expect(agent.config.tools).toEqual({ search: searchTool });
+    // Presentation tools ride every root assembly; the config tool stays.
+    expect(Object.keys(agent.config.tools).sort()).toEqual([
+      "search",
+      "show_artifact",
+      "show_objects",
+      "show_ui",
+      "show_widget",
+    ]);
+    expect(agent.config.tools.search).toBe(searchTool);
   });
 
   it("assembles configured sub-agents for Mastra supervisor agents", async () => {
@@ -754,7 +786,8 @@ describe("dynamic AI registry", () => {
     };
 
     expect(agent.config.instructions).toContain("supervisor-skill");
-    expect(agent.config.tools).toEqual({ "supervisor-tool": supervisorTool });
+    expect(agent.config.tools["supervisor-tool"]).toBe(supervisorTool);
+    expect(agent.config.tools).toHaveProperty("show_objects");
     expect(agent.config.agents.specialist.config.instructions).toContain(
       "specialist-skill"
     );
@@ -780,12 +813,13 @@ describe("dynamic AI registry", () => {
         >;
         backgroundTasks: unknown;
         description: string;
+        inputProcessors?: { id: string }[];
         instructions: string;
         tools: Record<string, MastraToolDefinition>;
       };
     };
 
-    expect(agent.config.description).toContain("Supervisor copilot");
+    expect(agent.config.description).toContain("Live front-door copilot");
     expect(agent.config.instructions).toContain(
       "You are engenty — the in-app AI **copilot**"
     );
@@ -793,7 +827,11 @@ describe("dynamic AI registry", () => {
     expect(agent.config.instructions).toContain(
       "Tenant and user are request-scoped"
     );
-    expect(agent.config.instructions).toContain("dynamic plugin contributions");
+    // The catalog vocabulary, asserted where it now lives once: SOUL.md used to
+    // repeat AGENTS.md's catalog section under its own heading, and the layer
+    // dedup dropped the copy, not the doctrine.
+    expect(agent.config.instructions).toContain("engenty_tools_search");
+    expect(agent.config.instructions).toContain("Space contract");
     expect(agent.config.instructions).toContain("requestDecision");
     // The catalog-only write rule (AGENTS.md rule 1). Asserted on the rule's
     // substance, not its old phrasing: it was "Prefer backend APIs" until the
@@ -801,7 +839,21 @@ describe("dynamic AI registry", () => {
     expect(agent.config.instructions).toContain(
       "Backend tools are the only way you write data"
     );
-    expect(agent.config.backgroundTasks).toBeUndefined();
+    // Was `toBeUndefined()` — "the copilot never dispatches a tool call to the
+    // background". It now says so explicitly instead of by omission, because
+    // omission was not free: with the manager enabled instance-wide, Mastra
+    // splices its `_background` override into EVERY tool's schema (measured at
+    // 115 KB across 59 tools, 39% of the prompt) and only `disabled` stops it.
+    expect(agent.config.backgroundTasks).toEqual({ disabled: true });
+    // Lane tools ride with their lane skill. The processor is what withholds
+    // them, and the instructions are what stop the model reading a withheld
+    // tool as a missing capability — neither is optional on its own.
+    expect(
+      agent.config.inputProcessors?.map((processor) => processor.id)
+    ).toContain("skill-gated-tools");
+    expect(agent.config.instructions).toContain(
+      "Tools that arrive with a skill"
+    );
     // All specialists declared in engentyCopilotAgentConfig.subAgents:
     // engenty_cli (CLI/sandbox work), file_analyst (tiered attachments), and
     // app_coder (app-building, stubbed above since it's module-provided).

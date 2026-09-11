@@ -1,6 +1,6 @@
 import {
   type FileStorageService,
-  fileStorageTenantObjectKey,
+  fileStorageSpaceObjectKey,
 } from "@engenty/file-storage";
 import type { StorageService } from "@engenty/plugin-sdk";
 import { taskWorkspaceStoragePrefix } from "./task-workspace.js";
@@ -14,10 +14,12 @@ export const TASK_WORKSPACE_KEEP_FILENAME = ".keep";
  */
 export function taskWorkspaceKeepObjectKey(
   tenantId: string,
+  spaceId: string,
   identifier: string
 ): string {
-  return fileStorageTenantObjectKey(
+  return fileStorageSpaceObjectKey(
     tenantId,
+    spaceId,
     "ai",
     "workspace",
     "tasks",
@@ -34,10 +36,11 @@ type EnsureTaskWorkspaceStorage = Pick<
 export async function ensureTaskWorkspacePrefix(
   storage: EnsureTaskWorkspaceStorage,
   tenantId: string,
+  spaceId: string,
   identifier: string
 ): Promise<string> {
-  const prefix = taskWorkspaceStoragePrefix(tenantId, identifier);
-  const keepKey = taskWorkspaceKeepObjectKey(tenantId, identifier);
+  const prefix = taskWorkspaceStoragePrefix(tenantId, spaceId, identifier);
+  const keepKey = taskWorkspaceKeepObjectKey(tenantId, spaceId, identifier);
 
   if (storage.exists) {
     const alreadyExists = await storage.exists(keepKey);

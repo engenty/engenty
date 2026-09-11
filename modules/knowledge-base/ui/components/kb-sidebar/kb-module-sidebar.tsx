@@ -9,20 +9,12 @@ import { KbSidebar } from "./kb-sidebar.js";
 export function KbModuleSidebar({
   activeArticleId,
   kbId,
-  kbSlug,
 }: {
   activeArticleId?: string;
   kbId: string;
-  kbSlug: string;
 }) {
-  if (kbId && kbSlug) {
-    return (
-      <KbSidebar
-        activeArticleId={activeArticleId}
-        kbId={kbId}
-        kbSlug={kbSlug}
-      />
-    );
+  if (kbId) {
+    return <KbSidebar activeArticleId={activeArticleId} kbId={kbId} />;
   }
 
   return <KbModuleSidebarOverview />;

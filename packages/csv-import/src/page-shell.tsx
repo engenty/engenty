@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Apply on the page root — not on the wizard alone.
  */
 export const importPageScrollShellClassName =
-  "flex min-h-0 flex-1 flex-col overflow-y-auto p-page pb-10";
+  "flex min-h-0 flex-1 flex-col overflow-y-auto p-page pb-scroll-safe";
 
 /** Centered wizard column on wide mapping layouts. */
 export const importPageContentClassName = "mx-auto w-full max-w-6xl";

@@ -552,6 +552,140 @@ describe("sweepStalledRuns (D6 startup sweep)", () => {
   });
 });
 
+describe("listRunsForPlatform (superadmin observer)", () => {
+  it("reads from the service lane and never asks for a tenant handle", async () => {
+    const rows = [
+      {
+        id: "00000000-0000-4000-8000-000000000010",
+        tenant_id: "00000000-0000-4000-8000-000000000001",
+        status: "completed",
+      },
+    ];
+    const filters: string[] = [];
+    const serviceClient = {
+      schema: () => ({
+        from: () => {
+          const api: Record<string, unknown> = {};
+          api.select = () => api;
+          api.eq = (column: string, value: string) => {
+            filters.push(`${column}=${value}`);
+            return api;
+          };
+          api.order = () => api;
+          api.limit = async () => ({ data: rows, error: null });
+          return api;
+        },
+      }),
+    };
+    const tenantClient = {
+      schema: () => {
+        throw new Error("tenant lane must not be used");
+      },
+    };
+
+    const { createAgentRunStore } = await import(
+      "../dal/threads/agent-run-store.js"
+    );
+    const db = createRecordingDbSource(tenantClient, serviceClient);
+    const store = createAgentRunStore(db.source as never);
+    const result = await store.listRunsForPlatform({
+      tenantId: "00000000-0000-4000-8000-000000000001",
+      status: "completed",
+      limit: 20,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(filters).toEqual([
+      "tenant_id=00000000-0000-4000-8000-000000000001",
+      "status=completed",
+    ]);
+    expect(db.usedTenantLane()).toBe(false);
+  });
+
+  it("loads thread titles and catalog rates on the service lane", async () => {
+    const tables: string[] = [];
+    const serviceClient = {
+      schema: () => ({
+        from: (table: string) => {
+          tables.push(table);
+          const api: Record<string, unknown> = {};
+          api.select = () => api;
+          api.in = async () => {
+            if (table === "thread") {
+              return {
+                data: [
+                  {
+                    id: "00000000-0000-4000-8000-000000000003",
+                    space_id: "00000000-0000-4000-8000-000000000020",
+                    title: "Q3 close",
+                  },
+                ],
+                error: null,
+              };
+            }
+            return {
+              data: [
+                {
+                  display_name: "GPT-4.1 mini",
+                  input_per_mtok_micros: 400_000,
+                  model_id: "openai/gpt-4.1-mini",
+                  output_per_mtok_micros: 1_600_000,
+                },
+              ],
+              error: null,
+            };
+          };
+          return api;
+        },
+      }),
+    };
+    const tenantClient = {
+      schema: () => {
+        throw new Error("tenant lane must not be used");
+      },
+    };
+    const { createAgentRunStore } = await import(
+      "../dal/threads/agent-run-store.js"
+    );
+    const db = createRecordingDbSource(tenantClient, serviceClient);
+    const store = createAgentRunStore(db.source as never);
+    const described = await store.describePlatformRuns([
+      {
+        agent_id: "engenty.copilot",
+        cancelled_at: null,
+        completion_tokens: 8,
+        context_prompt_tokens: null,
+        created_by_user_id: null,
+        error_code: null,
+        error_message: null,
+        finished_at: null,
+        id: "00000000-0000-4000-8000-000000000010",
+        mastra_trace_id: null,
+        metadata: {},
+        model_id: "openai/gpt-4.1-mini",
+        prompt_tokens: 4,
+        started_at: "2026-05-21T00:00:00.000Z",
+        status: "completed",
+        tenant_id: "00000000-0000-4000-8000-000000000001",
+        thread_id: "00000000-0000-4000-8000-000000000003",
+        trigger: "message",
+      },
+    ]);
+
+    expect(tables).toEqual(["thread", "model"]);
+    expect(
+      described.threadTitles.get("00000000-0000-4000-8000-000000000003")
+    ).toBe("Q3 close");
+    expect(
+      described.threadSpaceIds.get("00000000-0000-4000-8000-000000000003")
+    ).toBe("00000000-0000-4000-8000-000000000020");
+    expect(described.models.get("openai/gpt-4.1-mini")?.displayName).toBe(
+      "GPT-4.1 mini"
+    );
+    expect(db.usedTenantLane()).toBe(false);
+  });
+});
+
 describe("createSessionRunTracker", () => {
   it("marks run cancelled on abort", async () => {
     const cancelRun = vi.fn(async () => ({ run: null }));

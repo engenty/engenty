@@ -136,6 +136,8 @@ export type GatewayModelOption = GatewayModelAvailabilityFlags & {
   output_per_mtok_micros: number | null;
   price_tier: GatewayModelPriceTier | null;
   provider: string;
+  reasoning: boolean;
+  tool_use: boolean;
   use_cases: GatewayModelUseCase[];
   vision: boolean;
   web_search: boolean;
@@ -363,21 +365,39 @@ export async function syncGatewayModels(
     const byGateway: Record<string, GatewaySyncCounts> = {};
     const models: GatewayModelUpsertInput[] = [];
     let updatedModelCount = 0;
+    // One gateway's outage must not blank the others. With a single adapter a
+    // throw here and a failed run meant the same thing; with two, letting
+    // OpenRouter's 503 abort the loop would also skip Vercel's pricing pass and
+    // report a total failure over a catalog that refreshed fine.
+    const failures: string[] = [];
     for (const gateway of opts.gateways ?? listModelGateways()) {
-      const rows = applyGatewayModelPriceTiers(
-        (await gateway.listModels({ fetchImpl: opts.fetchImpl, now })).map(
-          // Tagged here rather than in the adapter, so no gateway can write
-          // rows into another gateway's half of the catalog.
-          (model) => ({ ...model, gateway: gateway.id })
-        )
-      );
-      const updated = await store.upsertGatewayModels(rows);
-      byGateway[gateway.id] = {
-        model_count: rows.length,
-        updated_model_count: updated,
-      };
-      models.push(...rows);
-      updatedModelCount += updated;
+      try {
+        const rows = applyGatewayModelPriceTiers(
+          (await gateway.listModels({ fetchImpl: opts.fetchImpl, now })).map(
+            // Tagged here rather than in the adapter, so no gateway can write
+            // rows into another gateway's half of the catalog.
+            (model) => ({ ...model, gateway: gateway.id })
+          )
+        );
+        const updated = await store.upsertGatewayModels(rows);
+        byGateway[gateway.id] = {
+          model_count: rows.length,
+          updated_model_count: updated,
+        };
+        models.push(...rows);
+        updatedModelCount += updated;
+      } catch (err) {
+        // Zero rows, recorded — distinguishable from "this gateway is empty".
+        byGateway[gateway.id] = { model_count: 0, updated_model_count: 0 };
+        failures.push(
+          `${gateway.id}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+    // Every gateway failed: nothing refreshed, so the run failed. This is also
+    // what a single-gateway install still sees when its one gateway is down.
+    if (failures.length > 0 && models.length === 0) {
+      throw new Error(`Gateway model sync failed — ${failures.join("; ")}`);
     }
     let insertedPricingCount = 0;
     if (opts.updatePricing) {
@@ -424,6 +444,12 @@ export async function syncGatewayModels(
     }
     const completed = await store.updateGatewayModelSyncRun(run.id, {
       completed_at: new Date().toISOString(),
+      // A partial run succeeds, but says which gateway did not answer — the
+      // sync-runs list is the only place an operator would find out that half
+      // the catalog is stale.
+      ...(failures.length > 0
+        ? { error_text: `Partial sync — ${failures.join("; ")}` }
+        : {}),
       inserted_pricing_count: insertedPricingCount,
       model_count: models.length,
       status: "succeeded",

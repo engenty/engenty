@@ -136,7 +136,7 @@ function TaskRunCard({
   const when = formatActivityTimeLabel(run.run_started_at ?? run.created_at, t);
 
   return (
-    <div className="ui-canvas-panel space-y-3 rounded-lg bg-card p-3">
+    <div className="ui-card-panel space-y-3 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Bot className="size-4 shrink-0 text-muted-foreground" />
@@ -226,6 +226,7 @@ function TaskRunCard({
           disabled={disabled || releasing}
           onClick={() => onRelease(run)}
           size="sm"
+          title={t("detail.releaseCheckoutHint")}
           type="button"
           variant="outline"
         >
@@ -249,7 +250,9 @@ export function LiveTaskRunsPanel({
   const { t } = useTranslation("tasks");
 
   if (runs.length === 0) {
-    return null;
+    return (
+      <p className="text-muted-foreground text-sm">{t("detail.noRuns")}</p>
+    );
   }
 
   // "Live runs" only when something is actually executing; otherwise this is

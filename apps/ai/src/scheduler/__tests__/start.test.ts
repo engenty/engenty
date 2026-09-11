@@ -29,6 +29,18 @@ vi.mock("../service-invoker.js", () => ({
 vi.mock("../heartbeat-sync.js", () => ({ reconcileScheduler }));
 vi.mock("../../ai/service-credential.js", () => ({ getServiceAccessToken }));
 vi.mock("../tenants.js", () => ({ listTenantIds }));
+// Reconcile reads routines from the store; without a configured database the
+// real factory answers null and every tenant's pass aborts before it starts.
+vi.mock("../../ai/index.js", () => ({
+  createWorkflowStoreFromEnv: () => null,
+  createRoutineStoreFromEnv: () => ({ list: vi.fn(async () => []) }),
+  createRoutineTriggerStoreFromEnv: () => ({ list: vi.fn(async () => []) }),
+}));
+// Reconcile builds a core client for the space fan-out; no base URL in tests.
+vi.mock("../../ai/core-http-client.js", () => ({
+  EngentyCoreClient: class {},
+  getEngentyCoreBaseUrlFromEnv: () => null,
+}));
 
 const scope = {
   isSuperAdmin: false,

@@ -2,17 +2,11 @@ import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
 import type { z } from "zod";
 import { validateBlockedBy } from "../domain/task-blockers.js";
+import { startsOnCreate } from "../domain/task-lifecycle.js";
 import { performTaskCheckout } from "../lib/perform-task-checkout.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import { buildTasksBriefingResponse } from "../lib/tasks-briefing-service.js";
 import {
-  goalCreateInputSchema,
-  goalHandoffResponseSchema,
-  goalIdParamsSchema,
-  goalSchema,
-  goalsListQuerySchema,
-  goalsPaginatedResponseSchema,
-  goalUpdateInputSchema,
   notFoundSchema,
   taskActivityListSchema,
   taskCheckoutConflictSchema,
@@ -35,14 +29,19 @@ import {
   taskToolApprovalBodySchema,
   taskUpdateInputSchema,
 } from "../schema/zod.js";
+import { registerTasksGatewayMethods } from "./gateway-methods.js";
 import {
   getRepo,
   type RepoOrFactory,
-  registerTasksGatewayMethods,
+  resolveAssignmentFallbackSpace,
   type TasksGatewayOptions,
-} from "./gateway-methods.js";
-import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
-import { resolveTaskToolApproval } from "./task-approval-service.js";
+  taskAssignmentValidator,
+  validateAgentAssignment,
+} from "./gateway-shared.js";
+import {
+  assertHumanApprovalActor,
+  resolveTaskToolApproval,
+} from "./task-approval-service.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
@@ -53,7 +52,6 @@ const UUID_PARAM =
   "{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}";
 
 export const TASK_BY_ID_PATH = `/api/tasks/:id${UUID_PARAM}`;
-export const GOAL_BY_ID_PATH = `/api/tasks/goals/:id${UUID_PARAM}`;
 
 function parseQuery(
   url: URL,
@@ -79,26 +77,18 @@ export function registerTasksApi(
     idempotent: true,
     requiresApproval: false,
   });
+  // Same grading as the gateway ops (gateway-shared.ts): ordinary writes are
+  // medium — `manual` still asks, `auto` passes with the space's write mount.
   const writeTasks = () => ({
     moduleId: "tasks",
     requiredCapabilities: ["module.tasks.write"],
-    riskLevel: "high" as const,
+    riskLevel: "medium" as const,
     idempotent: false,
     requiresApproval: true,
   });
-  const readGoals = () => ({
-    moduleId: "tasks",
-    requiredCapabilities: ["module.goals.read"],
-    riskLevel: "low" as const,
-    idempotent: true,
-    requiresApproval: false,
-  });
-  const writeGoals = () => ({
-    moduleId: "tasks",
-    requiredCapabilities: ["module.goals.write"],
+  const destructiveTasks = () => ({
+    ...writeTasks(),
     riskLevel: "high" as const,
-    idempotent: false,
-    requiresApproval: true,
   });
 
   api.registerHttpRoute({
@@ -135,179 +125,6 @@ export function registerTasksApi(
 
   api.registerHttpRoute({
     method: "get",
-    path: "/api/tasks/goals",
-    operation: readGoals(),
-    summary: "List goals",
-    tags: ["tasks", "goals"],
-    request: { query: goalsListQuerySchema },
-    responses: {
-      200: { description: "Goals list", schema: goalsPaginatedResponseSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const url = new URL(ctx.request.url);
-      const parsed = goalsListQuerySchema.parse(
-        parseQuery(url, [
-          "page",
-          "pageSize",
-          "search",
-          "status",
-          "owner_agent_type_key",
-          "owner_kind",
-          "sortBy",
-          "sortOrder",
-        ])
-      );
-      return repo.listGoalsPaginated(parsed);
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "post",
-    path: "/api/tasks/goals",
-    operation: writeGoals(),
-    summary: "Create goal",
-    tags: ["tasks", "goals"],
-    request: { body: goalCreateInputSchema },
-    responses: {
-      201: { description: "Created goal", schema: goalSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const body = goalCreateInputSchema.parse(ctx.body ?? {});
-      const goal = await repo.createGoal(body);
-      return new Response(JSON.stringify(goal), {
-        status: 201,
-        headers: { "content-type": "application/json" },
-      });
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "get",
-    path: GOAL_BY_ID_PATH,
-    operation: readGoals(),
-    summary: "Get goal",
-    tags: ["tasks", "goals"],
-    request: { params: goalIdParamsSchema },
-    responses: {
-      200: { description: "Goal", schema: goalSchema },
-      404: { description: "Not found", schema: notFoundSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
-      const goal = await repo.getGoal(params.id);
-      if (!goal) {
-        return new Response(JSON.stringify({ error: "goal_not_found" }), {
-          status: 404,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      return goal;
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "patch",
-    path: GOAL_BY_ID_PATH,
-    operation: writeGoals(),
-    summary: "Update goal",
-    tags: ["tasks", "goals"],
-    request: { params: goalIdParamsSchema, body: goalUpdateInputSchema },
-    responses: {
-      200: { description: "Updated goal", schema: goalSchema },
-      404: { description: "Not found", schema: notFoundSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
-      const body = goalUpdateInputSchema.parse(ctx.body ?? {});
-      try {
-        const goal = await repo.updateGoal(params.id, body);
-        if (!goal) {
-          return new Response(JSON.stringify({ error: "goal_not_found" }), {
-            status: 404,
-            headers: { "content-type": "application/json" },
-          });
-        }
-        return goal;
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "goal_update_failed";
-        return new Response(JSON.stringify({ error: message }), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        });
-      }
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "delete",
-    path: GOAL_BY_ID_PATH,
-    operation: writeGoals(),
-    summary: "Delete goal",
-    tags: ["tasks", "goals"],
-    request: { params: goalIdParamsSchema },
-    responses: {
-      204: { description: "Deleted" },
-      404: { description: "Not found", schema: notFoundSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
-      const existing = await repo.getGoal(params.id);
-      if (!existing) {
-        return new Response(JSON.stringify({ error: "goal_not_found" }), {
-          status: 404,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      await repo.deleteGoal(params.id);
-      return new Response(null, { status: 204 });
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "post",
-    path: `${GOAL_BY_ID_PATH}/handoff`,
-    operation: writeGoals(),
-    summary: "Hand a goal to the coordinator (assign + plan)",
-    tags: ["tasks", "goals"],
-    request: { params: goalIdParamsSchema },
-    responses: {
-      200: { description: "Handed off", schema: goalHandoffResponseSchema },
-      404: { description: "Not found", schema: notFoundSchema },
-    },
-    handler: async (ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = ctx.params as z.infer<typeof goalIdParamsSchema>;
-      try {
-        const result = await handoffGoalToCoordinator(
-          {
-            queue: gatewayOptions?.queue ?? null,
-            repo,
-            tenantId: ctx.auth?.tenantId ?? null,
-          },
-          params.id,
-          actorUserIdFromAuth(ctx.auth)
-        );
-        return result;
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "goal_handoff_failed";
-        const status = message === "goal_not_found" ? 404 : 400;
-        return new Response(JSON.stringify({ error: message }), {
-          status,
-          headers: { "content-type": "application/json" },
-        });
-      }
-    },
-  });
-
-  api.registerHttpRoute({
-    method: "get",
     path: "/api/tasks/briefing",
     operation: readTasks(),
     summary: "Tasks briefing aggregate",
@@ -322,9 +139,15 @@ export function registerTasksApi(
     handler: async (ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const url = new URL(ctx.request.url);
-      const parsed = tasksBriefingQuerySchema.parse(parseQuery(url, ["mode"]));
+      // Derived from the schema so the allow-list cannot drift from what
+      // OpenAPI advertises — same rule as the tasks list.
+      const parsed = tasksBriefingQuerySchema.parse(
+        parseQuery(url, Object.keys(tasksBriefingQuerySchema.shape))
+      );
       const mode = parsed.mode ?? "personal";
-      return buildTasksBriefingResponse(repo, mode, ctx.auth?.principalId);
+      return buildTasksBriefingResponse(repo, mode, ctx.auth?.principalId, {
+        ...(parsed.space_id ? { spaceId: parsed.space_id } : {}),
+      });
     },
   });
 
@@ -341,25 +164,21 @@ export function registerTasksApi(
     handler: async (ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const url = new URL(ctx.request.url);
+      // Derived from the schema, not hand-written: the old list silently
+      // dropped `project_id`.
       const parsed = tasksListQuerySchema.parse(
-        parseQuery(url, [
-          "page",
-          "pageSize",
-          "search",
-          "status",
-          "goal_id",
-          "parent_id",
-          "assigned_to",
-          "assignee_kind",
-          "context_type",
-          "context_id",
-          "context_metadata_phase_id",
-          "scope",
-          "sortBy",
-          "sortOrder",
-        ])
+        parseQuery(url, Object.keys(tasksListQuerySchema.shape))
       );
-      return repo.listTasksPaginated(parsed, ctx.auth?.principalId);
+      // No space named = every space the caller may see, not every space.
+      // A named space was already checked by core's route gate.
+      const spaceIds =
+        !parsed.space_id && ctx.accessibleSpaceIds
+          ? await ctx.accessibleSpaceIds()
+          : undefined;
+      return repo.listTasksPaginated(
+        { ...parsed, ...(spaceIds ? { space_ids: spaceIds } : {}) },
+        ctx.auth?.principalId
+      );
     },
   });
 
@@ -377,6 +196,23 @@ export function registerTasksApi(
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const body = taskCreateInputSchema.parse(ctx.body ?? {});
       try {
+        if (body.primary_assignee_kind === "agent") {
+          const inheritedSpace = (
+            body.parent_id ? await repo.getTask(body.parent_id) : null
+          )?.space_id;
+          const fallbackSpace =
+            !(body.space_id || inheritedSpace) && ctx.auth
+              ? await resolveAssignmentFallbackSpace(ctx.auth, gatewayOptions)
+              : null;
+          await validateAgentAssignment(
+            {
+              agentTypeKey: body.primary_assignee_agent_type_key,
+              spaceId: body.space_id ?? inheritedSpace ?? fallbackSpace,
+              tenantId: ctx.auth?.tenantId,
+            },
+            gatewayOptions
+          );
+        }
         if (body.blocked_by_task_ids?.length) {
           body.blocked_by_task_ids = await validateBlockedBy(
             null,
@@ -389,10 +225,21 @@ export function registerTasksApi(
           actorKind: body.created_by_agent_type_key ? "agent" : "user",
         });
         // Agent-assigned tasks auto-dispatch regardless of entry path (REST
-        // here mirrors the tasks_create gateway op).
-        if (gatewayOptions?.queue && ctx.auth?.tenantId) {
+        // here mirrors the tasks_create gateway op) — but only when created
+        // into a status that means "start it". Creating into a resting status
+        // is the caller saying "plan it, don't run it".
+        if (
+          gatewayOptions?.queue &&
+          ctx.auth?.tenantId &&
+          startsOnCreate(task.status)
+        ) {
           await dispatchTaskIfReady(
-            { queue: gatewayOptions.queue, repo, tenantId: ctx.auth.tenantId },
+            {
+              queue: gatewayOptions.queue,
+              repo,
+              tenantId: ctx.auth.tenantId,
+              validateAgentAssignment: taskAssignmentValidator(gatewayOptions),
+            },
             task
           );
         }
@@ -466,6 +313,28 @@ export function registerTasksApi(
       const body = taskUpdateInputSchema.parse(ctx.body ?? {});
       try {
         const existing = await repo.getTask(params.id);
+        const nextAssigneeKind =
+          body.primary_assignee_kind ?? existing?.primary_assignee_kind;
+        const nextAgentTypeKey =
+          body.primary_assignee_agent_type_key === undefined
+            ? existing?.primary_assignee_agent_type_key
+            : body.primary_assignee_agent_type_key;
+        if (
+          existing &&
+          nextAssigneeKind === "agent" &&
+          (body.primary_assignee_kind !== undefined ||
+            body.primary_assignee_agent_type_key !== undefined ||
+            body.space_id !== undefined)
+        ) {
+          await validateAgentAssignment(
+            {
+              agentTypeKey: nextAgentTypeKey,
+              spaceId: body.space_id ?? existing.space_id,
+              tenantId: ctx.auth?.tenantId ?? existing.tenant_id,
+            },
+            gatewayOptions
+          );
+        }
         if (body.blocked_by_task_ids !== undefined) {
           body.blocked_by_task_ids = await validateBlockedBy(
             params.id,
@@ -489,6 +358,7 @@ export function registerTasksApi(
             queue: gatewayOptions.queue,
             repo,
             tenantId: ctx.auth.tenantId,
+            validateAgentAssignment: taskAssignmentValidator(gatewayOptions),
           };
           await dispatchTaskIfReady(deps, task);
           if (task.status === "done" && existing?.status !== "done") {
@@ -515,7 +385,7 @@ export function registerTasksApi(
   api.registerHttpRoute({
     method: "delete",
     path: TASK_BY_ID_PATH,
-    operation: writeTasks(),
+    operation: destructiveTasks(),
     summary: "Delete task",
     tags: ["tasks"],
     request: { params: taskIdParamsSchema },
@@ -590,9 +460,26 @@ export function registerTasksApi(
       const params = ctx.params as z.infer<typeof taskIdParamsSchema>;
       const body = taskCheckoutInputSchema.parse(ctx.body ?? {});
       try {
+        const existing = await repo.getTask(params.id);
+        if (!existing) {
+          throw new Error("task_not_found");
+        }
+        await validateAgentAssignment(
+          {
+            agentTypeKey: body.agent_type_key,
+            spaceId: existing.space_id,
+            tenantId: ctx.auth?.tenantId ?? existing.tenant_id,
+          },
+          gatewayOptions
+        );
         const task = await performTaskCheckout(
           {
             repo,
+            spaceId: ctx.auth
+              ? await gatewayOptions
+                  ?.resolveSpaceId?.(ctx.auth)
+                  .catch(() => null)
+              : null,
             storage: api.getStorageService?.("files") ?? null,
             tenantId: ctx.auth?.tenantId ?? "",
           },
@@ -690,6 +577,7 @@ export function registerTasksApi(
             queue: gatewayOptions?.queue ?? null,
             repo,
             tenantId: ctx.auth?.tenantId ?? null,
+            validateAgentAssignment: taskAssignmentValidator(gatewayOptions),
           },
           { taskId: params.id }
         );
@@ -722,11 +610,8 @@ export function registerTasksApi(
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const params = ctx.params as z.infer<typeof taskIdParamsSchema>;
       const body = taskToolApprovalBodySchema.parse(ctx.body ?? {});
-      const triggersRepo =
-        gatewayOptions?.triggersRepoFactory && ctx.auth
-          ? gatewayOptions.triggersRepoFactory(ctx.auth)
-          : null;
       try {
+        assertHumanApprovalActor(ctx.auth);
         const task = await resolveTaskToolApproval(
           {
             actorUserId: actorUserIdFromAuth(ctx.auth),
@@ -737,11 +622,12 @@ export function registerTasksApi(
             queue: gatewayOptions?.queue ?? null,
             tasksRepo: repo,
             tenantId: ctx.auth?.tenantId ?? null,
-            triggersRepo,
+            validateAgentAssignment: taskAssignmentValidator(gatewayOptions),
           },
           {
             decision: body.decision,
             operationId: body.operation_id,
+            operationIds: body.operation_ids,
             scope: body.scope,
             taskId: params.id,
           }

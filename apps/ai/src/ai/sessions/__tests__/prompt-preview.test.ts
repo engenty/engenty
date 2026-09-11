@@ -13,6 +13,7 @@ import {
   estimateTokens,
   flattenInstructions,
   renderMessageText,
+  resolveAgentInstructions,
 } from "../prompt-preview.js";
 
 function fakeAgent(input: {
@@ -58,6 +59,24 @@ describe("flattenInstructions", () => {
   it("returns empty for shapes it does not recognise", () => {
     expect(flattenInstructions(null)).toBe("");
     expect(flattenInstructions(42)).toBe("");
+  });
+});
+
+describe("resolveAgentInstructions", () => {
+  it("calls getInstructions with an empty request-context bag", async () => {
+    const getInstructions = vi.fn(() => "You are helpful");
+    expect(await resolveAgentInstructions({ getInstructions })).toBe(
+      "You are helpful"
+    );
+    expect(getInstructions).toHaveBeenCalledWith({});
+  });
+
+  it("invokes a returned instructions callback", async () => {
+    expect(
+      await resolveAgentInstructions({
+        getInstructions: () => () => "SOUL",
+      })
+    ).toBe("SOUL");
   });
 });
 
@@ -112,6 +131,16 @@ describe("describePromptMessage", () => {
     const cyclic: Record<string, unknown> = { role: "user" };
     cyclic.self = cyclic;
     expect(() => describePromptMessage(cyclic)).not.toThrow();
+  });
+
+  it("reads Mastra's messageId when id is absent", () => {
+    expect(
+      describePromptMessage({
+        content: "hello",
+        messageId: "msg-from-mastra",
+        role: "user",
+      }).id
+    ).toBe("msg-from-mastra");
   });
 });
 

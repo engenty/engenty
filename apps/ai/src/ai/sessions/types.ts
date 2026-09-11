@@ -116,6 +116,12 @@ export interface CreateAiThreadInput {
   routeContext?: Record<string, unknown>;
   scope: AiSessionScope;
   sessionKey?: string | null;
+  /**
+   * The space this chat belongs to. Omitted means "read it off
+   * `routeContext.scope.space_id`", which is where the UI puts it
+   * (PLAN-spaces.md Phase C2).
+   */
+  spaceId?: string | null;
   status?: AgentSessionStatus;
   summary?: string | null;
   threadId?: string | null;
@@ -160,6 +166,12 @@ export interface ListAiThreadsInput {
    */
   limit?: number;
   scope: AiSessionScope;
+  /**
+   * One space's history, or every space when omitted (PLAN-spaces.md Phase C2).
+   * The copilot's history panel sends it by default and drops it for
+   * "All spaces".
+   */
+  spaceId?: string;
 }
 
 export interface DeleteAiThreadsInput {
@@ -169,6 +181,12 @@ export interface DeleteAiThreadsInput {
 }
 
 export interface ListAiThreadMessagesInput {
+  /**
+   * Page cursor: the oldest row the caller already holds. The page ends just
+   * before it, so walking back through a thread never repeats or skips a row.
+   */
+  before?: { createdAt: Date; id: string };
+  /** Newest `limit` rows (before the cursor). */
   limit: number;
   scope: AiSessionScope;
   threadId: string;
@@ -217,6 +235,7 @@ export type DynamicAgentAssembler = (
 
 export interface RuntimeModelConfigInput {
   chatModelId?: string | null;
+  memoryModelId?: string | null;
   planningCodingModelId?: string | null;
   researchModelId?: string | null;
   routingModelId?: string | null;

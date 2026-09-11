@@ -21,20 +21,38 @@ export function buildLoadProjectsListTool(
   return createTool({
     id: PROJECTS_LOAD_PROJECTS_LIST_TOOL_ID,
     description:
-      "List projects for the tenant. Optional filters: page, pageSize (max 200), search, sortBy (title|start_date|end_date|created_at), sortOrder. Use when the user asks about multiple projects or the portfolio. If scope.list_search is set and search is omitted, the list search from the UI is applied.",
+      "List projects in current_space; never omit space scope in a Space-bound run. Optional filters: page, pageSize (max 200), search, sortBy (title|start_date|end_date|created_at), sortOrder. Use when the user asks about multiple projects or the portfolio. If scope.list_search is set and search is omitted, the list search from the UI is applied.",
     inputSchema: listInputSchema,
     execute: async (input) => {
       const scope = ctx?.scope as Record<string, unknown> | null | undefined;
       const scopeSearch =
         typeof scope?.list_search === "string" ? scope.list_search : undefined;
+      const spaceId = activeSpaceIdFromToolContext(ctx);
       const merged = {
         ...input,
         search:
           input.search !== undefined && input.search !== ""
             ? input.search
             : scopeSearch,
+        ...(spaceId ? { space_id: spaceId } : {}),
       };
       return invokeProjectsOperation("projects_list", merged);
     },
   });
+}
+
+function activeSpaceIdFromToolContext(
+  ctx?: ToolExecutionContext
+): string | undefined {
+  const record = ctx as
+    | (ToolExecutionContext & { spaceId?: unknown })
+    | undefined;
+  if (typeof record?.spaceId === "string" && record.spaceId.trim()) {
+    return record.spaceId.trim();
+  }
+  const fromScope = record?.scope?.space_id;
+  if (typeof fromScope === "string" && fromScope.trim()) {
+    return fromScope.trim();
+  }
+  return;
 }

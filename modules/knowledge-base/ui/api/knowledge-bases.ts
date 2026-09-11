@@ -12,8 +12,12 @@ const API = "/api/kb";
 
 /* ── Knowledge Bases ── */
 
-export async function listKbs(signal?: AbortSignal): Promise<KnowledgeBase[]> {
-  return requestApiJson<KnowledgeBase[]>(`${API}/knowledge-bases`, {
+export async function listKbs(
+  spaceId?: string,
+  signal?: AbortSignal
+): Promise<KnowledgeBase[]> {
+  const query = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : "";
+  return requestApiJson<KnowledgeBase[]>(`${API}/knowledge-bases${query}`, {
     method: "GET",
     signal,
   });
@@ -29,14 +33,34 @@ export async function getKb(
   });
 }
 
-export async function createKb(
-  input: Pick<KnowledgeBase, "name" | "slug" | "description">
-): Promise<KnowledgeBase> {
-  return requestApiJson<KnowledgeBase>(`${API}/knowledge-bases`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+/** One module's first-use setup answer, as core reports it in `mounted[]`. */
+export interface SpaceMountSetupResult {
+  error?: string;
+  module_id: string;
+  needs: string[];
+  ready: boolean;
+}
+
+/**
+ * Re-run the space's Knowledge Base setup.
+ *
+ * The library is created by the module's `mountOperation` when the module is
+ * mounted; posting the mount again is the retry. No `agent_access` is sent,
+ * which keeps the level the space already gave the module.
+ */
+export async function setUpSpaceKnowledgeBase(
+  spaceId: string
+): Promise<{ mounted: SpaceMountSetupResult[] }> {
+  return requestApiJson<{ mounted: SpaceMountSetupResult[] }>(
+    `/api/spaces/${encodeURIComponent(spaceId)}/setup/add`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mounts: [{ resource_key: "knowledge-base", resource_type: "module" }],
+      }),
+    }
+  );
 }
 
 export async function updateKb(
@@ -47,12 +71,15 @@ export async function updateKb(
       | "name"
       | "slug"
       | "description"
-      | "is_default"
+      | "chunking"
       | "article_property_definitions"
       | "comments_mode"
       | "icon"
       | "cover"
       | "page_layout"
+      // A knowledge base belongs to exactly one space, and moving it between
+      // two is an ordinary edit — the same shape as renaming it.
+      | "space_id"
     >
   >
 ): Promise<KnowledgeBase> {

@@ -1,17 +1,12 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { RichEditor } from "@engenty/tiptap-editor/rich";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@engenty/ui-core";
 import type { ComponentType } from "react";
 import { AppArtifactView } from "./app-artifact-view.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
+import { DatabaseArtifactView } from "./database-artifact-view.js";
 import { parseFileArtifactHandle } from "./file-artifact-handle.js";
+import { MarkdownDocumentEditor } from "./markdown-document-editor.js";
+import { useMarkdownReadingStyle } from "./markdown-reading-style.js";
+import { TableArtifactView } from "./table-artifact-view.js";
 import { WorkFilePreview } from "./work-file-preview.js";
 
 /**
@@ -71,13 +66,15 @@ export function resolveArtifactEditor(
   return editors.get(type) ?? null;
 }
 
-function MarkdownArtifactView({ content }: ArtifactViewProps) {
+function MarkdownArtifactView({ artifact, content }: ArtifactViewProps) {
+  const { readingStyle } = useMarkdownReadingStyle();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-6">
-      <RichEditor
+      <MarkdownDocumentEditor
         editable={false}
         markdown={content ?? ""}
-        showToolbar={false}
+        readingStyle={readingStyle}
+        title={artifact.title}
       />
     </div>
   );
@@ -94,83 +91,20 @@ function HtmlArtifactView({ content }: ArtifactViewProps) {
   );
 }
 
-/** Parse a table artifact into headers + rows (JSON array of objects, or CSV). */
-function parseTable(
-  content: string
-): { headers: string[]; rows: string[][] } | null {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (trimmed.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, unknown>[];
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        return null;
-      }
-      const headers = [...new Set(parsed.flatMap((row) => Object.keys(row)))];
-      const rows = parsed.map((row) =>
-        headers.map((h) => (row[h] == null ? "" : String(row[h])))
-      );
-      return { headers, rows };
-    } catch {
-      return null;
-    }
-  }
-  // CSV: naive split (no embedded-comma handling — Phase D upgrades this).
-  const lines = trimmed.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) {
-    return null;
-  }
-  const split = (line: string) => line.split(",").map((c) => c.trim());
-  return { headers: split(lines[0]), rows: lines.slice(1).map(split) };
-}
-
-function TableArtifactView({ content }: ArtifactViewProps) {
-  const table = content ? parseTable(content) : null;
-  if (!table) {
-    return (
-      <pre className="min-h-0 flex-1 overflow-auto p-4 font-mono text-sm">
-        {content ?? ""}
-      </pre>
-    );
-  }
-  return (
-    <div className="min-h-0 flex-1 overflow-auto p-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {table.headers.map((h) => (
-              <TableHead key={h}>{h}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {table.rows.map((row, i) => (
-            // Row order is stable; index key is fine for a read-only view.
-            <TableRow key={String(i)}>
-              {row.map((cell, j) => (
-                <TableCell key={String(j)}>{cell}</TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
 function MarkdownArtifactEditor({
+  artifact,
   initialContent,
   onChange,
 }: ArtifactEditorProps) {
+  const { readingStyle } = useMarkdownReadingStyle();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-6">
-      <RichEditor
+      <MarkdownDocumentEditor
         editable
         markdown={initialContent}
-        onChange={(_json, markdown) => onChange(markdown)}
-        showToolbar
+        onChange={onChange}
+        readingStyle={readingStyle}
+        title={artifact.title}
       />
     </div>
   );
@@ -198,8 +132,12 @@ function FileArtifactView({ content }: ArtifactViewProps) {
         entryKey={handle.key}
         filename={handle.name}
         labels={{
+          extractedTextLoading: t("workPanel.extractedTextLoading"),
           loading: t("workPanel.filePreviewLoading"),
+          noExtractedText: t("workPanel.noExtractedText"),
           noPreview: t("workPanel.fileNoPreview"),
+          original: t("workPanel.original"),
+          parsed: t("workPanel.parsed"),
           truncated: t("workPanel.filePreviewTruncated"),
         }}
       />
@@ -210,6 +148,7 @@ function FileArtifactView({ content }: ArtifactViewProps) {
 registerArtifactRenderer("markdown", MarkdownArtifactView);
 registerArtifactRenderer("html", HtmlArtifactView);
 registerArtifactRenderer("table", TableArtifactView);
+registerArtifactRenderer("database", DatabaseArtifactView);
 // engenty Apps: a bridged, opaque-origin frame rather than a bare iframe —
 // see app-artifact-view.tsx.
 registerArtifactRenderer("app", AppArtifactView);

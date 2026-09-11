@@ -1,8 +1,4 @@
-import type {
-  Goal,
-  Task,
-  TaskStatusDefinition,
-} from "../../src/schema/types.js";
+import type { Task, TaskStatusDefinition } from "../../src/schema/types.js";
 import type { TasksGroupBy } from "../components/tasks-list-filter-bar.js";
 
 export interface TaskListGroup {
@@ -13,12 +9,10 @@ export interface TaskListGroup {
 
 export function groupTasksForList(params: {
   assigneeProfiles?: Map<string, { full_name: string; id: string }>;
-  goals: readonly Goal[];
   groupBy: TasksGroupBy;
   labels: {
     agentPrefix: (agentKey: string) => string;
     generalTasks: string;
-    missingGoal: string;
     noProject: string;
     priority: (priority: string) => string;
     unassigned: string;
@@ -111,34 +105,6 @@ export function groupTasksForList(params: {
         return { id: key, label, tasks: groupTasks };
       })
       .toSorted((a, b) => a.label.localeCompare(b.label));
-  }
-
-  if (groupBy === "goal") {
-    const byGoal = new Map<string, Task[]>();
-    for (const task of tasks) {
-      const key = task.goal_id ?? "general";
-      const list = byGoal.get(key) ?? [];
-      list.push(task);
-      byGoal.set(key, list);
-    }
-    return Array.from(byGoal.entries())
-      .map(([key, groupTasks]) => {
-        let label = params.labels.generalTasks;
-        if (key !== "general") {
-          const g = params.goals.find((item) => item.id === key);
-          label = g?.title ?? params.labels.missingGoal;
-        }
-        return { id: key, label, tasks: groupTasks };
-      })
-      .toSorted((a, b) => {
-        if (a.id === "general") {
-          return -1;
-        }
-        if (b.id === "general") {
-          return 1;
-        }
-        return a.label.localeCompare(b.label);
-      });
   }
 
   if (groupBy === "project") {

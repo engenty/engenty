@@ -1,3 +1,5 @@
+import type { OperationSpacePolicy } from "@engenty/plugin-sdk";
+import { recordScopeFromSpacePolicy } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
 
@@ -24,6 +26,9 @@ export interface OperationContract {
   outputSchema: SchemaSummary;
   pluginId: string;
   readOnly: boolean;
+  /** Present when the operation declared `spacePolicy` — catalog, not guessed. */
+  record_scope?: OperationSpacePolicy["kind"];
+  spacePolicy?: OperationSpacePolicy;
   summary?: string;
   toolId: string;
   transports: Array<"rest" | "cli" | "mcp">;
@@ -69,30 +74,36 @@ function toJsonSchema(
 export function buildOperationContracts(
   registry: PluginRegistry
 ): OperationContract[] {
-  return registry.moduleOperations.map((operation) => ({
-    operationId: operation.operationId,
-    toolId: operation.operationId,
-    methodName: operation.methodName,
-    pluginId: operation.pluginId,
-    moduleId: operation.operation.moduleId,
-    readOnly:
-      operation.operation.idempotent === true &&
-      operation.operation.riskLevel === "low" &&
-      !operation.operation.requiresApproval,
-    summary: operation.summary,
-    description: operation.description,
-    inputSchema: summarizeSchema(operation.inputSchema, "input"),
-    outputSchema: summarizeSchema(operation.outputSchema, "output"),
-    auth: {
-      requiredCapabilities: operation.operation.requiredCapabilities,
-      requiredPermissions: operation.operation.requiredCapabilities.map(
-        (capability) => `cap:${capability}`
-      ),
-      requiredScopes: [],
-      riskLevel: operation.operation.riskLevel,
-      requiresApproval: operation.operation.requiresApproval,
-      allowedPrincipalTypes: ["user", "agent", "service"],
-    },
-    transports: ["rest", "cli", "mcp"],
-  }));
+  return registry.moduleOperations.map((operation) => {
+    const spacePolicy = operation.operation.spacePolicy;
+    const record_scope = recordScopeFromSpacePolicy(spacePolicy);
+    return {
+      operationId: operation.operationId,
+      toolId: operation.operationId,
+      methodName: operation.methodName,
+      pluginId: operation.pluginId,
+      moduleId: operation.operation.moduleId,
+      readOnly:
+        operation.operation.idempotent === true &&
+        operation.operation.riskLevel === "low" &&
+        !operation.operation.requiresApproval,
+      summary: operation.summary,
+      description: operation.description,
+      inputSchema: summarizeSchema(operation.inputSchema, "input"),
+      outputSchema: summarizeSchema(operation.outputSchema, "output"),
+      auth: {
+        requiredCapabilities: operation.operation.requiredCapabilities,
+        requiredPermissions: operation.operation.requiredCapabilities.map(
+          (capability) => `cap:${capability}`
+        ),
+        requiredScopes: [],
+        riskLevel: operation.operation.riskLevel,
+        requiresApproval: operation.operation.requiresApproval,
+        allowedPrincipalTypes: ["user", "agent", "service"],
+      },
+      transports: ["rest", "cli", "mcp"],
+      ...(record_scope ? { record_scope } : {}),
+      ...(spacePolicy ? { spacePolicy } : {}),
+    };
+  });
 }

@@ -127,7 +127,6 @@ export function AgentsCatalogPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
   });
 

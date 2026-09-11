@@ -4,6 +4,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import type { AiService } from "../ai/index.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import { markInboxNotificationsSeenWhere } from "../notifications/inbox.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -35,6 +36,18 @@ const updateThreadBodySchema = z.object({
   summary: z.string().max(2000).nullable().optional(),
   title: z.string().max(512).nullable().optional(),
   workspace_key: z.string().min(1).max(256).nullable().optional(),
+});
+
+/** Both or neither: a cursor is the (created_at, id) of the oldest row held. */
+const messagesPageCursorQuery = z
+  .object({
+    before: z.string().datetime({ offset: true }).optional(),
+    before_id: uuidString.optional(),
+  })
+  .refine((q) => Boolean(q.before) === Boolean(q.before_id));
+
+const dismissInterruptBodySchema = z.object({
+  interrupt_id: z.string().min(1).max(512).nullable().optional(),
 });
 
 const appendMessageBodySchema = z.object({
@@ -81,6 +94,10 @@ export function registerThreadRoutes(
       .max(128)
       .optional()
       .safeParse(c.req.query("host_key"));
+    // One space's history, or every space when absent (PLAN-spaces.md Phase
+    // C2) — the history panel's "All spaces" toggle simply omits the param
+    // rather than sending a sentinel, so "no filter" has exactly one spelling.
+    const spaceId = uuidString.optional().safeParse(c.req.query("space_id"));
     const includeArchived = z
       .enum(["true", "1", "yes"])
       .optional()
@@ -98,6 +115,7 @@ export function registerThreadRoutes(
         ...(agentId.success ? { agentId: agentId.data } : {}),
         ...(hostKey.success ? { hostKey: hostKey.data } : {}),
         ...(includeArchived.success ? { includeArchived: true } : {}),
+        ...(spaceId.success && spaceId.data ? { spaceId: spaceId.data } : {}),
         limit: lim,
       });
       // Wire shape unchanged (`sessions`) — frontend consumers parse this key.
@@ -106,6 +124,41 @@ export function registerThreadRoutes(
       return handleRouteError(
         c,
         "listSessions failed",
+        "agent_threads.listSessionsFailed",
+        err
+      );
+    }
+  });
+
+  // Registered under the task namespace, not under `${base}/…`, so it can never
+  // be shadowed by (or shadow) the `:threadId` routes above.
+  app.get(`${AI_BASE_PATH}/v1/tasks/:taskId/threads`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const taskId = uuidString.safeParse(c.req.param("taskId"));
+    if (!taskId.success) {
+      return c.json({ error: "agent_threads.invalidTaskId" }, 400);
+    }
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .safeParse(c.req.query("limit") ?? "20");
+    try {
+      const { threads } = await opts.aiService.threads.listTaskThreads({
+        scope: scope.scope,
+        taskId: taskId.data,
+        ...(limit.success ? { limit: limit.data } : {}),
+      });
+      // Same wire key as the thread list — one consumer parses both.
+      return c.json({ sessions: threads });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "listTaskThreads failed",
         "agent_threads.listSessionsFailed",
         err
       );
@@ -310,6 +363,41 @@ export function registerThreadRoutes(
     }
   });
 
+  // The interrupt card's ✕: close the open decision/approval/tool card
+  // without answering it. Idempotent when nothing is open.
+  app.post(`${base}/:threadId/interrupt/dismiss`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    if (!uuidString.safeParse(threadId).success) {
+      return c.json({ error: "agent_threads.invalidThreadId" }, 400);
+    }
+    const body = dismissInterruptBodySchema.safeParse(
+      await c.req.json().catch(() => ({}))
+    );
+    if (!body.success) {
+      return c.json({ error: "agent_threads.invalidBody" }, 400);
+    }
+    try {
+      const { dismissed, thread } =
+        await opts.aiService.threads.dismissInterrupt({
+          interruptId: body.data.interrupt_id ?? null,
+          scope: scope.scope,
+          threadId,
+        });
+      return c.json({ dismissed, session: thread });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "dismissInterrupt failed",
+        "agent_threads.dismissInterruptFailed",
+        err
+      );
+    }
+  });
+
   app.delete(base, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -344,6 +432,34 @@ export function registerThreadRoutes(
     }
   });
 
+  // Where observational memory stands on the thread: which messages the
+  // observer has already folded into its observations, and the observations
+  // themselves. Read-only; drawn as the "remembered up to here" line.
+  app.get(`${base}/:threadId/memory-observations`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    if (!uuidString.safeParse(threadId).success) {
+      return c.json({ error: "agent_threads.invalidThreadId" }, 400);
+    }
+    try {
+      const memory = await opts.aiService.threads.getMemoryObservations({
+        scope: scope.scope,
+        threadId,
+      });
+      return c.json({ memory });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "getMemoryObservations failed",
+        "agent_threads.memoryObservationsFailed",
+        err
+      );
+    }
+  });
+
   app.get(`${base}/:threadId/messages`, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -360,13 +476,39 @@ export function registerThreadRoutes(
       .max(2000)
       .safeParse(c.req.query("limit") ?? "500");
     const lim = limit.success ? limit.data : 500;
+    const cursor = messagesPageCursorQuery.safeParse({
+      before: c.req.query("before"),
+      before_id: c.req.query("before_id"),
+    });
+    if (!cursor.success) {
+      return c.json({ error: "agent_threads.invalidCursor" }, 400);
+    }
     try {
-      const { messages } = await opts.aiService.threads.listMessages({
+      const { has_more, messages } = await opts.aiService.threads.listMessages({
+        ...(cursor.data.before && cursor.data.before_id
+          ? {
+              before: {
+                createdAt: new Date(cursor.data.before),
+                id: cursor.data.before_id,
+              },
+            }
+          : {}),
         scope: scope.scope,
         threadId,
         limit: lim,
       });
-      return c.json({ messages });
+      // Read-sync: the person opened this conversation, so the FYI rows
+      // about it (agent messages, finished hand-offs) are read. Best-effort.
+      if (!cursor.data.before && scope.scope.userId) {
+        void markInboxNotificationsSeenWhere({
+          predicate: (record) =>
+            record.class === "update" &&
+            record.metadata?.thread_id === threadId,
+          tenantId: scope.scope.tenantId,
+          userId: scope.scope.userId,
+        }).catch(() => undefined);
+      }
+      return c.json({ has_more, messages });
     } catch (err) {
       return handleRouteError(
         c,

@@ -1,5 +1,7 @@
+import type { SpaceConnectionAccess } from "./space-mounts.js";
 import type {
   ConnectionActionPolicy,
+  ConnectionAutonomousMode,
   ConnectionPolicyOverride,
   ConnectionSummary,
   ConnectorAction,
@@ -8,6 +10,47 @@ import type {
 import { ACTION_GROUP_DEFAULT_POLICY } from "./types.js";
 
 const GROUP_ORDER: ConnectorActionGroup[] = ["read", "write", "destructive"];
+
+/** Least to most permissive — the order both autonomy clamps compare on. */
+const AUTONOMY_ORDER: ConnectionAutonomousMode[] = ["off", "read_only", "full"];
+
+/**
+ * The space's level said as an autonomous mode, so the two halves are compared
+ * in one vocabulary rather than each having its own idea of "read".
+ */
+const SPACE_ACCESS_AS_AUTONOMY: Record<
+  SpaceConnectionAccess,
+  ConnectionAutonomousMode
+> = {
+  none: "off",
+  read: "read_only",
+  write: "full",
+};
+
+/**
+ * How far an unattended run may go with this account HERE: the lower of the
+ * space's level and the account owner's ceiling (PLAN-connections-ux.md B1,
+ * decision (b)).
+ *
+ * A space that never chose a level (`null`) is not a space that chose `none` —
+ * it falls through to the account setting alone, which is exactly what every
+ * space did before the level existed. And the account stays a ceiling rather
+ * than a floor, so an owner switching their account to `off` shuts it off in
+ * every space in one move, whatever those spaces asked for.
+ */
+function effectiveAutonomy(
+  accountMode: ConnectionAutonomousMode,
+  spaceAccess: SpaceConnectionAccess | null | undefined
+): { from: "account" | "space"; mode: ConnectionAutonomousMode } {
+  if (!spaceAccess) {
+    return { from: "account", mode: accountMode };
+  }
+  const spaceMode = SPACE_ACCESS_AS_AUTONOMY[spaceAccess];
+  return AUTONOMY_ORDER.indexOf(spaceMode) <=
+    AUTONOMY_ORDER.indexOf(accountMode)
+    ? { from: "space", mode: spaceMode }
+    : { from: "account", mode: accountMode };
+}
 
 export interface ConnectionPolicyPrincipal {
   /**
@@ -38,9 +81,10 @@ export type ResolvedConnectionPolicy =
  * Then the cross-axis clamps, applied in order:
  *   - sharing: non-owners on org connections are capped at
  *     `non_owner_max_group` (actions in higher groups → deny)
- *   - run context: autonomous principals (agent/service) — `off` denies all,
- *     `read_only` denies non-read groups; `ask` outcomes stay `ask` (the
- *     caller decides how ask surfaces for autonomous runs).
+ *   - run context: autonomous principals (agent/service) are clamped by the
+ *     lower of the space's level and the account's `autonomous_mode` — `off`
+ *     denies all, `read_only` denies non-read groups; `ask` outcomes stay
+ *     `ask` (the caller decides how ask surfaces for autonomous runs).
  */
 export function resolveConnectionActionPolicy(params: {
   action: Pick<ConnectorAction, "group" | "id">;
@@ -48,19 +92,68 @@ export function resolveConnectionActionPolicy(params: {
     ConnectionSummary,
     "autonomous_mode" | "non_owner_max_group" | "owner_user_id" | "sharing"
   >;
+  /**
+   * The acting AGENT holds an explicit grant on this connection
+   * (PLAN-spaces.md CN.5) — "the Marketing Agent may use my Gmail", written by
+   * the owner and revocable in one place.
+   *
+   * It stands in for ownership in the sharing clamp and NOWHERE else: every
+   * other axis still applies, so a granted agent is still subject to
+   * `autonomous_mode`, the action policies, and any `ask` that follows from
+   * them. The point is that the agent may reach the account at all, not that
+   * it may do anything with it.
+   */
+  hasAgentGrant?: boolean;
+  /**
+   * The run acts for the VERIFIED owner of its personal space, and this
+   * connection is that owner's (PLAN-space-computer.md §2.1).
+   *
+   * Like `hasAgentGrant`, it stands in for ownership in the SHARING CLAMP and
+   * nowhere else: the owner's `autonomous_mode` ceiling, the space level,
+   * action policies and every `ask` still apply. Callers must derive it from
+   * `resolveVerifiedSpaceOwnerForRun`, never from an unverified space claim.
+   */
+  actsForSpaceOwner?: boolean;
   /** True when the run has no live user session (task jobs, triggers). */
   isAutonomous: boolean;
   overrides: readonly Pick<ConnectionPolicyOverride, "policy" | "selector">[];
   principal: ConnectionPolicyPrincipal;
+  /**
+   * What the RUN'S SPACE allows with this account (`space_mount.agent_access`,
+   * PLAN-connections-ux.md B1). Absent or null means the space never decided,
+   * and the account's own `autonomous_mode` decides alone — the behaviour of
+   * every caller that does not know about spaces, and of every space that has
+   * not set a level.
+   *
+   * Like `autonomous_mode`, it clamps UNATTENDED runs only: a mount level says
+   * what this space's engentys may do, not what a person sitting in the space
+   * may do.
+   */
+  spaceAccess?: SpaceConnectionAccess | null;
 }): ResolvedConnectionPolicy {
-  const { action, connection, isAutonomous, overrides, principal } = params;
+  const {
+    action,
+    connection,
+    actsForSpaceOwner = false,
+    hasAgentGrant = false,
+    isAutonomous,
+    overrides,
+    principal,
+    spaceAccess,
+  } = params;
 
   // Sharing clamp before anything else: a personal connection is only usable
-  // by its owner (agents act on behalf of the acting user carried on auth).
+  // by its owner, or by an agent the owner granted it to (CN.5). Before that
+  // grant existed the only way an unattended run could touch a personal
+  // account was to impersonate its owner — which works and is wrong, because
+  // the audit trail then says a person did what an agent did.
   const isOwner =
     connection.owner_user_id !== null &&
     connection.owner_user_id === principal.principalId;
-  if (connection.sharing === "personal" && !isOwner) {
+  if (
+    connection.sharing === "personal" &&
+    !(isOwner || hasAgentGrant || actsForSpaceOwner)
+  ) {
     return {
       decision: "deny",
       reason: "connection_personal_not_owner",
@@ -80,11 +173,27 @@ export function resolveConnectionActionPolicy(params: {
   }
 
   if (isAutonomous) {
-    if (connection.autonomous_mode === "off") {
-      return { decision: "deny", reason: "connection_autonomous_disabled" };
+    const autonomy = effectiveAutonomy(connection.autonomous_mode, spaceAccess);
+    // The reason names WHICH half said no, because the two are fixed in
+    // different places: the space's level in the space's settings, the
+    // account's mode by its owner. "Denied" without that is a dead end.
+    if (autonomy.mode === "off") {
+      return {
+        decision: "deny",
+        reason:
+          autonomy.from === "space"
+            ? "connection_space_access_none"
+            : "connection_autonomous_disabled",
+      };
     }
-    if (connection.autonomous_mode === "read_only" && action.group !== "read") {
-      return { decision: "deny", reason: "connection_autonomous_read_only" };
+    if (autonomy.mode === "read_only" && action.group !== "read") {
+      return {
+        decision: "deny",
+        reason:
+          autonomy.from === "space"
+            ? "connection_space_access_read_only"
+            : "connection_autonomous_read_only",
+      };
     }
   }
 

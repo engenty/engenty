@@ -2,6 +2,7 @@
  * Client-side navigation for same-origin module links rendered inside TipTap.
  */
 
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import type { RichEditorLinkClickHandler } from "@engenty/tiptap-editor";
 import type { NavigateFunction } from "react-router-dom";
 
@@ -26,7 +27,10 @@ export function createKbModuleRichEditorLinkHandler(
         return false;
       }
       const path = `${url.pathname}${url.search}${url.hash}`;
-      if (!path.startsWith("/mdl/")) {
+      // Canonical for the CHECK only — an author standing in a space copies a
+      // `/s/<key>/…` URL, and rejecting it turned an in-app link into a full
+      // page load. Navigation still uses the path as written.
+      if (!canonicalModulePathname(url.pathname).startsWith("/mdl/")) {
         return false;
       }
       navigate(path);

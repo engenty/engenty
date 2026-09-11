@@ -138,6 +138,7 @@ export function registerTeamMembersApi(
     | "registerOperation"
     | "hasOperation"
     | "callGatewayMethod"
+    | "getTenantDb"
   >,
   repoOrFactory: RepoOrFactory
 ) {

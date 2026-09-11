@@ -74,4 +74,18 @@ describe("filterTools", () => {
       filterTools(all, { searchQuery: "contacts", sourceFilter: "all" })
     ).toEqual([moduleTool]);
   });
+
+  it("treats coding as a match for tools that talk about code", () => {
+    const sandbox = tool({
+      description: "Run Python or shell scripts in a sandbox",
+      id: "sandbox-code-execution",
+      name: "sandbox-code-execution",
+    });
+    expect(
+      filterTools([moduleTool, sandbox], {
+        searchQuery: "coding",
+        sourceFilter: "all",
+      })
+    ).toEqual([sandbox]);
+  });
 });

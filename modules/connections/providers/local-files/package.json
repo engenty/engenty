@@ -13,6 +13,14 @@
     "./ui/plugin": {
       "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"
+    },
+    "./ui/grant-local-folder": {
+      "types": "./ui/lib/grant-local-folder.ts",
+      "default": "./ui/lib/grant-local-folder.ts"
+    },
+    "./ui/local-files-bridge": {
+      "types": "./ui/components/local-files-bridge.tsx",
+      "default": "./ui/components/local-files-bridge.tsx"
     }
   },
   "engenty": {

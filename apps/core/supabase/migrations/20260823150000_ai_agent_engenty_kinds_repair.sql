@@ -1,0 +1,22 @@
+-- Drop the agent silhouette check constraint.
+--
+-- `engenty` is a cosmetic silhouette name owned by the UI (ui-core
+-- ENGENTY_KINDS, mirrored in ai-core AGENT_ENGENTY_KINDS, enforced by the zod
+-- schema on `POST /ai/registry/agents`). Pinning that list a second time in a
+-- database CHECK meant every rename of a drawing needed a migration to match —
+-- and the two copies drifted the moment one moved without the other.
+--
+-- That is not hypothetical. 20260821120000 was edited in place after it had
+-- already been applied: the file carries the current kinds, but a database that
+-- ran the earlier version kept the retired list ('ember', 'pilot', 'scribe',
+-- 'beam', 'hum') and never re-ran it. The two lists are disjoint, so the
+-- constraint rejected EVERY value the API accepts — the insert died and
+-- surfaced as a bare 500 `agent_registry.internalError`. Creating a custom
+-- agent, hiring one from chat included, was impossible on such a database.
+--
+-- The API is the right place for this rule and already has it. An unrecognised
+-- value degrades safely rather than corrupting anything: `resolveAgentEngenty`
+-- falls back to hashing the agent id, so the agent renders a stable silhouette.
+-- A drawing being renamed must never be able to break agent creation again.
+alter table ai.engenty_ai_agents
+  drop constraint if exists engenty_ai_agents_engenty_check;

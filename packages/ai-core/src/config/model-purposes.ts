@@ -31,6 +31,11 @@ export {
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
 } from "./model-defaults.js";
 
+import {
+  DEFAULT_MODEL_GATEWAY_ID,
+  formatModelRef,
+  parseModelRef,
+} from "./model-ref.js";
 import { type ModelBindings, PURPOSE_TO_ROLE } from "./model-roles.js";
 
 /**
@@ -41,10 +46,12 @@ import { type ModelBindings, PURPOSE_TO_ROLE } from "./model-roles.js";
 export type AiModelPurpose =
   | "chat"
   | "routing"
+  | "coordinator"
   | "classifier"
   | "research"
   | "planning_coding"
-  | "safeguard";
+  | "safeguard"
+  | "memory";
 
 /** Stable display order for the model matrix. */
 export const AI_MODEL_PURPOSES: readonly AiModelPurpose[] = [
@@ -54,6 +61,7 @@ export const AI_MODEL_PURPOSES: readonly AiModelPurpose[] = [
   "research",
   "planning_coding",
   "safeguard",
+  "memory",
 ] as const;
 
 /** Which layer supplied the effective value (for UI provenance badges). */
@@ -67,8 +75,20 @@ export type AiSettingSource =
   | "governance";
 
 export interface ResolvedModel {
+  /**
+   * Which gateway serves {@link value}. Redundant with the ref head on `value`
+   * and kept anyway: a caller that already has the pair should not have to
+   * re-parse to display it, and provenance UI shows gateway and model in
+   * separate columns.
+   */
+  gateway: string;
   purpose: AiModelPurpose;
   source: AiSettingSource;
+  /**
+   * A model **ref** — the bare id for the default gateway, `gateway:id`
+   * otherwise. Anything that means "which model" rather than "which model,
+   * where" must put this through `modelIdOfRef` first.
+   */
   value: string;
 }
 
@@ -84,7 +104,8 @@ interface PurposeSpec {
     | "classifier_model_id"
     | "research_model_id"
     | "planning_coding_model_id"
-    | "safeguard_model_id";
+    | "safeguard_model_id"
+    | "memory_model_id";
 }
 
 /**
@@ -103,6 +124,16 @@ export const AI_MODEL_PURPOSE_SPECS: Record<AiModelPurpose, PurposeSpec> = {
   routing: {
     defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
     envKeys: ["AI_ROUTING_MODEL", "AI_COORDINATOR_MODEL", "AI_CHAT_MODEL"],
+    tenantField: "coordinator_model_id",
+  },
+  // The work coordinator plans goals and writes documents — a chat-tier job,
+  // NOT the router's. It shares the stored `coordinator_model_id` knob with
+  // the routing tier (legacy field name) but must never inherit the router
+  // role binding: on 2026-08-22 a coordinator resolved through `routing`
+  // landed on the bound 20B router model and died on its output cap.
+  coordinator: {
+    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    envKeys: ["AI_COORDINATOR_MODEL", "AI_CHAT_MODEL"],
     tenantField: "coordinator_model_id",
   },
   classifier: {
@@ -127,6 +158,14 @@ export const AI_MODEL_PURPOSE_SPECS: Record<AiModelPurpose, PurposeSpec> = {
     defaultModelId: DEFAULT_AI_SAFEGUARD_MODEL_ID,
     envKeys: ["AI_SAFEGUARD_MODEL"],
     tenantField: "safeguard_model_id",
+  },
+  // Observational memory (observer + reflector). Chat-tier by default: it reads
+  // a whole conversation and must emit a complete structured rewrite, which the
+  // classifier tier cannot finish.
+  memory: {
+    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    envKeys: ["AI_MEMORY_MODEL"],
+    tenantField: "memory_model_id",
   },
 };
 
@@ -186,43 +225,57 @@ export function resolvePurposeModel(
   const allowed = (value: string) =>
     options.devMode === true || isModelAllowed(value, policy);
 
+  // Every layer stores ONE string, which may carry a gateway head. Resolving
+  // through refs rather than a parallel gateway field is what keeps a tenant
+  // pin, an agent pin and an env seed able to name a gateway without six
+  // schema changes — see `model-ref.ts`.
+  const resolved = (value: string, source: AiSettingSource): ResolvedModel => {
+    const ref = parseModelRef(value);
+    return {
+      gateway: ref.gateway,
+      purpose: options.purpose,
+      source,
+      value: formatModelRef(ref),
+    };
+  };
+
   const session = pick(options.sessionOverride);
   if (session && allowed(session)) {
-    return { purpose: options.purpose, value: session, source: "session" };
+    return resolved(session, "session");
   }
   const agent = pick(options.agentOverride);
   if (agent && allowed(agent)) {
-    return { purpose: options.purpose, value: agent, source: "agent" };
+    return resolved(agent, "agent");
   }
   const tenant = pick(options.tenantDefault);
   if (tenant && allowed(tenant)) {
-    return { purpose: options.purpose, value: tenant, source: "tenant" };
+    return resolved(tenant, "tenant");
   }
   // The platform layer: a binding when the table has been populated, else the
-  // env vars it will be seeded from.
-  const bound = options.bindings
-    ? pick(
-        options.bindings.get(PURPOSE_TO_ROLE[options.purpose] ?? "")?.modelId
-      )
-    : undefined;
+  // env vars it will be seeded from. A binding holds the gateway in its own
+  // column, so it is recombined into a ref here rather than parsed out of the id.
+  const binding = options.bindings?.get(PURPOSE_TO_ROLE[options.purpose] ?? "");
+  const bound = pick(binding?.modelId);
   if (bound) {
     if (allowed(bound)) {
-      return { purpose: options.purpose, value: bound, source: "platform" };
+      return resolved(
+        formatModelRef({
+          gateway: binding?.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
+          modelId: bound,
+        }),
+        "platform"
+      );
     }
   } else {
     for (const key of spec.envKeys) {
       const fromEnv = pick(read(key));
       if (fromEnv && allowed(fromEnv)) {
-        return { purpose: options.purpose, value: fromEnv, source: "platform" };
+        return resolved(fromEnv, "platform");
       }
     }
   }
   if (allowed(spec.defaultModelId)) {
-    return {
-      purpose: options.purpose,
-      value: spec.defaultModelId,
-      source: "default",
-    };
+    return resolved(spec.defaultModelId, "default");
   }
   // Every layer is disallowed. The platform/default layers used to be returned
   // unchecked here, which handed `checkUsageLimits` a model it then rejected —
@@ -230,17 +283,13 @@ export function resolvePurposeModel(
   // the picker only offers granted models. Land on a granted model instead.
   const granted = firstAllowedModelId(policy);
   if (granted) {
-    return { purpose: options.purpose, value: granted, source: "governance" };
+    return resolved(granted, "governance");
   }
   // Provider-only grant excluding the default: there is no id to fall back to
   // without a catalog lookup, which this pure resolver has no access to. The
   // preflight will reject — the write boundary is responsible for refusing a
   // policy that grants no model for a required purpose.
-  return {
-    purpose: options.purpose,
-    value: spec.defaultModelId,
-    source: "default",
-  };
+  return resolved(spec.defaultModelId, "default");
 }
 
 /** Convenience: just the effective model id for a purpose. */

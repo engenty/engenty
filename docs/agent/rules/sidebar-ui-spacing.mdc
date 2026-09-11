@@ -123,14 +123,14 @@ export function ProjectsSidebarGroupedList({ groups, renderItem }) {
 
 The footer component is pinned to the bottom and holds the settings navigation.
 
-- Wrapped in a `div` with `shrink-0 border-border/50 border-t pt-2 pr-1 pb-2` (removes left padding `pl-2` to align hover borders).
+- Wrapped in a `div` with `shrink-0 border-border-soft border-t pt-2 pr-1 pb-2` (removes left padding `pl-2` to align hover borders).
 - Do **not** wrap in a `<nav>` tag.
 - Mount `<SidebarNavList>` directly inside.
 
 ```tsx
 export function ProjectsSidebarFooter({ pathname }) {
   return (
-    <div className="shrink-0 border-border/50 border-t pt-2 pr-1 pb-2">
+    <div className="shrink-0 border-border-soft border-t pt-2 pr-1 pb-2">
       <SidebarNavList>
         <SidebarNavRow
           active={pathname === "/mdl/projects/settings"}

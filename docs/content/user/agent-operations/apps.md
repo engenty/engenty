@@ -17,7 +17,7 @@ store** (its data).
 | --- | --- | --- |
 | `app_list` | Reads | List apps in this workspace |
 | `app_get` | Reads | Get an app and its active version |
-| `app_actions_list` | Reads | What actions an app declares |
+| `app_workflows_list` | Reads | What actions an app declares |
 | `app_versions_list` | Reads | List versions, newest first |
 | `app_call` | Reads | Invoke a low-risk action on an app |
 | `app_config_get` | Reads | Read one config key |
@@ -25,8 +25,8 @@ store** (its data).
 | `app_data_get` | Reads | Read one key from the working store |
 | `app_data_list` | Reads | List working-store keys |
 | `app_create` | Writes | Create an app |
-| `app_file_write` | Writes | Write source files into the draft |
-| `app_release_propose` | Writes | Build the draft and propose it |
+| `app_file_write` | Writes | Write files into the App's repository and commit |
+| `app_release_propose` | Writes | Commit the work tree, build it and propose the release |
 | `app_release_approve` | Writes | Activate a proposed version |
 | `app_release_reject` | Writes | Reject a proposed version |
 | `app_release_rollback` | Writes | Redeploy a previous version |

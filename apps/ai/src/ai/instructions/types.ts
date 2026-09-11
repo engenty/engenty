@@ -10,7 +10,7 @@ export type InstructionLayer =
   | "tenant"
   | "module"
   | "agent"
-  | "action"
+  | "workflow"
   | "tenant_override"
   | "user_override";
 

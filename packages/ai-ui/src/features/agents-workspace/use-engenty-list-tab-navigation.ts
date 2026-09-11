@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  buildActionsCatalogPath,
   buildAgentsCatalogPath,
   buildArtifactsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
+  buildWorkflowsCatalogPath,
 } from "./agent-workspace-paths.js";
 import type { EngentyListTab } from "./engenty-list-sub-nav.js";
 
@@ -20,8 +20,8 @@ export function useEngentyListTabNavigation() {
         navigate(buildSkillsCatalogPath());
         return;
       }
-      if (tab === "actions") {
-        navigate(buildActionsCatalogPath());
+      if (tab === "flows") {
+        navigate(buildWorkflowsCatalogPath());
         return;
       }
       if (tab === "tools") {

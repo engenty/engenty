@@ -26,6 +26,7 @@ import {
 } from "../features/ai-settings/map-gateway-model-select-options";
 import { ModelMatrixCard } from "../features/ai-settings/model-matrix-card";
 import { RealtimeVoiceSettingsCard } from "../features/ai-settings/realtime-voice-settings-card";
+import { TimezoneSettingsCard } from "../features/ai-settings/timezone-settings-card";
 import { UsageReportTab } from "../features/ai-settings/usage-report-tab";
 import { useAiSettings } from "../hooks/use-ai-settings";
 import {
@@ -217,7 +218,6 @@ export function AiGeneralSettingsPage() {
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend into
     // one continuous surface (matches the memory / contact detail pages).
     topbarOverlap: true,
@@ -371,6 +371,11 @@ export function AiGeneralSettingsPage() {
             </TabsContent>
 
             <TabsContent className="space-y-6" value="limits">
+              <TimezoneSettingsCard
+                settings={settings}
+                t={t}
+                updateSettings={updateSettings}
+              />
               <LimitsBudgetsTab
                 effective={effectiveQuery.data}
                 settings={settings}
@@ -382,8 +387,9 @@ export function AiGeneralSettingsPage() {
             <TabsContent className="space-y-6" value="agents">
               <AgentsOverridesTab
                 chatModelOptions={chatModelOptions}
-                effective={effectiveQuery.data}
+                settings={settings}
                 t={t}
+                updateSettings={updateSettings}
               />
             </TabsContent>
 

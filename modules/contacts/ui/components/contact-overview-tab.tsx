@@ -545,7 +545,7 @@ function PersonAffiliation({
             .join(" · ");
           return (
             <div
-              className="group ui-canvas-panel relative flex items-start gap-3 rounded-lg border-0 bg-card p-3 transition-colors hover:bg-accent/40"
+              className="group ui-card-panel ui-card-interactive relative flex items-start gap-3 p-3"
               key={rel.id}
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground text-sm">

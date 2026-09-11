@@ -1,14 +1,32 @@
 import {
   EngentyCoreClient,
   type EngentyPluginListItem,
-  type EngentyToolContract,
+  type EngentySpace,
   type EngentyWorkspaceContext,
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
+import type { RunSpaceResolution } from "./run-space.js";
+import {
+  formatSpaceRuntimeBlock,
+  formatTenantInstalledModuleLine,
+  type SpaceAgentIdentity,
+} from "./runtime-space-block.js";
 import { type AiSessionScope, scopeAccessToken } from "./types.js";
 
 export async function buildRuntimeContextInstructions(input: {
   scope: AiSessionScope;
+  /**
+   * Authoritative Space state for this run. Consume the already-resolved
+   * surface here; do not refetch it or present tenant-wide plugins as mounted.
+   */
+  spaceResolution?: RunSpaceResolution;
+  /**
+   * Legacy identity-only fallback for callers that have not yet passed
+   * `spaceResolution`. A uuid here is not a resolved surface.
+   */
+  spaceId?: string | null;
+  /** Engentys this space mounts — used only on the legacy identity fallback. */
+  spaceAgentIds?: readonly string[];
   threadId: string;
 }) {
   const lines = [
@@ -29,8 +47,8 @@ export async function buildRuntimeContextInstructions(input: {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   if (!(accessToken && coreBaseUrl)) {
     lines.push(
-      "- workspace_context: not loaded before this run; use engenty_tools_context if current tenant or user workspace details are needed.",
-      "- active_modules: not loaded before this run; use engenty_tools_modules before choosing a module-specific tool."
+      ...spaceLines(input),
+      "- workspace_context: not loaded before this run; use engenty_tools_context if current tenant or user workspace details are needed."
     );
     return lines.join("\n");
   }
@@ -38,9 +56,14 @@ export async function buildRuntimeContextInstructions(input: {
   try {
     const client = new EngentyCoreClient({ coreBaseUrl, accessToken });
     const workspace = await client.getWorkspaceContext();
-    const [plugins, contracts] = await Promise.all([
+    const [plugins, spaces, agentIdentities] = await Promise.all([
       client.listPlugins(workspace.currentTenant?.id),
-      client.listToolContracts(),
+      client.listSpaces().catch(() => [] as EngentySpace[]),
+      fetchSpaceAgentIdentities({
+        accessToken,
+        coreBaseUrl,
+        spaceResolution: input.spaceResolution,
+      }),
     ]);
     lines.push(
       `- current_user: ${formatCurrentUser(workspace.currentUser, workspace.userId)}`,
@@ -51,54 +74,127 @@ export async function buildRuntimeContextInstructions(input: {
       `- onboarded: ${workspace.onboarded}`,
       `- tenant_supported_locales: ${(workspace.tenantSupportedLocales ?? []).join(", ") || "none"}`
     );
-    const toolSummaries = summarizeToolContractsByModule(contracts);
-    const modules = plugins
+    const tenantModuleIds = plugins
       .filter(isActiveModulePlugin)
-      .map((plugin) => {
-        const summary = toolSummaries.get(plugin.id);
-        return {
-          // Prefix, not page — see engenty-tools-modules-tool.ts.
-          routePrefix: `/mdl/${plugin.id}`,
-          description: plugin.description,
-          moduleId: plugin.id,
-          name: plugin.name ?? plugin.id,
-          toolCount: summary?.toolCount ?? 0,
-          toolIds: summary?.toolIds ?? [],
-        };
-      })
-      .sort((a, b) => a.moduleId.localeCompare(b.moduleId));
-
-    if (modules.length === 0) {
-      lines.push("- active_modules: none reported by core");
-    } else {
-      lines.push(
-        "- active_modules (routePrefix is where a module's pages live, not a page — pass it to `navigate`, which resolves it against the real route table or returns the routes that exist):"
-      );
-      for (const module of modules.slice(0, 30)) {
-        lines.push(`  Module: ${module.name}`);
-        lines.push(`   - name: ${module.moduleId}`);
-        if (module.description) {
-          lines.push(
-            `   - description: ${truncateForPrompt(module.description, 180)}`
-          );
-        }
-        lines.push(`   - routePrefix: ${module.routePrefix}`);
-        if (module.toolIds.length > 0) {
-          lines.push(`   - apiTools: ${module.toolIds.join(", ")}`);
-        }
-      }
-      if (modules.length > 30) {
-        lines.push(`  - ... ${modules.length - 30} more modules omitted`);
-      }
-    }
+      .map((plugin) => plugin.id)
+      .sort((a, b) => a.localeCompare(b));
+    lines.push(
+      ...spaceLines(input, { agentIdentities, spaces, tenantModuleIds })
+    );
   } catch {
     lines.push(
-      "- workspace_context: unavailable before this run; use engenty_tools_context if needed.",
-      "- active_modules: unavailable before this run; use engenty_tools_modules if needed."
+      ...spaceLines(input),
+      "- workspace_context: unavailable before this run; use engenty_tools_context if needed."
     );
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Registry identities (id, name, description) for a resolved Space's mounted
+ * Engentys — the roster the runtime block renders so the model can map a
+ * display name the user says to an id it may address. Same endpoint the
+ * `registry_agents_list` tool calls; any failure degrades to the id-only line.
+ */
+async function fetchSpaceAgentIdentities(input: {
+  accessToken: string;
+  coreBaseUrl: string;
+  spaceResolution?: RunSpaceResolution;
+}): Promise<SpaceAgentIdentity[] | undefined> {
+  const resolution = input.spaceResolution;
+  if (resolution?.kind !== "resolved" || resolution.space.agentIds.size === 0) {
+    return;
+  }
+  try {
+    const response = await fetch(
+      `${input.coreBaseUrl.replace(/\/$/, "")}/ai/registry/agents`,
+      {
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${input.accessToken}`,
+        },
+      }
+    );
+    if (!response.ok) {
+      return;
+    }
+    const data = (await response.json()) as {
+      agents?: SpaceAgentIdentity[];
+    };
+    return (data.agents ?? []).filter((agent) =>
+      resolution.space.agentIds.has(agent.id)
+    );
+  } catch {
+    return;
+  }
+}
+
+function spaceLines(
+  input: {
+    spaceResolution?: RunSpaceResolution;
+    spaceId?: string | null;
+    spaceAgentIds?: readonly string[];
+  },
+  extras?: {
+    agentIdentities?: readonly SpaceAgentIdentity[];
+    spaces?: readonly EngentySpace[];
+    tenantModuleIds?: readonly string[];
+  }
+): string[] {
+  if (input.spaceResolution) {
+    const spaceId =
+      input.spaceResolution.kind === "resolved"
+        ? input.spaceResolution.space.spaceId
+        : undefined;
+    return formatSpaceRuntimeBlock({
+      ...(extras?.agentIdentities
+        ? { agentIdentities: extras.agentIdentities }
+        : {}),
+      resolution: input.spaceResolution,
+      spaceIdentity: spaceId
+        ? (extras?.spaces?.find((entry) => entry.id === spaceId) ?? null)
+        : null,
+      tenantModuleIds: extras?.tenantModuleIds,
+    });
+  }
+
+  if (input.spaceId) {
+    const identity =
+      extras?.spaces?.find((entry) => entry.id === input.spaceId) ?? null;
+    const lines: string[] = [];
+    if (identity) {
+      const personal = identity.ownerUserId
+        ? " — this is the user's PERSONAL space"
+        : "";
+      lines.push(
+        `- current_space: ${identity.name} (${identity.key}, ${input.spaceId})${personal}`
+      );
+    } else {
+      lines.push(
+        `- current_space: ${input.spaceId} (name not loaded; Space surface was not supplied with this run)`
+      );
+    }
+    if (input.spaceAgentIds && input.spaceAgentIds.length > 0) {
+      lines.push(
+        `- space_mounted_agents: ${[...input.spaceAgentIds].sort().join(", ")}`
+      );
+    }
+    lines.push(
+      "- space_mounted_modules: not supplied with this run's Space resolution; do not treat tenant_installed_modules as mounted here."
+    );
+    if (extras?.tenantModuleIds) {
+      lines.push(
+        formatTenantInstalledModuleLine(extras.tenantModuleIds, "space")
+      );
+    }
+    return lines;
+  }
+
+  return formatSpaceRuntimeBlock({
+    resolution: { kind: "global" },
+    tenantModuleIds: extras?.tenantModuleIds,
+  });
 }
 
 function formatTenant(
@@ -152,29 +248,4 @@ function isActiveModulePlugin(plugin: EngentyPluginListItem) {
     return false;
   }
   return true;
-}
-
-function summarizeToolContractsByModule(contracts: EngentyToolContract[]) {
-  const map = new Map<string, { toolCount: number; toolIds: string[] }>();
-  for (const contract of contracts) {
-    const moduleId = contract.moduleId ?? "core";
-    const toolId =
-      contract.toolId ?? contract.operationId ?? contract.methodName;
-    if (!toolId) {
-      continue;
-    }
-    const current = map.get(moduleId) ?? { toolCount: 0, toolIds: [] };
-    current.toolCount++;
-    current.toolIds.push(toolId);
-    map.set(moduleId, current);
-  }
-  return map;
-}
-
-function truncateForPrompt(value: string, maxLength: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-  return `${normalized.slice(0, maxLength - 1)}...`;
 }

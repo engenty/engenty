@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import type { HTMLAttributes, ReactNode, Ref } from "react";
 
 export const taskPropertyRowClassName =
-  "ui-canvas-raised flex w-full items-center gap-2.5 rounded-md bg-card px-3 py-2.5 text-left transition-colors";
+  "ui-card-raised flex w-full items-center gap-2.5 px-3 py-2.5 text-left";
 
 interface TaskPropertyRowProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -36,7 +36,7 @@ export function TaskPropertyRow({
         taskPropertyRowClassName,
         interactive &&
           !disabled &&
-          "cursor-pointer hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         disabled && "pointer-events-none opacity-50",
         className
       )}

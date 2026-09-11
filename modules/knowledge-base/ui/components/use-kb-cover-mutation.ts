@@ -3,8 +3,8 @@ import type { KbCover, KnowledgeBase } from "../../src/schema/types.js";
 import { updateKb } from "../api.js";
 import {
   applyKnowledgeBaseToKbQueries,
+  KB_LIST_KEY_PREFIX,
   kbDetailQueryOptions,
-  kbsQueryOptions,
 } from "../queries.js";
 
 export function useKbCoverMutation(
@@ -20,22 +20,24 @@ export function useKbCoverMutation(
     onMutate: async (nextCover) => {
       options.onOptimisticCoverChange?.(nextCover);
       const detailKey = kbDetailQueryOptions(kb.id).queryKey;
-      await queryClient.cancelQueries({ queryKey: kbsQueryOptions.queryKey });
+      await queryClient.cancelQueries({ queryKey: KB_LIST_KEY_PREFIX });
       await queryClient.cancelQueries({ queryKey: detailKey });
-      const previousList = queryClient.getQueryData<KnowledgeBase[]>(
-        kbsQueryOptions.queryKey
-      );
+      // Snapshot every live list scope (space-scoped + tenant-wide admin).
+      const previousLists = queryClient.getQueriesData<KnowledgeBase[]>({
+        queryKey: KB_LIST_KEY_PREFIX,
+      });
+
       const previousDetail = queryClient.getQueryData<KnowledgeBase>(detailKey);
-      const previousListRow = previousList?.find(
-        (row) => row.id === kb.id || String(row.id) === String(kb.id)
-      );
+      const previousListRow = previousLists
+        .flatMap(([, rows]) => rows ?? [])
+        .find((row) => row.id === kb.id || String(row.id) === String(kb.id));
       const previousCover = previousDetail
         ? previousDetail.cover
         : previousListRow
           ? previousListRow.cover
           : kb.cover;
-      queryClient.setQueryData<KnowledgeBase[]>(
-        kbsQueryOptions.queryKey,
+      queryClient.setQueriesData<KnowledgeBase[]>(
+        { queryKey: KB_LIST_KEY_PREFIX },
         (old) => {
           if (!Array.isArray(old)) {
             return old;
@@ -51,11 +53,13 @@ export function useKbCoverMutation(
         const base = old ?? kb;
         return { ...base, cover: nextCover };
       });
-      return { previousCover, previousList, previousDetail, detailKey };
+      return { previousCover, previousLists, previousDetail, detailKey };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.previousList !== undefined) {
-        queryClient.setQueryData(kbsQueryOptions.queryKey, ctx.previousList);
+      if (ctx?.previousLists) {
+        for (const [key, rows] of ctx.previousLists) {
+          queryClient.setQueryData(key, rows);
+        }
       }
       if (ctx?.previousDetail !== undefined && ctx.detailKey !== undefined) {
         queryClient.setQueryData(ctx.detailKey, ctx.previousDetail);

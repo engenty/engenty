@@ -48,6 +48,8 @@ function refineProfileName(
 export const memberTypeSchema = z.enum(["internal", "external", "contractor"]);
 
 export const teamMemberSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   id: z.string(),
   tenant_id: z.string(),
   scope_id: z.string(),

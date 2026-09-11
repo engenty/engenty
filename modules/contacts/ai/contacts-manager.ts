@@ -1,20 +1,13 @@
 import type {
-  ActionDefinition,
   AgentConfig,
-  AgentDefinition,
-  AiAgentManifest,
   InstructionDocumentDefinition,
-  ToolExecutionContext,
 } from "@engenty/ai-core";
 import {
   buildMastraWebSearchTool,
   DEFAULT_AI_CHAT_MODEL_ID,
-  loadAgentManifest,
   readAgentTextAsset,
 } from "@engenty/ai-core";
-import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import { createTool } from "@mastra/core/tools";
-import { CONTACTS_TOOL_BUILDERS } from "./tool-builders.js";
 
 export const CONTACTS_MANAGER_AGENT_ID = "contacts.manager";
 
@@ -41,16 +34,6 @@ const contactsManagerAssets = {
   importMetaUrl: import.meta.url,
 } as const;
 
-let cachedManifest: AiAgentManifest | null = null;
-
-export function getContactsManagerManifest(): AiAgentManifest {
-  if (cachedManifest) {
-    return cachedManifest;
-  }
-  cachedManifest = loadAgentManifest(contactsManagerAssets);
-  return cachedManifest;
-}
-
 export function readContactsManagerAgentsMarkdown(): string {
   return readAgentTextAsset(contactsManagerAssets, "AGENTS.md");
 }
@@ -61,51 +44,6 @@ export function readContactsManagerSoulMarkdown(): string {
 
 export function readContactsManagerHeartbeatMarkdown(): string {
   return readAgentTextAsset(contactsManagerAssets, "HEARTBEAT.md");
-}
-
-function buildContactsManagerTools(options: {
-  invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"];
-}): (ctx: ToolExecutionContext) => Record<string, object> {
-  return (ctx) => {
-    const manifest = getContactsManagerManifest();
-    const tools: Record<string, object> = {};
-    for (const toolId of manifest.tools) {
-      // Host-resolved tools (durable memory) attach when the agent is
-      // assembled through the apps/ai composite registry; this module-local
-      // builder (action/trigger runs) has no implementation for them and
-      // simply runs without.
-      if (toolId.startsWith("memory_")) {
-        continue;
-      }
-      const build = CONTACTS_TOOL_BUILDERS[toolId];
-      if (!build) {
-        throw new Error(
-          `Unknown tool id in contacts manager agent manifest: ${toolId}`
-        );
-      }
-      const piece = build(ctx, options.invokeContactsOperation);
-      if (piece) {
-        Object.assign(tools, piece);
-      }
-    }
-    return tools;
-  };
-}
-
-function buildWorkflowContext(
-  routeKey: string | null,
-  actionPrompt?: string
-): string {
-  const lines = ["## Active workflow"];
-  if (routeKey) {
-    lines.push("", `Current route_key: ${routeKey}`);
-  } else {
-    lines.push("", "No focused workflow was requested. Help the user choose.");
-  }
-  if (actionPrompt) {
-    lines.push("", actionPrompt.trim());
-  }
-  return lines.join("\n");
 }
 
 export function buildContactsManagerSystemPrompt(): string {
@@ -178,31 +116,4 @@ export function createContactsManagerInstructionDocuments(): InstructionDocument
       title: "Contacts Manager heartbeat guidance",
     },
   ];
-}
-
-export function createContactsManagerAgentDefinition(options: {
-  actions: ActionDefinition[];
-  invokeContactsOperation: PluginServerGatewayCaller["invokeOperation"];
-}): AgentDefinition {
-  const { actions, invokeContactsOperation } = options;
-  const manifest = getContactsManagerManifest();
-  const actionMap = new Map(actions.map((action) => [action.id, action]));
-  return {
-    build_system_prompt: ({ action }) => {
-      const focusedAction = action
-        ? (actionMap.get(action.id) ?? action)
-        : undefined;
-      return buildWorkflowContext(action?.id ?? null, focusedAction?.prompt);
-    },
-    build_tools: buildContactsManagerTools({ invokeContactsOperation }),
-    description: manifest.description,
-    id: manifest.id,
-    instruction_keys:
-      manifest.instruction_keys.length > 0
-        ? manifest.instruction_keys
-        : ["contacts_manager_agents", "contacts_manager_soul"],
-    module_id: manifest.module_id,
-    name: manifest.name,
-    ...(manifest.skills.length > 0 ? { skills: manifest.skills } : {}),
-  };
 }

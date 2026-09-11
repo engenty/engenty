@@ -1,0 +1,38 @@
+{
+  "id": "knowledge-base.lint-knowledge-base",
+  "description": "Find orphans, weak metadata, and search misses; return actionable proposals without mutating content.",
+  "inputSchema": {
+    "description": "Optional kb scope.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "kb_id": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Lint knowledge base (proposals only)",
+    "owner_agent_id": "knowledge-base.manager",
+    "allowed_tools": [
+      "engenty_tools_search",
+      "engenty_tool_execute",
+      "web_search"
+    ],
+    "skills": ["kb-maintenance"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"knowledge-base.manager\"},\"brief\":{\"value\":\"# Lint Knowledge Base\\n\\n## Task\\n\\nSurface **reviewable** quality issues across articles/FAQs for a KB. Output is proposals and checklists, not silent edits.\\n\\n## Checks\\n\\n1. **Orphans**: drafts with no incoming links from published pages (use list + search heuristics).\\n2. **Stale metadata**: missing `summary`, very old `updated_at` on frequently visited published pages (relative wording only).\\n3. **Search sanity**: run a few `knowledge_base_article_search` queries for important product terms; note empty results.\\n4. **FAQ coverage**: obvious user questions with no FAQ match.\\n\\n## Rules\\n\\n- Do not call `kb_article_create`, promote, or destructive APIs unless the user explicitly asks for an automated fix in this run.\\n- Prefer measurable signals (empty search, missing fields) over subjective “quality scores”.\\n- Use snake_case when referencing API fields.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"engenty_tools_search\",\"engenty_tool_execute\",\"web_search\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

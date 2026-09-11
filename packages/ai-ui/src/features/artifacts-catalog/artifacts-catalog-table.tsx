@@ -48,7 +48,7 @@ const rowBodyBaseClass = cn(
 );
 
 const groupCardChromeClass = cn(
-  "ui-canvas-raised rounded-md",
+  "ui-card-raised",
   "[&>tr:first-child>td:first-child]:rounded-tl-md",
   "[&>tr:first-child>td:last-child]:rounded-tr-md",
   "[&>tr:last-child>td:first-child]:rounded-bl-md",

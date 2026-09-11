@@ -1,7 +1,7 @@
 // Steps for the App Build workflow. The build SEQUENCE lives here as code —
-// ensure the app exists, write the draft, propose (which compiles), publish
-// the artifact handle — because the chat E2E proved a model cannot carry that
-// sequence across interruptions: it lost its own app_id and created three
+// ensure the app exists, commit the files, propose (which builds), publish
+// the artifact handle — because a model cannot carry that sequence across
+// interruptions: left to itself it lost its own app_id and created three
 // duplicate apps. Each step is idempotent against its target, so re-running
 // the workflow with fixed files is always safe.
 //
@@ -20,6 +20,7 @@ import {
   appBuildEnvelopeSchema,
   appBuildInputSchema,
 } from "./app-build-schema.js";
+import { announceAppRelease } from "./app-release-announce.js";
 import { resolveTaskJobServiceScope } from "./task-job-scope.js";
 
 type Invoker = (
@@ -33,6 +34,9 @@ async function invokerFor(tenantId: string): Promise<Invoker> {
     const scope = {
       tenantId,
       credential: { kind: "user", token: als.accessToken },
+      // The space the chat runs in: `app_create` records it, and it decides
+      // where the App's directory sits and which space computer sees it.
+      spaceId: als.space?.spaceId ?? null,
       userId: als.userId ?? null,
     } as AiSessionScope;
     return createScopeModuleOperationInvoker(scope) as Invoker;
@@ -90,7 +94,7 @@ export const ensureAppStep = createStep({
   },
 });
 
-// 2) Merge the authored files + manifest into the draft version.
+// 2) Commit the authored files + manifest into the App's repository.
 export const writeFilesStep = createStep({
   id: "write-files",
   inputSchema: appBuildEnvelopeSchema,
@@ -101,14 +105,15 @@ export const writeFilesStep = createStep({
       app_id: inputData.app_id,
       files: inputData.files,
       manifest: inputData.manifest,
+      message: inputData.message ?? "app_build",
     });
     return { ...inputData, status: "written" };
   },
 });
 
 // 3) Build. A failed build is a NORMAL outcome of this workflow, not an
-// error: the envelope carries the verbatim build_log for the agent's fix
-// loop, and the version number has not advanced.
+// error: it is recorded as a failed version, and the envelope carries that
+// version's verbatim build_log for the agent's fix loop.
 export const proposeStep = createStep({
   id: "propose",
   inputSchema: appBuildEnvelopeSchema,
@@ -118,6 +123,7 @@ export const proposeStep = createStep({
     try {
       const version = (await invoke("app_release_propose", {
         app_id: inputData.app_id,
+        ...(inputData.message ? { note: inputData.message } : {}),
       })) as { release?: string | null; version?: number } | null;
       return {
         ...inputData,
@@ -129,19 +135,19 @@ export const proposeStep = createStep({
       if (!isBuildFailed(error)) {
         throw error;
       }
-      // The op's error payload doesn't carry the log; the draft row does.
+      // The op's error payload doesn't carry the log; the failed version does.
       const versions = (await invoke("app_versions_list", {
         id: inputData.app_id,
       }).catch(() => null)) as {
         versions?: Array<{ build_log?: string | null; status?: string }>;
       } | null;
-      const draft = (versions?.versions ?? []).find(
-        (candidate) => candidate.status === "proposed"
+      const failed = (versions?.versions ?? []).find(
+        (candidate) => candidate.status === "failed"
       );
       return {
         ...inputData,
         build_log:
-          draft?.build_log ?? "build failed, and no build log was recorded",
+          failed?.build_log ?? "build failed, and no build log was recorded",
         status: "build_failed",
       };
     }
@@ -151,6 +157,13 @@ export const proposeStep = createStep({
 // 4) Publish the artifact HANDLE — never a copy of the source. Pinned to the
 // version just built, so the user previews exactly what they then approve
 // (and the pin stays correct after approval: it is the same version number).
+//
+// Scope: the SPACE when the run has one, the thread otherwise. A space chat's
+// ALS carries the space already validated against the caller's access (Phase
+// C3a), and an app built there belongs to the space — thread scope made every
+// app invisible to the space's Data tree, reachable only by scrolling the chat
+// that happened to build it. The chat still shows it either way: the row keeps
+// `thread_id`, and the space pane merges the space scope into its tabs.
 export const publishArtifactStep = createStep({
   id: "publish-artifact",
   inputSchema: appBuildEnvelopeSchema,
@@ -167,6 +180,7 @@ export const publishArtifactStep = createStep({
       };
     }
     const als = getEngentyToolsRunContext();
+    const spaceId = als.space?.spaceId ?? null;
     const { artifact } = await store.create({
       content: JSON.stringify({
         app_id: inputData.app_id,
@@ -177,13 +191,27 @@ export const publishArtifactStep = createStep({
       }),
       createdBy: als.userId ?? null,
       createdByKind: inputData.agent_type_key ? "agent" : "user",
-      scopeId: inputData.thread_id,
-      scopeType: "thread",
+      scopeId: spaceId ?? inputData.thread_id,
+      scopeType: spaceId ? "space" : "thread",
       tenantId: inputData.tenant_id,
       threadId: inputData.thread_id,
       title: inputData.name,
       type: "app",
     });
+    // The version is built and inert until a person activates it. Say so where
+    // they are looking, and in the bell — the build alone is not the news.
+    if (inputData.version !== undefined) {
+      await announceAppRelease({
+        appId: inputData.app_id,
+        artifactId: artifact.id,
+        builtByAgentId: als.agentId ?? null,
+        name: inputData.name,
+        tenantId: inputData.tenant_id,
+        threadId: inputData.thread_id,
+        userId: als.userId ?? null,
+        version: inputData.version,
+      });
+    }
     return { ...inputData, artifact_id: artifact.id, status: "published" };
   },
 });

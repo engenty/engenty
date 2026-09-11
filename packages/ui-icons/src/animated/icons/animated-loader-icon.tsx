@@ -50,7 +50,10 @@ export function AnimatedLoaderIcon({
                   ? "animate"
                   : controls
             }
-            initial={play === "always" ? "animate" : "normal"}
+            // Always mount at "normal": framer only plays a transition when the
+            // value CHANGES, so `initial="animate"` (rotate already 360) made
+            // the infinite spin a no-op and every always-on loader sat still.
+            initial="normal"
             style={{ transformOrigin: "12px 12px" }}
             variants={G_VARIANTS}
           >

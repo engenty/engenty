@@ -1,19 +1,17 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, ListFilterChip } from "@engenty/ui-core";
 import { ListFilter } from "lucide-react";
-import type { Goal, TaskStatusDefinition } from "../../src/schema/types.js";
+import type { TaskStatusDefinition } from "../../src/schema/types.js";
 
 export type TasksGroupBy =
   | "none"
   | "status"
   | "priority"
   | "assignee"
-  | "goal"
   | "project";
 
 export interface TasksListFilterState {
   assignee: string; // "all" | "unassigned" | user_id
-  goalId: string; // "all" | goal_id
   groupBy: TasksGroupBy;
   priority: string; // "all" | "critical" | "high" | "medium" | "low"
   status: string; // "all" or specific status
@@ -28,7 +26,6 @@ export function getTasksGroupByOptions(
     { value: "status", label: t("sidebar.groupStatus") },
     { value: "priority", label: t("sidebar.groupPriority") },
     { value: "assignee", label: t("sidebar.groupAssignee") },
-    { value: "goal", label: t("sidebar.groupGoal") },
     ...(showProjectGroupBy
       ? [
           {
@@ -43,7 +40,6 @@ export function getTasksGroupByOptions(
 interface TasksListFilterBarProps {
   assigneeOptions: { id: string; name: string }[];
   filtersExpanded: boolean;
-  goalOptions: Goal[];
   hasActiveChipFilters: boolean;
   onChange: (next: TasksListFilterState) => void;
   statusOptions: TaskStatusDefinition[];
@@ -57,7 +53,6 @@ export function TasksListFilterBar({
   hasActiveChipFilters,
   statusOptions,
   assigneeOptions,
-  goalOptions,
 }: TasksListFilterBarProps) {
   const { t } = useTranslation("tasks");
 
@@ -86,14 +81,6 @@ export function TasksListFilterBar({
     { value: "low", label: t("priority.low", "Low") },
   ];
 
-  const goalFilterOptions = [
-    { value: "all", label: t("sidebar.allGoals", "All goals") },
-    ...goalOptions.map((goal) => ({
-      value: goal.id,
-      label: goal.title,
-    })),
-  ];
-
   const selectedStatusLabel = statusFilterOptions.find(
     (option) => option.value === value.status
   )?.label;
@@ -106,15 +93,10 @@ export function TasksListFilterBar({
     (option) => option.value === value.priority
   )?.label;
 
-  const selectedGoalLabel = goalFilterOptions.find(
-    (option) => option.value === value.goalId
-  )?.label;
-
   const hasActiveFilters =
     value.status !== "all" ||
     value.assignee !== "all" ||
-    value.priority !== "all" ||
-    value.goalId !== "all";
+    value.priority !== "all";
 
   const handleClearAll = () => {
     onChange({
@@ -122,7 +104,6 @@ export function TasksListFilterBar({
       status: "all",
       assignee: "all",
       priority: "all",
-      goalId: "all",
     });
   };
 
@@ -181,18 +162,6 @@ export function TasksListFilterBar({
         onSelect={(priority) => onChange({ ...value, priority })}
         options={priorityFilterOptions}
         value={value.priority}
-      />
-
-      <ListFilterChip
-        activeLabel={selectedGoalLabel}
-        ariaLabel={t("detail.goal", "Goal")}
-        clearLabel="Clear goal filter"
-        isActive={value.goalId !== "all"}
-        label={t("detail.goal", "Goal")}
-        onClear={() => onChange({ ...value, goalId: "all" })}
-        onSelect={(goalId) => onChange({ ...value, goalId })}
-        options={goalFilterOptions}
-        value={value.goalId}
       />
 
       {hasActiveFilters ? (

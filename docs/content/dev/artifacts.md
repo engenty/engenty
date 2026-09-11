@@ -59,6 +59,7 @@ persisted:
 | `markdown` | Prose, notes, drafts | `text/markdown` |
 | `html` | Rich formatted output | `text/html` |
 | `table` | CSV, or a JSON array of rows | `text/csv` |
+| `database` | A Space table (column definition + rows). Handle `{ table_id }` | `application/vnd.engenty.database+json` |
 | `app` | An engenty App instance (**handle**) | `application/vnd.engenty.app+json` |
 | `file` | A file in tenant storage (**handle**) | `application/vnd.engenty.file+json` |
 
@@ -67,7 +68,7 @@ HTTP routes, so the three stay in sync from one source.
 
 ### Handle types
 
-`app` and `file` store a **reference**, not the bytes: the App's source lives in
+`app`, `file`, and `database` store a **reference**, not the bytes: the App's source lives in
 `module_apps`, the file's bytes stay in tenant storage. Keeping the artifact
 tiny is what lets an App or a 40 MB spreadsheet be scoped, promoted and
 presented through the ordinary artifact machinery. `ARTIFACT_HANDLE_TYPES` is
@@ -88,6 +89,14 @@ handle.
   artifacts when given no id.
 - **`show_artifact`** — re-opens one that is no longer in view, returning a
   presentation handle `{ artifact_id, title, type, mime_type }`.
+- **`table_write` / `table_read`** — Space **databases** (typed columns +
+  rows), not the CSV `table` artifact. Create needs `title` + `columns`;
+  rows go in `insert` / `update` / `delete`. Column types: `text`, `boolean`,
+  `number` (`integer` \| `decimal` \| `percent` \| `currency` + ISO code),
+  `date` (`date` \| `datetime` \| `time`, including `timePrecision: "hours"`),
+  `duration` (writer unit + display format, stored as milliseconds), `select`
+  (`options` + `allowCustom`). The Ablage listing is a `database` handle
+  `{ table_id }`; rows live in `ai.data_table` / `ai.data_table_row`.
 
 The agent is told to prefer an artifact over pasting a long document into the
 chat, and over handing out storage keys or links.

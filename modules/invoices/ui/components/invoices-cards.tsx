@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName, Button } from "@engenty/ui-core";
+import { adminListCardsGridClassName, Button, cn } from "@engenty/ui-core";
 import type { InvoiceListItem } from "../api.js";
 
 type TableSize = "compact" | "normal";
@@ -27,9 +27,10 @@ export function InvoicesCards({
     <div className={adminListCardsGridClassName(tableSize)}>
       {invoices.map((invoice) => (
         <div
-          className={`rounded-lg border bg-card text-left transition-colors hover:bg-accent/30 ${
+          className={cn(
+            "ui-card-raised ui-card-interactive text-left",
             tableSize === "compact" ? "p-3" : "p-4"
-          }`}
+          )}
           key={invoice.id}
         >
           <div

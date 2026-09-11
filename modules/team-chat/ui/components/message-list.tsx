@@ -141,7 +141,7 @@ export function MessageList({
               {dayLabel ? (
                 <div className="relative my-3 flex items-center px-4">
                   <Separator className="flex-1" />
-                  <span className="mx-3 shrink-0 rounded-full border border-border/60 bg-card px-3 py-0.5 font-medium text-muted-foreground text-xs">
+                  <span className="mx-3 shrink-0 rounded-full border border-border-soft bg-card px-3 py-0.5 font-medium text-muted-foreground text-xs">
                     {dayLabel}
                   </span>
                   <Separator className="flex-1" />

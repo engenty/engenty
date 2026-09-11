@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { listRegistryAgents } from "./agent-registry-client.js";
 import {
   createAgentThread,
+  listAgentThreads,
   updateAgentThread,
 } from "./agent-threads-client.js";
 
@@ -60,6 +61,32 @@ describe("agent thread clients", () => {
       agent_id: "engenty.copilot",
       title: null,
     });
+  });
+
+  it("lists threads scoped to a Space when requested", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ sessions: [] }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listAgentThreads({
+      hostKey: "engenty-copilot",
+      limit: 1,
+      serviceBaseUrl: "https://ai.engenty.localhost/",
+      spaceId: "550e8400-e29b-41d4-a716-446655440000",
+      tenantId: "tenant-1",
+      userId: "user-1",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(url).toBe(
+      "https://ai.engenty.localhost/ai/threads?host_key=engenty-copilot&limit=1&space_id=550e8400-e29b-41d4-a716-446655440000"
+    );
+    expect(init.method).toBe("GET");
   });
 
   it("lists dynamic registry agents from apps/ai", async () => {

@@ -6,7 +6,11 @@
   --foreground: var(--ink);
   --card: oklch(100% 0 0);
   --card-foreground: var(--ink);
-  --popover: color-mix(in oklch, var(--card) 85%, transparent);
+  /* Relative color, not color-mix(…, transparent): mix in oklch with the
+     `transparent` keyword often bakes an opaque colour (alpha 1), so glass
+     menus read as solid cards. `/ 0.72` is enough frost for a colourful
+     Engenty behind a menu to still read through. */
+  --popover: oklch(from var(--card) l c h / 0.72);
   --popover-foreground: var(--ink);
   --primary: var(--ember-strong);
   --primary-foreground: oklch(99% 0 0);
@@ -29,6 +33,9 @@
     var(--ink) calc(12% * var(--contrast)),
     var(--paper)
   );
+  /* The one soft rule. Half-strength `--border` for quiet separators inside
+     content; use `border-border-soft`, never `border-border/NN`. */
+  --border-soft: color-mix(in oklch, var(--border) 50%, transparent);
   --input: color-mix(
     in oklch,
     var(--ink) calc(10% * var(--contrast)),
@@ -59,10 +66,11 @@
   --sidebar-accent-foreground: oklch(
     from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
   );
-  /* Divider that always contrasts with the rail so the app bar never melts into
-     the adjacent panel. Nudged toward the (auto-contrasting) foreground, so it
-     stays visible at ANY rail lightness — including mid-tones like a red/green
-     rail where an l-relative offset collapses to zero. Theme-agnostic. */
+  /* Rail-relative hairline for furniture INSIDE the app bar (user-menu
+     separators, the dashed “new space” tile, the hidden-rail pill). It is not
+     a layout edge: the rail separates from the secondary column by surface
+     step plus the column's shadow, never by a line. Nudged toward the
+     auto-contrasting foreground so it stays visible at any rail lightness. */
   --sidebar-border: color-mix(
     in oklch,
     var(--sidebar) 82%,
@@ -97,7 +105,7 @@
   /* Raised surface above canvas — never `var(--card)` (self-cycle → transparent). */
   --card: var(--paper-2);
   --card-foreground: var(--ink);
-  --popover: color-mix(in oklch, var(--card) 90%, transparent);
+  --popover: oklch(from var(--card) l c h / 0.78);
   --popover-foreground: var(--ink);
   --primary: var(--ember-strong);
   --primary-foreground: oklch(from var(--raw-background) 0.16 0.02 h);
@@ -118,6 +126,9 @@
     var(--ink) calc(12% * var(--contrast)),
     var(--paper)
   );
+  /* The one soft rule. Half-strength `--border` for quiet separators inside
+     content; use `border-border-soft`, never `border-border/NN`. */
+  --border-soft: color-mix(in oklch, var(--border) 50%, transparent);
   --input: color-mix(
     in oklch,
     var(--ink) calc(10% * var(--contrast)),
@@ -147,10 +158,11 @@
   --sidebar-accent-foreground: oklch(
     from var(--sidebar) clamp(0.15, (0.62 - l) * 100, 0.98) calc(c * 0.06) h
   );
-  /* Divider that always contrasts with the rail so the app bar never melts into
-     the adjacent panel. Nudged toward the (auto-contrasting) foreground, so it
-     stays visible at ANY rail lightness — including mid-tones like a red/green
-     rail where an l-relative offset collapses to zero. Theme-agnostic. */
+  /* Rail-relative hairline for furniture INSIDE the app bar (user-menu
+     separators, the dashed “new space” tile, the hidden-rail pill). It is not
+     a layout edge: the rail separates from the secondary column by surface
+     step plus the column's shadow, never by a line. Nudged toward the
+     auto-contrasting foreground so it stays visible at any rail lightness. */
   --sidebar-border: color-mix(
     in oklch,
     var(--sidebar) 82%,

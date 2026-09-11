@@ -1,6 +1,8 @@
 import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
+import { registerNotificationRenderer } from "@engenty/notifications-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { ListTodo } from "lucide-react";
+import { ToolApprovalNotification } from "./components/inbox/tool-approval-notification.js";
 import {
   tasksBriefingCopilotContribution,
   tasksCopilotContribution,
@@ -18,26 +20,22 @@ import {
   resetTasksListHooks,
 } from "./list-hooks.js";
 import { BriefingPage } from "./pages/briefing-page.js";
-import { GoalDetailPage } from "./pages/goal-detail-page.js";
-import { GoalEditPage } from "./pages/goal-edit-page.js";
-import { GoalsListPage } from "./pages/goals-list-page.js";
-import { InboxPage } from "./pages/inbox-page.js";
 import { OperationsPage } from "./pages/operations-page.js";
-import { RoutineDetailPage } from "./pages/routine-detail-page.js";
-import { RoutineEditPage } from "./pages/routine-edit-page.js";
-import { RoutinesPage } from "./pages/routines-page.js";
 import { TaskDetailPage } from "./pages/task-detail-page.js";
 import { TaskEditPage } from "./pages/task-edit-page.js";
 import { TasksListPage } from "./pages/tasks-list-page.js";
 import { TasksRedirectPage } from "./pages/tasks-redirect-page.js";
 import { TasksSettingsPage } from "./pages/tasks-settings-page.js";
+import { WorkOverviewPage } from "./pages/work-overview-page.js";
 import {
   buildAssigneeProfileMap,
   getTeamMembersPluginState,
   setTasksPluginsApi,
 } from "./plugins.js";
 import { registerTasksObjectWidget } from "./register-object-widget.js";
-import { goalDetailOptions, taskDetailOptions } from "./tasks-queries.js";
+import { taskDetailOptions } from "./tasks-queries.js";
+import { tasksWorkTab } from "./work-tab.js";
+import { registerWorkTab, resetWorkTabs } from "./work-tabs.js";
 
 const UUID_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -46,13 +44,14 @@ const RESERVED_SEGMENTS = new Set([
   "briefing",
   "inbox",
   "list",
-  "goals",
   "settings",
   "operations",
 ]);
 
 export default function plugin(engenty: EngentyPluginContext) {
   resetTasksListHooks();
+  resetWorkTabs();
+  registerWorkTab(tasksWorkTab);
   registerTasksObjectWidget();
   // Adds the tasks LIST page binding (detail keeps its own per-page mount).
   // module_tasks.tasks is published; root is taskKeys.all (["tasks"]).
@@ -69,6 +68,7 @@ export default function plugin(engenty: EngentyPluginContext) {
     getTeamMembersPluginState,
     registerListColumn: registerTasksListColumn,
     registerListEnricher: registerTasksListEnricher,
+    registerWorkTab,
     teamMembersCatalogQueryKey,
     teamMembersCatalogQueryOptions,
   });
@@ -80,6 +80,20 @@ export default function plugin(engenty: EngentyPluginContext) {
       en: () => import("./locales/en.json").then((m) => m.default),
       de: () => import("./locales/de.json").then((m) => m.default),
     },
+  });
+
+  // The tasks module owns what a `tool_approval` can DO: approve/deny is
+  // rendered into the shell's notification list for records of that kind.
+  registerNotificationRenderer("tool_approval", ToolApprovalNotification);
+
+  // The one Tasks surface that spans spaces. An absolute path, not `/mdl/tasks/…`:
+  // the shell mirrors module paths into every space and redirects the legacy
+  // form into one, and this page is the opposite of that.
+  engenty.UI.registerRoute({
+    id: "tasks_work_overview",
+    path: "/work",
+    component: WorkOverviewPage,
+    order: 138,
   });
 
   engenty.UI.registerRoute({
@@ -97,24 +111,10 @@ export default function plugin(engenty: EngentyPluginContext) {
   });
 
   engenty.UI.registerRoute({
-    id: "tasks_module_inbox",
-    path: tasksRoutePatterns.inbox,
-    component: InboxPage,
-    order: 140,
-  });
-
-  engenty.UI.registerRoute({
     id: "tasks_module_list",
     path: tasksRoutePatterns.list,
     component: TasksListPage,
     order: 141,
-  });
-
-  engenty.UI.registerRoute({
-    id: "tasks_module_goals",
-    path: tasksRoutePatterns.goals,
-    component: GoalsListPage,
-    order: 142,
   });
 
   engenty.UI.registerRoute({
@@ -125,45 +125,10 @@ export default function plugin(engenty: EngentyPluginContext) {
   });
 
   engenty.UI.registerRoute({
-    id: "tasks_module_routines",
-    path: tasksRoutePatterns.routines,
-    component: RoutinesPage,
-    order: 143,
-  });
-
-  engenty.UI.registerRoute({
     id: "tasks_module_operations",
     path: tasksRoutePatterns.operations,
     component: OperationsPage,
     order: 143,
-  });
-
-  engenty.UI.registerRoute({
-    id: "tasks_module_routine_edit",
-    path: tasksRoutePatterns.routineEdit,
-    component: RoutineEditPage,
-    order: 144,
-  });
-
-  engenty.UI.registerRoute({
-    id: "tasks_module_routine_detail",
-    path: tasksRoutePatterns.routineDetail,
-    component: RoutineDetailPage,
-    order: 144,
-  });
-
-  engenty.UI.registerRoute({
-    id: "tasks.module.goal-edit",
-    path: tasksRoutePatterns.goalEdit,
-    component: GoalEditPage,
-    order: 145,
-  });
-
-  engenty.UI.registerRoute({
-    id: "tasks.module.goal-detail",
-    path: tasksRoutePatterns.goalDetail,
-    component: GoalDetailPage,
-    order: 146,
   });
 
   engenty.UI.registerRoute({
@@ -201,26 +166,6 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 140,
   });
 
-  engenty.UI.registerNavigationPrefetch({
-    id: "tasks.goal-detail",
-    match: (pathname) => {
-      const match = pathname.match(
-        new RegExp(`^/mdl/tasks/goals/(?<id>${UUID_PATTERN})(?:/edit)?$`, "i")
-      );
-      if (!match?.groups) {
-        return null;
-      }
-      return match.groups;
-    },
-    prefetch: ({ params, queryClient }) => {
-      const id = params.id;
-      if (id) {
-        void queryClient.prefetchQuery(goalDetailOptions(id));
-      }
-    },
-    order: 141,
-  });
-
   engenty.UI.registerSettingsItem({
     id: "tasks_settings_menu",
     label: "Plan",
@@ -242,7 +187,33 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 11,
     // Unseen inbox count on the app-bar icon (the shell calls this hook from
     // an always-mounted per-item component).
-    useBadgeCount: () => useInboxUnseenCountQuery().data?.count,
+    useBadgeCount: () => useInboxUnseenCountQuery().data?.total,
+  });
+
+  // On the app rail beside the tools carried between spaces — hence the
+  // per-row `placement`, overriding this module's space placement. Every
+  // work tab registered through `registerWorkTab` shows up on this page.
+  engenty.UI.registerAdminMenuItem({
+    id: "tasks_work_menu",
+    section: "modules",
+    label: "All work",
+    labelKey: "tasks:work.title",
+    icon: ListTodo,
+    to: "/work",
+    order: 10,
+    placement: "global",
+  });
+
+  // Plan is a space SECTION, not a Work-list row. The tab only renders in a
+  // space that has this module mounted — the strip does not hard-code "tasks".
+  engenty.UI.registerSpaceTab({
+    id: "plan",
+    embedOnHome: true,
+    icon: ListTodo,
+    label: "Plan",
+    labelKey: "tasks:menu.tasks",
+    order: 30,
+    path: "briefing",
   });
 
   engenty.UI.registerCopilotContribution(tasksBriefingCopilotContribution);

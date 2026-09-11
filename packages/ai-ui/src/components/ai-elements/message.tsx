@@ -30,6 +30,7 @@ import {
   type PluginConfig,
   Streamdown,
 } from "streamdown";
+import { STREAMDOWN_PAGE_BREAK_COMPONENTS } from "./page-break-marker.js";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -367,7 +368,7 @@ function loadStreamdownPlugins(): Promise<StreamdownPluginMap> {
 }
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => {
+  ({ className, components, ...props }: MessageResponseProps) => {
     const [plugins, setPlugins] = useState<StreamdownPluginMap>();
 
     useEffect(() => {
@@ -386,16 +387,42 @@ export const MessageResponse = memo(
 
     return (
       <Streamdown
+        {...props}
         className={cn(
           "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          "[&_page-break]:hidden",
           // Streamdown uses list-inside on ol/ul; with typical AI markdown (block-ish li content)
           // markers render on their own line. Outside + padding matches normal list layout.
           "[&_ol]:!list-outside [&_ul]:!list-outside [&_ol]:pl-5 [&_ul]:pl-5",
-          // Streamdown defaults bg-sidebar; Engenty maps that to ember-strong (red).
-          "[&_[data-streamdown=table-wrapper]]:bg-card",
-          "[&_[data-streamdown=table-wrapper]]:border-border/60",
+          // Light rounded card around the table; type matches the chat body;
+          // copy/download/fullscreen sit below it (space reserved) and appear
+          // only on hover (or keyboard focus).
+          "[&_[data-streamdown=table-wrapper]]:flex-col-reverse",
+          "[&_[data-streamdown=table-wrapper]]:gap-1",
+          "[&_[data-streamdown=table-wrapper]]:rounded-none",
+          "[&_[data-streamdown=table-wrapper]]:border-0",
+          "[&_[data-streamdown=table-wrapper]]:bg-transparent",
+          "[&_[data-streamdown=table-wrapper]]:p-0",
+          "[&_[data-streamdown=table-wrapper]]:shadow-none",
+          "[&_[data-streamdown=table-wrapper]>div:last-child]:overflow-hidden",
+          "[&_[data-streamdown=table-wrapper]>div:last-child]:rounded-md",
+          "[&_[data-streamdown=table-wrapper]>div:last-child]:border",
+          "[&_[data-streamdown=table-wrapper]>div:last-child]:border-border-soft",
+          "[&_[data-streamdown=table-wrapper]>div:last-child]:bg-card",
+          "[&_[data-streamdown=table]]:text-sm",
+          "[&_[data-streamdown=table]_th]:text-sm!",
+          "[&_[data-streamdown=table]_td]:text-sm!",
+          "[&_[data-streamdown=table]_[data-streamdown=inline-code]]:text-sm!",
+          "[&_[data-streamdown=table-wrapper]>div:has(button):not(:has(table))]:min-h-6",
+          "[&_[data-streamdown=table-wrapper]>div:has(button):not(:has(table))]:pointer-events-none",
+          "[&_[data-streamdown=table-wrapper]>div:has(button):not(:has(table))]:opacity-0",
+          "[&_[data-streamdown=table-wrapper]>div:has(button):not(:has(table))]:transition-opacity",
+          "[&_[data-streamdown=table-wrapper]:hover>div:has(button):not(:has(table))]:pointer-events-auto",
+          "[&_[data-streamdown=table-wrapper]:hover>div:has(button):not(:has(table))]:opacity-100",
+          "[&_[data-streamdown=table-wrapper]:focus-within>div:has(button):not(:has(table))]:pointer-events-auto",
+          "[&_[data-streamdown=table-wrapper]:focus-within>div:has(button):not(:has(table))]:opacity-100",
           "[&_[data-streamdown=code-block]]:bg-card",
-          "[&_[data-streamdown=code-block]]:border-border/60",
+          "[&_[data-streamdown=code-block]]:border-border-soft",
           // Streamdown always renders a code-block header row; hide it when no language label.
           "[&_[data-streamdown=code-block-header][data-language='']]:hidden",
           "[&_[data-streamdown=code-block-header]:has(>span:empty)]:hidden",
@@ -410,18 +437,18 @@ export const MessageResponse = memo(
           "[&_[data-streamdown=code-block]:has([data-streamdown=code-block-actions])_[data-streamdown=code-block-body]]:pt-8",
           "[&_[data-streamdown=mermaid-block]]:relative",
           "[&_[data-streamdown=mermaid-block]]:bg-card",
-          "[&_[data-streamdown=mermaid-block]]:border-border/60",
+          "[&_[data-streamdown=mermaid-block]]:border-border-soft",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:pointer-events-auto",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:!absolute",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:top-2",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:right-2",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:z-[1]",
           "[&_[data-streamdown=mermaid-block]>div:has(>[data-streamdown=mermaid-block-actions])]:!mt-0",
-          "[&_[data-streamdown=code-block-actions]]:border-border/60 [&_[data-streamdown=code-block-actions]]:bg-card/90",
+          "[&_[data-streamdown=code-block-actions]]:border-border-soft [&_[data-streamdown=code-block-actions]]:bg-card/90",
           className
         )}
+        components={{ ...STREAMDOWN_PAGE_BREAK_COMPONENTS, ...components }}
         plugins={plugins}
-        {...props}
       />
     );
   },

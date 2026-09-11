@@ -154,7 +154,7 @@ export function ConversationView({
       )}
 
       {conversation.is_archived ? (
-        <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-sm">
+        <div className="border-border-soft border-b bg-muted/40 px-4 py-2 text-muted-foreground text-sm">
           <div className="mx-auto w-full max-w-5xl">
             {t("conversation.archived")}
           </div>
@@ -264,7 +264,7 @@ export function ConversationView({
         />
       ) : conversation.type === "public_channel" &&
         !conversation.is_archived ? (
-        <div className="border-border/60 border-t bg-card px-4 py-3">
+        <div className="border-border-soft border-t bg-card px-4 py-3">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
             <span className="text-muted-foreground text-sm">
               {t("conversation.joinPrompt", { name: displayName })}

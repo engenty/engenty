@@ -86,6 +86,12 @@ export interface CoreUsersDal {
   ) => Promise<{ user: CoreUser }>;
   isAuthUserAdmin: (accessToken: string) => Promise<boolean>;
   isAuthUserSuperAdmin: (accessToken: string) => Promise<boolean>;
+  /** Names + ids only — the member-facing picker source. See `listUsers` for the full rows. */
+  listUserDirectory: (
+    tenantId: string
+  ) => Promise<
+    Array<{ displayName: string | null; email: string; id: string }>
+  >;
   listUsers: (tenantId: string) => Promise<CoreUser[]>;
   resolveAuthUser: (accessToken: string) => Promise<User>;
   updateUser: (

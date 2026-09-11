@@ -56,6 +56,7 @@ import type {
   ImportConnectorResult,
   ImportedConnector,
   RegistrySearchResult,
+  RegistrySearchSurface,
   SourcePreview,
 } from "../api.js";
 import {
@@ -79,8 +80,12 @@ export const EXTERNAL_IMPORT_PATH = `${SETUP_ROOT_PATH}/connectors`;
 /** Former Agents-workspace URL — keep a redirect for bookmarks. */
 export const EXTERNAL_IMPORT_LEGACY_PATH = "/admin/engenty/connections/import";
 
-/** Kebab connector id from a domain: "api.sentry.io" → "api-sentry-io". */
-function kebabFromDomain(domain: string): string {
+/**
+ * Kebab connector id from a registry surface slug or a domain:
+ * "stripe-mcp-server" → "stripe-mcp-server", "api.sentry.io" → "api-sentry-io".
+ * Mirrors `connectorIdFromSlug` server-side; the server has the final say.
+ */
+function kebabIdFrom(domain: string): string {
   return domain
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "-")
@@ -88,8 +93,8 @@ function kebabFromDomain(domain: string): string {
     .slice(0, 60);
 }
 
-/** Snake tool prefix from a domain: "api.sentry.io" → "api_sentry_io". */
-function snakeFromDomain(domain: string): string {
+/** Snake tool prefix from a slug or domain: "api.sentry.io" → "api_sentry_io". */
+function snakePrefixFrom(domain: string): string {
   return domain
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "_")
@@ -164,7 +169,6 @@ export function ExternalImportPage() {
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const workspace = useWorkspaceSuperadminQuery();
@@ -484,30 +488,37 @@ function ImportWizardSection() {
     setWizardError(null);
     setConfig((current) => ({
       ...current,
-      id: current.id || kebabFromDomain(next.domain),
-      tool_prefix: current.tool_prefix || snakeFromDomain(next.domain),
+      id: current.id || kebabIdFrom(next.domain),
+      tool_prefix: current.tool_prefix || snakePrefixFrom(next.domain),
     }));
   };
 
-  const handlePickResult = (result: RegistrySearchResult) => {
-    const kind: ExternalSourceKind = result.kinds.includes("mcp")
-      ? result.kinds.includes("openapi")
-        ? "openapi"
-        : "mcp"
-      : "openapi";
+  const handlePickResult = (
+    result: RegistrySearchResult,
+    picked?: RegistrySearchSurface
+  ) => {
+    const kind: ExternalSourceKind = picked
+      ? (picked.kind as ExternalSourceKind)
+      : result.kinds.includes("mcp")
+        ? result.kinds.includes("openapi")
+          ? "openapi"
+          : "mcp"
+        : "openapi";
+    // Id and tool prefix come from the surface slug once discover resolves
+    // one — a domain has several surfaces and they must not collide.
     setConfig({
       ...EMPTY_CONFIG,
-      id: kebabFromDomain(result.domain),
+      id: picked ? kebabIdFrom(picked.slug) : "",
       name: result.name,
-      tool_prefix: snakeFromDomain(result.domain),
+      tool_prefix: picked ? snakePrefixFrom(picked.slug) : "",
     });
-    // The search result's url is the registry's catalog page — never a usable
-    // spec/MCP endpoint. Leave the source empty until discover resolves one
-    // (or the admin pastes a URL); previewing the catalog page only confuses.
+    // The search result's own `url` is the registry's catalog page — never a
+    // usable spec/MCP endpoint. A picked surface does carry one; otherwise
+    // leave the source empty until discover resolves one.
     setSource({
       domain: result.domain,
       source_kind: kind,
-      source_url: "",
+      source_url: picked?.url ?? "",
     });
     resetPreview();
     setDiscovered(null);
@@ -521,8 +532,21 @@ function ImportWizardSection() {
       },
       onSuccess: (resolved) => {
         setDiscovered(resolved);
-        const [first] = resolved.sources;
+        if (picked) {
+          // An explicitly picked surface is not replaced by discover's first.
+          return;
+        }
+        const [first] = resolved.sources.filter(
+          (entry) => entry.blocked_reason === null
+        );
         if (first) {
+          setConfig((current) => ({
+            ...current,
+            id: current.id || first.surface.suggested_id,
+            name: current.name || first.surface.name || result.name,
+            tool_prefix:
+              current.tool_prefix || first.surface.suggested_tool_prefix,
+          }));
           // Auto-apply the first resolved source, but only while the source
           // is still empty — never clobber an admin edit.
           setSource((current) =>
@@ -545,6 +569,12 @@ function ImportWizardSection() {
       source_kind: entry.source_kind,
       source_url: entry.source_url,
     }));
+    setConfig((current) => ({
+      ...current,
+      id: entry.surface.suggested_id,
+      name: current.name || entry.surface.name || current.name,
+      tool_prefix: entry.surface.suggested_tool_prefix,
+    }));
     resetPreview();
     setWizardError(null);
   };
@@ -564,9 +594,21 @@ function ImportWizardSection() {
         setConfig((current) => ({
           ...current,
           base_url: current.base_url || (result.base_url ?? ""),
-          id: current.id || kebabFromDomain(source.domain),
-          name: current.name || result.title || source.domain,
-          tool_prefix: current.tool_prefix || snakeFromDomain(source.domain),
+          // The resolved surface slug is the identity; the domain is only a
+          // fallback for a manual URL the registry does not list.
+          id:
+            current.id ||
+            result.surface?.suggested_id ||
+            kebabIdFrom(source.domain),
+          name:
+            current.name ||
+            result.title ||
+            result.surface?.name ||
+            source.domain,
+          tool_prefix:
+            current.tool_prefix ||
+            result.surface?.suggested_tool_prefix ||
+            snakePrefixFrom(source.domain),
           useOauthClient:
             current.useOauthClient ||
             suggestsOauthClient(result.security_schemes),
@@ -621,6 +663,7 @@ function ImportWizardSection() {
     source.source_url.trim().length > 0 && !previewMutation.isPending;
   // Listed next to the Import button so a disabled state explains itself.
   const importBlockers = [
+    ...(preview?.import_blockers ?? []),
     preview === null ? "preview" : null,
     preview !== null && selectedActions.size === 0 ? "selected actions" : null,
     source.domain.trim().length > 0 ? null : "domain",
@@ -769,27 +812,56 @@ function DiscoveredSourcesPanel({
       <ul className="divide-y rounded-md border">
         {sources.map((entry) => {
           const active = entry.source_url === activeSourceUrl;
+          const blocked = entry.blocked_reason !== null;
           return (
             <li
-              className="flex items-center gap-3 p-2"
-              key={`${entry.source_kind}:${entry.source_url}`}
+              className="space-y-1 p-2"
+              key={`${entry.surface.slug}:${entry.source_url}`}
             >
-              <KindBadge kind={entry.source_kind} />
-              <span className="min-w-0 flex-1 truncate font-mono text-xs">
-                {entry.source_url}
-              </span>
-              {entry.auth_hint ? (
-                <Badge variant="secondary">{entry.auth_hint}</Badge>
+              <div className="flex items-center gap-3">
+                <KindBadge kind={entry.surface.kind} />
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium text-sm">
+                    {entry.surface.name ?? entry.surface.slug}
+                  </span>{" "}
+                  <span className="font-mono text-muted-foreground text-xs">
+                    {entry.surface.slug}
+                  </span>
+                </span>
+                {entry.transport ? (
+                  <Badge variant="secondary">{entry.transport}</Badge>
+                ) : null}
+                {entry.surface.auth_status === "unknown" ? null : (
+                  <Badge variant="outline">
+                    auth: {entry.surface.auth_status}
+                  </Badge>
+                )}
+                <Button
+                  disabled={active || blocked}
+                  onClick={() => onPick(entry)}
+                  size="sm"
+                  type="button"
+                  variant={active ? "secondary" : "outline"}
+                >
+                  {active ? "Selected" : "Select"}
+                </Button>
+              </div>
+              {entry.source_url ? (
+                <div className="truncate font-mono text-muted-foreground text-xs">
+                  {entry.source_url}
+                </div>
               ) : null}
-              <Button
-                disabled={active}
-                onClick={() => onPick(entry)}
-                size="sm"
-                type="button"
-                variant={active ? "secondary" : "outline"}
-              >
-                {active ? "Selected" : "Select"}
-              </Button>
+              {entry.surface.spec_override_count > 0 ? (
+                <div className="text-muted-foreground text-xs">
+                  {entry.surface.spec_override_count} registry spec
+                  correction(s) will be applied before import.
+                </div>
+              ) : null}
+              {entry.blocked_reason ? (
+                <p className="text-amber-600 text-xs dark:text-amber-500">
+                  {entry.blocked_reason}
+                </p>
+              ) : null}
             </li>
           );
         })}
@@ -798,10 +870,21 @@ function DiscoveredSourcesPanel({
   );
 }
 
+/** Only openapi/mcp surfaces with a URL can seed an import. */
+function isPickableSearchSurface(surface: RegistrySearchSurface): boolean {
+  return (
+    Boolean(surface.url) &&
+    (surface.kind === "openapi" || surface.kind === "mcp")
+  );
+}
+
 function RegistrySearchPanel({
   onPick,
 }: {
-  onPick: (result: RegistrySearchResult) => void;
+  onPick: (
+    result: RegistrySearchResult,
+    surface?: RegistrySearchSurface
+  ) => void;
 }) {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | ExternalSourceKind>("all");
@@ -878,33 +961,66 @@ function RegistrySearchPanel({
         <ul className="divide-y rounded-md border">
           {results.map((result) => (
             <li
-              className="flex items-center gap-3 p-3"
+              className="space-y-2 p-3"
               key={`${result.domain}:${result.url}`}
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{result.name}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {result.domain}
-                  </span>
-                  {result.kinds.map((k) => (
-                    <KindBadge key={k} kind={k} />
-                  ))}
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{result.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {result.domain}
+                    </span>
+                    {result.kinds.map((k) => (
+                      <KindBadge key={k} kind={k} />
+                    ))}
+                  </div>
+                  {result.description ? (
+                    <p className="truncate text-muted-foreground text-sm">
+                      {result.description}
+                    </p>
+                  ) : null}
                 </div>
-                {result.description ? (
-                  <p className="truncate text-muted-foreground text-sm">
-                    {result.description}
-                  </p>
-                ) : null}
+                <Button
+                  onClick={() => onPick(result)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Use
+                </Button>
               </div>
-              <Button
-                onClick={() => onPick(result)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Use
-              </Button>
+              {/* Catalog surfaces are pickable straight from the hit: they
+                  carry the connect/spec URL, so no discover round trip is
+                  needed to start a preview. */}
+              {result.surfaces.filter(isPickableSearchSurface).length > 0 ? (
+                <ul className="space-y-1">
+                  {result.surfaces
+                    .filter(isPickableSearchSurface)
+                    .map((surface) => (
+                      <li
+                        className="flex items-center gap-2"
+                        key={`${result.domain}:${surface.slug}`}
+                      >
+                        <KindBadge kind={surface.kind} />
+                        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground text-xs">
+                          {surface.url}
+                        </span>
+                        {surface.auth?.kind ? (
+                          <Badge variant="secondary">{surface.auth.kind}</Badge>
+                        ) : null}
+                        <Button
+                          onClick={() => onPick(result, surface)}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Use this surface
+                        </Button>
+                      </li>
+                    ))}
+                </ul>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -1024,10 +1140,57 @@ function PreviewPanel({
             {preview.base_url}
           </span>
         ) : null}
-        {preview.discover_found ? (
+        {preview.surface ? (
+          <Badge variant="secondary">
+            registry surface {preview.surface.slug}
+          </Badge>
+        ) : preview.discover_found ? (
           <Badge variant="secondary">registry facts found</Badge>
         ) : null}
       </div>
+
+      {preview.import_blockers.length > 0 ? (
+        <div className="space-y-1 rounded-md border border-destructive/50 p-2">
+          <p className="font-medium text-destructive text-sm">
+            This source cannot be imported yet:
+          </p>
+          <ul className="list-disc space-y-0.5 pl-5 text-destructive text-sm">
+            {preview.import_blockers.map((blocker) => (
+              <li key={blocker}>{blocker}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {preview.applied_overrides > 0 ? (
+        <p className="text-muted-foreground text-sm">
+          {preview.applied_overrides} registry spec correction(s) applied before
+          normalization.
+        </p>
+      ) : null}
+
+      {preview.surface && preview.surface.required_headers.length > 0 ? (
+        <div className="space-y-1">
+          <div className="text-muted-foreground text-xs">
+            Headers sent on every request
+          </div>
+          <ul className="rounded-md border text-sm">
+            {preview.surface.required_headers.map((header) => (
+              <li className="flex items-baseline gap-2 p-2" key={header.name}>
+                <span className="font-mono text-xs">{header.name}</span>
+                <span className="font-mono text-muted-foreground text-xs">
+                  {header.value ?? `(from ${header.source_kind})`}
+                </span>
+                {header.description ? (
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
+                    {header.description}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {preview.dropped_count > 0 ? (
         <p className="text-amber-600 text-sm dark:text-amber-500">

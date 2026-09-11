@@ -1,10 +1,8 @@
 import { parseTenantAiSettings, TENANT_AI_CONFIG_KEY } from "@engenty/ai-core";
-import {
-  fileStorageTenantObjectKey,
-  guessFileStorageMimeFromFilename,
-} from "@engenty/file-storage";
+import { guessFileStorageMimeFromFilename } from "@engenty/file-storage";
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
+import { kbStorageKey } from "../lib/kb-storage-key.js";
 import type { GetKbDb, GetKbRepo, KbServerApi } from "./kb-api-shared.js";
 import { badRequest } from "./kb-api-shared.js";
 
@@ -112,7 +110,7 @@ export function registerKbDocumentConversionRoutes(
           });
         }
 
-        // Persist under tenants/<tenant-id>/knowledge-base/<kbSlug>/... (vault bucket)
+        // Persist under the KB's space root — see lib/kb-storage-key.ts.
         let originalStoragePath: string | null = null;
         if (kbId) {
           const kb = await repos.kb.getById(kbId);
@@ -121,15 +119,8 @@ export function registerKbDocumentConversionRoutes(
           }
           const storage = api.getStorageService?.("files");
           if (storage) {
-            const tenantId = ctx.auth?.tenantId ?? "unknown";
-            const kbSlug = kb.slug || kb.id;
             const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-            originalStoragePath = fileStorageTenantObjectKey(
-              tenantId,
-              "knowledge-base",
-              kbSlug,
-              `${Date.now()}_${safeName}`
-            );
+            originalStoragePath = kbStorageKey(kb, `${Date.now()}_${safeName}`);
             try {
               await storage.upload(originalStoragePath, buffer, {
                 contentType: mimeType,

@@ -1,5 +1,10 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { adminListCardsGridClassName, Badge, Checkbox } from "@engenty/ui-core";
+import {
+  adminListCardsGridClassName,
+  Badge,
+  Checkbox,
+  cn,
+} from "@engenty/ui-core";
 import { Folder, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -76,7 +81,7 @@ export function FilesCards({
     <div className={adminListCardsGridClassName(tableSize)}>
       {folders?.map((folder) => (
         <button
-          className="group flex items-center gap-3 overflow-hidden rounded-lg border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/30"
+          className="ui-card-raised group flex items-center gap-3 overflow-hidden p-3 text-left"
           key={folder.prefix}
           onClick={() => onOpenFolder?.(folder.prefix)}
           onFocus={() => onPrefetchFolder?.(folder.prefix)}
@@ -86,7 +91,7 @@ export function FilesCards({
           <Folder className="h-8 w-8 shrink-0 text-muted-foreground" />
           <span
             className="min-w-0 truncate font-medium text-sm"
-            title={folder.name}
+            title={folder.title ?? folder.name}
           >
             {folder.name}
           </span>
@@ -96,7 +101,10 @@ export function FilesCards({
         const isSelected = selectedIds.has(file.key);
         return (
           <div
-            className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary/40 hover:bg-accent/30 ${isSelected ? "border-primary bg-primary/5" : ""}`}
+            className={cn(
+              "ui-card-raised ui-card-interactive group relative cursor-pointer overflow-hidden",
+              isSelected && "ui-card-selected"
+            )}
             key={file.key}
             onClick={() => onCardClick(file)}
             onDoubleClick={() => onOpenFull?.(file)}

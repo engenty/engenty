@@ -74,6 +74,12 @@ is configured — and nothing in this product calls them, so they stay off. The
 the variable entirely. If you hit a `/ai/...` route that 404s and you expected Mastra
 to serve it, that is why — see `apps/ai/src/config/mastra-studio-api.ts`.
 
+Studio lists only the two static Mastra agents (Copilot, Scheduler) until a tenant
+is pinned. Set `ENGENTY_STUDIO_TENANT_ID` in `.env.local` for a local install, or
+open **Profile settings** (developer mode) → **Activate tenant in Studio**. That
+registers that tenant’s specialists and opens `/studio` with your session token.
+The env pin is ignored in production.
+
 **Open [http://localhost:5173](http://localhost:5173)** — the Vite dev server serves
 the UI with hot reload. `/api`, `/ai`, and `/docs` are proxied to the other apps on
 the same origin.

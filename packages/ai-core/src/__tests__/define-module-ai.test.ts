@@ -44,37 +44,48 @@ description: Search demos.
 Search demos with filters.
 `;
 
-const ACTION_MD = `---
-id: demo.refresh
-agent_id: demo.manager
-name: Refresh demo
-default_thread_mode: new
-input_schema_json:
-  type: object
-  properties: {}
----
+const WORKFLOW_JSON = JSON.stringify({
+  id: "demo.refresh",
+  description: "Refresh the demo data.",
+  inputSchema: { type: "object", properties: {} },
+  outputSchema: {},
+  metadata: { title: "Refresh demo", owner_agent_id: "demo.manager" },
+  graph: [
+    {
+      id: "prepare",
+      mapConfig: JSON.stringify({
+        agent_type_key: { value: "demo.manager" },
+        brief: { value: "Refresh the demo data." },
+        input: { initData: true, path: "" },
+        thread_mode: { value: "new" },
+      }),
+      type: "mapping",
+    },
+    { id: "run", toolId: "run_specialist", type: "tool" },
+  ],
+});
 
-Refresh the demo data.
-`;
-
-const ROUTINE_MD = `---
-id: demo.nightly
-name: Nightly demo
-schedule: "0 2 * * *"
-target:
-  kind: action
-  action_id: demo.refresh
----
-`;
+const MANIFEST_WITH_TRIGGER = JSON.stringify({
+  ...JSON.parse(MANIFEST),
+  triggers: [
+    {
+      id: "demo.nightly",
+      name: "Nightly demo",
+      workflow: "demo.refresh",
+      kind: "schedule",
+      cron: "0 2 * * *",
+      scope: "space",
+    },
+  ],
+});
 
 function fullTree(): string {
   return makeModuleAiDir({
-    "agents/demo.manager/agent.json": MANIFEST,
+    "agents/demo.manager/agent.json": MANIFEST_WITH_TRIGGER,
     "agents/demo.manager/AGENTS.md": "You are the Demo Manager.",
     "agents/demo.manager/SOUL.md": "Be cheerful.",
     "skills/demo-search/SKILL.md": SKILL_MD,
-    "actions/refresh/ACTION.md": ACTION_MD,
-    "routines/nightly/ROUTINE.md": ROUTINE_MD,
+    "workflows/refresh.workflow.json": WORKFLOW_JSON,
   });
 }
 
@@ -97,7 +108,7 @@ describe("defineModuleAi", () => {
     expect(config?.instructions).toContain("You are the Demo Manager.");
     expect(config?.instructions).toContain("Be cheerful.");
     expect(registration.skills?.map((s) => s.name)).toEqual(["demo-search"]);
-    expect(registration.actions?.map((a) => a.id)).toEqual(["demo.refresh"]);
+    expect(registration.workflows?.map((a) => a.id)).toEqual(["demo.refresh"]);
     expect(registration.routines?.map((r) => r.id)).toEqual(["demo.nightly"]);
     expect(registration.dynamic?.skills?.["demo-search"]).toContain(
       "Search demos with filters."
@@ -106,14 +117,17 @@ describe("defineModuleAi", () => {
     const capability = moduleAi.dynamicCapability();
     expect(capability.moduleId).toBe("demo");
     expect(capability.agentConfigs?.[0]?.id).toBe("demo.manager");
-    // Actions/routines ride the capability channel in serializable form.
-    expect(capability.actions?.map((a) => a.id)).toEqual(["demo.refresh"]);
-    expect(capability.actions?.[0]).not.toHaveProperty("input_schema");
-    expect(capability.actions?.[0]?.input_schema_json).toMatchObject({
+    // Workflows/triggers ride the capability channel verbatim (plain JSON).
+    expect(capability.workflows?.map((a) => a.id)).toEqual(["demo.refresh"]);
+    expect(capability.workflows?.[0]?.definition.inputSchema).toMatchObject({
       type: "object",
     });
     expect(capability.routines?.map((r) => r.id)).toEqual(["demo.nightly"]);
-    expect(() => JSON.stringify(capability.actions)).not.toThrow();
+    expect(capability.routines?.[0]).toMatchObject({
+      agent_id: "demo.manager",
+      workflow: "demo.refresh",
+    });
+    expect(() => JSON.stringify(capability.workflows)).not.toThrow();
     expect(() => JSON.stringify(capability.routines)).not.toThrow();
   });
 
@@ -128,24 +142,14 @@ describe("defineModuleAi", () => {
     expect(config?.name).toBe("Demo Manager");
   });
 
-  it("passes tools and agentDefinitions through", () => {
+  it("passes tools through to the dynamic capability", () => {
     const tool = { id: "demo_tool" };
     const moduleAi = defineModuleAi({
-      agentDefinitions: () => [
-        {
-          build_tools: () => ({}),
-          id: "demo.manager",
-          instruction_keys: [],
-          module_id: "demo",
-          name: "Demo Manager",
-        },
-      ],
       dir: fullTree(),
       moduleId: "demo",
       tools: { demo_tool: tool },
     });
     expect(moduleAi.dynamicCapability().tools?.demo_tool).toBe(tool);
-    expect(moduleAi.aiRegistration().agents).toHaveLength(1);
   });
 
   it("rejects hardcoded model ids in agent.json", () => {
@@ -180,25 +184,15 @@ describe("defineModuleAi", () => {
     ).toThrow(/must match <module>\.<role>/);
   });
 
-  it("rejects actions referencing agents outside the module by default", () => {
+  it("rejects a malformed workflow definition", () => {
     const dir = makeModuleAiDir({
       "agents/demo.manager/agent.json": MANIFEST,
       "agents/demo.manager/AGENTS.md": "x",
-      "actions/other/ACTION.md": ACTION_MD.replace(
-        "agent_id: demo.manager",
-        "agent_id: other.manager"
-      ),
+      "workflows/bad.workflow.json": JSON.stringify({ id: "demo.bad" }),
     });
     expect(() =>
       defineModuleAi({ dir, moduleId: "demo" }).aiRegistration()
-    ).toThrow(/outside this module/);
-    expect(() =>
-      defineModuleAi({
-        allowCrossModuleActionAgents: true,
-        dir,
-        moduleId: "demo",
-      }).aiRegistration()
-    ).not.toThrow();
+    ).toThrow(/Invalid workflow definition/);
   });
 
   it("supports the skills escape hatch (chatbot-style dynamic skills)", () => {
@@ -287,7 +281,7 @@ metadata:
     }).aiRegistration();
     expect(registration.dynamic?.agent_configs).toEqual([]);
     expect(registration.skills).toEqual([]);
-    expect(registration.actions).toEqual([]);
+    expect(registration.workflows).toEqual([]);
     expect(registration.routines).toEqual([]);
   });
 });

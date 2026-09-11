@@ -2,7 +2,9 @@
 // Import domain modules directly when adding new callers; this file preserves existing import paths.
 
 export {
+  type AgentSpaceMountResult,
   type AiAgentOverridesPatch,
+  type CreateCustomAgentInput,
   createCustomAgent,
   createCustomTool,
   deleteCustomAgent,
@@ -33,11 +35,11 @@ export type * from "./ai-runtime-types.js";
 export {
   createAiSkill,
   deleteAiSkill,
-  getAiActionDetail,
-  getAiActions,
   getAiSkillCatalog,
   getAiSkillDetail,
   getAiSkills,
+  getAiWorkflowDetail,
+  getAiWorkflows,
   updateAiSkill,
 } from "./catalog-api.js";
 export { getAiTriggers } from "./triggers-api.js";

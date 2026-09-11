@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAppHost } from "../app.js";
+import type { AppStore } from "../app-store.js";
 import type { AppHostConfig } from "../config.js";
 import { AppBuildFailure, type AppRuntime, assertAppId } from "../runtime.js";
+
+const PLACEMENT = {
+  slug: "demo",
+  space_id: "00000000-0000-4000-8000-000000000002",
+  tenant_id: "00000000-0000-4000-8000-000000000001",
+};
 
 function makeConfig(overrides: Partial<AppHostConfig> = {}): AppHostConfig {
   return {
@@ -12,7 +19,8 @@ function makeConfig(overrides: Partial<AppHostConfig> = {}): AppHostConfig {
     port: 8795,
     production: false,
     requestTimeoutMs: 1000,
-    scaling: { maxReplicas: 4, minReplicas: 0, targetConcurrency: 8 },
+    spacesDir: "/tmp/app-host-test-spaces",
+    scaling: { maxReplicas: 1, minReplicas: 0, targetConcurrency: 8 },
     ...overrides,
   };
 }
@@ -43,6 +51,25 @@ function makeRuntime(overrides: Partial<AppRuntime> = {}): AppRuntime {
   } as unknown as AppRuntime;
 }
 
+function makeStore(overrides: Partial<AppStore> = {}): AppStore {
+  return {
+    readSource: vi.fn(async () => ({
+      files: { "index.html": "<h1>hi</h1>" },
+      sha: "a".repeat(40),
+    })),
+    writeSource: vi.fn(async () => ({ changed: true, sha: "b".repeat(40) })),
+    ...overrides,
+  } as unknown as AppStore;
+}
+
+function host(options: { runtime?: AppRuntime; store?: AppStore } = {}) {
+  return createAppHost({
+    config: makeConfig(),
+    runtime: options.runtime ?? makeRuntime(),
+    store: options.store ?? makeStore(),
+  });
+}
+
 const authorized = { authorization: "Bearer test-token" };
 
 describe("assertAppId", () => {
@@ -63,24 +90,24 @@ describe("assertAppId", () => {
 
 describe("createAppHost", () => {
   it("serves health without a token", async () => {
-    const app = createAppHost({ config: makeConfig(), runtime: makeRuntime() });
+    const app = host();
     const res = await app.request("/health");
     expect(res.status).toBe(200);
   });
 
   it("rejects internal calls without the shared secret", async () => {
-    const app = createAppHost({ config: makeConfig(), runtime: makeRuntime() });
+    const app = host();
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: {} }),
+      body: JSON.stringify({ app: PLACEMENT, files: {} }),
       method: "POST",
     });
     expect(res.status).toBe(401);
   });
 
   it("rejects a wrong shared secret", async () => {
-    const app = createAppHost({ config: makeConfig(), runtime: makeRuntime() });
+    const app = host();
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: {} }),
+      body: JSON.stringify({ app: PLACEMENT, files: {} }),
       headers: { authorization: "Bearer nope" },
       method: "POST",
     });
@@ -89,9 +116,12 @@ describe("createAppHost", () => {
 
   it("deploys with a valid token", async () => {
     const runtime = makeRuntime();
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: { "index.html": "<h1>hi</h1>" } }),
+      body: JSON.stringify({
+        app: PLACEMENT,
+        files: { "index.html": "<h1>hi</h1>" },
+      }),
       headers: authorized,
       method: "POST",
     });
@@ -101,9 +131,86 @@ describe("createAppHost", () => {
       ok: true,
     });
     expect(runtime.deploy).toHaveBeenCalledWith({
+      app: {
+        slug: "demo",
+        spaceId: PLACEMENT.space_id,
+        tenantId: PLACEMENT.tenant_id,
+      },
       appId: "demo",
       files: { "index.html": "<h1>hi</h1>" },
     });
+  });
+
+  it("rejects a deploy that does not say where the App lives", async () => {
+    const runtime = makeRuntime();
+    const app = host({ runtime });
+    const res = await app.request("/internal/apps/demo/deploy", {
+      body: JSON.stringify({ files: { "index.html": "<h1>hi</h1>" } }),
+      headers: authorized,
+      method: "POST",
+    });
+    expect(res.status).toBe(400);
+    expect(runtime.deploy).not.toHaveBeenCalled();
+  });
+
+  it("writes source through the store and answers with the commit", async () => {
+    const store = makeStore();
+    const app = host({ store });
+    const res = await app.request("/internal/apps/demo/source", {
+      body: JSON.stringify({
+        app: PLACEMENT,
+        delete: ["old.js"],
+        files: { "index.html": "<h1>v2</h1>" },
+        message: "v2",
+      }),
+      headers: authorized,
+      method: "PUT",
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      changed: true,
+      ok: true,
+      sha: "b".repeat(40),
+    });
+    expect(store.writeSource).toHaveBeenCalledWith(
+      "demo",
+      {
+        slug: "demo",
+        spaceId: PLACEMENT.space_id,
+        tenantId: PLACEMENT.tenant_id,
+      },
+      {
+        delete: ["old.js"],
+        files: { "index.html": "<h1>v2</h1>" },
+        message: "v2",
+      }
+    );
+  });
+
+  it("reads the tree at a ref", async () => {
+    const store = makeStore();
+    const app = host({ store });
+    const res = await app.request("/internal/apps/demo/source?ref=abc123", {
+      headers: authorized,
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      files: { "index.html": "<h1>hi</h1>" },
+      sha: "a".repeat(40),
+    });
+    expect(store.readSource).toHaveBeenCalledWith("demo", "abc123");
+  });
+
+  it("answers 404 for a tree it cannot read", async () => {
+    const store = makeStore({
+      readSource: vi.fn(async () => {
+        throw new Error("fatal: bad revision");
+      }),
+    });
+    const res = await host({ store }).request("/internal/apps/demo/source", {
+      headers: authorized,
+    });
+    expect(res.status).toBe(404);
   });
 
   it("returns 422 with the build log so the authoring agent can iterate", async () => {
@@ -116,9 +223,9 @@ describe("createAppHost", () => {
         });
       }),
     });
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: { "index.js": "oops(" } }),
+      body: JSON.stringify({ app: PLACEMENT, files: { "index.js": "oops(" } }),
       headers: authorized,
       method: "POST",
     });
@@ -130,9 +237,9 @@ describe("createAppHost", () => {
   });
 
   it("rejects a malformed deploy body", async () => {
-    const app = createAppHost({ config: makeConfig(), runtime: makeRuntime() });
+    const app = host();
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: { "index.html": 42 } }),
+      body: JSON.stringify({ app: PLACEMENT, files: { "index.html": 42 } }),
       headers: authorized,
       method: "POST",
     });
@@ -145,9 +252,12 @@ describe("createAppHost", () => {
         throw new Error("engine unreachable");
       }),
     });
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/demo/deploy", {
-      body: JSON.stringify({ files: { "index.html": "<h1>hi</h1>" } }),
+      body: JSON.stringify({
+        app: PLACEMENT,
+        files: { "index.html": "<h1>hi</h1>" },
+      }),
       headers: authorized,
       method: "POST",
     });
@@ -157,7 +267,7 @@ describe("createAppHost", () => {
 
   it("rejects a malformed app id with 400, not a downstream failure", async () => {
     const runtime = makeRuntime();
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/..%2F..%2Fetc/request", {
       body: JSON.stringify({ path: "/" }),
       headers: authorized,
@@ -172,7 +282,7 @@ describe("createAppHost", () => {
 
   it("forwards a guest request and returns its response", async () => {
     const runtime = makeRuntime();
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/demo/request", {
       body: JSON.stringify({ method: "POST", path: "/collect" }),
       headers: authorized,
@@ -192,7 +302,7 @@ describe("createAppHost", () => {
         throw err;
       }),
     });
-    const app = createAppHost({ config: makeConfig(), runtime });
+    const app = host({ runtime });
     const res = await app.request("/internal/apps/demo/request", {
       body: JSON.stringify({ path: "/" }),
       headers: authorized,

@@ -8,6 +8,8 @@
  * they now share, so a model can never be legal to run but invisible to pick.
  */
 
+import { modelIdOfRef } from "../config/model-ref.js";
+
 /** A tenant's grants. Both lists: null or empty = unrestricted. */
 export interface ModelAllowList {
   allowed_models?: readonly string[] | null;
@@ -15,21 +17,31 @@ export interface ModelAllowList {
 }
 
 /**
- * Comparison form for a model id or provider slug: trimmed and lowercased.
+ * Comparison form for a model id or provider slug: trimmed, lowercased, and
+ * stripped of any gateway ref head.
  *
- * Deliberately does NOT strip path segments. Gateway catalog ids are always
- * `provider/model`, but routing-prefixed ids (`openrouter/openai/…`) exist in
- * the purpose defaults, and stripping a prefix would silently equate two
- * different routes to the same weights with different billing.
+ * Deliberately does NOT strip path segments — a `provider/model` id is compared
+ * whole. What it does strip is the `openrouter:` ref head, because **a grant
+ * names a model, not a route to it.** Which gateway serves a role is a platform
+ * binding the tenant cannot see or set, so making a tenant restate its grants
+ * when an operator moves a role between gateways would revoke access for a
+ * change the tenant did not make.
+ *
+ * The older warning here — that stripping a prefix equates two routes to the
+ * same weights with different billing — was about the `openrouter/openai/…`
+ * SLASH spelling, where the route was baked into the id and there was no other
+ * record of it. The gateway is its own column now, and pricing keys off the
+ * catalog row rather than off this comparison.
  */
 export function canonicalModelId(value: string): string {
-  return value.trim().toLowerCase();
+  return modelIdOfRef(value).trim().toLowerCase();
 }
 
 /**
- * Provider slug for a model id: the leading segment. For a routing-prefixed id
- * this is the router (`openrouter`), which is the correct answer — that is who
- * serves and bills the request.
+ * Provider slug for a model id: the leading segment, after any gateway ref head
+ * is removed. `openrouter:openai/gpt-4o` is provided by `openai` and only
+ * served by OpenRouter — a provider grant for OpenAI covers it either way,
+ * which is the point of keeping the two axes separate.
  *
  * Prefer the catalog's own `provider` column when you have the record; this is
  * the fallback for the resolver, which sees only an id string.

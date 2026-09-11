@@ -72,13 +72,16 @@ export function ExpenseCategoriesSection({
           {t("sections.expenseCategoriesDesc")}
         </p>
       </div>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-panel overflow-hidden">
         <div className="p-4">
           <div className="max-w-4xl space-y-2">
             {/* Column headers */}
             <div className="flex items-center gap-2 px-1 text-muted-foreground text-xs">
               <span className="w-24 shrink-0">
                 {t("sections.categoryCode")}
+              </span>
+              <span className="w-20 shrink-0">
+                {t("sections.categoryAccount")}
               </span>
               <span className="min-w-0 flex-1">
                 {t("sections.categoryName")}
@@ -104,6 +107,18 @@ export function ExpenseCategoriesSection({
                   }
                   placeholder="z.B. reise"
                   value={cat.code}
+                />
+                <Input
+                  className="h-8 w-20 shrink-0 font-mono text-sm"
+                  onChange={(e) =>
+                    updateCategory(
+                      index,
+                      "account_number",
+                      e.target.value || null
+                    )
+                  }
+                  placeholder="4400"
+                  value={cat.account_number ?? ""}
                 />
                 <Input
                   className="h-8 min-w-0 flex-1 text-sm"

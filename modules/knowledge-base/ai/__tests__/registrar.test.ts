@@ -17,10 +17,10 @@ describe("knowledgeBaseAiRegistration", () => {
       invokeKbOperation: noopInvoke,
     });
     expect(reg.module_id).toBe("knowledge-base");
-    expect(reg.actions?.length).toBeGreaterThanOrEqual(6);
+    expect(reg.workflows?.length).toBeGreaterThanOrEqual(6);
     expect(reg.skills?.length).toBeGreaterThanOrEqual(7);
 
-    const actionIds = new Set(reg.actions?.map((a) => a.id) ?? []);
+    const actionIds = new Set(reg.workflows?.map((a) => a.id) ?? []);
     expect(actionIds.has("knowledge-base.capture-source")).toBe(true);
     expect(actionIds.has("knowledge-base.triage-inbox")).toBe(true);
     expect(actionIds.has("knowledge-base.promote-inbox-item")).toBe(true);
@@ -44,9 +44,6 @@ describe("knowledgeBaseAiRegistration", () => {
       )
     ).toBe(true);
 
-    const agent = reg.agents?.find((a) => a.id === "knowledge-base.manager");
-    expect(agent).toBeTruthy();
-    expect(agent?.instruction_keys).toContain("knowledge_base_manager_agents");
     const dynamicIds = reg.dynamic?.agent_configs?.map((c) => c.id) ?? [];
     expect(dynamicIds).toContain("knowledge-base.manager");
     expect(dynamicIds).toContain("knowledge-base.answers");
@@ -107,14 +104,7 @@ describe("knowledgeBaseAiRegistration", () => {
         "kb-source-manager",
       ]),
       source: "module",
-      toolIds: [
-        "engenty_tools_search",
-        "engenty_tool_execute",
-        "web_search",
-        "memory_save",
-        "memory_record_search",
-        "memory_record_archive",
-      ],
+      toolIds: ["engenty_tools_search", "engenty_tool_execute", "web_search"],
     });
 
     expect(managerConfig?.instructions).toContain(

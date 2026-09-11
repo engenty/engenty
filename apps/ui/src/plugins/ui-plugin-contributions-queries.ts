@@ -4,17 +4,19 @@ import {
   CONTRIBUTIONS_INVALIDATE_EVENT,
   type PluginDiagnostic,
   type UiContributions,
+  type UiPluginSummary,
 } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect } from "react";
 import { getPlugins } from "../lib/api/client";
-import { deriveUiPluginCatalogFromSummaries, uiPluginCatalog } from "./catalog";
+import { deriveUiPluginCatalogFromSummaries } from "./catalog";
+import { uiPluginCatalog } from "./load-generated-catalog";
 import { resolveUiPlugins, type UiResolutionDiagnostic } from "./resolver";
 
 /**
  * Increment when plugin catalog, resolver rules, or menu ordering semantics change so
  * production `contributionsCache` entries are not reused across deploys.
  */
-const UI_CONTRIBUTIONS_CACHE_VERSION = 13;
+const UI_CONTRIBUTIONS_CACHE_VERSION = 14;
 
 interface UiPluginGenerationEntry {
   generationId?: number;
@@ -148,7 +150,7 @@ export function uiPluginContributionsOptions(
         ),
         ...alwaysEnabledUiPlugins
           .filter((id) => !result.some((p) => p.id === id))
-          .map((id) => ({ id, enabled: true, loaded: true })),
+          .map((id): UiPluginSummary => ({ enabled: true, id, loaded: true })),
       ];
       // Match resolver: UI contributions depend on tenant enabled state, not server `loaded`.
       const enabledIds = mergedPlugins
@@ -267,6 +269,10 @@ export function pruneStaleUiPluginContributionsData(
     pluginId
   );
   const tabs = removePluginOwnedItems(data.contributions.tabs, pluginId);
+  const spaceTabs = removePluginOwnedItems(
+    data.contributions.spaceTabs ?? [],
+    pluginId
+  );
   // `?? []`: cached query data may predate this contribution kind.
   const chatCommands = removePluginOwnedItems(
     data.contributions.chatCommands ?? [],
@@ -284,6 +290,7 @@ export function pruneStaleUiPluginContributionsData(
     navigationPrefetch.removed +
     settingsItems.removed +
     tabs.removed +
+    spaceTabs.removed +
     chatCommands.removed;
 
   if (removed === 0) {
@@ -309,6 +316,7 @@ export function pruneStaleUiPluginContributionsData(
       i18nNamespaces: i18nNamespaces.items,
       navigationPrefetch: navigationPrefetch.items,
       settingsItems: settingsItems.items,
+      spaceTabs: spaceTabs.items,
       tabs: tabs.items,
       chatCommands: chatCommands.items,
     },
@@ -407,8 +415,13 @@ export function useUiPluginContributionsInvalidateListener() {
               | { uiRefresh?: ReloadUiRefreshMarker }
               | null)
           : null;
-      const marker =
-        detail && "uiRefresh" in detail ? detail.uiRefresh : detail;
+      // The carrier and the marker are structurally indistinguishable (every
+      // field optional), so `in` cannot narrow the union — read the carrier
+      // face first and fall back to treating the detail as the marker itself.
+      const marker: ReloadUiRefreshMarker | undefined = detail
+        ? ((detail as ReloadUiRefreshCarrier).uiRefresh ??
+          (detail as ReloadUiRefreshMarker))
+        : undefined;
       invalidate({
         generationId: marker?.generationId,
         pluginId: marker?.pluginId,

@@ -1,3 +1,5 @@
+import { useLocalFilesBridge } from "@engenty/connections-local-files/ui/local-files-bridge";
+import { fileSpaceInvalidationKey } from "@engenty/file-storage";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
@@ -34,17 +36,17 @@ import {
   FileSpreadsheet,
   FileText,
   Folder,
-  FolderPlus,
   Pencil,
   Trash2,
-  Upload,
   UploadCloud,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AddSourceMenu } from "./components/add-source-menu.js";
 import {
-  createFolder,
+  FileSpaceActions,
+  useFileSpaceActions,
+} from "./components/file-space-actions.js";
+import {
   deleteFolder,
   deleteSpaceFile,
   type FileSpaceFile,
@@ -53,12 +55,8 @@ import {
   getSpaceFileUrl,
   updateFile,
   updateFolder,
-  uploadFileToSpace,
 } from "./file-manager-api.js";
-import {
-  fileSpaceInvalidationKey,
-  fileSpaceQueryOptions,
-} from "./file-manager-queries.js";
+import { fileSpaceQueryOptions } from "./file-manager-queries.js";
 
 export type {
   FileSpaceFile,
@@ -69,6 +67,17 @@ export type {
 
 export interface FileManagerProps {
   className?: string;
+  /**
+   * Browse this folder instead of an internal path stack. `null` is the file
+   * space root; omit the prop to keep the manager's own breadcrumb navigation
+   * (the project Files tab).
+   */
+  folderId?: string | null;
+  /** Hide the in-component breadcrumb when the host already names the folder. */
+  hideBreadcrumb?: boolean;
+  /** Called instead of descending internally — the Data tree owns the URL. */
+  onOpenFile?: (file: FileSpaceFile) => void;
+  onOpenFolder?: (folder: FileSpaceFolder) => void;
   /** The container this file space belongs to (e.g. { type: "project", id }). */
   owner: FileSpaceOwnerRef;
   /** When true, all mutating actions are hidden. */
@@ -122,29 +131,42 @@ type DeleteTarget =
 
 /* ── Component ── */
 
-export function FileManager({ owner, readOnly, className }: FileManagerProps) {
+export function FileManager({
+  className,
+  folderId,
+  hideBreadcrumb,
+  onOpenFile,
+  onOpenFolder,
+  owner,
+  readOnly,
+}: FileManagerProps) {
   const { t } = useTranslation("files");
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { ready: localFilesReady } = useLocalFilesBridge();
 
   const [path, setPath] = useState<Crumb[]>([{ id: null, name: "" }]);
-  const currentFolderId = path.at(-1)?.id ?? null;
+  const currentFolderId =
+    folderId === undefined ? (path.at(-1)?.id ?? null) : folderId;
 
-  const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
-  const { data, isLoading, error } = useQuery(
-    fileSpaceQueryOptions(owner, { folderId: currentFolderId })
-  );
+  const { data, isLoading, error } = useQuery({
+    ...fileSpaceQueryOptions(owner, { folderId: currentFolderId }),
+    enabled: localFilesReady,
+  });
+  const listingPending = !localFilesReady || isLoading;
 
   // Inside a connector mount everything is a virtual read-only projection.
   const insideMount = data?.readOnly === true;
   const mutationsDisabled = Boolean(readOnly) || insideMount;
+  const actions = useFileSpaceActions(
+    owner,
+    currentFolderId,
+    mutationsDisabled
+  );
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({
@@ -153,28 +175,20 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
   }, [owner, queryClient]);
 
   /* ── Navigation ── */
-  const openFolder = useCallback((folder: FileSpaceFolder) => {
-    setPath((prev) => [...prev, { id: folder.id, name: folder.name }]);
-  }, []);
+  const openFolder = useCallback(
+    (folder: FileSpaceFolder) => {
+      if (onOpenFolder) {
+        onOpenFolder(folder);
+        return;
+      }
+      setPath((prev) => [...prev, { id: folder.id, name: folder.name }]);
+    },
+    [onOpenFolder]
+  );
 
   const navigateToCrumb = useCallback((index: number) => {
     setPath((prev) => prev.slice(0, index + 1));
   }, []);
-
-  /* ── Mutations ── */
-  const createFolderMutation = useMutation({
-    mutationFn: (name: string) =>
-      createFolder(owner, { name, parentId: currentFolderId }),
-    onSuccess: () => {
-      invalidate();
-      setNewFolderOpen(false);
-      setNewFolderName("");
-    },
-    onError: (e: unknown) =>
-      toast.error(
-        e instanceof Error ? e.message : t("fileManager.errors.generic")
-      ),
-  });
 
   const renameMutation = useMutation({
     mutationFn: async (input: { target: RenameTarget; name: string }) => {
@@ -212,46 +226,6 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
       ),
   });
 
-  /* ── Upload ── */
-  const uploadFiles = useCallback(
-    async (files: FileList | File[]) => {
-      const list = Array.from(files);
-      if (list.length === 0) {
-        return;
-      }
-      setUploading(true);
-      let ok = 0;
-      for (const file of list) {
-        try {
-          await uploadFileToSpace(owner, file, currentFolderId);
-          ok += 1;
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : "upload_failed";
-          toast.error(
-            t("fileManager.errors.upload", { filename: file.name, error: msg })
-          );
-        }
-      }
-      setUploading(false);
-      if (ok > 0) {
-        toast.success(t("fileManager.uploadSuccess", { count: ok }));
-        invalidate();
-      }
-    },
-    [currentFolderId, invalidate, owner, t]
-  );
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      e.target.value = "";
-      if (files) {
-        void uploadFiles(files);
-      }
-    },
-    [uploadFiles]
-  );
-
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -260,10 +234,10 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
         return;
       }
       if (e.dataTransfer?.files?.length) {
-        void uploadFiles(e.dataTransfer.files);
+        void actions.uploadFiles(e.dataTransfer.files);
       }
     },
-    [mutationsDisabled, uploadFiles]
+    [actions, mutationsDisabled]
   );
 
   const handleDownload = useCallback(
@@ -312,59 +286,36 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
     >
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm">
-          {breadcrumb.map((crumb) => (
-            <span className="flex items-center gap-1" key={crumb.index}>
-              {crumb.index > 0 && (
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-              )}
-              <button
-                className={`max-w-[12rem] truncate rounded px-1 py-0.5 ${
-                  crumb.isLast
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                disabled={crumb.isLast}
-                onClick={() => navigateToCrumb(crumb.index)}
-                type="button"
-              >
-                {crumb.label}
-              </button>
-            </span>
-          ))}
-        </nav>
-
-        {!mutationsDisabled && (
-          <div className="flex items-center gap-2">
-            <AddSourceMenu currentFolderId={currentFolderId} owner={owner} />
-            <Button
-              onClick={() => {
-                setNewFolderName("");
-                setNewFolderOpen(true);
-              }}
-              size="sm"
-              variant="outline"
-            >
-              <FolderPlus className="mr-1.5 size-4" />
-              {t("fileManager.newFolder")}
-            </Button>
-            <Button
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              size="sm"
-            >
-              <Upload className="mr-1.5 size-4" />
-              {uploading ? t("fileManager.uploading") : t("fileManager.upload")}
-            </Button>
-            <input
-              className="hidden"
-              multiple
-              onChange={handleInputChange}
-              ref={fileInputRef}
-              type="file"
-            />
-          </div>
+        {hideBreadcrumb ? (
+          <div className="min-w-0 flex-1" />
+        ) : (
+          <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm">
+            {breadcrumb.map((crumb) => (
+              <span className="flex items-center gap-1" key={crumb.index}>
+                {crumb.index > 0 && (
+                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                )}
+                <button
+                  className={`max-w-[12rem] truncate rounded px-1 py-0.5 ${
+                    crumb.isLast
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  disabled={crumb.isLast}
+                  onClick={() => navigateToCrumb(crumb.index)}
+                  type="button"
+                >
+                  {crumb.label}
+                </button>
+              </span>
+            ))}
+          </nav>
         )}
+        <FileSpaceActions
+          actions={actions}
+          currentFolderId={currentFolderId}
+          owner={owner}
+        />
       </div>
 
       {/* ── Body ── */}
@@ -382,7 +333,7 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
           </div>
         )}
 
-        {isLoading ? (
+        {listingPending ? (
           <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <Skeleton className="h-24" key={`sk-${i}`} />
@@ -414,7 +365,7 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
           <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {folders.map((folder) => (
               <div
-                className="group relative flex cursor-pointer flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/30"
+                className="ui-card-raised ui-card-interactive group relative flex cursor-pointer flex-col items-center gap-2 p-3"
                 key={folder.id}
                 onDoubleClick={() => openFolder(folder)}
               >
@@ -484,13 +435,15 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
               const Icon = fileIconFor(file.mimeType);
               return (
                 <div
-                  className="group relative flex flex-col items-center gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/30"
+                  className="ui-card-raised ui-card-interactive group relative flex flex-col items-center gap-2 p-3"
                   key={file.id}
                 >
                   <button
                     className="flex w-full flex-col items-center gap-2"
-                    onClick={() => handleDownload(file)}
-                    title={t("fileManager.download")}
+                    onClick={() =>
+                      onOpenFile ? onOpenFile(file) : void handleDownload(file)
+                    }
+                    title={onOpenFile ? file.name : t("fileManager.download")}
                     type="button"
                   >
                     <Icon className="size-10 text-muted-foreground" />
@@ -558,37 +511,6 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
           </div>
         )}
       </div>
-
-      {/* ── New folder dialog ── */}
-      <Dialog onOpenChange={setNewFolderOpen} open={newFolderOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("fileManager.newFolder")}</DialogTitle>
-          </DialogHeader>
-          <Input
-            autoFocus
-            onChange={(e) => setNewFolderName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && newFolderName.trim()) {
-                createFolderMutation.mutate(newFolderName.trim());
-              }
-            }}
-            placeholder={t("fileManager.folderNamePlaceholder")}
-            value={newFolderName}
-          />
-          <DialogFooter>
-            <Button onClick={() => setNewFolderOpen(false)} variant="outline">
-              {t("fileManager.cancel")}
-            </Button>
-            <Button
-              disabled={!newFolderName.trim() || createFolderMutation.isPending}
-              onClick={() => createFolderMutation.mutate(newFolderName.trim())}
-            >
-              {t("fileManager.create")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Rename dialog ── */}
       <Dialog
@@ -668,5 +590,25 @@ export function FileManager({ owner, readOnly, className }: FileManagerProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** Self-contained toolbar for hosts that do not share drag-and-drop with the listing. */
+export function FileSpaceActionsBar({
+  currentFolderId,
+  owner,
+  readOnly,
+}: {
+  currentFolderId: string | null;
+  owner: FileSpaceOwnerRef;
+  readOnly?: boolean;
+}) {
+  const actions = useFileSpaceActions(owner, currentFolderId, readOnly);
+  return (
+    <FileSpaceActions
+      actions={actions}
+      currentFolderId={currentFolderId}
+      owner={owner}
+    />
   );
 }

@@ -74,3 +74,67 @@ describe("buildSyncedWritableMounts", () => {
     );
   });
 });
+
+describe("space-rooted synced mounts", () => {
+  const SPACE_A = "space-a";
+  const SPACE_B = "space-b";
+  const spaceCommons = (spaceId: string) => ({
+    fileStorageRelativePath: "ai/workspace/commons/",
+    mountPath: "/space",
+    spaceId,
+  });
+
+  it("carries the space into the sync layout so bytes land in the right prefix", () => {
+    const { extraMounts } = buildSyncedWritableMounts(
+      [spaceCommons(SPACE_A)],
+      tenantId
+    );
+    expect(extraMounts).toEqual([
+      {
+        containerPath: "/space",
+        layout: {
+          fileStorageRelativePath: "ai/workspace/commons/",
+          spaceId: SPACE_A,
+          stagingPath: resolveLocalMountBasePath(
+            tenantId,
+            "ai/workspace/commons/",
+            SPACE_A
+          ),
+        },
+      },
+    ]);
+  });
+
+  it("stages two spaces' commons in DIFFERENT local dirs", () => {
+    // Both have the identical relative path, so a staging path that ignored the
+    // space would put them in one directory and let the sandbox sync one
+    // space's files out into the other's storage prefix.
+    const a = buildSyncedWritableMounts([spaceCommons(SPACE_A)], tenantId);
+    const b = buildSyncedWritableMounts([spaceCommons(SPACE_B)], tenantId);
+    const pathA = a.stagingByMountPath.get("/space");
+    const pathB = b.stagingByMountPath.get("/space");
+    expect(pathA).toBeTruthy();
+    expect(pathA).not.toBe(pathB);
+  });
+
+  it("keeps the tenant commons staging path unchanged", () => {
+    // Segment check, not substring: the base temp dir is `engenty-workspaces`,
+    // which contains "spaces" and would make a naive assertion pass for the
+    // wrong reason.
+    const tenantPath = resolveLocalMountBasePath(
+      tenantId,
+      "ai/workspace/commons/"
+    );
+    expect(tenantPath.split("/")).not.toContain("spaces");
+    expect(tenantPath.endsWith("tenants/tenant-1/ai/workspace/commons")).toBe(
+      true
+    );
+    expect(
+      resolveLocalMountBasePath(
+        tenantId,
+        "ai/workspace/commons/",
+        SPACE_A
+      ).split("/")
+    ).toContain("spaces");
+  });
+});

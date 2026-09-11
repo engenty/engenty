@@ -1,7 +1,21 @@
 import { z } from "zod";
+import { AGENT_ENGENTY_KINDS } from "./agents/agent-engenty.js";
+
+// The sandbox network union, shared with the SPACE-level setting that decides
+// the same thing for the space computer (`core.spaces.computer_network_tier`).
+export {
+  COMPUTER_NETWORK_TIERS,
+  type ComputerNetworkTier,
+  parseComputerNetworkTier,
+} from "@engenty/plugin-sdk";
+
+import {
+  AGENT_STARTER_DECLARE_MAX,
+  agentStarterSchema,
+} from "./agents/agent-starters.js";
 // Type-only import — contracts.ts imports AgentConfig from this file, so keep
 // this cycle erased at runtime.
-import type { ActionDefinition, RoutineDefinition } from "./contracts.js";
+import type { RoutineDefinition, WorkflowDefinition } from "./contracts.js";
 // Type-only (no runtime cycle): hooks/types.ts imports AgentConfig from here.
 import type { AgentFnDescriptor } from "./hooks/types.js";
 
@@ -107,28 +121,39 @@ const agentWorkspaceMountSchema = z.object({
   // Mount point inside the agent's filesystem, e.g. "/", "/home", "/skills", "/task".
   path: z.string().min(1),
   // Storage scope; resolved to a file-storage prefix by the harness.
-  // `goal`/`project` are the containment tiers above a bound task (resolved
-  // via work-scope's visibility chain — see apps/ai resolve-work-visibility).
-  // `group` is reserved for a future tenant-group concept (unused now).
+  // `routine`/`project` are the containment tiers around a bound task
+  // (resolved via work-scope's visibility chain — see apps/ai
+  // resolve-work-visibility). `routine` is the standing work a fire belongs to,
+  // so successive fires of one routine share a folder.
+  // `space` is the steady tier above them (PLAN-spaces.md) and roots the mount
+  // at `tenants/<t>/spaces/<s>/…` instead of the tenant root. It took over the
+  // socket previously reserved as `group`, which nothing ever emitted.
   scope: z.enum([
     "tenant",
     "user",
     "agent",
     "task",
-    "goal",
+    "routine",
     "project",
-    "group",
+    "space",
     "sandbox",
   ]),
-  // `commons` is a writable tenant-shared scratch space (durable, cross-user/
-  // cross-session). Tenant AGENTS.md/SOUL.md reach the agent via prompt
+  // `commons` is writable tenant-shared working context (durable, cross-user/
+  // cross-session), not a deliverable or record store. Tenant AGENTS.md/SOUL.md reach the agent via prompt
   // injection (instruction registry), not a filesystem mount.
+  //
+  // `data` is the odd one out and deliberately so: it resolves to no storage
+  // prefix at all. It is the space's DATA TREE (PLAN-space-data.md D4) — module
+  // records rendered as files — so its bytes are never bytes on disk, and every
+  // read and write it serves goes through the module's own operations with the
+  // run's principal, approval card included.
   source: z.enum([
     "commons",
+    "data",
     "home",
     "skills",
     "checkout",
-    "goal",
+    "routine",
     "project",
     "sandbox",
   ]),
@@ -141,7 +166,7 @@ export type AgentWorkspaceMount = z.infer<typeof agentWorkspaceMountSchema>;
 
 const agentWorkspaceSandboxRuntimeSchema = z.enum(["node", "python"]);
 
-const agentWorkspaceSandboxSchema = z.object({
+export const agentWorkspaceSandboxSchema = z.object({
   enabled: z.boolean().default(false),
   // Gate `EXECUTE_COMMAND` behind human approval (HITL) when true.
   requireApproval: z.boolean().default(true),
@@ -154,6 +179,12 @@ const agentWorkspaceSandboxSchema = z.object({
   lifecycle: z.enum(["run", "session", "task"]).default("run"),
   timeoutMs: z.number().int().positive().optional(),
   runtimes: z.array(agentWorkspaceSandboxRuntimeSchema).optional(),
+  // Network reach the agent asks for. Absent means `none`, resolved at the
+  // factory: the container stays off every network, which is enough for engenty
+  // tools and Code Mode since both speak stdio to the host. `egress` is for
+  // agents that fetch (package installs, third-party APIs) and routes through
+  // the host's egress proxy.
+  network: z.enum(["none", "egress"]).optional(),
 });
 
 // Workspace archetypes: `assistant` (per-user personal desk, e.g. engenty.copilot)
@@ -176,6 +207,15 @@ export const agentWorkspaceConfigSchema = z.object({
   skills: z
     .object({ discoveryPaths: z.array(z.string().min(1)).optional() })
     .optional(),
+  /**
+   * Mastra workspace tools this agent does not want, by their
+   * `mastra_workspace_*` name. Mastra attaches all of them whenever a workspace
+   * exists, and each one's JSON Schema rides in the prompt on every model call
+   * (measured: 53 KB across 16 tools) — so a tool an archetype will never call
+   * is pure prompt weight. Mastra's own per-tool `enabled: false` is the seam;
+   * this is the declarative way to reach it.
+   */
+  disabledWorkspaceTools: z.array(z.string().min(1)).optional(),
 });
 
 export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
@@ -184,6 +224,7 @@ export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
 export const agentModelPurposeSchema = z.enum([
   "chat",
   "routing",
+  "coordinator",
   "research",
   "planning_coding",
   "safeguard",
@@ -205,15 +246,76 @@ export const agentLimitsConfigSchema = z.object({
 });
 export type AgentLimitsConfig = z.infer<typeof agentLimitsConfigSchema>;
 
+/**
+ * Which skill owns which tools. A tool named here is withheld from the model
+ * until that skill is activated in the thread; a tool named nowhere is always
+ * offered. Fail-open on purpose — per-run frontend tools arrive with names the
+ * config cannot know, and a tool nobody gated must never vanish.
+ *
+ * This is a VISIBILITY gate, not an authorization one. Every listed tool is
+ * still attached, still space-gated and still approval-gated; the model simply
+ * does not carry its schema around until the lane it belongs to is open.
+ */
+export const agentToolGatingConfigSchema = z.object({
+  bySkill: z.record(z.string().min(1), z.array(z.string().min(1))),
+});
+export type AgentToolGatingConfig = z.infer<typeof agentToolGatingConfigSchema>;
+
 export const agentConfigSchema = z.object({
+  /**
+   * Generic ownership classification. Personal agents belong to one user;
+   * shared agents are company resources whose shared state is space-scoped.
+   */
+  agentScope: z.enum(["personal", "shared"]).optional(),
   backgroundTasks: agentBackgroundConfigSchema.optional(),
   description: z.string().optional(),
+  /**
+   * Blob character on the agent start header. When omitted, the id is hashed
+   * to a stable kind (`resolveAgentEngenty`).
+   */
+  engenty: z.enum(AGENT_ENGENTY_KINDS).optional(),
+  /**
+   * How much thinking this agent's turns default to whenever nobody chose:
+   * the person left the composer on Auto, or the turn is a hand-off, a
+   * delegation or a routine. An explicit pick on the person's own desk still
+   * wins. Absent = sized from the turn, except that an agent holding a coding
+   * tool defaults to high (`agentDefaultEffort`).
+   */
+  effort: z.enum(["low", "medium", "high"]).nullish(),
   guardrails: agentGuardrailsConfigSchema.optional(),
   id: z.string().min(1),
   instructions: z.string().min(1),
+  /**
+   * What an agent under this space is FOR — the declared classification that
+   * replaced the id-string classifiers.
+   *
+   * `interface`: the space's own mouth/ears (copilot, coordinator, remote) —
+   *   placed by baseline mounts, never hired, never a routine owner.
+   * `specialist`: an engenty — instructions, skills, actions, triggers; the
+   *   default when absent and the only kind `agent_propose` may mint.
+   * `delegated`: a sub-agent that exists to be delegated to (cli,
+   *   file-analyst, app-coder); may not own triggers.
+   * `chat_surface`: a module's Q&A face (knowledge-base.answers); a chat
+   *   endpoint, not a worker.
+   */
+  kind: z
+    .enum(["interface", "specialist", "delegated", "chat_surface"])
+    .optional(),
+  /**
+   * How an interface agent faces the user: `live` (copilot UI), `background`
+   * (coordinator), `remote` (channels). Only meaningful with
+   * `kind: "interface"`.
+   */
+  interfaceRole: z.enum(["live", "background", "remote"]).optional(),
   /** Per-agent operational limits (iteration cap, …). */
   limits: agentLimitsConfigSchema.optional(),
   model: z.string().min(1),
+  /**
+   * Owning module id; null/absent = platform. The single ownership signal —
+   * `source` stays provider provenance (builtin/module/database) and never
+   * says who owns the agent.
+   */
+  moduleId: z.string().min(1).nullish(),
   /**
    * Explicit per-agent model pin. When set, it beats the tenant/purpose default
    * (precedence flip). Absent = inherit via {@link purpose}.
@@ -227,13 +329,60 @@ export const agentConfigSchema = z.object({
   name: z.string().min(1),
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),
+  /**
+   * Empty-state composer chips. Module manifests may declare up to
+   * {@link AGENT_STARTER_DECLARE_MAX}; the desk shows at most 3 after
+   * locale + condition filtering. Agent-authored proposals are capped at 3
+   * at the propose route.
+   */
+  starters: z
+    .array(agentStarterSchema)
+    .max(AGENT_STARTER_DECLARE_MAX)
+    .optional(),
   subAgents: z.array(agentSubAgentConfigSchema).optional(),
   toolIds: z.array(z.string().min(1)).default([]),
+  /** Skill-gated tool visibility. See {@link agentToolGatingConfigSchema}. */
+  toolGating: agentToolGatingConfigSchema.optional(),
   // Optional per-agent workspace request (filesystem + skills + sandbox).
   workspace: agentWorkspaceConfigSchema.optional(),
 });
 
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
+
+/**
+ * The Worker compute default (PLAN-agent-computers.md §1.1): what a
+ * specialist's runs get when its declaration asked for a workspace and said
+ * nothing about execution. Identical to the values the registry has always
+ * given DB-registered agents — one default, not two per code path.
+ */
+export const WORKER_SANDBOX_DEFAULT = {
+  enabled: true,
+  lifecycle: "run",
+  mountPath: "/sandbox",
+  network: "none",
+  requireApproval: true,
+} as const satisfies NonNullable<AgentWorkspaceConfig["sandbox"]>;
+
+/**
+ * Apply the Worker compute default to an agent's declaration.
+ *
+ * Keys off a DECLARED workspace on purpose: an agent that declared one asked
+ * to work with files, and execution rides along; an agent that declared
+ * nothing (File Analyst, App Coder) stays exactly as it is, and an explicit
+ * `sandbox` block — enabled or disabled — always wins. Called once at the
+ * registry read seam so chat, delegation, headless runs and the registry API
+ * all see the same answer.
+ */
+export function applyWorkerSandboxDefault(config: AgentConfig): AgentConfig {
+  const workspace = config.workspace;
+  if (!workspace || workspace.enabled === false || workspace.sandbox) {
+    return config;
+  }
+  return {
+    ...config,
+    workspace: { ...workspace, sandbox: { ...WORKER_SANDBOX_DEFAULT } },
+  };
+}
 
 export const toolConfigSchema = z.object({
   description: z.string().optional(),
@@ -273,34 +422,7 @@ export interface AiRegistryProvider extends AiRegistry {
   readonly providerId: string;
 }
 
-// Serializable ActionDefinition for the cross-process capability channel:
-// drops the zod `input_schema` and requires the JSON Schema form instead.
-// apps/ai re-materializes the zod schema with `z.fromJSONSchema` on load.
-export type ModuleActionCapability = Omit<
-  ActionDefinition,
-  "input_schema" | "input_schema_json"
-> & {
-  input_schema_json: Record<string, unknown>;
-};
-
-/** Project a registered action onto the serializable capability shape. */
-export function toModuleActionCapability(
-  action: ActionDefinition
-): ModuleActionCapability {
-  const { input_schema, input_schema_json, ...rest } = action;
-  return {
-    ...rest,
-    // Prefer the authored JSON Schema (keeps property descriptions); fall back
-    // to converting the zod schema for code-registered actions.
-    input_schema_json:
-      input_schema_json ??
-      (z.toJSONSchema(input_schema as z.ZodType) as Record<string, unknown>),
-  };
-}
-
 export interface DynamicAiModuleCapability {
-  // Serializable ACTION.md definitions declared by the module.
-  actions?: ModuleActionCapability[];
   agentConfigs?: AgentConfig[];
   // Function agents (PLAN-agent-hooks Phase 4): hook-composed agent bodies,
   // authored in module code (conventionally agent.ts beside agent.json) and
@@ -311,13 +433,15 @@ export interface DynamicAiModuleCapability {
   // Serializable COMMAND.md chat slash commands declared by the module.
   chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
-  // ROUTINE.md definitions (already plain JSON data).
+  // Trigger declarations from agent.json `triggers:` (plain JSON data).
   routines?: RoutineDefinition[];
   // Raw SKILL.md markdown by skill name. Seed channel only: published into the
   // tenant's read-only `managed` skills tier; never resolved at runtime (agents
   // load skills via the Mastra Workspace skill tools).
   skills?: Record<string, string>;
   tools?: Record<string, MastraToolDefinition>;
+  // Module workflow definitions — already plain JSON, carried verbatim.
+  workflows?: WorkflowDefinition[];
 }
 
 export interface DynamicAiModuleCapabilityLoader {

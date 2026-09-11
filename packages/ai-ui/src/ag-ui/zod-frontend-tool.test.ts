@@ -45,7 +45,7 @@ describe("toAgentUiFrontendToolHandler", () => {
       handler: async ({ root_selector }: { root_selector?: string }) => ({
         root: root_selector ?? "body",
       }),
-      name: "browser_dom_snapshot",
+      name: "ui_dom_snapshot",
       safety: "safe" as const,
       schema: z.object({ root_selector: z.string().optional() }),
       title: "DOM Snapshot",

@@ -107,7 +107,7 @@ function AttachmentImage({ file }: { file: MessageFile }) {
     <a href={urlQuery.data} rel="noreferrer" target="_blank">
       <img
         alt={file.filename ?? ""}
-        className="max-h-64 w-auto max-w-72 rounded-md border border-border/60 object-cover"
+        className="max-h-64 w-auto max-w-72 rounded-md border border-border-soft object-cover"
         height={256}
         src={urlQuery.data}
         width={288}
@@ -165,7 +165,7 @@ function ReactionPills({
               "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
               active
                 ? "border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-700 dark:bg-sky-900/40 dark:text-sky-200"
-                : "border-border/60 bg-card text-muted-foreground hover:border-border"
+                : "border-border-soft bg-card text-muted-foreground hover:border-border"
             )}
             key={reaction.name}
             onClick={() =>
@@ -419,7 +419,7 @@ export function MessageItem({
               >
                 <button
                   aria-label={t("message.react")}
-                  className="inline-flex items-center rounded-full border border-border/60 border-dashed px-1.5 py-0.5 text-muted-foreground text-xs hover:border-border"
+                  className="inline-flex items-center rounded-full border border-border-soft border-dashed px-1.5 py-0.5 text-muted-foreground text-xs hover:border-border"
                   type="button"
                 >
                   <SmilePlus className="size-3.5" />
@@ -450,7 +450,7 @@ export function MessageItem({
 
       <div
         className={cn(
-          "absolute top-0 right-3 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-border/60 bg-card p-0.5 shadow-[var(--e-1)] group-hover:flex",
+          "absolute top-0 right-3 hidden -translate-y-1/2 items-center gap-0.5 rounded-md border border-border-soft bg-card p-0.5 shadow-[var(--e-1)] group-hover:flex",
           actionsPinned && "flex"
         )}
       >

@@ -12,9 +12,10 @@ For **visual** UI work, read **[DESIGN.md](../DESIGN.md)** before implementing:
 - Typography, radius, form field metrics
 - Page layout, scroll contracts, `usePageConfig` chrome (`contentBlend`, `contentStackBackground`)
 - Shell, breadcrumbs, secondary nav, data tables (`.ui-canvas-*`, `STICKY_HEADER_CLASS`)
-- **Elevated cards on `--paper`:** never `hover:bg-accent/*` — stay `bg-card`, deepen `--e-3` shadow in place + title underline
+- **Card / table chrome:** use `ui-card-raised` / `ui-card-elevated` / `ui-card-panel` (aliases `ui-canvas-*`). Do **not** add `border`, `bg-card`, `rounded-*`, `hover:bg-*`, or `hover:shadow-*` on the same node — the class owns fill, radius, shadow, and hover. Interactive wrapping `div`s add `ui-card-interactive`. Rows inside a shell use `ui-row-hover`.
+- **Elevated cards on `--paper`:** never `hover:bg-accent/*` — the chrome class keeps fill and deepens `--e-3` in place; title underline is optional
 - **No layout shift on hover:** no `translate` / `scale` / size changes on card hover — paint-only (shadow, color, underline); see DESIGN.md “Hover & motion”
-- **Overflow / 3-dot menus:** Lucide `MoreVertical` (`⋮`), never `MoreHorizontal`
+- **Overflow / 3-dot menus:** Lucide `MoreVertical` (`⋮`) for rows/toolbars; rail overflow is `MoreHorizontal` (`⋯`) — see DESIGN.md
 
 `DESIGN.md` **outranks** shadcn defaults, ad-hoc Tailwind, and external layout references when they conflict.
 

@@ -7,6 +7,9 @@
 
 export type ExternalSourceKind = "openapi" | "mcp";
 
+/** Remote MCP transports the invoke adapter can speak. */
+export type McpTransport = "streamable-http" | "sse";
+
 export type ActionClassification = "read" | "write" | "destructive";
 
 /** How an action is invoked at execute time. */
@@ -25,6 +28,18 @@ export type ActionInvoke =
     }
   | { kind: "mcp"; tool_name: string };
 
+/**
+ * A non-authenticating header the registry says the API requires on every
+ * request (e.g. `Notion-Version`, `X-GitHub-Api-Version`). Only statically
+ * valued headers are stored — anything the registry sources from the
+ * environment blocks the import instead.
+ */
+export interface StoredRequiredHeader {
+  description: string | null;
+  name: string;
+  value: string;
+}
+
 export interface NormalizedAction {
   classification: ActionClassification;
   description: string;
@@ -37,6 +52,8 @@ export interface NormalizedAction {
 
 export interface NormalizeResult {
   actions: NormalizedAction[];
+  /** Registry spec-override patches applied before extraction. */
+  applied_overrides: number;
   /** Default base URL derived from the spec's servers (http sources). */
   base_url: string | null;
   description: string | null;
@@ -85,9 +102,18 @@ export interface ImportedConnectorRecord {
   id: string;
   imported_at: string;
   imported_by: string;
+  /** Transport for mcp sources; null for openapi. */
+  mcp_transport: McpTransport | null;
   name: string;
   refreshed_at: string | null;
   registry_snapshot: Record<string, unknown> | null;
+  /**
+   * Stable registry surface slug this connector was imported from, or null for
+   * a manually pasted URL. Unique per domain: one import per surface.
+   */
+  registry_surface_slug: string | null;
+  /** Static headers forced onto every HTTP/MCP request. */
+  required_headers: StoredRequiredHeader[];
   source_kind: ExternalSourceKind;
   source_url: string;
   spec_hash: string;

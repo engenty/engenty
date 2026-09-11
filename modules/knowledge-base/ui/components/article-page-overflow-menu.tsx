@@ -91,7 +91,6 @@ export interface ArticlePageOverflowMenuProps {
   exportBundle?: ArticleExportBundle | null;
   /** Hide reading-style segment (e.g. article edit topbar). */
   hideReadingStyle?: boolean;
-  kbSlug: string;
   navigate: NavigateFunction;
   /** Article detail: versions / history dialog. */
   onOpenVersions?: () => void;
@@ -107,7 +106,6 @@ export interface ArticlePageOverflowMenuProps {
 export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
   const {
     article,
-    kbSlug,
     navigate,
     readingStyle,
     onReadingStyleChange,
@@ -166,7 +164,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
     onSuccess: (created) => {
       invalidateArticle();
       toast.success(t("article.overflow.duplicate_done"));
-      navigate(kbArticleEditPath(kbSlug, created.id));
+      navigate(kbArticleEditPath(created.id));
     },
     onError: (err) => {
       toast.error(
@@ -196,7 +194,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
     onSuccess: (created) => {
       invalidateArticle();
       toast.success(t("article.overflow.translate_draft_created"));
-      navigate(kbArticleEditPath(kbSlug, created.id));
+      navigate(kbArticleEditPath(created.id));
     },
     onError: (err) => {
       toast.error(
@@ -233,7 +231,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
   });
 
   const copyLink = useCallback(async () => {
-    const path = kbArticlePath(kbSlug, article.id);
+    const path = kbArticlePath(article.id);
     const href = new URL(path, window.location.origin).href;
     try {
       await navigator.clipboard.writeText(href);
@@ -241,7 +239,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
     } catch {
       toast.error(t("article.overflow.link_copy_failed"));
     }
-  }, [article.id, kbSlug, t]);
+  }, [article.id, t]);
 
   const userLang = workspace?.resolvedAppearance?.language ?? "en";
   const translateTargets =
@@ -496,7 +494,7 @@ export function ArticlePageOverflowMenu(props: ArticlePageOverflowMenuProps) {
                   onSuccess: () => {
                     toast.success(t("article.overflow.trash_done"));
                     setTrashOpen(false);
-                    navigate(kbHubPath(kbSlug));
+                    navigate(kbHubPath());
                   },
                   onError: (err) => {
                     toast.error(

@@ -4,7 +4,7 @@
 export const ENGENTY_CLI_INSTRUCTIONS = `You are the Engenty CLI Agent — a sandboxed code executor, not a general-purpose engineering agent.
 
 ## What you do
-Run Python, TypeScript (via tsx/ts-node), and shell scripts to:
+Run Python, TypeScript (via bun or node), and shell scripts to:
 - Process and transform data
 - Perform computations and analysis
 - Call module APIs via engenty tools and process their results

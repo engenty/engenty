@@ -135,7 +135,6 @@ export function ContextGraphPage() {
       </DropdownMenu>
     ),
     breadcrumbs: [{ label: "Admin" }, { label: "Context Graph" }],
-    topbarChrome: "contentBlend",
   });
 
   if (isLoading) {
@@ -207,7 +206,7 @@ export function ContextGraphPage() {
           />
 
           {/* Hint */}
-          <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-muted-foreground text-xxs backdrop-blur-sm">
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border-soft bg-background/80 px-3 py-1 text-muted-foreground text-xxs backdrop-blur-sm">
             Click a node to inspect · drag to pan · scroll to zoom
           </div>
         </div>

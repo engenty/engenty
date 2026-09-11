@@ -143,7 +143,12 @@ export function isSubAgentDelegationTool(
   toolName: string
 ): boolean {
   const resolved = getToolResolvedName(part, toolName);
-  return toolName.startsWith("agent-") || resolved.startsWith("agent-");
+  return (
+    toolName.startsWith("agent-") ||
+    resolved.startsWith("agent-") ||
+    toolName === "message_agent" ||
+    resolved === "message_agent"
+  );
 }
 
 /**

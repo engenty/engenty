@@ -38,7 +38,7 @@ export function PortalTaskDetail({ projectId, task }: PortalTaskDetailProps) {
         <ArrowLeft className="mr-1 h-4 w-4" />
         {t("portal.back")}
       </Button>
-      <div className="ui-canvas-panel rounded-lg border-0 bg-card p-4">
+      <div className="ui-card-panel p-4">
         <h2 className="font-semibold text-lg">{task.title}</h2>
         <p className="mt-2 text-muted-foreground text-sm">
           {statusLabel(task.status)}

@@ -1,5 +1,10 @@
 /**
- * KB module settings: knowledge bases list and tenant-wide configuration.
+ * KB module settings — the tenant-wide index infrastructure: embedding model,
+ * retrieval quality, and a test search. One vector index serves every library
+ * in every space, so nothing here is per space or per library. Libraries are
+ * managed where they live (the space's knowledge-base root); a library's own
+ * settings (chunking, templates, comments, properties, space) live on its
+ * scoped settings page.
  */
 
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
@@ -7,10 +12,6 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
   Button,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   TopbarActionLabel,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
@@ -19,13 +20,10 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { KbSettingsGeneralSection } from "../components/settings/kb-settings-general-section.js";
-import { KbSettingsKnowledgeBasesSection } from "../components/settings/kb-settings-knowledge-bases-section.js";
 import type { KbSettingsToolbarSaveSlot } from "../components/settings/kb-settings-types.js";
 import { useKbSettingsAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { kbModulePageFillShellSectionClassName } from "../lib/kb-page-shell.js";
 import { kbsQueryOptions } from "../queries.js";
-
-const KB_SETTINGS_TAB = "general";
 
 export function KbSettingsPage() {
   const { t } = useTranslation("kb");
@@ -33,7 +31,8 @@ export function KbSettingsPage() {
   const [toolbarSave, setToolbarSave] =
     useState<KbSettingsToolbarSaveSlot | null>(null);
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  // Tenant-wide: the agent-UI slice describes the module, not one space.
+  const { data: kbs = [] } = useQuery(kbsQueryOptions(null));
   useKbSettingsAgentUiSlice({ kbs });
 
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
@@ -78,7 +77,6 @@ export function KbSettingsPage() {
   }, [toolbarSave, t]);
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs,
@@ -87,39 +85,17 @@ export function KbSettingsPage() {
 
   return (
     <section className={kbModulePageFillShellSectionClassName}>
-      <Tabs
-        className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-        value={KB_SETTINGS_TAB}
-      >
-        <header className="sticky top-0 z-10 w-full shrink-0 bg-paper">
-          <div className="p-page pt-3 pb-0">
-            <div className="mx-auto flex w-full max-w-4xl flex-col border-border border-b">
-              <div className="flex items-end">
-                <TabsList
-                  className="-mb-px h-auto w-fit border-0 bg-transparent p-0"
-                  variant="line"
-                >
-                  <TabsTrigger value={KB_SETTINGS_TAB}>
-                    {t("settings.tabs.general")}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
-          <div className="mx-auto w-full max-w-4xl space-y-8">
-            <TabsContent className="space-y-8" value={KB_SETTINGS_TAB}>
-              <KbSettingsKnowledgeBasesSection
-                isLoading={kbsLoading}
-                kbs={kbs}
-              />
-              <KbSettingsGeneralSection setToolbarSaveSlot={setToolbarSave} />
-            </TabsContent>
-          </div>
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
+        <div className="mx-auto w-full max-w-4xl space-y-8">
+          <header className="space-y-1">
+            <h1 className="font-semibold text-xl">{t("settings.title")}</h1>
+            <p className="text-muted-foreground text-sm">
+              {t("settings.page_description")}
+            </p>
+          </header>
+          <KbSettingsGeneralSection setToolbarSaveSlot={setToolbarSave} />
         </div>
-      </Tabs>
+      </div>
     </section>
   );
 }

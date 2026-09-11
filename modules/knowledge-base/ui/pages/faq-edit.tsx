@@ -37,13 +37,7 @@ import { KbEntityVersionsDialog } from "../components/kb-entity-versions-dialog.
 import { KbTagPicker } from "../components/kb-tag-picker.js";
 import { useKbFaqEditAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import {
-  KB_MODULE_BASE,
-  kbFaqEditPath,
-  kbFaqPath,
-  kbFaqsListPath,
-  kbNewFaqEditPath,
-} from "../kb-paths.js";
+import { kbFaqPath, kbFaqsListPath } from "../kb-paths.js";
 import {
   kbModulePageShellInnerNarrowClassName,
   kbModulePageShellSectionClassName,
@@ -51,21 +45,13 @@ import {
 import {
   faqDetailQueryOptions,
   kbSettingsQueryOptions,
-  kbsQueryOptions,
+  useKbsQuery,
 } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function FaqEditPage() {
   const { t } = useTranslation("kb");
-  const { kbSlug: kbSlugParam, id } = useParams<{
-    kbSlug?: string;
-    id?: string;
-  }>();
+  const { id } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -74,9 +60,8 @@ export function FaqEditPage() {
   const questionRef = useRef<HTMLInputElement>(null);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
 
-  const { data: kbs = [] } = useQuery(kbsQueryOptions);
+  const { data: kbs = [] } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
 
   const [selectedKbId, setSelectedKbId] = useState<string>("");
   const [question, setQuestion] = useState("");
@@ -90,49 +75,7 @@ export function FaqEditPage() {
     enabled: !isNew && !!id && id !== "new",
   });
 
-  const resolvedNewKbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlugEffective = useMemo(
-    () => slugFromKbId(kbs, selectedKbId) ?? "",
-    [kbs, selectedKbId]
-  );
-
-  useEffect(() => {
-    if (!(kbs.length && selectedKbId)) {
-      return;
-    }
-    const slug = slugFromKbId(kbs, selectedKbId);
-    if (!slug) {
-      return;
-    }
-    if (isNew) {
-      if (!kbSlugParam && searchParams.get("kb_id")?.trim()) {
-        navigate(`${kbNewFaqEditPath(slug)}`, { replace: true });
-      }
-      return;
-    }
-    if (!id || id === "new") {
-      return;
-    }
-    if (kbSlugParam === slug) {
-      return;
-    }
-    navigate(`${kbFaqEditPath(slug, id)}${location.search}`, { replace: true });
-  }, [
-    kbs,
-    selectedKbId,
-    kbSlugParam,
-    id,
-    isNew,
-    navigate,
-    location.search,
-    searchParams,
-  ]);
+  const resolvedNewKbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   useEffect(() => {
     if (faq && !isNew) {
@@ -152,25 +95,8 @@ export function FaqEditPage() {
     }
   }, [isNew]);
 
-  const onKbPickerChange = useCallback(
-    (next: string) => {
-      setSelectedKbId(next);
-      const slug = slugFromKbId(kbs, next);
-      if (!slug) {
-        return;
-      }
-      if (isNew) {
-        navigate(kbNewFaqEditPath(slug));
-      } else if (id && id !== "new") {
-        navigate(kbFaqEditPath(slug, id));
-      }
-    },
-    [id, isNew, kbs, navigate]
-  );
-
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: selectedKbId,
-    kbSlug: kbSlugEffective,
   });
 
   const blockMenuLabels = useMemo(
@@ -275,14 +201,7 @@ export function FaqEditPage() {
         queryKey: ["kb", "faqs", "versions", data.id],
       });
       toast.success(isNew ? "FAQ created" : "FAQ saved");
-      const slug = slugFromKbId(kbs, data.kb_id);
-      if (slug) {
-        navigate(kbFaqPath(slug, data.id));
-      } else {
-        navigate(
-          `/mdl/knowledge-base/faqs/${data.id}?kb_id=${encodeURIComponent(data.kb_id)}`
-        );
-      }
+      navigate(kbFaqPath(data.id));
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -290,15 +209,10 @@ export function FaqEditPage() {
   });
 
   const handleCancelEdit = useCallback(() => {
-    const slug = slugFromKbId(kbs, selectedKbId);
-    if (!slug) {
-      navigate(-1);
-      return;
-    }
     if (isNew) {
-      navigate(kbFaqsListPath(slug));
+      navigate(kbFaqsListPath());
     } else if (id && id !== "new") {
-      navigate(kbFaqPath(slug, id));
+      navigate(kbFaqPath(id));
     } else {
       navigate(-1);
     }
@@ -343,12 +257,9 @@ export function FaqEditPage() {
     [handleCancelEdit, id, isNew, question, saveMutation, selectedKbId, t]
   );
 
-  const faqListCrumbTo = kbSlugEffective
-    ? kbFaqsListPath(kbSlugEffective)
-    : `${KB_MODULE_BASE}/faqs`;
+  const faqListCrumbTo = kbFaqsListPath();
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: [

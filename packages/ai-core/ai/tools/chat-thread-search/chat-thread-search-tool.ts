@@ -7,6 +7,7 @@
 import { type Tool, tool } from "ai";
 import { z } from "zod";
 import { CHAT_THREAD_INDEX_STATUS_ARTIFACT_ID } from "../../artifacts/chat-thread-index-status.js";
+import { forwardSpaceOnGatewayCall } from "../context/forward-space.js";
 import type { ToolExecutionContext } from "../context/types.js";
 
 /** Host operation: index snapshot + health (used internally by this tool). */
@@ -118,7 +119,7 @@ async function runChatSessionSearchTool(
   input: unknown,
   executionOptions?: unknown
 ): Promise<unknown> {
-  const call = ctx.callGatewayMethod;
+  const call = forwardSpaceOnGatewayCall(ctx) ?? ctx.callGatewayMethod;
   if (!call) {
     return { error: "Gateway not available" };
   }

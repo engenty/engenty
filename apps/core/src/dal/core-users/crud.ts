@@ -4,6 +4,68 @@ import { coerceIsSuperAdmin, coerceRole } from "./helpers.js";
 import { upsertTenantMembership } from "./memberships.js";
 import type { CoreUser, InviteUserInput } from "./types.js";
 
+export interface DirectoryUser {
+  displayName: string | null;
+  email: string;
+  id: string;
+}
+
+/**
+ * Every column a `CoreUser` is allowed to carry — exactly the fields declared in
+ * `CoreUserSchema` (the OpenAPI response contract), and nothing else.
+ *
+ * `core.users` is wider than `CoreUser`: it also holds `private_phone`,
+ * `private_email`, `private_address`, `emergency_contact`, `employee_number`,
+ * `position`, `location` and `department`. None of those appear in the `CoreUser`
+ * type or in the declared response schema, so nothing reads them — but the reads
+ * here used to be `select("*")`, which put all of them on the wire anyway. The
+ * type system could not see the leak precisely because the extra keys are absent
+ * from the interface.
+ *
+ * The private fields belong to the HR surface, which owns its own
+ * `team_hr.employees` rows and never sources them from here.
+ *
+ * Naming the columns is therefore the access control, the same way
+ * {@link listUserDirectory} and the superadmin DAL already do it. Keep this list
+ * in sync with `CoreUserSchema`; a column added to `core.users` must be added
+ * here deliberately, not inherited by a wildcard.
+ */
+const CORE_USER_COLUMNS =
+  "id, tenant_id, email, display_name, role, phone, initials, is_super_admin, created_at, updated_at";
+
+/**
+ * Everyone in the tenant, as a name and an id — nothing else.
+ *
+ * The narrow projection is the point. `core.users` also carries
+ * `private_phone`, `private_email`, `private_address` and `emergency_contact`,
+ * and a "who can I add to this space" picker has no business reading any of
+ * them. Every member of the tenant may call this, so the SELECT list is the
+ * access control.
+ *
+ * Deliberately separate from {@link listUsers}, which returns the full
+ * {@link CORE_USER_COLUMNS} projection (role, phone, initials) and serves the
+ * admin console.
+ */
+export async function listUserDirectory(
+  client: SupabaseClient,
+  tenantId: string
+): Promise<DirectoryUser[]> {
+  const rows = await client
+    .schema("core")
+    .from("users")
+    .select("id, display_name, email")
+    .eq("tenant_id", tenantId)
+    .order("display_name", { ascending: true });
+  if (rows.error) {
+    throw rows.error;
+  }
+  return (rows.data ?? []).map((row) => ({
+    displayName: (row as { display_name: string | null }).display_name,
+    email: String((row as { email: string }).email),
+    id: String((row as { id: string }).id),
+  }));
+}
+
 export async function listUsers(
   client: SupabaseClient,
   tenantId: string
@@ -11,7 +73,7 @@ export async function listUsers(
   const rows = await client
     .schema("core")
     .from("users")
-    .select("*")
+    .select(CORE_USER_COLUMNS)
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (rows.error) {
@@ -32,7 +94,7 @@ export async function getUserById(
   const row = await client
     .schema("core")
     .from("users")
-    .select("*")
+    .select(CORE_USER_COLUMNS)
     .eq("id", id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -60,7 +122,11 @@ export async function getUsersByIds(
   if (unique.length === 0) {
     return byId;
   }
-  let query = client.schema("core").from("users").select("*").in("id", unique);
+  let query = client
+    .schema("core")
+    .from("users")
+    .select(CORE_USER_COLUMNS)
+    .in("id", unique);
   if (options?.tenantId) {
     query = query.eq("tenant_id", options.tenantId);
   }
@@ -114,7 +180,7 @@ export async function updateUser(
     .update(patch)
     .eq("id", id)
     .eq("tenant_id", tenantId)
-    .select("*")
+    .select(CORE_USER_COLUMNS)
     .single();
   if (updated.error) {
     throw updated.error;

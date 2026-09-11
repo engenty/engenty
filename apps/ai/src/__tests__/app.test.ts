@@ -183,7 +183,16 @@ describe("@engenty/ai", () => {
   });
 
   it("POST /ai/threads returns 503 without database config", async () => {
-    const app = await createApp({ scopeResolver: testScopeResolver });
+    // `threadStore: null` states the premise instead of inferring it from env.
+    // Sniffing `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` stopped answering
+    // this question when the tenant-locked seam made the store ALSO require a
+    // server-lane signing key: `test/setup.ts` sets the first two and no
+    // secret, so the check read "configured" about an app that had no store,
+    // and the assertion below could never run.
+    const app = await createApp({
+      scopeResolver: testScopeResolver,
+      threadStore: null,
+    });
     const res = await app.request("http://localhost/ai/threads", {
       method: "POST",
       headers: {
@@ -195,17 +204,9 @@ describe("@engenty/ai", () => {
         route_context: { pathname: "/mdl/engenty-copilot/chat" },
       }),
     });
-    const hasDb = Boolean(
-      process.env.SUPABASE_URL?.trim() &&
-        process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-    );
-    if (hasDb) {
-      expect([201, 400, 500]).toContain(res.status);
-    } else {
-      expect(res.status).toBe(503);
-      const body = (await res.json()) as { error?: string };
-      expect(body.error).toBe("agent_threads.unconfiguredDatabase");
-    }
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("agent_threads.unconfiguredDatabase");
   });
 
   it("POST /ai/threads returns 401 without Authorization", async () => {

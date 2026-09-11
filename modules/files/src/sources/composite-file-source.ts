@@ -18,11 +18,12 @@ export interface CreateCompositeFileSourceOptions {
 /**
  * Routes file-space operations between the native source and the connector
  * source by node identity:
- * - virtual `cnx:` ids → connector (browse/download only)
+ * - virtual `cnx:` ids → connector (browse, download, and writes the
+ *   connector's `storage` capability allows)
  * - a mount-root uuid → connector for listing (descends into the provider),
  *   native for rename/move/delete (managing the mount row = unmount)
  * - anything else → native, with guards that block creating/moving/uploading
- *   INTO a mount (mounts are read-only projections of external content)
+ *   INTO a mount (new native files stay in native storage)
  */
 export function createCompositeFileSource(
   options: CreateCompositeFileSourceOptions
@@ -70,6 +71,12 @@ export function createCompositeFileSource(
         : native.getDownloadUrl(ctx, fileId);
     },
 
+    async readBytes(ctx, fileId) {
+      return isConnectorNodeId(fileId)
+        ? connector.readBytes(ctx, fileId)
+        : native.readBytes(ctx, fileId);
+    },
+
     async createFolder(ctx, parentId, name) {
       await assertWritableContainer(ctx, parentId);
       return native.createFolder(ctx, parentId, name);
@@ -108,14 +115,14 @@ export function createCompositeFileSource(
 
     async renameFile(ctx, fileId, name) {
       if (isConnectorNodeId(fileId)) {
-        throw new FileSourceReadOnlyError();
+        return connector.renameFile(ctx, fileId, name);
       }
       return native.renameFile(ctx, fileId, name);
     },
 
     async moveFile(ctx, fileId, newFolderId) {
       if (isConnectorNodeId(fileId)) {
-        throw new FileSourceReadOnlyError();
+        return connector.moveFile(ctx, fileId, newFolderId);
       }
       await assertWritableContainer(ctx, newFolderId);
       return native.moveFile(ctx, fileId, newFolderId);
@@ -123,9 +130,16 @@ export function createCompositeFileSource(
 
     async deleteFile(ctx, fileId) {
       if (isConnectorNodeId(fileId)) {
-        throw new FileSourceReadOnlyError();
+        return connector.deleteFile(ctx, fileId);
       }
       return native.deleteFile(ctx, fileId);
+    },
+
+    async replaceContent(ctx, fileId, input) {
+      if (isConnectorNodeId(fileId)) {
+        return connector.replaceContent(ctx, fileId, input);
+      }
+      return native.replaceContent(ctx, fileId, input);
     },
   };
 }

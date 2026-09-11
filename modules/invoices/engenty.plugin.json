@@ -27,5 +27,6 @@
         "allowedMimeTypes": ["application/pdf"]
       }
     ]
-  }
+  },
+  "placement": "space"
 }

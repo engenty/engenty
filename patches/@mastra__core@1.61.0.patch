@@ -1,0 +1,118 @@
+diff --git a/dist/agent-DSxJoGjY.js b/dist/agent-DSxJoGjY.js
+index 6c6adc51097680f703eda42c61963147bca09c5d..0769ed5cf49fbdaa0ba5af708201c1f0f424c67b 100644
+--- a/dist/agent-DSxJoGjY.js
++++ b/dist/agent-DSxJoGjY.js
+@@ -20093,7 +20093,7 @@ var ChatChannelOutputProcessor = class {
+ 				startedAt: existing?.startedAt ?? Date.now()
+ 			});
+ 		}
+-		return {
++		const rendered = {
+ 			queue,
+ 			driverPromise: (render.streaming.enabled ? runStreamingDriver({
+ 				stream: wrapped,
+@@ -20128,6 +20128,14 @@ var ChatChannelOutputProcessor = class {
+ 				throw err;
+ 			})
+ 		};
++		// engenty patch: the `throw err` above re-rejects driverPromise, which stays
++		// unowned until the terminal-chunk await in processOutputStream. If the driver
++		// fails EARLY (first adapter post: bad token, platform outage) that window makes
++		// the rejection unhandled and crashes the whole process. Attach a no-op catch so
++		// the rejection is owned; the later `await session.driverPromise` still observes
++		// it and logs "channel render driver failed early".
++		rendered.driverPromise.catch(() => {});
++		return rendered;
+ 	}
+ };
+ //#endregion
+@@ -23413,7 +23421,13 @@ function execute({ runId, model, providerOptions, inputMessages, tools, toolChoi
+ 	* @see https://platform.openai.com/docs/guides/structured-outputs#structured-outputs-vs-json-mode
+ 	* @see https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data#accessing-reasoning
+ 	*/
+-	const isOpenAIStrictMode = model.provider.startsWith("openai") && responseFormat?.type === "json" && !injectionMode;
++	// engenty patch: the Vercel AI Gateway enforces OpenAI's strict JSON-schema
++	// rules for `openai/*` routes but reports `provider: "gateway"`, so this guard
++	// missed and every gateway-routed structured-output call (working memory,
++	// observational memory extraction) died on "'additionalProperties' is required
++	// to be supplied and to be false". The route id decides, not the transport.
++	const isOpenAIRoute = model.provider.startsWith("openai") || (model.provider.split(".")[0] === "gateway" && String(model.modelId ?? "").startsWith("openai/"));
++	const isOpenAIStrictMode = isOpenAIRoute && responseFormat?.type === "json" && !injectionMode;
+ 	if (isOpenAIStrictMode && responseFormat?.schema) responseFormat.schema = prepareJsonSchemaForOpenAIStrictMode(responseFormat.schema);
+ 	const providerOptionsToUse = isOpenAIStrictMode ? {
+ 		...providerOptions ?? {},
+@@ -31992,7 +32006,14 @@ function createPrepareStreamWorkflow({ capabilities, options, threadFromArgs, re
+ 		agentSpan,
+ 		methodType,
+ 		memory,
+-		backgroundTaskEnabled: backgroundTaskManager?.config?.enabled,
++		// engenty patch: the `_background` override is spliced into EVERY tool schema
++		// whenever the manager is enabled instance-wide (~1.9 KB per tool — 39% of a
++		// 59-tool prompt). Mastra already models eligibility per agent and per tool
++		// (AgentBackgroundConfig.disabled, ToolBackgroundConfig.enabled defaults to
++		// false, resolveBackgroundConfig defaults to foreground) and the background
++		// SYSTEM PROMPT half honours `disabled` — only this schema half ignores it.
++		// Honour it here too, so an agent that opts out stops paying for the field.
++		backgroundTaskEnabled: backgroundTaskManager?.config?.enabled && !agentBackgroundConfig?.disabled,
+ 		runScope
+ 	});
+ 	const prepareMemoryStep = createPrepareMemoryStep({
+diff --git a/dist/agent-NkjbehmN.cjs b/dist/agent-NkjbehmN.cjs
+index be2498255e982bc97e44b59d69166bc8e68d2a30..b1dfe21076c4572ad24b2b1f1b5ebfd3a47514ba 100644
+--- a/dist/agent-NkjbehmN.cjs
++++ b/dist/agent-NkjbehmN.cjs
+@@ -20095,7 +20095,7 @@ var ChatChannelOutputProcessor = class {
+ 				startedAt: existing?.startedAt ?? Date.now()
+ 			});
+ 		}
+-		return {
++		const rendered = {
+ 			queue,
+ 			driverPromise: (render.streaming.enabled ? runStreamingDriver({
+ 				stream: wrapped,
+@@ -20130,6 +20130,14 @@ var ChatChannelOutputProcessor = class {
+ 				throw err;
+ 			})
+ 		};
++		// engenty patch: the `throw err` above re-rejects driverPromise, which stays
++		// unowned until the terminal-chunk await in processOutputStream. If the driver
++		// fails EARLY (first adapter post: bad token, platform outage) that window makes
++		// the rejection unhandled and crashes the whole process. Attach a no-op catch so
++		// the rejection is owned; the later `await session.driverPromise` still observes
++		// it and logs "channel render driver failed early".
++		rendered.driverPromise.catch(() => {});
++		return rendered;
+ 	}
+ };
+ //#endregion
+@@ -23415,7 +23423,13 @@ function execute({ runId, model, providerOptions, inputMessages, tools, toolChoi
+ 	* @see https://platform.openai.com/docs/guides/structured-outputs#structured-outputs-vs-json-mode
+ 	* @see https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data#accessing-reasoning
+ 	*/
+-	const isOpenAIStrictMode = model.provider.startsWith("openai") && responseFormat?.type === "json" && !injectionMode;
++	// engenty patch: the Vercel AI Gateway enforces OpenAI's strict JSON-schema
++	// rules for `openai/*` routes but reports `provider: "gateway"`, so this guard
++	// missed and every gateway-routed structured-output call (working memory,
++	// observational memory extraction) died on "'additionalProperties' is required
++	// to be supplied and to be false". The route id decides, not the transport.
++	const isOpenAIRoute = model.provider.startsWith("openai") || (model.provider.split(".")[0] === "gateway" && String(model.modelId ?? "").startsWith("openai/"));
++	const isOpenAIStrictMode = isOpenAIRoute && responseFormat?.type === "json" && !injectionMode;
+ 	if (isOpenAIStrictMode && responseFormat?.schema) responseFormat.schema = (0, _mastra_schema_compat.prepareJsonSchemaForOpenAIStrictMode)(responseFormat.schema);
+ 	const providerOptionsToUse = isOpenAIStrictMode ? {
+ 		...providerOptions ?? {},
+@@ -31994,7 +32008,14 @@ function createPrepareStreamWorkflow({ capabilities, options, threadFromArgs, re
+ 		agentSpan,
+ 		methodType,
+ 		memory,
+-		backgroundTaskEnabled: backgroundTaskManager?.config?.enabled,
++		// engenty patch: the `_background` override is spliced into EVERY tool schema
++		// whenever the manager is enabled instance-wide (~1.9 KB per tool — 39% of a
++		// 59-tool prompt). Mastra already models eligibility per agent and per tool
++		// (AgentBackgroundConfig.disabled, ToolBackgroundConfig.enabled defaults to
++		// false, resolveBackgroundConfig defaults to foreground) and the background
++		// SYSTEM PROMPT half honours `disabled` — only this schema half ignores it.
++		// Honour it here too, so an agent that opts out stops paying for the field.
++		backgroundTaskEnabled: backgroundTaskManager?.config?.enabled && !agentBackgroundConfig?.disabled,
+ 		runScope
+ 	});
+ 	const prepareMemoryStep = createPrepareMemoryStep({

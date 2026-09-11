@@ -1,4 +1,10 @@
 {
+  "agentAccess": {
+    "title": "Genutzt von",
+    "description": "Agenten, die mit diesem Konto im Hintergrund arbeiten dürfen. Zugriff gibst du beim jeweiligen Agenten.",
+    "revoke": "Zugriff entfernen",
+    "revokeFailed": "Zugriff konnte nicht entfernt werden. Bitte erneut versuchen."
+  },
   "menu": {
     "connections": "Verbindungen"
   },
@@ -7,6 +13,9 @@
     "connections": "Verbindungen"
   },
   "catalog": {
+    "needsSetup": "Einrichtung nötig",
+    "needsSetupAdmin": "Einrichten →",
+    "needsSetupMember": "Bitte jemanden mit Adminrechten um die Einrichtung",
     "connected": "Verbunden",
     "connectedAs": "Verbunden als {{account}}",
     "notConnected": "Nicht verbunden",
@@ -30,14 +39,16 @@
     "disconnected": "Verbindung entfernt.",
     "disconnectFailed": "Trennen fehlgeschlagen: {{error}}",
     "approvalDecided": "Anfrage {{decision}}.",
-    "approvalDecideFailed": "Entscheidung fehlgeschlagen: {{error}}"
+    "approvalDecideFailed": "Entscheidung fehlgeschlagen: {{error}}",
+    "connectedAutonomyHint": "Agenten können sie im Hintergrund noch nicht nutzen — öffnen Sie die Verbindung und aktivieren Sie die autonome Nutzung."
   },
   "chatCard": {
     "connected": "Verbunden",
     "connectPrompt": "Verbinden Sie Ihr Konto, um fortzufahren",
     "connectFailed": "Verbinden fehlgeschlagen — bitte erneut versuchen",
     "notConfigured": "Noch nicht verfügbar — ein Admin muss die Zugangsdaten dieses Konnektors unter Setup → Plattformeinstellungen hinterlegen",
-    "connectedContinue": "Ich habe {{name}} verbunden — bitte fahre fort."
+    "connectedContinue": "Ich habe {{name}} verbunden — bitte fahre fort.",
+    "connectedAutonomyHint": "Im Chat sofort nutzbar. Für Hintergrund-Synchronisierung und geplante Läufe aktivieren Sie die autonome Nutzung unter Einstellungen → Verbindungen."
   },
   "connectComplete": {
     "closing": "Wird abgeschlossen — Sie können dieses Fenster schließen."
@@ -96,7 +107,8 @@
     "disconnectDescription": "Die gespeicherten Tokens werden zerstört und Agenten verlieren sofort den Zugriff. Sie können jederzeit neu verbinden.",
     "disconnectConfirm": "Trennen",
     "disconnecting": "Trenne…",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "autonomousOffBadge": "Aus — für Agenten nicht nutzbar"
   },
   "detail": {
     "notFound": "Unbekannter Konnektor",
@@ -140,5 +152,12 @@
     "description": "Zugangsdaten für diesen Dienst eingeben. Sie werden verschlüsselt gespeichert und nie wieder angezeigt.",
     "optional": "(optional)",
     "submit": "Verbinden"
+  },
+  "autonomousCallout": {
+    "title": "Agenten können diese Verbindung noch nicht nutzen",
+    "description": "Die autonome Nutzung ist aus: Es wird nichts im Hintergrund synchronisiert und kein geplanter oder unbeaufsichtigter Agent-Lauf darf auf diese Verbindung zugreifen. Die Nutzung im Chat, während Sie anwesend sind, funktioniert weiterhin.",
+    "enableReadOnly": "Nur Lesen erlauben",
+    "enableFull": "Alle Aktionen erlauben",
+    "askOwner": "Bitten Sie die Besitzerin oder den Besitzer der Verbindung, die autonome Nutzung zu aktivieren."
   }
 }

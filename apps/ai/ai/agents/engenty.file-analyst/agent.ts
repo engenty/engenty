@@ -21,5 +21,7 @@ export const engentyFileAnalystAgent: AgentFnDescriptor = {
     return ENGENTY_FILE_ANALYST_INSTRUCTIONS;
   },
   id: ENGENTY_FILE_ANALYST_AGENT_ID,
+  // A sub-agent that exists to be delegated to; may not own triggers.
+  kind: "delegated",
   name: "File Analyst",
 };

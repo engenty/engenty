@@ -1,12 +1,14 @@
 /**
  * Knowledge base scoped chat — full AI session with the KB manager agent.
  * Reached from the KB hub when the user submits a 3-word+ question.
- * A `?q=` param is auto-submitted on first load. Optional `?chat_kb=` is `all` or a KB id.
+ * A `?q=` param is auto-submitted on first load.
  */
 
 import {
   appsAiThreadDetailQueryKey,
   appsAiThreadMessagesQueryKey,
+  CHAT_LANE_COMPOSER_CLASS,
+  CHAT_LANE_TRANSCRIPT_CLASS,
   CopilotPanelContent,
   type CopilotRouteContext,
   EngentyAgent,
@@ -30,46 +32,26 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
-import {
-  KbChatKbScopeControl,
-  type KbChatScopeValue,
-} from "../components/kb-chat-kb-scope-control.js";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
-  KB_MODULE_BASE,
-  kbHubPath,
-  searchStringWithoutKbId,
-} from "../kb-paths.js";
-import {
   kbModulePageFillShellSectionClassName,
   kbModulePageShellSectionClassName,
 } from "../lib/kb-page-shell.js";
-import { kbSettingsQueryOptions, kbsQueryOptions } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { kbSettingsQueryOptions, useKbsQuery } from "../queries.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 /** Scoped read-only agent for the KB hub chat surface. */
 const KB_ANSWERS_AGENT_ID = "knowledge-base.answers";
 
 /** URL-only launch identity — excludes `kbId` so client nav does not reset mid-submit when KB resolves. */
 function resolveKbHubLaunchKey(params: {
-  chatKbParam: string;
   hubRun: string;
   qFromUrl: string;
 }): string {
-  return `${params.hubRun}\u0000${params.chatKbParam}\u0000${params.qFromUrl}`;
+  return `${params.hubRun}\u0000${params.qFromUrl}`;
 }
 
 export function KbHubChatPage() {
@@ -132,74 +114,30 @@ function KbHubChatPageContent(props: {
 
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const qFromUrl = searchParams.get("q") ?? "";
-  const chatKbParam = searchParams.get("chat_kb")?.trim() ?? "";
   const hubRun = searchParams.get("hub_run")?.trim() ?? "";
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
 
-  const kbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId), [kbs, kbId]);
-
-  const resolvedChatKbScope = useMemo((): KbChatScopeValue => {
-    if (chatKbParam === "all") {
-      return "all";
-    }
-    if (chatKbParam && kbs.some((k) => k.id === chatKbParam)) {
-      return chatKbParam;
-    }
-    return kbId;
-  }, [chatKbParam, kbs, kbId]);
-
-  const [chatKbScope, setChatKbScope] =
-    useState<KbChatScopeValue>(resolvedChatKbScope);
-
-  useEffect(() => {
-    setChatKbScope(resolvedChatKbScope);
-  }, [resolvedChatKbScope]);
-
-  useEffect(() => {
-    if (kbsLoading || kbs.length === 0) {
-      return;
-    }
-    const rest = searchStringWithoutKbId(searchParams);
-    if (kbSlugParam?.trim() && !kbIdFromSlug(kbs, kbSlugParam)) {
-      navigate(`${KB_MODULE_BASE}${rest}`, { replace: true });
-      return;
-    }
-    if (!kbSlugParam) {
-      const targetKbId = resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-      const targetSlug = slugFromKbId(kbs, targetKbId);
-      if (targetSlug) {
-        navigate(`${kbHubPath(targetSlug)}${rest}`, { replace: true });
-      }
-    }
-  }, [kbsLoading, kbs, kbSlugParam, searchParams, navigate, tenantDefault]);
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const activeKb = kbs.find((k) => k.id === kbId);
   const kbName = activeKb ? kbDisplayName(activeKb, t) : t("hub.title");
 
-  const copilotScope = useMemo(() => {
-    const isAll = chatKbScope === "all";
-    return {
+  // One knowledge base per space: the chat is always scoped to it.
+  const copilotScope = useMemo(
+    () => ({
       ui_language: uiLanguage,
       current_module: "knowledge-base",
-      kb_chat_scope: isAll ? "all" : "single",
-      kb_id: isAll ? null : chatKbScope,
+      kb_chat_scope: "single",
+      kb_id: kbId,
       ...(hubRun ? { hub_run: hubRun } : {}),
-    };
-  }, [uiLanguage, chatKbScope, hubRun]);
+    }),
+    [uiLanguage, kbId, hubRun]
+  );
 
   const copilotContext = useMemo(
     () =>
@@ -242,7 +180,6 @@ function KbHubChatPageContent(props: {
   const isTransportReady = serviceBaseUrl.length > 0;
   const [draft, setDraft] = useState("");
   const hubLaunchKey = resolveKbHubLaunchKey({
-    chatKbParam,
     hubRun: hubRun || "direct",
     qFromUrl,
   });
@@ -258,7 +195,7 @@ function KbHubChatPageContent(props: {
   resetSessionRef.current = session.reset;
 
   const activeThreadId = session.activeThreadId;
-  const kbContextReady = !kbsLoading && Boolean(kbId && kbSlug);
+  const kbContextReady = !kbsLoading && Boolean(kbId);
 
   const threadDetailQueryKey = useMemo(
     () =>
@@ -351,7 +288,7 @@ function KbHubChatPageContent(props: {
     threadDetailQueryKey,
   ]);
 
-  const autoSubmitKey = `${qFromUrl}\u0000${chatKbParam}\u0000${hubRun}`;
+  const autoSubmitKey = `${qFromUrl}\u0000${hubRun}`;
   // MUST forward `options` (attachments) — a text-only wrapper silently drops
   // uploaded attachments. Attachment-only sends are valid.
   const submitMessage = useCallback<SubmitMessage>(
@@ -431,14 +368,11 @@ function KbHubChatPageContent(props: {
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug ?? "",
   });
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
-    actions:
-      kbSlug && !kbsLoading ? <KbModuleShellActions kbSlug={kbSlug} /> : null,
+    actions: kbsLoading ? null : <KbModuleShellActions />,
     breadcrumbs: kbShellNav.kbRootCrumb
       ? [kbShellNav.kbRootCrumb, { label: t("hub.chat_breadcrumb") }]
       : [],
@@ -446,7 +380,7 @@ function KbHubChatPageContent(props: {
     secondaryNavHeaderSlot: kbShellNav.secondaryNavHeaderSlot,
   });
 
-  if (kbsLoading || !kbId || !kbSlug) {
+  if (kbsLoading || !kbId) {
     return (
       <section className={kbModulePageShellSectionClassName}>
         <Skeleton className="h-10 w-full max-w-xl" />
@@ -472,16 +406,8 @@ function KbHubChatPageContent(props: {
         cancelLabel={tc("copilot.cancel")}
         closeLabel={tc("copilot.position.heading")}
         composerDockStyle
-        composerLeadingControl={
-          <KbChatKbScopeControl
-            kbs={kbs}
-            kbsLoading={kbsLoading}
-            onKbChange={setChatKbScope}
-            selected={chatKbScope}
-          />
-        }
         composerPlaceholder={tc("copilot.typeMessage")}
-        composerWrapperClassName="mx-auto w-full max-w-[42rem]"
+        composerWrapperClassName={CHAT_LANE_COMPOSER_CLASS}
         contentBodyGutter="flush"
         debugPayload={undefined}
         detachLabel={tc("copilot.position.floating")}
@@ -507,6 +433,7 @@ function KbHubChatPageContent(props: {
         panelMode="docked"
         pendingInterruptToolCallIds={session.pendingInterruptToolCallIds}
         pendingUserInsertIndex={session.pendingUserInsertIndex}
+        pendingUserParts={session.pendingUserParts}
         pendingUserText={session.pendingUserText}
         positionMenu={<div aria-hidden className="hidden" />}
         respond={session.respond}
@@ -521,7 +448,7 @@ function KbHubChatPageContent(props: {
         submitMessage={submitMessage}
         suggestedUpdatesLabel={tc("copilot.suggestedUpdates")}
         thinkingLabel={tc("copilot.thinking")}
-        transcriptContainerClassName="mx-auto w-full max-w-[42rem] gap-4"
+        transcriptContainerClassName={CHAT_LANE_TRANSCRIPT_CLASS}
         transcriptSurface="chat"
         triggerType="message_copilot"
       />

@@ -17,6 +17,9 @@ import {
 } from "./api.js";
 import { ContactChooser } from "./components/contact-chooser.js";
 import { ContactsShortcutsWidget } from "./components/dashboard/contacts-shortcuts-widget.js";
+import { SpaceDataContactTab } from "./components/space-data-contact-tab.js";
+import { SpaceDataContactsFolderTab } from "./components/space-data-contacts-folder-tab.js";
+import { SpaceDataContactsRootTab } from "./components/space-data-contacts-root-tab.js";
 import { contactsLiveBinding } from "./contacts-live-binding.js";
 import { CONTACTS_SETTINGS_PATH } from "./contacts-paths.js";
 import { contactsCopilotContribution } from "./copilot-contribution.js";
@@ -35,10 +38,63 @@ import { registerContactsToolCallUi } from "./register-tool-call-ui.js";
 const UUID_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
+/**
+ * The space Data pane's slot for a contact record.
+ *
+ * Keyed by NODE TYPE, not by node kind: every data adapter produces `record`
+ * nodes, so `spaces.data.record` would have contacts rendering offers. The
+ * suffix is this module's own node type id from
+ * `src/space-data/adapter.ts` — kept as a literal on both sides, the same way
+ * `contacts.detail` is, so apps/ui takes no dependency on this module.
+ */
+const SPACE_DATA_CONTACT_SURFACE = "spaces.data.node:contacts.contact";
+
+/**
+ * The same slot for a taxonomy FOLDER — `People`, `Organisations`.
+ *
+ * `…folder:<type>` rather than `…node:<type>`: a folder is listed and a node is
+ * read, so the host has two different things to hand a renderer. The suffix is
+ * `CONTACTS_FOLDER_NODE_TYPE` from `src/space-data/adapter.ts`.
+ */
+const SPACE_DATA_CONTACTS_FOLDER_SURFACE = "spaces.data.folder:contacts.folder";
+
+/** The `Contacts` root — the address book's index, not two words and a CSV. */
+const SPACE_DATA_CONTACTS_ROOT_SURFACE = "spaces.data.folder:contacts.root";
+
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(contactsLiveBinding);
   registerContactsToolCallUi();
   registerContactsObjectWidget();
+
+  engenty.UI.registerTab({
+    id: "contacts-space-data-contact",
+    surface: SPACE_DATA_CONTACT_SURFACE,
+    component: SpaceDataContactTab,
+    label: "Contact",
+    labelKey: "contacts:spaceData.tab",
+    icon: DockContactsIcon,
+    order: 100,
+  });
+
+  engenty.UI.registerTab({
+    id: "contacts-space-data-folder",
+    surface: SPACE_DATA_CONTACTS_FOLDER_SURFACE,
+    component: SpaceDataContactsFolderTab,
+    label: "Contacts",
+    labelKey: "contacts:spaceData.folder.tab",
+    icon: DockContactsIcon,
+    order: 100,
+  });
+
+  engenty.UI.registerTab({
+    id: "contacts-space-data-root",
+    surface: SPACE_DATA_CONTACTS_ROOT_SURFACE,
+    component: SpaceDataContactsRootTab,
+    label: "Contacts",
+    labelKey: "contacts:spaceData.folder.tab",
+    icon: DockContactsIcon,
+    order: 100,
+  });
   setContactsPluginsApi(engenty.plugins);
   engenty.i18n.registerNamespace({
     pluginId: "contacts",

@@ -11,6 +11,12 @@ Use this skill when the user wants to answer a message, draft a reply, or send a
 new email. Inbox tools cannot send mail — composing happens at the provider
 through connections connector actions.
 
+## Spaces
+
+- Compose only through connections mounted in this Space. An account that exists
+  for the tenant but is not listed here should be mounted in Space setup, not
+  reconnected blindly.
+
 ## Finding the tools
 
 Discover what is granted with `engenty_tools_search` and run it with

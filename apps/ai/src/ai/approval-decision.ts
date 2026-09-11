@@ -70,6 +70,12 @@ export async function persistCoreApprovalDecision(params: {
       },
       method: "POST",
     });
+    if (res.status === 409) {
+      // First to answer wins: someone decided this request from their list
+      // (or it expired) before this card was answered. The grant persisted
+      // above still carries this resume; nothing to repair.
+      return;
+    }
     if (!res.ok) {
       console.error(
         `core approval decision failed: ${res.status} ${await res

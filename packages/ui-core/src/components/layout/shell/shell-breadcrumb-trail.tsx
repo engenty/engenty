@@ -207,7 +207,10 @@ function itemClass(
     return "flex min-w-0 shrink items-center gap-1";
   }
   if (truncateOverflow === "clip") {
-    return "flex min-w-0 max-w-[min(16rem,45vw)] shrink-0 items-center gap-1";
+    // Shrink-wrap custom controls (space switcher, KB picker). `w-full` on
+    // the inner label used to stretch this li to the 16rem cap, leaving a
+    // hole between the control and the `/` that follows it.
+    return "flex w-max min-w-0 max-w-[min(16rem,45vw)] shrink-0 items-center gap-1";
   }
   return "flex min-w-0 shrink-0 items-center gap-1";
 }
@@ -229,6 +232,18 @@ function currentClass(variant: ShellBreadcrumbVariant): string {
       : "w-full min-w-0 overflow-hidden"
   );
 }
+
+/** Custom crumb controls (space switcher, pickers) must shrink-wrap. */
+function customLabelClass(variant: ShellBreadcrumbVariant): string {
+  return cn(
+    "flex min-w-0 items-center",
+    variant === "scroll" ? "whitespace-nowrap" : "overflow-hidden"
+  );
+}
+
+const BREADCRUMB_SLASH_CLASS =
+  // Same token as the topbar's own slash (`text-border`): one separator colour.
+  "inline-flex shrink-0 select-none items-center leading-none text-border";
 
 function navClass(
   variant: ShellBreadcrumbVariant,
@@ -319,11 +334,13 @@ export function ShellBreadcrumbTrail({
   if (compactActive && compactOpts) {
     const chunks = buildCompactChunks(items);
     const lastChunkIndex = chunks.length - 1;
+    const trailCrowded = items.length > 2;
 
     return wrapWithTooltipProvider(
       <nav
         aria-label={ariaLabel}
         className={navClass(variant, truncateMode, className)}
+        data-trail-crowded={trailCrowded ? "true" : undefined}
       >
         <ol className={listClass(variant, truncateMode)}>
           {chunks.map((chunk, chunkIndex) => {
@@ -378,10 +395,7 @@ export function ShellBreadcrumbTrail({
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {chunkIsLast ? null : (
-                    <span
-                      aria-hidden
-                      className="shrink-0 select-none text-muted-foreground/60"
-                    >
+                    <span aria-hidden className={BREADCRUMB_SLASH_CLASS}>
                       /
                     </span>
                   )}
@@ -421,7 +435,9 @@ export function ShellBreadcrumbTrail({
               isFirst && !isPrimitiveLabel(item.label) && Boolean(rootVisual);
 
             const content =
-              isFirst && item.to ? (
+              isFirst &&
+              item.to &&
+              (rootVisual || isPrimitiveLabel(item.label)) ? (
                 wrapRootTip(
                   renderLink({
                     to: item.to,
@@ -456,16 +472,32 @@ export function ShellBreadcrumbTrail({
                     </div>
                   )
                 ) : (
-                  <div className={currentClass(variant)}>{labelNode}</div>
+                  <div
+                    className={
+                      isPrimitiveLabel(item.label)
+                        ? currentClass(variant)
+                        : customLabelClass(variant)
+                    }
+                  >
+                    {labelNode}
+                  </div>
                 )
-              ) : item.to && !isLastItem ? (
+              ) : item.to && !isLastItem && isPrimitiveLabel(item.label) ? (
                 renderLink({
                   to: item.to,
                   className: linkClass(variant),
                   children: labelNode,
                 })
               ) : (
-                <div className={currentClass(variant)}>{labelNode}</div>
+                <div
+                  className={
+                    isPrimitiveLabel(item.label)
+                      ? currentClass(variant)
+                      : customLabelClass(variant)
+                  }
+                >
+                  {labelNode}
+                </div>
               );
 
             return (
@@ -492,10 +524,7 @@ export function ShellBreadcrumbTrail({
                   </span>
                 )}
                 {chunkIsLast ? null : (
-                  <span
-                    aria-hidden
-                    className="shrink-0 select-none text-muted-foreground/60"
-                  >
+                  <span aria-hidden className={BREADCRUMB_SLASH_CLASS}>
                     /
                   </span>
                 )}
@@ -511,6 +540,7 @@ export function ShellBreadcrumbTrail({
     <nav
       aria-label={ariaLabel}
       className={navClass(variant, truncateMode, className)}
+      data-trail-crowded={items.length > 2 ? "true" : undefined}
     >
       <ol className={listClass(variant, truncateMode)}>
         {items.map((item, index) => {
@@ -587,10 +617,7 @@ export function ShellBreadcrumbTrail({
                   </span>
                 )}
                 {isLast ? null : (
-                  <span
-                    aria-hidden
-                    className="shrink-0 select-none text-muted-foreground/60"
-                  >
+                  <span aria-hidden className={BREADCRUMB_SLASH_CLASS}>
                     /
                   </span>
                 )}
@@ -603,20 +630,25 @@ export function ShellBreadcrumbTrail({
               className={itemClass(variant, primitive, isLast, truncateMode)}
               key={key}
             >
-              {item.to && !isLast ? (
+              {item.to && !isLast && isPrimitiveLabel(item.label) ? (
                 renderLink({
                   to: item.to,
                   className: linkClass(variant),
                   children: label,
                 })
               ) : (
-                <div className={currentClass(variant)}>{label}</div>
+                <div
+                  className={
+                    primitive
+                      ? currentClass(variant)
+                      : customLabelClass(variant)
+                  }
+                >
+                  {label}
+                </div>
               )}
               {isLast ? null : (
-                <span
-                  aria-hidden
-                  className="shrink-0 select-none text-muted-foreground/60"
-                >
+                <span aria-hidden className={BREADCRUMB_SLASH_CLASS}>
                   /
                 </span>
               )}

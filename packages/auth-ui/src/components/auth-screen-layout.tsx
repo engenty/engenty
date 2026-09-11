@@ -12,7 +12,7 @@ export function AuthScreenLayout({
   return (
     <div
       className={cn(
-        "flex min-h-[calc(100vh-3rem)] items-center justify-center",
+        "flex min-h-[calc(100dvh-3rem)] items-center justify-center",
         "bg-gradient-to-br from-background via-secondary/20 to-accent/10 p-4",
         message && "text-muted-foreground text-sm"
       )}

@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery, useQueryClient } from "@engenty/query-client";
-import { Button, Card } from "@engenty/ui-core";
+import { Button, SettingsFormSection } from "@engenty/ui-core";
 import { Check, Laptop, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -480,26 +480,23 @@ export function PreferredAppearanceSection({
 
   if (loading) {
     return (
-      <section className="space-y-2">
-        <h2 className="font-medium text-lg">
+      <div className="min-w-0">
+        <h2 className="font-medium text-foreground text-lg leading-none">
           {t("settings.preferredAppearance")}
         </h2>
-        <p className="text-muted-foreground text-sm">{t("settings.loading")}</p>
-      </section>
+        <p className="mt-1 text-muted-foreground text-sm leading-snug">
+          {t("settings.loading")}
+        </p>
+      </div>
     );
   }
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-medium text-lg">
-            {t("settings.preferredAppearance")}
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            {t("settings.preferredAppearanceOverride")}
-          </p>
-        </div>
+    <SettingsFormSection
+      cardClassName="space-y-6"
+      description={t("settings.preferredAppearanceOverride")}
+      title={t("settings.preferredAppearance")}
+      titleAction={
         <Button
           disabled={resetMutation.isPending || loading}
           onClick={handleReset}
@@ -508,98 +505,131 @@ export function PreferredAppearanceSection({
         >
           {resetMutation.isPending ? "Resetting..." : "Reset"}
         </Button>
+      }
+    >
+      {/* Language Section */}
+      <div className="space-y-2">
+        <h3 className="font-medium text-sm">{t("settings.language")}</h3>
+        <div className="flex gap-2">
+          {LANGUAGES.map((lang) => (
+            <button
+              className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
+                effectiveLang === lang.code
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-accent"
+              }`}
+              key={lang.code}
+              onClick={() => handleLanguageChange(lang.code)}
+              type="button"
+            >
+              <span className="text-base">{lang.flag}</span>
+              {lang.label}
+              {effectiveLang === lang.code && (
+                <Check className="ml-1 h-3.5 w-3.5 text-primary" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
-      <Card className="space-y-6 p-5" variant="form">
-        {/* Language Section */}
-        <div className="space-y-2">
-          <h3 className="font-medium text-sm">{t("settings.language")}</h3>
-          <div className="flex gap-2">
-            {LANGUAGES.map((lang) => (
+
+      {/* Theme Mode Section */}
+      <div className="space-y-2">
+        <h3 className="font-medium text-sm">{t("settings.mode")}</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {THEME_MODES.map((mode) => {
+            const Icon =
+              mode.id === "dark" ? Moon : mode.id === "light" ? Sun : Laptop;
+            const isActive = effectiveTheme === mode.id;
+            return (
+              <button
+                className={`relative flex flex-col items-center gap-3 rounded-lg border p-4 transition-colors ${
+                  isActive
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-card hover:bg-accent"
+                }`}
+                key={mode.id}
+                onClick={() => handleThemeChange(mode.id)}
+                type="button"
+              >
+                <div
+                  className={`flex h-10 w-full items-end gap-1 rounded-md border p-2 ${
+                    mode.id === "dark"
+                      ? "border-zinc-700 bg-zinc-900"
+                      : mode.id === "light"
+                        ? "border-zinc-200 bg-white"
+                        : "border-zinc-400 bg-linear-to-r from-white to-zinc-900"
+                  }`}
+                >
+                  <div
+                    className={`h-2 w-4 rounded-sm ${
+                      mode.id === "dark" ? "bg-zinc-600" : "bg-zinc-300"
+                    }`}
+                  />
+                  <div
+                    className={`h-3 w-3 rounded-sm ${
+                      mode.id === "dark" ? "bg-zinc-500" : "bg-zinc-200"
+                    }`}
+                  />
+                  <div
+                    className={`h-4 w-4 rounded-sm ${
+                      mode.id === "dark" ? "bg-zinc-600" : "bg-zinc-300"
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 font-medium text-sm">
+                  <Icon className="h-3.5 w-3.5" />
+                  {t(`userMenu.${mode.id}_theme`)}
+                </div>
+                {isActive && (
+                  <div className="absolute top-2 right-2">
+                    <Check className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Text Size Section */}
+      <div className="space-y-2">
+        <h3 className="font-medium text-sm">Text Size</h3>
+        <div className="flex flex-wrap gap-2">
+          {FONT_SIZE_OPTIONS.map((opt) => {
+            const isActive = effectiveFontSize === opt.id;
+            return (
               <button
                 className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
-                  effectiveLang === lang.code
+                  isActive
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border bg-card text-muted-foreground hover:bg-accent"
                 }`}
-                key={lang.code}
-                onClick={() => handleLanguageChange(lang.code)}
+                key={opt.id}
+                onClick={() => handleFontSizeChange(opt.id)}
                 type="button"
               >
-                <span className="text-base">{lang.flag}</span>
-                {lang.label}
-                {effectiveLang === lang.code && (
+                {opt.label}
+                {isActive && (
                   <Check className="ml-1 h-3.5 w-3.5 text-primary" />
                 )}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Theme Mode Section */}
-        <div className="space-y-2">
-          <h3 className="font-medium text-sm">{t("settings.mode")}</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {THEME_MODES.map((mode) => {
-              const Icon =
-                mode.id === "dark" ? Moon : mode.id === "light" ? Sun : Laptop;
-              const isActive = effectiveTheme === mode.id;
-              return (
-                <button
-                  className={`relative flex flex-col items-center gap-3 rounded-lg border p-4 transition-colors ${
-                    isActive
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-card hover:bg-accent"
-                  }`}
-                  key={mode.id}
-                  onClick={() => handleThemeChange(mode.id)}
-                  type="button"
-                >
-                  <div
-                    className={`flex h-10 w-full items-end gap-1 rounded-md border p-2 ${
-                      mode.id === "dark"
-                        ? "border-zinc-700 bg-zinc-900"
-                        : mode.id === "light"
-                          ? "border-zinc-200 bg-white"
-                          : "border-zinc-400 bg-linear-to-r from-white to-zinc-900"
-                    }`}
-                  >
-                    <div
-                      className={`h-2 w-4 rounded-sm ${
-                        mode.id === "dark" ? "bg-zinc-600" : "bg-zinc-300"
-                      }`}
-                    />
-                    <div
-                      className={`h-3 w-3 rounded-sm ${
-                        mode.id === "dark" ? "bg-zinc-500" : "bg-zinc-200"
-                      }`}
-                    />
-                    <div
-                      className={`h-4 w-4 rounded-sm ${
-                        mode.id === "dark" ? "bg-zinc-600" : "bg-zinc-300"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5 font-medium text-sm">
-                    <Icon className="h-3.5 w-3.5" />
-                    {t(`userMenu.${mode.id}_theme`)}
-                  </div>
-                  {isActive && (
-                    <div className="absolute top-2 right-2">
-                      <Check className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {/* Accessibility Sub-section */}
+      <div className="space-y-4 border-t pt-4">
+        <h3 className="font-semibold text-foreground text-xs uppercase tracking-wider">
+          Accessibility
+        </h3>
 
-        {/* Text Size Section */}
+        {/* Contrast */}
         <div className="space-y-2">
-          <h3 className="font-medium text-sm">Text Size</h3>
-          <div className="flex flex-wrap gap-2">
-            {FONT_SIZE_OPTIONS.map((opt) => {
-              const isActive = effectiveFontSize === opt.id;
+          <h4 className="font-medium text-sm">Contrast</h4>
+          <div className="flex gap-2">
+            {CONTRAST_OPTIONS.map((opt) => {
+              const isActive = effectiveContrast === opt.id;
               return (
                 <button
                   className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
@@ -608,7 +638,7 @@ export function PreferredAppearanceSection({
                       : "border-border bg-card text-muted-foreground hover:bg-accent"
                   }`}
                   key={opt.id}
-                  onClick={() => handleFontSizeChange(opt.id)}
+                  onClick={() => handleContrastChange(opt.id)}
                   type="button"
                 >
                   {opt.label}
@@ -621,67 +651,33 @@ export function PreferredAppearanceSection({
           </div>
         </div>
 
-        {/* Accessibility Sub-section */}
-        <div className="space-y-4 border-t pt-4">
-          <h3 className="font-semibold text-foreground text-xs uppercase tracking-wider">
-            Accessibility
-          </h3>
-
-          {/* Contrast */}
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Contrast</h4>
-            <div className="flex gap-2">
-              {CONTRAST_OPTIONS.map((opt) => {
-                const isActive = effectiveContrast === opt.id;
-                return (
-                  <button
-                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:bg-accent"
-                    }`}
-                    key={opt.id}
-                    onClick={() => handleContrastChange(opt.id)}
-                    type="button"
-                  >
-                    {opt.label}
-                    {isActive && (
-                      <Check className="ml-1 h-3.5 w-3.5 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Color Blindness */}
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Color Blindness</h4>
-            <div className="flex flex-wrap gap-2">
-              {COLORBLIND_OPTIONS.map((opt) => {
-                const isActive = effectiveColorBlind === opt.id;
-                return (
-                  <button
-                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:bg-accent"
-                    }`}
-                    key={opt.id}
-                    onClick={() => handleColorBlindChange(opt.id)}
-                    type="button"
-                  >
-                    {opt.label}
-                    {isActive && (
-                      <Check className="ml-1 h-3.5 w-3.5 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+        {/* Color Blindness */}
+        <div className="space-y-2">
+          <h4 className="font-medium text-sm">Color Blindness</h4>
+          <div className="flex flex-wrap gap-2">
+            {COLORBLIND_OPTIONS.map((opt) => {
+              const isActive = effectiveColorBlind === opt.id;
+              return (
+                <button
+                  className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 font-medium text-sm transition-colors ${
+                    isActive
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:bg-accent"
+                  }`}
+                  key={opt.id}
+                  onClick={() => handleColorBlindChange(opt.id)}
+                  type="button"
+                >
+                  {opt.label}
+                  {isActive && (
+                    <Check className="ml-1 h-3.5 w-3.5 text-primary" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </Card>
-    </section>
+      </div>
+    </SettingsFormSection>
   );
 }

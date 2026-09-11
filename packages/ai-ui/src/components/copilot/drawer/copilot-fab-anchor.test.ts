@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   computeFabAnchor,
   defaultFabAnchor,
+  isUsableFabViewport,
   resolveFabAnchorPosition,
+  resolveFabFreeDropAnchor,
 } from "./copilot-fab-anchor";
 
 const SIZE = { width: 72, height: 60 };
@@ -84,5 +86,39 @@ describe("copilot fab anchor", () => {
       16
     );
     expect(resolved).toEqual({ x: 1000 - 72 - 16, y: 800 - 60 - 16 });
+  });
+
+  it("does not commit a free-drop anchor on a click (no move)", () => {
+    expect(
+      resolveFabFreeDropAnchor({
+        lastPosition: { x: 0, y: 0 },
+        moved: false,
+        size: SIZE,
+        viewport: { width: 1000, height: 800 },
+      })
+    ).toBeNull();
+  });
+
+  it("commits the dropped corner after an actual drag", () => {
+    expect(
+      resolveFabFreeDropAnchor({
+        lastPosition: { x: 24, y: 40 },
+        moved: true,
+        size: SIZE,
+        viewport: { width: 1000, height: 800 },
+      })
+    ).toEqual({
+      edgeX: "left",
+      edgeY: "top",
+      offsetX: 24,
+      offsetY: 40,
+    });
+  });
+
+  it("rejects a viewport too small to place the FAB without clamping to origin", () => {
+    expect(isUsableFabViewport({ width: 0, height: 0 }, SIZE, 16)).toBe(false);
+    expect(isUsableFabViewport({ width: 1000, height: 800 }, SIZE, 16)).toBe(
+      true
+    );
   });
 });

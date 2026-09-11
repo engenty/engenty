@@ -28,6 +28,7 @@ export const expenseCategorySchema = z.object({
   llm_hint: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   sort_order: z.number().int().optional(),
+  account_number: z.string().nullable().optional(),
 });
 
 export const taxDeductionRuleSchema = z.object({

@@ -3,8 +3,10 @@
 // value and whether it is tenant-pinned or inherited.
 
 import type {
+  AgentApprovalMode,
   AiModelPurpose,
   AiSettingSource,
+  ComputerNetworkTier,
   DocConverterTenantPrefs,
 } from "@engenty/ai-core/browser";
 import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
@@ -24,10 +26,25 @@ export interface EffectiveMaxStepsEntry {
   value: number;
 }
 
+/** What a space's "Default" approval row resolves to. */
+export interface EffectiveApprovalModeEntry {
+  source: AiSettingSource;
+  tenant: AgentApprovalMode | null;
+  value: AgentApprovalMode;
+}
+
+/** What a space's "Host default" internet-access row resolves to. */
+export interface EffectiveNetworkTierEntry {
+  source: AiSettingSource;
+  value: ComputerNetworkTier;
+}
+
 export interface EffectiveAiSettings {
+  agent_approval: { mode: EffectiveApprovalModeEntry };
   caps: { max_steps: EffectiveMaxStepsEntry };
   doc_converter: DocConverterTenantPrefs | null;
   models: Record<AiModelPurpose, EffectiveModelEntry>;
+  space_computer: { network: EffectiveNetworkTierEntry };
 }
 
 export async function getEffectiveAiSettings(

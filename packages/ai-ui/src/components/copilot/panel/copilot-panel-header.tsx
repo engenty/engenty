@@ -4,6 +4,7 @@ import { Button, cn } from "@engenty/ui-core";
 import {
   GripVertical,
   MessageSquarePlus,
+  Monitor,
   PanelLeftClose,
   PanelRightClose,
   Shrink,
@@ -24,7 +25,7 @@ export function resolveCopilotHeaderBarClass(
     "flex min-w-0 shrink-0 items-center justify-between overflow-x-clip",
     chrome === "contentBlend"
       ? "h-11 gap-1 border-0 bg-card px-2 py-0 shadow-none"
-      : "h-[52px] gap-2 border-b bg-card px-3",
+      : "h-11 gap-2 border-b bg-card px-3",
     options?.draggable && "cursor-grab touch-none active:cursor-grabbing"
   );
 }
@@ -56,7 +57,7 @@ export function CopilotPanelHeader({
   agentSessionChooser?: ReactNode;
   title?: string;
   panelMode: "docked" | "floating";
-  onNewChat: () => void;
+  onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   onClose: () => void;
   /** When set (floating shell), replaces attach with compact launcher action. */
@@ -105,15 +106,17 @@ export function CopilotPanelHeader({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button
-          aria-label={clearLabel}
-          className={headerActionClass}
-          onClick={onNewChat}
-          size="icon"
-          variant="ghost"
-        >
-          <MessageSquarePlus className="h-4 w-4" />
-        </Button>
+        {onNewChat ? (
+          <Button
+            aria-label={clearLabel}
+            className={headerActionClass}
+            onClick={onNewChat}
+            size="icon"
+            variant="ghost"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </Button>
+        ) : null}
         {panelMode === "docked" ? (
           <Button
             aria-label={detachLabel}
@@ -199,6 +202,9 @@ export function CopilotPanelInlineHeader({
   recentContextOptions,
   selectedContextId,
   positionMenu,
+  browserPanelLabel,
+  browserPanelOpen = false,
+  onToggleBrowserPanel,
   clearLabel,
   closeLabel,
   detachLabel,
@@ -208,6 +214,9 @@ export function CopilotPanelInlineHeader({
   onPanelModeChange,
   onClose,
 }: {
+  browserPanelLabel?: string;
+  browserPanelOpen?: boolean;
+  onToggleBrowserPanel?: () => void;
   title?: string;
   headerVariant: "docked" | "floating";
   headerChrome: CopilotHeaderChrome;
@@ -226,7 +235,7 @@ export function CopilotPanelInlineHeader({
   detachLabel: string;
   attachLabel: string;
   panelMode: "docked" | "floating";
-  onNewChat: () => void;
+  onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   onClose: () => void;
 }) {
@@ -255,6 +264,18 @@ export function CopilotPanelInlineHeader({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
+        {onToggleBrowserPanel ? (
+          <Button
+            aria-label={browserPanelLabel}
+            aria-pressed={browserPanelOpen}
+            className={headerActionClass}
+            onClick={onToggleBrowserPanel}
+            size="icon"
+            variant={browserPanelOpen ? "secondary" : "ghost"}
+          >
+            <Monitor className="h-4 w-4" />
+          </Button>
+        ) : null}
         {headerVariant === "docked" && positionMenu ? (
           <>
             <Button

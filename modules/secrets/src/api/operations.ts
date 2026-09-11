@@ -83,6 +83,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_list",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary: "List secret metadata the caller is in scope for",
     idempotent: true,
     riskLevel: "low",
@@ -124,6 +125,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_create",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary: "Create an encrypted secret",
     idempotent: false,
     riskLevel: "medium",
@@ -187,6 +189,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_reveal",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary: "Decrypt and return a secret's payload (audited; agent-gated)",
     // Returns plaintext — highest-risk op. Agent authorization is enforced by
     // createSecretsRevealPolicy BEFORE this handler runs; for users the policy
@@ -268,6 +271,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_update",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary:
       "Update a secret's metadata and/or payload (re-encrypts on payload change)",
     idempotent: false,
@@ -352,6 +356,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_delete",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary: "Soft-delete a secret",
     idempotent: true,
     riskLevel: "high",
@@ -379,6 +384,7 @@ export function registerSecretsOperations(
   api.registerOperation({
     operationId: "secrets_move",
     moduleId: "secrets",
+    spacePolicy: { kind: "user_owned" },
     summary:
       "Re-home a secret to a different owner (re-encrypts to the new AAD)",
     idempotent: false,

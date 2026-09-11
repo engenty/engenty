@@ -33,7 +33,7 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Eye, Folder, Pencil } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { KbCategory, KbCover } from "../../src/schema/types.js";
@@ -59,12 +59,12 @@ import {
 import {
   categoriesQueryOptions,
   categoryDetailQueryOptions,
-  kbsQueryOptions,
   kbTemplatesQueryOptions,
   useDeleteCategoryMutation,
+  useKbsQuery,
   useUpdateCategoryMutation,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 export function CategoryDetailPage({
   mode = "view",
@@ -74,22 +74,12 @@ export function CategoryDetailPage({
   const isEditMode = mode === "edit";
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
-  const { kbSlug: kbSlugParam, catSlug } = useParams<{
-    kbSlug?: string;
-    catSlug?: string;
-  }>();
+  const { catSlug } = useParams<{ catSlug?: string }>();
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
 
-  const kbId = useMemo(() => {
-    if (!kbSlugParam) {
-      return "";
-    }
-    return kbIdFromSlug(kbs, kbSlugParam);
-  }, [kbs, kbSlugParam]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId) ?? "", [kbs, kbId]);
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const categoriesQuery = useQuery({
     ...categoriesQueryOptions(kbId),
@@ -130,27 +120,6 @@ export function CategoryDetailPage({
 
   // If the slug is wrong but KB is valid, kick back to the KB hub so the user
   // sees a recoverable surface instead of a perpetual loading screen.
-  useEffect(() => {
-    if (!kbId || categoriesQuery.isLoading) {
-      return;
-    }
-    if (!catSlug) {
-      return;
-    }
-    if (!categoryFromList) {
-      navigate(kbHubPath(kbSlug || kbSlugParam || "default"), {
-        replace: true,
-      });
-    }
-  }, [
-    kbId,
-    categoriesQuery.isLoading,
-    catSlug,
-    categoryFromList,
-    kbSlug,
-    kbSlugParam,
-    navigate,
-  ]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -177,11 +146,11 @@ export function CategoryDetailPage({
   );
 
   const onEditCategory = useCallback(() => {
-    if (!(kbSlug && activeCategory)) {
+    if (!activeCategory) {
       return;
     }
-    navigate(kbCategoryEditPath(kbSlug, activeCategory.slug));
-  }, [activeCategory, kbSlug, navigate]);
+    navigate(kbCategoryEditPath(activeCategory.slug));
+  }, [activeCategory, navigate]);
 
   const onCategorySettings = useCallback(() => {
     setSettingsOpen(true);
@@ -298,7 +267,6 @@ export function CategoryDetailPage({
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug || (kbSlugParam ?? ""),
   });
 
   const breadcrumbs = useMemo(() => {
@@ -309,7 +277,6 @@ export function CategoryDetailPage({
     const ancestorCrumbs = buildCategoryTreeBreadcrumbCrumbs(
       activeCategory,
       categories,
-      kbSlug,
       { linkCurrent: isEditMode }
     );
     if (ancestorCrumbs.length > 0) {
@@ -326,26 +293,17 @@ export function CategoryDetailPage({
         label: currentSeg.label,
         menuLabel: activeCategory.name,
         ...(currentSeg.tooltip ? { tooltip: currentSeg.tooltip } : {}),
-        ...(isEditMode && kbSlug
-          ? { to: kbCategoryPath(kbSlug, activeCategory.slug) }
-          : {}),
+        ...(isEditMode ? { to: kbCategoryPath(activeCategory.slug) } : {}),
       },
     ];
     if (isEditMode) {
       crumbs.push({ label: t("category.actions.edit") });
     }
     return crumbs;
-  }, [
-    activeCategory,
-    categories,
-    isEditMode,
-    kbShellNav.kbRootCrumb,
-    kbSlug,
-    t,
-  ]);
+  }, [activeCategory, categories, isEditMode, kbShellNav.kbRootCrumb, t]);
 
   const pageActions = useMemo(() => {
-    if (!kbSlug || kbsLoading || !activeCategory) {
+    if (kbsLoading || !activeCategory) {
       return null;
     }
     if (isEditMode) {
@@ -353,9 +311,7 @@ export function CategoryDetailPage({
         <div className="flex items-center gap-1">
           <Button
             className={topbarIconButtonClassName}
-            onClick={() =>
-              navigate(kbCategoryPath(kbSlug, activeCategory.slug))
-            }
+            onClick={() => navigate(kbCategoryPath(activeCategory.slug))}
             size="sm"
             variant="ghost"
           >
@@ -370,9 +326,7 @@ export function CategoryDetailPage({
       <div className="flex items-center gap-1">
         <Button
           className={topbarIconButtonClassName}
-          onClick={() =>
-            navigate(kbCategoryEditPath(kbSlug, activeCategory.slug))
-          }
+          onClick={() => navigate(kbCategoryEditPath(activeCategory.slug))}
           size="sm"
           variant="ghost"
         >
@@ -380,21 +334,12 @@ export function CategoryDetailPage({
           <TopbarActionLabel>{t("category.actions.edit")}</TopbarActionLabel>
         </Button>
         <CategoryActionsMenu {...categoryMenuProps} />
-        <KbModuleShellActions hideKbSettings kbSlug={kbSlug} />
+        <KbModuleShellActions hideKbSettings />
       </div>
     );
-  }, [
-    activeCategory,
-    categoryMenuProps,
-    isEditMode,
-    kbSlug,
-    kbsLoading,
-    navigate,
-    t,
-  ]);
+  }, [activeCategory, categoryMenuProps, isEditMode, kbsLoading, navigate, t]);
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
     contentStackBackground: "paper",
     actions: pageActions,
@@ -458,7 +403,6 @@ export function CategoryDetailPage({
           category={activeCategory}
           editable={isEditMode}
           header={categoryHeader}
-          kbSlug={kbSlug}
           onOptimisticCoverChange={(cover) =>
             setCoverOverride({ categoryId: activeCategory.id, cover })
           }
@@ -468,7 +412,6 @@ export function CategoryDetailPage({
           <KbPageBlocksEditor
             categories={categories}
             isEditMode={isEditMode}
-            kbSlug={kbSlug}
             layout={{ blocks: activeCategory.page_settings.blocks }}
             onLayoutChange={(next) =>
               updateCategoryMutation.mutate({
@@ -495,7 +438,6 @@ export function CategoryDetailPage({
       <KbAddInTreeDialog
         defaultMode={addDialogMode}
         kbId={kbId}
-        kbSlug={kbSlug}
         lockMode={false}
         onClose={() => setAddDialogOpen(false)}
         open={addDialogOpen}
@@ -531,7 +473,7 @@ export function CategoryDetailPage({
                   onSuccess: () => {
                     toast.success(t("sidebar.tree_category_deleted"));
                     setDeleteDialogOpen(false);
-                    navigate(kbHubPath(kbSlug));
+                    navigate(kbHubPath());
                   },
                   onError: (err) => {
                     toast.error(

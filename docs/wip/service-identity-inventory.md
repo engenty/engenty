@@ -134,6 +134,15 @@ cannot leak it into spans. It is not forwarded to any third party.
    (`{ ..., userAccessToken: "test-token" }`) keep compiling through the shim;
    they are migrated at CP6 when the compiler forces it.
 
+4. **Plan caps on a locked-down AI credential.** `module.read` / `module.write`
+   / `module.execute` do **not** cover `module.tasks.*` —
+   the matcher has no infix wildcards. Mint the AI service credential with the
+   explicit Plan set (`AI_SERVICE_PLAN_CAPABILITIES`: `module.tasks.read`,
+   `module.tasks.write`) in addition
+   to the coarse module.* trio. Local `*` tokens already pass the token check;
+   pass-all approval mode still cannot invent a cap the token lacks. See
+   [service identity](../content/dev/service-identity.md).
+
 ## What CP4 actually changed (and what it deliberately did not)
 
 CP4 migrated every read of **`AiSessionScope.userAccessToken`** to

@@ -20,6 +20,7 @@ export interface Discipline {
 }
 
 export interface ExpenseCategory {
+  account_number?: string | null;
   code: string;
   color?: string | null;
   default_deduction_rate: number;

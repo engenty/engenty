@@ -130,7 +130,7 @@ export function SecretsSidebarHeader({
             />
           </SidebarNavList>
 
-          <div className="mt-2 shrink-0 border-border/50 border-t" />
+          <div className="mt-2 shrink-0 border-border-soft border-t" />
 
           <SidebarTabStrip
             onValueChange={(value) => onTabChange(value as SecretsSidebarTab)}

@@ -63,13 +63,8 @@ describe("getAgentCatalogGroup", () => {
 });
 
 describe("isAlwaysActiveAgent", () => {
-  it("locks Engenty leadership agents", () => {
+  it("locks the Copilot", () => {
     expect(isAlwaysActiveAgent(copilot)).toBe(true);
-    expect(
-      isAlwaysActiveAgent(
-        agent({ id: "engenty.coordinator", role: "coordinator" })
-      )
-    ).toBe(true);
     expect(isAlwaysActiveAgent(worker)).toBe(false);
   });
 });
@@ -162,7 +157,7 @@ describe("filterAgents", () => {
     ).toEqual([external, custom]);
   });
 
-  it("searches by name or id", () => {
+  it("searches by name, id, or description", () => {
     expect(
       filterAgents(all, {
         groupFilter: "all",
@@ -177,6 +172,21 @@ describe("filterAgents", () => {
         sourceFilter: "all",
       })
     ).toEqual([external]);
+  });
+
+  it("matches coding against an agent whose description talks about code", () => {
+    const coder = agent({
+      description: "Reviews pull requests and writes code",
+      id: "engenty.code-review",
+      name: "Code review",
+    });
+    expect(
+      filterAgents([worker, coder], {
+        groupFilter: "all",
+        searchQuery: "coding",
+        sourceFilter: "all",
+      })
+    ).toEqual([coder]);
   });
 });
 

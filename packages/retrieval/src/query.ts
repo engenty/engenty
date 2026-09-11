@@ -215,6 +215,10 @@ export async function runQuery(
     p_query: query,
     p_query_embedding: queryEmbedding ? JSON.stringify(queryEmbedding) : null,
     p_scope_id: filters.scope_id?.trim() || "default",
+    // An EMPTY array is meaningful and must survive: it says "this caller may
+    // read no spaces", which has to match no space-scoped document. Collapsing
+    // it to null would turn the most restricted caller into an unscoped one.
+    p_space_ids: filters.space_ids ?? null,
     p_source_types: sources.map((source) => source.source_type),
     p_tenant_id: tenantId,
     p_trigram_threshold: DEFAULT_TRIGRAM_THRESHOLD,

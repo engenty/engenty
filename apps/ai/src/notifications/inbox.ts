@@ -1,349 +1,252 @@
-// Engenty inbox on Mastra's notifications storage (ai.mastra_notifications).
+// apps/ai's face of @engenty/notifications.
 //
-// Records are created DIRECTLY on the storage domain — not via
-// `agent.sendNotificationSignal`, which is agent-to-agent delivery machinery
-// (forces agentId, runs a delivery policy, emits wake signals into the
-// agent's thread). Inbox records carry NO deliverAt/summaryAt, so the
-// built-in `__mastra_notification_dispatcher` never considers them due and
-// they stay `pending` until a human marks them.
+// apps/ai has no plugin server, so it builds the host directly from its
+// tenant-locked db lane. Every producer in this service (task lane, routine
+// failures, proposal tools, team-chat fan-out) calls `emitInboxNotification`;
+// the shape below is theirs, the record is core's.
 //
-// Scoping: the notifications table has no tenant column and only filters on
-// threadId/resourceId/agentId — the inbox uses a synthetic per-tenant thread
-// (`inbox:{tenantId}`) as its partition: one team inbox per tenant. Per-user
-// partitions can layer on later with `inbox:{tenantId}:{userId}` threads.
+// Delivery runs here too: this process holds the VAPID keys and the tenant
+// service invoker the email channel needs, so it registers those two channels
+// and drives the ledger for every tenant (startNotificationDelivery).
+import {
+  createEmailChannel,
+  createNotificationsHost,
+  createWebPushChannel,
+  type EmitNotificationInput,
+  type NotificationActor,
+  type NotificationAudience,
+  type NotificationPriority,
+  type NotificationRecord,
+  type NotificationSubject,
+  type NotificationsHost,
+  notificationsPolicyFromEnv,
+  type OriginServiceDb,
+  originLookupsFromServiceDb,
+  type ResolveNotificationsInput,
+  startDeliveryLoop,
+  vapidKeysFromEnv,
+} from "@engenty/notifications";
 import { createLogger } from "@engenty/telemetry";
-import { broadcastInboxChanged } from "./realtime.js";
-import { sendWebPushToUser } from "./web-push.js";
+import {
+  createDbSourceFromEnv,
+  normalizeDbSource,
+} from "../infra/tenant-db.js";
 
-const logger = createLogger({ name: "inbox" });
+const logger = createLogger({ name: "notifications" });
 
-export type InboxNotificationStatus =
-  | "pending"
-  | "delivered"
-  | "seen"
-  | "dismissed"
-  | "archived"
-  | "discarded";
+let host: NotificationsHost | null | undefined;
+let serviceDb: ReturnType<typeof normalizeDbSource>["service"] | null = null;
 
-export interface InboxNotification {
-  createdAt: string;
-  id: string;
-  kind: string;
-  metadata: Record<string, unknown> | null;
-  payload: Record<string, unknown> | null;
-  priority: string;
-  seenAt: string | null;
-  source: string;
-  status: InboxNotificationStatus;
-  summary: string;
-  updatedAt: string;
-}
-
-/** The Mastra notifications storage domain (subset we use). */
-interface NotificationsStore {
-  createNotification(input: Record<string, unknown>): Promise<unknown>;
-  listNotifications(input: Record<string, unknown>): Promise<unknown[]>;
-  updateNotification(input: Record<string, unknown>): Promise<unknown>;
-}
-
-export function inboxThreadId(
-  tenantId: string,
-  userId?: string | null
-): string {
-  return userId ? `inbox:${tenantId}:${userId}` : `inbox:${tenantId}`;
-}
-
-async function getNotificationsStore(): Promise<NotificationsStore | null> {
-  // Lazy import: the emitters (task-job steps, scheduler hooks) sit inside the
-  // Mastra config's own dependency graph — an eager singleton import here is a
-  // circular module-eval (TDZ crash). Deferred to call time, the cycle is fine.
-  const { mastra } = await import("../../ai/index.js");
-  const storage = mastra.getStorage();
-  if (!storage) {
-    return null;
+function getHost(): NotificationsHost | null {
+  if (host !== undefined) {
+    return host;
   }
-  const store = (await Promise.resolve(
-    (
-      storage as unknown as {
-        getStore: (domain: string) => unknown;
-      }
-    ).getStore("notifications")
-  )) as NotificationsStore | undefined;
-  return store ?? null;
+  const source = createDbSourceFromEnv();
+  if (!source) {
+    host = null;
+    return host;
+  }
+  const normalized = normalizeDbSource(source);
+  serviceDb = normalized.service;
+  host = createNotificationsHost({
+    db: { forTenant: normalized.forTenant },
+    // Every emit from this process carries who/where as labels, not ids.
+    origin: originLookupsFromServiceDb(
+      normalized.service as unknown as OriginServiceDb
+    ),
+    ...notificationsPolicyFromEnv(),
+  });
+  return host;
 }
 
 export interface EmitInboxNotificationInput {
+  actor?: NotificationActor | null;
+  /** Task lanes: the task's primary assignee — the audience of assigned work. */
+  assigneeUserId?: string | null;
+  audience?: NotificationAudience | null;
+  /** A re-ask about the same thing merges into the open row with this key. */
+  coalesceKey?: string;
+  /** Only merge into a row touched within this window (a batch). */
+  coalesceWindowMs?: number;
   /** Dedupe while pending — a second emit merges instead of duplicating. */
   dedupeKey?: string;
+  /** Whoever started the run: subscribed to delivery, never the audience of shared work. */
+  initiatorUserId?: string | null;
   kind: string;
   metadata?: Record<string, unknown>;
+  /** Routine fires: the routine's owner — subscribed, like the initiator. */
+  ownerUserId?: string | null;
+  /** A private subject's people: one row each. Wins over the space. */
+  participantUserIds?: readonly string[] | null;
   payload?: Record<string, unknown>;
-  priority?: "low" | "medium" | "high" | "urgent";
+  /** People already looking at it: their view starts seen. */
+  preSeenUserIds?: readonly string[] | null;
+  priority?: NotificationPriority;
   source: string;
+  spaceId?: string | null;
+  subject?: NotificationSubject | null;
+  /** Extra people pushed/mailed about a shared row. */
+  subscribers?: readonly string[] | null;
   summary: string;
   tenantId: string;
-  /** Targets the per-user partition (`inbox:{tenant}:{user}`) instead of the team inbox. */
+  /** Explicit person; shorthand for `audience: { kind: "user", userId }`. */
   userId?: string;
 }
 
 /**
- * Write one inbox record. Never throws — an inbox miss must not fail the
- * emitting pipeline (task finalize, scheduler hooks).
+ * Write one record. Never throws — a notification miss must not fail the
+ * emitting pipeline (task finalize, scheduler hooks, a tool call).
  */
 export async function emitInboxNotification(
   input: EmitInboxNotificationInput
-): Promise<void> {
-  try {
-    const store = await getNotificationsStore();
-    if (!store) {
-      logger.warn("notifications storage unavailable — inbox emit dropped", {
-        kind: input.kind,
-      });
-      return;
-    }
-    await store.createNotification({
-      ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
+): Promise<NotificationRecord | null> {
+  const target = getHost();
+  if (!target) {
+    logger.warn("notifications unavailable — emit dropped", {
       kind: input.kind,
-      metadata: { tenant_id: input.tenantId, ...input.metadata },
-      ...(input.payload ? { payload: input.payload } : {}),
-      priority: input.priority ?? "medium",
-      resourceId: input.tenantId,
-      source: input.source,
-      summary: input.summary.slice(0, 500),
-      threadId: inboxThreadId(input.tenantId, input.userId),
     });
-    broadcastInboxChanged(input.tenantId);
-    if (input.userId) {
-      // Per-user records fan out to the user's web-push endpoints right away
-      // (N2) — push is the realtime channel; team-inbox records have no
-      // single recipient and stay badge-only. Fire-and-forget by design.
-      const payload = input.payload ?? {};
-      const title =
-        typeof payload.conversation_label === "string"
-          ? payload.conversation_label
-          : "engenty";
-      const body =
-        typeof payload.text_preview === "string" && payload.text_preview
-          ? payload.text_preview
-          : input.summary;
-      void sendWebPushToUser(input.tenantId, input.userId, {
-        body: body.slice(0, 240),
-        route: typeof payload.route === "string" ? payload.route : null,
-        ...(input.dedupeKey ? { tag: input.dedupeKey } : {}),
-        title,
-      }).catch(() => undefined);
-    }
+    return null;
+  }
+  const emitInput: EmitNotificationInput = {
+    kind: input.kind,
+    source: input.source,
+    summary: input.summary,
+    tenantId: input.tenantId,
+    ...(input.actor ? { actor: input.actor } : {}),
+    ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
+    ...(input.audience
+      ? { audience: input.audience }
+      : input.userId
+        ? { audience: { kind: "user", userId: input.userId } }
+        : {}),
+    ...(input.coalesceKey ? { coalesceKey: input.coalesceKey } : {}),
+    ...(input.coalesceWindowMs
+      ? { coalesceWindowMs: input.coalesceWindowMs }
+      : {}),
+    ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
+    ...(input.initiatorUserId
+      ? { initiatorUserId: input.initiatorUserId }
+      : {}),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+    ...(input.ownerUserId ? { ownerUserId: input.ownerUserId } : {}),
+    ...(input.participantUserIds?.length
+      ? { participantUserIds: input.participantUserIds }
+      : {}),
+    ...(input.payload ? { payload: input.payload } : {}),
+    ...(input.preSeenUserIds?.length
+      ? { preSeenUserIds: input.preSeenUserIds }
+      : {}),
+    ...(input.priority ? { priority: input.priority } : {}),
+    ...(input.spaceId === undefined ? {} : { spaceId: input.spaceId }),
+    ...(input.subject ? { subject: input.subject } : {}),
+    ...(input.subscribers?.length ? { subscribers: input.subscribers } : {}),
+  };
+  try {
+    return await target.emit(emitInput);
   } catch (error) {
-    logger.warn("inbox emit failed", {
+    logger.warn("notification emit failed", {
       kind: input.kind,
       message: error instanceof Error ? error.message : String(error),
     });
+    return null;
   }
 }
 
-function toInboxNotification(record: unknown): InboxNotification {
-  const row = record as Record<string, unknown>;
-  const iso = (value: unknown): string | null =>
-    value instanceof Date
-      ? value.toISOString()
-      : typeof value === "string"
-        ? value
-        : null;
-  return {
-    createdAt: iso(row.createdAt) ?? "",
-    id: String(row.id),
-    kind: String(row.kind),
-    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
-    payload: (row.payload as Record<string, unknown> | null) ?? null,
-    priority: String(row.priority ?? "medium"),
-    seenAt: iso(row.seenAt),
-    source: String(row.source),
-    status: row.status as InboxNotificationStatus,
-    summary: String(row.summary),
-    updatedAt: iso(row.updatedAt) ?? "",
-  };
-}
-
-/** Statuses shown in the inbox; `unseen` drives the badges. */
-const OPEN_STATUSES: InboxNotificationStatus[] = ["pending", "delivered"];
-
 /**
- * Kinds that actually need a human decision. The badge counts only these —
- * "task completed" notifications are FYI and inflating the badge with them
- * trains people to ignore it, hiding the approvals that do block work. Mirrors
- * NEEDS_INPUT_KINDS in the inbox list UI, which groups the same set under
- * "Needs your input".
+ * The subject a record points at moved on (a run resumed or finished, a
+ * task was re-dispatched): resolve every open record about it. Never throws.
  */
-const NEEDS_INPUT_KINDS = new Set([
-  "tool_approval",
-  "connection_approval_requested",
-  "agent_proposed",
-  "skill_proposed",
-  "memory_proposal",
-  "task_failed",
-  "task_needs_input",
-  "task_review_requested",
-  "trigger_failed",
-]);
-
-/** The caller's partitions: the team inbox plus their per-user thread. */
-function inboxThreadIds(tenantId: string, userId?: string | null): string[] {
-  return userId
-    ? [inboxThreadId(tenantId), inboxThreadId(tenantId, userId)]
-    : [inboxThreadId(tenantId)];
-}
-
-export async function listInboxNotifications(input: {
-  limit?: number;
-  status?: "open" | "all";
-  tenantId: string;
-  userId?: string;
-}): Promise<InboxNotification[]> {
-  const store = await getNotificationsStore();
-  if (!store) {
-    return [];
-  }
-  const limit = input.limit ?? 50;
-  const perThread = await Promise.all(
-    inboxThreadIds(input.tenantId, input.userId).map((threadId) =>
-      store.listNotifications({
-        limit,
-        ...(input.status === "all"
-          ? {}
-          : { status: [...OPEN_STATUSES, "seen"] as string[] }),
-        threadId,
-      })
-    )
-  );
-  return perThread
-    .flat()
-    .map(toInboxNotification)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, limit);
-}
-
-export async function countUnseenInboxNotifications(
-  tenantId: string,
-  userId?: string
+export async function resolveNotifications(
+  input: ResolveNotificationsInput
 ): Promise<number> {
-  const store = await getNotificationsStore();
-  if (!store) {
+  const target = getHost();
+  if (!target) {
     return 0;
   }
-  const perThread = await Promise.all(
-    inboxThreadIds(tenantId, userId).map((threadId) =>
-      store.listNotifications({
-        limit: 100,
-        status: OPEN_STATUSES as string[],
-        threadId,
-      })
-    )
-  );
-  // `listNotifications` is declared `Promise<unknown[]>` on the local store
-  // port; name the one field this count reads instead of widening the port.
-  return perThread
-    .flat()
-    .filter((record) =>
-      NEEDS_INPUT_KINDS.has(String((record as { kind?: unknown }).kind))
-    ).length;
-}
-
-export async function setInboxNotificationStatus(input: {
-  id: string;
-  status: "seen" | "dismissed";
-  tenantId: string;
-  userId?: string;
-}): Promise<void> {
-  const store = await getNotificationsStore();
-  if (!store) {
-    throw new Error("notifications storage unavailable");
-  }
-  // The record lives in exactly one partition; the store throws not-found for
-  // the wrong thread, so try the user thread first, then the team inbox.
-  const threads = inboxThreadIds(input.tenantId, input.userId).reverse();
-  let lastError: unknown;
-  for (const threadId of threads) {
-    try {
-      await store.updateNotification({
-        id: input.id,
-        status: input.status,
-        threadId,
-      });
-      broadcastInboxChanged(input.tenantId);
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError;
-}
-
-export async function markAllInboxNotificationsSeen(
-  tenantId: string,
-  userId?: string
-): Promise<number> {
-  const store = await getNotificationsStore();
-  if (!store) {
-    return 0;
-  }
-  let updated = 0;
-  for (const threadId of inboxThreadIds(tenantId, userId)) {
-    const open = await store.listNotifications({
-      limit: 200,
-      status: OPEN_STATUSES as string[],
-      threadId,
+  try {
+    return await target.resolve(input);
+  } catch (error) {
+    logger.warn("notification resolve failed", {
+      message: error instanceof Error ? error.message : String(error),
+      subjectId: input.subjectId,
+      subjectType: input.subjectType,
     });
-    for (const record of open) {
-      const row = record as Record<string, unknown>;
-      await store.updateNotification({
-        id: String(row.id),
-        status: "seen",
-        threadId,
-      });
-    }
-    updated += open.length;
+    return 0;
   }
-  if (updated > 0) {
-    broadcastInboxChanged(tenantId);
-  }
-  return updated;
 }
 
 /**
- * Read-sync: flip open records on a user's partition to `seen` when the
- * emitting surface knows they were consumed there (e.g. the team-chat read
- * cursor advanced past the message). Returns the number of records updated.
+ * Read-sync: this person's view of their open records becomes seen when the
+ * emitting surface knows they consumed them there (a team-chat read cursor
+ * advanced past the message). Returns the number of records marked.
  */
 export async function markInboxNotificationsSeenWhere(input: {
-  predicate: (notification: InboxNotification) => boolean;
+  predicate: (notification: NotificationRecord) => boolean;
   tenantId: string;
   userId: string;
 }): Promise<number> {
-  const store = await getNotificationsStore();
-  if (!store) {
+  const target = getHost();
+  if (!target) {
     return 0;
   }
-  const threadId = inboxThreadId(input.tenantId, input.userId);
-  const open = await store.listNotifications({
-    limit: 200,
-    status: OPEN_STATUSES as string[],
-    threadId,
+  return target.service.markSeenWhere(input);
+}
+
+/**
+ * Register this process's channels and drive the delivery ledger. Web push
+ * needs VAPID keys; email needs a tenant service credential — a missing
+ * prerequisite leaves that channel unregistered (its rows stay pending)
+ * rather than failing every tick.
+ */
+export async function startNotificationDelivery(): Promise<() => void> {
+  // Lazy: the scheduler modules sit inside the Mastra config's dependency
+  // graph (they reach the ai registry), and this file is imported by the
+  // catalog tools that graph builds — an eager import is a circular
+  // module-eval TDZ crash. Deferred to boot time, the cycle is fine.
+  const [{ createSchedulerOperationInvoker }, { listTenantIds }] =
+    await Promise.all([
+      import("../scheduler/service-invoker.js"),
+      import("../scheduler/tenants.js"),
+    ]);
+  const target = getHost();
+  if (!(target && serviceDb)) {
+    logger.warn("notification delivery not started (no database lane)");
+    return () => {
+      // nothing to stop
+    };
+  }
+  const vapid = vapidKeysFromEnv();
+  if (vapid) {
+    target.registerChannel(
+      createWebPushChannel({ keys: vapid, store: target.service.store })
+    );
+  } else {
+    logger.info(
+      "web push channel off (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY unset)"
+    );
+  }
+  if (process.env.ENGENTY_EMAIL_NOTIFICATIONS_ENABLED !== "false") {
+    const db = serviceDb;
+    target.registerChannel(
+      createEmailChannel({
+        invokerFor: (tenantId) => createSchedulerOperationInvoker(tenantId),
+        lookupUserEmail: async ({ userId }) => {
+          const { data } = await db
+            .schema("core")
+            .from("users")
+            .select("email")
+            .eq("id", userId)
+            .limit(1);
+          const email = (data ?? [])[0]?.email as string | undefined;
+          return email ?? null;
+        },
+        uiBaseUrl: process.env.ENGENTY_UI_BASE_URL,
+      })
+    );
+  }
+  return startDeliveryLoop({
+    channels: target.channels,
+    listTenantIds,
+    store: target.service.store,
   });
-  let updated = 0;
-  for (const record of open) {
-    const notification = toInboxNotification(record);
-    if (!input.predicate(notification)) {
-      continue;
-    }
-    await store.updateNotification({
-      id: notification.id,
-      status: "seen",
-      threadId,
-    });
-    updated += 1;
-  }
-  if (updated > 0) {
-    broadcastInboxChanged(input.tenantId);
-  }
-  return updated;
 }

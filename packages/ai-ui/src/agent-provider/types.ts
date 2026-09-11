@@ -10,7 +10,10 @@ import type {
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import type { ReactNode } from "react";
-import type { EngentyAgUiPendingSend } from "../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
+import type {
+  EngentyAgUiPendingSend,
+  ResumeInterruptFeedback,
+} from "../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
 import type {
   EngentyAgUiEvent,
   EngentyAgUiMessage,
@@ -38,13 +41,13 @@ export type SubmitMessage = (
   options?: SubmitMessageOptions
 ) => void;
 
-export interface EngentyInterruptFeedback {
-  artifactId: string;
-  choiceId: string;
-  choiceLabel: string;
-  interruptId?: string;
-  payload?: Record<string, unknown>;
-}
+/**
+ * What `resumeInterrupt`/`respond` accept — an artifact decision choice OR a
+ * native tool-approval result. Alias of the session's own payload type: the
+ * first cut named only the artifact half here while the runtime handled both,
+ * which forced every host to lie about the callback it was passing.
+ */
+export type EngentyInterruptFeedback = ResumeInterruptFeedback;
 
 /** Agent tool id (`TOOL_CALL_START.toolCallName`) → query roots to invalidate. */
 export type AgentToolInvalidationMap = ReadonlyMap<
@@ -53,6 +56,18 @@ export type AgentToolInvalidationMap = ReadonlyMap<
 >;
 
 export interface EngentyAIProps {
+  /**
+   * The space a SPACE-BOUND host's active thread belongs to
+   * (PLAN-space-chats.md) — today, the copilot's.
+   *
+   * The copilot uses one host key everywhere, so without this the dock opened
+   * in Marketing resumes the thread you left in Company, and the run reads its
+   * tools from Company because the space comes off the THREAD row. Pass the
+   * copilot's own answer (`resolveCopilotSpaceId`), not the route's: outside a
+   * space the copilot belongs to the PERSONAL space, and the route's fallback
+   * is the tenant default.
+   */
+  activeThreadSpaceId?: string | null;
   /**
    * Maps a copilot tool id to the React Query roots its execution invalidates,
    * so agent writes (e.g. `manage_project` → `["projects"]`) refresh the UI
@@ -107,11 +122,15 @@ export interface EngentyAgentProps extends HostConfig {
 
 export interface AgentHost {
   activeThreadId: string | null;
+  /** A run this window streams but did not start — a colleague's turn, another window's. */
+  attachedRunId?: string | null;
   awaitingInterrupt: boolean;
   cancel: () => void;
   config: HostConfig;
   configureHost: (config: Partial<HostConfig>) => void;
   copilotMessages: CopilotPanelContentProps["messages"];
+  /** The interrupt card's ✕: hide it now and clear it on the server, without answering. */
+  dismissInterrupt: (open: AgUiOpenInterruptMetadata) => void;
   error: Error | null;
   events: EngentyAgUiEvent[];
   hostKey: string;
@@ -124,8 +143,12 @@ export interface AgentHost {
   pendingInterruptToolCallIds: ReadonlySet<string>;
   pendingSend: EngentyAgUiPendingSend;
   pendingUserInsertIndex: number | null;
+  /** Optimistic attachment / reference parts while a run is in flight. */
+  pendingUserParts: unknown[] | null;
   pendingUserText: string | null;
   reset: () => void;
+  /** Tool call ids whose card this client already answered or dismissed — masks the lagging session-metadata copy. */
+  resolvedInterruptToolCallIds: ReadonlySet<string>;
   /** Resolve an interactive decision/feedback tool call: records the result optimistically, then resumes. */
   respond: (toolCallId: string, feedback: EngentyInterruptFeedback) => void;
   /** Re-attach to an in-flight server run after reload/navigation (poll transcript + run events). */
@@ -133,6 +156,8 @@ export interface AgentHost {
   resumeInterrupt: (feedback: EngentyInterruptFeedback) => void;
   state: EngentyAgUiState;
   status: EngentyAgentStatus;
+  /** Put words into the attached run; false when there was none to steer. */
+  steer?: (text: string, options?: SubmitMessageOptions) => Promise<boolean>;
   submitMessage: SubmitMessage;
   threadId: string | null;
   threadResetKey: number;

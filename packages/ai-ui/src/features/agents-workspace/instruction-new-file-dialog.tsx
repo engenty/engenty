@@ -13,6 +13,13 @@ import {
 import { useState } from "react";
 
 interface InstructionNewFileDialogProps {
+  copy?: {
+    create: string;
+    hint: string;
+    name: string;
+    placeholder: string;
+    title: string;
+  };
   isPending?: boolean;
   onCreate: (filename: string) => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
@@ -21,6 +28,7 @@ interface InstructionNewFileDialogProps {
 }
 
 export function InstructionNewFileDialog({
+  copy,
   isPending = false,
   onCreate,
   onOpenChange,
@@ -34,6 +42,11 @@ export function InstructionNewFileDialog({
       ? trimmed
       : `${trimmed}.md`
     : "";
+  const title = copy?.title ?? t("instructions.newFileTitle");
+  const hint = copy?.hint ?? t("instructions.newFileHint");
+  const nameLabel = copy?.name ?? t("instructions.newFileName");
+  const placeholder = copy?.placeholder ?? t("instructions.newFilePlaceholder");
+  const createLabel = copy?.create ?? t("instructions.newFileCreate");
 
   const submit = async () => {
     if (!filename || isPending) {
@@ -48,16 +61,12 @@ export function InstructionNewFileDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("instructions.newFileTitle")}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            {t("instructions.newFileHint")}
-          </p>
+          <p className="text-muted-foreground text-sm">{hint}</p>
           <div className="space-y-1.5">
-            <Label htmlFor="instruction-new-name">
-              {t("instructions.newFileName")}
-            </Label>
+            <Label htmlFor="instruction-new-name">{nameLabel}</Label>
             <Input
               autoFocus
               id="instruction-new-name"
@@ -67,7 +76,7 @@ export function InstructionNewFileDialog({
                   void submit();
                 }
               }}
-              placeholder={t("instructions.newFilePlaceholder")}
+              placeholder={placeholder}
               value={name}
             />
           </div>
@@ -83,7 +92,7 @@ export function InstructionNewFileDialog({
             onClick={() => void submit()}
             size="sm"
           >
-            {t("instructions.newFileCreate")}
+            {createLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

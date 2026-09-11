@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { type QueryClient, useQueryClient } from "@engenty/query-client";
 import type {
   UiNavigationPrefetchContribution,
@@ -85,11 +86,20 @@ export function NavigationPrefetchRoot({
       if (!href || href.startsWith("#") || href.startsWith("mailto:")) {
         return;
       }
-      const pathname = resolveInternalPathname(href);
-      if (!pathname?.startsWith("/mdl/")) {
+      const href$ = resolveInternalPathname(href);
+      if (!href$) {
         return;
       }
-      if (pathname === location.pathname) {
+      // Canonical, not raw. Inside a space every link a module renders points at
+      // `/s/<key>/<segment>/…`, while every registered prefetch matcher is
+      // written against `/mdl/<module>/…` — so the raw form failed this gate and
+      // took ALL prefetching with it, for every module, whenever the user was in
+      // a space. One normalisation here fixes each module's matcher at once.
+      const pathname = canonicalModulePathname(href$);
+      if (!pathname.startsWith("/mdl/")) {
+        return;
+      }
+      if (pathname === canonicalModulePathname(location.pathname)) {
         return;
       }
       const now = Date.now();

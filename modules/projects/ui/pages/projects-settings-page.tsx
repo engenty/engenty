@@ -72,7 +72,6 @@ export function ProjectsSettingsPage() {
     actions: pageActions,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (loading || !settings) {

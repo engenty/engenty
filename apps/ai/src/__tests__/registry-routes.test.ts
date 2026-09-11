@@ -46,7 +46,13 @@ describe("registry-routes", () => {
         name: "Contacts Manager",
         source: "module",
       },
-      { id: "engenty.copilot", name: "Engenty Copilot", source: "builtin" },
+      {
+        id: "engenty.copilot",
+        interfaceRole: "live",
+        kind: "interface",
+        name: "Engenty Copilot",
+        source: "builtin",
+      },
     ]);
     const mockStore = {
       listAgents: vi.fn(async () => [{ id: "db-only", name: "DB Only" }]),
@@ -68,6 +74,9 @@ describe("registry-routes", () => {
     await expect(res.json()).resolves.toEqual({
       agents: [
         {
+          // `can_execute` is false for both: neither declared a sandbox. The
+          // Space's Compute settings offer a placement only where it is true.
+          can_execute: false,
           id: "contacts.manager",
           managed_by_module: null,
           name: "Contacts Manager",
@@ -75,7 +84,10 @@ describe("registry-routes", () => {
           source: "module",
         },
         {
+          can_execute: false,
           id: "engenty.copilot",
+          interfaceRole: "live",
+          kind: "interface",
           managed_by_module: null,
           name: "Engenty Copilot",
           role: "copilot",
@@ -90,12 +102,26 @@ describe("registry-routes", () => {
   it("decorates agents with role and managed_by_module", async () => {
     const app = new Hono();
     const mockStore = {
-      getAgentConfig: vi
-        .fn()
-        .mockResolvedValue({ id: "chatbot.faq", name: "FAQ Bot" }),
+      getAgentConfig: vi.fn().mockResolvedValue({
+        id: "chatbot.faq",
+        interfaceRole: "remote",
+        kind: "interface",
+        moduleId: "chatbot",
+        name: "FAQ Bot",
+      }),
       listAgents: vi.fn(async () => [
-        { id: "chatbot.faq", name: "FAQ Bot" },
-        { id: "knowledge-base.answers", name: "KB Answers" },
+        {
+          id: "chatbot.faq",
+          interfaceRole: "remote",
+          kind: "interface",
+          moduleId: "chatbot",
+          name: "FAQ Bot",
+        },
+        {
+          id: "knowledge-base.answers",
+          kind: "chat_surface",
+          name: "KB Answers",
+        },
         { id: "custom-helper", name: "Custom Helper" },
       ]),
     };
@@ -123,16 +149,95 @@ describe("registry-routes", () => {
     expect(detailBody.agent.managed_by_module).toBe("chatbot");
   });
 
-  it("should create agent", async () => {
+  it("refuses a hire into a space that already holds the agent limit", async () => {
     const app = new Hono();
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const listSpaceMounts = vi.fn().mockResolvedValue(
+      Array.from({ length: 20 }, (_, index) => ({
+        resourceKey: `hire-${index}`,
+        resourceType: "agent",
+      }))
+    );
     const mockStore = {
-      upsertAgent: vi
-        .fn()
-        .mockImplementation((tenantId, agent) => Promise.resolve(agent)),
+      upsertAgent: vi.fn(),
     };
 
     registerRegistryRoutes(app, {
+      createCoreClient: () => ({ listSpaceMounts, putSpaceMount }) as any,
       getStore: () => mockStore as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request("/ai/registry/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "agent-21",
+        name: "Agent 21",
+        model: "gpt-4",
+        instructions: "One too many.",
+        spaceIds: ["00000000-0000-4000-8000-000000000002"],
+      }),
+    });
+
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("agent_registry.spaceAgentLimit");
+    expect(mockStore.upsertAgent).not.toHaveBeenCalled();
+    expect(putSpaceMount).not.toHaveBeenCalled();
+  });
+
+  it("should create agent", async () => {
+    const app = new Hono();
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const listSpaceMounts = vi.fn().mockResolvedValue([]);
+    const mockStore = {
+      upsertAgent: vi
+        .fn()
+        .mockImplementation((_tenantId, agent) => Promise.resolve(agent)),
+    };
+
+    registerRegistryRoutes(app, {
+      createCoreClient: () => ({ listSpaceMounts, putSpaceMount }) as any,
+      getStore: () => mockStore as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request("/ai/registry/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "agent-2",
+        name: "Agent 2",
+        model: "gpt-4",
+        instructions: "You are a helpful assistant.",
+        spaceIds: ["00000000-0000-4000-8000-000000000002"],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.agent.id).toBe("agent-2");
+    expect(body.mounted).toEqual([
+      { ok: true, spaceId: "00000000-0000-4000-8000-000000000002" },
+    ]);
+    expect(mockStore.upsertAgent).toHaveBeenCalledWith(
+      "tenant-1",
+      expect.objectContaining({ id: "agent-2" })
+    );
+    expect(putSpaceMount).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000002",
+      { resource_key: "agent-2", resource_type: "agent" }
+    );
+  });
+
+  it("refuses to create an agent with no spaces", async () => {
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      getStore: () =>
+        ({
+          upsertAgent: vi.fn(),
+        }) as any,
       scopeResolver: createScopeResolver(),
     });
 
@@ -146,14 +251,10 @@ describe("registry-routes", () => {
         instructions: "You are a helpful assistant.",
       }),
     });
-
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.agent.id).toBe("agent-2");
-    expect(mockStore.upsertAgent).toHaveBeenCalledWith(
-      "tenant-1",
-      expect.objectContaining({ id: "agent-2" })
-    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "agent_registry.spaceRequired",
+    });
   });
 
   it("should delete agent in the resolved tenant scope", async () => {
@@ -241,5 +342,171 @@ describe("registry-routes", () => {
       "tenant-1",
       "search-tool"
     );
+  });
+
+  it("approves a new proposal and mounts the stamped space", async () => {
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const app = new Hono();
+    const mockStore = {
+      getAgentRecord: vi.fn().mockResolvedValue({
+        config: { id: "sales.researcher", name: "Sales Researcher" },
+        proposed_space_id: "00000000-0000-4000-8000-000000000010",
+        status: "proposed",
+      }),
+      approveAgent: vi.fn().mockResolvedValue({
+        id: "sales.researcher",
+        name: "Sales Researcher",
+      }),
+    };
+    registerRegistryRoutes(app, {
+      createCoreClient: () => ({ putSpaceMount }) as any,
+      getStore: () => mockStore as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/approve",
+      {
+        method: "POST",
+      }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.agent.id).toBe("sales.researcher");
+    expect(body.mounted).toEqual([
+      { ok: true, spaceId: "00000000-0000-4000-8000-000000000010" },
+    ]);
+    expect(putSpaceMount).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not remount when approving a revision", async () => {
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      createCoreClient: () => ({ putSpaceMount }) as any,
+      getStore: () =>
+        ({
+          getAgentRecord: vi.fn().mockResolvedValue({
+            config: { id: "sales.researcher" },
+            proposed_config: { name: "v2" },
+            proposed_space_id: "00000000-0000-4000-8000-000000000010",
+            status: "active",
+          }),
+          approveAgent: vi.fn().mockResolvedValue({
+            id: "sales.researcher",
+            name: "v2",
+          }),
+        }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/approve",
+      {
+        method: "POST",
+      }
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).mounted).toEqual([]);
+    expect(putSpaceMount).not.toHaveBeenCalled();
+  });
+
+  it("approves a new proposal using the body spaceId when none was stamped", async () => {
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      createCoreClient: () => ({ putSpaceMount }) as any,
+      getStore: () =>
+        ({
+          getAgentRecord: vi.fn().mockResolvedValue({
+            config: { id: "sales.researcher" },
+            proposed_space_id: null,
+            status: "proposed",
+          }),
+          approveAgent: vi.fn().mockResolvedValue({
+            id: "sales.researcher",
+            name: "Sales Researcher",
+          }),
+        }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const spaceId = "00000000-0000-4000-8000-000000000010";
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/approve",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spaceId }),
+      }
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).mounted).toEqual([{ ok: true, spaceId }]);
+    expect(putSpaceMount).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to approve a new proposal with no space", async () => {
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      getStore: () =>
+        ({
+          getAgentRecord: vi.fn().mockResolvedValue({
+            config: { id: "sales.researcher" },
+            proposed_space_id: null,
+            status: "proposed",
+          }),
+          approveAgent: vi.fn(),
+        }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/approve",
+      {
+        method: "POST",
+      }
+    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "agent_registry.spaceRequired",
+    });
+  });
+
+  it("stamps proposed_space_id on propose and does not mount", async () => {
+    const putSpaceMount = vi.fn().mockResolvedValue({});
+    const proposeAgent = vi.fn().mockResolvedValue({
+      proposed_space_id: "00000000-0000-4000-8000-000000000010",
+      status: "proposed",
+    });
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      createCoreClient: () => ({ putSpaceMount }) as any,
+      getStore: () => ({ proposeAgent }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/propose",
+      {
+        body: JSON.stringify({
+          instructions: "You are a helpful assistant.",
+          model: "gpt-4",
+          name: "Sales Researcher",
+          proposed_space_id: "00000000-0000-4000-8000-000000000010",
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }
+    );
+    expect(res.status).toBe(200);
+    expect(proposeAgent).toHaveBeenCalledWith(
+      "tenant-1",
+      expect.objectContaining({ id: "sales.researcher" }),
+      {
+        proposedByAgent: null,
+        proposedSpaceId: "00000000-0000-4000-8000-000000000010",
+      }
+    );
+    expect(putSpaceMount).not.toHaveBeenCalled();
   });
 });

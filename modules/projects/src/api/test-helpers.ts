@@ -87,6 +87,7 @@ export function makeMockProjectRepo() {
         id,
         tenant_id: "tenant-1",
         scope_id: "default",
+        space_id: "space-1",
         client_id: fields.client_id,
         client_name: fields.client_name ?? null,
         lead_id: fields.lead_id ?? null,
@@ -385,6 +386,12 @@ export function makeMockProjectRepo() {
       }
       if (params.project_id) {
         items = items.filter((t) => t.project_id === params.project_id);
+      }
+      if (params.space_id) {
+        items = items.filter((t) => {
+          const project = projects.get(t.project_id);
+          return project?.space_id === params.space_id;
+        });
       }
       if (params.status) {
         items = items.filter((t) => t.status === params.status);

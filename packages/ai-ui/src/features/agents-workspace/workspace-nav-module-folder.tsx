@@ -41,7 +41,7 @@ export function WorkspaceNavModuleFolder({
         <span className="min-w-0 flex-1 truncate">{label ?? moduleId}</span>
       </button>
       {open ? (
-        <div className="ml-2 flex flex-col gap-1.5 border-border/50 border-l pl-1.5">
+        <div className="ml-2 flex flex-col gap-1.5 border-border-soft border-l pl-1.5">
           {children}
         </div>
       ) : null}

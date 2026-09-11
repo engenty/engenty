@@ -15,7 +15,7 @@ function minimalRegistry(): PluginRegistry {
 }
 
 describe("registerCoreMethods", () => {
-  it("registers four core plugin methods", () => {
+  it("registers the core plugin methods", () => {
     const registry = minimalRegistry();
     registerCoreMethods(
       registry,
@@ -28,6 +28,7 @@ describe("registerCoreMethods", () => {
     expect(names).toEqual(
       [
         "core_users_create_in_tenant",
+        "core_agents_ensure",
         ENGENTY_API_CATALOG_TOOL_ID,
         CHAT_THREAD_INDEX_HEALTH_METHOD,
         CHAT_THREAD_SEARCH_METHOD,
@@ -36,12 +37,15 @@ describe("registerCoreMethods", () => {
     expect(registry.gatewayMethods.every((e) => e.pluginId === "core")).toBe(
       true
     );
-    expect(
-      registry.moduleOperations.some(
-        (e) => e.operationId === "core_users_create_in_tenant"
-      )
-    ).toBe(true);
-    expect(registry.moduleOperations.length).toBe(2);
+    // Only the methods carrying `operation` metadata reach moduleOperations —
+    // the two chat-thread methods deliberately do not.
+    expect(registry.moduleOperations.map((e) => e.operationId).sort()).toEqual(
+      [
+        "core_agents_ensure",
+        "core_users_create_in_tenant",
+        ENGENTY_API_CATALOG_TOOL_ID,
+      ].sort()
+    );
     expect(registry.moduleOperations.every((e) => e.pluginId === "core")).toBe(
       true
     );

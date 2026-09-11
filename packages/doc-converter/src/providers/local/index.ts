@@ -10,6 +10,7 @@ import type {
   ConversionResult,
   DocConverterProvider,
 } from "../../interface.js";
+import { markdownFromPagedParseResult } from "../../page-break.js";
 
 const SUPPORTED_TYPES = [
   "application/pdf",
@@ -42,9 +43,16 @@ export class LocalProvider implements DocConverterProvider {
       const buffer = Buffer.from(data);
       const parser = new PDFParse({ data: buffer });
       try {
-        const textResult = await parser.getText();
+        const textResult = await parser.getText({ pageJoiner: "" });
         const infoResult = await parser.getInfo();
-        markdown = textResult.text;
+        markdown = markdownFromPagedParseResult({
+          fallback: textResult.text,
+          pages: textResult.pages.map((page) => ({
+            number: page.num,
+            text: page.text,
+          })),
+          total: textResult.total,
+        });
         metadata.page_count = textResult.total;
         const info = infoResult.info as
           | { Title?: string; Author?: string }

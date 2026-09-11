@@ -9,6 +9,10 @@ allowed-tools: engenty_tools_search engenty_tool_execute load_project load_proje
 
 Use this skill when the user wants to manage phases (milestones) or tasks within a project — create, edit, delete, reorder, change status, assign team members, or toggle portal visibility.
 
+## Space scope
+- Phases and project tasks belong to the parent project's Space. List and count in `current_space`; never omit space scope in a Space-bound run.
+- Child create/update/delete derive Space from `project_id`. A project from another Space is not part of this run.
+
 ## Tool Process
 1. Start with `engenty_tools_search` using `moduleId: "projects"` and `kind: "tool"`.
 2. Prefer registered operations: `projects_create_phase`, `projects_update_phase`, `projects_delete_phase`, `projects_create_task`, `projects_update_task`, `projects_delete_task`, `projects_list_tasks`, `projects_task_counts`, `projects_update_visibility`.

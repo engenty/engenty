@@ -69,7 +69,6 @@ export function SecretsImportPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const labels: CSVImportWizardLabels = useMemo(

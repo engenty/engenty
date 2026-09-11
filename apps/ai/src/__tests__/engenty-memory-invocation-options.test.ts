@@ -40,6 +40,8 @@ function makeSession(): ThreadRow {
     tenant_id: tenantId,
     title: null,
     updated_at: "2026-05-17T00:00:01.000Z",
+    space_id: null,
+    visibility: "space",
     workspace_key: null,
   };
 }
@@ -90,8 +92,30 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
     getThread: vi.fn(async () => thread),
     getThreadGlobally: vi.fn(async () => thread),
+    getThreadObservationalMemory: vi.fn(async () => null),
+    listMessagesByIds: vi.fn(async ({ messageIds }) =>
+      [makeMessage()].filter((message) => messageIds.includes(message.id))
+    ),
     listMessagesOrdered: vi.fn(async () => [makeMessage()]),
+    listHeadlessThreadsForTask: vi.fn(async () => []),
+    listRunThreadsForSpaceAgent: vi.fn(async () => []),
+    listLatestMessagesForThreads: vi.fn(async () => new Map()),
+    listAppReleaseMarkersForThreads: vi.fn(async () => []),
+    listUnattendedThreadsForSpace: vi.fn(async () => []),
+    addAgentMember: vi.fn(async () => {}),
+    listAgentMembers: vi.fn(async () => []),
+    listDmsForUser: vi.fn(async () => []),
+    listRoomsForSpace: vi.fn(async () => []),
+    listSpaceRoomsDirectory: vi.fn(async () => []),
+    listParticipantThreadIds: vi.fn(async () => []),
+    setThreadVisibility: vi.fn(async () => thread),
+    removeAgentMember: vi.fn(async () => {}),
+    addUserParticipant: vi.fn(async () => {}),
+    listUserParticipants: vi.fn(async () => []),
+    removeUserParticipant: vi.fn(async () => {}),
+    listThreadsForSpaceAgent: vi.fn(async () => []),
     listThreadsForUser: vi.fn(async () => [thread]),
+    setThreadStatus: vi.fn(async () => {}),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -136,12 +160,80 @@ describe("Engenty Mastra memory invocation options", () => {
 
     expect(createEngentyMastraThreadId({ threadId })).toBe(threadId);
     expect(createEngentyMastraResourceId({ scope })).toBe(userId);
+    expect(
+      createEngentyMastraResourceId({
+        scope,
+        sharedRoom: true,
+        threadId,
+      })
+    ).toBe(threadId);
+    expect(
+      createEngentyMastraResourceId({
+        scope,
+        sharedRoom: true,
+        spaceId: "00000000-0000-4000-8000-000000000099",
+        threadId,
+      })
+    ).toBe("00000000-0000-4000-8000-000000000099");
     expect(createEngentyMemoryInvocationOptions({ scope, threadId })).toEqual({
       memory: {
         resource: userId,
         thread: threadId,
       },
     });
+  });
+
+  it("keys shared-room runtime memory on the space, not the thread", () => {
+    const spaceId = "00000000-0000-4000-8000-000000000099";
+    const runtime = createEngentySessionMemoryRuntime({
+      agentId: "contacts.manager",
+      scope: { tenantId, userId },
+      sharedRoom: true,
+      spaceId,
+      threadId,
+      store: makeStore(),
+    });
+
+    expect(runtime.invocationOptions).toEqual({
+      memory: {
+        resource: spaceId,
+        thread: threadId,
+      },
+    });
+  });
+
+  it("binds MEMORY.md tools and signal to the agent's Space audience", () => {
+    const spaceId = "00000000-0000-4000-8000-000000000099";
+    const shared = createEngentySessionMemoryRuntime({
+      agentId: "chief-of-staff",
+      scope: { tenantId, userId },
+      sharedObservations: "space",
+      sharedRoom: true,
+      spaceId,
+      store: makeStore(),
+      threadId,
+    });
+    // TASKS.md rides the same row and the same audience, so `todo_edit`
+    // arrives with the MEMORY.md pair.
+    expect(Object.keys(shared.memoryTools).sort()).toEqual([
+      "memory_forget",
+      "memory_note",
+      "todo_edit",
+    ]);
+    expect(shared.memoryProcessors.map((processor) => processor.id)).toContain(
+      "engenty-agent-memory"
+    );
+
+    const none = createEngentySessionMemoryRuntime({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store: makeStore(),
+      threadId,
+    });
+    expect(none.memoryTools).toEqual({});
+    expect(
+      none.memoryProcessors.map((processor) => processor.id)
+    ).not.toContain("engenty-agent-memory");
   });
 
   it("creates the parallel storage runtime beside invocation options", () => {

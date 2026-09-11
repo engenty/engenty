@@ -2,7 +2,7 @@
 
 **Status:** done (2026-05) — checklist below retained for audit  
 **Depends on:** [phase-01-module-scaffold-and-schema.md](./phase-01-module-scaffold-and-schema.md)  
-**Blocks:** [phase-03-goals-and-lifecycle.md](./phase-03-goals-and-lifecycle.md)
+**Blocks:** phase-03 (Goals — removed 2026-09)
 
 ## Intent
 

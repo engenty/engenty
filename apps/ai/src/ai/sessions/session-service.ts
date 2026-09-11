@@ -2,6 +2,7 @@ import type { Message, RunAgentInput } from "@engenty/ag-ui-bridge";
 import {
   ACTIVE_ARTIFACT_METADATA_KEY,
   mergeActiveArtifactMetadata,
+  readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
 import type { AiEffort } from "@engenty/ai-core";
 import {
@@ -9,6 +10,7 @@ import {
   agUiMessageText,
   checkUsageLimits,
   formatUsageLimitError,
+  modelIdOfRef,
   normalizeAgUiMessageForPersistence,
   recordAiUsage,
 } from "@engenty/ai-core";
@@ -16,10 +18,15 @@ import { createLogger } from "@engenty/telemetry";
 import type { Workspace } from "@mastra/core/workspace";
 import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
 import { createNativeFrontendTools } from "../../../ai/frontend-tools/native-frontend-tool.js";
-import { engentyToolsRunAls } from "../../../ai/tools/engenty-tools/lib/run-context.js";
+import { preferredSkillIdsForRun } from "../../../ai/tools/agent-hire-policy.js";
+import {
+  engentyToolsRunAls,
+  withEnvCoreBaseUrl,
+} from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { ThreadMessageRow, ThreadRow } from "../../dal/threads/index.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
+import { isResumeInFlight } from "../conversation/resume-claims.js";
 import { AiSessionError } from "../errors.js";
 import { filterAgentUiFrontendToolsForScope } from "../frontend-tool-gating/filter-agent-ui-for-scope.js";
 import {
@@ -27,15 +34,17 @@ import {
   createEngentyAgentExecutionOptions,
   createEngentyMastraResourceId,
   createEngentySessionMemoryRuntime,
+  resolveSharedObservationsScope,
 } from "../memory/index.js";
 import {
   assembleDynamicAgent,
   type RuntimeModelConfig,
   resolveAgentModelId,
 } from "../registry/index.js";
-import { destroySessionLifecycleSandbox } from "../sandbox/destroy-session-sandbox.js";
+import { destroySessionLifecycleSandboxes } from "../sandbox/destroy-session-sandbox.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
+import { resolveTenantDefaultSpaceId } from "../work-scope/resolve-space.js";
 import { resolveWorkVisibility } from "../work-scope/resolve-work-visibility.js";
 import { mergeDeclaredWorkspaceMounts } from "../workspace/sandbox-mounts.js";
 import {
@@ -52,7 +61,18 @@ import {
   buildThreadPromptPreview,
   type ThreadPromptPreview,
 } from "./prompt-preview.js";
-import { reconcileOrphanedInterrupt } from "./reconcile-orphaned-interrupt.js";
+import {
+  clearOpenInterrupt,
+  reconcileOrphanedInterrupt,
+} from "./reconcile-orphaned-interrupt.js";
+import {
+  type RunSpaceResolution,
+  resolvedRunSpace,
+  resolvePersonalSpaceId,
+  resolveRunSpace,
+  resolveRunSpaceById,
+  toolsSpaceFromResolution,
+} from "./run-space.js";
 import {
   createSessionRunTracker,
   ensureAgentRunStarted,
@@ -63,13 +83,20 @@ import { resolveRuntimeModelConfig } from "./runtime-model-config.js";
 import {
   buildRouteContext,
   resolveRequestedSessionId,
+  spaceIdFromRouteContext,
 } from "./session-identity.js";
+import { canReadTask } from "./task-thread-access.js";
 import {
   createScopeModuleOperationInvoker,
   extractTaskRouteFields,
   prepareTaskWorkspaceForRun,
   resolveTaskBinding,
 } from "./task-workspace-hook.js";
+import {
+  canEnterSpaceDefault,
+  requireThreadAccess,
+  sharedMastraRoomFromThread,
+} from "./thread-access.js";
 import type {
   AgentUiProducerContext,
   AiSessionScope,
@@ -83,6 +110,7 @@ import type {
 } from "./types.js";
 import { scopeAccessToken } from "./types.js";
 import { contextPromptTokensFromOutput, usageFromOutput } from "./usage.js";
+import { resolveUserDisplayNames } from "./user-display-names.js";
 
 // Session harness: Mastra Memory is the sole writer for user/assistant transcript
 // rows; this layer owns interrupts metadata, run tracking, usage, and AG-UI SSE.
@@ -121,6 +149,33 @@ function stringifyToolError(result: unknown): string {
     }
   }
   return String(result);
+}
+
+/**
+ * What the workspace's skill filter lets this run open. Same policy as the
+ * prompt hint in assembly (`preferredSkillIdsForRun`): the live-hire set for
+ * every database-sourced agent, chief-of-staff on top when the space's
+ * surface lists the agent as top-level.
+ */
+function preferredSkillNamesForRun(
+  config:
+    | { id?: string; skillIds?: readonly string[]; source?: string | null }
+    | null
+    | undefined,
+  agentId: string,
+  spaceResolution: RunSpaceResolution | undefined
+): { preferredSkillNames?: string[] } {
+  if (!config) {
+    return {};
+  }
+  const runSpace = spaceResolution
+    ? resolvedRunSpace(spaceResolution)
+    : undefined;
+  const names = preferredSkillIdsForRun(
+    config,
+    Boolean(runSpace?.topLevelAgentIds?.has(agentId))
+  );
+  return names.length > 0 ? { preferredSkillNames: names } : {};
 }
 
 export function resolveSubmittedUserMessage(messages: Message[] | undefined): {
@@ -188,6 +243,38 @@ export function createThreadService(opts: ThreadServiceOptions) {
     return { session, store };
   }
 
+  async function assertSessionAccess(input: {
+    action: "read" | "write";
+    scope: AiSessionScope;
+    session: ThreadRow;
+  }) {
+    const registry = opts.createRegistry?.(input.scope) ?? opts.registry;
+    await requireThreadAccess({
+      action: input.action,
+      ...(registry
+        ? {
+            getAgentConfig: (agentId: string) =>
+              registry.getAgentConfig(agentId),
+          }
+        : {}),
+      isParticipant: async () =>
+        (
+          await getRequiredStore().listUserParticipants({
+            tenantId: input.scope.tenantId,
+            threadId: input.session.id,
+          })
+        ).some((person) => person.user_id === input.scope.userId),
+      scope: input.scope,
+      session: {
+        agent_id: input.session.agent_id,
+        created_by_user_id: input.session.created_by_user_id,
+        route_context: input.session.route_context ?? {},
+        space_id: input.session.space_id,
+        visibility: input.session.visibility ?? null,
+      },
+    });
+  }
+
   async function resolveAgentForSessionMemory(input: {
     agentUi?: AgentUiProducerContext | null;
     authorization?: string | null;
@@ -209,6 +296,48 @@ export function createThreadService(opts: ThreadServiceOptions) {
     let sandboxProvider: EngentySandboxProvider | undefined;
     const subAgentSandboxProviders: EngentySandboxProvider[] = [];
     const subAgentWorkspacesMap = new Map<string, Workspace>();
+    // The run's space, resolved ONCE and validated against the caller's access
+    // (PLAN-spaces.md Phase C3a). Everything downstream — the workspace root,
+    // the tool catalog, the execute gate, the runtime prompt — reads this one
+    // answer, so they cannot disagree about which space the run is in.
+    let spaceResolution = await resolveRunSpace({
+      scope: input.scope,
+      thread: session,
+      threadId: input.threadId,
+      ...(input.runId ? { runId: input.runId } : {}),
+    });
+    // A PERSONAL agent has no tenant-wide mode (PLAN-space-chats.md S4b).
+    //
+    // `global` means the thread made no space claim — a row from before Phase
+    // C2's backfill, or one minted in the window before the shell's space list
+    // resolved. Left alone it resolves the TENANT DEFAULT, i.e. the shared
+    // Company space, so a chat nobody placed anywhere would quietly reach
+    // every module mounted there. The personal space is where such a chat
+    // belongs; it is the rule C2 backfilled these threads with and the one the
+    // shell applies outside `/s/…`.
+    //
+    // Still fail-SOFT if the caller has no personal space (an install predating
+    // Phase P): a warn and today's behaviour beats a copilot that cannot chat.
+    if (
+      spaceResolution.kind === "global" &&
+      rootConfig?.agentScope === "personal"
+    ) {
+      const personalSpaceId = await resolvePersonalSpaceId(input.scope);
+      if (personalSpaceId) {
+        spaceResolution = await resolveRunSpaceById({
+          scope: input.scope,
+          spaceId: personalSpaceId,
+          ...(input.runId ? { runId: input.runId } : {}),
+        });
+      } else {
+        workspaceLogger.warn("personal_chat_without_space", {
+          agent_id: session.agent_id,
+          run_id: input.runId ?? null,
+          tenant_id: input.scope.tenantId,
+          thread_id: input.threadId,
+        });
+      }
+    }
     if (input.runId) {
       await ensureAgentRunStarted(opts.getRunStore?.() ?? null, {
         id: input.runId,
@@ -217,6 +346,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
         agentId: session.agent_id,
         modelId: null,
         createdByUserId: input.scope.userId,
+        trigger: "message",
       });
       const workspaceResult = await resolveWorkspaceForRun({
         agentId: session.agent_id,
@@ -226,6 +356,12 @@ export function createThreadService(opts: ThreadServiceOptions) {
         threadId: input.threadId,
         skipCheckout: input.skipTaskCheckout === true,
         workspaceConfig: rootConfig?.workspace,
+        spaceResolution,
+        ...preferredSkillNamesForRun(
+          rootConfig,
+          session.agent_id,
+          spaceResolution
+        ),
       });
       taskWorkspace = workspaceResult?.workspace;
       sandboxProvider = workspaceResult?.sandboxProvider;
@@ -250,6 +386,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
             threadId: input.threadId,
             skipCheckout: true,
             workspaceConfig: subConfig.workspace,
+            spaceResolution,
+            ...preferredSkillNamesForRun(subConfig, subConfig.id, undefined),
           });
           if (subWorkspaceResult) {
             subAgentWorkspacesMap.set(
@@ -276,9 +414,15 @@ export function createThreadService(opts: ThreadServiceOptions) {
       input.scope,
       input.modelIdOverride
     );
-    const modelId = rootConfig
-      ? resolveAgentModelId(rootConfig, modelConfig)
-      : modelConfig.chatModelId;
+    // The bare id, not the ref: this value is only ever used for accounting and
+    // display — the usage preflight, the usage row, the run tracker and the
+    // prompt preview — all of which key off the catalog's `model_id`. The
+    // gateway half has already done its job inside `resolveAgentModel`.
+    const modelId = modelIdOfRef(
+      rootConfig
+        ? resolveAgentModelId(rootConfig, modelConfig)
+        : modelConfig.chatModelId
+    );
     // AG-UI frontend tools: scope-gate, merge with server tools, then register as
     // NATIVE Mastra tools the LLM calls by name (they suspend the run; the browser
     // executes and resumes). Gating runs once here and `mergedDefinitions` is
@@ -319,9 +463,21 @@ export function createThreadService(opts: ThreadServiceOptions) {
       tenantId: input.scope.tenantId,
       userId: input.scope.userId,
     });
+    const sharedRoom = sharedMastraRoomFromThread({
+      agentId: session.agent_id,
+      agentScope: rootConfig?.agentScope,
+      thread: session,
+    });
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: session.agent_id,
+      ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
+      observationalModelId: modelConfig.memoryModelId,
       scope: input.scope,
+      sharedObservations: rootConfig
+        ? resolveSharedObservationsScope(rootConfig)
+        : "disabled",
+      sharedRoom,
+      spaceId: session.space_id,
       threadId: input.threadId,
       store,
     });
@@ -330,8 +486,14 @@ export function createThreadService(opts: ThreadServiceOptions) {
       session.agent_id,
       {
         ...assembleOptions,
+        extraTools: {
+          ...assembleOptions.extraTools,
+          ...memoryRuntime.memoryTools,
+        },
         instructionExtras,
         memory: memoryRuntime.memory,
+        memoryProcessors: memoryRuntime.memoryProcessors,
+        ...(sharedRoom ? { sharedRoom: true } : {}),
       }
     );
     await assertEngentyNativeMastraMemoryConfigured(agent, {
@@ -344,6 +506,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       mergedDefinitions,
       modelId,
       rootConfig,
+      spaceResolution,
       sandboxProvider,
       subAgentSandboxProviders,
       session,
@@ -359,8 +522,11 @@ export function createThreadService(opts: ThreadServiceOptions) {
   // workspace (memory-only run).
   async function resolveWorkspaceForRun(input: {
     agentId: string;
+    preferredSkillNames?: readonly string[];
     runId: string;
     scope: AiSessionScope;
+    /** The run's Space resolution — unresolved must not fall back to tenant-global `/data`. */
+    spaceResolution?: RunSpaceResolution;
     session: Awaited<ReturnType<typeof getRequiredSession>>["session"];
     threadId: string;
     skipCheckout: boolean;
@@ -424,25 +590,70 @@ export function createThreadService(opts: ThreadServiceOptions) {
       }
     }
 
-    // Containment chain (goal → project) above the bound task, from the ONE
+    // Containment chain (the project) above the bound task, from the ONE
     // containment resolver (work-scope/). Resolved only when the mount table
     // declares a containment mount AND a task actually bound — an unlinked
-    // chat run simply has no `/goal` / `/project` (requireBinding drop).
-    let goalId: string | undefined;
+    // chat run simply has no `/project` (requireBinding drop).
     let projectId: string | undefined;
+    // The space roots every work mount (PLAN-spaces.md Phase 2), so it is
+    // resolved for EVERY run — not only the ones that declared a containment
+    // mount. A `/task` checkout with no space would have no path at all.
+    //
+    // The run's OWN space first (Phase C3a): a chat opened in Marketing must
+    // put its files under Marketing, not under whichever space happens to be
+    // the tenant default. The default survives only as the fallback for a
+    // GLOBAL run (no Space claimed). An unresolved claim must not fall back
+    // — that would turn a failed Space into tenant-wide `/data`.
+    const spaceResolution = input.spaceResolution ?? { kind: "global" };
+    const runSpace = resolvedRunSpace(spaceResolution);
+    let spaceId: string | undefined;
+    if (spaceResolution.kind === "unresolved") {
+      spaceId = undefined;
+    } else if (runSpace) {
+      spaceId = runSpace.spaceId;
+    } else {
+      spaceId =
+        (await resolveTenantDefaultSpaceId(input.scope.tenantId)) ?? undefined;
+    }
     const wantsContainment = declaredMounts.some(
-      (mount) => mount.source === "goal" || mount.source === "project"
+      (mount) => mount.source === "project"
     );
     if (wantsContainment && (boundTaskId || taskIdentifier)) {
       const visibility = await resolveWorkVisibility(
         {
           invoke: createScopeModuleOperationInvoker(input.scope),
+          spaceId: spaceId ?? null,
           tenantId: input.scope.tenantId,
         },
         { taskId: boundTaskId, taskIdentifier }
       );
-      goalId = visibility.chain.find((node) => node.tier === "goal")?.id;
       projectId = visibility.chain.find((node) => node.tier === "project")?.id;
+      // The bound WORK's own space still wins — most-specific row, the same
+      // rule the chain resolver follows. The chat's space says where the
+      // conversation lives; the task says where the work lives, and a task
+      // does not move because someone opened it from another space.
+      //
+      // The two disagreeing is not an error to fail on, but it is a fact worth
+      // seeing: it means a chat in one space is checking out work from
+      // another, which is either a legitimate cross-space hand-off or a
+      // containment bug, and neither is diagnosable from silence.
+      if (
+        visibility.spaceId &&
+        runSpace &&
+        visibility.spaceId !== runSpace.spaceId
+      ) {
+        workspaceLogger.warn("run_space_task_space_mismatch", {
+          agent_id: input.agentId,
+          run_id: input.runId,
+          task_id: boundTaskId ?? null,
+          task_space_id: visibility.spaceId,
+          tenant_id: input.scope.tenantId,
+          thread_space_id: runSpace.spaceId,
+        });
+      }
+      if (spaceResolution.kind !== "unresolved") {
+        spaceId = visibility.spaceId ?? spaceId;
+      }
     }
 
     const mountSpecs = buildEngentyMountSpecs(declaredMounts, {
@@ -453,8 +664,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
       threadId: input.threadId,
       userId: input.scope.userId,
       ...(taskIdentifier ? { taskIdentifier } : {}),
-      ...(goalId ? { goalId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(spaceId ? { spaceId } : {}),
     });
     // An agent declared a workspace but nothing in its mount table resolved —
     // every mount needed a binding that isn't there (a `/task` mount on a
@@ -477,9 +688,32 @@ export function createThreadService(opts: ThreadServiceOptions) {
       mounts: mountSpecs,
       runId: input.runId,
       scope: input.scope,
+      spaceResolution,
       threadId: input.threadId,
       workspaceConfig,
+      ...(input.preferredSkillNames?.length
+        ? { preferredSkillNames: input.preferredSkillNames }
+        : {}),
       ...(taskIdentifier ? { taskIdentifier } : {}),
+    });
+  }
+
+  async function spaceResolutionForSessionWorkspace(input: {
+    runId: string;
+    scope: AiSessionScope;
+    session: ThreadRow;
+    spaceResolution?: RunSpaceResolution;
+    threadId: string;
+  }): Promise<RunSpaceResolution> {
+    if (input.spaceResolution) {
+      return input.spaceResolution;
+    }
+    // Same thread row the run already validated — never a client space_id.
+    return resolveRunSpace({
+      runId: input.runId,
+      scope: input.scope,
+      thread: input.session,
+      threadId: input.threadId,
     });
   }
 
@@ -493,6 +727,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
       runId: string;
       scope: AiSessionScope;
       session: ThreadRow;
+      /** Validated run Space — when omitted, resolved from the thread session. */
+      spaceResolution?: RunSpaceResolution;
       threadId: string;
     }): Promise<
       | { sandboxProvider?: EngentySandboxProvider; workspace: Workspace }
@@ -506,14 +742,17 @@ export function createThreadService(opts: ThreadServiceOptions) {
       if (!config?.workspace?.enabled) {
         return;
       }
+      const spaceResolution = await spaceResolutionForSessionWorkspace(input);
       return resolveWorkspaceForRun({
         agentId: input.agentId,
         runId: input.runId,
         scope: input.scope,
         session: input.session,
         skipCheckout: true,
+        spaceResolution,
         threadId: input.threadId,
         workspaceConfig: config.workspace,
+        ...preferredSkillNamesForRun(config, input.agentId, spaceResolution),
       });
     },
     // Resolve the root agent's workspace and per-sub-agent sandbox workspaces for
@@ -525,6 +764,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
       runId: string;
       scope: AiSessionScope;
       session: ThreadRow;
+      /** Validated run Space — when omitted, resolved from the thread session. */
+      spaceResolution?: RunSpaceResolution;
       threadId: string;
     }): Promise<{
       // The run's root sandbox provider — the caller MUST `destroyRunSandboxes` it
@@ -540,6 +781,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
         opts.registry ??
         createDefaultAiRegistry();
       const rootConfig = await registry.getAgentConfig(input.session.agent_id);
+      const spaceResolution = await spaceResolutionForSessionWorkspace(input);
       const rootResult = await resolveWorkspaceForRun({
         agentId: input.session.agent_id,
         runId: input.runId,
@@ -547,7 +789,13 @@ export function createThreadService(opts: ThreadServiceOptions) {
         session: input.session,
         threadId: input.threadId,
         skipCheckout: true,
+        spaceResolution,
         workspaceConfig: rootConfig?.workspace,
+        ...preferredSkillNamesForRun(
+          rootConfig,
+          input.session.agent_id,
+          spaceResolution
+        ),
       });
       return {
         ...(rootResult?.sandboxProvider
@@ -583,9 +831,12 @@ export function createThreadService(opts: ThreadServiceOptions) {
         opts.registry ??
         createDefaultAiRegistry();
       const rootConfig = await registry.getAgentConfig(input.agentId);
-      const modelId = rootConfig
-        ? resolveAgentModelId(rootConfig, modelConfig)
-        : modelConfig.chatModelId;
+      // Bare id — see the note on the other resolution site: accounting only.
+      const modelId = modelIdOfRef(
+        rootConfig
+          ? resolveAgentModelId(rootConfig, modelConfig)
+          : modelConfig.chatModelId
+      );
       return {
         agentBudgetCostMicros:
           rootConfig?.limits?.budget?.maxCostMicrosPerPeriod ?? null,
@@ -595,7 +846,12 @@ export function createThreadService(opts: ThreadServiceOptions) {
     },
 
     async appendMessage(input: AppendAiThreadMessageInput) {
-      const { store } = await getRequiredSession(input);
+      const { session, store } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "write",
+        scope: input.scope,
+        session,
+      });
       const authorUserId =
         input.role === "user"
           ? (input.authorUserId ?? input.scope.userId)
@@ -622,33 +878,90 @@ export function createThreadService(opts: ThreadServiceOptions) {
           })
         : null;
       const threadId = id ?? crypto.randomUUID();
+      const mergedRouteContext = {
+        ...(existing?.route_context ?? {}),
+        ...(input.routeContext ?? {}),
+      };
       const { thread } = await store.upsertThread({
         id: threadId,
         tenantId: input.scope.tenantId,
         agentId: input.agentId,
         createdByUserId: input.scope.userId,
         routeContext: buildRouteContext({
-          routeContext: {
-            ...(existing?.route_context ?? {}),
-            ...(input.routeContext ?? {}),
-          },
+          routeContext: mergedRouteContext,
           sessionKey: input.sessionKey,
           threadId,
         }),
+        // Explicit input wins; otherwise read the space off the route context
+        // the client already sends (PLAN-spaces.md Phase C2). Reading the
+        // MERGED context, not `input.routeContext`, so a re-save that omits the
+        // scope keeps the space the thread was created in — combined with the
+        // RPC's coalesce, an idempotent save cannot silently unspace a chat.
+        spaceId: input.spaceId ?? spaceIdFromRouteContext(mergedRouteContext),
         status: input.status ?? existing?.status ?? "idle",
         summary: input.summary ?? existing?.summary ?? null,
         title: input.title ?? existing?.title ?? null,
         workspaceKey: input.workspaceKey ?? existing?.workspace_key ?? null,
+        // This route carries no metadata of its own, and the RPC REPLACES the
+        // column — so a re-create of an existing thread (the client owns the
+        // id, and re-POSTs it on a retry or a second window) wiped everything
+        // in it: Mastra's working-memory pointers, the observational cursor,
+        // the HITL keys. Every sibling above already reads through `existing`
+        // for exactly this reason; metadata was the one that did not.
+        ...(existing?.metadata ? { metadata: existing.metadata } : {}),
       });
       return { thread };
+    },
+
+    /**
+     * Where the observer has folded this thread into memory — read-only, for
+     * the transcript's "remembered up to here" line. Access is the thread's.
+     */
+    async getMemoryObservations(input: {
+      scope: AiSessionScope;
+      threadId: string;
+    }) {
+      const store = getRequiredStore();
+      const { session } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "read",
+        scope: input.scope,
+        session,
+      });
+      const memory = await store.getThreadObservationalMemory({
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+      });
+      if (
+        !memory ||
+        memory.observed_message_ids.length > 0 ||
+        !memory.last_observed_at
+      ) {
+        return memory;
+      }
+      // Mastra keeps `observedMessageIds` only as a re-observation guard and
+      // leaves it empty in practice; its real cursor is `lastObservedAt`.
+      // Everything written up to then has been folded into observations.
+      const observed = await store.listMessagesOrdered({
+        before: new Date(memory.last_observed_at),
+        limit: false,
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+      });
+      return {
+        ...memory,
+        observed_message_ids: observed.map((row) => row.id),
+      };
     },
 
     async getThread(input: { scope: AiSessionScope; threadId: string }) {
       const store = getRequiredStore();
       let { session } = await getRequiredSession(input);
-      if (session.created_by_user_id !== input.scope.userId) {
-        throw new AiSessionError("agent_threads.notFound");
-      }
+      await assertSessionAccess({
+        action: "read",
+        scope: input.scope,
+        session,
+      });
       // Reconcile zombie rows: session can stay "running" after a crashed run or
       // orphaned docker teardown while agent_run is already terminal.
       if (session.status === "running") {
@@ -661,7 +974,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
           });
           const hasInFlightRun = runs.some((run) => run.status === "running");
           if (!hasInFlightRun) {
-            await destroySessionLifecycleSandbox(input.threadId).catch(
+            await destroySessionLifecycleSandboxes(input.threadId).catch(
               () => undefined
             );
             const updated = await store.updateThreadForUser({
@@ -710,11 +1023,70 @@ export function createThreadService(opts: ThreadServiceOptions) {
       return { thread: session };
     },
 
+    /**
+     * The card's ✕: close the open interrupt without answering it. The parked
+     * run stays parked and is superseded by the next user turn — the same end
+     * state the orphan heal on thread load produces, reached on the user's
+     * say-so instead of after a restart.
+     *
+     * `interruptId` pins the dismissal to the card the user saw: a stale card
+     * (the run already moved on to the next approval) must not close the one
+     * that is really open. A dismiss while a resume is mid-flight is refused
+     * for the same reason a second answer is — both would settle one step.
+     */
+    async dismissInterrupt(input: {
+      interruptId?: string | null;
+      scope: AiSessionScope;
+      threadId: string;
+    }) {
+      const { session, store } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "write",
+        scope: input.scope,
+        session,
+      });
+      const open = readAgUiOpenInterrupt(session.metadata ?? {});
+      if (!open) {
+        return { dismissed: false, thread: session };
+      }
+      if (
+        input.interruptId &&
+        input.interruptId !== open.interrupt_id &&
+        input.interruptId !== open.artifact_id
+      ) {
+        throw new AiSessionError(
+          "agent_threads.interruptMismatch",
+          "The dismissed interrupt is no longer the open one; reload the pending card.",
+          { open_interrupt_id: open.interrupt_id }
+        );
+      }
+      if (open.run_id && isResumeInFlight(open.run_id)) {
+        throw new AiSessionError(
+          "agent_threads.resumeInProgress",
+          "A resume for this interrupt is already in progress; wait for it to finish."
+        );
+      }
+      const metadata = await clearOpenInterrupt({
+        metadata: session.metadata ?? {},
+        open,
+        scope: input.scope,
+        store,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+      });
+      return {
+        dismissed: metadata != null,
+        thread: metadata ? { ...session, metadata } : session,
+      };
+    },
+
     async updateThread(input: UpdateAiThreadInput) {
       const { session } = await getRequiredSession(input);
-      if (session.created_by_user_id !== input.scope.userId) {
-        throw new AiSessionError("agent_threads.notFound");
-      }
+      await assertSessionAccess({
+        action: "write",
+        scope: input.scope,
+        session,
+      });
       const routeContext =
         input.routeContext === undefined
           ? undefined
@@ -801,7 +1173,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
 
     async deleteThread(input: { scope: AiSessionScope; threadId: string }) {
       const store = getRequiredStore();
-      await destroySessionLifecycleSandbox(input.threadId).catch(
+      await destroySessionLifecycleSandboxes(input.threadId).catch(
         () => undefined
       );
       return store.deleteThreadForUser({
@@ -820,7 +1192,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       });
       await Promise.all(
         threads.map((thread) =>
-          destroySessionLifecycleSandbox(thread.id).catch(() => undefined)
+          destroySessionLifecycleSandboxes(thread.id).catch(() => undefined)
         )
       );
       return store.deleteThreadsForUser({
@@ -853,6 +1225,12 @@ export function createThreadService(opts: ThreadServiceOptions) {
       scope: AiSessionScope;
       threadId: string;
     }): Promise<ThreadPromptPreview> {
+      const { session: accessSession } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "read",
+        scope: input.scope,
+        session: accessSession,
+      });
       const { agent, modelId, rootConfig, session } =
         await resolveAgentForSessionMemory(input);
       const memory = await assertEngentyNativeMastraMemoryConfigured(agent, {
@@ -880,7 +1258,16 @@ export function createThreadService(opts: ThreadServiceOptions) {
         caveats,
         memory,
         modelId,
-        resourceId: createEngentyMastraResourceId({ scope: input.scope }),
+        resourceId: createEngentyMastraResourceId({
+          scope: input.scope,
+          sharedRoom: sharedMastraRoomFromThread({
+            agentId: session.agent_id,
+            agentScope: rootConfig?.agentScope,
+            thread: session,
+          }),
+          spaceId: session.space_id,
+          threadId: input.threadId,
+        }),
         threadId: input.threadId,
       });
     },
@@ -897,12 +1284,19 @@ export function createThreadService(opts: ThreadServiceOptions) {
       scope: AiSessionScope;
       threadId: string;
     }) {
+      const { session: accessSession } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "write",
+        scope: input.scope,
+        session: accessSession,
+      });
       const runId = input.runId ?? crypto.randomUUID();
       const {
         agent,
         agentConfig,
         modelId,
         rootConfig,
+        spaceResolution,
         sandboxProvider,
         subAgentSandboxProviders,
         session,
@@ -942,6 +1336,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
         routeContext: session.route_context,
         runContext: input.runContext,
         scope: input.scope,
+        spaceResolution,
         threadId: input.threadId,
       });
       const modelMessages = buildNativeMastraModelInput({
@@ -959,12 +1354,20 @@ export function createThreadService(opts: ThreadServiceOptions) {
             runStore,
             threadId: input.threadId,
             tenantId: input.scope.tenantId,
+            // The interactive lane: a person is at the keyboard.
+            trigger: "message",
           })
         : null;
       const invocationOptions = createEngentyAgentExecutionOptions({
         maxSteps: agentMaxSteps,
         runId,
         scope: input.scope,
+        sharedRoom: sharedMastraRoomFromThread({
+          agentId: session.agent_id,
+          agentScope: rootConfig?.agentScope,
+          thread: session,
+        }),
+        spaceId: session.space_id,
         threadId: input.threadId,
       });
       try {
@@ -974,7 +1377,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
           session.agent_id
         );
         const output = await engentyToolsRunAls.run(
-          {
+          withEnvCoreBaseUrl({
             ...(coreAgentId ? { agentId: coreAgentId } : {}),
             agentTypeKey: session.agent_id,
             goalId: input.threadId,
@@ -984,7 +1387,12 @@ export function createThreadService(opts: ThreadServiceOptions) {
             accessToken: scopeAccessToken(input.scope),
             userFacingThreadId: input.threadId,
             userId: input.scope.userId,
-          },
+            // What this space mounts, already validated (Phase C3a). The
+            // catalog tools hide what is not here and `engenty_tool_execute`
+            // refuses it. Unresolved is a refusal, not absence; null is
+            // intentional tenant-global.
+            space: toolsSpaceFromResolution(spaceResolution),
+          }),
           () => agent.generate(modelMessages as never, invocationOptions)
         );
         // Mastra surfaces guardrail aborts via `output.tripwire`. Substitute a
@@ -1070,36 +1478,144 @@ export function createThreadService(opts: ThreadServiceOptions) {
     },
 
     async listMessages(input: ListAiThreadMessagesInput) {
-      // Ownership check, not just tenancy. `getRequiredSession` filters on
-      // tenant + thread, which leaves any authenticated member of the tenant
-      // able to read a colleague's transcript from the thread id alone. Every
-      // sibling here (getThread, updateThread, deleteThread, listThreads)
-      // already scopes to the owner; this one did not. RLS would have caught it,
-      // but the AI service connects with the service-role key and bypasses it,
-      // so these filters are the whole boundary.
       const { session, store } = await getRequiredSession(input);
-      if (session.created_by_user_id !== input.scope.userId) {
-        throw new AiSessionError("agent_threads.notFound");
-      }
-      const messages = await store.listMessagesOrdered({
+      await assertSessionAccess({
+        action: "read",
+        scope: input.scope,
+        session,
+      });
+      // One row past the page tells whether an older page exists without a
+      // count query; it is dropped from the oldest end before the reply.
+      const rows = await store.listMessagesOrdered({
+        ...(input.before
+          ? { before: input.before.createdAt, beforeId: input.before.id }
+          : {}),
+        latest: true,
+        limit: input.limit + 1,
         tenantId: input.scope.tenantId,
         threadId: input.threadId,
-        limit: input.limit,
       });
-      return { messages };
+      const hasMore = rows.length > input.limit;
+      const messages = hasMore ? rows.slice(rows.length - input.limit) : rows;
+      const authorIds = messages
+        .map((message) => message.author_user_id)
+        .filter((id): id is string => Boolean(id));
+      const names = await resolveUserDisplayNames(authorIds);
+      // An assistant row names the agent that wrote it (rooms have several);
+      // a name the reader can show comes from the registry, once per agent.
+      const agentIds = [
+        ...new Set(
+          messages
+            .map((message) => message.metadata?.author_agent_id)
+            .filter((id): id is string => typeof id === "string" && id !== "")
+        ),
+      ];
+      const agentNames = new Map<string, string>();
+      if (agentIds.length > 0) {
+        const registry = opts.createRegistry?.(input.scope) ?? opts.registry;
+        await Promise.all(
+          agentIds.map(async (agentId) => {
+            const config = await registry?.getAgentConfig(agentId);
+            if (config?.name) {
+              agentNames.set(agentId, config.name);
+            }
+          })
+        );
+      }
+      return {
+        has_more: hasMore,
+        messages: messages.map((message) => {
+          const agentId = message.metadata?.author_agent_id;
+          return {
+            ...message,
+            author_name: message.author_user_id
+              ? (names.get(message.author_user_id) ?? null)
+              : typeof agentId === "string"
+                ? (agentNames.get(agentId) ?? agentId)
+                : null,
+          };
+        }),
+      };
+    },
+
+    /**
+     * The agent threads a task has been worked on, for the task page.
+     *
+     * Gated on the caller's right to read the TASK, not on thread ownership —
+     * these threads have no owner and no participants, so every ownership check
+     * in this file answers "no" for them. Same rule `listMessages` already uses
+     * to let a task's watchers open a run transcript.
+     */
+    async listTaskThreads(input: {
+      limit?: number;
+      scope: AiSessionScope;
+      taskId: string;
+    }) {
+      const store = getRequiredStore();
+      if (!(await canReadTask({ scope: input.scope, taskId: input.taskId }))) {
+        return { threads: [] };
+      }
+      const threads = await store.listHeadlessThreadsForTask({
+        taskId: input.taskId,
+        tenantId: input.scope.tenantId,
+        ...(input.limit ? { limit: input.limit } : {}),
+      });
+      return { threads };
     },
 
     async listThreads(input: ListAiThreadsInput) {
       const store = getRequiredStore();
+      const agentId = input.agentId?.trim();
+      const spaceId = input.spaceId?.trim();
+      if (agentId && spaceId) {
+        const registry = opts.createRegistry?.(input.scope) ?? opts.registry;
+        const config = await registry?.getAgentConfig(agentId);
+        if (config?.agentScope === "shared") {
+          if (!(await canEnterSpaceDefault(input.scope, spaceId))) {
+            return { threads: [] };
+          }
+          const threads = await store.listThreadsForSpaceAgent({
+            agentId,
+            spaceId,
+            tenantId: input.scope.tenantId,
+            viewerUserId: input.scope.userId,
+            ...(input.includeArchived ? { includeArchived: true } : {}),
+            ...(input.limit ? { limit: input.limit } : {}),
+          });
+          return { threads };
+        }
+      }
       const threads = await store.listThreadsForUser({
         tenantId: input.scope.tenantId,
         userId: input.scope.userId,
         ...(input.agentId ? { agentId: input.agentId } : {}),
         ...(input.hostKey ? { hostKey: input.hostKey } : {}),
         ...(input.includeArchived ? { includeArchived: true } : {}),
+        ...(input.spaceId ? { spaceId: input.spaceId } : {}),
         limit: input.limit,
       });
-      return { threads };
+      // A specialist's desk also shows what it did on its own. Routine fires
+      // are unattended, so they belong to no user's thread list — without this
+      // a routine could run every night and its desk would stay empty.
+      if (!(agentId && spaceId)) {
+        return { threads };
+      }
+      if (!(await canEnterSpaceDefault(input.scope, spaceId))) {
+        return { threads };
+      }
+      const runThreads = await store.listRunThreadsForSpaceAgent({
+        agentId,
+        spaceId,
+        tenantId: input.scope.tenantId,
+        ...(input.limit ? { limit: input.limit } : {}),
+      });
+      const seen = new Set(threads.map((thread) => thread.id));
+      return {
+        threads: [
+          ...threads,
+          ...runThreads.filter((thread) => !seen.has(thread.id)),
+        ].sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1)),
+      };
     },
   };
 }

@@ -1,4 +1,8 @@
-import { listRegisteredModelRoles, mergeDeclaredRoles } from "@engenty/ai-core";
+import {
+  DEFAULT_MODEL_GATEWAY_ID,
+  listRegisteredModelRoles,
+  mergeDeclaredRoles,
+} from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -58,7 +62,7 @@ export function registerModelBindingRoutes(
           bound: binding != null,
           declared_by: spec.declaredBy,
           default_model_id: spec.defaultModelId,
-          gateway: binding?.gateway ?? "vercel",
+          gateway: binding?.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
           label: spec.label,
           model_id: binding?.model_id ?? spec.defaultModelId,
           role: spec.role,
@@ -99,7 +103,7 @@ export function registerModelBindingRoutes(
     }
     return c.json(
       await store.upsertModelBinding({
-        gateway: parsed.data.gateway ?? "vercel",
+        gateway: parsed.data.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
         model_id: parsed.data.model_id,
         role,
         scope: "platform",

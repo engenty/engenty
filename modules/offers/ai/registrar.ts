@@ -5,10 +5,8 @@ import type {
   DynamicAiModuleCapability,
 } from "@engenty/ai-core";
 import { defineModuleAi } from "@engenty/ai-core";
-import { createOffersManagerAgentDefinition } from "./offers-manager.js";
 
 const moduleAi = defineModuleAi({
-  agentDefinitions: () => [createOffersManagerAgentDefinition()],
   dir: import.meta.url,
   moduleId: "offers",
 });

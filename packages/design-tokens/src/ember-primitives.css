@@ -9,9 +9,12 @@
   --raw-primary: #e0531b;
   --raw-secondary: #f1f3f5;
   --raw-background: #faf8f5;
-  /* App-bar rail seed. Light default is white; dark overrides below so the
-     rail tracks the canvas family when JS clears the inline variable. */
-  --raw-sidebar: #ffffff;
+  /* App-bar rail seed. The rail is the shell's frame layer: the page canvas
+     itself in light, one step below it in dark (`.dark` below). It never draws
+     a line on its edge — the secondary column is the raised card next to it
+     and its ambient shadow does the separating. JS sets this inline only for a
+     branded pick; the default pick clears it so these formulas own the seed. */
+  --raw-sidebar: var(--paper);
 
   --contrast: 1;
   /* Baseline contrast scalar */
@@ -41,18 +44,6 @@
   --canvas: var(--paper);
   --canvas-dim: var(--paper-2);
   --canvas-darken: var(--paper-3);
-  --hairline: oklch(
-    from var(--raw-background)
-      calc(calc(0.99 - (0.02 * var(--contrast))) - (0.12 * var(--contrast)))
-      calc(c * 3) h /
-    0.55
-  );
-  --hairline-2: oklch(
-    from var(--raw-background)
-      calc(calc(0.99 - (0.02 * var(--contrast))) - (0.16 * var(--contrast)))
-      calc(c * 3.3) h /
-    0.45
-  );
 
   --ink: oklch(
     from var(--raw-background) calc(0.22 + (0.05 / var(--contrast)))
@@ -195,17 +186,29 @@
     0 6px 18px oklch(from var(--raw-background) 0.4 c h / 0.06),
     0 18px 36px oklch(from var(--raw-background) 0.4 c h / 0.07);
 
-  /** Module secondary nav (`.shell-divider`): right-edge lift toward main (card-on-canvas). */
-  --shadow-shell-secondary-edge: 6px 0 22px -8px
-    oklch(from var(--raw-background) 0.35 c h / 0.085);
-  /** Copilot sidebar/drawer (`.shell-copilot-divider`): left-edge lift toward main. */
-  --shadow-shell-copilot-edge: -6px 0 22px -8px
-    oklch(from var(--raw-background) 0.35 c h / 0.085);
+  /**
+   * Module secondary nav (`.shell-divider`) and copilot sidebar
+   * (`.shell-copilot-divider`): the raised card between app bar and main.
+   * AMBIENT, not directional — it has to separate on both sides (the rail is
+   * canvas family on one side, the page on the other), and a directional
+   * shadow would not survive an app bar placed top, bottom or right.
+   */
+  --shadow-shell-secondary-edge: 0 2px 24px -8px
+    oklch(from var(--raw-background) 0.35 c h / 0.14);
+  --shadow-shell-copilot-edge: 0 2px 24px -8px
+    oklch(from var(--raw-background) 0.35 c h / 0.14);
 
   /* Row heights (align default with single-line field height `h-8`) */
   --row-compact: 28px;
   --row-default: 32px;
   --row-comfy: 40px;
+
+  /* Shell grid: every horizontal chrome row (topbar, secondary-column header,
+     a horizontal app bar) is one `--shell-row` with its content centred, and
+     both footers (rail user menu, column Settings) are one `--shell-footer`,
+     so rows that sit beside each other share a baseline. */
+  --shell-row: 44px;
+  --shell-footer: 48px;
 
   /* Inset outline for inputs (opaque hairline) */
   --input-inset: oklch(
@@ -220,10 +223,12 @@
    3. SEMANTIC TOKEN OVERRIDES (Dark Mode)
    ========================================================================== */
 .dark {
-  /* App-bar seed when JS does not set an absolute rail hex: same lift as
-     paper-2 so the rail sits slightly above canvas instead of staying white. */
+  /* App-bar seed when JS does not set an absolute rail hex: one step BELOW
+     the canvas (paper is 0.12 + 0.03·contrast), so the frame is the lowest
+     surface and the column beside it reads as raised — the same stacking as
+     light, where the rail is the canvas and the column is white. */
   --raw-sidebar: oklch(
-    from var(--raw-background) calc(0.15 + (0.02 * var(--contrast)))
+    from var(--raw-background) calc(0.09 + (0.03 * var(--contrast)))
       calc(c * 1.2) h
   );
 
@@ -256,18 +261,6 @@
       calc(c * 0.6) h
   );
 
-  --hairline: oklch(
-    from var(--raw-background)
-      calc(calc(0.12 + (0.03 * var(--contrast))) + (0.17 * var(--contrast)))
-      calc(c * 2.5) h /
-    0.55
-  );
-  --hairline-2: oklch(
-    from var(--raw-background)
-      calc(calc(0.12 + (0.03 * var(--contrast))) + (0.21 * var(--contrast)))
-      calc(c * 2.8) h /
-    0.45
-  );
   --input-inset: oklch(
     from var(--raw-background)
       calc(calc(0.12 + (0.03 * var(--contrast))) + (0.21 * var(--contrast)))
@@ -334,8 +327,8 @@
   --e-3:
     0 1px 2px oklch(0% 0 0 / 0.22), 0 6px 18px oklch(0% 0 0 / 0.28),
     0 24px 48px oklch(0% 0 0 / 0.32);
-  --shadow-shell-secondary-edge: 8px 0 28px -10px oklch(0% 0 0 / 0.42);
-  --shadow-shell-copilot-edge: -8px 0 28px -10px oklch(0% 0 0 / 0.42);
+  --shadow-shell-secondary-edge: 0 2px 28px -10px oklch(0% 0 0 / 0.5);
+  --shadow-shell-copilot-edge: 0 2px 28px -10px oklch(0% 0 0 / 0.5);
 }
 
 /* ==========================================================================

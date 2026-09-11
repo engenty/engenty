@@ -3,7 +3,7 @@
 // templates and expansion for `prompt`/`action` kinds; `ui` kinds execute
 // client-side and are declared through the UI plugin SDK instead.
 
-export type ChatCommandKind = "action" | "prompt";
+export type ChatCommandKind = "workflow" | "prompt";
 
 export interface ChatCommandArg {
   label?: string;
@@ -17,8 +17,6 @@ export interface ChatCommandArg {
 }
 
 export interface ChatCommandDefinition {
-  /** kind=action — the module action or strict snake_case tool id to direct the agent at. */
-  action_id?: string;
   /** Restrict the command to these agent ids (empty/absent = all agents). */
   agent_ids?: string[];
   args?: ChatCommandArg[];
@@ -39,6 +37,8 @@ export interface ChatCommandDefinition {
    * client sends structured values (v1: `{input}` only).
    */
   template?: string;
+  /** kind=action — the module action or strict snake_case tool id to direct the agent at. */
+  workflow_id?: string;
 }
 
 const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -81,8 +81,8 @@ export function expandChatCommand(input: {
   command: ChatCommandDefinition;
 }): string {
   const { argsText, command } = input;
-  if (command.kind === "action") {
-    const target = command.action_id ?? command.command;
+  if (command.kind === "workflow") {
+    const target = command.workflow_id ?? command.command;
     return [
       `The user invoked the chat command "/${command.command}"${
         argsText ? ` with input: ${argsText}` : ""

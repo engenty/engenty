@@ -1,7 +1,6 @@
 import {
   ArtifactPaneToggle,
   ENGENTY_COPILOT_HOST_KEY,
-  WorkPanel,
   WorkspaceArtifactPane,
 } from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
@@ -19,23 +18,20 @@ import {
   AlertDialogTitle,
   Button,
   Card,
-  cn,
-  DocSidebarLayout,
-  DocSidebarToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   Textarea,
   topbarIconButtonClassName,
-  useDocSidebar,
 } from "@engenty/ui-core";
 import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { MoreVertical, Trash2 } from "lucide-react";
+import { MoreVertical, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -46,18 +42,24 @@ import type {
   TaskDetail,
   TaskPriority,
   TaskStatus,
+  TaskUpdateInput,
 } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
-import { GoalDocumentTitle } from "../components/goal-document-title.js";
+import { DocumentTitleInput } from "../components/document-title-input.js";
 import { LiveTaskRunsPanel } from "../components/live-task-runs-panel.js";
+import { TaskApprovedToolsDialog } from "../components/task-approved-tools-dialog.js";
 import type { TaskAssigneeValue } from "../components/task-assignee-picker.js";
 import { TaskCommentsActivityTabs } from "../components/task-comments-activity-tabs.js";
-import { TaskLinkedSessionsPanel } from "../components/task-linked-sessions-panel.js";
+import { TaskContextBox } from "../components/task-context-box.js";
+import { TaskContextToggle } from "../components/task-context-toggle.js";
+import { TaskFieldSuggestionsCard } from "../components/task-field-suggestions-card.js";
+import { TaskLocationLine } from "../components/task-location-line.js";
 import { TaskPendingApprovalCard } from "../components/task-pending-approval-card.js";
-import { TaskPropertiesPanel } from "../components/task-properties-panel.js";
+import { TaskPeopleLine } from "../components/task-people-line.js";
+import { TaskPlanningLine } from "../components/task-planning-line.js";
+import { TaskQuestionCard } from "../components/task-question-card.js";
 import { TaskReviewCard } from "../components/task-review-card.js";
 import { TaskStatusBadge } from "../components/task-status-badge.js";
-import { TaskWorkspaceStrip } from "../components/task-workspace-strip.js";
 import {
   TaskRunObserverProvider,
   type TaskRunObserverStatus,
@@ -66,6 +68,7 @@ import {
 import { useTasksDetailAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
+import { resolveOpenTaskQuestion } from "../lib/open-question.js";
 import { useTaskDetailCopilotContextOverride } from "../lib/task-copilot-context.js";
 import { showTaskSaveErrorToast } from "../lib/task-lifecycle-ui.js";
 import {
@@ -79,6 +82,7 @@ import { createTaskDetailLiveBindings } from "../tasks-live-cache.js";
 import {
   invalidateTaskDetailLiveQueries,
   useAddTaskCommentMutation,
+  useAnswerTaskQuestionMutation,
   useCurrentUserDisplayNameQuery,
   useDeleteTaskMutation,
   useReleaseTaskMutation,
@@ -90,10 +94,9 @@ import {
   useUpdateTaskMutation,
 } from "../tasks-queries.js";
 
-const TASK_DETAIL_DOC_SIDEBAR_KEY = "tasks.detail";
-
 interface TaskDetailLoadedProps {
   activity: ReturnType<typeof useTaskActivityQuery>["data"];
+  answerMutation: ReturnType<typeof useAnswerTaskQuestionMutation>;
   assigneeProfiles: Map<string, { full_name: string; id: string }>;
   commentDraft: string;
   commentMutation: ReturnType<typeof useAddTaskCommentMutation>;
@@ -105,13 +108,12 @@ interface TaskDetailLoadedProps {
   onDescriptionBlur: () => void;
   onDescriptionChange: (value: string) => void;
   onDueDateChange: (dueDate: string | null) => void;
-  onGoalChange: (goalId: string | null) => void;
+  onLocationChange: (patch: TaskUpdateInput) => void;
   onPriorityChange: (priority: TaskPriority) => void;
-  onProjectChange: (projectId: string | null) => void;
-  onStartWork: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onTitleBlur: () => void;
   onTitleChange: (value: string) => void;
+  registerStartWork: (action: (() => void) | null) => void;
   releaseMutation: ReturnType<typeof useReleaseTaskMutation>;
   runs: NonNullable<ReturnType<typeof useTaskRunsQuery>["data"]>;
   scrollRootRef: RefObject<HTMLElement | null>;
@@ -123,6 +125,7 @@ interface TaskDetailLoadedProps {
 
 function TaskDetailLoadedContent({
   activity,
+  answerMutation,
   assigneeProfiles,
   commentDraft,
   commentMutation,
@@ -134,13 +137,12 @@ function TaskDetailLoadedContent({
   onDescriptionBlur,
   onDescriptionChange,
   onDueDateChange,
-  onGoalChange,
+  onLocationChange,
   onPriorityChange,
-  onProjectChange,
-  onStartWork,
   onStatusChange,
   onTitleBlur,
   onTitleChange,
+  registerStartWork,
   releaseMutation,
   runs,
   scrollRootRef,
@@ -150,13 +152,25 @@ function TaskDetailLoadedContent({
   titleDraft,
 }: TaskDetailLoadedProps) {
   const { t } = useTranslation("tasks");
-  const { continueFromUserComment, viewRun } = useTaskRunObserverContext();
-  const detailSidebar = useDocSidebar(TASK_DETAIL_DOC_SIDEBAR_KEY);
-  // Only widen the content column when the sidebar actually occupies an inline
-  // column; closed (or overlay) keeps the document at its natural reading width.
-  const sidebarInlineOpen =
-    detailSidebar.mode === "inline" && detailSidebar.open;
-  const contentMaxWidthClass = sidebarInlineOpen ? "max-w-6xl" : "max-w-5xl";
+  const {
+    continueFromUserComment,
+    error: runObserverError,
+    startWorkOnTask,
+    viewRun,
+  } = useTaskRunObserverContext();
+  // A task waiting on an answer is not a failed run, and the badge must say so.
+  const statusHints = useMemo(
+    () => ({
+      hasOpenQuestion: Boolean(resolveOpenTaskQuestion(task.comments)),
+    }),
+    [task.comments]
+  );
+  const assigneeValue: TaskAssigneeValue = {
+    collaborator_user_ids: task.collaborator_user_ids ?? [],
+    primary_assignee_agent_type_key: task.primary_assignee_agent_type_key,
+    primary_assignee_kind: task.primary_assignee_kind,
+    primary_assignee_user_id: task.primary_assignee_user_id,
+  };
 
   // Re-attach the run panel to the task's live run. A dispatched run belongs to
   // the task, not to the browser tab that started it — so opening the page (or
@@ -173,8 +187,14 @@ function TaskDetailLoadedContent({
       return;
     }
     autoAttachedRunIdRef.current = liveRun.agent_session_run_id;
-    void viewRun(liveRun);
+    void viewRun(liveRun, { runs });
   }, [runs, task.checkout_run_id, viewRun]);
+
+  useLayoutEffect(() => {
+    const action = () => void startWorkOnTask();
+    registerStartWork(action);
+    return () => registerStartWork(null);
+  }, [registerStartWork, startWorkOnTask]);
 
   const handleAddComment = async () => {
     const content = commentDraft.trim();
@@ -191,61 +211,54 @@ function TaskDetailLoadedContent({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-card/30">
       <section className="min-h-0 flex-1 overflow-y-auto" ref={scrollRootRef}>
-        <DocSidebarLayout
-          className={cn("p-page pb-10", contentMaxWidthClass)}
-          sidebar={
-            <>
-              <TaskPropertiesPanel
-                assigneeCatalog={teamMembersCatalogQuery.data ?? []}
-                assigneeCatalogLoading={teamMembersCatalogQuery.isLoading}
-                assigneeProfiles={assigneeProfiles}
-                disabled={fieldsDisabled}
-                onAssigneeChange={onAssigneeChange}
-                onDueDateChange={onDueDateChange}
-                onGoalChange={onGoalChange}
-                onPriorityChange={onPriorityChange}
-                onProjectChange={onProjectChange}
-                onStatusChange={onStatusChange}
-                task={task}
-                taskStatusDefinitions={taskStatusDefinitions}
-                teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
-              />
-              <TaskWorkspaceStrip onStartWork={onStartWork} task={task} />
-              <TaskLinkedSessionsPanel
-                isLoading={linkedSessionsQuery.isLoading}
-                sessions={linkedSessionsQuery.data ?? []}
-              />
-              <WorkPanel
-                container={{ id: task.id, tier: "task" }}
-                hostKey={ENGENTY_COPILOT_HOST_KEY}
-                mountPane={false}
-              />
-            </>
-          }
-          sidebarLabel={t("detail.sidebarLabel")}
-          storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
-        >
-          <div className="space-y-4">
+        <div className="mx-auto grid max-w-6xl items-start gap-6 p-page pb-10 lg:has-[aside]:grid-cols-[minmax(0,1fr)_17rem]">
+          <main className="min-w-0 space-y-4">
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-muted-foreground text-sm">
                   {task.identifier}
-                  <TaskStatusBadge
-                    compact
-                    definitions={taskStatusDefinitions}
-                    status={task.status}
-                    task={task}
-                  />
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild disabled={fieldsDisabled}>
+                      <button
+                        className="rounded-sm disabled:cursor-default"
+                        type="button"
+                      >
+                        <TaskStatusBadge
+                          compact
+                          definitions={taskStatusDefinitions}
+                          hints={statusHints}
+                          status={task.status}
+                          task={task}
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {taskStatusDefinitions.map((definition) => (
+                        <DropdownMenuItem
+                          key={definition.id}
+                          onClick={() => {
+                            if (definition.id !== task.status) {
+                              onStatusChange(definition.id);
+                            }
+                          }}
+                        >
+                          <TaskStatusBadge
+                            compact
+                            definitions={taskStatusDefinitions}
+                            status={definition.id}
+                          />
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </p>
-                {/* -my-1 keeps the sm button from inflating the meta row height. */}
-                <DocSidebarToggle
-                  className="-my-1 -mr-1.5 shrink-0"
-                  label={t("detail.toggleSidebar")}
-                  storageKey={TASK_DETAIL_DOC_SIDEBAR_KEY}
-                  text={t("detail.sidebarLabel")}
+                <TaskLocationLine
+                  disabled={fieldsDisabled}
+                  onChange={onLocationChange}
+                  task={task}
                 />
               </div>
-              <GoalDocumentTitle
+              <DocumentTitleInput
                 disabled={fieldsDisabled}
                 onBlur={onTitleBlur}
                 onChange={onTitleChange}
@@ -253,6 +266,16 @@ function TaskDetailLoadedContent({
                 value={titleDraft}
               />
             </div>
+
+            <TaskPeopleLine
+              assigneeProfiles={assigneeProfiles}
+              catalog={teamMembersCatalogQuery.data ?? []}
+              disabled={fieldsDisabled}
+              loading={teamMembersCatalogQuery.isLoading}
+              onChange={onAssigneeChange}
+              teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
+              value={assigneeValue}
+            />
 
             <Card variant="form">
               <Textarea
@@ -266,19 +289,18 @@ function TaskDetailLoadedContent({
               />
             </Card>
 
-            <LiveTaskRunsPanel
-              activity={activity ?? []}
-              assigneeProfiles={assigneeProfiles}
-              disabled={releaseMutation.isPending}
-              onRelease={(run) =>
-                void releaseMutation.mutateAsync({
-                  agent_session_run_id: run.agent_session_run_id,
-                })
-              }
-              onViewRun={(run) => void viewRun(run)}
-              releasing={releaseMutation.isPending}
-              runs={runs}
+            <TaskPlanningLine
+              disabled={fieldsDisabled}
+              onDueDateChange={onDueDateChange}
+              onPriorityChange={onPriorityChange}
+              task={task}
             />
+
+            {runObserverError ? (
+              <p className="text-destructive text-sm" role="alert">
+                {runObserverError}
+              </p>
+            ) : null}
 
             <TaskCommentsActivityTabs
               activity={activity ?? []}
@@ -289,6 +311,13 @@ function TaskDetailLoadedContent({
               // the buttons that answer it.
               decisionSlot={
                 <>
+                  {/* A question outranks review: the run stopped mid-work and
+                      cannot be judged until it is answered. */}
+                  <TaskQuestionCard
+                    disabled={fieldsDisabled}
+                    onAnswer={(content) => answerMutation.mutateAsync(content)}
+                    task={task}
+                  />
                   <TaskReviewCard
                     disabled={fieldsDisabled || commentMutation.isPending}
                     onComment={async (content) => {
@@ -298,18 +327,46 @@ function TaskDetailLoadedContent({
                     task={task}
                   />
                   <TaskPendingApprovalCard task={task} />
+                  <TaskFieldSuggestionsCard
+                    disabled={fieldsDisabled}
+                    runs={runs}
+                    taskId={task.id}
+                  />
                 </>
               }
               disabled={commentMutation.isPending}
               onAddComment={() => void handleAddComment()}
               onCommentDraftChange={onCommentDraftChange}
               posting={commentMutation.isPending}
+              runs={runs}
+              runsSlot={
+                <LiveTaskRunsPanel
+                  activity={activity ?? []}
+                  assigneeProfiles={assigneeProfiles}
+                  disabled={releaseMutation.isPending}
+                  onRelease={(run) =>
+                    void releaseMutation.mutateAsync({
+                      agent_session_run_id: run.agent_session_run_id,
+                    })
+                  }
+                  onViewRun={(run) => void viewRun(run, { runs })}
+                  releasing={releaseMutation.isPending}
+                  runs={runs}
+                />
+              }
               scrollRootRef={scrollRootRef}
               statusDefinitions={taskStatusDefinitions}
               task={task}
             />
-          </div>
-        </DocSidebarLayout>
+          </main>
+          <TaskContextBox
+            className="sticky top-4 hidden lg:flex"
+            hostKey={ENGENTY_COPILOT_HOST_KEY}
+            sessions={linkedSessionsQuery.data ?? []}
+            sessionsLoading={linkedSessionsQuery.isLoading}
+            task={task}
+          />
+        </div>
       </section>
     </div>
   );
@@ -321,16 +378,21 @@ export function TaskDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
+  const [approvedToolsOpen, setApprovedToolsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const scrollRootRef = useRef<HTMLElement>(null);
+  const startWorkActionRef = useRef<(() => void) | null>(null);
   const taskId = id ?? "";
   const [observerPollLive, setObserverPollLive] = useState(false);
   const { currentTenant, currentUserId } = useWorkspaceContext();
 
   const livePollWhen = useCallback(() => observerPollLive, [observerPollLive]);
+  const registerStartWork = useCallback((action: (() => void) | null) => {
+    startWorkActionRef.current = action;
+  }, []);
 
   const handleObserverStatusChange = useCallback(
     (status: TaskRunObserverStatus) => {
@@ -365,6 +427,7 @@ export function TaskDetailPage() {
   const settingsQuery = useTaskSettingsQuery();
   const updateMutation = useUpdateTaskMutation(id ?? "");
   const commentMutation = useAddTaskCommentMutation(id ?? "");
+  const answerMutation = useAnswerTaskQuestionMutation(id ?? "");
   const releaseMutation = useReleaseTaskMutation(id ?? "");
   const deleteMutation = useDeleteTaskMutation();
 
@@ -410,39 +473,64 @@ export function TaskDetailPage() {
   );
 
   usePageConfig({
-    actions: task ? (
-      <>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+    actions:
+      task && !detailQuery.isError ? (
+        <>
+          {task.primary_assignee_kind === "agent" ? (
             <Button
-              aria-label={t("detail.actionsMenu")}
-              className={topbarIconButtonClassName}
+              className="gap-2"
+              disabled={updateMutation.isPending}
+              onClick={() => startWorkActionRef.current?.()}
               size="sm"
-              variant="outline"
+              variant="ai"
             >
-              <MoreVertical className="h-4 w-4" />
+              <Sparkles className="size-3.5 shrink-0" />
+              {t("detail.workspace.workOnTask")}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("delete.action")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <ArtifactPaneToggle
-          container={{ id: task.id, tier: "task" }}
-          hostKey={ENGENTY_COPILOT_HOST_KEY}
-        />
-      </>
-    ) : null,
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={t("detail.actionsMenu")}
+                className={topbarIconButtonClassName}
+                size="sm"
+                variant="outline"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(task.approval_grants?.length ?? 0) > 0 ||
+              (task.approval_grants_once?.length ?? 0) > 0 ? (
+                <DropdownMenuItem onClick={() => setApprovedToolsOpen(true)}>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  {t("detail.approvedTools")}
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("delete.action")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <TaskContextToggle
+            hostKey={ENGENTY_COPILOT_HOST_KEY}
+            sessions={linkedSessionsQuery.data ?? []}
+            sessionsLoading={linkedSessionsQuery.isLoading}
+            task={task}
+          />
+          <ArtifactPaneToggle
+            container={{ id: task.id, tier: "task" }}
+            hostKey={ENGENTY_COPILOT_HOST_KEY}
+          />
+        </>
+      ) : null,
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   useEffect(() => {
@@ -538,6 +626,7 @@ export function TaskDetailPage() {
         >
           <TaskDetailLoadedContent
             activity={activity}
+            answerMutation={answerMutation}
             assigneeProfiles={assigneeProfiles}
             commentDraft={commentDraft}
             commentMutation={commentMutation}
@@ -551,27 +640,18 @@ export function TaskDetailPage() {
             onDueDateChange={(dueDate) => {
               void saveTask({ due_date: dueDate });
             }}
-            onGoalChange={(goalId) => {
-              void saveTask({ goal_id: goalId });
+            onLocationChange={(patch) => {
+              void saveTask(patch);
             }}
             onPriorityChange={(priority: TaskPriority) => {
               void saveTask({ priority });
-            }}
-            onProjectChange={(projectId) => {
-              void saveTask({ project_id: projectId });
-            }}
-            onStartWork={() => {
-              // Starting an agent run moves a not-yet-started task into
-              // progress so the board and Briefing counters reflect live work.
-              if (task.status === "todo" || task.status === "backlog") {
-                void saveTask({ status: "in_progress" });
-              }
             }}
             onStatusChange={(status) => {
               void saveTask({ status });
             }}
             onTitleBlur={handleTitleBlur}
             onTitleChange={setTitleDraft}
+            registerStartWork={registerStartWork}
             releaseMutation={releaseMutation}
             runs={runs}
             scrollRootRef={scrollRootRef}
@@ -583,11 +663,17 @@ export function TaskDetailPage() {
         </TaskRunObserverProvider>
       )}
 
-      {/* Merge the task container's artifacts into the chat pane so the
-          sidebar WorkPanel rows open here alongside live chat artifacts. */}
+      {/* Task context rows and live run artifacts share this pane. */}
       <WorkspaceArtifactPane
         container={task ? { id: task.id, tier: "task" } : null}
         hostKey={ENGENTY_COPILOT_HOST_KEY}
+      />
+
+      <TaskApprovedToolsDialog
+        disabled={updateMutation.isPending}
+        onOpenChange={setApprovedToolsOpen}
+        open={approvedToolsOpen}
+        task={task}
       />
 
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>

@@ -15,6 +15,8 @@ const session: ThreadRow = {
   tenant_id: "00000000-0000-4000-8000-000000000001",
   title: "Transcript title",
   updated_at: "2026-05-17T00:01:00.000Z",
+  space_id: null,
+  visibility: "space",
   workspace_key: "chat",
 };
 

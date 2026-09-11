@@ -16,7 +16,8 @@ export interface AppsAiThreadDto {
   agent_id: string;
   archived_at: string | null;
   created_at: string;
-  created_by_user_id: string;
+  /** Null on an unattended run's thread — a routine fire has no human author. */
+  created_by_user_id: string | null;
   id: string;
   metadata: Record<string, unknown>;
   tenant_id: string;

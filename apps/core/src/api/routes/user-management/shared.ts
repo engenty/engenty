@@ -1,6 +1,7 @@
 import { apiErrorResponseSchema } from "@engenty/api-contracts";
 import { capabilityCovers } from "@engenty/plugin-sdk";
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { CoreUser } from "../../../dal/core-users/types.js";
 import type { CoreUsersDal } from "../../../dal/core-users.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import {
@@ -102,6 +103,34 @@ export const CoreUserSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
 });
+const CORE_USER_WIRE_KEYS = Object.keys(CoreUserSchema.shape);
+
+/**
+ * Reduce a `core.users` row to exactly the fields {@link CoreUserSchema}
+ * declares, dropping anything else.
+ *
+ * zod-openapi validates *requests* against the declared schemas but never
+ * response bodies, so until now the declared contract was documentation rather
+ * than a boundary: a `select("*")` in the DAL silently shipped `private_address`
+ * and `emergency_contact` to every caller. The DAL's column list is the fix;
+ * this is the wall behind it, so a wildcard reintroduced in some other adapter
+ * cannot leak a column that was never part of the contract.
+ *
+ * Deliberately a pick rather than `CoreUserSchema.parse`: this runs on every
+ * user response, and a row that fails validation for an unrelated reason (a role
+ * value added ahead of the schema, say) should not turn a read into a 500.
+ */
+export function toCoreUserWire(user: CoreUser): Record<string, unknown> {
+  // Cast because the runtime row is wider than `CoreUser` — that mismatch is the
+  // whole reason this function exists, so it cannot be expressed in the input type.
+  const row = user as unknown as Record<string, unknown>;
+  const wire: Record<string, unknown> = {};
+  for (const key of CORE_USER_WIRE_KEYS) {
+    wire[key] = row[key];
+  }
+  return wire;
+}
+
 export const UserParamsSchema = z.object({ id: z.string().min(1) });
 export const UpdateUserBodySchema = z.object({
   email: z.string().optional(),

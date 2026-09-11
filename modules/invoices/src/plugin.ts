@@ -8,6 +8,7 @@ import { createSupabasePdfStorage } from "./dal/pdf-storage-supabase.js";
 import { createInvoiceRepoSupabase } from "./dal/supabase.js";
 import { registerInvoicesPdfTemplateServerProvider } from "./pdf-templates/provider.js";
 import { invoicesProfilePolicy, invoicesResultPolicy } from "./policies.js";
+import { createInvoicesSpaceDataAdapter } from "./space-data/adapter.js";
 
 const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
   // Phase 5 — role bundles (named capability bundles assignable to users/agents).
@@ -66,6 +67,7 @@ const registerInvoicesPlugin: EngentyPluginFactory = (engenty) => {
   server.registerResultPolicy(invoicesResultPolicy);
   registerInvoicesPdfTemplateServerProvider(server);
   registerInvoicesApi(server, repoOrFactory, pdfStorageOrFactory);
+  server.registerSpaceDataAdapter?.(createInvoicesSpaceDataAdapter());
   server.registerAiRegistration(invoicesAiRegistration());
 };
 

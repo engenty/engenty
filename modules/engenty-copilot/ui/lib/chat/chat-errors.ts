@@ -6,6 +6,10 @@ export function errorMessage(error: unknown): string {
 const AI_SERVICE_ERROR_CODES: Record<string, string> = {
   "agent_threads.contextLengthExceeded":
     "This conversation is too long for the selected model. Start a new chat or ask for a smaller export (for example a filtered list).",
+  "agent_threads.outputTruncated":
+    "The assistant ran out of context before it could write a reply. Start a new chat or continue with a shorter request.",
+  "agent_threads.contentFiltered":
+    "The model provider's content filter stopped the reply. Rephrase the request and try again.",
   "agent_threads.invalidRunOrCallId":
     "The browser tool call could not be matched to the active run.",
   "agent_threads.invalidBody": "The browser tool result payload was invalid.",

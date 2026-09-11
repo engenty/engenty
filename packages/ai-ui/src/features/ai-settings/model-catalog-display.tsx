@@ -1,3 +1,4 @@
+import { isCapableAgentModel } from "@engenty/ai-core/browser";
 import { Badge } from "@engenty/ui-core";
 import type {
   GatewayModelOption,
@@ -22,6 +23,11 @@ export function withinPriceTier(
     return true;
   }
   return TIER_RANK[model.price_tier] <= TIER_RANK[maxTier];
+}
+
+/** Copilot / effort-tier models must advertise Gateway `tool-use`. */
+export function isCapablePickerModel(model: GatewayModelOption): boolean {
+  return isCapableAgentModel(model);
 }
 
 /** `$0.90 / $3.20` input/output per Mtok, or null when unpriced. */
@@ -69,6 +75,11 @@ export function ModelCapabilityChips({ model, t }: CapabilityChipsProps) {
       {model.web_search ? (
         <Badge className="font-normal" variant="secondary">
           {t("matrix.caps.web")}
+        </Badge>
+      ) : null}
+      {model.tool_use ? (
+        <Badge className="font-normal" variant="secondary">
+          {t("matrix.caps.tools")}
         </Badge>
       ) : null}
       {hasCode ? (

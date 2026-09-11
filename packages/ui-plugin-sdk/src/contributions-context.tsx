@@ -14,6 +14,7 @@ const EMPTY_CONTRIBUTIONS: UiContributions = {
   liveBindings: [],
   navigationPrefetch: [],
   settingsItems: [],
+  spaceTabs: [],
   tabs: [],
 };
 

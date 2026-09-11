@@ -8,6 +8,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { buildEngentyApiCatalogMethod } from "./methods/api-catalog/catalog-method.js";
+import { buildCoreAgentsEnsureMethod } from "./methods/core-agents/ensure-method.js";
 import {
   buildChatThreadIndexHealthMethod,
   buildChatThreadSearchMethod,
@@ -92,6 +93,10 @@ export function registerCoreMethods(
   registerCoreMethodIfAbsent(
     registry,
     buildCoreUsersCreateInTenantMethod(config)
+  );
+  registerCoreMethodIfAbsent(
+    registry,
+    buildCoreAgentsEnsureMethod(registry, config)
   );
   registerCoreMethodIfAbsent(
     registry,

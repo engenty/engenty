@@ -1,10 +1,5 @@
 import { requestApiEnvelope, requestApiJson } from "@engenty/api-client";
 import type {
-  Goal,
-  GoalCreateInput,
-  GoalsPaginatedResponse,
-  GoalsQueryParams,
-  GoalUpdateInput,
   Task,
   TaskActivity,
   TaskCheckoutInput,
@@ -22,7 +17,7 @@ import type {
   TaskUpdateInput,
 } from "../src/schema/types.js";
 
-function queryString(params: TasksQueryParams | GoalsQueryParams) {
+function queryString(params: TasksQueryParams) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== "") {
@@ -52,12 +47,21 @@ export async function getTasks(
 
 export function getTasksBriefing(
   mode: TasksBriefingMode = "personal",
+  spaceId?: string,
   signal?: AbortSignal
 ) {
-  const qs = mode === "personal" ? "" : `?mode=${mode}`;
-  return requestApiJson<TasksBriefingResponse>(`/api/tasks/briefing${qs}`, {
-    signal,
-  });
+  const search = new URLSearchParams();
+  if (mode !== "personal") {
+    search.set("mode", mode);
+  }
+  if (spaceId) {
+    search.set("space_id", spaceId);
+  }
+  const qs = search.toString();
+  return requestApiJson<TasksBriefingResponse>(
+    `/api/tasks/briefing${qs ? `?${qs}` : ""}`,
+    { signal }
+  );
 }
 
 export function getTask(id: string, signal?: AbortSignal) {
@@ -87,67 +91,6 @@ export function updateTask(
 export function deleteTask(id: string, signal?: AbortSignal) {
   return requestApiJson<void>(`/api/tasks/${id}`, {
     method: "DELETE",
-    signal,
-  });
-}
-
-export async function getGoals(
-  params: GoalsQueryParams = {},
-  signal?: AbortSignal
-) {
-  const response = await requestApiEnvelope<
-    Goal[],
-    { page: number; pageSize: number; total: number }
-  >(`/api/tasks/goals${queryString(params)}`, { signal });
-  return {
-    data: response.data,
-    page: response.meta?.page ?? params.page ?? 1,
-    pageSize:
-      response.meta?.pageSize ?? params.pageSize ?? response.data.length,
-    total: response.meta?.total ?? response.data.length,
-  } satisfies GoalsPaginatedResponse;
-}
-
-export function getGoal(id: string, signal?: AbortSignal) {
-  return requestApiJson<Goal>(`/api/tasks/goals/${id}`, { signal });
-}
-
-export function createGoal(body: GoalCreateInput, signal?: AbortSignal) {
-  return requestApiJson<Goal>("/api/tasks/goals", {
-    method: "POST",
-    body: JSON.stringify(body),
-    signal,
-  });
-}
-
-export function updateGoal(
-  id: string,
-  body: GoalUpdateInput,
-  signal?: AbortSignal
-) {
-  return requestApiJson<Goal>(`/api/tasks/goals/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-    signal,
-  });
-}
-
-export function deleteGoal(id: string, signal?: AbortSignal) {
-  return requestApiJson<void>(`/api/tasks/goals/${id}`, {
-    method: "DELETE",
-    signal,
-  });
-}
-
-export interface GoalHandoffResult {
-  dispatched: boolean;
-  goal: Goal;
-}
-
-/** Assign a goal to the coordinator and kick off a planning run. */
-export function handoffGoalToCoordinator(id: string, signal?: AbortSignal) {
-  return requestApiJson<GoalHandoffResult>(`/api/tasks/goals/${id}/handoff`, {
-    method: "POST",
     signal,
   });
 }
@@ -204,15 +147,16 @@ export function releaseTask(
 }
 
 export interface RunTaskNowResponse {
-  /** False when a live checkout already owns the task. */
+  /** True only when this request actually put work on the durable queue. */
   dispatched: boolean;
+  outcome: "already_running" | "blocked" | "not_dispatchable" | "queued";
   task: Task;
 }
 
 /**
  * Queue an agent run for this task on the durable dispatch path — the same
- * workflow-backed engine routines and the coordinator use, so the run survives
- * a reload, appears in run history, and is recoverable by the reaper.
+ * engine routines and the coordinator use, so the run survives a reload,
+ * appears in run history, and is recoverable by the reaper.
  */
 export function runTaskNow(id: string, signal?: AbortSignal) {
   return requestApiJson<RunTaskNowResponse>(`/api/tasks/${id}/run`, {
@@ -223,8 +167,11 @@ export function runTaskNow(id: string, signal?: AbortSignal) {
 
 export interface ResolveToolApprovalBody {
   decision: "approve" | "deny";
-  operation_id: string;
-  scope?: "once" | "task" | "routine";
+  /** Single-op form. Exactly one of operation_id / operation_ids. */
+  operation_id?: string;
+  /** Batch form ("Allow all"): resolve several pending ops at once (cap 64). */
+  operation_ids?: string[];
+  scope?: "once" | "task";
 }
 
 /** Approve or deny a pending tool approval on a task (durable HITL). */
@@ -281,4 +228,24 @@ export async function getUserDisplayName(
   } catch {
     return null;
   }
+}
+
+/** A space as the work overview needs it: to group rows and link into it. */
+export interface SpaceRef {
+  id: string;
+  key: string;
+  name: string;
+}
+
+/**
+ * The spaces the caller may see, in rail order. Read from core's own
+ * `/api/spaces`: the module needs names and keys for display, not a copy of
+ * the concept.
+ */
+export async function getSpaces(signal?: AbortSignal): Promise<SpaceRef[]> {
+  const spaces = await requestApiJson<SpaceRef[]>("/api/spaces", {
+    method: "GET",
+    signal,
+  });
+  return Array.isArray(spaces) ? spaces : [];
 }

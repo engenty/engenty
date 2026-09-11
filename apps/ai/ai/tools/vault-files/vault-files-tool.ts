@@ -24,7 +24,7 @@ export const VAULT_FILES_TOOL_ID = "vault_files";
 export const vaultFilesTool = createTool({
   id: VAULT_FILES_TOOL_ID,
   description:
-    "Tenant vault storage (Speicher) — files outside the agent workspace mounts. action='list' (prefix, limit) lists files; 'download' (key) returns text or base64; 'url' (key) returns a short-lived signed read URL; 'upload' (key, content, content_type?, module?) writes UTF-8 bytes; 'delete' (key, confirmed=true) removes a file and is destructive, so ask the operator first. Prefer the workspace filesystem under ai/workspace/ for task and copilot paths.",
+    "Tenant Files storage (Speicher), a durable file/deliverable store separate from run workspace mounts and from /data module records. action='list' (prefix, limit) lists files; 'download' (key) returns text or base64; 'url' (key) returns a short-lived signed read URL; 'upload' (key, content, content_type?, module?) writes UTF-8 bytes; 'delete' (key, confirmed=true) removes a file and is destructive, so ask the operator first.",
   inputSchema: z.object({
     action: z.enum(["list", "download", "url", "upload", "delete"]),
     confirmed: z

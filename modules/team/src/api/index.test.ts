@@ -34,6 +34,11 @@ describe("registerTeamMembersApi", () => {
       "team_time_tracking_list_catalog",
       "team_time_tracking_actor_for_principal",
     ]);
+    expect(
+      serverOperations.every(
+        (operation) => operation.spacePolicy?.kind === "tenant_shared"
+      )
+    ).toBe(true);
   });
 
   it("registers create team member as a server operation", async () => {

@@ -151,7 +151,7 @@ export function SourceIndexBrowser({
           {t("sources.index_browser_no_match")}
         </p>
       ) : (
-        <div className="min-w-0 overflow-hidden rounded-lg border">
+        <div className="ui-card-elevated min-w-0 overflow-hidden">
           <div className="max-h-[420px] min-h-0 overflow-y-auto overflow-x-hidden">
             <Table className="table-fixed" noWrapper>
               <TableHeader className={STICKY_HEADER_CLASS}>

@@ -33,7 +33,7 @@ export function BrandLogoMark({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/40 bg-white p-1.5 dark:bg-card",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-soft bg-white p-1.5 dark:bg-card",
         className
       )}
     >

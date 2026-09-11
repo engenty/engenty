@@ -86,7 +86,7 @@ export function RecipientSettingsCard({
   };
 
   return (
-    <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
+    <div className="ui-card-raised overflow-hidden p-4">
       <div className="space-y-2 text-sm">
         <div className="flex items-start gap-1">
           <p className="min-w-0 flex-1 font-semibold text-foreground">

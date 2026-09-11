@@ -205,7 +205,7 @@ function RedirectUriCallout({
         &quot;Authorized JavaScript origins&quot;.
       </p>
       {context.redirectHostRejected ? (
-        <div className="space-y-2 border-border/60 border-t pt-2">
+        <div className="space-y-2 border-border-soft border-t pt-2">
           <p className="text-muted-foreground text-xs">
             <span className="font-medium text-foreground">
               Local development:
@@ -395,7 +395,7 @@ export function PlatformSettingsPanel({ scope }: { scope: Scope }) {
           <div className="space-y-4">
             {items.map((setting) => (
               <div
-                className="space-y-1.5 border-border/60 border-b pb-4 last:border-0 last:pb-0"
+                className="space-y-1.5 border-border-soft border-b pb-4 last:border-0 last:pb-0"
                 key={setting.key}
               >
                 <div className="flex items-center justify-between gap-2">

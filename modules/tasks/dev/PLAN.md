@@ -1,3 +1,8 @@
+> **Superseded.** This plan describes the retired routine-as-standing-task
+> model — task checkout as the run mutex, the task dispatcher as the executor.
+> The current work model is
+> [work-model.md](../../../docs/content/dev/work-model.md).
+
 # Tasks module — implementation plan
 
 **Status:** Phases 0–6 and 7 backend cutover **done** (2026-05); optional tails below.  
@@ -12,7 +17,7 @@
 | 6 | **`done`** | Code complete; **manual Studio smoke** still open |
 | 7 | **backend done** | Bridge + drop migration + contract tests (`requires: module.tasks`, `project-tasks-bridge`, TRASHBIN). **Deferred:** projects UI component dedup |
 
-**Product deltas vs original plan** (document in [GOAL.md](./GOAL.md)): no subtasks/sub-goals in UI; done/cancelled tasks editable again; chat-style comments+activity tab; activity feed redesign (`format-activity*`, `AGENTS.md` card rules).
+**Product deltas vs original plan** (document in [GOAL.md](./GOAL.md)): no subtasks in UI; done/cancelled tasks editable again; chat-style comments+activity tab; activity feed redesign (`format-activity*`, `AGENTS.md` card rules).
 
 **Open tails:** Phase 6 manual Studio checkout flow; optional `apps/ai` auto-checkout on run start; projects task UI dedup; portal/inbox manual smoke (see phase-07 exit criteria).
 
@@ -39,9 +44,9 @@
 | **0** | [phase-00-baseline-and-contract-tests.md](./phase-00-baseline-and-contract-tests.md) | Contract tests, lifecycle pure functions, grep gates |
 | **1** | [phase-01-module-scaffold-and-schema.md](./phase-01-module-scaffold-and-schema.md) | Package, manifest, DB schema, mandatory declaration |
 | **2** | [phase-02-tasks-backend-api.md](./phase-02-tasks-backend-api.md) | DAL, HTTP routes, gateway operations, events |
-| **3** | [phase-03-goals-and-lifecycle.md](./phase-03-goals-and-lifecycle.md) | Goals CRUD, status transitions, identifier allocation |
+| **3** | ~~phase-03-goals-and-lifecycle.md~~ | Goals CRUD — removed 2026-09 with the Goals feature; status transitions and identifier allocation remain |
 | **4** | [phase-04-checkout-and-live-runs.md](./phase-04-checkout-and-live-runs.md) | Agent checkout/release, `task_runs`, activity log |
-| **5** | [phase-05-ui-hub.md](./phase-05-ui-hub.md) | `/module/tasks` hub: list, detail, goals, briefing |
+| **5** | [phase-05-ui-hub.md](./phase-05-ui-hub.md) | `/module/tasks` hub: list, detail, briefing |
 | **6** | [phase-06-ai-copilot-integration.md](./phase-06-ai-copilot-integration.md) | Skills, assist agent, copilot scope, catalog ops |
 | **7** | [phase-07-projects-brutal-cutover.md](./phase-07-projects-brutal-cutover.md) | Projects consumes tasks via `task_contexts`; delete legacy |
 
@@ -49,7 +54,7 @@
 flowchart LR
   P0[Phase 0<br/>Contracts] --> P1[Phase 1<br/>Schema]
   P1 --> P2[Phase 2<br/>Backend]
-  P2 --> P3[Phase 3<br/>Goals]
+  P2 --> P3[Phase 3<br/>Goals — removed]
   P3 --> P4[Phase 4<br/>Checkout]
   P4 --> P5[Phase 5<br/>UI]
   P5 --> P6[Phase 6<br/>AI]
@@ -106,12 +111,11 @@ See [dev/assets/](./assets/):
 
 - `ui-sketch-tasks-list.png` — grouped list / kanban entry
 - `ui-sketch-task-detail.png` — detail + live runs + properties
-- `ui-sketch-goals-list.png` — goals hub
 
 ---
 
 ## Open questions (resolved in implementation)
 
-- [x] Default identifier prefix: tenant `module_tasks.tenant_settings.identifier_prefix` (default `ENG`)
+- [x] Default identifier prefix: tenant `core.tenant_settings` key `tasks.identifier_prefix` (default `ENG`)
 - [x] Keep `request` status (lifted from projects builtins; label “Client request” in locales)
 - [x] Briefing: standalone `/module/tasks/briefing` tab (sidebar + module routes)

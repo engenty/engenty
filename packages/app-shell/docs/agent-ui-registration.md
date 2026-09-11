@@ -72,7 +72,7 @@ Keep module-specific keys (`task_snapshot`, `inbox_thread_snapshot`, …) alongs
 
 ### DOM regions (`data-engenty-region`)
 
-Shell registers stable regions for agent `browser_dom_snapshot` scoping:
+Shell registers stable regions for agent `ui_dom_snapshot` scoping:
 
 | Region | Selector | Element |
 |--------|----------|---------|
@@ -81,7 +81,7 @@ Shell registers stable regions for agent `browser_dom_snapshot` scoping:
 | `topbar` | `[data-engenty-region="topbar"]` | App topbar |
 | `main` | `[data-engenty-region="main"]` | `#engenty-app-main` content root |
 
-List/detail pages should mark their content root with `data-engenty-region="list"` or `"detail"` so agents avoid scraping whole-page chrome. Prefer **browser_dom_snapshot** with these entry points over **browser_screenshot** (last resort for visual/layout questions).
+List/detail pages should mark their content root with `data-engenty-region="list"` or `"detail"` so agents avoid scraping whole-page chrome. Prefer **ui_dom_snapshot** with these entry points over **ui_screenshot** (last resort for visual/layout questions).
 
 ## Typical module pattern
 

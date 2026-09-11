@@ -3,7 +3,7 @@
  * Remove pro-only plugin slugs from package.json engenty.plugins.
  * Used on the public publish branch so CI plugins:check matches the open tree.
  */
-import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-plugin-slugs.mjs";
+import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-paths.mjs";
 import {
   disablePluginsInManifest,
   readEngentyPluginsManifest,

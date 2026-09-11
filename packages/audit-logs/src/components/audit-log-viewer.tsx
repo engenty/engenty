@@ -154,7 +154,7 @@ export function AuditLogViewer({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-elevated flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
           className="min-h-0 flex-1 overflow-y-auto"
           onScroll={handleScroll}
@@ -171,7 +171,7 @@ export function AuditLogViewer({
             </Empty>
           ) : (
             <>
-              <div className="sticky top-0 z-10 grid grid-cols-[7rem_6rem_minmax(7rem,9rem)_1fr_auto] items-center gap-4 border-border/60 border-b bg-muted/60 px-4 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider backdrop-blur-sm">
+              <div className="sticky top-0 z-10 grid grid-cols-[7rem_6rem_minmax(7rem,9rem)_1fr_auto] items-center gap-4 border-border-soft border-b bg-muted/60 px-4 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wider backdrop-blur-sm">
                 <span>{columnTime}</span>
                 <span>{columnStatus}</span>
                 <span>{columnActor}</span>
@@ -182,7 +182,7 @@ export function AuditLogViewer({
                 <AuditLogEntry key={ev.id} labelMetadata={metadata} log={ev} />
               ))}
               {isLoading && (
-                <div className="flex items-center justify-center border-border/60 border-b py-6">
+                <div className="flex items-center justify-center border-border-soft border-b py-6">
                   <AnimatedLoaderIcon
                     className="text-muted-foreground"
                     play="always"

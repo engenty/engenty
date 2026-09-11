@@ -39,7 +39,6 @@ interface ProjectsAiOptions {
 
 function defineProjectsAi(options: ProjectsAiOptions) {
   return defineModuleAi({
-    agentDefinitions: () => [],
     dir: import.meta.url,
     moduleId: "projects",
     tools: {

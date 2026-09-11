@@ -52,11 +52,8 @@ import {
   projectUpdateSchema,
 } from "../schema/zod.js";
 import { buildProjectsBriefingResponse } from "../services/projects-briefing-service.js";
-import {
-  getRepo,
-  type RepoOrFactory,
-  registerProjectsGatewayMethods,
-} from "./gateway-methods.js";
+import { registerProjectsGatewayMethods } from "./gateway-methods.js";
+import { getRepo, type RepoOrFactory } from "./gateway-shared.js";
 
 /** UUID v4 pattern to avoid /api/projects/tasks matching /api/projects/:id */
 const UUID_PARAM =
@@ -110,8 +107,17 @@ export function registerProjectsApi(
         search: url.searchParams.get("search") ?? undefined,
         client_id: url.searchParams.get("client_id") ?? undefined,
         lead_id: url.searchParams.get("lead_id") ?? undefined,
+        space_id: url.searchParams.get("space_id") ?? undefined,
       });
-      return repo.listPaginated(parsed);
+      // No space named = every space the caller may see, not every space.
+      const spaceIds =
+        !parsed.space_id && ctx.accessibleSpaceIds
+          ? await ctx.accessibleSpaceIds()
+          : undefined;
+      return repo.listPaginated({
+        ...parsed,
+        ...(spaceIds ? { space_ids: spaceIds } : {}),
+      });
     },
   });
 
@@ -154,6 +160,7 @@ export function registerProjectsApi(
         project_id: url.searchParams.get("project_id") ?? undefined,
         phase_id: url.searchParams.get("phase_id") ?? undefined,
         assigned_to: url.searchParams.get("assigned_to") ?? undefined,
+        space_id: url.searchParams.get("space_id") ?? undefined,
         status: url.searchParams.get("status") ?? undefined,
         sortBy: url.searchParams.get("sortBy") ?? undefined,
         sortOrder: url.searchParams.get("sortOrder") ?? undefined,
@@ -195,6 +202,7 @@ export function registerProjectsApi(
           project_id: url.searchParams.get("project_id") ?? undefined,
           phase_id: url.searchParams.get("phase_id") ?? undefined,
           assigned_to: url.searchParams.get("assigned_to") ?? undefined,
+          space_id: url.searchParams.get("space_id") ?? undefined,
           status: url.searchParams.get("status") ?? undefined,
         });
       const assignedToUserId =

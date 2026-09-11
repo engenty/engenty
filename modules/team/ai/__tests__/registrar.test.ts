@@ -8,5 +8,14 @@ describe("teamMembersAiRegistration", () => {
     expect(registration.skills?.map((skill) => skill.name)).toEqual([
       "team-content-management",
     ]);
+    expect(registration.dynamic?.skills?.["team-content-management"]).toContain(
+      "tenant-global"
+    );
+    expect(registration.dynamic?.skills?.["team-content-management"]).toContain(
+      "/settings/team"
+    );
+    expect(registration.dynamic?.skills?.["team-content-management"]).toContain(
+      "no member `space_id`"
+    );
   });
 });

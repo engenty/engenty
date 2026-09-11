@@ -6,7 +6,7 @@ import { SettingsFormSection } from "@engenty/ui-core";
 import { ClipboardList, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { AiRegisteredAction } from "../../lib/admin/ai-runtime-api";
-import { buildActionDetailPath } from "./agent-workspace-url-state";
+import { buildWorkflowDetailPath } from "./agent-workspace-url-state";
 
 function GroupHeading(props: { label: string }) {
   return (
@@ -43,7 +43,7 @@ export function AgentWorkSourcesCard({
                   <div className="min-w-0">
                     <Link
                       className="break-words font-medium text-sm transition-colors hover:text-primary"
-                      to={buildActionDetailPath(action.id)}
+                      to={buildWorkflowDetailPath(action.id)}
                     >
                       {action.name}
                     </Link>

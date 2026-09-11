@@ -1,8 +1,20 @@
+export {
+  collectFileStorageExplorerIds,
+  fileStorageExplorerPathLabel,
+  fileStorageExplorerSegments,
+  isFileStorageUuidSegment,
+  isNativeFileSpaceObjectKey,
+  isSpaceFolderExplorerPrefix,
+  labelFileStorageExplorerSegments,
+  overlayExplorerFolderName,
+  spaceIdFromFileStorageExplorerPath,
+} from "./explorer-labels.js";
 export type {
   FileEntryRow,
   FileEntryStatus,
   FileFolderRow,
   FileSource,
+  FileSourceContentInput,
   FileSourceContext,
   FileSourceFile,
   FileSourceFolder,
@@ -21,6 +33,21 @@ export type {
   NativeFolderStore,
 } from "./file-source-types.js";
 export {
+  FILE_SPACE_OWNER_KINDS,
+  FILE_SPACE_QUERY_ROOT,
+  type FileSpaceOwnerKind,
+  type FileSpaceOwnerRef,
+  fileSpaceDriveQueryKey,
+  fileSpaceInvalidationKey,
+  fileSpaceListingQueryKey,
+  fileSpaceOwnerKey,
+  fileSpaceOwnerPath,
+  isFileSpaceOwnerKind,
+  parseFileSpaceOwnerKey,
+  projectFileSpaceOwner,
+  spaceFileSpaceOwner,
+} from "./file-space-owner.js";
+export {
   type CreateFileStorageServiceOptions,
   createFileStorageService,
   guessFileStorageMimeFromFilename,
@@ -38,11 +65,17 @@ export type {
 } from "./file-storage-types.js";
 export {
   FILE_STORAGE_ROOT_SEGMENT,
+  FILE_STORAGE_SPACES_SEGMENT,
+  fileStorageSpaceObjectKey,
+  fileStorageSpacePrefix,
   fileStorageTenantObjectKey,
   inboxMessageIdFromFileStorageKey,
   knowledgeBaseSlugFromFileStorageKey,
   knowledgePathLabelFromFileStorageKey,
   moduleFolderFromFileStorageKey,
+  type ParsedFileStorageSpaceKey,
+  parseFileStorageSpaceObjectKey,
+  pathSegmentsAfterFileStorageContainerRoot,
   pathSegmentsAfterFileStorageTenantRoot,
 } from "./internal-storage-path.js";
 export {
@@ -54,9 +87,28 @@ export { createSupabaseFileStorageProvider } from "./providers/supabase-provider
 export {
   type CreateNativeFileSourceOptions,
   createNativeFileSource,
+  FileSourceConflictError,
   FileSourceNotFoundError,
   FileSourceReadOnlyError,
 } from "./sources/native-file-source.js";
+export {
+  buildSpaceDrive,
+  type DriveNode,
+  type DriveNodeKind,
+  type SpaceDriveArtifact,
+  type SpaceDriveDataEntry,
+  type SpaceDriveDataFolder,
+  type SpaceDriveDataRoot,
+  type SpaceDriveFile,
+  type SpaceDriveFolder,
+  type SpaceDriveInput,
+  type SpaceDriveProject,
+  spaceDataChildNodes,
+  spaceDataRootNodes,
+  spaceDriveProjectNodes,
+  spaceDriveRootOwner,
+  spaceFolderChildNodes,
+} from "./space-drive.js";
 export {
   assertTenantScopedStorageKey,
   FileStorageTenantScopeError,
@@ -65,10 +117,14 @@ export {
   FILE_STORAGE_TEXT_PREVIEW_MIME_TYPES,
   isFileStorageCsvMime,
   isFileStorageMarkdownMime,
+  isFileStoragePdfMime,
+  isFileStorageSpreadsheetMime,
   isFileStorageTextPreviewMime,
+  resolveFileStoragePreviewMime,
 } from "./text-preview-mime.js";
 export {
   COMMONS_STORAGE_PREFIX,
+  type ParsedWorkWorkspacePrefix,
   parseWorkWorkspacePrefix,
   type WorkContainerTier,
   workWorkspacePrefix,

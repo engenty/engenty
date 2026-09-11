@@ -1,6 +1,22 @@
 import type { Task } from "../../src/schema/types.js";
 
+/**
+ * A run of a published Workflow carries a pseudo agent key
+ * (`workflow:<uuid>`), because "agent" on that row means "headless", not "a
+ * model". Nothing about that id is worth showing a person — split as a normal
+ * key it renders as two chopped uuid fragments — so it resolves to the action's
+ * own name where the caller has it, and to a plain label where it does not.
+ */
+export const ACTION_GRAPH_AGENT_KEY_PREFIX = "workflow:";
+
+export function isActionRunAgentKey(key: string | null): boolean {
+  return Boolean(key?.startsWith(ACTION_GRAPH_AGENT_KEY_PREFIX));
+}
+
 export function formatAgentTypeKey(key: string): string {
+  if (isActionRunAgentKey(key)) {
+    return "Action";
+  }
   const segments = key.split(/[./_-]+/).filter(Boolean);
   const raw =
     segments.length > 1

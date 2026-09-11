@@ -49,7 +49,7 @@ function ToolCallFieldGrid({ fields }: { fields: ToolCallDetailField[] }) {
 
 function ToolCallOutputBlock({ text }: { text: string }) {
   return (
-    <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-md border border-border/40 bg-muted/25 p-2.5 font-mono text-[11px] text-muted-foreground leading-relaxed">
+    <pre className="max-h-60 overflow-auto whitespace-pre-wrap rounded-md border border-border-soft bg-muted/25 p-2.5 font-mono text-[11px] text-muted-foreground leading-relaxed">
       {text}
     </pre>
   );

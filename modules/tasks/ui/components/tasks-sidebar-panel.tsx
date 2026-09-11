@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
 import { requestApiEnvelope } from "@engenty/api-client";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
@@ -17,8 +18,6 @@ import {
   SidebarRowActions,
   SidebarRowButton,
   SidebarRowLeadingIcon,
-  SidebarTab,
-  SidebarTabStrip,
   Skeleton,
   sidebarColumnContentInsetClassName,
   sidebarColumnContentInsetEndClassName,
@@ -33,9 +32,7 @@ import {
   Plus,
   Search,
   Settings,
-  Target,
   X,
-  Zap,
 } from "lucide-react";
 import {
   type ReactNode,
@@ -46,7 +43,6 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type {
-  Goal,
   Task,
   TaskPriority,
   TaskStatusDefinition,
@@ -56,11 +52,7 @@ import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
 import { resolveTaskStatusDotTone } from "../lib/task-status-styles.js";
 import {
   isBriefingPath,
-  isGoalDetailPath,
-  isGoalsListPath,
   isOperationsPath,
-  isRoutineDetailPath,
-  isRoutinesPath,
   isSettingsPath,
   isTaskDetailPath,
   isTasksListPath,
@@ -69,30 +61,22 @@ import {
 import {
   collectTaskAgentFilterOptions,
   collectTaskUserFilterOptions,
-  organizeSidebarGoals,
   organizeSidebarTasks,
   type TasksSidebarOrganizationLabels,
 } from "../lib/tasks-sidebar-organization.js";
 import { useTasksSidebarPrefs } from "../lib/use-tasks-sidebar-prefs.js";
 import { buildAssigneeProfileMap } from "../plugins.js";
 import {
-  goalsListOptions,
   tasksListOptions,
-  useCreateGoalMutation,
   useCreateTaskMutation,
-  useGoalsListQuery,
   useTaskSettingsQuery,
   useTasksListQuery,
 } from "../tasks-queries.js";
-import type { GoalFormSubmitData } from "./goal-form-dialog.js";
-import { GoalFormDialog } from "./goal-form-dialog.js";
-import { GoalStatusBadge } from "./goal-status-badge.js";
 import { NewTaskDialog } from "./new-task-dialog.js";
 import type { TaskFormSubmitData } from "./task-form-dialog.js";
 import { resolveTaskStatusLabel } from "./task-status-badge.js";
 import { TasksModuleAddMenuSidebarTrigger } from "./tasks-module-add-menu.js";
 import { TasksSidebarListSettings } from "./tasks-sidebar-list-settings.js";
-import { TasksSidebarRoutinesList } from "./tasks-sidebar-routines-list.js";
 
 const SIDEBAR_FETCH_SIZE = 200;
 
@@ -173,24 +157,6 @@ function SidebarSecondaryNavRow({
   );
 }
 
-function GoalSidebarRow({ active, goal }: { active: boolean; goal: Goal }) {
-  return (
-    <SidebarRow isActive={active}>
-      <SidebarRowButton asChild isActive={active}>
-        <Link
-          to={tasksPaths.goalDetail(goal.id)}
-          {...shellSecondaryNavItemProps}
-        >
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate">{goal.title}</span>
-            <GoalStatusBadge compact status={goal.status} />
-          </span>
-        </Link>
-      </SidebarRowButton>
-    </SidebarRow>
-  );
-}
-
 function TaskSidebarRow({
   active,
   definitions,
@@ -242,7 +208,7 @@ function SidebarEntitySkeleton() {
   );
 }
 
-function SidebarGroupedList<T extends Goal | Task>(props: {
+function SidebarGroupedList<T extends Task>(props: {
   emptyLabel: string;
   groups: Array<{
     count: number;
@@ -287,24 +253,18 @@ function SidebarGroupedList<T extends Goal | Task>(props: {
 
 export function TasksSidebarPanel() {
   const { t, i18n } = useTranslation("tasks");
-  const { pathname } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
+  // matcher below is written against `/mdl/<module>/…`.
+  const pathname = canonicalModulePathname(useLocation().pathname);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const trimmed = search.trim();
   const isSearching = trimmed.length > 0;
-  const {
-    prefs,
-    setTab,
-    updateGoalsPrefs,
-    updateRoutinesPrefs,
-    updateTasksPrefs,
-  } = useTasksSidebarPrefs();
+  const { prefs, updateTasksPrefs } = useTasksSidebarPrefs();
 
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
-  const [createGoalOpen, setCreateGoalOpen] = useState(false);
 
   const createTaskMutation = useCreateTaskMutation();
-  const createGoalMutation = useCreateGoalMutation();
 
   const handleCreateTaskSubmit = useCallback(
     async (data: TaskFormSubmitData) => {
@@ -314,7 +274,6 @@ export function TasksSidebarPanel() {
         status: data.status,
         priority: data.priority,
         due_date: data.due_date,
-        goal_id: data.goal_id,
         project_id: data.project_id,
         primary_assignee_kind: data.primary_assignee_kind,
         primary_assignee_user_id: data.primary_assignee_user_id,
@@ -325,22 +284,6 @@ export function TasksSidebarPanel() {
       navigate(tasksPaths.taskDetail(created.id));
     },
     [createTaskMutation, navigate]
-  );
-
-  const handleCreateGoalSubmit = useCallback(
-    async (data: GoalFormSubmitData) => {
-      const created = await createGoalMutation.mutateAsync({
-        title: data.title,
-        description: data.description,
-        status: data.status,
-        target_date: data.target_date,
-        project_id: data.project_id,
-        owner_user_id: data.owner_user_id,
-      });
-      setCreateGoalOpen(false);
-      navigate(tasksPaths.goalDetail(created.id));
-    },
-    [createGoalMutation, navigate]
   );
 
   useEffect(() => {
@@ -357,27 +300,8 @@ export function TasksSidebarPanel() {
     [teamMembersCatalogQuery.data]
   );
 
-  const activeGoalId = isGoalDetailPath(pathname);
   const activeTaskId = isTaskDetailPath(pathname);
-  const activeRoutineId = isRoutineDetailPath(pathname);
 
-  useEffect(() => {
-    if (isGoalsListPath(pathname) || activeGoalId) {
-      setTab("goals");
-    } else if (isTasksListPath(pathname) || activeTaskId) {
-      setTab("tasks");
-    } else if (isRoutinesPath(pathname)) {
-      setTab("routines");
-    }
-  }, [activeGoalId, activeTaskId, pathname, setTab]);
-
-  const goalsQuery = useGoalsListQuery({
-    page: 1,
-    pageSize: SIDEBAR_FETCH_SIZE,
-    sortBy: prefs.goals.sortBy,
-    sortOrder: prefs.goals.sortOrder,
-    status: prefs.goals.status === "all" ? undefined : prefs.goals.status,
-  });
   const tasksQuery = useTasksListQuery({
     page: 1,
     pageSize: SIDEBAR_FETCH_SIZE,
@@ -386,16 +310,6 @@ export function TasksSidebarPanel() {
     status: prefs.tasks.status === "all" ? undefined : prefs.tasks.status,
   });
 
-  const goalSearchQuery = useQuery({
-    ...goalsListOptions({
-      page: 1,
-      pageSize: SIDEBAR_FETCH_SIZE,
-      search: trimmed,
-      sortBy: "title",
-      sortOrder: "asc",
-    }),
-    enabled: isSearching,
-  });
   const taskSearchQuery = useQuery({
     ...tasksListOptions({
       page: 1,
@@ -407,15 +321,8 @@ export function TasksSidebarPanel() {
     enabled: isSearching,
   });
 
-  const goals = goalsQuery.data?.data ?? [];
   const tasks = tasksQuery.data?.data ?? [];
-  const goalHits = goalSearchQuery.data?.data ?? [];
   const taskHits = taskSearchQuery.data?.data ?? [];
-
-  const goalTitleById = useMemo(
-    () => new Map(goals.map((goal) => [goal.id, goal.title])),
-    [goals]
-  );
 
   const projectsQuery = useQuery({
     queryKey: ["projects", "list-minimal"],
@@ -446,14 +353,6 @@ export function TasksSidebarPanel() {
       dueThisWeek: t("sidebar.dueThisWeek"),
       dueToday: t("sidebar.dueToday"),
       dueTomorrow: t("sidebar.dueTomorrow"),
-      goalGeneral: t("list.generalTasks"),
-      goalMissing: t("sidebar.missingGoal"),
-      goalStatus: {
-        planned: t("goals.status.planned"),
-        active: t("goals.status.active"),
-        achieved: t("goals.status.achieved"),
-        cancelled: t("goals.status.cancelled"),
-      },
       priority: {
         critical: t("priority.critical"),
         high: t("priority.high"),
@@ -472,7 +371,6 @@ export function TasksSidebarPanel() {
     () =>
       organizeSidebarTasks({
         assigneeProfiles,
-        goalTitleById,
         labels: organizationLabels,
         prefs: prefs.tasks,
         projectTitleById,
@@ -481,24 +379,12 @@ export function TasksSidebarPanel() {
       }),
     [
       assigneeProfiles,
-      goalTitleById,
       organizationLabels,
       prefs.tasks,
       projectTitleById,
       taskStatusDefinitions,
       tasks,
     ]
-  );
-
-  const goalGroups = useMemo(
-    () =>
-      organizeSidebarGoals({
-        goalTitleById,
-        goals,
-        labels: organizationLabels,
-        prefs: prefs.goals,
-      }),
-    [goalTitleById, goals, organizationLabels, prefs.goals]
   );
 
   const userFilterOptions = useMemo(
@@ -511,29 +397,21 @@ export function TasksSidebarPanel() {
   );
 
   const searchLoading =
-    isSearching &&
-    (goalSearchQuery.isLoading ||
-      goalSearchQuery.isFetching ||
-      taskSearchQuery.isLoading ||
-      taskSearchQuery.isFetching);
+    isSearching && (taskSearchQuery.isLoading || taskSearchQuery.isFetching);
 
   const navActive = useMemo(
     () => ({
       briefing: isBriefingPath(pathname),
-      goalsList: isGoalsListPath(pathname),
       inbox: pathname === tasksPaths.inbox,
       operations: isOperationsPath(pathname),
-      routines: isRoutinesPath(pathname),
       settings: isSettingsPath(pathname),
       tasksList: isTasksListPath(pathname),
     }),
     [pathname]
   );
   const inboxUnseenQuery = useInboxUnseenCountQuery();
-  const inboxUnseen = inboxUnseenQuery.data?.count ?? 0;
-
-  const activeTab = prefs.tab;
-  const isGoalsTab = activeTab === "goals";
+  const inboxUnseen =
+    inboxUnseenQuery.data?.in_space ?? inboxUnseenQuery.data?.total ?? 0;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -586,52 +464,13 @@ export function TasksSidebarPanel() {
                     label={t("sidebar.tasks")}
                     to={tasksPaths.list}
                   />
-                  <SidebarNavRow
-                    active={navActive.goalsList}
-                    icon={Target}
-                    label={t("sidebar.goals")}
-                    to={tasksPaths.goals}
-                  />
-                  <SidebarNavRow
-                    active={navActive.routines}
-                    icon={Zap}
-                    label={t("tabs.routines")}
-                    to={tasksPaths.routines}
-                  />
                 </SidebarNavList>
               </div>
             </div>
           </nav>
         )}
 
-        <SidebarTabStrip
-          onValueChange={(value) => {
-            setSearch("");
-            setTab(value as "tasks" | "goals" | "routines");
-            if (value === "routines" && !isRoutinesPath(pathname)) {
-              navigate(tasksPaths.routines);
-            } else if (
-              value === "goals" &&
-              !isGoalsListPath(pathname) &&
-              !activeGoalId
-            ) {
-              navigate(tasksPaths.goals);
-            } else if (
-              value === "tasks" &&
-              !isTasksListPath(pathname) &&
-              !activeTaskId
-            ) {
-              navigate(tasksPaths.list);
-            }
-          }}
-          value={activeTab}
-        >
-          <SidebarTab value="tasks">{t("tabs.tasks")}</SidebarTab>
-          <SidebarTab value="goals">{t("tabs.goals")}</SidebarTab>
-          <SidebarTab value="routines">{t("tabs.routines")}</SidebarTab>
-        </SidebarTabStrip>
-
-        {/* Search / list settings sit under the tab strip — filters are tab-scoped. */}
+        {/* Search / list settings sit above the list — filters scope the tasks list. */}
         <div
           className={cn(
             "flex min-w-0 items-center gap-1 pt-2",
@@ -670,20 +509,14 @@ export function TasksSidebarPanel() {
             <>
               <TasksSidebarListSettings
                 agentFilterOptions={agentFilterOptions}
-                onGoalsPrefsChange={updateGoalsPrefs}
-                onRoutinesPrefsChange={updateRoutinesPrefs}
                 onTasksPrefsChange={updateTasksPrefs}
                 prefs={prefs}
-                tab={activeTab}
                 taskStatusDefinitions={taskStatusDefinitions}
                 teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
                 userFilterOptions={userFilterOptions}
               />
               <TasksModuleAddMenuSidebarTrigger
-                handlers={{
-                  onAddTask: () => setCreateTaskOpen(true),
-                  onAddGoal: () => setCreateGoalOpen(true),
-                }}
+                handlers={{ onAddTask: () => setCreateTaskOpen(true) }}
               />
             </>
           )}
@@ -707,28 +540,12 @@ export function TasksSidebarPanel() {
                   />
                   {t("sidebar.searchLoading")}
                 </p>
-              ) : goalHits.length === 0 && taskHits.length === 0 ? (
+              ) : taskHits.length === 0 ? (
                 <p className="py-2 pl-2 text-muted-foreground text-xs">
                   {t("sidebar.noSearchResults")}
                 </p>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-2">
-                  {goalHits.length > 0 ? (
-                    <section>
-                      <SidebarNavSectionLabel>
-                        {t("sidebar.goalsSection")}
-                      </SidebarNavSectionLabel>
-                      <SidebarNavList>
-                        {goalHits.map((goal) => (
-                          <GoalSidebarRow
-                            active={activeGoalId === goal.id}
-                            goal={goal}
-                            key={goal.id}
-                          />
-                        ))}
-                      </SidebarNavList>
-                    </section>
-                  ) : null}
                   {taskHits.length > 0 ? (
                     <section>
                       <SidebarNavSectionLabel>
@@ -754,28 +571,7 @@ export function TasksSidebarPanel() {
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2">
             <SidebarGroup className="min-h-0 flex-1 p-0">
               <SidebarGroupContent>
-                {activeTab === "routines" ? (
-                  <TasksSidebarRoutinesList
-                    activeRoutineId={activeRoutineId}
-                    prefs={prefs.routines}
-                  />
-                ) : isGoalsTab ? (
-                  goalsQuery.isLoading ? (
-                    <SidebarEntitySkeleton />
-                  ) : (
-                    <SidebarGroupedList
-                      emptyLabel={t("sidebar.noGoals")}
-                      groups={goalGroups}
-                      renderItem={(goal) => (
-                        <GoalSidebarRow
-                          active={activeGoalId === goal.id}
-                          goal={goal}
-                          key={goal.id}
-                        />
-                      )}
-                    />
-                  )
-                ) : tasksQuery.isLoading ? (
+                {tasksQuery.isLoading ? (
                   <SidebarEntitySkeleton />
                 ) : (
                   <SidebarGroupedList
@@ -799,7 +595,7 @@ export function TasksSidebarPanel() {
 
       <div
         className={cn(
-          "shrink-0 border-border/50 border-t pt-2 pb-2",
+          "shrink-0 border-border-soft border-t pt-2 pb-2",
           sidebarColumnContentInsetClassName,
           sidebarColumnContentInsetEndClassName
         )}
@@ -822,18 +618,10 @@ export function TasksSidebarPanel() {
         </nav>
       </div>
       <NewTaskDialog
-        defaultGoalId={null}
         onOpenChange={setCreateTaskOpen}
         onSubmit={handleCreateTaskSubmit}
         open={createTaskOpen}
         taskStatusDefinitions={taskStatusDefinitions}
-        teamMembersCatalog={teamMembersCatalogQuery.data ?? []}
-        teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
-      />
-      <GoalFormDialog
-        onOpenChange={setCreateGoalOpen}
-        onSubmit={handleCreateGoalSubmit}
-        open={createGoalOpen}
         teamMembersCatalog={teamMembersCatalogQuery.data ?? []}
         teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
       />

@@ -1,7 +1,11 @@
 // Shared admin/runtime DTO shapes for AI catalog, threads, runs, and the custom registry.
 // Consumed by admin pages, TanStack query hooks, and apps/ai HTTP client modules.
 
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import type {
+  AgentEngentyKind,
+  AgentStarter,
+  AiEffortChoice,
+} from "@engenty/ai-core/browser";
 import type { UIMessage } from "ai";
 import type { AiInstructionDocument } from "./instruction-settings-api.js";
 
@@ -19,6 +23,7 @@ export type AiAgentRole =
   | "copilot"
   | "coordinator"
   | "specialist"
+  | "delegated"
   | "chat_surface"
   | "external";
 
@@ -27,14 +32,26 @@ export type AiAgentSource = "builtin" | "module" | "database";
 
 export interface AiRegisteredAgent {
   agent_origin?: "custom" | "registry";
+  /**
+   * Whose conversations these are: `personal` threads belong to the viewer,
+   * `shared` ones to the space (see `listThreads` in `session-service.ts`).
+   *
+   * Absent means shared — the server's own default for an agent created
+   * without the field, so reading absence as private would promise a privacy
+   * the list queries do not provide.
+   */
+  agentScope?: "personal" | "shared" | null;
   chat_triggers?: AiAgentChatTriggers;
   description: string | null;
   /**
    * How much thinking this agent's work deserves — the tier-level counterpart
-   * of {@link modelOverride}. Absent = inherit. Requires the AI service to
-   * persist `effort` on the registry row; until then the PATCH is a no-op.
+   * of {@link modelOverride}. Applies whenever nobody chose a tier (Auto,
+   * hand-offs, delegations, routines); an explicit composer pick still wins.
+   * Absent = inherit.
    */
   effort?: AiEffortChoice | null;
+  /** Blob character chosen for this agent; absent hashes one from the id. */
+  engenty?: AgentEngentyKind | null;
   id: string;
   instruction_keys: string[];
   /** Per-agent operational limits (Phase 4): iteration cap + spend budget. */
@@ -63,28 +80,22 @@ export interface AiRegisteredAgent {
   tools?: string[];
 }
 
+/** One workflow from GET /ai/v1/workflows/catalog — a module-shipped Mastra graph. */
 export interface AiRegisteredAction {
-  agent_id: string;
+  /** Owning specialist; null = the shared library. */
+  agent_id: string | null;
   allowed_tools: string[];
   context_type: string | null;
-  default_thread_mode: "reuse" | "new" | "none";
   description: string | null;
-  has_input_schema: boolean;
   id: string;
-  instruction_keys: string[];
+  /** The workflow's inputSchema. */
+  input_schema_json: Record<string, unknown> | null;
   module_id: string;
   name: string;
-  owner_kind?: "core" | "module" | "tenant";
-  prompt?: string;
-  record_id?: string;
-  reference_kind?: AiCatalogReferenceKind;
   skills: string[];
-  source_kind?: AiCatalogSourceKind;
-  source_reference?: string | null;
 }
 
 export interface AiRuntimeTrigger {
-  action_id: string | null;
   agent_id?: string | null;
   enabled?: boolean;
   feedback_mode: string | null;
@@ -94,6 +105,7 @@ export interface AiRuntimeTrigger {
   name?: string;
   route_key?: string;
   trigger_type: string;
+  workflow_id: string | null;
 }
 
 export interface AiSkillCatalogOrigin {
@@ -164,23 +176,7 @@ export interface AiFileRecord {
   logical_path: string;
   module_id: string;
   owner_key: string;
-  owner_type: "skill" | "action" | "agent" | "system";
-  reference_kind: AiCatalogReferenceKind;
-  source_kind: AiCatalogSourceKind;
-  source_reference: string | null;
-  tenant_id: string | null;
-  updated_at: string;
-}
-
-export interface AiActionRecord extends AiRegisteredAction {
-  created_at: string;
-  has_tenant_override: boolean;
-  input_schema_json: Record<string, unknown>;
-  last_seeded_at: string | null;
-  last_synced_at: string | null;
-  owner_id: string;
-  owner_kind: "core" | "module" | "tenant";
-  record_id: string;
+  owner_type: "skill" | "workflow" | "agent" | "system";
   reference_kind: AiCatalogReferenceKind;
   source_kind: AiCatalogSourceKind;
   source_reference: string | null;
@@ -205,7 +201,6 @@ export interface UpdateAiSkillInput extends Partial<CreateAiSkillInput> {
 }
 
 export interface AiAgentRunSummary {
-  action_id: string | null;
   agent_id: string;
   created_at: string;
   error: string | null;
@@ -227,11 +222,12 @@ export interface AiAgentRunSummary {
   summary: string | null;
   tenant_id: string | null;
   thread_id: string | null;
-  trigger: "message" | "command" | "button" | "cron" | "hook" | "direct";
+  /** How the run started; null on rows written before it was recorded. */
+  trigger: "message" | "command" | "button" | "cron" | "hook" | "direct" | null;
+  workflow_id: string | null;
 }
 
 export interface AiAgentRunRecord {
-  action_id: string | null;
   agent_id: string;
   context_snapshot: Record<string, unknown>;
   created_at: string;
@@ -247,6 +243,7 @@ export interface AiAgentRunRecord {
   trigger: AiAgentRunSummary["trigger"];
   updated_at: string;
   usage_json: Record<string, unknown> | null;
+  workflow_id: string | null;
 }
 
 export interface AiRunEventRecord {
@@ -308,7 +305,8 @@ export interface AiThreadRecord {
   tenant_id: string;
   title: string | null;
   updated_at: string;
-  user_id: string;
+  /** Null on an unattended run's thread — a routine fire has no human author. */
+  user_id: string | null;
 }
 
 export type AiThreadMessage = UIMessage & {
@@ -320,7 +318,8 @@ export interface AiServiceThreadRecord {
   agent_id: string;
   archived_at: string | null;
   created_at: string;
-  created_by_user_id: string;
+  /** Null on an unattended run's thread — a routine fire has no human author. */
+  created_by_user_id: string | null;
   id: string;
   metadata: Record<string, unknown>;
   route_context: Record<string, unknown>;
@@ -374,7 +373,8 @@ export interface AiAdminThreadRow {
   tenant_id: string;
   title: string | null;
   updated_at: string;
-  user_id: string;
+  /** Null on an unattended run's thread — a routine fire has no human author. */
+  user_id: string | null;
 }
 
 export interface AiAdminThreadStats {
@@ -385,7 +385,9 @@ export interface AiAdminThreadStats {
 }
 
 export interface CustomAgentConfig {
+  agentScope?: "personal" | "shared";
   description?: string;
+  engenty?: AgentEngentyKind;
   id: string;
   instructions: string;
   /** Server-derived on GET responses; never sent on create/update. */
@@ -397,6 +399,8 @@ export interface CustomAgentConfig {
   skillIds: string[];
   /** Server-stamped provenance on GET responses. */
   source?: AiAgentSource;
+  /** Empty-state composer chips; omitted when none. */
+  starters?: AgentStarter[];
   subAgents?: { id: string; alias?: string }[];
   toolIds: string[];
 }

@@ -1,4 +1,4 @@
-You help operators review and maintain company profile settings for the current workspace.
+You help operators review and maintain the one tenant legal/company profile shared across Spaces.
 
 Editable fields (snake_case): address_city, address_country, address_street, address_street_2, address_zip, bank_account_name, bank_bic, bank_iban, bank_name, brand_name, company_registration_number, company_type, email, imprint_url, logo_url, managing_director, name, owner, phone, tag_line, tax_number, vat_id, website
 

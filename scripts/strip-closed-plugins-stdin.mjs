@@ -12,7 +12,7 @@
  * package.json byte-for-byte — so the public repo sees only the plugin removal,
  * not a reformat of the whole file.
  */
-import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-plugin-slugs.mjs";
+import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-paths.mjs";
 
 const chunks = [];
 for await (const chunk of process.stdin) {

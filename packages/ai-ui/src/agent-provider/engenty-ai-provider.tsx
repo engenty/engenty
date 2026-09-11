@@ -30,6 +30,7 @@ function defaultFormatTransportBlocker(
 }
 
 export function EngentyAI({
+  activeThreadSpaceId,
   agentToolInvalidation,
   children,
   executeFrontendTool,
@@ -190,6 +191,7 @@ export function EngentyAI({
     <EngentyAIContext.Provider value={value}>
       {scopeReady ? (
         <EngentyThreadsProvider
+          activeThreadSpaceId={activeThreadSpaceId}
           realtimeClient={threadsRealtimeClient ?? null}
           tenantId={tenantId as string}
           userId={userId as string}

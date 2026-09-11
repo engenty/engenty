@@ -103,12 +103,25 @@ export abstract class BaseEngentySandboxProvider
     };
   }
 
+  /**
+   * Mounts that carry no storage prefix are BUCKET-EXEMPT by construction, not
+   * misconfigured: the Space Data cache (workspace/loader.ts) flushes through
+   * the operation pipeline instead. Syncing one anyway is harmful in both
+   * directions — pulling throws `sandbox_sync_storage_prefix_empty`, and
+   * pushing would write its records to the tenant root as loose objects.
+   */
+  private syncableLayouts(): SandboxStorageLayout[] {
+    return [this.input.layout, ...this.extraLayouts].filter((layout) =>
+      Boolean(layout.fileStorageRelativePath.trim())
+    );
+  }
+
   async syncIn(): Promise<void> {
     const client = this.client;
     if (!(client && this.useRemoteStorageSync)) {
       return;
     }
-    for (const layout of [this.input.layout, ...this.extraLayouts]) {
+    for (const layout of this.syncableLayouts()) {
       await pullSandboxWorkspaceFromStorage({
         client,
         layout,
@@ -122,7 +135,7 @@ export abstract class BaseEngentySandboxProvider
     if (!(client && this.useRemoteStorageSync)) {
       return;
     }
-    for (const layout of [this.input.layout, ...this.extraLayouts]) {
+    for (const layout of this.syncableLayouts()) {
       await pushSandboxWorkspaceToStorage({
         client,
         layout,

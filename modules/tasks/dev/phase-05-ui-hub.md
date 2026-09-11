@@ -79,7 +79,6 @@ Add tasks-specific:
 |--------|-------|
 | Tasks list | [ui-sketch-tasks-list.png](./assets/ui-sketch-tasks-list.png) |
 | Task detail | [ui-sketch-task-detail.png](./assets/ui-sketch-task-detail.png) |
-| Goals | [ui-sketch-goals-list.png](./assets/ui-sketch-goals-list.png) |
 
 Desktop layout (ASCII):
 

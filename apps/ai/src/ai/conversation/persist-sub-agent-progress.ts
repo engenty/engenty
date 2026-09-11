@@ -17,7 +17,7 @@ interface ToolInvocationPart {
 
 /**
  * Set `progressLines` on the persisted `agent-*` delegation tool part(s) for the
- * given run's accumulated lines (from `DurableAgUiConverter.getSubAgentProgressLines`).
+ * given run's accumulated lines (from `AgUiTurnAccumulator.getSubAgentProgressLines`).
  * The UI reads top-level `part.progressLines` (copilot-adapter `withProgressLines`).
  * Best-effort: only fills parts that don't already carry lines; logs and returns
  * on failure (a missing message just means no log this turn, not a crash).

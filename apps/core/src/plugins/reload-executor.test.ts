@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   listActiveAiRegistrations,
-  resolveAgentDefinitionById,
+  resolveSkillDefinitionById,
   unregisterAiRegistration,
 } from "@engenty/ai-core";
 import { afterEach, describe, expect, it } from "vitest";
@@ -84,16 +84,14 @@ function pluginBody(version: string) {
         globalThis.__engentyReloadEvents.push("event:" + String(event.version));
       });
       engenty.server.registerAiRegistration({
-        agents: [
+        module_id: "reload-test",
+        skills: [
           {
-            id: "reload-test.agent.${version}",
-            module_id: "reload-test",
-            name: "Reload Test ${version}",
-            instruction_keys: [],
-            build_tools: () => ({}),
+            description: "Reload test skill.",
+            name: "reload-test-${version}",
+            title: "Reload Test ${version}",
           },
         ],
-        module_id: "reload-test",
         triggers: [],
       });
       engenty.server.registerOperation({
@@ -209,7 +207,7 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     expect(registry.moduleOperations.map((entry) => entry.operationId)).toEqual(
       ["reload_test_v1"]
     );
-    expect(resolveAgentDefinitionById("reload-test.agent.v1")?.name).toBe(
+    expect(resolveSkillDefinitionById("reload-test-v1")?.title).toBe(
       "Reload Test v1"
     );
 
@@ -269,8 +267,8 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
         .filter((registration) => registration.module_id === "reload-test")
         .map((registration) => registration.module_id)
     ).toEqual(["reload-test"]);
-    expect(resolveAgentDefinitionById("reload-test.agent.v1")).toBeUndefined();
-    expect(resolveAgentDefinitionById("reload-test.agent.v2")?.name).toBe(
+    expect(resolveSkillDefinitionById("reload-test-v1")).toBeUndefined();
+    expect(resolveSkillDefinitionById("reload-test-v2")?.title).toBe(
       "Reload Test v2"
     );
     expect(result.unload?.removal?.removed.aiRegistrations).toBe(1);
@@ -709,10 +707,10 @@ describe("reload backend plugin (reloadBackendPlugin export)", () => {
     expect(registry.moduleOperations.map((entry) => entry.operationId)).toEqual(
       ["reload_test_v1"]
     );
-    expect(resolveAgentDefinitionById("reload-test.agent.v1")?.name).toBe(
+    expect(resolveSkillDefinitionById("reload-test-v1")?.title).toBe(
       "Reload Test v1"
     );
-    expect(resolveAgentDefinitionById("reload-test.agent.v2")).toBeUndefined();
+    expect(resolveSkillDefinitionById("reload-test-v2")).toBeUndefined();
     expect(result.issues).toContainEqual(
       expect.objectContaining({ code: "plugin.dispose.failed" })
     );

@@ -16,6 +16,7 @@
     "ai": true,
     "frontendTools": false
   },
+  "placement": "settings",
   "supabase": {
     "storageBuckets": [
       {

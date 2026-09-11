@@ -22,14 +22,14 @@ const chatCommandArgSchema = z.object({
 });
 
 const commandFileFrontmatterSchema = z.object({
-  action_id: z.string().optional(),
+  workflow_id: z.string().optional(),
   agent_ids: z.array(z.string()).optional(),
   args: z.array(chatCommandArgSchema).optional(),
   command: z.string(),
   description: z.string().optional(),
   description_key: z.string().optional(),
   id: z.string().optional(),
-  kind: z.enum(["action", "prompt"]),
+  kind: z.enum(["workflow", "prompt"]),
   label: z.string().optional(),
   label_key: z.string().optional(),
   module_id: z.string().optional(),
@@ -75,9 +75,9 @@ export function loadChatCommandDefinitionsFromDirectory(input: {
       );
     }
     seen.add(command);
-    if (front.kind === "action" && !front.action_id) {
+    if (front.kind === "workflow" && !front.workflow_id) {
       throw new Error(
-        `loadChatCommandDefinitions(${input.moduleId}): action command "/${command}" needs action_id`
+        `loadChatCommandDefinitions(${input.moduleId}): action command "/${command}" needs workflow_id`
       );
     }
     const template = parsed.content.trim();
@@ -87,7 +87,7 @@ export function loadChatCommandDefinitionsFromDirectory(input: {
       );
     }
     definitions.push({
-      action_id: front.action_id,
+      workflow_id: front.workflow_id,
       agent_ids: front.agent_ids,
       args: front.args,
       command,

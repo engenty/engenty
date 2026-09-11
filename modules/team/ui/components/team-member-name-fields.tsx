@@ -38,7 +38,7 @@ function nameField<T extends FieldValues & TeamProfileNameFormFields>(
 }
 
 const nameRowFieldClass =
-  "border-border/60 border-b px-3 py-2.5 last:border-b-0";
+  "border-border-soft border-b px-3 py-2.5 last:border-b-0";
 
 export function TeamMemberNameFields<
   T extends FieldValues & TeamProfileNameFormFields,
@@ -55,7 +55,7 @@ export function TeamMemberNameFields<
   return (
     <div className="space-y-0">
       {onApplySplit && splitSourceLabel ? (
-        <div className="flex justify-end border-border/60 border-b px-3 py-2">
+        <div className="flex justify-end border-border-soft border-b px-3 py-2">
           <Button
             className="h-8 gap-1.5 text-xs"
             onClick={() =>
@@ -193,7 +193,7 @@ export function TeamMemberNameFields<
         control={control}
         name={nameField<T>("custom_display_name")}
         render={({ field }) => (
-          <div className="flex items-center border-border/60 border-t px-3 py-2">
+          <div className="flex items-center border-border-soft border-t px-3 py-2">
             {field.value ? (
               <button
                 className="text-muted-foreground text-xs hover:text-foreground"

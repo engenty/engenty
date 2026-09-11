@@ -1,4 +1,11 @@
-import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
+import {
+  createRecordLinker,
+  type PluginAuthContext,
+  type PluginServerApi,
+  type RecordLinkAuth,
+  withRecordLink,
+  withRecordLinks,
+} from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import type { createTeamMemberRepoSupabase } from "../dal/supabase.js";
 import {
@@ -35,13 +42,21 @@ function getRepo(
 }
 
 export function registerTeamMembersGatewayMethods(
-  server: Pick<PluginServerApi, "registerOperation">,
+  server: Pick<PluginServerApi, "getTenantDb" | "registerOperation">,
   repoOrFactory: RepoOrFactory
 ) {
+  // Team members are tenant-shared: the link lands in the space the call runs in.
+  const link = createRecordLinker(server);
+  const memberLink = (
+    auth: RecordLinkAuth | undefined,
+    member: { id: string }
+  ) => link(auth, "team", [member.id]);
+
   server.registerOperation({
     operationId: "team_list",
     summary: "List team members",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.read"],
     riskLevel: "low",
     idempotent: true,
@@ -52,7 +67,13 @@ export function registerTeamMembersGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const parsed = teamMembersListQuerySchema.parse(input ?? {});
-      return repo.listPaginated(parsed);
+      const result = await repo.listPaginated(parsed);
+      return {
+        ...result,
+        data: await withRecordLinks(result.data, (member) =>
+          memberLink(ctx.auth, member)
+        ),
+      };
     },
   });
 
@@ -60,6 +81,7 @@ export function registerTeamMembersGatewayMethods(
     operationId: "team_get",
     summary: "Get team member by ID",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.read"],
     riskLevel: "low",
     idempotent: true,
@@ -70,7 +92,10 @@ export function registerTeamMembersGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       const { id } = teamMemberIdParamsSchema.parse(input);
-      return repo.getById(id);
+      const member = await repo.getById(id);
+      return member
+        ? withRecordLink(member, (row) => memberLink(ctx.auth, row))
+        : member;
     },
   });
 
@@ -78,6 +103,7 @@ export function registerTeamMembersGatewayMethods(
     operationId: "team_create",
     summary: "Create team member",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.write"],
     riskLevel: "high",
     idempotent: false,
@@ -94,7 +120,10 @@ export function registerTeamMembersGatewayMethods(
         invite_role: _inviteRole,
         ...partial
       } = parsed;
-      return repo.create(teamMemberInputForCreate(partial));
+      return withRecordLink(
+        await repo.create(teamMemberInputForCreate(partial)),
+        (member) => memberLink(ctx.auth, member)
+      );
     },
   });
 
@@ -102,6 +131,7 @@ export function registerTeamMembersGatewayMethods(
     operationId: "team_update",
     summary: "Update team member",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.write"],
     riskLevel: "high",
     idempotent: false,
@@ -118,7 +148,10 @@ export function registerTeamMembersGatewayMethods(
         id: string;
         patch: z.infer<typeof teamMemberUpdateSchema>;
       };
-      return repo.update(parsed.id, parsed.patch);
+      const updated = await repo.update(parsed.id, parsed.patch);
+      return updated
+        ? withRecordLink(updated, (member) => memberLink(ctx.auth, member))
+        : updated;
     },
   });
 
@@ -126,6 +159,7 @@ export function registerTeamMembersGatewayMethods(
     operationId: "team_delete",
     summary: "Delete team member",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.write"],
     riskLevel: "critical",
     idempotent: false,
@@ -148,6 +182,7 @@ export function registerTeamMembersGatewayMethods(
     operationId: "team_time_tracking_list_catalog",
     summary: "List team members for time-tracking catalog",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.read"],
     riskLevel: "low",
     idempotent: true,
@@ -167,6 +202,7 @@ export function registerTeamMembersGatewayMethods(
     summary:
       "Resolve team member profile for a principal (time-tracking context)",
     moduleId: "team",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.team.read"],
     riskLevel: "low",
     idempotent: true,

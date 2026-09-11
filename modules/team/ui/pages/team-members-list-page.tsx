@@ -390,7 +390,6 @@ export function TeamMembersListPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   return (

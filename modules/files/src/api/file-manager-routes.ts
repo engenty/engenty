@@ -7,6 +7,7 @@
 
 import {
   type FileSource,
+  FileSourceConflictError,
   type FileSourceContext,
   FileSourceNotFoundError,
   FileSourceReadOnlyError,
@@ -17,6 +18,7 @@ import {
   beginUploadBodySchema,
   createFolderBodySchema,
   downloadUrlSchema,
+  FILE_CONTENT_MAX_BYTES,
   fileNodeSchema,
   fileSpaceItemParamsSchema,
   fileSpaceParamsSchema,
@@ -24,6 +26,7 @@ import {
   folderNodeSchema,
   listingSchema,
   okSchema,
+  replaceFileContentBodySchema,
   updateFileBodySchema,
   updateFolderBodySchema,
   uploadTicketSchema,
@@ -76,13 +79,71 @@ async function withNotFound<T>(fn: () => Promise<T>): Promise<T | Response> {
         headers: { "content-type": "application/json" },
       });
     }
+    if (err instanceof FileSourceConflictError) {
+      // The current token travels with the refusal, so the client can offer to
+      // reload rather than only report failure.
+      //
+      // Written in the CANONICAL envelope rather than the loose
+      // `{error: "…"}` shape its 403/404 siblings use, because core rewrites a
+      // plugin route's error body through `parseLegacyErrorBody`: that path
+      // keeps only a handful of known keys, nests whatever it does keep one
+      // level deeper, and derives `code` from the status. An already-valid
+      // `ApiErrorResponse` is returned untouched — so this is the one shape
+      // where `file_conflict` and the token both survive the trip.
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: "file_conflict",
+            details: { currentUpdatedAt: err.currentUpdatedAt },
+            message: err.message,
+          },
+          ok: false,
+        }),
+        { status: 409, headers: { "content-type": "application/json" } }
+      );
+    }
     throw err;
   }
 }
 
+/**
+ * Body text → bytes, refusing anything that is not what it claims to be.
+ *
+ * `atob` accepts a good deal of near-base64 and quietly produces garbage, so
+ * the decode is verified by re-encoding: a payload that does not survive the
+ * round trip is rejected rather than written over somebody's file.
+ */
+export function decodeContent(
+  content: string,
+  encoding: "base64" | "utf-8"
+): Uint8Array | null {
+  if (encoding === "utf-8") {
+    return new TextEncoder().encode(content);
+  }
+  try {
+    const bytes = Uint8Array.from(Buffer.from(content, "base64"));
+    return Buffer.from(bytes).toString("base64") === content.replace(/\s/g, "")
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the space a file space's owner belongs to. Server-side by
+ * construction — see `FileSourceContext.spaceId` for why this must never come
+ * from the request.
+ */
+export type ResolveOwnerSpaceId = (
+  auth: PluginAuthContext,
+  owner: { ownerId: string; ownerType: string }
+) => Promise<string | null>;
+
 export function registerFileManagerRoutes(
   api: PluginServerApi,
-  source: FileSource
+  source: FileSource,
+  resolveOwnerSpaceId: ResolveOwnerSpaceId
 ): void {
   const base = "/api/files/spaces/:ownerType/:ownerId";
 
@@ -203,8 +264,15 @@ export function registerFileManagerRoutes(
       const params = ctx.params as z.infer<typeof fileSpaceParamsSchema>;
       const body = ctx.body as z.infer<typeof beginUploadBodySchema>;
       return withNotFound(async () => {
+        // The ONLY handler that mints a storage key, so the only one that has
+        // to know the space. The other nine read `entry.storageKey` as stored.
+        const base = spaceContext(ctx.auth, params);
+        const spaceId =
+          base.owner.type === "space"
+            ? base.owner.id
+            : await resolveOwnerSpaceId(ctx.auth as PluginAuthContext, params);
         const ticket = await source.beginUpload(
-          spaceContext(ctx.auth, params),
+          { ...base, ...(spaceId ? { spaceId } : {}) },
           {
             folderId: body.folderId ?? null,
             filename: body.filename,
@@ -275,6 +343,48 @@ export function registerFileManagerRoutes(
         await source.deleteFile(spaceContext(ctx.auth, params), params.id);
         return { ok: true };
       });
+    },
+  });
+
+  // ── Replace file content (save an edit) ──
+  api.registerHttpRoute({
+    method: "put",
+    path: `${base}/files/:id/content`,
+    operation: WRITE_OP,
+    summary: "Replace a file's content",
+    tags: ["files"],
+    request: {
+      params: fileSpaceItemParamsSchema,
+      body: replaceFileContentBodySchema,
+    },
+    responses: {
+      200: { description: "Updated file", schema: fileNodeSchema },
+      409: { description: "The file changed since it was opened" },
+    },
+    handler: async (ctx) => {
+      const params = ctx.params as z.infer<typeof fileSpaceItemParamsSchema>;
+      const body = ctx.body as z.infer<typeof replaceFileContentBodySchema>;
+      const data = decodeContent(body.content, body.encoding);
+      if (!data) {
+        return new Response(
+          JSON.stringify({ error: "content is not valid base64" }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        );
+      }
+      // The schema caps the ENCODED string; base64 shrinks by a quarter on the
+      // way in, so the real byte count is only known here.
+      if (data.byteLength > FILE_CONTENT_MAX_BYTES) {
+        return new Response(JSON.stringify({ error: "content too large" }), {
+          status: 413,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return withNotFound(() =>
+        source.replaceContent(spaceContext(ctx.auth, params), params.id, {
+          data,
+          expectedUpdatedAt: body.expectedUpdatedAt,
+        })
+      );
     },
   });
 

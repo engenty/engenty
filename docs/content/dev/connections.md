@@ -281,10 +281,10 @@ directories the user picks in the browser (File System Access API,
 Chromium-only). Each granted directory is one `browser`-auth connection; the
 handle persists in IndexedDB per browser profile. Server-side actions
 round-trip into the tab over a durable bridge
-(`module_local_files.bridge_requests`): the always-mounted bridge component (a
-`backgroundComponents` UI contribution) heartbeats liveness, claims pending
-requests, executes them against the handle, and posts results back. When no
-tab holding the handle is online, actions fail fast with
+(`module_local_files.bridge_requests`): files surfaces (File Manager, the
+Data-tree folder listing, the connect-folder dialog) heartbeat liveness and
+claim pending requests only while that folder UI is on screen. Chat and Work
+do not poll. When no tab is showing the folder, actions fail fast with
 `local_files_browser_offline`; a revoked handle flips the connection to
 `error` until the user re-grants it (one click — Chromium often returns
 `prompt` after a restart, which is expected, not a bug).

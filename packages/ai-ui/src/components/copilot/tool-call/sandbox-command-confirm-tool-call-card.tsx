@@ -110,6 +110,7 @@ function SandboxCommandResultBody({ output }: { output: string }) {
 export function SandboxCommandConfirmToolCallCard(props: ToolCallCardProps) {
   const {
     awaitingInterrupt,
+    dismissInterrupt,
     onSandboxCommandApprove,
     onSandboxCommandReject,
     openInterrupt,
@@ -174,6 +175,7 @@ export function SandboxCommandConfirmToolCallCard(props: ToolCallCardProps) {
   return (
     <SandboxCommandConfirmCard
       onApprove={() => onSandboxCommandApprove?.(open)}
+      onDismiss={dismissInterrupt ? () => dismissInterrupt(open) : undefined}
       onReject={() => onSandboxCommandReject?.(open)}
       open={open}
     />

@@ -53,9 +53,17 @@
   },
   "empty": {
     "title": "Noch keine Dateien",
-    "description": "Laden Sie Dateien hoch oder sie erscheinen hier, wenn Module Dokumente speichern.",
+    "description": "Lade Dateien hoch oder veröffentliche Datei-Ergebnisse hier. Von Modulen gespeicherte Dokumente erscheinen ebenfalls in diesem echten Speicher.",
     "prefixTitle": "Keine Dateien in diesem Ordner",
-    "prefixDescription": "Aufgaben-Arbeitsbereichsdateien erscheinen hier nach dem Checkout."
+    "prefixDescription": "Dieser Ordner ist bereit für Dateien und veröffentlichte Ergebnisse. Aufgaben-Workspace-Dateien bleiben bei ihrer Aufgabe, bis sie hierher kopiert werden."
+  },
+  "tree": {
+    "expand": "{{name}} ausklappen",
+    "collapse": "{{name}} einklappen",
+    "emptyFolder": "Leerer Ordner",
+    "expandAll": "Alle Ordner ausklappen",
+    "collapseAll": "Alle Ordner einklappen",
+    "expandAllTruncated": "{{count}} Ordner bis zu {{depth}} Ebenen tief ausgeklappt. Den Rest über die jeweilige Zeile öffnen."
   },
   "preview": {
     "generating": "Vorschau wird erzeugt…",
@@ -126,12 +134,15 @@
       "confirmRemoveSource": "Verbundene Quelle \"{{name}}\" entfernen? Dateien beim Anbieter bleiben unberührt.",
       "mounted": "\"{{name}}\" verbunden.",
       "mounting": "Verbinde…",
-      "none": "Keine Dateiquellen verbunden — Verbindungen öffnen",
+      "none": "Noch keine weiteren Dateiquellen verbunden.",
       "noSubfolders": "Keine Unterordner — diese Ebene verbinden oder zurückgehen.",
       "pickDescription": "Zum gewünschten Ordner navigieren und bestätigen.",
+      "pickSource": "Einen Ordner von diesem Computer verbinden, oder ein bereits verbundenes Konto wählen.",
       "pickTitle": "Ordner aus {{name}} verbinden",
       "removeSource": "Quelle entfernen",
+      "thisComputer": "Dieser Computer",
       "useThisFolder": "Diesen Ordner verwenden"
     }
-  }
+  },
+  "spaceFilesTab": "Dateien"
 }

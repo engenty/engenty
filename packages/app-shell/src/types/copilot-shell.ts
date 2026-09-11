@@ -32,6 +32,11 @@ export type CopilotContextOverride = Partial<CopilotRouteContext> | null;
 
 /** Context provided by CopilotShellProvider for copilot placement and state. */
 export interface CopilotShellContextValue {
+  /**
+   * True on dedicated full-page chat routes. Hides the drawer/sidebar slot
+   * without changing persisted `open`, so leaving the page restores chrome.
+   */
+  chromeHidden: boolean;
   /** Copilot route context (from pathname or page override). */
   copilotContext: CopilotRouteContext;
   /** Copilot layout load/save (user-settings JSON). */

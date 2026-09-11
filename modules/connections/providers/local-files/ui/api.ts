@@ -1,7 +1,7 @@
 import { requestApiJson } from "@engenty/api-client";
 
 export interface ClaimedRequest {
-  action: "list" | "read" | "stat" | "search";
+  action: "delete" | "list" | "read" | "search" | "stat" | "write";
   connection_id: string;
   id: string;
   input: unknown;
@@ -11,6 +11,7 @@ export async function registerDirectory(input: {
   deviceLabel: string | null;
   directoryName: string;
   installationId: string;
+  spaceId?: string | null;
 }): Promise<{ connection_id: string }> {
   return requestApiJson("/api/local-files/directories", {
     method: "POST",
@@ -18,6 +19,7 @@ export async function registerDirectory(input: {
       device_label: input.deviceLabel,
       directory_name: input.directoryName,
       installation_id: input.installationId,
+      ...(input.spaceId ? { space_id: input.spaceId } : {}),
     },
   });
 }

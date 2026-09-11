@@ -1,6 +1,6 @@
 ---
 title: Agent operations
-description: What the copilot can do beyond any single module — search, connections, memory, secrets, apps, remote channels and the browser.
+description: What the copilot can do beyond any single module — search, connections, secrets, apps, remote channels and the browser.
 ---
 
 # Agent operations
@@ -11,7 +11,6 @@ here: the capabilities it has everywhere, regardless of which screen you are on.
 - **[Workspace search](/user/agent-operations/search)** — one search across everything indexed, plus the catalog the copilot uses to find its own tools.
 - **[Connections](/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, and setting what agents may do with them.
 - **[Connected services](/user/agent-operations/connected-services)** — what agents can actually do inside those accounts.
-- **[Memory](/user/agent-operations/memory)** — the operations behind what agents remember.
 - **[Secrets](/user/agent-operations/secrets)** — credentials agents can use without you pasting them into chat.
 - **[Apps](/user/agent-operations/apps)** — small tools an agent can build, release and run.
 - **[Remote channels](/user/agent-operations/remote-channels)** — reaching your agents from a messenger.

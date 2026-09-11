@@ -26,5 +26,9 @@ describe("GeminiProvider", () => {
     };
     expect(call?.model).toBe("google/gemini-2.5-flash");
     expect(Array.isArray(call?.messages)).toBe(true);
+    const system = call?.messages?.[0] as { content?: string };
+    expect(system?.content).toContain(
+      '<page-break number="N" total="T"></page-break>'
+    );
   });
 });

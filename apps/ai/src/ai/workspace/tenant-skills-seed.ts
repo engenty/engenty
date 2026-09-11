@@ -11,8 +11,10 @@
 
 import { createHash } from "node:crypto";
 
+import { listLibrarySkills } from "@engenty/ai-skills";
 import { ENGENTY_COPILOT_MANAGED_SKILLS } from "@engenty/engenty-copilot/ai";
 
+import { loadRuntimeManagedSkills } from "../../../ai/skills/index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import {
   clearManagedSkillsSynced,
@@ -28,14 +30,19 @@ import {
 } from "../skills/skill-frontmatter.js";
 import type {
   ManagedSeedManifest,
+  SkillFileInput,
   SkillStorage,
 } from "../skills/skill-storage.js";
 
 export interface ManagedSkillPack {
+  /** Library category folder (`software-development`, `productivity`, …). */
+  category?: string;
+  /** Sibling files under the skill folder (`references/`, `canvas-fonts/`, …). */
+  files?: SkillFileInput[];
   name: string;
   // Raw SKILL.md content (with frontmatter) as authored in code.
   skillMarkdown: string;
-  // `module` | `builtin` | concrete module id.
+  // `builtin` | `library` | `engenty-copilot` | concrete module id.
   source: string;
 }
 
@@ -58,12 +65,21 @@ export interface SyncTenantManagedSkillsInput {
   tenantId: string;
 }
 
-function contentSha(content: string): string {
-  return createHash("sha256").update(content, "utf8").digest("hex");
+function packContentSha(pack: ManagedSkillPack): string {
+  const hash = createHash("sha256");
+  hash.update(pack.skillMarkdown, "utf8");
+  const files = [...(pack.files ?? [])].toSorted((left, right) =>
+    left.path.localeCompare(right.path)
+  );
+  for (const file of files) {
+    hash.update(file.path, "utf8");
+    hash.update(file.bytes);
+  }
+  return hash.digest("hex");
 }
 
 function packEntry(pack: ManagedSkillPack): { sha: string; source: string } {
-  return { sha: contentSha(pack.skillMarkdown), source: pack.source };
+  return { sha: packContentSha(pack), source: pack.source };
 }
 
 function buildManifest(packs: ManagedSkillPack[]): ManagedSeedManifest {
@@ -83,11 +99,26 @@ function stampedMarkdown(pack: ManagedSkillPack, sha: string): string {
         ...parsed.frontmatter.engenty,
         installedSha: sha,
         source: pack.source,
+        ...(pack.category ? { category: pack.category } : {}),
       },
       name: pack.name,
     },
     parsed.body
   );
+}
+
+/** Seed must throw when the same `name` is authored in more than one root. */
+export function assertUniqueManagedSkillNames(packs: ManagedSkillPack[]): void {
+  const seen = new Map<string, string>();
+  for (const pack of packs) {
+    const existing = seen.get(pack.name);
+    if (existing) {
+      throw new Error(
+        `skill_name_collision:${pack.name} (${existing} vs ${pack.source})`
+      );
+    }
+    seen.set(pack.name, pack.source);
+  }
 }
 
 /** Build managed-tier list rows from code packs (no storage IO). */
@@ -96,7 +127,7 @@ export function managedSummariesFromPacks(
 ): SkillSummary[] {
   return packs
     .map((pack) => {
-      const sha = contentSha(pack.skillMarkdown);
+      const sha = packContentSha(pack);
       const parsed = parseSkillMarkdown(stampedMarkdown(pack, sha));
       return buildSkillSummary(pack.name, "managed", parsed);
     })
@@ -108,18 +139,24 @@ function rememberSyncedCatalog(tenantId: string, packs: ManagedSkillPack[]) {
   markManagedSkillsSynced(tenantId);
 }
 
-// Collect code-provided skills (module capability seed channel) as managed
-// skill packs. Module skill markdown reaches apps/ai over the core capability
-// HTTP channel; builtin copilot skills ship with the builtin package and join
-// here directly (the copilot is a builtin agent, not a capability-channel module).
+// Collect code-provided skills from three authoring roots into one flat
+// managed catalog. Runtime (`builtin`) and copilot product skills ship from
+// this repo; module markdown arrives over the capability HTTP channel;
+// library skills live in `@engenty/ai-skills` and stay hidden until a Space
+// mounts them.
 export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
   const loader = createDefaultModuleCapabilityLoader();
   const capabilities = await loader.listModuleCapabilities();
   const packs: ManagedSkillPack[] = [];
   for (const [name, skillMarkdown] of Object.entries(
-    ENGENTY_COPILOT_MANAGED_SKILLS
+    loadRuntimeManagedSkills()
   )) {
     packs.push({ name, skillMarkdown, source: "builtin" });
+  }
+  for (const [name, skillMarkdown] of Object.entries(
+    ENGENTY_COPILOT_MANAGED_SKILLS
+  )) {
+    packs.push({ name, skillMarkdown, source: "engenty-copilot" });
   }
   for (const capability of capabilities) {
     for (const [name, skillMarkdown] of Object.entries(
@@ -131,6 +168,16 @@ export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
       packs.push({ name, skillMarkdown, source: capability.moduleId });
     }
   }
+  for (const skill of listLibrarySkills()) {
+    packs.push({
+      category: skill.category,
+      files: skill.files,
+      name: skill.name,
+      skillMarkdown: skill.skillMarkdown,
+      source: "library",
+    });
+  }
+  assertUniqueManagedSkillNames(packs);
   return packs;
 }
 
@@ -140,6 +187,7 @@ async function writePack(
   sha: string
 ): Promise<void> {
   await storage.writeManagedSkill({
+    files: pack.files,
     name: pack.name,
     skillMarkdown: stampedMarkdown(pack, sha),
   });

@@ -30,6 +30,11 @@ import type { ModuleNavHeaderIcon, SecondaryNavLinkItem } from "./types";
 type NavItemHover = NonNullable<NavigationSection["items"][number]>;
 
 export interface UseSecondaryNavLayoutOptions {
+  /**
+   * The route contributes column content of its own (a space's tabs).
+   * See AppLayoutProps.secondaryNavLeadingSlot.
+   */
+  hasRouteSlots?: boolean;
   secondaryNavPersistence?: ShellSecondaryNavPinnedPersistence;
 }
 
@@ -37,7 +42,10 @@ export function useSecondaryNavLayout(
   sections: NavigationSection[],
   options: UseSecondaryNavLayoutOptions = {}
 ) {
-  const { secondaryNavPersistence = SHELL_SECONDARY_NAV_PINNED_NOOP } = options;
+  const {
+    hasRouteSlots = false,
+    secondaryNavPersistence = SHELL_SECONDARY_NAV_PINNED_NOOP,
+  } = options;
   const { pathname, search } = useLocation();
   const {
     secondaryNavAfterItems,
@@ -119,7 +127,11 @@ export function useSecondaryNavLayout(
   // panel unmounts → cleanup clears the flag → column remounts → infinite loop.
   const hasShellSecondaryLinks =
     !secondaryNavSearchResultsOnly && shellSecondaryLinks.length > 0;
+  // A space's column exists before any module is opened in it — the tabs ARE
+  // the content there — so the route's own slots have to keep it mounted on
+  // their own, not only when a page happens to contribute something.
   const hasSecondaryNav =
+    hasRouteSlots ||
     hasShellSecondaryLinks ||
     secondaryNavAfterItems != null ||
     secondaryNavHeaderSlot != null;
@@ -139,8 +151,10 @@ export function useSecondaryNavLayout(
   });
   const showHoverSecondaryColumn = shouldMountSecondaryNavHoverOverlay({
     hasSecondaryNav,
-    hasSecondaryNavAfterItems: secondaryNavAfterItems != null,
-    hasSecondaryNavHeaderSlot: secondaryNavHeaderSlot != null,
+    // Route slots count as column content here too, or a collapsed space would
+    // have nothing to slide back in on hover.
+    hasSecondaryNavAfterItems: hasRouteSlots || secondaryNavAfterItems != null,
+    hasSecondaryNavHeaderSlot: hasRouteSlots || secondaryNavHeaderSlot != null,
     hoveredNavItem,
     overlayLinkListLength: overlayLinkList.length,
     secondaryNavHoverOpen,
@@ -151,13 +165,19 @@ export function useSecondaryNavLayout(
     if (!(hasSecondaryNav && secondaryNavOpen)) {
       return null;
     }
-    // When the sidebar header slot already shows the module label, suppress
-    // the icon from the topbar to avoid doubling.
-    if (secondaryNavHeaderSlot != null) {
+    // When the sidebar header slot already shows the module label — or a route
+    // owns the column (a space's tabs) — suppress the icon from the topbar.
+    if (hasRouteSlots || secondaryNavHeaderSlot != null) {
       return null;
     }
     return moduleIcon;
-  }, [hasSecondaryNav, secondaryNavOpen, moduleIcon, secondaryNavHeaderSlot]);
+  }, [
+    hasRouteSlots,
+    hasSecondaryNav,
+    secondaryNavOpen,
+    moduleIcon,
+    secondaryNavHeaderSlot,
+  ]);
 
   const openHoverPanel = useCallback(() => {
     if (suppressHoverViaClick) {

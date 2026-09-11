@@ -32,7 +32,6 @@ export function TeamAgentDetailPage() {
     ],
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (isLoading) {

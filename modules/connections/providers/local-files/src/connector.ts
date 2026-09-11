@@ -7,12 +7,21 @@ import {
 } from "@engenty/connections-sdk";
 import { runBridgeAction } from "./bridge/server.js";
 import type {
+  LocalDeleteResult,
   LocalFileEntry,
   LocalListResult,
   LocalReadResult,
   LocalSearchResult,
+  LocalWriteResult,
 } from "./protocol.js";
 import type { LocalFilesRepo } from "./repo.js";
+
+function composePath(folderRef: string | null, name: string): string {
+  if (!folderRef) {
+    return name;
+  }
+  return `${folderRef.replace(/\/$/, "")}/${name}`;
+}
 
 function toEntry(entry: LocalFileEntry): ConnectorFileEntry {
   return {
@@ -127,6 +136,41 @@ export function createLocalFilesConnector(deps: {
     id: "local-files",
     moduleId: "connections-local-files",
     name: "Local Files",
+    storage: {
+      async write(ctx, input) {
+        const path = composePath(input.folder_ref, input.name);
+        const result = (await runBridgeAction({
+          action: "write",
+          connection: ctx.connection,
+          input: {
+            content_base64: input.content_base64,
+            content_text: input.content_text,
+            path,
+          },
+          log: ctx.log,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
+        })) as LocalWriteResult;
+        return {
+          kind: "file" as const,
+          mime_type: input.mime_type ?? null,
+          modified_at: result.modified_at,
+          name: result.name,
+          ref: result.path,
+          size: result.size,
+        };
+      },
+
+      async delete(ctx, input) {
+        const result = (await runBridgeAction({
+          action: "delete",
+          connection: ctx.connection,
+          input: { path: input.ref },
+          log: ctx.log,
+          repo: getRepo({ tenantId: ctx.connection.tenant_id }),
+        })) as LocalDeleteResult;
+        return { deleted: result.deleted, ref: result.path };
+      },
+    },
     toolPrefix: "local",
   });
 }

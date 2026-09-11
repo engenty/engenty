@@ -4,6 +4,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { moduleTier, tryReadClosedPrefixes } from "./closed-prefixes.mjs";
 import {
   listWorkspaceModulesOnDisk,
   resolveEnabledModules,
@@ -18,6 +19,12 @@ const UI_SHELL_PINNED_MODULE_DEPS = [
   // Settings shell imports company profile form sections directly.
   "@engenty/company-profile",
 ];
+
+/**
+ * More removals than this in one run is a detection failure, not a product
+ * change. Disabling a handful of modules by hand still passes.
+ */
+const BULK_REMOVAL_LIMIT = 3;
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -48,8 +55,15 @@ export function syncUiModuleDependencies(repoRoot = resolveRepoRoot()) {
   }
 
   const enabled = resolveEnabledModules(repoRoot);
+  const closedPrefixes = tryReadClosedPrefixes(repoRoot);
   const enabledUiPackages = new Set(
-    enabled.filter((mod) => mod.hasUi).map((mod) => mod.packageName)
+    enabled
+      .filter((mod) => mod.hasUi)
+      .filter(
+        (mod) =>
+          moduleTier(path.relative(repoRoot, mod.dir), closedPrefixes) !== "pro"
+      )
+      .map((mod) => mod.packageName)
   );
   const allModulePackages = listModulePackageNames(repoRoot);
 
@@ -87,11 +101,34 @@ export function syncUiModuleDependencies(repoRoot = resolveRepoRoot()) {
     )
   );
 
+  // A correct sync removes a dependency when someone disables a module — one
+  // or two at a time. A wholesale removal means the UI detection broke, not
+  // that the product changed, and writing it out silently deletes most of a
+  // committed manifest: the app then builds until the next install, and fails
+  // with an unresolvable import after it. Refuse instead, and say what would
+  // have gone.
+  if (removed.length > BULK_REMOVAL_LIMIT) {
+    throw new Error(
+      [
+        `sync-ui-module-deps: refusing to remove ${removed.length} module dependencies from apps/ui/package.json.`,
+        "That many at once means UI detection failed, not that the product changed.",
+        `Would have removed: ${removed.join(", ")}`,
+        "Check moduleHasUi in scripts/lib/engenty-modules.mjs against the modules on disk.",
+      ].join("\n")
+    );
+  }
+
   const changed =
     added.length > 0 ||
     removed.length > 0 ||
     JSON.stringify(parsed.dependencies ?? {}) !==
       JSON.stringify(nextDependencies);
+
+  if (changed && removed.length > 0) {
+    console.log(
+      `sync-ui-module-deps: removing ${removed.join(", ")} from apps/ui/package.json`
+    );
+  }
 
   if (changed) {
     fs.writeFileSync(

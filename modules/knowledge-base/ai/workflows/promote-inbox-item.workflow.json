@@ -1,0 +1,42 @@
+{
+  "id": "knowledge-base.promote-inbox-item",
+  "description": "Build a promote payload (draft article or FAQ) with provenance; only after explicit human approval.",
+  "inputSchema": {
+    "description": "Inbox id and target kind.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "inbox_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "target": {
+        "type": "string",
+        "enum": ["article", "faq"]
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Promote inbox item to article or FAQ",
+    "owner_agent_id": "knowledge-base.manager",
+    "allowed_tools": [
+      "engenty_tools_search",
+      "engenty_tool_execute",
+      "web_search"
+    ],
+    "skills": ["kb-ingest"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"knowledge-base.manager\"},\"brief\":{\"value\":\"# Promote Inbox Item\\n\\n## Task\\n\\nProduce a reviewed **`POST /api/kb/inbox/:id/promote`** body that compiles inbox content into a **draft** article or FAQ and creates **source reference** rows server-side.\\n\\nFor **several articles from one inbox** (parent + child pages in one commit), use **`POST /api/kb/inbox/:id/promote-batch`** instead — see catalog action **`knowledge-base.promote-inbox-batch`**. Single promote remains one article or one FAQ per request.\\n\\n## Promote body (snake_case)\\n\\n- `target`: `article` | `faq`\\n- `content_markdown`: compiled wiki markdown (may refine raw inbox text)\\n- `title` (article) or `question` (faq) when different from inbox title\\n- Optional `article_id` / `faq_id` to update an existing draft\\n- Optional `parent_article_id`, `tag_ids`, `status` (`draft` default)\\n\\n### Hierarchy\\n\\n- `parent_article_id` sets a **child page** under an existing article (same `kb_id`); the server rejects cycles.\\n- Use **`article_id`** when the user wants to **merge** inbox content into an existing **draft** article instead of creating a new row.\\n\\n## Steps\\n\\n1. Load inbox via `kb_inbox_get` or the catalog-discovered `GET /api/kb/inbox/:id` route.\\n2. Check for duplicates with `knowledge_base_article_search`, `kb_articles_list`, and `kb_faqs_list` through the catalog runner.\\n3. Present the exact JSON body for **`POST /api/kb/inbox/:id/promote`** and wait for explicit user approval; execution is via the inbox detail **Promote** UI (no agent promote tool yet).\\n4. After success, confirm promoted ids and remind that publishing is a separate UI step.\\n\\n## Rules\\n\\n- Default `status` is **draft**; do not set **published** unless the user clearly requests it and policy allows.\\n- Preserve traceability: rely on server `source_references` from promotion; cite inbox id in the summary.\\n- FAQ path requires a non-empty question (`question` or `title` in body per API schema).\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"engenty_tools_search\",\"engenty_tool_execute\",\"web_search\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

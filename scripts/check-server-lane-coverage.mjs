@@ -271,9 +271,44 @@ if (ungrantedInvokers.length > 0) {
   );
 }
 
+// 6. Functions that must have exactly ONE signature.
+//
+// Adding a parameter to a PostgREST-called function creates an OVERLOAD, not
+// a replacement — PostgREST calls by named args, so a call omitting the new
+// param matches both signatures and the old body quietly answers
+// (search.query_chunks would search without its space filter). The spaces
+// branch hit this once and fixed it by dropping the old signature in the
+// same migration; this rule keeps it fixed. The space-aware definition also
+// lives away from its owner (apps/core's 20260811010000 redefines a
+// packages/retrieval function), so a retrieval migration re-created from an
+// old template would silently re-introduce the second signature — exactly
+// what this catches.
+const SINGLE_SIGNATURE_FUNCTIONS = [["search", "query_chunks"]];
+for (const [schema, name] of SINGLE_SIGNATURE_FUNCTIONS) {
+  const signatures = psql(`
+    select p.oid::regprocedure::text
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = '${schema}' and p.proname = '${name}'
+    order by 1;
+  `);
+  if (signatures.length > 1) {
+    failed = true;
+    console.error(
+      `\ncheck-server-lane-coverage: ${schema}.${name} has ${signatures.length} signatures — a PostgREST overload:\n`
+    );
+    for (const s of signatures) {
+      console.error(`  ✗ ${s}`);
+    }
+    console.error(
+      "\nDrop the stale signature in the same migration that added the new one — PostgREST calls by named args, so both match."
+    );
+  }
+}
+
 if (failed) {
   process.exit(1);
 }
 console.log(
-  "check-server-lane-coverage: OK — policy pairs present, no auth.* policies, no browser-executable public definers, no PUBLIC per-user subject casts, no lane-unreachable invoker functions."
+  "check-server-lane-coverage: OK — policy pairs present, no auth.* policies, no browser-executable public definers, no PUBLIC per-user subject casts, no lane-unreachable invoker functions, no overloaded single-signature functions."
 );

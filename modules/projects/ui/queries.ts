@@ -1,27 +1,30 @@
 import {
   keepPreviousData,
   queryOptions,
-  useMutation,
   useQuery,
-  useQueryClient,
 } from "@engenty/query-client";
 import { useEffect, useState } from "react";
-import type {
-  ProjectCreateInput,
-  ProjectsQueryParams,
-  ProjectTasksQueryParams,
-} from "./api.js";
+import type { ProjectsQueryParams, ProjectTasksQueryParams } from "./api.js";
 import {
-  createProject,
-  deleteProject,
   getAssociatedTaskCount,
   getProjectSettings,
   getProjects,
   getTaskCounts,
   getTasks,
-  updateTask,
 } from "./api.js";
+import {
+  type ProjectSpaceScope,
+  useProjectSpaceScope,
+  withProjectSpaceScope,
+} from "./lib/use-project-space-scope.js";
 import type { ContactsPluginApi } from "./plugins.js";
+
+// biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
+export {
+  useCreateProjectMutation,
+  useDeleteProjectMutation,
+  useUpdateProjectTaskMutation as useUpdateTaskMutation,
+} from "./optimistic-mutations.js";
 
 export const projectKeys = {
   all: ["projects"] as const,
@@ -62,8 +65,12 @@ export function projectsListOptions(params: ProjectsQueryParams) {
   });
 }
 
-export function useProjectsList(params: ProjectsQueryParams) {
-  return useQuery(projectsListOptions(params));
+export function useProjectsList(
+  params: ProjectsQueryParams,
+  options: { scope?: ProjectSpaceScope } = {}
+) {
+  const spaceId = useProjectSpaceScope(options.scope);
+  return useQuery(projectsListOptions(withProjectSpaceScope(params, spaceId)));
 }
 
 export function projectTasksListOptions(params: ProjectTasksQueryParams) {
@@ -74,8 +81,14 @@ export function projectTasksListOptions(params: ProjectTasksQueryParams) {
   });
 }
 
-export function useProjectTasksList(params: ProjectTasksQueryParams) {
-  return useQuery(projectTasksListOptions(params));
+export function useProjectTasksList(
+  params: ProjectTasksQueryParams,
+  options: { scope?: ProjectSpaceScope } = {}
+) {
+  const spaceId = useProjectSpaceScope(options.scope);
+  return useQuery(
+    projectTasksListOptions(withProjectSpaceScope(params, spaceId))
+  );
 }
 
 export function projectTaskCountsOptions(
@@ -101,72 +114,13 @@ export function useProjectTaskCounts(
   params: Omit<
     ProjectTasksQueryParams,
     "page" | "pageSize" | "sortBy" | "sortOrder"
-  >
+  >,
+  options: { scope?: ProjectSpaceScope } = {}
 ) {
-  return useQuery(projectTaskCountsOptions(params));
-}
-
-export function useCreateProjectMutation(params: ProjectsQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: ProjectCreateInput) => createProject(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: projectKeys.list(params),
-      });
-    },
-  });
-}
-
-export function useDeleteProjectMutation(params: ProjectsQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: string | { id: string; deleteTasks?: boolean }) => {
-      const id = typeof input === "string" ? input : input.id;
-      const deleteTasks =
-        typeof input === "string" ? undefined : input.deleteTasks;
-      return deleteProject(id, { deleteTasks });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: projectKeys.list(params),
-      });
-    },
-  });
-}
-
-export function useUpdateTaskMutation(listParams?: ProjectTasksQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      projectId,
-      taskId,
-      patch,
-    }: {
-      projectId: string;
-      taskId: string;
-      patch: Parameters<typeof updateTask>[2];
-    }) => updateTask(projectId, taskId, patch),
-    onSuccess: async (_, variables) => {
-      await queryClient.invalidateQueries({ queryKey: projectKeys.all });
-      if (listParams) {
-        await queryClient.invalidateQueries({
-          queryKey: projectKeys.tasksList(listParams),
-        });
-      }
-      await queryClient.invalidateQueries({
-        queryKey: [...projectKeys.all, variables.projectId],
-      });
-    },
-    onError: async () => {
-      await queryClient.invalidateQueries({ queryKey: projectKeys.all });
-      if (listParams) {
-        await queryClient.invalidateQueries({
-          queryKey: projectKeys.tasksList(listParams),
-        });
-      }
-    },
-  });
+  const spaceId = useProjectSpaceScope(options.scope);
+  return useQuery(
+    projectTaskCountsOptions(withProjectSpaceScope(params, spaceId))
+  );
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {

@@ -7,13 +7,10 @@
  */
 
 export {
-  ACTIONS_CATALOG_ROOT_PATH,
   ACTIVITY_ROOT_PATH,
   AGENTS_CATALOG_ROOT_PATH,
   AGENTS_WORKSPACE_ROOT_PATH,
   ARTIFACTS_ROOT_PATH,
-  buildActionDetailPath,
-  buildActionsCatalogPath,
   buildActivityPath,
   buildAgentActivityPath,
   buildAgentCapabilitiesPath,
@@ -34,9 +31,12 @@ export {
   buildToolCreatePath,
   buildToolEditPath,
   buildToolsPath,
+  buildWorkflowDetailPath,
+  buildWorkflowsCatalogPath,
   CONNECTIONS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
+  WORKFLOWS_CATALOG_ROOT_PATH,
   withWorkspaceParam,
 } from "./agent-workspace-paths";
 

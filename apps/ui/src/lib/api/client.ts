@@ -1,4 +1,8 @@
-import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
+import {
+  getCurrentAccessToken,
+  requestApiBlob,
+  requestApiJson,
+} from "@engenty/api-client";
 import type { UiPluginSummary } from "@engenty/ui-plugin-sdk";
 import { config } from "../config";
 
@@ -31,7 +35,21 @@ export async function request<T>(
   });
 }
 
-async function requestAiJson<T>(
+/** Authenticated file bytes — same base URL and token as {@link request}. */
+export async function requestBlob(
+  path: string,
+  options: Pick<RequestOptions, "authToken" | "signal"> = {}
+): Promise<Blob> {
+  const { signal, authToken } = options;
+  const sessionToken = authToken || undefined;
+  return await requestApiBlob(path, {
+    baseUrl: config.apiBaseUrl,
+    signal,
+    ...(sessionToken ? { authToken: sessionToken } : {}),
+  });
+}
+
+export async function requestAiJson<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
@@ -533,6 +551,8 @@ export interface ResolvedAppearance {
 
 export interface WorkspaceContextResponse {
   canSwitchTenant: boolean;
+  /** The space the user is working in — the tenant's default until the rail can switch. */
+  currentSpace: { id: string; key: string; name: string } | null;
   currentTenant: WorkspaceTenant | null;
   currentUser: {
     display_name: string | null;

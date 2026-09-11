@@ -2,9 +2,11 @@
 // flags (no agent-type branching). Callers expand an `AgentConfig.workspace`
 // declaration into a mount table + flags and pass them here.
 //
-// Agents use named mounts only (`/home`, `/shared`, `/skills`, `/task`). There
-// is no `/` root mount and no unscoped-filesystem shape: an agent sees exactly
-// what its mount table grants. Sandbox staging paths are derived per mount by
+// Agents use named mounts only. Depending on preset, confinement, and bindings,
+// a run may receive `/home`, exactly one of `/shared` or `/space`, `/skills`,
+// `/task`, `/routine`, `/project`, `/data`, and `/sandbox`. There is no `/` root
+// mount and no unscoped-filesystem shape: an agent sees exactly what its
+// resolved mount table grants. Sandbox staging paths are derived per mount by
 // the loader, not anchored to a spec-level base path.
 
 import { getEngentyCoreBaseUrlFromEnv } from "../core-http-client.js";
@@ -22,19 +24,33 @@ function tenantSearchIndexName(tenantId: string): string {
 
 export function resolveEngentyWorkspaceRuntimeSpec(input: {
   agentId: string;
+  /**
+   * Skill directory names visible on `/skills` for this run.
+   *
+   * Omit (`undefined`) for an intentional tenant-global run — no filter.
+   * Pass `[]` when a claimed Space failed to resolve (fail closed).
+   * Never treat unresolved as omitted.
+   */
+  allowedSkillNames?: string[];
   bm25?: boolean;
+  /** `core.agents` uuid for `agentId`; forwarded by the `/data` mount. */
+  coreAgentId?: string;
+  /** Mastra workspace tools to leave off, by `mastra_workspace_*` name. */
+  disabledWorkspaceTools?: string[];
   enableSandbox?: boolean;
   enableSkillSearch?: boolean;
   enableVector?: boolean;
   mounts: EngentyWorkspaceMountSpec[];
   sandboxConfig?: {
-    lifecycle?: "run" | "session" | "task";
+    lifecycle?: "run" | "session" | "task" | "space";
     mountPath?: string;
+    network?: "none" | "egress";
     provider?: "docker" | "local";
     timeoutMs?: number;
   };
   sandboxIdentity?: {
     runId: string;
+    spaceId?: string;
     taskIdentifier?: string;
     tenantId: string;
     threadId: string;
@@ -54,7 +70,12 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
       name: input.agentId,
       tenantId: input.scope.tenantId,
     },
+    ...(input.allowedSkillNames === undefined
+      ? {}
+      : { allowedSkillNames: input.allowedSkillNames }),
     bm25: input.bm25,
+    ...(input.coreAgentId ? { coreAgentId: input.coreAgentId } : {}),
+    disabledWorkspaceTools: input.disabledWorkspaceTools ?? [],
     enableSandbox: input.enableSandbox ?? false,
     enableSkillSearch: input.enableSkillSearch ?? false,
     enableVector: input.enableVector ?? false,

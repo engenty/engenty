@@ -13,7 +13,7 @@ const COMMANDS: ChatSlashCommand[] = [
   {
     command: "create-offer",
     group: "offers",
-    kind: "action",
+    kind: "workflow",
     label: "Create offer",
   },
   { command: "kb", group: "knowledge-base", kind: "prompt" },
@@ -87,6 +87,22 @@ describe("filterSlashCommands", () => {
     expect(
       filterSlashCommands(withSkill, "contacts-search").map((c) => c.command)
     ).toEqual(["contacts-search"]);
+  });
+
+  it("treats coding as a match for commands that talk about code", () => {
+    const withSkill: ChatSlashCommand[] = [
+      ...COMMANDS,
+      {
+        command: "sandbox-code-execution",
+        description: "Run Python or shell scripts in a sandbox",
+        group: "Skills",
+        kind: "skill",
+        label: "sandbox-code-execution",
+      },
+    ];
+    expect(
+      filterSlashCommands(withSkill, "coding").map((c) => c.command)
+    ).toEqual(["sandbox-code-execution"]);
   });
 });
 

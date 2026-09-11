@@ -71,6 +71,21 @@ export function listTenantUsers() {
   return requestApiJson<TenantUser[]>("/api/users");
 }
 
+export interface TenantAgent {
+  /** The principal uuid a role assignment stores. */
+  id: string;
+  /** The agent_type_key, e.g. "contacts.manager". */
+  name: string;
+  status: string;
+}
+
+/** Agent principals of the tenant — the agent half of the assignment picker. */
+export function listTenantAgents(tenantId: string) {
+  return requestApiJson<{ agents: TenantAgent[] }>(
+    `/api/tenants/${tenantId}/agents`
+  ).then((r) => r.agents);
+}
+
 export function listRoles() {
   return requestApiJson<{ roles: AuthzRole[] }>("/api/authz/roles").then(
     (r) => r.roles

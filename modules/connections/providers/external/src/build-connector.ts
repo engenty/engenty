@@ -6,13 +6,10 @@ import {
   defineConnector,
 } from "@engenty/connections-sdk";
 import { z } from "zod";
+import { headersFromRequired } from "./import-service.js";
 import { executeHttpAction } from "./invoke/http-invoker.js";
 import { mcpCallTool } from "./invoke/mcp-client.js";
-import type {
-  ImportedConnectorRecord,
-  NormalizedAction,
-  StoredAuthConfig,
-} from "./types.js";
+import type { ImportedConnectorRecord, NormalizedAction } from "./types.js";
 
 /**
  * Materialize a stored import record into a live `ConnectorDefinition`. From
@@ -21,28 +18,33 @@ import type {
  * provider.
  */
 
-/** MCP request headers per stored auth config. */
+/**
+ * MCP request headers: the connector's required headers first, then the
+ * credential — auth must win a name collision, never the other way round.
+ */
 function mcpHeaders(
-  auth: StoredAuthConfig,
+  record: ImportedConnectorRecord,
   accessToken: string
 ): Record<string, string> {
+  const headers = headersFromRequired(record.required_headers);
+  const auth = record.auth_config;
   if (auth.kind === "oauth2") {
-    return { authorization: `Bearer ${accessToken}` };
+    return { ...headers, authorization: `Bearer ${accessToken}` };
   }
   if (auth.kind === "api_key" && auth.placement.in === "header") {
     let credentials: Record<string, string> = {};
     try {
       credentials = JSON.parse(accessToken) as Record<string, string>;
     } catch {
-      return {};
+      return headers;
     }
     const value = auth.placement.value_template.replace(
       /\{\{\s*([a-z0-9_]+)\s*\}\}/giu,
       (_m, key: string) => credentials[key] ?? ""
     );
-    return { [auth.placement.name]: value };
+    return { ...headers, [auth.placement.name]: value };
   }
-  return {};
+  return headers;
 }
 
 function inputSchemaToZod(action: NormalizedAction): z.ZodType | null {
@@ -81,9 +83,9 @@ function buildAction(
         return mcpCallTool({
           args,
           endpoint: current.source_url,
-          fetchImpl: ctx.fetchImpl,
-          headers: mcpHeaders(current.auth_config, ctx.accessToken),
+          headers: mcpHeaders(current, ctx.accessToken),
           toolName: action.invoke.tool_name,
+          transport: current.mcp_transport,
         });
       }
       return executeHttpAction({

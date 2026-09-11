@@ -9,7 +9,7 @@ export type EventHandler<TPayload> = (
   payload: TPayload
 ) => TPayload | undefined | Promise<TPayload | undefined>;
 
-export function createHookEngine<TEvents extends Record<string, unknown>>() {
+export function createHookEngine<TEvents extends object>() {
   const handlers = new Map<EventKey<TEvents>, EventHandler<unknown>[]>();
 
   const on = <TEvent extends EventKey<TEvents>>(

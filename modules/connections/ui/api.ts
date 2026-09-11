@@ -200,11 +200,21 @@ export async function getConnectUrl(params: {
   connectorId: string;
   redirectTo: string;
   sharing: ConnectionSharing;
+  /**
+   * Mount the resulting account into this space on success (CN.4 Flow A), so
+   * "Add account" from inside a space ends with the account usable THERE and
+   * not merely connected somewhere. Omitted from tenant settings, where the
+   * connect belongs to no space.
+   */
+  spaceId?: string | null;
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
     sharing: params.sharing,
     redirect_to: params.redirectTo,
   });
+  if (params.spaceId) {
+    query.set("space_id", params.spaceId);
+  }
   return requestApiJson<{ authUrl: string; connectorId: string }>(
     `/api/connections/${params.connectorId}/connect?${query.toString()}`,
     { method: "GET" }

@@ -30,7 +30,7 @@ export interface WorkspaceVectorSearch {
   vectorStore: MastraVector;
 }
 
-function resolveVectorDbUrl(): string | undefined {
+export function resolveVectorDbUrl(): string | undefined {
   return (
     process.env.ENGENTY_WORKSPACE_VECTOR_DB_URL?.trim() ||
     process.env.SUPABASE_DB_URL?.trim() ||

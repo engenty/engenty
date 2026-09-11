@@ -134,14 +134,12 @@ export function useKbScopedSettingsAgentUiSlice(input: {
   isDirty: boolean;
   kbId: string;
   kbName: string;
-  kbSlug: string;
 }) {
   const slice = useMemo(() => {
     if (!input.kbId) {
       return null;
     }
-    const title =
-      input.kbName.trim() || input.kbSlug.trim() || "Knowledge base";
+    const title = input.kbName.trim() || "Knowledge base";
     return {
       page: {
         ...buildAgentUiPageBrief({
@@ -153,14 +151,13 @@ export function useKbScopedSettingsAgentUiSlice(input: {
         }),
         entity_title: title,
         kb_id: input.kbId,
-        kb_slug: input.kbSlug,
       },
       selection: {
         entity_id: input.kbId,
         entity_type: "knowledge_base",
       },
     };
-  }, [input.isDirty, input.kbId, input.kbName, input.kbSlug]);
+  }, [input.isDirty, input.kbId, input.kbName]);
 
   useRegisterAgentUiSlice("kb.scoped-settings", slice);
 }

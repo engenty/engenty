@@ -1,17 +1,27 @@
 /**
  * Tiered chat-attachment ingestion for conversation runs.
  *
- * - model_native — image/* + PDF → multimodal `files` (base64 data URLs).
+ * - model_native — image/* → multimodal `files` (base64 data URLs).
  *   Images are downscaled/JPEG-compressed first; phone photos otherwise
  *   exceed provider body limits and the model never sees the pixels.
- * - inline_text  — small text-like files (≤ INLINE_TEXT_MAX_BYTES) → run context
- * - tool_backed  — larger / binary files → manifest + preview; use file_analyst
+ * - inline_text  — small text-like files, or extracted markdown (≤32 KiB)
+ * - tool_backed  — larger / binary / truncated extracts → manifest + file_analyst
  *
- * Context budget: 32 KiB ≈ ~8–10k tokens of UTF-8 text.
+ * PDFs and office docs are never attached as native file bytes (that blows the
+ * token limiter). Client anydoc writes `{storageKey}.extracted.md`; the run
+ * inlines a clip and file_analyst can read the rest. Missing sidecar →
+ * LiteParse on the original, then persist the sidecar.
+ *
+ * Context budget: 32 KiB ≈ ~8–10k tokens of UTF-8 text per attachment.
  */
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { getEngentyCoreBaseUrlFromEnv } from "../../ai/core-http-client.js";
 import { createEngentyCoreFileStorageClient } from "../../ai/workspace/core-file-storage-client.js";
+import {
+  extractedMarkdownSidecarKey,
+  loadExtractedMarkdownForRef,
+  writeExtractedMarkdownSidecar,
+} from "./extracted-markdown-sidecar.js";
 import { prepareModelNativeImage } from "./prepare-model-image.js";
 
 /** Max UTF-8 bytes inlined into run context per attachment (~10k tokens). */
@@ -27,6 +37,9 @@ export type AttachmentFeedTier =
   | "unavailable";
 
 export interface UserAttachmentRef {
+  extractedBy?: string;
+  extractedMarkdown?: string;
+  extractedStorageKey?: string;
   filename?: string;
   mimeType: string;
   sizeBytes?: number;
@@ -78,7 +91,7 @@ const TEXT_LIKE_EXTENSIONS = new Set([
 ]);
 
 export function isModelNativeMime(mimeType: string): boolean {
-  return mimeType.startsWith("image/") || mimeType === "application/pdf";
+  return mimeType.startsWith("image/");
 }
 
 /** @deprecated Prefer isModelNativeMime — kept for existing tests/imports. */
@@ -164,6 +177,7 @@ export function formatAttachmentManifestEntry(input: {
   storageKey: string;
   tier: AttachmentFeedTier;
   body?: string;
+  extractedStorageKey?: string;
   truncated?: boolean;
 }): string {
   const name = input.filename?.trim() || "attachment";
@@ -174,6 +188,9 @@ export function formatAttachmentManifestEntry(input: {
     `- size_bytes: ${input.sizeBytes}`,
     `- feed: ${input.tier}`,
   ];
+  if (input.extractedStorageKey) {
+    lines.push(`- extracted_storage_key: ${input.extractedStorageKey}`);
+  }
   if (input.tier === "inline_text") {
     lines.push(
       "- content: fully inlined below. Use it directly; call agent-file_analyst only for deeper analysis."
@@ -184,7 +201,9 @@ export function formatAttachmentManifestEntry(input: {
     );
   } else if (input.tier === "model_native") {
     lines.push(
-      "- content: provided to the model as a native multimodal file part."
+      input.body
+        ? "- content: native multimodal file part, plus extracted text below."
+        : "- content: provided to the model as a native multimodal file part."
     );
   } else {
     lines.push("- content: unavailable (download failed).");
@@ -241,69 +260,191 @@ export function latestUserAttachmentParts(input: RunAgentInput): unknown[] {
   return [];
 }
 
+function messageContentParts(message: {
+  content?: unknown;
+  parts?: unknown;
+}): unknown[] {
+  if (Array.isArray(message.content)) {
+    return message.content;
+  }
+  if (Array.isArray(message.parts)) {
+    return message.parts;
+  }
+  return [];
+}
+
+function readUserAttachmentRef(part: unknown): UserAttachmentRef | null {
+  if (!part || typeof part !== "object") {
+    return null;
+  }
+  const partType = (part as { type?: unknown }).type;
+  if (partType !== "image" && partType !== "document") {
+    return null;
+  }
+  const meta = (part as { metadata?: { engenty_attachment?: unknown } })
+    .metadata?.engenty_attachment as
+    | {
+        extractedBy?: unknown;
+        extractedMarkdown?: unknown;
+        extractedStorageKey?: unknown;
+        filename?: unknown;
+        mimeType?: unknown;
+        size?: unknown;
+        storageKey?: unknown;
+      }
+    | undefined;
+  if (!meta || typeof meta.storageKey !== "string" || !meta.storageKey) {
+    return null;
+  }
+  return {
+    filename: typeof meta.filename === "string" ? meta.filename : undefined,
+    mimeType: typeof meta.mimeType === "string" ? meta.mimeType : "",
+    sizeBytes: typeof meta.size === "number" ? meta.size : undefined,
+    storageKey: meta.storageKey,
+    ...(typeof meta.extractedMarkdown === "string" &&
+    meta.extractedMarkdown.trim()
+      ? { extractedMarkdown: meta.extractedMarkdown }
+      : {}),
+    ...(typeof meta.extractedStorageKey === "string" &&
+    meta.extractedStorageKey.trim()
+      ? { extractedStorageKey: meta.extractedStorageKey }
+      : {}),
+    ...(typeof meta.extractedBy === "string" && meta.extractedBy.trim()
+      ? { extractedBy: meta.extractedBy }
+      : {}),
+  };
+}
+
+function attachmentRefsFromUserMessage(message: {
+  content?: unknown;
+  parts?: unknown;
+  role?: string;
+}): UserAttachmentRef[] {
+  if (message.role !== "user") {
+    return [];
+  }
+  const refs: UserAttachmentRef[] = [];
+  for (const part of messageContentParts(message)) {
+    const ref = readUserAttachmentRef(part);
+    if (ref) {
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
 export function latestUserAttachments(
   input: RunAgentInput
 ): UserAttachmentRef[] {
   const messages = Array.isArray(input.messages) ? input.messages : [];
   for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as { content?: unknown; role?: string };
-    if (message?.role !== "user") {
-      continue;
+    const message = messages[i] as {
+      content?: unknown;
+      parts?: unknown;
+      role?: string;
+    };
+    if (message.role === "user") {
+      return attachmentRefsFromUserMessage(message);
     }
-    const content = message.content;
-    if (!Array.isArray(content)) {
-      return [];
-    }
-    const refs: UserAttachmentRef[] = [];
-    for (const part of content) {
-      if (!part || typeof part !== "object") {
-        continue;
-      }
-      const partType = (part as { type?: unknown }).type;
-      if (partType !== "image" && partType !== "document") {
-        continue;
-      }
-      const meta = (part as { metadata?: { engenty_attachment?: unknown } })
-        .metadata?.engenty_attachment as
-        | {
-            filename?: unknown;
-            mimeType?: unknown;
-            size?: unknown;
-            storageKey?: unknown;
-          }
-        | undefined;
-      if (!meta || typeof meta.storageKey !== "string" || !meta.storageKey) {
-        continue;
-      }
-      refs.push({
-        filename: typeof meta.filename === "string" ? meta.filename : undefined,
-        mimeType: typeof meta.mimeType === "string" ? meta.mimeType : "",
-        sizeBytes: typeof meta.size === "number" ? meta.size : undefined,
-        storageKey: meta.storageKey,
-      });
-    }
-    return refs;
   }
   return [];
 }
 
+/** Unique attachments across the thread (later metadata wins, so extracted text is kept). */
+export function collectThreadUserAttachments(
+  input: RunAgentInput
+): UserAttachmentRef[] {
+  const messages = Array.isArray(input.messages) ? input.messages : [];
+  const byKey = new Map<string, UserAttachmentRef>();
+  for (const raw of messages) {
+    const message = raw as {
+      content?: unknown;
+      parts?: unknown;
+      role?: string;
+    };
+    for (const ref of attachmentRefsFromUserMessage(message)) {
+      const previous = byKey.get(ref.storageKey);
+      byKey.set(ref.storageKey, {
+        ...previous,
+        ...ref,
+        extractedMarkdown: ref.extractedMarkdown ?? previous?.extractedMarkdown,
+        extractedStorageKey:
+          ref.extractedStorageKey ?? previous?.extractedStorageKey,
+        extractedBy: ref.extractedBy ?? previous?.extractedBy,
+      });
+    }
+  }
+  return [...byKey.values()];
+}
+
+async function extractMarkdownWithDocConverter(input: {
+  bytes: Uint8Array;
+  filename?: string;
+  mimeType: string;
+}): Promise<string | null> {
+  if (input.mimeType.startsWith("image/")) {
+    return null;
+  }
+  try {
+    const { Converter } = await import("@engenty/doc-converter");
+    const converter = new Converter({ provider: "liteparse" });
+    if (!converter.canConvert(input.mimeType)) {
+      return null;
+    }
+    const result = await converter.convert(
+      input.bytes,
+      input.filename?.trim() || "document",
+      input.mimeType,
+      { max_pages: 40 }
+    );
+    const markdown = result.markdown?.trim() ?? "";
+    return markdown || null;
+  } catch {
+    return null;
+  }
+}
+
+function clipManifestBody(text: string): {
+  body: string;
+  truncated: boolean;
+} {
+  const encoded = Buffer.from(text, "utf8");
+  if (encoded.byteLength <= INLINE_TEXT_MAX_BYTES) {
+    return { body: text, truncated: false };
+  }
+  return {
+    body: `${encoded.subarray(0, INLINE_TEXT_MAX_BYTES).toString("utf8")}\n…(truncated)`,
+    truncated: true,
+  };
+}
+
 /**
- * Download + classify attachments for the latest user turn.
- * Best-effort: failed downloads become `unavailable` manifest rows.
+ * Resolve chat attachments for the run: latest-turn native files plus
+ * thread-wide extracted/converted text so follow-ups can still search a PDF.
  */
 export async function resolveTieredAttachments(params: {
-  coreBaseUrl?: string;
-  input: RunAgentInput;
   accessToken?: string;
+  coreBaseUrl?: string;
+  /** Prior turns from the thread store — the AG-UI run only sends the current message. */
+  historyMessages?: readonly { parts?: unknown; role?: string }[];
+  input: RunAgentInput;
 }): Promise<TieredAttachmentResolution> {
   const { accessToken } = params;
   const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
-  const refs = latestUserAttachments(params.input);
+  const latestRefs = latestUserAttachments(params.input);
+  const threadRefs = collectThreadUserAttachments({
+    ...params.input,
+    messages: [
+      ...(params.historyMessages ?? []),
+      ...(Array.isArray(params.input.messages) ? params.input.messages : []),
+    ],
+  } as RunAgentInput).slice(-8);
+  const latestKeys = new Set(latestRefs.map((ref) => ref.storageKey));
+  const refs = threadRefs.length > 0 ? threadRefs : latestRefs;
   if (refs.length === 0) {
     return { contextEntries: [], modelAttachments: [] };
   }
   if (!(coreBaseUrl && accessToken)) {
-    // Cannot download — still tell the model the files exist.
     const value = [
       "The user attached these files, but bytes could not be loaded in this run (missing core URL or auth). Storage keys:",
       ...refs.map(
@@ -319,18 +460,117 @@ export async function resolveTieredAttachments(params: {
   }
 
   const fileClient = createEngentyCoreFileStorageClient({
+    accessToken,
     bucket: "files",
     coreBaseUrl,
-    accessToken,
   });
 
   const modelAttachments: ModelAttachmentFile[] = [];
   const manifestBlocks: string[] = [];
+  let serverConverts = 0;
 
   for (const ref of refs) {
+    const onLatestTurn = latestKeys.has(ref.storageKey);
     try {
-      const bytes = await fileClient.download(ref.storageKey);
-      if (!bytes) {
+      let extracted =
+        (await loadExtractedMarkdownForRef(fileClient, ref)) ?? null;
+      let extractedKey = ref.extractedStorageKey?.trim() ?? "";
+      if (extracted && !extractedKey && ref.extractedMarkdown?.trim()) {
+        extractedKey =
+          (await writeExtractedMarkdownSidecar(
+            fileClient,
+            ref.storageKey,
+            extracted
+          )) ?? "";
+      }
+      if (extracted && !extractedKey) {
+        extractedKey = extractedMarkdownSidecarKey(ref.storageKey);
+      }
+
+      const needsNativeFile = onLatestTurn && isModelNativeMime(ref.mimeType);
+      const needsConvert =
+        !(
+          extracted ||
+          ref.mimeType.startsWith("image/") ||
+          isTextLikeAttachment(ref.mimeType, ref.filename)
+        ) && serverConverts < 4;
+
+      if (!(extracted || needsNativeFile || needsConvert || onLatestTurn)) {
+        continue;
+      }
+
+      let bytes: Uint8Array | null | undefined;
+      const ensureBytes = async (): Promise<Uint8Array | null> => {
+        if (bytes !== undefined) {
+          return bytes;
+        }
+        bytes = await fileClient.download(ref.storageKey);
+        return bytes;
+      };
+
+      if (needsConvert) {
+        serverConverts += 1;
+        const raw = await ensureBytes();
+        if (raw) {
+          const markdown = await extractMarkdownWithDocConverter({
+            bytes: raw,
+            filename: ref.filename,
+            mimeType: ref.mimeType,
+          });
+          if (markdown) {
+            extracted = markdown;
+            extractedKey =
+              (await writeExtractedMarkdownSidecar(
+                fileClient,
+                ref.storageKey,
+                markdown
+              )) ?? extractedMarkdownSidecarKey(ref.storageKey);
+          }
+        }
+      }
+
+      if (needsNativeFile) {
+        const raw = await ensureBytes();
+        if (raw) {
+          const mime = ref.mimeType.toLowerCase().trim();
+          if (mime.startsWith("image/")) {
+            const prepared = await prepareModelNativeImage(raw);
+            if (prepared) {
+              modelAttachments.push({
+                data: prepared.data,
+                mediaType: prepared.mediaType,
+                ...(ref.filename ? { filename: ref.filename } : {}),
+              });
+            }
+          } else {
+            modelAttachments.push({
+              data: `data:${ref.mimeType};base64,${Buffer.from(raw).toString("base64")}`,
+              mediaType: ref.mimeType,
+              ...(ref.filename ? { filename: ref.filename } : {}),
+            });
+          }
+        }
+      }
+
+      if (extracted) {
+        const clipped = clipManifestBody(extracted);
+        manifestBlocks.push(
+          formatAttachmentManifestEntry({
+            body: clipped.body,
+            extractedStorageKey: extractedKey || undefined,
+            filename: ref.filename,
+            mimeType: ref.mimeType,
+            sizeBytes: ref.sizeBytes ?? 0,
+            storageKey: ref.storageKey,
+            tier: clipped.truncated ? "tool_backed" : "inline_text",
+            truncated: clipped.truncated,
+          })
+        );
+        continue;
+      }
+
+      const raw = await ensureBytes();
+      if (!raw) {
         manifestBlocks.push(
           formatAttachmentManifestEntry({
             filename: ref.filename,
@@ -344,87 +584,42 @@ export async function resolveTieredAttachments(params: {
       }
 
       const tier = classifyAttachmentTier({
-        byteLength: bytes.byteLength,
+        byteLength: raw.byteLength,
         filename: ref.filename,
         mimeType: ref.mimeType,
       });
 
-      if (tier === "model_native") {
-        const mime = ref.mimeType.toLowerCase().trim();
-        if (mime.startsWith("image/")) {
-          const prepared = await prepareModelNativeImage(bytes);
-          if (!prepared) {
-            // Unreadable / still too large after compress — don't ship the
-            // original (providers drop oversized file parts). File analyst
-            // can still read from the vault key.
-            manifestBlocks.push(
-              formatAttachmentManifestEntry({
-                filename: ref.filename,
-                mimeType: ref.mimeType,
-                sizeBytes: bytes.byteLength,
-                storageKey: ref.storageKey,
-                tier: "tool_backed",
-              })
-            );
-            continue;
-          }
-          modelAttachments.push({
-            data: prepared.data,
-            mediaType: prepared.mediaType,
-            ...(ref.filename ? { filename: ref.filename } : {}),
-          });
-        } else {
-          modelAttachments.push({
-            data: `data:${ref.mimeType};base64,${Buffer.from(bytes).toString("base64")}`,
-            mediaType: ref.mimeType,
-            ...(ref.filename ? { filename: ref.filename } : {}),
-          });
-        }
-        manifestBlocks.push(
-          formatAttachmentManifestEntry({
-            filename: ref.filename,
-            mimeType: ref.mimeType,
-            sizeBytes: bytes.byteLength,
-            storageKey: ref.storageKey,
-            tier,
-          })
-        );
-        continue;
-      }
-
-      if (tier === "inline_text") {
-        const { text, truncated } = truncateUtf8(bytes, INLINE_TEXT_MAX_BYTES);
-        manifestBlocks.push(
-          formatAttachmentManifestEntry({
-            filename: ref.filename,
-            mimeType: ref.mimeType,
-            sizeBytes: bytes.byteLength,
-            storageKey: ref.storageKey,
-            tier: truncated ? "tool_backed" : "inline_text",
-            body: text,
-            truncated,
-          })
-        );
-        continue;
-      }
-
-      // tool_backed — optional text preview for text-like large files
       let body: string | undefined;
       let truncated = false;
-      if (isTextLikeAttachment(ref.mimeType, ref.filename)) {
-        const sample = truncateUtf8(bytes, TOOL_BACKED_PREVIEW_BYTES);
+      if (tier === "inline_text") {
+        const sample = truncateUtf8(raw, INLINE_TEXT_MAX_BYTES);
+        body = sample.text;
+        truncated = sample.truncated;
+      } else if (
+        tier === "tool_backed" &&
+        isTextLikeAttachment(ref.mimeType, ref.filename)
+      ) {
+        const sample = truncateUtf8(raw, TOOL_BACKED_PREVIEW_BYTES);
         body = sample.text;
         truncated = true;
       }
+
+      const feedTier =
+        body && !truncated && tier !== "tool_backed"
+          ? "inline_text"
+          : tier === "inline_text" && truncated
+            ? "tool_backed"
+            : tier;
+
       manifestBlocks.push(
         formatAttachmentManifestEntry({
+          body,
           filename: ref.filename,
           mimeType: ref.mimeType,
-          sizeBytes: bytes.byteLength,
+          sizeBytes: raw.byteLength,
           storageKey: ref.storageKey,
-          tier: "tool_backed",
-          body,
-          truncated,
+          tier: feedTier,
+          truncated: body ? truncated : undefined,
         })
       );
     } catch (err) {
@@ -446,18 +641,18 @@ export async function resolveTieredAttachments(params: {
   }
 
   return {
-    modelAttachments,
     contextEntries: [
       {
         description: "user_attachments",
         value: [
-          "The user attached these files to their message:",
+          "The user attached these files in this thread:",
           "",
           ...manifestBlocks,
           "",
-          "Rules: prefer inlined Content when present. For tool_backed / deeper work (summarize, ask questions, convert, extract), call agent-file_analyst with a brief that includes the storage_key and the user's goal.",
+          'Rules: prefer inlined Content when present. For tool_backed / deeper work (summarize, ask questions, convert, extract), call agent-file_analyst with extracted_storage_key when listed (full markdown), otherwise storage_key, plus the user\'s goal. Extracted markdown may include <page-break number="N" total="T"></page-break> sentinels — use them for citations and page ranges; do not show the tags to the user.',
         ].join("\n"),
       },
     ],
+    modelAttachments,
   };
 }

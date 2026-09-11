@@ -25,9 +25,21 @@ export function isDispatchableTask(task: Task): boolean {
 
 export async function enqueueTaskDispatch(
   queue: QueueServiceLike,
-  task: { id: string; primary_assignee_agent_type_key: string | null },
-  tenantId: string
+  task: {
+    id: string;
+    primary_assignee_agent_type_key: string | null;
+  },
+  tenantId: string,
+  /**
+   * Why the run is happening, when the dispatcher knows: an event, a person
+   * pressing Run. It rides to the run record, which used to report every run as
+   * a chat message. Omitted = unknown, never a guess.
+   */
+  startedBy?: "cron" | "button" | "hook" | "direct"
 ): Promise<void> {
+  // Assigning a task to a specialist is what starts a run with that task as its
+  // subject. With no specialist there is nobody to run it, and enqueueing would
+  // burn a checkout on a run that immediately fails.
   if (!task.primary_assignee_agent_type_key) {
     return;
   }
@@ -35,5 +47,6 @@ export async function enqueueTaskDispatch(
     agent_type_key: task.primary_assignee_agent_type_key,
     task_id: task.id,
     tenant_id: tenantId,
+    ...(startedBy ? { started_by: startedBy } : {}),
   });
 }

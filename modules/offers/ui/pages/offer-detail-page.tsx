@@ -33,6 +33,7 @@ import {
   useOfferVersionsQuery,
   useUpdateOfferMutation,
 } from "../queries.js";
+import { OfferEditPage } from "./offer-edit-page.js";
 
 function toCommercialBlocks(blocks: OfferBlock[]): CommercialBlock[] {
   return blocks.map((block) => ({
@@ -43,10 +44,29 @@ function toCommercialBlocks(blocks: OfferBlock[]): CommercialBlock[] {
   }));
 }
 
-export function OfferDetailPage() {
+/**
+ * The offer, as a page or embedded in a host pane.
+ *
+ * `embedded` suppresses what is route-shaped or duplicated by the host frame:
+ * the id arrives as a prop, the draft redirect stays put (it would eject the
+ * reader from the pane they opened), the module's secondary nav stays out of
+ * the host's column, and the `DocumentHeader` gives way — the offer's name is
+ * on the node the reader clicked. The topbar keeps its breadcrumb and the PDF
+ * action, which are the way back out to the full document.
+ *
+ * **The phase still picks the view.** Suppressing the redirect must not mean
+ * showing the wrong thing: a draft renders the DRAFT EDITOR here, the same
+ * component the redirect would have landed on.
+ */
+export function OfferDetailPage(props?: {
+  embedded?: boolean;
+  offerId?: string;
+}) {
+  const embedded = props?.embedded ?? false;
   const { t } = useTranslation("offers");
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = props?.offerId ?? routeParams.id;
   const contactsPlugin = getContactsPluginApi();
   const projectsPlugin = getProjectsPluginApi();
 
@@ -70,10 +90,12 @@ export function OfferDetailPage() {
   );
 
   useEffect(() => {
-    if (offer?.status === "draft") {
+    // Embedded, the host owns the URL: redirecting a draft would navigate the
+    // reader out of the pane they opened it in.
+    if (!embedded && offer?.status === "draft") {
       navigate(`/mdl/offers/${offer.id}/draft`, { replace: true });
     }
-  }, [offer?.id, offer?.status, navigate]);
+  }, [embedded, offer?.id, offer?.status, navigate]);
 
   const totals = useMemo(
     () => calculateTotals(blocks, offer?.default_tax_rate ?? 20),
@@ -134,11 +156,16 @@ export function OfferDetailPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-    // Float the transparent topbar over the white DocumentHeader so they blend.
-    topbarOverlap: true,
+    // Embedded: the host owns the secondary column, and there is no
+    // DocumentHeader for a transparent topbar to blend into or float over.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems,
+          secondaryNavHeaderSlot,
+          // Float the transparent topbar over the white DocumentHeader.
+          topbarOverlap: true,
+        }),
   });
   useOffersDetailAgentUiSlice(offer);
 
@@ -178,11 +205,13 @@ export function OfferDetailPage() {
   if (loading || !offer) {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <DocumentHeader>
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-8 w-full max-w-md" />
-        </DocumentHeader>
+        {embedded ? null : (
+          <DocumentHeader>
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-8 w-full max-w-md" />
+          </DocumentHeader>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <section className="mx-auto w-full max-w-5xl space-y-4 p-page">
             <Skeleton className="h-24 w-full" />
@@ -191,6 +220,13 @@ export function OfferDetailPage() {
         </div>
       </div>
     );
+  }
+
+  // The phase picks the view, exactly as the route does — a draft's route
+  // redirects to the editor, so embedded a draft IS the editor. Rendering the
+  // ready state instead would announce "Approved" over an unapproved offer.
+  if (embedded && offer.status === "draft") {
+    return <OfferEditPage embedded offerId={offer.id} />;
   }
 
   const summaryProps = {
@@ -205,26 +241,28 @@ export function OfferDetailPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DocumentHeader
-        collapsed={headerCollapsed}
-        compactStatus={<OfferStatusBadge status={offer.status} />}
-        compactTitle={offer.title || t("offerTitle")}
-      >
-        <ClientTopline
-          clientId={contactsPlugin ? offer.client_id : null}
-          clientName={clientName ?? undefined}
-          showChangeClient={false}
-          showLinkToClient={Boolean(contactsPlugin)}
-        />
-        <DocumentTitle
-          onChange={(title) =>
-            updateMutation.mutate({ title } as Partial<OfferListItem>)
-          }
-          placeholder={t("offerTitle")}
-          value={offer.title}
-        />
-        <OfferStatusStepper status={offer.status} />
-      </DocumentHeader>
+      {embedded ? null : (
+        <DocumentHeader
+          collapsed={headerCollapsed}
+          compactStatus={<OfferStatusBadge status={offer.status} />}
+          compactTitle={offer.title || t("offerTitle")}
+        >
+          <ClientTopline
+            clientId={contactsPlugin ? offer.client_id : null}
+            clientName={clientName ?? undefined}
+            showChangeClient={false}
+            showLinkToClient={Boolean(contactsPlugin)}
+          />
+          <DocumentTitle
+            onChange={(title) =>
+              updateMutation.mutate({ title } as Partial<OfferListItem>)
+            }
+            placeholder={t("offerTitle")}
+            value={offer.title}
+          />
+          <OfferStatusStepper status={offer.status} />
+        </DocumentHeader>
+      )}
 
       <div
         className="min-h-0 flex-1 overflow-y-auto"

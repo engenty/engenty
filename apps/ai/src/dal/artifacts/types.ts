@@ -1,4 +1,10 @@
-export type ArtifactScopeType = "thread" | "task" | "project" | "goal";
+// Mirrors the `artifact_scope_type_check` CHECK on ai.artifact — keep in sync.
+export type ArtifactScopeType =
+  | "thread"
+  | "task"
+  | "project"
+  | "space"
+  | "agent";
 export type ArtifactCreatorKind = "agent" | "user";
 export type ArtifactStorageKind = "inline" | "blob";
 export type ArtifactStatus = "active" | "archived";
@@ -12,6 +18,7 @@ export interface ArtifactRow {
   id: string;
   metadata: Record<string, unknown>;
   mime_type: string | null;
+  parent_id: string | null;
   scope_id: string;
   scope_type: ArtifactScopeType;
   size_bytes: number | null;

@@ -1,0 +1,22 @@
+---
+description: User-facing name for hired agents — Engenty/engenties, never specialist.
+alwaysApply: true
+---
+
+# Engenty naming (not “specialist”)
+
+Hired custom agents in a space are **Engenties**. Never call them specialists in UI copy, empty states, wizards, agent instructions, or people-facing docs.
+
+| | Use |
+|---|---|
+| One | **Engenty** (`an Engenty`) |
+| Many | **engenties** |
+| Section chrome | Agents (the list heading can stay) |
+| Internal role id | `specialist` on the registry row — do not rename the enum |
+
+```text
+❌ Hire a specialist / name the specialist / Engenty specialist
+✅ Hire an Engenty / name the Engenty / You are an Engenty in this space
+```
+
+`role: "specialist"` in code is the classification (vs copilot, coordinator, delegated). It is not a word a person should read.

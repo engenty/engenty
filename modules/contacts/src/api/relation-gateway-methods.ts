@@ -23,6 +23,7 @@ export function registerContactRelationGatewayMethods(
   api.registerOperation({
     operationId: "contacts_create_relation",
     moduleId: "contacts",
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Create contact relation",
     requiredCapabilities: ["module.contacts.write"],
     riskLevel: "high",
@@ -39,6 +40,7 @@ export function registerContactRelationGatewayMethods(
   api.registerOperation({
     operationId: "contacts_list_relations",
     moduleId: "contacts",
+    spacePolicy: { kind: "tenant_shared" },
     summary: "List contact relations",
     requiredCapabilities: ["module.contacts.read"],
     riskLevel: "low",
@@ -61,6 +63,7 @@ export function registerContactRelationGatewayMethods(
   api.registerOperation({
     operationId: "contacts_update_relation",
     moduleId: "contacts",
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Update contact relation",
     requiredCapabilities: ["module.contacts.write"],
     riskLevel: "high",
@@ -85,6 +88,7 @@ export function registerContactRelationGatewayMethods(
   api.registerOperation({
     operationId: "contacts_delete_relation",
     moduleId: "contacts",
+    spacePolicy: { kind: "tenant_shared" },
     summary: "Delete contact relation",
     requiredCapabilities: ["module.contacts.write"],
     riskLevel: "high",

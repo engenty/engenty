@@ -1,0 +1,68 @@
+# Who drives what
+
+Engenty has one human-facing assistant, one execution record, and explicit
+executors. Space and Workspace provide boundaries and context; neither drives
+work. The nouns themselves are defined in
+[work-model.md](../content/dev/work-model.md).
+
+| Surface | Driver | Job |
+|---|---|---|
+| Copilot dock (any page) | `engenty.copilot` | Sit beside the human: navigate, edit records via catalog, coach in the UI. This is the Copilot surface. |
+| Space Home | — | Greeting, cards, and optional embed. Not a chat. |
+| Remote channel | `engenty.copilot` through the channel adapter | The same live assistant outside the web UI |
+| Engenty desks | the Engenty | Do module work the human addresses directly |
+| Routine / unattended | the owning Engenty | Wake on a schedule or event and start a run; the run is the record |
+
+## Two execution lanes
+
+### Live
+
+The human is present and expects an answer now. Copilot may finish bounded work
+through catalog operations or call `message_agent` with a self-contained brief
+for a Space-mounted Engenty. The existing `agent-*` tools remain internal helpers
+for File/CLI/App work while they migrate to the same child-run substrate.
+
+Live Engenty messaging does not create a Task. The reply returns to the
+calling conversation.
+
+### Durable
+
+Work that must survive the chat, repeat, wait, coordinate dependencies, or
+request later approval outlives the conversation in one of two records:
+
+- a **Routine** is a job on a mounted Engenty — a workflow target plus
+  1..n wake sources. Firing it starts a run and creates no Task;
+- a **Task** is a work item someone owns. Copilot may create and assign one
+  directly; an outcome that needs more than one becomes several Tasks with real
+  dependencies. Notifications tell a person something came back; Copilot
+  reviews when asked.
+
+The same mounted Engenty can participate in both lanes. `message_agent`
+starts an immediate child run; `primary_assignee_agent_type_key` starts a run
+whose subject is that Task. Completing the run does not complete the Task.
+
+## Boundaries
+
+- **Copilot** is the live front door (the dock), not the scheduler and not a
+  Space resident.
+- **Engenty** is a domain executor and a leaf; it does not orchestrate other
+  agents.
+- **Task** is a work item and the optional subject of a run — never the way to
+  make something run.
+- **Run** is the one execution record; every lane above converges on it.
+- **Routine** is a job on an Engenty, not an agent and not a Task.
+- **Space** selects the apps, agents, connections, skills, and module data for a
+  run. It is a boundary, not a driver.
+- **Workspace** is run-scoped files and context through the mounts actually
+  resolved for that lane: `/home`; `/shared` or `/space`; `/task` only when the
+  run has a Task subject, with `/project` following that Task's containment
+  chain; and read-only `/skills`. It is not a queue or module database.
+- **`/data`** exposes mounted module records. It is not scratch space or a
+  conversation notebook.
+- **Files and artifacts** are deliverable stores/surfaces. A workspace path is
+  working context until it is copied or published there.
+
+Tenant remains the authorization boundary.
+
+Do not add a third front-door agent. If a surface needs live conversation, it
+uses Copilot or is an explicitly named agent Desk.

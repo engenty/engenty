@@ -79,7 +79,11 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     { moduleId: "inbox" }
   );
 
-  const repoForAuth = (auth: PluginAuthContext | undefined) => {
+  const repoForAuth = (
+    auth: PluginAuthContext | undefined,
+    grantedConnectionIds?: ReadonlySet<string>,
+    spaceConnectionIds?: ReadonlySet<string> | null
+  ) => {
     if (!auth) {
       throw new Error("Inbox operations require an authenticated context");
     }
@@ -92,7 +96,13 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
       auth.tenantId,
       auth.scopeId ?? "default",
       userId,
-      { emitInboxEvent }
+      {
+        emitInboxEvent,
+        ...(grantedConnectionIds ? { grantedConnectionIds } : {}),
+        // E1 — undefined means "no space named"; an empty set means "this
+        // space placed no mailbox", and the two must not collapse.
+        ...(spaceConnectionIds === undefined ? {} : { spaceConnectionIds }),
+      }
     );
   };
 

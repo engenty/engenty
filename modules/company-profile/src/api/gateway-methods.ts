@@ -165,6 +165,7 @@ export function registerCompanyProfileGatewayMethods(
     operationId: "company_profile_get",
     summary: "Get default company profile",
     moduleId: "company-profile",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.company-profile.read"],
     riskLevel: "low",
     idempotent: true,
@@ -182,6 +183,7 @@ export function registerCompanyProfileGatewayMethods(
     operationId: "company_profile_set",
     summary: "Create or update company profile settings (partial merge)",
     moduleId: "company-profile",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.company-profile.write"],
     riskLevel: "low",
     idempotent: false,
@@ -200,6 +202,7 @@ export function registerCompanyProfileGatewayMethods(
     summary:
       "Set or clear the company logo from a public image URL or data URL",
     moduleId: "company-profile",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.company-profile.write"],
     riskLevel: "low",
     idempotent: false,
@@ -236,6 +239,7 @@ export function registerCompanyProfileGatewayMethods(
     summary:
       "Upload a base64 data URL image to tenant storage and return a public URL",
     moduleId: "company-profile",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.company-profile.write"],
     riskLevel: "low",
     idempotent: false,

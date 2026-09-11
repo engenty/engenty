@@ -21,6 +21,7 @@ export interface AgentRecord {
   config: AgentRecordConfig;
   created_by_agent: string | null;
   proposed_config: Record<string, unknown> | null;
+  proposed_space_id: string | null;
   status: AgentRecordStatus;
   updated_at: string;
 }
@@ -34,6 +35,8 @@ export interface PendingAgentProposal {
   instructions: string;
   kind: "new_agent" | "revision";
   name: string;
+  /** Set on new proposals only; revisions never remount. */
+  proposedSpaceId: string | null;
   skillIds: string[];
   toolIds: string[];
   updatedAt: string;
@@ -63,6 +66,7 @@ export function selectPendingProposals(
         instructions: record.config.instructions,
         kind: "new_agent",
         name: record.config.name,
+        proposedSpaceId: record.proposed_space_id,
         skillIds: record.config.skillIds ?? [],
         toolIds: record.config.toolIds ?? [],
         updatedAt: record.updated_at,
@@ -87,6 +91,7 @@ export function selectPendingProposals(
           typeof revision.name === "string"
             ? revision.name
             : record.config.name,
+        proposedSpaceId: null,
         skillIds: asStringArray(revision.skill_ids ?? revision.skillIds),
         toolIds: asStringArray(revision.tool_ids ?? revision.toolIds),
         updatedAt: record.updated_at,
@@ -106,10 +111,16 @@ export async function listAgentRecords(
   return data.records ?? [];
 }
 
-export async function approveAgentProposal(agentId: string): Promise<void> {
+export async function approveAgentProposal(
+  agentId: string,
+  spaceId?: string | null
+): Promise<void> {
   await requestAiServiceJson(
     `/ai/registry/agents/${encodeURIComponent(agentId)}/approve`,
-    { method: "POST" }
+    {
+      body: JSON.stringify(spaceId ? { spaceId } : {}),
+      method: "POST",
+    }
   );
 }
 

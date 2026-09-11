@@ -37,27 +37,21 @@ export interface KbPageArticlesBlockViewProps {
   categoryId?: string;
   editable?: boolean;
   kbId: string;
-  kbSlug: string;
 }
 
 function ArticleRow({
   article,
   categoryIcon,
-  kbSlug,
   showDescription,
   showIcon,
 }: {
   article: Article;
   categoryIcon: string | null;
-  kbSlug: string;
   showDescription: boolean;
   showIcon: boolean;
 }) {
   return (
-    <Link
-      className={kbFlatRowLinkFlexClass}
-      to={kbArticlePath(kbSlug, article.id)}
-    >
+    <Link className={kbFlatRowLinkFlexClass} to={kbArticlePath(article.id)}>
       <div className="flex min-w-0 items-center gap-2">
         {showIcon && categoryIcon ? (
           <span aria-hidden className="shrink-0 text-base">
@@ -79,7 +73,6 @@ function ArticleRow({
 export function KbPageArticlesBlockView({
   block,
   kbId,
-  kbSlug,
   categories,
   categoryId,
   editable = false,
@@ -175,7 +168,6 @@ export function KbPageArticlesBlockView({
                   <ArticleRow
                     article={a}
                     categoryIcon={categoryById.get(a.category_id)?.icon ?? null}
-                    kbSlug={kbSlug}
                     showDescription={block.show_description}
                     showIcon={block.show_icon}
                   />
@@ -196,7 +188,6 @@ export function KbPageArticlesBlockView({
             <ArticleRow
               article={a}
               categoryIcon={categoryById.get(a.category_id)?.icon ?? null}
-              kbSlug={kbSlug}
               showDescription={block.show_description}
               showIcon={block.show_icon}
             />
@@ -212,7 +203,7 @@ export function KbPageArticlesBlockView({
         <Link
           className={kbFlatTileLinkClass}
           key={a.id}
-          to={kbArticlePath(kbSlug, a.id)}
+          to={kbArticlePath(a.id)}
         >
           <div className="flex min-w-0 items-center gap-2">
             {block.show_icon && categoryById.get(a.category_id)?.icon ? (

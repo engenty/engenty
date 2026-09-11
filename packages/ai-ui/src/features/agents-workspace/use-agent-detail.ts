@@ -1,29 +1,32 @@
 import { useMemo } from "react";
 import {
-  useAiActionsQuery,
   useAiAgentsQuery,
   useAiSkillCatalogQuery,
   useAiSkillsQuery,
   useAiTriggersQuery,
+  useAiWorkflowsQuery,
 } from "../../lib/admin/ai-runtime-queries";
 import { toAiInstructionFileDocument } from "../../lib/admin/instruction-settings-api";
 import { useAiInstructionsCatalogQuery } from "../../lib/admin/instruction-settings-queries";
 import {
   buildAgentCatalogEntries,
-  compareCoreModuleThenModuleName,
   filterAgentActions,
   filterAgentTriggers,
   isCoreAgentModuleId,
 } from "../ai-settings/agent-catalog";
-import { pickCatalogDocuments } from "../ai-settings/instruction-groups";
+import {
+  instructionOverrideFlagsByKey,
+  pickCatalogDocuments,
+} from "../ai-settings/instruction-groups";
 import { getSkillModuleId } from "./skill-record-utils";
 import { useAgentsWorkspaceNavigation } from "./use-agents-workspace-navigation";
+import { useFlowCatalog, useSelectFlow } from "./use-flow-catalog";
 
 export function useAgentDetail() {
   const navigation = useAgentsWorkspaceNavigation();
   const catalogQuery = useAiInstructionsCatalogQuery();
   const agentsQuery = useAiAgentsQuery();
-  const actionsQuery = useAiActionsQuery();
+  const actionsQuery = useAiWorkflowsQuery();
   const skillsAdminQuery = useAiSkillsQuery();
   const skillCatalogQuery = useAiSkillCatalogQuery();
   const triggersQuery = useAiTriggersQuery();
@@ -37,13 +40,8 @@ export function useAgentDetail() {
     [agentsQuery.data?.agents, catalogQuery.data?.documents]
   );
 
-  const workspaceNavActions = useMemo(
-    () =>
-      (actionsQuery.data?.actions ?? []).toSorted(
-        compareCoreModuleThenModuleName
-      ),
-    [actionsQuery.data?.actions]
-  );
+  const { flows: workspaceNavFlows, flowsLoading } = useFlowCatalog();
+  const navigateToFlow = useSelectFlow();
 
   const workspaceNavSkills = useMemo(
     () =>
@@ -78,12 +76,20 @@ export function useAgentDetail() {
     [selectedAgent]
   );
 
+  const instructionOverridesByKey = useMemo(
+    () => instructionOverrideFlagsByKey(selectedAgent?.documents ?? []),
+    [selectedAgent?.documents]
+  );
+
   const selectedAgentActions = useMemo(
     () =>
       selectedAgent
-        ? filterAgentActions(actionsQuery.data?.actions ?? [], selectedAgent.id)
+        ? filterAgentActions(
+            actionsQuery.data?.workflows ?? [],
+            selectedAgent.id
+          )
         : [],
-    [actionsQuery.data?.actions, selectedAgent]
+    [actionsQuery.data?.workflows, selectedAgent]
   );
 
   const selectedAgentTriggers = useMemo(
@@ -100,6 +106,7 @@ export function useAgentDetail() {
     ...navigation,
     actionsQuery,
     agentDocuments,
+    instructionOverridesByKey,
     agents,
     agentsQuery,
     catalogQuery,
@@ -108,8 +115,10 @@ export function useAgentDetail() {
     selectedAgentTriggers,
     skillCatalogQuery,
     skillsAdminQuery,
+    flowsLoading,
+    navigateToFlow,
     triggersQuery,
-    workspaceNavActions,
+    workspaceNavFlows,
     workspaceNavSkills,
   };
 }

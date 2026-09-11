@@ -35,9 +35,13 @@ export const projectTeamMemberSchema = z.object({
 });
 
 export const projectSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   id: z.string(),
   tenant_id: z.string(),
   scope_id: z.string(),
+  /** Space the project runs inside (PLAN-spaces.md); `not null` since Phase 6. */
+  space_id: z.string().uuid(),
   client_id: z.string().nullable(),
   client_name: z.string().nullable(),
   lead_id: z.string().uuid().nullable(),
@@ -57,14 +61,20 @@ export const projectSchema = z.object({
   project_team: z.array(projectTeamMemberSchema).optional(),
 });
 
-export const projectInputSchema = projectSchema.omit({
-  id: true,
-  tenant_id: true,
-  scope_id: true,
-  created_at: true,
-  updated_at: true,
-  project_team: true,
-});
+export const projectInputSchema = projectSchema
+  .omit({
+    id: true,
+    tenant_id: true,
+    scope_id: true,
+    created_at: true,
+    updated_at: true,
+    project_team: true,
+    space_id: true,
+  })
+  // Required on the ENTITY (`not null` since Phase 6), optional on INPUT: the
+  // DAL resolves the tenant's default space when the caller names none, the
+  // same way scope_id and the timestamps are server-owned.
+  .extend({ space_id: z.string().uuid().optional() });
 
 /** Create payload: portal/lead/created_by/briefing/dates/client_name are optional; API/DAL apply defaults. */
 export const projectCreateInputSchema = projectInputSchema.extend({
@@ -182,6 +192,7 @@ export const projectsListQuerySchema = z.object({
   search: z.string().optional(),
   client_id: z.string().optional(),
   lead_id: z.string().uuid().optional(),
+  space_id: z.string().uuid().optional(),
 });
 
 export const projectsPaginatedResponseSchema = z.object({
@@ -211,6 +222,7 @@ export const projectTasksListQuerySchema = z.object({
   project_id: z.string().optional(),
   phase_id: z.string().optional(),
   assigned_to: z.string().optional(),
+  space_id: z.string().uuid().optional(),
   status: taskStatusSchema.optional(),
   sortBy: z.enum(["updated_at", "created_at", "title", "status"]).optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),

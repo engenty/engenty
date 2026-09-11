@@ -64,6 +64,10 @@ import {
 import { appsAiThreadUsageQueryKey } from "../thread-usage/use-copilot-thread-usage.js";
 import { useSyncAgentUiRunState } from "../use-sync-agent-ui-run-state.js";
 import {
+  appsAiThreadsListQueryKeyPrefix,
+  dismissAppsAiThreadInterrupt,
+} from "./apps-ai-thread-api.js";
+import {
   createAppsAiThread,
   postAppsAiThreadRun,
 } from "./apps-ai-transport.js";
@@ -133,6 +137,11 @@ function interruptIdOfFeedback(
 export type EngentyAgUiPendingSend = {
   text: string;
   startedAt: number;
+  /**
+   * Non-text AG-UI parts on this turn (attachments, @-mention refs). Rendered
+   * on the optimistic user bubble until the canonical transcript includes them.
+   */
+  parts?: readonly unknown[];
   /** Message count in the live transcript when this send started (insert pending user here). */
   transcriptInsertIndex: number;
 } | null;
@@ -326,6 +335,47 @@ function seedPendingInterruptToolCallIds(
   return new Set();
 }
 
+/**
+ * Whether this client already answered or dismissed the interrupt.
+ *
+ * Keyed by `tool_call_id`, never by interrupt/artifact id: a tool-approval
+ * artifact id is derived from the operation and its grant context, so two
+ * consecutive gates on the same operation share one id while their parked
+ * calls do not.
+ */
+export function isInterruptResolvedLocally(
+  open: AgUiOpenInterruptMetadata | null | undefined,
+  resolvedToolCallIds: ReadonlySet<string>
+): boolean {
+  return Boolean(
+    open?.tool_call_id && resolvedToolCallIds.has(open.tool_call_id)
+  );
+}
+
+function withoutToolCallId(
+  current: ReadonlySet<string>,
+  toolCallId: string | undefined
+): ReadonlySet<string> {
+  if (!(toolCallId && current.has(toolCallId))) {
+    return current;
+  }
+  const next = new Set(current);
+  next.delete(toolCallId);
+  return next;
+}
+
+function withToolCallId(
+  current: ReadonlySet<string>,
+  toolCallId: string | undefined
+): ReadonlySet<string> {
+  if (!toolCallId || current.has(toolCallId)) {
+    return current;
+  }
+  const next = new Set(current);
+  next.add(toolCallId);
+  return next;
+}
+
 /** Tool call ids the agent is suspended on, from a live RUN_FINISHED interrupt outcome. */
 function pendingToolCallIdsFromOutcome(outcome: unknown): ReadonlySet<string> {
   const interrupts = (outcome as { interrupts?: unknown } | null | undefined)
@@ -409,6 +459,10 @@ export function useEngentyAgUiAppsAiSession(
   const abortRef = useRef<AbortController | null>(null);
   const activeRunIdRef = useRef<string | null>(null);
   const submitInFlightRef = useRef(false);
+  /** Runs the user explicitly Stop-ped. The server cancel can take seconds to
+   * land (a hung executor even longer) — until it does, the run still reads as
+   * "running", and run recovery must not re-attach to it and re-spin the UI. */
+  const userCancelledRunIdsRef = useRef<Set<string>>(new Set());
   // Serialize interrupt resumes. The backend parks the suspended session and
   // rejects a second resume for the same run with 409 `resumeInProgress` while
   // the first is still executing (parallel gated tool calls resolve one card at
@@ -469,6 +523,17 @@ export function useEngentyAgUiAppsAiSession(
   // tool calls re-asked the same card).
   const [openInterruptFromStream, setOpenInterruptFromStream] =
     useState<AgUiOpenInterruptMetadata | null>(null);
+  // Tool calls whose card THIS client already answered or dismissed. The
+  // persisted session metadata keeps naming that interrupt until its refetch
+  // lands (and `openInterruptFromStream` is dropped the moment a resume
+  // starts), so without this mask the answered card came back for a beat —
+  // or for good, when the resume request failed after the run had moved on.
+  // The stream is the authority the other way: an interrupt it re-opens for
+  // one of these ids is taken off the mask.
+  const [resolvedInterruptToolCallIds, setResolvedInterruptToolCallIds] =
+    useState<ReadonlySet<string>>(() => new Set());
+  const resolvedInterruptToolCallIdsRef = useRef(resolvedInterruptToolCallIds);
+  resolvedInterruptToolCallIdsRef.current = resolvedInterruptToolCallIds;
 
   const clearPendingSend = useCallback(() => {
     logCopilotChatNew("pendingSend clear");
@@ -477,20 +542,18 @@ export function useEngentyAgUiAppsAiSession(
 
   useEffect(() => {
     const open = options.openInterruptFromSession;
-    if (resolveAwaitingInterruptFromOpenMetadata(open)) {
+    if (
+      resolveAwaitingInterruptFromOpenMetadata(open) &&
+      !isInterruptResolvedLocally(open, resolvedInterruptToolCallIdsRef.current)
+    ) {
       setAwaitingInterrupt(true);
       // Union (never replace): the persisted metadata can lag a turn behind the
       // live stream, so it may still name the *previous* interrupt. Adding (not
       // replacing) avoids clobbering the live pending tool call (back-to-back
       // decisions). Already-resolved ids are masked by optimistic results.
-      setPendingInterruptToolCallIds((current) => {
-        if (!open?.tool_call_id || current.has(open.tool_call_id)) {
-          return current;
-        }
-        const next = new Set(current);
-        next.add(open.tool_call_id);
-        return next;
-      });
+      setPendingInterruptToolCallIds((current) =>
+        withToolCallId(current, open?.tool_call_id)
+      );
       return;
     }
     if (!submitInFlightRef.current) {
@@ -504,8 +567,19 @@ export function useEngentyAgUiAppsAiSession(
         return;
       }
       if (options.threadsListQueryKey) {
+        // The PREFIX, not the caller's full key. A full key carries the
+        // archived filter and the space (PLAN-spaces.md Phase C2), so
+        // invalidating with it refreshes exactly the one list the caller
+        // happens to watch — and the copilot's provider builds its key with no
+        // space, so `…/"all-spaces"` would prefix-match nothing but itself and
+        // the space-scoped history in the sidebar would never refresh after a
+        // run. The thread changed; every way of looking at it is stale.
         void options.queryClient.invalidateQueries({
-          queryKey: options.threadsListQueryKey,
+          queryKey: appsAiThreadsListQueryKeyPrefix({
+            agentId: options.agentId,
+            hostKey: options.hostKey,
+            serviceBaseUrl: options.serviceBaseUrl,
+          }),
         });
       }
       if (options.messagesQueryKey) {
@@ -527,6 +601,8 @@ export function useEngentyAgUiAppsAiSession(
     },
     [
       options.messagesQueryKey,
+      options.agentId,
+      options.hostKey,
       options.queryClient,
       options.serviceBaseUrl,
       options.threadDetailQueryKey,
@@ -673,6 +749,7 @@ export function useEngentyAgUiAppsAiSession(
       seedPendingInterruptToolCallIds(options.openInterruptFromSession)
     );
     setOptimisticInterruptResults({});
+    setResolvedInterruptToolCallIds(new Set());
   }, [
     invalidateQueries,
     options.authoritativeUrlThreadId,
@@ -682,8 +759,13 @@ export function useEngentyAgUiAppsAiSession(
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // A run this window streams but did not start (a colleague's turn in a
+  // room, another window's turn). A message typed meanwhile is steered into
+  // it by the server rather than queued behind it.
+  const [attachedRunId, setAttachedRunId] = useState<string | null>(null);
   const { resumeActiveRun } = useAppsAiActiveRunRecovery({
     activeRunIdRef,
+    onAttachedRun: setAttachedRunId,
     applyEvent: conversation.applyEvent,
     hydrateEnabled,
     invalidateQueries,
@@ -696,7 +778,12 @@ export function useEngentyAgUiAppsAiSession(
     submitInFlightRef,
     submitStatus,
     threadId: options.threadId,
+    userCancelledRunIdsRef,
   });
+  // Ref so runThreadStream can trigger a re-attach without depending on the
+  // recovery callback identity (it changes with `options`).
+  const resumeActiveRunRef = useRef(resumeActiveRun);
+  resumeActiveRunRef.current = resumeActiveRun;
 
   const runThreadStream = useCallback(
     async (params: {
@@ -709,6 +796,8 @@ export function useEngentyAgUiAppsAiSession(
         streamGenerationRef.current !== streamGeneration ||
         (options.threadId ?? runtimeThreadIdRef.current) !== params.threadId;
       toolCallNamesRef.current.clear();
+      let sawTerminalEvent = false;
+      let receivedStreamEvent = false;
       try {
         setSubmitStatus("streaming");
         activeRunIdRef.current = params.runInput.runId;
@@ -720,6 +809,7 @@ export function useEngentyAgUiAppsAiSession(
             if (!isAgUiStreamEvent(event)) {
               return;
             }
+            receivedStreamEvent = true;
             if (event.type === EventType.MESSAGES_SNAPSHOT) {
               const snapshotMessages = sortAgUiMessagesForTranscript(
                 getMessagesSnapshotMessages(event)
@@ -762,6 +852,11 @@ export function useEngentyAgUiAppsAiSession(
                 );
                 if (open) {
                   setOpenInterruptFromStream(open);
+                  // Re-opened by the run itself: the server's word beats a
+                  // local answer that evidently did not settle it.
+                  setResolvedInterruptToolCallIds((current) =>
+                    withoutToolCallId(current, open.tool_call_id)
+                  );
                 }
               } else if (name === ENGENTY_USAGE_UPDATE_EVENT) {
                 // Per-step running total, so the composer's usage line moves
@@ -791,6 +886,7 @@ export function useEngentyAgUiAppsAiSession(
               }
             }
             if (event.type === EventType.RUN_FINISHED) {
+              sawTerminalEvent = true;
               const outcome = (event as RunFinishedEvent).outcome;
               const isInterrupt = outcome?.type === "interrupt";
               setAwaitingInterrupt(isInterrupt);
@@ -809,6 +905,7 @@ export function useEngentyAgUiAppsAiSession(
               invalidateQueries(params.threadId);
             }
             if (event.type === EventType.RUN_ERROR) {
+              sawTerminalEvent = true;
               runErrorMessage = resolveAgUiRunErrorEventMessage(
                 event as Record<string, unknown>
               );
@@ -867,6 +964,24 @@ export function useEngentyAgUiAppsAiSession(
         if (isStaleStream()) {
           return;
         }
+        if (!sawTerminalEvent) {
+          // The SSE connection ended cleanly WITHOUT RUN_FINISHED/RUN_ERROR —
+          // the server keeps executing on client disconnect, so the run is
+          // likely still alive (seen live: a 105s run completed server-side
+          // while the client sat on "No response received" and never rendered
+          // the answer). Re-attach via GET /runs/:id/stream through run
+          // recovery instead of silently going idle; recovery settles the
+          // status either way (attach finally, or the terminal sync).
+          logCopilotChatNew("run stream ended without terminal event", {
+            runId: params.runInput.runId,
+            threadId: params.threadId,
+          });
+          activeRunIdRef.current = null;
+          submitInFlightRef.current = false;
+          invalidateQueries(params.threadId);
+          resumeActiveRunRef.current();
+          return;
+        }
         clearThreadLaneSnapshot(params.threadId);
         invalidateQueries(params.threadId);
         setSubmitStatus("ready");
@@ -877,6 +992,20 @@ export function useEngentyAgUiAppsAiSession(
         if (isAbortError(error)) {
           clearPendingSend();
           setSubmitStatus("ready");
+          return;
+        }
+        if (receivedStreamEvent && !sawTerminalEvent) {
+          // Mid-stream network drop while the run keeps executing server-side
+          // — same recovery as the clean no-terminal end above, not an error.
+          logCopilotChatNew("run stream dropped mid-run", {
+            message: errorMessage(error),
+            runId: params.runInput.runId,
+            threadId: params.threadId,
+          });
+          activeRunIdRef.current = null;
+          submitInFlightRef.current = false;
+          invalidateQueries(params.threadId);
+          resumeActiveRunRef.current();
           return;
         }
         if (isResumeInProgressError(error)) {
@@ -939,14 +1068,24 @@ export function useEngentyAgUiAppsAiSession(
         attachments,
         opts?.refs ?? []
       );
+      const extraParts = Array.isArray(userMessage.content)
+        ? userMessage.content.filter(
+            (part) =>
+              Boolean(part) &&
+              typeof part === "object" &&
+              (part as { type?: unknown }).type !== "text"
+          )
+        : [];
       logCopilotChatNew("pendingSend set", {
         textLen: trimmed.length,
+        extraPartCount: extraParts.length,
         transcriptInsertIndex: messagesRef.current.length,
       });
       setPendingSend({
         text: trimmed,
         startedAt: Date.now(),
         transcriptInsertIndex: messagesRef.current.length,
+        ...(extraParts.length > 0 ? { parts: extraParts } : {}),
       });
       setRequestError(null);
       setSubmitStatus("submitted");
@@ -955,6 +1094,7 @@ export function useEngentyAgUiAppsAiSession(
       setPendingInterruptToolCallIds(new Set());
       setOptimisticInterruptResults({});
       setOpenInterruptFromStream(null);
+      setResolvedInterruptToolCallIds(new Set());
 
       try {
         if (!threadId) {
@@ -1157,34 +1297,77 @@ export function useEngentyAgUiAppsAiSession(
    * instantly, then resume the run. No wait for the session-metadata refetch.
    */
   const respond = useCallback(
-    (
-      toolCallId: string,
-      feedback: {
-        artifactId: string;
-        choiceId: string;
-        choiceLabel: string;
-        interruptId?: string;
-        payload?: Record<string, unknown>;
-      }
-    ) => {
-      const label = feedback.choiceLabel?.trim();
+    (toolCallId: string, feedback: ResumeInterruptFeedback) => {
+      // Only the decision half carries a label to show optimistically; a
+      // tool-approval result collapses to its card's own rendering.
+      const label =
+        "choiceLabel" in feedback ? feedback.choiceLabel?.trim() : undefined;
       if (label) {
         setOptimisticInterruptResults((current) => ({
           ...current,
           [toolCallId]: label,
         }));
       }
-      setPendingInterruptToolCallIds((current) => {
-        if (!current.has(toolCallId)) {
-          return current;
-        }
-        const next = new Set(current);
-        next.delete(toolCallId);
-        return next;
-      });
+      setPendingInterruptToolCallIds((current) =>
+        withoutToolCallId(current, toolCallId)
+      );
+      setResolvedInterruptToolCallIds((current) =>
+        withToolCallId(current, toolCallId)
+      );
       resumeInterrupt(feedback);
     },
     [resumeInterrupt]
+  );
+
+  /**
+   * The card's ✕: close the open interrupt without answering it. Hidden at
+   * once (same mask an answer uses), then cleared on the server so a reload —
+   * or another window on the thread — does not bring it back. The parked run
+   * is not resumed; the next user turn supersedes it.
+   */
+  const dismissInterrupt = useCallback(
+    (open: AgUiOpenInterruptMetadata) => {
+      const threadId = resolveActiveThreadId();
+      const toolCallId = open.tool_call_id;
+      const interruptId = open.interrupt_id ?? open.artifact_id;
+      setResolvedInterruptToolCallIds((current) =>
+        withToolCallId(current, toolCallId)
+      );
+      setPendingInterruptToolCallIds((current) =>
+        withoutToolCallId(current, toolCallId)
+      );
+      setOpenInterruptFromStream((current) =>
+        current && current.tool_call_id === toolCallId ? null : current
+      );
+      setAwaitingInterrupt(false);
+      // An answer queued behind an in-flight resume must not fire for a card
+      // the user has since closed.
+      pendingResumesRef.current = pendingResumesRef.current.filter(
+        (entry) => interruptIdOfFeedback(entry) !== interruptId
+      );
+      if (!(threadId && options.isTransportReady)) {
+        return;
+      }
+      void dismissAppsAiThreadInterrupt({
+        interruptId: open.interrupt_id,
+        serviceBaseUrl: options.serviceBaseUrl,
+        threadId,
+      })
+        .catch((error: unknown) => {
+          // Still open on the server (a resume owns it, or the write failed):
+          // drop the optimistic mask so the real card comes back with the
+          // refetch instead of a thread that silently disagrees with itself.
+          logCopilotChatNew("dismissInterrupt failed", {
+            message: errorMessage(error),
+            threadId,
+          });
+          setResolvedInterruptToolCallIds((current) =>
+            withoutToolCallId(current, toolCallId)
+          );
+        })
+        .finally(() => invalidateQueries(threadId));
+    },
+    [invalidateQueries, options, resolveActiveThreadId]
   );
 
   const cancel = useCallback(() => {
@@ -1205,13 +1388,38 @@ export function useEngentyAgUiAppsAiSession(
     if (submitStatus !== "ready") {
       setSubmitStatus("ready");
     }
-    setAwaitingInterrupt(false);
+    // Stop abandons the interrupt chooser exactly like a new user turn does.
+    // Leaving the live-stream interrupt around let the frontend-tool
+    // auto-resolver POST a resume right after Stop — a fresh run the user
+    // never asked for, spinning the UI again.
+    // A run parked on a card is stopped by closing that card on the server
+    // too — otherwise the interrupt only left the screen, and the next reload
+    // (or another window) brought the card and its spinner straight back.
+    const parkedOn =
+      openInterruptFromStream ?? options.openInterruptFromSession;
+    if (parkedOn && !isAgUiOpenInterruptExpired(parkedOn)) {
+      dismissInterrupt(parkedOn);
+    } else {
+      setAwaitingInterrupt(false);
+      setPendingInterruptToolCallIds(new Set());
+      setOpenInterruptFromStream(null);
+    }
+    setOptimisticInterruptResults({});
     if (runId) {
+      // Recovery must not re-attach while the server cancel is landing —
+      // the run reads as "running" for a few more seconds.
+      userCancelledRunIdsRef.current.add(runId);
       void cancelAiRun(runId, { reason: "user_cancel" }).catch(() => {
         // best-effort — the local abort already stopped streaming
       });
     }
-  }, [clearPendingSend, submitStatus]);
+  }, [
+    clearPendingSend,
+    dismissInterrupt,
+    openInterruptFromStream,
+    options.openInterruptFromSession,
+    submitStatus,
+  ]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -1228,8 +1436,76 @@ export function useEngentyAgUiAppsAiSession(
     setPendingInterruptToolCallIds(new Set());
     setOptimisticInterruptResults({});
     setOpenInterruptFromStream(null);
+    setResolvedInterruptToolCallIds(new Set());
     setThreadResetKey((current) => current + 1);
   }, [clearPendingSend, options.threadId]);
+
+  /**
+   * A person's words into the run already answering on this thread. Posts a
+   * steer-only run; the server puts the text into the live loop and answers
+   * a finished run, or 409 when the loop ended first — then the caller
+   * sends the message the ordinary way. Resolves true when steered.
+   */
+  const steer = useCallback(
+    async (text: string, opts?: SubmitMessageOptions): Promise<boolean> => {
+      const trimmed = text.trim();
+      const threadId = resolveActiveThreadId();
+      if (!(trimmed && threadId && options.isTransportReady)) {
+        return false;
+      }
+      const userMessage = createUserMessage(
+        trimmed,
+        opts?.attachments ?? [],
+        opts?.refs ?? []
+      );
+      let steered = false;
+      try {
+        await postAppsAiThreadRun({
+          input: buildAppsAiRunInput({
+            effort: options.effort,
+            frontendTools: options.frontendTools,
+            message: userMessage,
+            modelId: options.modelId,
+            pathname: options.pathname,
+            routeContext: options.routeContext,
+            steerOnly: true,
+            threadId,
+            state: options.stateSnapshot ?? conversationStateRef.current,
+          }),
+          onEvent: (event) => {
+            const custom = event as { name?: unknown; type?: unknown };
+            if (
+              custom.type === EventType.CUSTOM &&
+              custom.name === "engenty.steered"
+            ) {
+              steered = true;
+            }
+          },
+          serviceBaseUrl: options.serviceBaseUrl,
+          threadId,
+        });
+      } catch (error) {
+        if ((error as { status?: number }).status === 409) {
+          return false;
+        }
+        setRequestError(
+          options.formatRequestError(formatCopilotRunError(errorMessage(error)))
+        );
+        return false;
+      }
+      if (steered) {
+        // The words are in the loop and on the thread; show them here now.
+        conversation.appendUserMessage(userMessage);
+        messagesRef.current = [...messagesRef.current, userMessage];
+        logCopilotChatNew("steered into attached run", {
+          runId: attachedRunId,
+          threadId,
+        });
+      }
+      return steered;
+    },
+    [attachedRunId, conversation, options, resolveActiveThreadId]
+  );
 
   const submitMessageSync = useCallback(
     (text: string, opts?: SubmitMessageOptions) => {
@@ -1250,21 +1526,26 @@ export function useEngentyAgUiAppsAiSession(
   // transcript (the just-suspended tool call) so safe tools auto-resolve
   // immediately without waiting for the metadata refetch.
   const effectiveOpenInterrupt = useMemo(() => {
-    if (
-      openInterruptFromStream &&
-      !isAgUiOpenInterruptExpired(openInterruptFromStream)
-    ) {
-      return openInterruptFromStream;
+    const candidates = [
+      openInterruptFromStream,
+      options.openInterruptFromSession,
+      pendingInterruptFromTranscript(copilotMessages),
+    ];
+    for (const candidate of candidates) {
+      if (
+        candidate &&
+        !isAgUiOpenInterruptExpired(candidate) &&
+        !isInterruptResolvedLocally(candidate, resolvedInterruptToolCallIds)
+      ) {
+        return candidate;
+      }
     }
-    const fromSession = options.openInterruptFromSession;
-    if (fromSession && !isAgUiOpenInterruptExpired(fromSession)) {
-      return fromSession;
-    }
-    return pendingInterruptFromTranscript(copilotMessages);
+    return null;
   }, [
     openInterruptFromStream,
     options.openInterruptFromSession,
     copilotMessages,
+    resolvedInterruptToolCallIds,
   ]);
 
   // Frontend tools run with no UI: execute in the browser + resume the run.
@@ -1279,9 +1560,11 @@ export function useEngentyAgUiAppsAiSession(
   return {
     activeThreadId,
     awaitingInterrupt,
+    dismissInterrupt,
     openInterruptFromStream,
     pendingInterruptToolCallIds,
     optimisticInterruptResults,
+    resolvedInterruptToolCallIds,
     respond,
     cancel,
     clearPendingSend,
@@ -1296,6 +1579,8 @@ export function useEngentyAgUiAppsAiSession(
     status: submitStatus,
     resumeInterrupt,
     resumeActiveRun,
+    attachedRunId,
+    steer,
     submitMessage: submitMessageSync,
   };
 }

@@ -7,6 +7,15 @@ export const THREAD_CONTEXT_FLOAT_WIDTH_PX = 240;
 export const THREAD_CONTEXT_FLOAT_GAP_PX = 12;
 
 /**
+ * Lane the floating card reserves on the right of the chat: card width plus
+ * the gutter on each side. Chat content pads by it; so does any chrome that
+ * has to line up with the chat but sits outside the pane that publishes
+ * {@link THREAD_CONTEXT_INLINE_PAD_VAR}.
+ */
+export const THREAD_CONTEXT_FLOAT_RESERVE_PX =
+  THREAD_CONTEXT_FLOAT_WIDTH_PX + THREAD_CONTEXT_FLOAT_GAP_PX * 2;
+
+/**
  * CSS custom property set on the chat surface when the floating card is
  * inline. Applied to scroll *content* and the composer (not the ScrollArea
  * shell) so the scrollbar stays on the far right of the main surface.
@@ -41,8 +50,24 @@ export interface ThreadContextSourceItem {
   url: string;
 }
 
+export interface ThreadContextAttachmentItem {
+  filename: string;
+  mimeType: string;
+  storageKey: string;
+  url?: string;
+}
+
+export interface ThreadContextAgentItem {
+  agentId: string;
+  agentName: string;
+  href?: string | null;
+  toolCallId: string;
+}
+
 export interface ThreadContextSummary {
+  agents: ThreadContextAgentItem[];
   artefacts: ThreadContextArtifactItem[];
+  attachments: ThreadContextAttachmentItem[];
   isEmpty: boolean;
   objects: ThreadContextObjectItem[];
   sources: ThreadContextSourceItem[];

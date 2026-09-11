@@ -62,7 +62,7 @@ export function filterAndSortActivityEntries(
         (entry) =>
           (entry.title?.toLowerCase().includes(query) ?? false) ||
           entry.entityId.toLowerCase().includes(query) ||
-          entry.userId.toLowerCase().includes(query) ||
+          (entry.userId?.toLowerCase().includes(query) ?? false) ||
           (entry.hostKey?.toLowerCase().includes(query) ?? false) ||
           agentName(entry, agentNameById).toLowerCase().includes(query)
       )

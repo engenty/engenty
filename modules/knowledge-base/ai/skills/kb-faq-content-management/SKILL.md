@@ -18,10 +18,10 @@ Use this skill when the user wants to search, create, edit, publish, archive, de
 
 ## Find FAQs
 
-- Use `kb_list` first when the target KB is ambiguous or the user asks across all KBs.
+- Use `kb_list` first when the target KB is ambiguous. Stay in current_space; its one Knowledge Base is the target.
 - Use `kb_faqs_list` with `kb_id` for FAQ inventory in one KB.
 - Use `kb_faqs_list` with `search` for question and answer lookup.
-- For all-KB FAQ search, call `kb_list`, then run `kb_faqs_list` once per `kb_id` and keep results grouped by KB.
+- For all-KB FAQ search **in this Space**, call `kb_list`, then run `kb_faqs_list` once per returned `kb_id` and keep results grouped by KB. Do not search KBs outside current_space.
 
 ## Create FAQs
 

@@ -52,8 +52,14 @@ import {
 import {
   type CopilotFabAnchor,
   defaultFabAnchor,
+  isUsableFabViewport,
   resolveFabAnchorPosition,
 } from "./copilot-fab-anchor";
+
+const FAB_SURFACE_SIZE = {
+  width: BUTTON_SNAP_FAB_WIDTH,
+  height: BUTTON_SNAP_FAB_SIZE,
+};
 
 export type {
   UseCopilotDrawerLayoutOptions,
@@ -156,26 +162,43 @@ export function useCopilotDrawerLayout({
 
   // Pixel position derived from fabAnchor for the current viewport. Recomputed
   // on anchor change and on resize — never mutated directly.
-  const [fabPosition, setFabPosition] = useState(() =>
-    typeof window === "undefined"
-      ? { x: 100, y: 100 }
-      : resolveFabAnchorPosition(
-          fabAnchor,
-          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
-          { width: window.innerWidth, height: window.innerHeight },
-          BUTTON_SNAP_FAB_INSET
-        )
-  );
+  const [fabPosition, setFabPosition] = useState(() => {
+    if (typeof window === "undefined") {
+      return { x: 100, y: 100 };
+    }
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const anchor = defaultFabAnchor(BUTTON_SNAP_FAB_INSET);
+    if (
+      !isUsableFabViewport(viewport, FAB_SURFACE_SIZE, BUTTON_SNAP_FAB_INSET)
+    ) {
+      return { x: 100, y: 100 };
+    }
+    return resolveFabAnchorPosition(
+      anchor,
+      FAB_SURFACE_SIZE,
+      viewport,
+      BUTTON_SNAP_FAB_INSET
+    );
+  });
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
     const recompute = () => {
+      const viewport = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+      if (
+        !isUsableFabViewport(viewport, FAB_SURFACE_SIZE, BUTTON_SNAP_FAB_INSET)
+      ) {
+        return;
+      }
       setFabPosition(
         resolveFabAnchorPosition(
           fabAnchor,
-          { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE },
-          { width: window.innerWidth, height: window.innerHeight },
+          FAB_SURFACE_SIZE,
+          viewport,
           BUTTON_SNAP_FAB_INSET
         )
       );

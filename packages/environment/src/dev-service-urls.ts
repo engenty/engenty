@@ -65,17 +65,23 @@ export function resolveEngentyDevServiceUrls(): EngentyDevServiceUrls {
 }
 
 function readCorsOriginsFromEnv(): string[] {
-  const raw =
-    typeof process !== "undefined" && process.env
-      ? process.env.ENGENTY_CORS_ORIGINS
-      : undefined;
+  const env =
+    typeof process !== "undefined" && process.env ? process.env : undefined;
+  const raw = env?.ENGENTY_CORS_ORIGINS;
   const value = typeof raw === "string" ? raw.trim() : "";
-  if (!value) {
-    throw new Error(
-      "Missing ENGENTY_CORS_ORIGINS. Run pnpm dev:urls:portless (see docs/dev/portless-local-urls.md)."
-    );
+  if (value) {
+    return parseCorsOrigins(value);
   }
-  return parseCorsOrigins(value);
+  // A deployment serves the UI and /ai from one origin, so the allow-list it
+  // needs is exactly its own public URL — asking an operator to restate it is
+  // asking them to get it wrong. Set the variable to allow anything more.
+  const publicAppUrl = env?.PUBLIC_APP_URL?.trim();
+  if (publicAppUrl) {
+    return parseCorsOrigins(new URL(publicAppUrl).origin);
+  }
+  throw new Error(
+    "Missing ENGENTY_CORS_ORIGINS. Run pnpm dev:urls:portless (see docs/dev/portless-local-urls.md), or set PUBLIC_APP_URL in a deployment."
+  );
 }
 
 /**

@@ -1,6 +1,6 @@
 // Per-run AG-UI runtime context: frontend-tool catalog, run context entries,
-// bounded UI-state snapshot, the C6 module skill-catalog hint, and the
-// core-resolved page system prompt — joined into one instruction block.
+// bounded UI-state snapshot, and the C6 module skill-catalog hint — joined
+// into one instruction block.
 
 import type {
   AgentUiStateSnapshotV1,
@@ -12,10 +12,7 @@ import {
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
-import {
-  EngentyCoreClient,
-  getEngentyCoreBaseUrlFromEnv,
-} from "../core-http-client.js";
+import { getEngentyCoreBaseUrlFromEnv } from "../core-http-client.js";
 import { resolveModuleSkillCatalogHint } from "../skills/module-skill-hint.js";
 import { createSkillStorage } from "../skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../workspace/core-file-storage-client.js";
@@ -49,8 +46,7 @@ function buildFrontendToolInstructions(
   // block is just behavioral guidance (e.g. when to navigate vs. ask).
   const toolNames = tools.map((tool) => tool.name).join(", ");
   const hasDomTools = tools.some(
-    (tool) =>
-      tool.name === "browser_dom_snapshot" || tool.name === "browser_screenshot"
+    (tool) => tool.name === "ui_dom_snapshot" || tool.name === "ui_screenshot"
   );
   const lines = [
     "Some of your tools run in the user's browser (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
@@ -68,7 +64,7 @@ function buildFrontendToolInstructions(
   }
   if (hasDomTools) {
     lines.push(
-      "- Prefer browser_dom_snapshot over browser_screenshot. Scope root_selector from Current page dom_entry_points (main / list / detail / app_bar / sidebar / topbar). Fall back to main if a region selector is missing. Use browser_screenshot only for visual/layout questions the DOM cannot answer."
+      "- Prefer ui_dom_snapshot over ui_screenshot. Scope root_selector from Current page dom_entry_points (main / list / detail / app_bar / sidebar / topbar). Fall back to main if a region selector is missing. Use ui_screenshot only for visual/layout questions the DOM cannot answer."
     );
   }
   return lines.join("\n");
@@ -132,34 +128,6 @@ async function resolveModuleSkillHintSection(input: {
   }
 }
 
-// Page system prompt resolved by core from the UI-state snapshot (preloads).
-async function resolveCorePagePrompt(input: {
-  agentId: string;
-  scope: AiSessionScope;
-  snapshot: AgentUiStateSnapshotV1;
-}): Promise<string> {
-  const accessToken = scopeAccessToken(input.scope)?.trim();
-  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
-  if (!(accessToken && coreBaseUrl)) {
-    return "";
-  }
-  try {
-    const client = new EngentyCoreClient({ coreBaseUrl, accessToken });
-    const result = await client.resolveAgentSystemPromptFromUiState(
-      input.agentId,
-      // Snapshot is JSON-serializable; cast bridges the index-signature gap.
-      input.snapshot as unknown as Record<string, unknown>
-    );
-    return result.system_prompt?.trim() ?? "";
-  } catch (error) {
-    logger.warn("agent_ui_context_prompt_failed", {
-      agent_id: input.agentId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return "";
-  }
-}
-
 export async function buildAgentUiContextInstructions(input: {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
@@ -179,25 +147,17 @@ export async function buildAgentUiContextInstructions(input: {
   }
 
   const snapshotInstructions = formatAgentUiStateHarnessInstructions(snapshot);
-  const [moduleSkillHint, systemPrompt] = await Promise.all([
-    resolveModuleSkillHintSection({
-      agentId: input.agentId,
-      scope: input.scope,
-      snapshot,
-    }),
-    resolveCorePagePrompt({
-      agentId: input.agentId,
-      scope: input.scope,
-      snapshot,
-    }),
-  ]);
+  const moduleSkillHint = await resolveModuleSkillHintSection({
+    agentId: input.agentId,
+    scope: input.scope,
+    snapshot,
+  });
 
   return [
     frontendToolInstructions,
     runContextInstructions,
     snapshotInstructions,
     moduleSkillHint,
-    systemPrompt,
   ]
     .filter(Boolean)
     .join("\n\n");

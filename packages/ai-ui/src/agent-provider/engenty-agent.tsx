@@ -18,6 +18,7 @@ import {
   appsAiThreadMessagesQueryKey,
   appsAiThreadsListQueryKey,
   resolvePendingUserInsertIndex,
+  resolvePendingUserPartsForTranscript,
   resolvePendingUserTextForTranscript,
 } from "../ag-ui/apps-ai/index.js";
 import { useEngentyAgUiAppsAiSession } from "../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
@@ -296,6 +297,14 @@ export function EngentyAgent(props: EngentyAgentProps) {
       ),
     [session.copilotMessages, session.pendingSend]
   );
+  const pendingUserParts = useMemo(
+    () =>
+      resolvePendingUserPartsForTranscript(
+        session.copilotMessages,
+        session.pendingSend
+      ),
+    [session.copilotMessages, session.pendingSend]
+  );
   const pendingUserInsertIndex = useMemo(
     () =>
       resolvePendingUserInsertIndex(
@@ -308,11 +317,14 @@ export function EngentyAgent(props: EngentyAgentProps) {
   const host = useMemo(
     (): AgentHost => ({
       activeThreadId: session.activeThreadId,
+      attachedRunId: session.attachedRunId,
       awaitingInterrupt: session.awaitingInterrupt,
       openInterruptFromStream: session.openInterruptFromStream,
       pendingInterruptToolCallIds: session.pendingInterruptToolCallIds,
       optimisticInterruptResults: session.optimisticInterruptResults,
+      resolvedInterruptToolCallIds: session.resolvedInterruptToolCallIds,
       respond: session.respond,
+      dismissInterrupt: session.dismissInterrupt,
       configureHost,
       config: effectiveHostConfig,
       hostKey: effectiveHostConfig.hostKey,
@@ -323,6 +335,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       messages: session.messages,
       pendingSend: session.pendingSend,
       pendingUserText,
+      pendingUserParts,
       pendingUserInsertIndex,
       reset: session.reset,
       resumeInterrupt: session.resumeInterrupt,
@@ -331,19 +344,24 @@ export function EngentyAgent(props: EngentyAgentProps) {
       threadResetKey: session.threadResetKey,
       state: session.state,
       status: session.status,
+      steer: session.steer,
       submitMessage: session.submitMessage,
     }),
     [
       configureHost,
       effectiveHostConfig,
       pendingUserText,
+      pendingUserParts,
       pendingUserInsertIndex,
       session.activeThreadId,
+      session.attachedRunId,
       session.awaitingInterrupt,
       session.openInterruptFromStream,
       session.pendingInterruptToolCallIds,
       session.optimisticInterruptResults,
+      session.resolvedInterruptToolCallIds,
       session.respond,
+      session.dismissInterrupt,
       session.cancel,
       session.copilotMessages,
       session.error,
@@ -356,6 +374,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       session.threadResetKey,
       session.state,
       session.status,
+      session.steer,
       session.submitMessage,
     ]
   );

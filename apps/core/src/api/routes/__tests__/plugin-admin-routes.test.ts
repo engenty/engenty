@@ -77,16 +77,7 @@ describe("plugin admin routes", () => {
 
     registerAiRegistration({
       module_id: "contacts",
-      agents: [
-        {
-          id: "contacts.manager",
-          module_id: "contacts",
-          name: "Contacts Manager",
-          instruction_keys: [],
-          build_tools: () => ({}),
-        },
-      ],
-      actions: [],
+      workflows: [],
       instruction_documents: [],
       skills: [],
       triggers: [

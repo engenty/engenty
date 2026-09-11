@@ -48,6 +48,19 @@ const TOKEN_TTL_SECONDS = 600;
 const TOKEN_REFRESH_MARGIN_SECONDS = 120;
 const CLIENT_CACHE_MAX = 500;
 
+/**
+ * How far `iat` is backdated at mint. PostgREST validates `iat` against ITS
+ * clock with a hard-coded ~30s leeway and no config knob — anything further in
+ * its future is a 401 PGRST303 "JWT issued at future" on every server-lane
+ * query. The minter (this process) and the validator (the Supabase container)
+ * run on different clocks, and a Docker VM that lagged behind the host after
+ * sleep puts host-minted tokens minutes into the container's future; backdating
+ * buys the same 30s again on the mint side. Nothing reads `iat` for
+ * authorization and `exp` stays anchored to the un-backdated clock, so the
+ * token's usable lifetime is unchanged.
+ */
+export const SERVER_LANE_IAT_BACKDATE_SECONDS = 30;
+
 interface MintedToken {
   expiresAtEpochSeconds: number;
   token: string;
@@ -192,7 +205,7 @@ export function createTenantDbFactory(config: TenantDbConfig): TenantDbFactory {
       .setProtectedHeader(header)
       .setIssuer("engenty-core")
       .setSubject(SERVER_LANE_SUBJECT)
-      .setIssuedAt(nowSeconds)
+      .setIssuedAt(nowSeconds - SERVER_LANE_IAT_BACKDATE_SECONDS)
       .setExpirationTime(expiresAtEpochSeconds)
       .sign(await resolveSigningKey());
     tokenCache.set(tenantId, { token, expiresAtEpochSeconds });

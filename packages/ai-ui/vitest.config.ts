@@ -3,6 +3,12 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
+    alias: {
+      "@engenty/search-index": path.resolve(
+        import.meta.dirname,
+        "../search-index/src/index.ts"
+      ),
+    },
     dedupe: ["react", "react-dom"],
   },
   test: {

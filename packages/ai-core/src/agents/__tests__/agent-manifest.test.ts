@@ -44,5 +44,32 @@ describe("aiAgentManifestSchema", () => {
     });
 
     expect(parsed.id).toBe("x_y");
+    expect(parsed.agent_scope).toBeUndefined();
+  });
+
+  it("carries agent_scope for specialists that have an audience", () => {
+    const parsed = aiAgentManifestSchema.parse({
+      $schema: "engenty/ai-agent-manifest/v1",
+      agent_scope: "shared",
+      description: "d",
+      id: "x_y",
+      module_id: "engenty",
+      name: "N",
+      skills: [],
+      tools: [],
+    });
+    expect(parsed.agent_scope).toBe("shared");
+    expect(() =>
+      aiAgentManifestSchema.parse({
+        $schema: "engenty/ai-agent-manifest/v1",
+        agent_scope: "team",
+        description: "d",
+        id: "x_y",
+        module_id: "engenty",
+        name: "N",
+        skills: [],
+        tools: [],
+      })
+    ).toThrow();
   });
 });

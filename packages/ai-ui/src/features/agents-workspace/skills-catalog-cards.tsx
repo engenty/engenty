@@ -72,27 +72,35 @@ export function SkillCatalogCards({
             {open ? (
               <div
                 className={cn(
-                  adminListCardsGridClassName(tableSize),
+                  // Wide track: a skill card is read, not scanned — its
+                  // description is the thing that decides whether it's the
+                  // one you want.
+                  adminListCardsGridClassName(tableSize, { track: "wide" }),
                   grouped && "mb-2"
                 )}
               >
                 {group.skills.map((skill) => (
                   <button
                     className={cn(
-                      "ui-canvas-elevated flex flex-col rounded-lg bg-card text-left transition-shadow hover:shadow-[var(--e-3)]",
+                      "ui-card-raised flex flex-col text-left",
                       compact ? "p-3" : "p-4"
                     )}
                     key={skill.name}
                     onClick={() => onOpen(skill.name)}
                     type="button"
                   >
-                    <div className="flex min-w-0 items-baseline gap-2">
-                      <span className="truncate font-medium text-foreground">
+                    {/* Name and slug on separate lines. Sharing a row made both
+                        truncate — "Contacts content m… contacts-content-…" —
+                        which hid the one thing you scan a card for. Stacked,
+                        the name gets the full width and only the slug (which
+                        you rarely read here) can clip. */}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">
                         {displayName(skill)}
-                      </span>
-                      <span className="truncate font-mono text-muted-foreground text-xs">
+                      </p>
+                      <p className="truncate font-mono text-muted-foreground text-xs">
                         {skill.name}
-                      </span>
+                      </p>
                     </div>
                     {skill.description ? (
                       <p className="mt-1 line-clamp-2 text-muted-foreground text-sm">
@@ -102,7 +110,7 @@ export function SkillCatalogCards({
                     <div className="mt-3 flex flex-wrap items-center gap-1.5">
                       <Badge
                         className={cn(
-                          "border-border/70 bg-card font-normal text-[11px]",
+                          "border-border bg-card font-normal text-[11px]",
                           skill.requires_sandbox
                             ? "text-primary"
                             : "text-muted-foreground"

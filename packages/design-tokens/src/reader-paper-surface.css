@@ -1,0 +1,41 @@
+/**
+ * Reader (Knowledge Base "tone" / markdown artifact Reader) paints the shell
+ * a cream paper, not `--paper` and not `--card`. Keep the two html attributes
+ * in lockstep so Space Artifacts and KB articles share one surface.
+ *
+ * Set `html[data-reader-surface="paper"]` (artifacts) or
+ * `html[data-kb-reading="reader"]` (KB article detail).
+ */
+html[data-reader-surface="paper"],
+html[data-kb-reading="reader"] {
+  --kb-reader-surface: #f4f1ea;
+  --kb-reader-foreground: #1c1917;
+}
+
+html.dark[data-reader-surface="paper"],
+html.dark[data-kb-reading="reader"] {
+  --kb-reader-surface: #18140f;
+  --kb-reader-foreground: #fafaf9;
+}
+
+html[data-reader-surface="paper"] .shell-surface,
+html[data-kb-reading="reader"] .shell-surface {
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-reader-surface="paper"] nav[data-topbar-chrome="content-blend"],
+html[data-kb-reading="reader"] nav[data-topbar-chrome="content-blend"] {
+  color: var(--kb-reader-foreground);
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-reader-surface="paper"] [data-engenty-content-stack] > :first-child,
+html[data-kb-reading="reader"] [data-engenty-content-stack] > :first-child {
+  background-color: var(--kb-reader-surface) !important;
+}
+
+html[data-reader-surface="paper"] #engenty-app-main,
+html[data-kb-reading="reader"] #engenty-app-main {
+  color: var(--kb-reader-foreground);
+  background-color: var(--kb-reader-surface) !important;
+}

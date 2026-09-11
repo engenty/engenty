@@ -186,7 +186,6 @@ export function TeamMembersImportPage() {
     ],
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const handleProgress = (progress: ImportRunProgress) => {

@@ -1,0 +1,15 @@
+{
+  "id": "notifications",
+  "name": "Notifications",
+  "description": "Notification records, delivery channels and the /api/notifications routes — one bell for every module, agent and run",
+  "version": "0.0.1",
+  "kind": "package",
+  "category": "platform",
+  "provides": ["notifications"],
+  "capabilities": {
+    "ai": false,
+    "frontendTools": false,
+    "operations": false,
+    "ui": false
+  }
+}

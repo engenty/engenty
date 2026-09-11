@@ -14,6 +14,11 @@ export interface ConnectorConnectButtonProps {
   hasConnections: boolean;
   /** Where to return to after connecting (for redirect-style flows). */
   redirectTo: string;
+  /**
+   * Mount the new account into this space (PLAN-spaces.md CN.4 Flow A).
+   * Set when the connect started from inside a space.
+   */
+  spaceId?: string | null;
 }
 
 export interface ConnectorExtrasProps {

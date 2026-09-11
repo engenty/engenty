@@ -3,6 +3,7 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isSandboxCommandOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { Button } from "@engenty/ui-core";
+import { InterruptCardDismissButton } from "./interrupt-card-dismiss-button.js";
 
 function formatCommandPreview(open: AgUiOpenInterruptMetadata): string | null {
   const input = open.tool_input;
@@ -27,21 +28,28 @@ function formatCommandPreview(open: AgUiOpenInterruptMetadata): string | null {
 
 export function SandboxCommandConfirmCard(props: {
   onApprove: () => void;
+  /** Close the card without answering. */
+  onDismiss?: () => void;
   onReject: () => void;
   open: AgUiOpenInterruptMetadata;
 }) {
   const commandPreview = formatCommandPreview(props.open);
   return (
-    <section className="rounded-lg border bg-card p-3 shadow-sm">
-      <div className="space-y-1">
-        <h3 className="font-medium text-sm">{props.open.title}</h3>
-        <p className="text-muted-foreground text-xs">
-          Shell command in sandbox workspace
-        </p>
-        {commandPreview ? (
-          <pre className="max-h-32 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-snug">
-            {commandPreview}
-          </pre>
+    <section className="ui-card-panel p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-medium text-sm">{props.open.title}</h3>
+          <p className="text-muted-foreground text-xs">
+            Shell command in sandbox workspace
+          </p>
+          {commandPreview ? (
+            <pre className="max-h-32 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[11px] leading-snug">
+              {commandPreview}
+            </pre>
+          ) : null}
+        </div>
+        {props.onDismiss ? (
+          <InterruptCardDismissButton onDismiss={props.onDismiss} />
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">

@@ -12,7 +12,7 @@ import {
 import { ContactAffiliationsCard } from "./contact-affiliations-card.js";
 
 /** Read-only KV blocks: hairline dividers, horizontal inset only (no stacked outer + row vertical padding). */
-const contactDetailKvListClassName = "divide-y divide-border/50 px-5 sm:px-6";
+const contactDetailKvListClassName = "divide-y divide-border-soft px-5 sm:px-6";
 
 /** ~⅓ label / ~⅔ value; stacks on narrow viewports. */
 const contactDetailKvRowClassName =

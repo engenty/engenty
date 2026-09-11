@@ -374,7 +374,6 @@ export function VaultPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const activeOwnerLabel = useMemo(() => {

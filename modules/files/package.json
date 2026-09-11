@@ -13,6 +13,14 @@
     "./ui/file-manager": {
       "types": "./ui/file-manager.tsx",
       "default": "./dist/ui/file-manager.js"
+    },
+    "./ui/components/connect-folder-dialog": {
+      "types": "./ui/components/connect-folder-dialog.tsx",
+      "default": "./ui/components/connect-folder-dialog.tsx"
+    },
+    "./ui/components/file-space-actions": {
+      "types": "./ui/components/file-space-actions.tsx",
+      "default": "./ui/components/file-space-actions.tsx"
     }
   },
   "engenty": {
@@ -29,9 +37,11 @@
     "@engenty/ai-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
+    "@engenty/connections-local-files": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
     "@engenty/file-storage": "workspace:*",
     "@engenty/i18n": "workspace:*",
+    "@engenty/import": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/ui-core": "workspace:*",

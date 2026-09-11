@@ -59,12 +59,12 @@ import {
 } from "../lib/kb-template-route-id.js";
 import {
   categoriesQueryOptions,
-  kbsQueryOptions,
   kbTemplateDetailQueryOptions,
+  useKbsQuery,
   useKbTemplateMutations,
   useUpdateCategoryMutation,
 } from "../queries.js";
-import { kbIdFromSlug } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const EMPTY_DOC: JSONContent = {
   type: "doc",
@@ -92,21 +92,11 @@ export function KbTemplateDetailPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { kbSlug = "", templateId = "" } = useParams<{
-    kbSlug: string;
-    templateId: string;
-  }>();
+  const { templateId = "" } = useParams<{ templateId: string }>();
   const routeTemplateId = (templateId ?? "").trim();
   const isNew = isKbTemplateEditorNewRoute(routeTemplateId, pathname);
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
-  const scopedKb = useMemo(
-    () =>
-      kbSlug.trim()
-        ? kbs.find((kb) => kb.slug === decodeURIComponent(kbSlug.trim()))
-        : undefined,
-    [kbs, kbSlug]
-  );
-  const kbId = scopedKb?.id ?? kbIdFromSlug(kbs, kbSlug) ?? "";
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
+  const kbId = spaceKbId(kbs);
   const {
     data: template,
     isLoading,
@@ -122,7 +112,7 @@ export function KbTemplateDetailPage() {
   );
   const mutations = useKbTemplateMutations(effectiveKbId);
   const categoryMutation = useUpdateCategoryMutation(kbId);
-  const kbShellNav = useKbModuleSecondaryShellNav({ kbId, kbSlug });
+  const kbShellNav = useKbModuleSecondaryShellNav({ kbId });
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -146,12 +136,12 @@ export function KbTemplateDetailPage() {
           "This template URL is invalid. Open the template again from settings."
         )
       );
-      navigate(kbScopedSettingsTemplatesPath(kbSlug), { replace: true });
+      navigate(kbScopedSettingsTemplatesPath(), { replace: true });
     }
-  }, [isNew, kbSlug, kbsLoading, navigate, routeTemplateId, t]);
+  }, [isNew, kbsLoading, navigate, routeTemplateId, t]);
 
   useEffect(() => {
-    const hydrationKey = isNew ? `new:${kbSlug}` : template?.id;
+    const hydrationKey = isNew ? `new:${kbId}` : template?.id;
     if (!hydrationKey || hydratedFormKeyRef.current === hydrationKey) {
       return;
     }
@@ -178,7 +168,7 @@ export function KbTemplateDetailPage() {
           ? markdownToJson(template.content_markdown)
           : EMPTY_DOC)
     );
-  }, [isNew, kbSlug, template]);
+  }, [isNew, kbId, template]);
 
   const { editor, editorContentProps } = useRichEditor({
     autoFocus: false,
@@ -309,7 +299,7 @@ export function KbTemplateDetailPage() {
             return;
           }
           toast.success(t("templates.created", "Template created"));
-          navigate(kbTemplatePath(kbSlug, created.id), { replace: true });
+          navigate(kbTemplatePath(created.id), { replace: true });
         },
         onError: (error) =>
           toast.error(templateSaveErrorMessage(error, saveFailedMessage)),
@@ -345,7 +335,7 @@ export function KbTemplateDetailPage() {
     <div className="flex items-center gap-2">
       <Button
         className={topbarIconButtonClassName}
-        onClick={() => navigate(kbScopedSettingsTemplatesPath(kbSlug))}
+        onClick={() => navigate(kbScopedSettingsTemplatesPath())}
         size="sm"
         variant="outline"
       >
@@ -360,7 +350,7 @@ export function KbTemplateDetailPage() {
             mutations.delete.mutate(resolvedTemplateId, {
               onSuccess: () => {
                 toast.success(t("templates.deleted", "Template deleted"));
-                navigate(kbScopedSettingsTemplatesPath(kbSlug), {
+                navigate(kbScopedSettingsTemplatesPath(), {
                   replace: true,
                 });
               },
@@ -393,18 +383,17 @@ export function KbTemplateDetailPage() {
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: [
       ...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : []),
       {
         label: t("scoped_settings.breadcrumb"),
-        to: kbScopedSettingsPath(kbSlug),
+        to: kbScopedSettingsPath(),
       },
       {
         label: t("templates.settings_title"),
-        to: kbScopedSettingsTemplatesPath(kbSlug),
+        to: kbScopedSettingsTemplatesPath(),
       },
       { label: isNew ? t("templates.new_template") : name || "..." },
     ],
@@ -558,7 +547,7 @@ export function KbTemplateDetailPage() {
                   >
                     <Link
                       className="min-w-0 truncate text-sm hover:underline"
-                      to={`${kbScopedSettingsPath(kbSlug)}#categories`}
+                      to={`${kbScopedSettingsPath()}#categories`}
                     >
                       {category.display_path}
                     </Link>

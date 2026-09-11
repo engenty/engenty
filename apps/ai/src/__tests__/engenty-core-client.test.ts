@@ -150,6 +150,96 @@ describe("EngentyCoreClient", () => {
     vi.useRealTimers();
   });
 
+  it("re-mints and retries exactly once when core answers 401 and a refresh seam exists", async () => {
+    // The ENG-34 shape: a headless run's 15-minute service token expires
+    // mid-run. The first call 401s, the refresh seam mints a fresh token, the
+    // retry succeeds — and every LATER request rides the fresh token without
+    // another 401 round-trip.
+    const fetchImpl = vi.fn(
+      async (_url: URL | RequestInfo, init?: RequestInit) => {
+        const auth = (init?.headers as Record<string, string>).Authorization;
+        if (auth !== "Bearer fresh-token") {
+          return Response.json(
+            {
+              ok: false,
+              error: { code: "unauthorized", message: "jwt expired" },
+            },
+            { status: 401 }
+          );
+        }
+        return Response.json({ ok: true, data: { invoked: true } });
+      }
+    );
+    const refreshAccessToken = vi.fn(async () => "fresh-token");
+    const client = new EngentyCoreClient({
+      coreBaseUrl: "http://core.local",
+      fetchImpl,
+      accessToken: "expired-token",
+      refreshAccessToken,
+    });
+
+    await expect(client.invokeTool("kb_article_create", {})).resolves.toEqual({
+      invoked: true,
+    });
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // The client keeps the fresh token: no further 401, no further refresh.
+    await expect(client.listToolContracts()).resolves.toEqual({
+      invoked: true,
+    });
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry when the refresh seam returns the token that just failed", async () => {
+    // A 401 that is NOT about expiry (revoked credential, wrong tenant) must
+    // not loop: the mint returning the same still-cached token means retrying
+    // would fail identically, so the original 401 surfaces.
+    const fetchImpl = vi.fn(async () =>
+      Response.json(
+        { ok: false, error: { code: "unauthorized", message: "nope" } },
+        { status: 401 }
+      )
+    );
+    const refreshAccessToken = vi.fn(async () => "same-token");
+    const client = new EngentyCoreClient({
+      coreBaseUrl: "http://core.local",
+      fetchImpl,
+      accessToken: "same-token",
+      refreshAccessToken,
+    });
+
+    await expect(client.listToolContracts()).rejects.toMatchObject({
+      code: "unauthorized",
+      status: 401,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a 401 unchanged when the refresh seam itself fails", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json(
+        { ok: false, error: { code: "unauthorized", message: "jwt expired" } },
+        { status: 401 }
+      )
+    );
+    const client = new EngentyCoreClient({
+      coreBaseUrl: "http://core.local",
+      fetchImpl,
+      accessToken: "expired-token",
+      refreshAccessToken: async () => {
+        throw new Error("core is down");
+      },
+    });
+
+    await expect(client.listToolContracts()).rejects.toMatchObject({
+      code: "unauthorized",
+      status: 401,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects model-supplied absolute URLs", async () => {
     const client = new EngentyCoreClient({
       coreBaseUrl: "http://core.local",

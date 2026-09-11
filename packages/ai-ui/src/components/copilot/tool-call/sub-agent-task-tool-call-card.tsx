@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
 import { resolveAgentDisplayName } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import {
   InlineAppArtifact,
@@ -116,6 +117,9 @@ export function SubAgentTaskToolCallCard({
   toolName,
 }: ToolCallCardProps) {
   const sectionLabels = subAgentSectionLabels;
+  // Re-render when the agent catalog lands, so a row drawn before it stops
+  // showing the id.
+  useAgentDisplayNamesVersion();
   const agentName = resolveAgentDisplayName(readAgentId(toolName));
   const state = resolveEffectiveState(
     stateProp ?? "completed",
@@ -146,7 +150,7 @@ export function SubAgentTaskToolCallCard({
     <section
       aria-busy={isActive || undefined}
       className={cn(
-        "w-full rounded-lg border border-border/70 bg-card shadow-[var(--e-2)]",
+        "w-full rounded-lg border border-border bg-card shadow-[var(--e-2)]",
         className
       )}
     >
@@ -156,7 +160,7 @@ export function SubAgentTaskToolCallCard({
           "flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left",
           "transition-colors hover:bg-muted/30",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-          expanded && "border-border/60 border-b"
+          expanded && "border-border-soft border-b"
         )}
         data-testid="sub-agent-header-trigger"
         onClick={toggleExpanded}
@@ -250,7 +254,7 @@ export function SubAgentTaskToolCallCard({
           </div>
 
           {fullPageHref ? (
-            <div className="border-border/60 border-t px-3 py-2">
+            <div className="border-border-soft border-t px-3 py-2">
               <Link
                 className="inline-flex items-center gap-1.5 text-primary text-xs underline-offset-4 hover:underline"
                 tabIndex={expanded ? undefined : -1}

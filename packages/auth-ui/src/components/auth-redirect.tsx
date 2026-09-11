@@ -40,7 +40,7 @@ export function AuthRedirect() {
 
   if (target === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground text-sm">
+      <div className="flex min-h-dvh items-center justify-center text-muted-foreground text-sm">
         Loading...
       </div>
     );

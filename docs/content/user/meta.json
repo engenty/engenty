@@ -9,7 +9,6 @@
     "model-effort",
     "modules",
     "agent-operations",
-    "connect-slack",
-    "memory"
+    "connect-slack"
   ]
 }

@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "title": "engenty — Menschen & Agenten. Als ein Team.",
+    "description": "Selbst gehosteter Workspace mit einsehbarem Quellcode, in dem dein Team und KI-Agenten in denselben Apps, Spaces und Dokumenten arbeiten. Kostenlos betreibbar. Deine Daten. Deine Modelle."
+  },
+  "nav": {
+    "features": "Warum",
+    "install": "Installieren",
+    "github": "GitHub",
+    "language": "Sprache"
+  },
+  "hero": {
+    "kicker": "Fair Source · selbst gehostet",
+    "headline": "Menschen & Agenten.",
+    "headlinePerch": "Agenten",
+    "headlineEm": "Als ein Team.",
+    "sub": "Installiere engenty auf deinen eigenen Maschinen. Dein Team und eine Crew von Agenten teilen sich dieselben Spaces, Apps und Dokumente — kein Chatfenster, das seitlich angeflanscht ist.",
+    "ctaGithub": "Auf GitHub ansehen",
+    "ctaInstall": "Lokal starten"
+  },
+  "pillars": [
+    {
+      "id": "plugins",
+      "kicker": "01",
+      "title": "Plugins für deine eigenen Apps",
+      "body": "Jedes Modul ist ein installierbares Plugin. Kontakte, Aufgaben oder ein Tool, das nur dein Unternehmen hat — dasselbe SDK, dieselbe Canvas."
+    },
+    {
+      "id": "spaces",
+      "kicker": "02",
+      "title": "Mehrere Nutzer, mehrere Spaces",
+      "body": "Ein Space ist der feste Raum für einen Kunden, ein Team oder ein Thema. Menschen und Agenten binden die Apps ein, die sie brauchen. Nichts sickert über die Wand."
+    },
+    {
+      "id": "ag-ui",
+      "kicker": "03",
+      "title": "Arbeitet an deinen Apps mit",
+      "body": "AG-UI hält den Agenten im Dokument, in der Liste, im Posteingang — mit Vorschlägen, die du behalten, verfeinern oder verwerfen kannst. Kein Copy-Paste-Umweg."
+    },
+    {
+      "id": "data",
+      "kicker": "04",
+      "title": "Deine Daten gehören dir",
+      "body": "Postgres, Dateien und Secrets bleiben auf Infrastruktur, die du betreibst. Self-Host mit Docker und Supabase. Es gibt keinen Mandanten, den wir einsehen könnten."
+    },
+    {
+      "id": "models",
+      "kicker": "05",
+      "title": "Modell selbst wählen",
+      "body": "Zeig dem Gateway die Modelle, die du ohnehin bezahlst. Routing pro Aufgabe tauschen. Das Produkt bindet dich nicht an einen Anbieter."
+    }
+  ],
+  "features": {
+    "spaces": {
+      "kicker": "Spaces",
+      "title": "Ein Raum für die Arbeit, die bleibt",
+      "perch": "Arbeit",
+      "body": "Projekte kommen und gehen. Ein Space bleibt: Drive, Kanäle, eingebundene Apps, die Agenten, die dazugehören. Mehrbenutzerfähig ab dem ersten Login — Mitgliedschaft ist die Rechtegrenze."
+    },
+    "agUi": {
+      "kicker": "AG-UI",
+      "title": "Der Agent sitzt in der Datei",
+      "perch": "sitzt",
+      "body": "Entwürfe, Anreicherungen und Follow-ups landen auf dem Datensatz, den du gerade siehst. Den Ton bestimmst du; der Agent macht weiter. Protokoll: AG-UI, kein Seiten-Chat, der die Seite vergisst."
+    },
+    "stack": {
+      "kicker": "Dein Stack",
+      "title": "Daten, die du hältst. Modelle, die du wählst.",
+      "perch": "hältst",
+      "body": "Der offene Baum läuft auf deinem Postgres und Object Storage. Bring einen Vercel-AI-Gateway-Key mit — oder leite zu dem weiter, was du schon betreibst. Phase 1 heißt selbst installieren — keine Cloud-Anmeldung."
+    }
+  },
+  "install": {
+    "kicker": "Zum Laufen bringen",
+    "title": "Drei Befehle. Dein Laptop.",
+    "perch": "Laptop",
+    "body": "Node 24, Docker und ein Git-Clone. Der erste Besuch legt den Administrator an. Copilot braucht einen Modell-Key; alles andere startet ohne.",
+    "commands": [
+      "git clone https://github.com/engenty/engenty.git",
+      "cd engenty && pnpm install",
+      "pnpm engenty setup --local && pnpm dev"
+    ]
+  },
+  "footer": "Menschen & Agenten. Als ein Team.",
+  "languageChooser": {
+    "auto": "Auto",
+    "en": "English",
+    "de": "Deutsch"
+  },
+  "mocks": {
+    "spaceHome": {
+      "crumb": "s / client-alpha",
+      "spaceName": "Client Alpha",
+      "people": "4 Personen",
+      "tabs": ["Arbeit", "Daten", "Agenten"],
+      "ask": "Frag diesen Space…",
+      "apps": [
+        { "mounted": true, "name": "Kontakte" },
+        { "mounted": true, "name": "Aufgaben" },
+        { "mounted": true, "name": "Posteingang" },
+        { "mounted": false, "name": "Deine App" }
+      ],
+      "statusMounted": "verbunden",
+      "statusPlugin": "Plugin"
+    },
+    "agUi": {
+      "crumb": "s / client-alpha / tasks / q3-outreach",
+      "title": "Q3-Kundenansprache",
+      "meta": "Aufgabe · 2 auf der Canvas",
+      "bodyBefore": "Sequenziere 120 ruhende Konten über 14 Tage. Erfolg sieht aus wie",
+      "bodyMark": "€42k Pipeline",
+      "bodyAfter": "bis Quartalsende.",
+      "agentLabel": "Agent · Entwurf",
+      "agentBody": "132 in Kontakte gefunden — die extra 12 dazunehmen?",
+      "keep": "behalten",
+      "refine": "verfeinern",
+      "discard": "verwerfen"
+    },
+    "stack": {
+      "crumb": "settings / ai",
+      "title": "Modellzwecke",
+      "rows": [
+        { "job": "chat", "name": "dein Gateway · Standard" },
+        { "job": "routing", "name": "klein / günstig" },
+        { "job": "embed", "name": "lokal oder gehostet" }
+      ],
+      "note": "Postgres auf deinem Host. Dateien unter dem Space-Präfix. Keine Daten verlassen den Rechner, außer du schickst sie an das Modell, das du gewählt hast."
+    }
+  }
+}

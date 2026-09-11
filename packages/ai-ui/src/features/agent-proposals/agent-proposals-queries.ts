@@ -21,11 +21,13 @@ export function useAgentRecordsQuery() {
 export function useApproveAgentProposalMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (agentId: string) => approveAgentProposal(agentId),
+    mutationFn: (input: { agentId: string; spaceId?: string | null }) =>
+      approveAgentProposal(input.agentId, input.spaceId),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: agentProposalKeys.records,
       });
+      void queryClient.invalidateQueries({ queryKey: ["agent-desk"] });
     },
   });
 }
@@ -38,6 +40,7 @@ export function useRejectAgentProposalMutation() {
       void queryClient.invalidateQueries({
         queryKey: agentProposalKeys.records,
       });
+      void queryClient.invalidateQueries({ queryKey: ["agent-desk"] });
     },
   });
 }

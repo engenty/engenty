@@ -337,7 +337,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
                 <div className="flex flex-col pb-6">
                   {showProduct ? (
                     <section data-credits-section="product">
-                      <h3 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-semibold text-base">
+                      <h3 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-semibold text-base">
                         <HighlightSearchText
                           activeMatchIndex={activeMatchIndex}
                           matchCounter={matchCounter}
@@ -345,7 +345,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
                           text={t("about.creditsProduct")}
                         />
                       </h3>
-                      <ul className="divide-y divide-border/60 px-6">
+                      <ul className="divide-y divide-border-soft px-6">
                         {productCredits.map((credit) => (
                           <CreditRow
                             activeMatchIndex={activeMatchIndex}
@@ -361,7 +361,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
 
                   {showHighlights ? (
                     <section className="mt-2" data-credits-section="highlights">
-                      <h3 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-semibold text-base">
+                      <h3 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-semibold text-base">
                         <HighlightSearchText
                           activeMatchIndex={activeMatchIndex}
                           matchCounter={matchCounter}
@@ -369,7 +369,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
                           text={t("about.creditsHighlights")}
                         />
                       </h3>
-                      <ul className="divide-y divide-border/60 px-6">
+                      <ul className="divide-y divide-border-soft px-6">
                         {highlightCredits.map((credit) => (
                           <CreditRow
                             activeMatchIndex={activeMatchIndex}
@@ -391,7 +391,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
 
                   {showShared ? (
                     <section data-credits-section="shared">
-                      <h4 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-medium text-foreground text-xs tracking-wide">
+                      <h4 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-medium text-foreground text-xs tracking-wide">
                         <HighlightSearchText
                           activeMatchIndex={activeMatchIndex}
                           matchCounter={matchCounter}
@@ -415,7 +415,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
 
                   {appGroups.length > 0 ? (
                     <section className="mt-2" data-credits-section="apps">
-                      <h3 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-semibold text-base">
+                      <h3 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-semibold text-base">
                         <HighlightSearchText
                           activeMatchIndex={activeMatchIndex}
                           matchCounter={matchCounter}
@@ -446,7 +446,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
 
                   {packageGroups.length > 0 ? (
                     <section className="mt-2" data-credits-section="packages">
-                      <h3 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-semibold text-base">
+                      <h3 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-semibold text-base">
                         <HighlightSearchText
                           activeMatchIndex={activeMatchIndex}
                           matchCounter={matchCounter}
@@ -481,7 +481,7 @@ export function CreditsDialog({ open, onOpenChange }: CreditsDialogProps) {
                       data-credits-section={groupSectionKey(group.id)}
                       key={group.id}
                     >
-                      <h4 className="sticky top-0 z-10 border-border/60 border-b bg-popover px-6 py-2.5 font-medium text-foreground text-xs tracking-wide">
+                      <h4 className="sticky top-0 z-10 border-border-soft border-b bg-popover px-6 py-2.5 font-medium text-foreground text-xs tracking-wide">
                         <span className="text-muted-foreground">
                           <HighlightSearchText
                             activeMatchIndex={activeMatchIndex}

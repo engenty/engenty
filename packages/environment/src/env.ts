@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -148,6 +149,22 @@ export function loadCoreRuntimeEnvFromCallerSrcDir(
     ".."
   );
   loadCoreRuntimeEnv({ hostPackageRoot });
+}
+
+/**
+ * Root of the spaces tree — every App's source repository and data directory
+ * live under it, as `tenants/<tenant>/spaces/<space>/apps/<slug>/{src,data}`.
+ * app-host writes it and mounts `data/` into the App's isolate; engenty-ai
+ * binds a space's `apps/` into that space's computer. Both must resolve the
+ * same value: containers bind /opt/engenty/spaces, dev uses the home directory
+ * so the Docker daemon can bind the same path into a sibling container.
+ */
+export function resolveSpacesDir(): string {
+  const configured = process.env.ENGENTY_SPACES_DIR?.trim();
+  if (configured) {
+    return configured;
+  }
+  return path.join(os.homedir(), ".engenty", "spaces");
 }
 
 export function envString(

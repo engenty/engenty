@@ -6,6 +6,7 @@
     "emptyStateTitle": "How can I help?",
     "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace.",
     "composerPlaceholder": "Message the copilot…",
+    "readOnlyThread": "Read-only — this is an agent's own thread. Write in the task instead.",
     "sending": "Sending…",
     "queue": {
       "title": "Queued",
@@ -84,8 +85,14 @@
     "groupStatus": "Status",
     "groupType": "Type",
     "groupDate": "Date",
+    "groupSpace": "Space",
     "sortBy": "Sort by",
     "sortUpdated": "Last updated",
+    "spaceScope": "Spaces",
+    "spaceScopeAll": "All spaces",
+    "spaceScopeCurrent": "This space",
+    "spaceNone": "No space",
+    "spaceUnknown": "Unknown space",
     "sortCreated": "Created",
     "sortTitle": "Title",
     "sortAgent": "Agent",
@@ -123,7 +130,12 @@
       }
     },
     "artifactReady": "Artifact ready",
-    "openArtifact": "Open"
+    "openArtifact": "Open",
+    "history": "History",
+    "spaceMismatchTitle": "This chat belongs to a different space",
+    "spaceMismatchBody": "It keeps answering with that space's agents, connections and files — not this one's. Start a new chat to work here.",
+    "spaceMismatchAction": "Continue here",
+    "allSpaceChats": "All chats in this space"
   },
   "subAgent": {
     "backToChat": "Back to chat",
@@ -133,5 +145,13 @@
     "notFound": "This sub-agent run is no longer available in the transcript.",
     "output": "Output",
     "running": "Running…"
+  },
+  "memory": {
+    "menu": "Memory",
+    "title": "Memory",
+    "subtitle": "The always-in-context profile the assistant maintains about you. It updates itself; reset is the only edit.",
+    "reset": "Reset",
+    "loading": "Loading…",
+    "empty": "No profile yet."
   }
 }

@@ -26,7 +26,7 @@ export function DocumentHeader({
   return (
     // Blended header: the white surface extends up under the transparent
     // floating topbar so the two read as one band. Pair with the page's
-    // `usePageConfig({ topbarChrome: "contentBlend", topbarOverlap: true })`.
+    // `usePageConfig({ topbarOverlap: true })`.
     // `pt-14` keeps the content clear of the ~44px (h-11) topbar.
     <div className={cn("w-full border-border border-b bg-card", className)}>
       <div className="mx-auto w-full max-w-6xl px-2 pt-14 pb-4 sm:px-4">

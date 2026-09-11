@@ -50,6 +50,7 @@
     "expenseCategories": "Ausgabenkategorien",
     "expenseCategoriesDesc": "Kategorien für Spesenverfolgung und KI-Klassifizierung definieren",
     "categoryCode": "Code",
+    "categoryAccount": "Konto",
     "categoryName": "Name",
     "categoryDeductible": "Steuerlich absetzbar",
     "categoryRate": "Satz %",

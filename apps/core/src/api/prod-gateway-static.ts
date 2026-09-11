@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+import {
+  injectRuntimeEnv,
+  resolveUiRuntimeEnv,
+} from "./prod-gateway-runtime-env.js";
 
 const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -53,6 +57,12 @@ function cacheControlFor(filePath: string): string {
 
 export interface ServeStaticOptions {
   rootDir: string;
+  /**
+   * Client-visible settings spliced into every served HTML document, so a
+   * prebuilt image can serve an install it was not built for. Defaults to the
+   * process environment; pass `{}` to serve the bundle exactly as built.
+   */
+  runtimeEnv?: Record<string, string>;
   spaIndex?: string;
   /** URL prefix stripped before mapping to disk (e.g. `/manage`). */
   urlPrefix: string;
@@ -115,10 +125,19 @@ export function tryServeStatic(
     return true;
   }
 
-  const body = fs.readFileSync(filePath);
+  const contentType = contentTypeFor(filePath);
+  const body = contentType.startsWith("text/html")
+    ? Buffer.from(
+        injectRuntimeEnv(
+          fs.readFileSync(filePath, "utf-8"),
+          options.runtimeEnv ?? resolveUiRuntimeEnv()
+        ),
+        "utf-8"
+      )
+    : fs.readFileSync(filePath);
   res.writeHead(200, {
     "cache-control": cacheControlFor(filePath),
-    "content-type": contentTypeFor(filePath),
+    "content-type": contentType,
     "content-length": String(body.length),
   });
   if (req.method === "HEAD") {

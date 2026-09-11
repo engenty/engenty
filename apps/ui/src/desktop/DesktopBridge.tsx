@@ -1,11 +1,9 @@
-import {
-  type InboxNotificationDto,
-  useInboxListQuery,
-} from "@engenty/ai-ui/embed";
 import type { NavigationSection } from "@engenty/app-shell";
-import { getOptionalSupabaseAuthClient } from "@engenty/auth-ui";
-import { useQuery, useQueryClient } from "@engenty/query-client";
-import { listUsers } from "@engenty/user-management-ui";
+import {
+  notificationDisplayText,
+  registerClientChannel,
+  useUnseenCountQuery,
+} from "@engenty/notifications-ui";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { isDesktopShell } from "./desktop-runtime";
@@ -18,21 +16,18 @@ const SETTINGS_EVENT = "engenty-desktop:settings";
 export interface DesktopBridgeProps {
   /** Sidebar navigation, mirrored into the native Go menu (⌘1–⌘9). */
   sections?: NavigationSection[];
-  /** Realtime inbox invalidation rides the per-tenant broadcast channel. */
-  tenantId?: string;
 }
 
 /**
  * Bridges the running (authenticated) app to the desktop shell:
- * - mirrors the inbox unseen count onto the Dock badge
- * - posts a native notification when new items arrive while unfocused
- *   (team-chat records get channel + author + preview; others the summary)
+ * - mirrors the unseen notification count onto the Dock badge
+ * - registers the `desktop` client channel: a native notification when new
+ *   records arrive while the window is unfocused (arrival detection and the
+ *   realtime refresh live with the bell, once per shell)
  * - routes `engenty://open?path=/...` deep links into the SPA
  * - opens external http(s) links in the system browser
  * - mirrors the sidebar navigation into the native Go menu (⌘1–⌘9)
  * - handles native menu / global-hotkey events (New Chat, Settings, ⌥Space)
- * - subscribes to the per-tenant inbox broadcast channel so badge and
- *   notifications react immediately instead of on the next poll
  *
  * Renders nothing; mounted only inside the Tauri shell.
  */
@@ -42,8 +37,6 @@ export function DesktopBridge(props: DesktopBridgeProps) {
   }
   return <DesktopBridgeInner {...props} />;
 }
-
-const UNSEEN_STATUSES = new Set(["pending", "delivered"]);
 
 /**
  * Tauri's unlisten throws `listeners[eventId].handlerId undefined` if the
@@ -58,36 +51,41 @@ function safeDispose(dispose: () => void): void {
   }
 }
 
-/** Title/body for one record; team-chat payloads carry structured context. */
-function renderNotification(
-  record: InboxNotificationDto,
-  userLabel: (id: string) => string | null
-): { body: string; title: string } {
-  const payload = record.payload ?? {};
-  if (record.source !== "team-chat") {
-    return { body: record.summary, title: "engenty" };
-  }
-  const label =
-    typeof payload.conversation_label === "string"
-      ? payload.conversation_label
-      : "Team-Chat";
-  const author =
-    typeof payload.author_user_id === "string"
-      ? userLabel(payload.author_user_id)
-      : typeof payload.author_agent_key === "string"
-        ? payload.author_agent_key
-        : null;
-  const preview =
-    typeof payload.text_preview === "string" && payload.text_preview
-      ? payload.text_preview
-      : record.summary;
-  return {
-    body: author ? `${author}: ${preview}` : preview,
-    title: label,
-  };
-}
+// Registered once per process: the bell's arrival watcher hands new records
+// to every client channel; this one turns them into native notifications
+// while the window is not focused.
+registerClientChannel({
+  id: "desktop",
+  async onArrival(records) {
+    if (document.hasFocus()) {
+      return;
+    }
+    try {
+      const { isPermissionGranted, requestPermission, sendNotification } =
+        await import("@tauri-apps/plugin-notification");
+      let granted = await isPermissionGranted();
+      if (!granted) {
+        granted = (await requestPermission()) === "granted";
+      }
+      if (!granted) {
+        return;
+      }
+      for (const record of records.slice(0, 3)) {
+        sendNotification(notificationDisplayText(record));
+      }
+      if (records.length > 3) {
+        sendNotification({
+          body: `…and ${records.length - 3} more new notifications.`,
+          title: "engenty",
+        });
+      }
+    } catch (error) {
+      console.warn("[desktop] failed to send notification", error);
+    }
+  },
+});
 
-function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
+function DesktopBridgeInner({ sections }: DesktopBridgeProps) {
   const navigate = useNavigate();
   // Keep the native-listener effects mount-once: react-router's `navigate`
   // changes identity on every route change, so depending on it re-runs the
@@ -96,95 +94,20 @@ function DesktopBridgeInner({ sections, tenantId }: DesktopBridgeProps) {
   // undefined). A ref reads the latest navigate without re-subscribing.
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
-  const queryClient = useQueryClient();
-  // Shared inbox list: polls while hidden inside the desktop shell (see
-  // inbox-queries.ts) and the realtime broadcast below invalidates it, so a
-  // tray/dock window still notices arrivals immediately.
-  const inboxQuery = useInboxListQuery({ limit: 30, status: "open" });
-  const usersQuery = useQuery({
-    queryFn: () => listUsers(),
-    queryKey: ["desktop", "tenant-users"],
-    staleTime: 5 * 60_000,
-  });
-  const users = usersQuery.data;
-  const records = inboxQuery.data?.notifications;
-  const knownIds = useRef<Set<string> | null>(null);
-
-  // Dock badge + arrival notifications.
+  // Dock badge: the tenant-wide unseen count the bell shows. The query polls
+  // while hidden inside the desktop shell, so a tray/dock window stays live.
+  const countQuery = useUnseenCountQuery();
+  const unseen = countQuery.data?.total ?? 0;
   useEffect(() => {
-    if (!records) {
-      return;
-    }
-    const unseen = records.filter((record) =>
-      UNSEEN_STATUSES.has(record.status)
-    );
-    const previous = knownIds.current;
-    knownIds.current = new Set(records.map((record) => record.id));
-    const fresh =
-      previous === null
-        ? [] // initial load — badge only, no notification burst
-        : unseen.filter((record) => !previous.has(record.id));
     void (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        await getCurrentWindow().setBadgeCount(
-          unseen.length > 0 ? unseen.length : undefined
-        );
+        await getCurrentWindow().setBadgeCount(unseen > 0 ? unseen : undefined);
       } catch (error) {
         console.warn("[desktop] failed to set badge count", error);
       }
-      // Only notify on arrivals while the window isn't focused.
-      if (fresh.length === 0 || document.hasFocus()) {
-        return;
-      }
-      try {
-        const { isPermissionGranted, requestPermission, sendNotification } =
-          await import("@tauri-apps/plugin-notification");
-        let granted = await isPermissionGranted();
-        if (!granted) {
-          granted = (await requestPermission()) === "granted";
-        }
-        if (!granted) {
-          return;
-        }
-        const userLabel = (id: string) =>
-          users?.find((user) => user.id === id)?.display_name || null;
-        for (const record of fresh.slice(0, 3)) {
-          sendNotification(renderNotification(record, userLabel));
-        }
-        if (fresh.length > 3) {
-          sendNotification({
-            body: `…and ${fresh.length - 3} more new notifications.`,
-            title: "engenty",
-          });
-        }
-      } catch (error) {
-        console.warn("[desktop] failed to send notification", error);
-      }
     })();
-  }, [records, users]);
-
-  // Realtime inbox: the AI service broadcasts on `inbox:{tenantId}` whenever a
-  // notification is created or its status changes; refresh the inbox queries
-  // immediately instead of waiting for the 30s poll.
-  useEffect(() => {
-    if (!tenantId) {
-      return;
-    }
-    const client = getOptionalSupabaseAuthClient();
-    if (!client) {
-      return;
-    }
-    const channel = client
-      .channel(`inbox:${tenantId}`)
-      .on("broadcast", { event: "inbox-changed" }, () => {
-        void queryClient.invalidateQueries({ queryKey: ["inbox"] });
-      })
-      .subscribe();
-    return () => {
-      void client.removeChannel(channel);
-    };
-  }, [queryClient, tenantId]);
+  }, [unseen]);
 
   // Native Go menu mirrors the sidebar navigation (labels + routes).
   useEffect(() => {

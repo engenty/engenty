@@ -4,6 +4,7 @@ import type { TenantPluginOverridesDal } from "../../dal/tenant-plugin-overrides
 import type { PluginRegistry } from "../../plugins/registry.js";
 import type { SecurityAuditLogAdapter } from "../../security/audit-adapter.js";
 import type { AuthProvider } from "../../security/auth-provider.js";
+import type { PolicyDeps } from "../../security/policy.js";
 import { jsonApiError } from "./api-response.js";
 import { executeModuleOperation } from "./plugins/module-operation-routes.js";
 import type { ApiLogger } from "./types.js";
@@ -28,6 +29,7 @@ export function registerGatewayRoutes(params: {
   approvalService: ReturnType<typeof createApprovalService>;
   auditLog: SecurityAuditLogAdapter;
   tenantPluginOverrides?: TenantPluginOverridesDal;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
 }) {
   const gatewayMethods = buildGatewayMethodMap(params.registry);
   const resolveTenantPluginOverrides = params.tenantPluginOverrides
@@ -64,6 +66,9 @@ export function registerGatewayRoutes(params: {
       approvalService: params.approvalService,
       auditLog: params.auditLog,
       resolveTenantPluginOverrides,
+      ...(params.resolveAgentApproval
+        ? { resolveAgentApproval: params.resolveAgentApproval }
+        : {}),
     });
   });
 }

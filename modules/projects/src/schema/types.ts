@@ -40,6 +40,13 @@ export interface Project {
   /** Present on list/detail API responses when loaded with join. */
   project_team?: ProjectTeamMember[];
   scope_id: string;
+  /**
+   * Space the project runs inside (PLAN-spaces.md). A project is an EPISODE;
+   * the space is what persists when it ends. REQUIRED since Phase 6 — the
+   * column is `not null` and creates resolve the tenant default when the
+   * caller names no space.
+   */
+  space_id: string;
   start_date: string | null;
   tenant_id: string;
   /**
@@ -62,6 +69,11 @@ export interface ProjectPhase {
   order_index: number;
   project_id: string;
   scope_id: string;
+  // No `space_id`: a phase has no space column, and never had one. Phase 1
+  // copied the field onto this interface along with the Project one, but
+  // `rowToPhase` never populated it — it read as `undefined` on every phase in
+  // the system. A phase is inside its project, so the project's space is the
+  // answer; a second copy here could only ever drift from it.
   start_date: string | null;
   tenant_id: string;
   title: string;
@@ -86,10 +98,23 @@ export interface PhaseTask {
   updated_at: string;
 }
 
+/**
+ * `space_id` is omitted and re-added optional, alongside the other server-owned
+ * fields: it is required on the ENTITY (`not null` since Phase 6) but the DAL
+ * resolves the tenant's default space when a caller names none. Mirrors
+ * `projectInputSchema` in ./zod.ts — the two must stay in step.
+ */
 export type ProjectInput = Omit<
   Project,
-  "id" | "tenant_id" | "scope_id" | "created_at" | "updated_at" | "project_team"
+  | "id"
+  | "tenant_id"
+  | "scope_id"
+  | "created_at"
+  | "updated_at"
+  | "project_team"
+  | "space_id"
 > & {
+  space_id?: string;
   team_member_ids?: string[];
 };
 
@@ -140,6 +165,14 @@ export interface ProjectsQueryParams {
   search?: string;
   sortBy?: "title" | "start_date" | "end_date" | "created_at";
   sortOrder?: "asc" | "desc";
+  /** Every project in a space — the container resolver's `space` case. */
+  space_id?: string;
+  /**
+   * Projects in ANY of these spaces — the cross-space overview, narrowed to
+   * what the caller may see. Set by the HTTP handler from core's answer, never
+   * read from the query string. An empty list lists nothing.
+   */
+  space_ids?: readonly string[];
 }
 
 export interface ProjectsPaginatedResponse {
@@ -175,6 +208,8 @@ export interface ProjectTasksQueryParams {
   search?: string;
   sortBy?: "updated_at" | "created_at" | "title" | "status";
   sortOrder?: "asc" | "desc";
+  /** Narrow to tasks whose parent project lives in this Space. */
+  space_id?: string;
   status?: TaskStatus;
 }
 

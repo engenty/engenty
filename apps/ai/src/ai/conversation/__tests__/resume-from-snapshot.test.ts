@@ -1,20 +1,25 @@
-// Crash-recovery lane (PLAN-mastra-durable-chat D7 / Phase 3): when the
-// in-process park is gone — server restarted, or the 15-min TTL expired — the
-// resume must NOT dead-end in RUN_ERROR. Mastra also wrote the suspension to
-// workflow snapshot storage, so `resume-conversation-run.ts` falls back to
-// `listSuspendedRuns` + `resumeStream({ untilIdle: true })` and streams the continuation
-// through DurableAgUiConverter.
+// The resume lane: `resume-conversation-run.ts` finds the suspension through
+// `listSuspendedRuns` and streams the continuation through `resumeViaMastraAgent`
+// (`@ag-ui/mastra`).
 //
-// Nothing is parked in any of these tests (no startConversationRun ran), which
-// is exactly the post-restart state.
+// No run is live in any of these tests — nothing called `startConversationRun` —
+// which is the state a resume always starts from, including after a restart.
+import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listSuspendedRuns = vi.fn();
 const resumeStream = vi.fn();
 // Rest params, not `()`: the vi.mock factory forwards through `(...args)` and
 // a zero-arity mock rejects the spread.
+// `getMemory` is not decoration: `@ag-ui/mastra` picks the LOCAL agent path with
+// `"getMemory" in agent` and otherwise drives the remote client-js branch, which
+// wants `processDataStream` instead of `fullStream`. A real assembled agent always
+// has it, so a mock without it exercised a code path production never takes.
+const getMemory = vi.fn(async () => undefined as unknown);
 const assembleDynamicAgent = vi.fn(async (..._args: unknown[]) => ({
+  getMemory,
   listSuspendedRuns,
+  model: { modelId: "mock-model", provider: "mock" },
   resumeStream,
 }));
 // Held outside the input so assertions do not have to reach through the
@@ -124,7 +129,7 @@ async function runAndCollect(input: ReturnType<typeof baseInput>) {
   return events;
 }
 
-describe("resume falls back to the stored snapshot when the park is gone", () => {
+describe("resume continues from the stored snapshot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -191,11 +196,10 @@ describe("resume falls back to the stored snapshot when the park is gone", () =>
   });
 });
 
-// The parked lane's Session still carries the run's Workspace (and the sandbox
-// instance attached to it). A snapshot resume assembles a BRAND-NEW agent, so
-// without this the continuation has no `ctx.workspace.sandbox` at all —
-// execute_typescript and the workspace file/skill tools silently vanish after a
-// restart. Same class of gap as the frontend-tool re-declaration next to it.
+// A resume assembles a BRAND-NEW agent, so without this the continuation has no
+// `ctx.workspace.sandbox` at all and execute_typescript plus the workspace
+// file/skill tools silently vanish. Same class of gap as the frontend-tool
+// re-declaration next to it.
 describe("the snapshot lane rebuilds the run's workspace", () => {
   function makeWorkspace() {
     const destroy = vi.fn(async () => undefined);
@@ -290,8 +294,7 @@ describe("the snapshot lane rebuilds the run's workspace", () => {
   });
 
   it("gives the re-assembled agent a memory instance", async () => {
-    // The parked lane's agent gets memory from its AgentController; a
-    // re-assembled one has none unless we pass it. Without it Mastra warns "No
+    // A re-assembled agent has no memory unless we pass it. Without it Mastra warns "No
     // memory is configured but resourceId and threadId were passed in args",
     // recalls no history, and PERSISTS nothing — a post-restart answer that
     // vanished from the thread on reload.
@@ -308,39 +311,15 @@ describe("the snapshot lane rebuilds the run's workspace", () => {
     };
     expect(options?.memory).toBeDefined();
   });
-
-  it("never resolves a workspace on the parked fast path", async () => {
-    // The parked Session already holds the live Workspace; resolving would
-    // build a second sandbox and syncIn over the same staging dir.
-    const { parkSessionRun } = await import("../session-park.js");
-    const { resolveWorkspace } = makeWorkspace();
-    parkSessionRun(SUSPENDED_RUN_ID, {
-      controller: { destroy: vi.fn(async () => undefined) } as never,
-      mergedDefinitions: [],
-      session: {
-        getCurrentRunId: () => SUSPENDED_RUN_ID,
-        respondToToolSuspension: vi.fn(async () => undefined),
-        subscribe: () => () => undefined,
-        suspensions: { has: () => true, hasPending: () => false },
-      } as never,
-      threadId: THREAD_ID,
-    });
-
-    await runAndCollect(baseInput({ resolveWorkspace }) as never);
-
-    expect(resolveWorkspace).not.toHaveBeenCalled();
-    expect(assembleDynamicAgent).not.toHaveBeenCalled();
-  });
 });
 
-// The resume lane runs under `approvalPolicy: "suspend"`, so the FIRST thing a
-// recovered continuation often does is park again on a gated tool. Mastra
-// reports that with a `tool-call-suspended` chunk and ends the stream — no
-// `tool-call` chunk, no text. Dropping it made the resume look like a run that
-// finished with nothing to say, AND cleared the open interrupt on a run that was
-// actually waiting for input: the card disappeared and the answer could never be
-// delivered. The parked lane has always handled this; this lane now does too.
-describe("a second suspend inside the recovered continuation", () => {
+// This lane runs under `approvalPolicy: "suspend"`, so the FIRST thing a
+// continuation often does is park again on a gated tool. Mastra reports that with
+// a `tool-call-suspended` chunk and ends the stream — no `tool-call` chunk, no
+// text. Dropping it made the resume look like a run that finished with nothing to
+// say, AND cleared the open interrupt on a run that was actually waiting for
+// input: the card disappeared and the answer could never be delivered.
+describe("a second suspend inside the continuation", () => {
   const APPROVAL_PAYLOAD = {
     kind: "tool_approval" as const,
     operation_id: "secrets_reveal",
@@ -397,9 +376,13 @@ describe("a second suspend inside the recovered continuation", () => {
     );
 
     const events = await runAndCollect(baseInput());
-    const open = events.find((e) => e.type === "CUSTOM")?.value as
-      | { run_id?: string }
-      | undefined;
+    // Find OUR interrupt event by shape, not by "the first CUSTOM": the stream
+    // now also carries `@ag-ui/mastra`'s own `on_interrupt`, kept on purpose —
+    // it is what a standard AG-UI client reconstructs the resume from.
+    const open = events
+      .filter((e) => e.type === "CUSTOM")
+      .map((e) => e.value as { run_id?: string } | undefined)
+      .find((value) => typeof value?.run_id === "string");
 
     expect(open?.run_id).toBe(SUSPENDED_RUN_ID);
   });
@@ -436,13 +419,12 @@ describe("a second suspend inside the recovered continuation", () => {
   });
 });
 
-// Two ways the snapshot lane used to report SUCCESS for a run that had in fact
+// Two ways this lane can report SUCCESS for a run that in fact
 // failed or was still waiting. Both mattered more than the missing answer: the
 // success path clears the open interrupt, which deletes the only pointer back
 // to the suspended run — after that no reconciler, reload, or retry can reach
-// it. The parked lane is protected on both counts (a session `error` event, and
-// a `finally` that re-parks when `suspensions.hasPending()`); this lane has no
-// live session to ask, so it has to read the stream and fail loudly.
+// it. Nothing else can detect either case, so this lane has to read the stream
+// itself and fail loudly.
 describe("the snapshot lane never reports a failed run as finished", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -453,8 +435,9 @@ describe("the snapshot lane never reports a failed run as finished", () => {
   });
 
   it("surfaces an in-band error chunk instead of finishing", async () => {
-    // `DurableAgUiConverter` has no `error` case, so this chunk reaches the
-    // client as nothing at all — the lane itself has to notice it.
+    // `@ag-ui/mastra` flattens an in-band `error` chunk (and its own RUN_ERROR
+    // carries `Error(object)` → "[object Object]") — the lane reads the raw
+    // chunk through `interceptMastraStream` and must surface it itself.
     resumeStream.mockResolvedValue({
       fullStream: (async function* () {
         yield { payload: { id: "t1" }, type: "text-start" };
@@ -524,9 +507,8 @@ describe("the snapshot lane never reports a failed run as finished", () => {
   });
 });
 
-// The remaining members of the "a re-assembled agent has none of it" family.
-// The parked lane inherits all of this from its live Session, so these only
-// ever break after a restart — which is exactly when nobody is watching.
+// The remaining members of the "a reassembled agent has none of it" family.
+// Each degrades the conversation silently rather than failing the run.
 describe("the snapshot lane rebuilds the start lane's agent context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -549,6 +531,61 @@ describe("the snapshot lane rebuilds the start lane's agent context", () => {
       "engenty.copilot",
       expect.objectContaining({ modelConfig })
     );
+  });
+
+  it("rebuilds message_agent and internal child-run tools after restart", async () => {
+    const resolveChildWorkspace = vi.fn(async () => undefined);
+    const registry = {
+      getAgentConfig: vi.fn(async () => ({
+        id: "engenty.copilot",
+        instructions: "test",
+        model: "openai/test",
+        name: "Copilot",
+        skillIds: [],
+        source: "builtin",
+        subAgents: [{ alias: "cli", id: "engenty.cli" }],
+        toolIds: ["message_agent"],
+      })),
+    };
+
+    await runAndCollect(
+      baseInput({
+        agentUi: {
+          frontend_tools: [
+            createFrontendToolDefinition({
+              availability: "enabled",
+              description: "Continue in the browser.",
+              name: "client_followup",
+              parameters: { properties: {}, type: "object" },
+            }),
+          ],
+        },
+        registry,
+        resolveChildWorkspace,
+      }) as never
+    );
+
+    const options = assembleDynamicAgent.mock.calls[0]?.[2] as {
+      extraTools?: Record<string, unknown>;
+      skipSubAgents?: boolean;
+    };
+    const extraToolNames = Object.keys(options.extraTools ?? {});
+    expect(extraToolNames).toContain("agent-cli");
+    expect(extraToolNames).toContain("message_agent");
+    // The browser's tools ride the AGENT now rather than a per-resume
+    // `clientTools` — `@ag-ui/mastra` forwards no clientTools on its resume
+    // branch, and this is where the START lane merges
+    // them. Without it the resumed turn answers "that tool isn't available".
+    expect(extraToolNames).toContain("closeCopilot");
+    expect(options.skipSubAgents).toBe(true);
+    // The agent-declared ones, which cannot ride `resumeStream({clientTools})`,
+    // are in the same place now.
+    expect(extraToolNames).toContain("client_followup");
+    // ...and `untilIdle` is still set, which `@ag-ui/mastra` would otherwise drop.
+    const resumeOptions = resumeStream.mock.calls[0]?.[1] as {
+      untilIdle?: boolean;
+    };
+    expect(resumeOptions.untilIdle).toBe(true);
   });
 
   it("carries the run's language instruction so the reply keeps its language", async () => {
@@ -593,11 +630,10 @@ describe("the snapshot lane rebuilds the start lane's agent context", () => {
   });
 });
 
-// Mutual exclusion. `takeParkedSessionRun` claims the in-flight marker for the
-// parked lane; the snapshot lane had no claim at all, so two answers for one
-// run executed concurrently — each resolving AND destroying the single
-// session-scoped sandbox, and each invisible to the thread-load reconciler,
-// which reads that marker as proof an interrupt is still live.
+// Mutual exclusion. Without a claim, two answers for one run execute
+// concurrently — each resolving AND destroying the single thread-scoped sandbox,
+// and each invisible to the thread-load reconciler, which reads that marker as
+// proof an interrupt is still live.
 describe("the snapshot lane turns away a duplicate resume", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -779,14 +815,31 @@ describe("the resume lanes run the post-run persistence pass", () => {
   it("meters the continuation's tokens", async () => {
     // A gated turn spends its expensive half AFTER the approval; that half was
     // entirely unbilled.
+    //
+    // Usage must be read from the AG-UI event, not from
+    // `payload.usage` with `promptTokens`/`completionTokens` — a shape a Mastra
+    // fullStream never emits. It emits `inputTokens`/`outputTokens` under
+    // `payload.output.usage`. A fixture written to the wrong spelling reads
+    // undefined and normalizes everything to null, and the test then agrees with
+    // the code instead of with the system. Shape below verified against a real
+    // agent stream.
+    //
+    // Usage now reaches AG-UI as `RUN_FINISHED.usage`, which `@ag-ui/mastra`
+    // builds from the stream result's own `usage` promise rather than from the
+    // `finish` CHUNK. A real Mastra stream exposes both; a mock has to as well,
+    // or it exercises a shape production never sees — which is the exact mistake
+    // that let this lane bill zero.
     resumeStream.mockResolvedValue({
       fullStream: (async function* () {
         yield { payload: { id: "t1", text: "recovered" }, type: "text-delta" };
         yield {
-          payload: { usage: { completionTokens: 22, promptTokens: 100 } },
+          payload: {
+            output: { usage: { inputTokens: 100, outputTokens: 22 } },
+          },
           type: "finish",
         };
       })(),
+      usage: Promise.resolve({ inputTokens: 100, outputTokens: 22 }),
     });
 
     await runAndCollect(

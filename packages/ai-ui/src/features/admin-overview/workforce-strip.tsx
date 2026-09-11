@@ -2,7 +2,7 @@
 // linking into the agents catalog with the matching group filter pre-applied.
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn, Skeleton } from "@engenty/ui-core";
+import { Skeleton } from "@engenty/ui-core";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAiAgentsQuery } from "../../lib/admin/ai-runtime-queries";
@@ -53,10 +53,7 @@ export function WorkforceStrip() {
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {WORKFORCE_CARDS.map((card) => (
           <Link
-            className={cn(
-              "ui-canvas-raised block rounded-md bg-card px-3.5 py-3",
-              "transition-colors hover:bg-accent/40"
-            )}
+            className="ui-card-raised block px-3.5 py-3"
             key={card.group}
             to={`${AGENTS_CATALOG_ROOT_PATH}?${card.search}`}
           >

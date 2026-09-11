@@ -1,4 +1,5 @@
 import { createLogger } from "@engenty/telemetry";
+import { onlyRequestedKeys } from "../schema/only-requested-keys.js";
 import {
   attachmentCreateSchema,
   faqCreateSchema,
@@ -179,8 +180,12 @@ export function registerKbAttachmentAndFaqRoutes(
     handler: async (ctx) => {
       const repos = getRepo(ctx.auth);
       const params = ctx.params as { id: string };
-      const { tag_ids, ...rest } = faqUpdateSchema.parse(
-        await ctx.request.json().catch(() => ({}))
+      const rawPatch = await ctx.request.json().catch(() => ({}));
+      // Filter by the RAW body's keys: `.partial()` keeps `.default()` firing,
+      // so the parsed patch invents status/sort_order for a plain rename.
+      const { tag_ids, ...rest } = onlyRequestedKeys(
+        rawPatch,
+        faqUpdateSchema.parse(rawPatch)
       );
       const faq = await repos.faqs.update(
         params.id,

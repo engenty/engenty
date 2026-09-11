@@ -26,7 +26,12 @@ export {
  * Legacy purpose union. `code_execution` maps to the `planning_coding` tier in
  * the unified resolver; both keep the same env keys and default.
  */
-export type ChatModelResolutionPurpose = "chat" | "routing" | "code_execution";
+export type ChatModelResolutionPurpose =
+  | "chat"
+  | "routing"
+  | "coordinator"
+  | "code_execution"
+  | "memory";
 
 export interface ResolveChatModelIdOptions {
   /** Governance allow-list; see {@link resolvePurposeModel}. */

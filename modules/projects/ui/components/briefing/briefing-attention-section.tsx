@@ -9,7 +9,7 @@ export function BriefingAttentionSection({
   t: (key: string) => string;
 }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-card p-4">
+    <section className="rounded-lg border border-border-soft bg-card p-4">
       <h2 className="font-medium text-sm">
         {t("briefing.sections.attention")}
       </h2>

@@ -13,12 +13,11 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   Link,
   useLocation,
   useNavigate,
-  useParams,
   useSearchParams,
 } from "react-router-dom";
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
@@ -28,18 +27,12 @@ import {
 } from "../favorites-nav-queries.js";
 import { useKbFavoritesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbFavoritesListPath } from "../kb-paths.js";
 import {
   kbModulePageShellInnerNarrowClassName,
   kbModulePageShellSectionClassName,
 } from "../lib/kb-page-shell.js";
-import { kbSettingsQueryOptions, kbsQueryOptions } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { kbSettingsQueryOptions, useKbsQuery } from "../queries.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const FAVORITES_LIST_PATH = "/mdl/knowledge-base/favorites";
 
@@ -47,58 +40,12 @@ export function KbFavoritesListPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const location = useLocation();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [searchParams] = useSearchParams();
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
 
-  const kbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId) ?? "", [kbs, kbId]);
-
-  useEffect(() => {
-    if (kbsLoading || !kbs.length || !kbId) {
-      return;
-    }
-    const slug = slugFromKbId(kbs, kbId);
-    if (!slug) {
-      return;
-    }
-    if (kbSlugParam) {
-      return;
-    }
-    if (location.pathname === FAVORITES_LIST_PATH) {
-      navigate(`${kbFavoritesListPath(slug)}${location.search}`, {
-        replace: true,
-      });
-    }
-  }, [
-    kbsLoading,
-    kbs,
-    kbId,
-    kbSlugParam,
-    location.pathname,
-    location.search,
-    navigate,
-  ]);
-
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (!nextSlug) {
-        return;
-      }
-      navigate(kbFavoritesListPath(nextSlug));
-    },
-    [kbs, navigate]
-  );
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const { data: doc, isLoading: favLoading } = useQuery(
     favoritesNavQueryOptions()
@@ -109,14 +56,11 @@ export function KbFavoritesListPage() {
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug ?? "",
-    onKbChange: navigateKb,
   });
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
-    actions: kbSlug ? <KbModuleShellActions kbSlug={kbSlug} /> : null,
+    actions: kbId ? <KbModuleShellActions /> : null,
     breadcrumbs: [
       ...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : []),
       { label: t("favorites.nav_link") },

@@ -19,6 +19,7 @@ export type ProjectSnapshot = {
   client_name: string | null;
   end_date: string | null;
   phases: ProjectSnapshotPhase[];
+  space_id: string | null;
   start_date: string | null;
   title: string;
 };
@@ -37,6 +38,7 @@ export function buildProjectSnapshot(
   return {
     title: String(project.title ?? ""),
     client_name: project.client_name ?? null,
+    space_id: project.space_id ?? null,
     start_date: project.start_date ?? null,
     end_date: project.end_date ?? null,
     phases,

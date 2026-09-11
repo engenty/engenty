@@ -7,6 +7,12 @@ import { createLogger } from "@engenty/telemetry";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { getCurrentEngentyToolsClient } from "../../ai/tools/engenty-tools/lib/client.js";
+import { getEngentyToolsRunContext } from "../../ai/tools/engenty-tools/lib/run-context.js";
+import {
+  checkOperationAgainstSpace,
+  isUnresolvedSpaceGate,
+} from "../../ai/tools/engenty-tools/lib/space-gate.js";
+import { withNativeModuleToolMeta } from "./native-module-tool-meta.js";
 
 const logger = createLogger({ name: "module-capability-loader" });
 
@@ -92,7 +98,7 @@ export class CoreCatalogDynamicAiModuleCapabilityLoader
             }
           : {}),
         ...(seed?.skills ? { skills: seed.skills } : {}),
-        ...(seed?.actions?.length ? { actions: seed.actions } : {}),
+        ...(seed?.workflows?.length ? { workflows: seed.workflows } : {}),
         ...(seed?.chatCommands?.length
           ? { chatCommands: seed.chatCommands }
           : {}),
@@ -116,9 +122,46 @@ export class CoreCatalogDynamicAiModuleCapabilityLoader
 
 export function createCoreBackedModuleOperationInvoker(): CoreOperationInvoker {
   return async (operationId, input) => {
+    const space = getEngentyToolsRunContext().space;
+    // Catalog-backed native tools go through buildCoreBackedMastraTool, which
+    // has the contract. This invoker is the in-process factory seam — every
+    // call is a module operation, so unresolved must refuse (platform tools
+    // never use this path). A resolved Space still has to prove the op is
+    // allowed: describe the contract, then the same gate as catalog execute.
+    if (isUnresolvedSpaceGate(space)) {
+      return checkOperationAgainstSpace({
+        moduleId: "_module_operation",
+        operationId,
+        readOnly: false,
+        space,
+      });
+    }
     const client = getCurrentEngentyToolsClient();
     if (!client.ok) {
       throw new Error(client.message);
+    }
+    if (space) {
+      const contract = await client.client
+        .describeTool(operationId)
+        .catch(() => null);
+      if (!contract) {
+        return {
+          error: "no_tool_result",
+          message:
+            `This run could not load the contract for ${operationId}, so it cannot prove the operation is allowed in this Space. ` +
+            "Do not guess; report retrieval failure or retry once.",
+          ok: false,
+        };
+      }
+      const refusal = checkOperationAgainstSpace({
+        operationId: contract.operationId ?? operationId,
+        readOnly: contract.readOnly ?? false,
+        space,
+        ...(contract.moduleId ? { moduleId: contract.moduleId } : {}),
+      });
+      if (refusal) {
+        return refusal;
+      }
     }
     return client.client.invokeTool(operationId, input ?? {});
   };
@@ -194,6 +237,28 @@ function normalizeModuleAgentConfig(
     skillIds: config.skillIds ?? [],
     source: config.source ?? "module",
     toolIds: config.toolIds ?? [],
+    // The seed is a hand-picked shape: a field missing here is a field the
+    // agent silently loses on the way from agent.json into apps/ai.
+    ...(config.starters?.length ? { starters: config.starters } : {}),
+    // Owning module. Dropped here until the roster and the Desk header began
+    // naming it: `managed_by_module` derives from this field, so every module
+    // agent reported a null owner. `null` stays a disclaimer, so absent and
+    // null are not the same thing.
+    ...(config.moduleId === undefined ? {} : { moduleId: config.moduleId }),
+    // Model-tier inheritance: without this a declared "routing" purpose
+    // was dropped here and tenant coordinator_model_id never applied to
+    // module agents.
+    ...(config.purpose ? { purpose: config.purpose } : {}),
+    // Files + sandbox. Dropped here until 2026-08-29 — every module
+    // specialist's `{preset:"staff"}` (and explicit no-execution pins)
+    // was a dead letter, and chat runs of module agents
+    // had no workspace at all. The Worker compute default is applied later,
+    // at the composite-registry read seam, on exactly this field.
+    ...(config.workspace ? { workspace: config.workspace } : {}),
+    // Audience. Dropped here until 2026-09-06 — a module specialist declaring
+    // `agent_scope: "shared"` still ran without shared observations, MEMORY.md
+    // or TASKS.md, and its desk threads stayed per person.
+    ...(config.agentScope ? { agentScope: config.agentScope } : {}),
   };
 }
 
@@ -222,26 +287,44 @@ function resolveToolContractInputSchema(
   }
 }
 
-function buildCoreBackedMastraTool(contract: EngentyToolContract) {
+export function buildCoreBackedMastraTool(contract: EngentyToolContract) {
   const toolId = resolveToolContractId(contract);
   if (!toolId) {
     throw new Error("Core returned a module tool contract without a tool id.");
   }
-  return createTool({
-    id: toolId,
-    description:
-      contract.description ??
-      contract.summary ??
-      `Execute ${toolId} through Engenty core.`,
-    inputSchema: resolveToolContractInputSchema(toolId, contract),
-    execute: async (input) => {
-      const client = getCurrentEngentyToolsClient();
-      if (!client.ok) {
-        throw new Error(client.message);
-      }
-      return client.client.invokeTool(toolId, input ?? {});
-    },
-  });
+  const meta = {
+    operationId: toolId,
+    readOnly: contract.readOnly ?? false,
+    ...(contract.moduleId ? { moduleId: contract.moduleId } : {}),
+  };
+  return withNativeModuleToolMeta(
+    createTool({
+      id: toolId,
+      description:
+        contract.description ??
+        contract.summary ??
+        `Execute ${toolId} through Engenty core.`,
+      inputSchema: resolveToolContractInputSchema(toolId, contract),
+      execute: async (input) => {
+        const space = getEngentyToolsRunContext().space;
+        const refusal = checkOperationAgainstSpace({
+          operationId: toolId,
+          readOnly: meta.readOnly,
+          space,
+          ...(meta.moduleId ? { moduleId: meta.moduleId } : {}),
+        });
+        if (refusal) {
+          return refusal;
+        }
+        const client = getCurrentEngentyToolsClient();
+        if (!client.ok) {
+          throw new Error(client.message);
+        }
+        return client.client.invokeTool(toolId, input ?? {});
+      },
+    }),
+    meta
+  );
 }
 
 function resolveToolContractId(contract: EngentyToolContract) {

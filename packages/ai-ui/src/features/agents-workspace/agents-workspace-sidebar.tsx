@@ -25,22 +25,21 @@ import {
   FileStack,
   FileTerminal,
   House,
-  ListChecks,
   type LucideIcon,
   MessagesSquare,
+  Workflow,
   Wrench,
 } from "lucide-react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import type {
   AiAgentEntry,
-  AiRegisteredAction,
   AiSkillRecord,
 } from "../../lib/admin/ai-runtime-api.js";
 import { useAdminAiThreadsQuery } from "../../lib/admin/ai-runtime-queries.js";
+import type { WorkflowCatalogEntry } from "../workflow-canvas/workflow-flows-state.js";
 import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries.js";
 import {
-  buildActionsCatalogPath,
   buildActivityPath,
   buildAgentsCatalogPath,
   buildAgentsWorkspacePath,
@@ -48,27 +47,28 @@ import {
   buildConnectionsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
+  buildWorkflowsCatalogPath,
   parseAgentSessionDetailFromPathname,
 } from "./agent-workspace-url-state.js";
-import { AgentsWorkspaceActionsPanel } from "./agents-workspace-actions-panel.js";
 import { AgentsWorkspaceAgentsPanel } from "./agents-workspace-agents-panel.js";
 import { AgentsWorkspaceConnectionsPanel } from "./agents-workspace-connections-panel.js";
+import { AgentsWorkspaceFlowsPanel } from "./agents-workspace-flows-panel.js";
 import { AgentsWorkspaceThreadsPanel } from "./agents-workspace-threads-panel.js";
 import { SkillCatalogSidebarPanel } from "./skills-catalog-view.js";
 import { useAgentsWorkspaceSidebarState } from "./use-agents-workspace-sidebar-state.js";
 import type { WorkspaceNavPrimaryTab } from "./workspace-nav-utils.js";
 
 export interface AgentsWorkspaceSidebarProps {
-  actions: AiRegisteredAction[];
-  actionsLoading: boolean;
   agents: AiAgentEntry[];
+  flows: WorkflowCatalogEntry[];
+  flowsLoading: boolean;
   isLandingPage?: boolean;
   onNavigate?: () => void;
-  onSelectAction: (id: string) => void;
   onSelectAgent: (id: string) => void;
+  onSelectFlow: (flow: WorkflowCatalogEntry) => void;
   onSelectSkill: (name: string) => void;
-  selectedActionId?: string;
   selectedAgentId: string;
+  selectedFlowId?: string;
   selectedSkillId?: string;
   skills: AiSkillRecord[];
   skillsLoading: boolean;
@@ -101,16 +101,16 @@ function WorkspaceNavLinkRow({
 }
 
 export function AgentsWorkspaceSidebar({
-  actions,
-  actionsLoading,
   agents,
+  flows,
+  flowsLoading,
   isLandingPage = false,
   onNavigate,
-  onSelectAction,
   onSelectAgent,
+  onSelectFlow,
   onSelectSkill,
-  selectedActionId = "",
   selectedAgentId,
+  selectedFlowId = "",
   selectedSkillId = "",
   skills,
   skillsLoading,
@@ -167,12 +167,12 @@ export function AgentsWorkspaceSidebar({
               {t("workspace.sidebarAgents")}
             </WorkspaceNavLinkRow>
             <WorkspaceNavLinkRow
-              Icon={ListChecks}
+              Icon={Workflow}
               pathname={location.pathname}
               search={location.search}
-              to={buildActionsCatalogPath()}
+              to={buildWorkflowsCatalogPath()}
             >
-              {t("workspace.sidebarActions")}
+              {t("workspace.sidebarFlows", { defaultValue: "Actions" })}
             </WorkspaceNavLinkRow>
             <WorkspaceNavLinkRow
               Icon={FileTerminal}
@@ -190,6 +190,12 @@ export function AgentsWorkspaceSidebar({
             >
               {t("workspace.sidebarTools")}
             </WorkspaceNavLinkRow>
+          </SidebarNavList>
+          {/* The five building blocks above are the control plane. What follows
+              is everything that has a home of its own in the target model
+              (Activity → Work, Artifacts → Spaces, Connections → Tools) and is
+              parked here until that fold-in happens. */}
+          <SidebarNavList>
             <WorkspaceNavLinkRow
               Icon={FileStack}
               pathname={location.pathname}
@@ -222,9 +228,7 @@ export function AgentsWorkspaceSidebar({
           value={primaryTab}
         >
           <SidebarTab value="agents">{t("workspace.sidebarAgents")}</SidebarTab>
-          <SidebarTab value="actions">
-            {t("workspace.sidebarActions")}
-          </SidebarTab>
+          <SidebarTab value="flows">{t("workspace.sidebarFlows")}</SidebarTab>
           <SidebarTab value="skills">{t("workspace.sidebarSkills")}</SidebarTab>
           <SidebarTab value="sessions">
             {t("workspace.sidebarSessions")}
@@ -243,12 +247,12 @@ export function AgentsWorkspaceSidebar({
             selectedSkillId={selectedSkillId}
             skills={skills}
           />
-        ) : primaryTab === "actions" ? (
-          <AgentsWorkspaceActionsPanel
-            actions={actions}
-            actionsLoading={actionsLoading}
-            onSelectAction={(id) => runNav(() => onSelectAction(id))}
-            selectedActionId={selectedActionId}
+        ) : primaryTab === "flows" ? (
+          <AgentsWorkspaceFlowsPanel
+            flows={flows}
+            flowsLoading={flowsLoading}
+            onSelectFlow={(flow) => runNav(() => onSelectFlow(flow))}
+            selectedFlowId={selectedFlowId}
           />
         ) : primaryTab === "connections" ? (
           <AgentsWorkspaceConnectionsPanel runNav={runNav} />

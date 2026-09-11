@@ -45,7 +45,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Fragment, type ReactNode, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type {
   Article,
@@ -90,7 +90,6 @@ export interface KbSidebarArticleManualReorderDrag {
 }
 
 function useArticleRowActions(
-  kbSlug: string,
   articlePropertyDefinitions: ArticlePropertyDefinition[]
 ) {
   const { t } = useTranslation("kb");
@@ -98,30 +97,21 @@ function useArticleRowActions(
 
   const openArticle = useCallback(
     (id: string, slug?: string) => {
-      if (!kbSlug) {
-        return;
-      }
-      navigate(kbArticlePath(kbSlug, slug || id));
+      navigate(kbArticlePath(slug || id));
     },
-    [kbSlug, navigate]
+    [navigate]
   );
 
   const editArticle = useCallback(
     (id: string, slug?: string) => {
-      if (!kbSlug) {
-        return;
-      }
-      navigate(kbArticleEditPath(kbSlug, slug || id));
+      navigate(kbArticleEditPath(slug || id));
     },
-    [kbSlug, navigate]
+    [navigate]
   );
 
   const copyArticleLink = useCallback(
     async (articleId: string, slug?: string) => {
-      if (!kbSlug) {
-        return;
-      }
-      const path = kbArticlePath(kbSlug, slug || articleId);
+      const path = kbArticlePath(slug || articleId);
       const href = new URL(path, window.location.origin).href;
       try {
         await navigator.clipboard.writeText(href);
@@ -130,7 +120,7 @@ function useArticleRowActions(
         toast.error(t("sidebar.tree_link_copy_failed"));
       }
     },
-    [kbSlug, t]
+    [t]
   );
 
   const exportArticlePdf = useCallback(
@@ -168,13 +158,10 @@ function useArticleRowActions(
 
   const printArticlePage = useCallback(
     (article: Article) => {
-      if (!kbSlug) {
-        return;
-      }
       setKbSidebarPrintArticleIntent(article.id);
-      navigate(kbArticlePath(kbSlug, article.id));
+      navigate(kbArticlePath(article.id));
     },
-    [kbSlug, navigate]
+    [navigate]
   );
 
   const copyArticleFormatted = useCallback(
@@ -213,9 +200,7 @@ interface ArticleRowChromeProps {
   depth?: number;
   /** Hide leading page icon (used in folder/category tree where folders dominate). */
   hideLeadingIcon?: boolean;
-  kbSlug: string;
   onAddSubPage: (article: Article) => void;
-  onPickArticle: (id: string, slug?: string) => void;
   onRequestDeleteArticle: (article: Article) => void;
   showAddSubPage: boolean;
 }
@@ -228,11 +213,9 @@ function ArticleRowChrome(props: ArticleRowChromeProps) {
     chevronSlot,
     hideLeadingIcon = false,
     onAddSubPage,
-    onPickArticle,
     onRequestDeleteArticle,
     articleManualReorderDrag,
     articlePropertyDefinitions,
-    kbSlug,
     showAddSubPage,
   } = props;
   const {
@@ -245,7 +228,7 @@ function ArticleRowChrome(props: ArticleRowChromeProps) {
     exportArticleMarkdownWithMeta,
     copyArticleFormatted,
     printArticlePage,
-  } = useArticleRowActions(kbSlug, articlePropertyDefinitions);
+  } = useArticleRowActions(articlePropertyDefinitions);
   const isActive = article.id === activeArticleId;
   const lifecycleIndicator = resolveArticleLifecycleIndicator(article);
   // Grip + drop zones only when the bucketing category allows manual order.
@@ -284,34 +267,36 @@ function ArticleRowChrome(props: ArticleRowChromeProps) {
           icon={hideLeadingIcon ? null : <FileText aria-hidden />}
         />
       )}
-      <SidebarRowButton
-        isActive={isActive}
-        onClick={() => onPickArticle(article.id, article.slug)}
-        type="button"
-        {...shellSecondaryNavItemProps}
-      >
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <div className="flex w-5 shrink-0 items-center justify-center">
+      {/* An anchor, not a click handler: the shell prefetches the article on
+          hover of `a[href]`, and the row opens in a new tab like any link. */}
+      <SidebarRowButton asChild isActive={isActive}>
+        <Link
+          to={kbArticlePath(article.slug || article.id)}
+          {...shellSecondaryNavItemProps}
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <div className="flex w-5 shrink-0 items-center justify-center">
+              <span
+                aria-hidden
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  lifecycleIndicator.dotClassName
+                )}
+                title={lifecycleIndicator.ariaLabel}
+              />
+            </div>
             <span
-              aria-hidden
               className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                lifecycleIndicator.dotClassName
+                "truncate",
+                lifecycleIndicator.kind === "draft" &&
+                  !isActive &&
+                  "text-muted-foreground"
               )}
-              title={lifecycleIndicator.ariaLabel}
-            />
-          </div>
-          <span
-            className={cn(
-              "truncate",
-              lifecycleIndicator.kind === "draft" &&
-                !isActive &&
-                "text-muted-foreground"
-            )}
-          >
-            {article.title}
+            >
+              {article.title}
+            </span>
           </span>
-        </span>
+        </Link>
       </SidebarRowButton>
       <SidebarRowActions>
         {articleManualReorderDrag && isReorderable ? (
@@ -520,9 +505,7 @@ export interface ListArticleRowProps {
   article: Article;
   articleManualReorderDrag?: KbSidebarArticleManualReorderDrag;
   articlePropertyDefinitions: ArticlePropertyDefinition[];
-  kbSlug: string;
   onAddSubPage: (article: Article) => void;
-  onPickArticle: (id: string, slug?: string) => void;
   onRequestDeleteArticle: (article: Article) => void;
 }
 
@@ -533,9 +516,7 @@ export function KbSidebarListArticleRow(props: ListArticleRowProps) {
     activeArticleId,
     articleManualReorderDrag,
     articlePropertyDefinitions,
-    kbSlug,
     onAddSubPage,
-    onPickArticle,
     onRequestDeleteArticle,
   } = props;
   return (
@@ -546,9 +527,7 @@ export function KbSidebarListArticleRow(props: ListArticleRowProps) {
       articlePropertyDefinitions={articlePropertyDefinitions}
       chevronSlot={null}
       depth={0}
-      kbSlug={kbSlug}
       onAddSubPage={onAddSubPage}
-      onPickArticle={onPickArticle}
       onRequestDeleteArticle={onRequestDeleteArticle}
       showAddSubPage
     />
@@ -564,9 +543,7 @@ interface ArticleForestRowsProps {
   forest: ArticleNode[];
   /** Hide leading page icon (used inside the category tree). */
   hideLeadingIcon?: boolean;
-  kbSlug: string;
   onAddSubPage: (article: Article) => void;
-  onPickArticle: (id: string, slug?: string) => void;
   onRequestDeleteArticle: (article: Article) => void;
   query: string;
   toggleArticle: (id: string) => void;
@@ -580,13 +557,11 @@ export function ArticleForestRows(props: ArticleForestRowsProps) {
     toggleArticle,
     activeArticleId,
     onAddSubPage,
-    onPickArticle,
     onRequestDeleteArticle,
     articleManualReorderDrag,
     articlePropertyDefinitions,
     depth,
     hideLeadingIcon = false,
-    kbSlug,
   } = props;
   const { t } = useTranslation("kb");
 
@@ -623,9 +598,7 @@ export function ArticleForestRows(props: ArticleForestRowsProps) {
                   }
                   depth={depth}
                   hideLeadingIcon={hideLeadingIcon}
-                  kbSlug={kbSlug}
                   onAddSubPage={onAddSubPage}
-                  onPickArticle={onPickArticle}
                   onRequestDeleteArticle={onRequestDeleteArticle}
                   showAddSubPage
                 />
@@ -639,9 +612,7 @@ export function ArticleForestRows(props: ArticleForestRowsProps) {
                   depth={depth + 1}
                   forest={children}
                   hideLeadingIcon={hideLeadingIcon}
-                  kbSlug={kbSlug}
                   onAddSubPage={onAddSubPage}
-                  onPickArticle={onPickArticle}
                   onRequestDeleteArticle={onRequestDeleteArticle}
                   query={query}
                   toggleArticle={toggleArticle}
@@ -661,9 +632,7 @@ export function ArticleForestRows(props: ArticleForestRowsProps) {
               chevronSlot={null}
               depth={depth}
               hideLeadingIcon={hideLeadingIcon}
-              kbSlug={kbSlug}
               onAddSubPage={onAddSubPage}
-              onPickArticle={onPickArticle}
               onRequestDeleteArticle={onRequestDeleteArticle}
               showAddSubPage
             />

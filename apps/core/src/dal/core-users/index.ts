@@ -11,6 +11,7 @@ import {
   createUserInTenant,
   deleteUser,
   getUserById,
+  listUserDirectory,
   listUsers,
   updateUser,
   updateUserPassword,
@@ -65,6 +66,7 @@ export function createCoreUsersDal(
     isAuthUserAdmin: (token) => isAuthUserAdmin(client, token, authConfig),
     isAuthUserSuperAdmin: (token) =>
       isAuthUserSuperAdmin(client, token, authConfig),
+    listUserDirectory: (tenantId) => listUserDirectory(client, tenantId),
     listUsers: (tenantId) => listUsers(client, tenantId),
     getUserById: (id, tenantId) => getUserById(client, id, tenantId),
     updateUser: (id, tenantId, patch) =>

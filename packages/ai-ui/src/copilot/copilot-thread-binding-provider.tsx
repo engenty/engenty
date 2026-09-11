@@ -208,6 +208,9 @@ export function CopilotThreadBindingProvider(
       created_by_user_id: userId,
       id: draftThreadId,
       metadata: { draft: true },
+      // A draft is not filed anywhere yet: the space is written when the first
+      // run persists the row, from `route_context.scope.space_id`.
+      space_id: null,
       route_context: {
         moduleId: "engenty-copilot",
         pathname,

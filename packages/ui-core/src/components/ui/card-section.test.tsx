@@ -53,6 +53,9 @@ describe("CardSection", () => {
     expect(screen.getByRole("heading", { level: 2 }).className).toContain(
       "text-lg"
     );
+    expect(screen.getByRole("heading", { level: 2 }).className).toContain(
+      "leading-none"
+    );
 
     rerender(<CardSection.Header title="Meta" variant="meta" />);
     const meta = screen.getByRole("heading", { level: 3, name: "Meta" });
@@ -63,5 +66,13 @@ describe("CardSection", () => {
     expect(screen.getByRole("heading", { level: 2 }).className).toContain(
       "font-heading"
     );
+
+    rerender(<CardSection.Header title="Compact" variant="compact" />);
+    const compact = screen.getByRole("heading", {
+      level: 3,
+      name: "Compact",
+    });
+    expect(compact.className).toContain("text-sm");
+    expect(compact.className).toContain("font-semibold");
   });
 });

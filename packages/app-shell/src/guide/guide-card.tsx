@@ -29,7 +29,7 @@ import {
 } from "./types.js";
 
 export type GuideActionHandler = (
-  actionId: string,
+  workflowId: string,
   inputValue?: string,
   inputValues?: Record<string, string>
 ) => void;

@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "types": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./server": {
-      "types": "./server.d.ts",
+      "types": "./src/server/index.ts",
       "default": "./dist/server/index.js"
     }
   },
@@ -25,12 +25,14 @@
   "dependencies": {
     "@engenty/ai-core": "workspace:*",
     "@engenty/api-client": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@hono/zod-openapi": "^1.4.0",
     "ai": "7.0.58",
+    "exceljs": "^4.4.0",
     "lucide-react": "^1.21.0",
     "zod": "4.4.3"
   },

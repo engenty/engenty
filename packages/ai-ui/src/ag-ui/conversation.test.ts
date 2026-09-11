@@ -178,6 +178,46 @@ describe("AG-UI conversation reducer", () => {
     ]);
   });
 
+  it("keeps attachment parts on the optimistic user turn against the stream echo", () => {
+    const imagePart = {
+      type: "image" as const,
+      source: {
+        type: "url" as const,
+        value: "https://files.example/image.png",
+        mimeType: "image/png",
+      },
+      metadata: {
+        engenty_attachment: {
+          filename: "image.png",
+          mimeType: "image/png",
+          size: 126_000,
+          storageKey: "ten/chat/image.png",
+        },
+      },
+    };
+    const optimistic = {
+      id: "user-1",
+      role: "user" as const,
+      content: [{ type: "text" as const, text: "was siehst du" }, imagePart],
+    };
+    let state: EngentyAgUiConversationState = {
+      ...emptyState(),
+      messages: [optimistic],
+    };
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_START",
+      messageId: "user-1",
+      role: "user",
+    });
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TEXT_MESSAGE_CONTENT",
+      messageId: "user-1",
+      delta: "was siehst du",
+    });
+
+    expect(state.messages).toEqual([optimistic]);
+  });
+
   it("replaces optimistic messages with authoritative snapshots", () => {
     const state = reduceEngentyAgUiConversationEvent(
       {

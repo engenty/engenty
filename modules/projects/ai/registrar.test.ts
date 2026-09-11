@@ -16,7 +16,7 @@ describe("projectsAiRegistration", () => {
     const registration = projectsAiRegistration({
       invokeProjectsOperation: noopInvokeProjectsOperation,
     });
-    expect(registration.agents ?? []).toHaveLength(0);
+    expect(registration.dynamic?.agent_configs ?? []).toHaveLength(0);
   });
 
   it("exposes projects tools as a dynamic module capability", async () => {

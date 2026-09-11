@@ -20,6 +20,7 @@
   },
   "lanes": {
     "all": "All",
+    "inbox": "Inbox",
     "new": "Unread",
     "read": "Read",
     "archived": "Archived"
@@ -42,7 +43,11 @@
     "title": "No messages",
     "description": "Connect a mail account and run a sync to see messages here.",
     "laneTitle": "Nothing here",
-    "laneDescription": "No messages match this lane or account filter."
+    "laneDescription": "No messages match this lane or account filter.",
+    "noAccountsHint": "No mail account is connected yet — connect one to fill this inbox.",
+    "connectAccount": "Connect an account",
+    "autonomyOffHint": "A mail account is connected, but autonomous use is off — nothing syncs until agents may read it.",
+    "openConnectionSettings": "Open connection settings"
   },
   "thread": {
     "attachment": "Attachment",

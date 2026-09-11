@@ -12,7 +12,9 @@ Give the agent chat composer two first-class input affordances:
 1. **Slash commands** — `/command` typed at the start of the message opens a typeahead menu of
    commands. Commands are contributed by modules through the plugin system (plus a set of core
    built-ins), can take arguments, and either (a) expand into a prompt, (b) invoke a module
-   action/tool, or (c) perform a pure client-side UI action.
+   action/tool, or (c) perform a pure client-side UI action. Server kinds are
+   `prompt` | `workflow` (Phase 1). Phase 2 may restore “Action” as the surface
+   name for that door; storage stays a workflow + a routine’s manual trigger.
 2. **@-mentions** — `@` opens a typed picker over **agents, users, contacts, objects
    (offers/invoices/tasks/projects/…), artifacts, and files**. A pick inserts a readable token in
    the text and attaches a structured reference (`ObjectRef`) to the message, which the server
@@ -59,7 +61,7 @@ interface ChatCommandContribution {
 
   // kind-specific payload:
   template?: string;              // kind=prompt — text with {argName} + {input} placeholders
-  actionId?: string;              // kind=action — module AI action or strict snake_case tool id
+  workflowId?: string;            // kind=workflow — module workflow or strict snake_case tool id
   frontendTool?: string;          // kind=ui — dispatched via the frontend-tool registry
 }
 

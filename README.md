@@ -8,12 +8,23 @@
 ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝      ╚═╝   
 ```
 
-# People & Agents. As One Team.
 
-Agents side by side with your team
- — not stuck in a terminal window.
+> **0.2.0 — first public release.** Schemas and APIs are still moving, and an
+> upgrade can both ask something of you and drop things: 0.2.0 deletes
+> tenant-authored flows and routines by design, and there is no supported
+> downgrade. Back the database up first and read the release's upgrade notes —
+> for 0.1.x, [deploy/UPGRADE-0.1-to-0.2.md](deploy/UPGRADE-0.1-to-0.2.md).
 
-> engenty is early preview - we do not guarantee data migrations
+# Your Work Horse Harness
+
+Teams & Agents working together
+
+Engenty provides a platform, so your team can work with a team of agents
+on your own infrastructure - side by side with your apps.
+
+Create multiple spaces to scope your work, knowledge and apps.
+Knowledge bases, projects and tasks let your organize
+
 
 ## Run it locally
 
@@ -95,7 +106,10 @@ Here's how the workspace is organized:
 
 ## Database / Hosting
 
-One Postgres/Supabase project backs the whole product, on your own infrastructure; 
+One Postgres/Supabase project backs the whole product, and it is yours: engenty
+connects to a database you already run — locally the Supabase CLI stack, on a
+server a project you host or a Supabase Cloud project — and never manages one
+itself.
 
 Each active module owns its own `supabase/migrations` and storage buckets (declared in `engenty.plugin.json`); `pnpm engenty setup` composes them into that one config and migrations tree, and `pnpm db:migrate` applies changes.
 
@@ -192,11 +206,79 @@ Use the same browser origin as your env block (`pnpm dev:urls:localhost` vs
 `.env.example` is generated from the env manifest (`pnpm env:example:write`); `pnpm dev:env:check`
 validates your local env against it.
 
-## Production
+## Run it on a server
 
-Self-host behind a single HTTPS domain with [Coolify](https://coolify.io/) and a
-Supabase project (cloud or self-hosted). That is a separate path from local
-`pnpm dev` — VPS, domain, TLS, and production secrets.
+The whole stack serves one HTTPS origin. You need three things engenty does not
+provide for itself:
+
+- a **Docker host** — any VPS; 8 GB of RAM is a realistic floor
+- a **domain** pointed at it
+- a **Supabase project** — [cloud](https://supabase.com) or self-hosted (Coolify
+  and Dokploy both have one-click installs). engenty never runs your database:
+  it connects to the one you already operate, so backups and upgrades stay where
+  you already manage them.
+
+### Guided
+
+```bash
+node deploy/scripts/deploy-wizard.mjs
+```
+
+Plain Node, no install step, and `--dry-run` walks the whole flow without
+writing anything. It asks where Supabase runs and how engenty runs, then follows
+that answer: Supabase Cloud is configured over its Management API, self-hosted
+gets the exact env lines to set. It writes `deploy/.env`, and either creates the
+Coolify application or hands you the compose commands.
+
+Either way it finishes by **checking** the two Supabase settings that live in
+project config rather than in migrations — a missing exposed schema or a
+disabled access-token hook otherwise surfaces much later as a crash-loop or as
+a correct password that returns `Unauthorized`.
+
+### By hand
+
+```bash
+cp deploy/.env.example deploy/.env
+```
+
+Five values are yours to provide; everything else has a default or is derived:
+
+| Variable | |
+|----------|--|
+| `PUBLIC_APP_URL` | your HTTPS URL, no trailing slash |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | from your Supabase project |
+| `ENGENTY_SECURITY_JWT_SECRET` | any long random string |
+
+Add `AI_GATEWAY_API_KEY` for the copilot, and `SUPABASE_DB_URL` to have each
+deploy apply pending migrations by itself.
+
+```bash
+docker compose -f deploy/docker-compose.prebuilt.yaml --env-file deploy/.env up -d
+```
+
+That pulls the images published for each release; no registry login. To build on
+the server instead, use `deploy/docker-compose.yaml` — expect a long first build.
+
+Put a TLS terminator in front of `engenty-edge` on port **8787**. With Caddy,
+which obtains the certificate itself, that is the whole config:
+
+```caddyfile
+app.example.com {
+  reverse_proxy 127.0.0.1:8787
+}
+```
+
+Then confirm the database is wired up the way the app expects — it reads the
+same env the stack does, so load it first:
+
+```bash
+set -a; . deploy/.env; set +a
+pnpm engenty doctor
+```
+
+It checks the exposed schemas and the access-token hook, names anything
+missing, and exits non-zero. Worth re-running after any change to Supabase
+itself, not just at install time.
 
 Walkthrough: [docs/content/setup/coolify.md](docs/content/setup/coolify.md).
 Operator reference: [deploy/DEPLOY.md](deploy/DEPLOY.md).
@@ -211,7 +293,7 @@ git push origin main --follow-tags  # push the commit AND the tag → triggers b
 ```
 
 - **`pnpm release`** (git-cliff over [Conventional Commits](https://www.conventionalcommits.org)) is the **single source of truth** — it writes `CHANGELOG.md` + `changelog.json`, bumps `package.json`, commits `chore(release): vX.Y.Z`, and creates the tag. Never hand-edit those files or tags. Use `pnpm release:changelog` to draft the changelog only.
-- **Pushing the tag** triggers [`build-images.yml`](.github/workflows/build-images.yml): it builds the `edge` / `ai` / `sandbox` images, pushes them to GHCR, then triggers the Coolify deploy.
+- **Pushing the tag** builds the deploy images (`edge`, `ai`, `migrate`, `app-host`, `sandbox`, `docs`) and pushes them to GHCR under that version, `latest`, and the commit SHA — which is what `docker-compose.prebuilt.yaml` pulls.
 - **Pushing `main` (no tag)** runs CI only — lint, typecheck, test (`ci.yml`). No build, no deploy.
 
 Full details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).

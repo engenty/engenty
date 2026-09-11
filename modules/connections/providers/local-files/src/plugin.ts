@@ -31,7 +31,7 @@ const registerLocalFilesPlugin: EngentyPluginFactory = (engenty) => {
     createConnectionsRepo(getDb(auth));
 
   registerConnectorModule(engenty, createLocalFilesConnector({ getRepo }));
-  registerLocalFilesRoutes(server, { getConnectionsRepo, getRepo });
+  registerLocalFilesRoutes(server, { getConnectionsRepo, getDb, getRepo });
 };
 
 export default registerLocalFilesPlugin;

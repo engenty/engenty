@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
+import { installGatewayAwareDefaultProvider } from "@engenty/ai-core";
 import {
   createApprovalService,
   listGoalGrantCapabilities,
@@ -13,8 +14,9 @@ import {
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
+import { uuidv7 } from "uuidv7";
 import { z as zod } from "zod";
 import {
   createTenantPluginOverridesDal,
@@ -43,16 +45,25 @@ import { type LoadPluginsParams, loadPlugins } from "../plugins/loader.js";
 import { createGatedQueueHandlers } from "../plugins/queue-handler-gating.js";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { reloadBackendPlugin } from "../plugins/reload-executor.js";
+import { startRoutineEventBridge } from "../plugins/routine-event-bridge.js";
+import {
+  createApprovalModeResolver,
+  createSpaceCapabilityLoader,
+} from "../security/agent-approval-resolver.js";
 import { createAgentEscalationPolicy } from "../security/agent-escalation-policy.js";
+import { emitApprovalDecided } from "../security/approval-gate.js";
 import {
   createPersistentAuditLog,
   type SecurityAuditLogAdapter,
 } from "../security/audit-adapter.js";
+import { getSecuritySecret } from "../security/auth.js";
 import { createSupabaseAuthProvider } from "../security/auth-provider.js";
 import {
   createGrantsService,
   type GrantsService,
 } from "../security/grants-service.js";
+import { signPrincipalToken } from "./routes/auth/auth-routes.js";
+import { type ResolvedRouteAuth, toPrincipalContext } from "./routes/authz.js";
 import { registerAuthzRoutes } from "./routes/authz-routes.js";
 
 /** Service-role client for core's own tables (goal grants, approval store). */
@@ -87,7 +98,6 @@ import {
   shouldRegisterProdGateway,
 } from "./prod-gateway.js";
 import { registerCoreMethods } from "./register-methods.js";
-import { registerAiAgentSystemPromptRoutes } from "./routes/ai-agent-system-prompt-routes.js";
 import { registerAiModuleCapabilityRoutes } from "./routes/ai-module-capability-routes.js";
 import { buildJsonErrorBody } from "./routes/api-response.js";
 import { registerActorTokenRoutes } from "./routes/auth/actor-token-routes.js";
@@ -108,6 +118,7 @@ import { registerGatewayRoutes } from "./routes/gateway-routes.js";
 import { registerLogInspectorRoutes } from "./routes/log-inspector-routes.js";
 import { registerPlatformSettingsRoutes } from "./routes/platform-settings-routes.js";
 import {
+  invokeOperation,
   registerApprovalRoutes,
   registerModuleOperationRoutes,
 } from "./routes/plugins/module-operation-routes.js";
@@ -118,6 +129,8 @@ import { registerQueueRoutes } from "./routes/queue-routes.js";
 import { registerSatellitesRoutes } from "./routes/satellites-routes.js";
 import { registerSearchIndexRoutes } from "./routes/search-index-routes.js";
 import { registerSettingsRoutes } from "./routes/settings-routes.js";
+import { registerSpaceDataRoutes } from "./routes/space-data-routes.js";
+import { registerSpacesRoutes } from "./routes/spaces-routes.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 import { registerTestDataRoutes } from "./routes/test-data-routes.js";
 import type { ApiLogger } from "./routes/types.js";
@@ -326,6 +339,18 @@ export function createApiApp(params: CreateApiAppParams) {
   const escalationClient = params.grantsService
     ? null
     : createCoreServiceClient(config);
+  const getDbForPolicy = getTenantDb
+    ? (auth: { tenantId: string }) => getTenantDb(auth)
+    : escalationClient
+      ? () => escalationClient
+      : undefined;
+  const resolveSpaceCapabilities = createSpaceCapabilityLoader({
+    ...(getDbForPolicy ? { getDb: getDbForPolicy } : {}),
+  });
+  const resolveAgentApproval = createApprovalModeResolver({
+    config,
+    ...(getDbForPolicy ? { getDb: getDbForPolicy } : {}),
+  });
   const escalationPolicy = createAgentEscalationPolicy({
     resolveAgentCapabilities: (agentId, tenantId) =>
       grantsService
@@ -342,6 +367,7 @@ export function createApiApp(params: CreateApiAppParams) {
         agentId,
       });
     },
+    resolveSpaceCapabilities,
   });
   if (!params.registry.profilePolicies) {
     params.registry.profilePolicies = [];
@@ -367,6 +393,7 @@ export function createApiApp(params: CreateApiAppParams) {
   params.registry.setPolicyDeps?.({
     approvalService,
     auditLog: securityAuditLog,
+    resolveAgentApproval,
   });
   app.onError((err, c) => {
     const reqLog = c.get("evlog");
@@ -498,7 +525,9 @@ export function createApiApp(params: CreateApiAppParams) {
     auditLog: securityAuditLog,
     config,
   });
+  const onApprovalDecided = emitApprovalDecided(params.registry);
   registerSuperadminRoutes({
+    onDecided: onApprovalDecided,
     app,
     config,
     auditLog: securityAuditLog,
@@ -523,6 +552,7 @@ export function createApiApp(params: CreateApiAppParams) {
     approvalService,
     auditLog: securityAuditLog,
     tenantPluginOverrides,
+    resolveAgentApproval,
   });
 
   registerGatewayRoutes({
@@ -536,6 +566,7 @@ export function createApiApp(params: CreateApiAppParams) {
     approvalService,
     auditLog: securityAuditLog,
     tenantPluginOverrides,
+    resolveAgentApproval,
   });
 
   registerModuleOperationRoutes({
@@ -548,10 +579,11 @@ export function createApiApp(params: CreateApiAppParams) {
     approvalService,
     auditLog: securityAuditLog,
     tenantPluginOverrides,
+    resolveAgentApproval,
   });
   registerAiModuleCapabilityRoutes(app, config);
-  registerAiAgentSystemPromptRoutes(app, config);
   registerApprovalRoutes({
+    onDecided: onApprovalDecided,
     app,
     config,
     authProvider,
@@ -599,9 +631,58 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
   });
   registerSettingsRoutes({ app, config });
+  registerSpacesRoutes({
+    app,
+    // Placing an account in a space raises that account's own ceiling, and that
+    // write belongs to the connections module — it owns the table and checks
+    // ownership. Invoked through the operation pipeline as the calling
+    // principal, so the ownership check and the audit event are the module's,
+    // exactly as they are for a direct call (PLAN-connections-ux.md C1).
+    callOperation: async ({ auth, input, operationId }) => {
+      const { data } = await invokeOperation({
+        approvalService,
+        auditLog: securityAuditLog,
+        // The route resolved a ResolvedRouteAuth; the pipeline's policy
+        // engine reads a PrincipalContext (moduleIds, scopes, …). Handing the
+        // route shape over as-is crashes evaluatePolicy on the first user
+        // principal that mounts an app.
+        auth: toPrincipalContext(auth as ResolvedRouteAuth),
+        config,
+        dataDir: params.dataDir,
+        input,
+        operationId,
+        registry: params.registry,
+        resolvePath: params.resolvePath,
+        resolveTenantPluginOverrides: async (tenantId) =>
+          tenantId ? await tenantPluginOverrides.getOverrides(tenantId) : {},
+        transport: "http",
+      });
+      return data;
+    },
+    config,
+    getTenantDb,
+    registry: params.registry,
+  });
+  // The space Data tree (PLAN-space-data.md). Registered after the spaces
+  // routes so `/api/spaces/:spaceId/data/*` sits under the same space
+  // resolution, and given the same approval service + audit log the operation
+  // pipeline uses — an adapter read is an operation call, not a shortcut.
+  registerSpaceDataRoutes({
+    app,
+    approvalService,
+    auditLog: securityAuditLog,
+    authProvider,
+    config,
+    dataDir: params.dataDir,
+    getTenantDb,
+    registry: params.registry,
+    resolvePath: params.resolvePath,
+    resolveTenantPluginOverrides: async (tenantId) =>
+      tenantId ? await tenantPluginOverrides.getOverrides(tenantId) : {},
+  });
   registerPlatformSettingsRoutes({ app, config });
   registerLogInspectorRoutes({ app, config });
-  registerFileStorageRoutes({ app, config });
+  registerFileStorageRoutes({ app, config, getTenantDb });
   registerQueueRoutes({ app, config, registry: params.registry });
   registerDesktopBootstrapRoutes({ app, config });
 
@@ -806,6 +887,14 @@ export async function startApiServer(
     }
   }
 
+  // Before plugins load, and after the gateway keys are hydrated. Modules that
+  // run in this process make their own model calls — inbox classification, KB
+  // ingest and summaries, CSV header inference — and several read the role
+  // binding table directly, so an operator who binds a role to OpenRouter hands
+  // them an `openrouter:` ref here just as much as in apps/ai. Without this the
+  // AI SDK's default provider would send that ref to Vercel.
+  installGatewayAwareDefaultProvider();
+
   const tenantPluginOverrides = createTenantPluginOverridesDal(effectiveConfig);
   const backgroundServicesEnabled = envBoolean(
     effectiveConfig,
@@ -824,6 +913,56 @@ export async function startApiServer(
   };
   const registry = loadPlugins(loadParams);
   await runServerLanePreflight(registry, logger);
+
+  // Event routines wake on module events, and the bus that carries those is
+  // in-process HERE — routines themselves live in apps/ai. Without this edge a
+  // routine with `kind: "event"` is configured and silently never fires.
+  const routineEventsAiBaseUrl =
+    process.env.ENGENTY_AI_BASE_URL ?? process.env.VITE_ENGENTY_AI_BASE_URL;
+  const routineEventsSecret = getSecuritySecret(effectiveConfig);
+  if (
+    backgroundServicesEnabled &&
+    routineEventsAiBaseUrl &&
+    routineEventsSecret &&
+    supabaseUrl &&
+    supabaseServiceRoleKey &&
+    registry.eventsRuntime
+  ) {
+    startRoutineEventBridge({
+      aiBaseUrl: routineEventsAiBaseUrl.replace(/\/+$/, ""),
+      events: registry.eventsRuntime.api,
+      getServiceToken: (tenantId) =>
+        signPrincipalToken({
+          expiresInSeconds: 300,
+          principal: {
+            audience: ["engenty"],
+            authMethod: "service_credential",
+            capabilities: ["*"],
+            delegationChain: [],
+            moduleIds: [],
+            permissions: [],
+            principalId: "engenty.routine-event-bridge",
+            principalType: "service",
+            roleProfiles: [],
+            roles: [],
+            scopes: [],
+            tenantId,
+            tokenType: "access",
+          },
+          secret: routineEventsSecret,
+          tokenId: uuidv7(),
+          tokenType: "access",
+        }),
+      logger,
+      serviceDb: createClient(supabaseUrl, supabaseServiceRoleKey, {
+        auth: { persistSession: false },
+      }),
+    });
+  } else if (backgroundServicesEnabled && !routineEventsAiBaseUrl) {
+    logger.warn(
+      "ENGENTY_AI_BASE_URL is unset — event routines will not fire (scheduled routines are unaffected)."
+    );
+  }
 
   const devPluginReloadEvents = createDevPluginReloadEventHub();
   const app = createApiApp({
@@ -908,11 +1047,14 @@ export async function startApiServer(
           });
         }
         let stopQueueWorker: (() => void) | undefined;
+        let stopSpacePurge: (() => void) | undefined;
         s.once("close", () => {
           devReloadWatcher?.close();
           devReloadWatcher = undefined;
           stopQueueWorker?.();
           stopQueueWorker = undefined;
+          stopSpacePurge?.();
+          stopSpacePurge = undefined;
         });
         s.once("error", (err: NodeJS.ErrnoException) => {
           if (err.code === "EADDRINUSE" && attempt < EADDRINUSE_MAX_RETRIES) {
@@ -983,6 +1125,25 @@ export async function startApiServer(
               logger.info(
                 `Queue worker not started (${err instanceof Error ? err.message : "unavailable"})`
               );
+            }
+          }
+
+          if (backgroundServicesEnabled) {
+            const purgeClient = createDatabaseAdapter(effectiveConfig);
+            if (purgeClient) {
+              try {
+                const { createSupabaseSpacePurgeStorage, startSpacePurgeLoop } =
+                  await import("../services/space-purge.js");
+                stopSpacePurge = startSpacePurgeLoop({
+                  client: purgeClient,
+                  storage: createSupabaseSpacePurgeStorage(purgeClient),
+                });
+                logger.info("Space purge sweep started");
+              } catch (err) {
+                logger.info(
+                  `Space purge sweep not started (${err instanceof Error ? err.message : "unavailable"})`
+                );
+              }
             }
           }
 

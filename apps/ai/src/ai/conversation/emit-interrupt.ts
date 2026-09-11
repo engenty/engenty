@@ -23,6 +23,10 @@ import {
 } from "../../../ai/tools/engenty-tools/index.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import {
+  type NotifyThreadInterruptInput,
+  notifyThreadInterrupt,
+} from "../../notifications/thread-interrupts.js";
+import {
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   buildAgUiOpenInterruptValue,
   buildFrontendToolOpenInterruptFromPayload,
@@ -35,6 +39,14 @@ import {
   isFeedbackArtifactPayload,
 } from "../sessions/transcript.js";
 import type { AiSessionScope } from "../sessions/types.js";
+
+/**
+ * Every emit site persists the open interrupt AND files its notification:
+ * the card is a decision the people of the thread can answer, so it gets a
+ * row like every other parked run (thread-interrupts.ts). `getAgentConfig`
+ * tells the audience rule whether the agent is shared.
+ */
+type InterruptNotifyDeps = Pick<NotifyThreadInterruptInput, "getAgentConfig">;
 
 // The RUN_FINISHED interrupt outcome schema strips unknown fields, so the full
 // interrupt artifact rides a CUSTOM side-channel event; the client uses it to
@@ -66,7 +78,13 @@ export interface SuspendChunkPayload {
  */
 export async function emitFrontendToolInterrupt(input: {
   busRunId: string;
+  /**
+   * The effort tier this run resolved to, persisted so the resume re-derives
+   * the same model instead of falling through to the `chat` purpose.
+   */
+  effort?: AgUiOpenInterruptMetadata["effort"] | null;
   emit: (event: AGUIEvent) => void;
+  getAgentConfig?: InterruptNotifyDeps["getAgentConfig"];
   mergedDefinitions: readonly FrontendToolDefinition[];
   payload: SuspendChunkPayload;
   // The runtime run id the resume reattaches to (the suspended run id) — persisted
@@ -99,7 +117,10 @@ export async function emitFrontendToolInterrupt(input: {
     toolInput: input.payload.args as FrontendToolInterruptPayload["toolInput"],
     toolName,
   };
-  const open = buildFrontendToolOpenInterruptFromPayload(interrupt);
+  const open: AgUiOpenInterruptMetadata = {
+    ...buildFrontendToolOpenInterruptFromPayload(interrupt),
+    ...(input.effort ? { effort: input.effort } : {}),
+  };
   try {
     await input.store.mergeThreadMetadataForUser({
       patch: {
@@ -115,6 +136,16 @@ export async function emitFrontendToolInterrupt(input: {
       error
     );
   }
+  await notifyThreadInterrupt({
+    ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
+    interruptId: interrupt.interruptId,
+    kind: "tool_approval",
+    runId: input.resumeRunId,
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+    title: interrupt.title,
+  });
   emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),
@@ -134,7 +165,13 @@ export async function emitFrontendToolInterrupt(input: {
  */
 export async function emitToolApprovalInterrupt(input: {
   busRunId: string;
+  /**
+   * The effort tier this run resolved to, persisted so the resume re-derives
+   * the same model instead of falling through to the `chat` purpose.
+   */
+  effort?: AgUiOpenInterruptMetadata["effort"] | null;
   emit: (event: AGUIEvent) => void;
+  getAgentConfig?: InterruptNotifyDeps["getAgentConfig"];
   payload: ToolApprovalSuspendPayload;
   // The suspended run id the resume reattaches to.
   resumeRunId: string;
@@ -170,6 +207,7 @@ export async function emitToolApprovalInterrupt(input: {
   };
   const open: AgUiOpenInterruptMetadata = {
     ...artifactOpenInterrupt(interrupt),
+    ...(input.effort ? { effort: input.effort } : {}),
     run_id: input.resumeRunId,
   };
   // The persisted open interrupt is what the resume route validates and routes
@@ -184,6 +222,22 @@ export async function emitToolApprovalInterrupt(input: {
     threadId: input.threadId,
     userId: input.scope.userId,
   });
+  // A gate core already filed a request for has its row: the package turns
+  // `approval.requested` into one decidable-in-place record, and deciding it
+  // there or here is the same decision. Only a gate with no request behind
+  // it (a workspace tool, a bulk pre-approval) needs the thread's own row.
+  if (!input.payload.approval_request_id) {
+    await notifyThreadInterrupt({
+      ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
+      interruptId: interrupt.interruptId,
+      kind: "tool_approval",
+      runId: input.resumeRunId,
+      scope: input.scope,
+      store: input.store,
+      threadId: input.threadId,
+      title: artifact.title,
+    });
+  }
   emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),
@@ -249,7 +303,13 @@ function artifactOpenInterrupt(
  */
 export async function emitArtifactInterrupt(input: {
   busRunId: string;
+  /**
+   * The effort tier this run resolved to, persisted so the resume re-derives
+   * the same model instead of falling through to the `chat` purpose.
+   */
+  effort?: AgUiOpenInterruptMetadata["effort"] | null;
   emit: (event: AGUIEvent) => void;
+  getAgentConfig?: InterruptNotifyDeps["getAgentConfig"];
   result: unknown;
   /**
    * Set when the artifact came from a native SUSPEND (requestDecision) rather
@@ -286,6 +346,7 @@ export async function emitArtifactInterrupt(input: {
   }
   const open: AgUiOpenInterruptMetadata = {
     ...artifactOpenInterrupt(interrupt),
+    ...(input.effort ? { effort: input.effort } : {}),
     ...(input.resumeRunId ? { run_id: input.resumeRunId } : {}),
   };
   try {
@@ -303,6 +364,16 @@ export async function emitArtifactInterrupt(input: {
       error
     );
   }
+  await notifyThreadInterrupt({
+    ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
+    interruptId: interrupt.interruptId,
+    kind: "agent_question",
+    runId: input.resumeRunId ?? null,
+    scope: input.scope,
+    store: input.store,
+    threadId: input.threadId,
+    title: interrupt.artifact.title,
+  });
   // The card's CONTENT only reaches a live client through this event. The
   // RUN_FINISHED outcome carries an id and a title, not the choices, and the
   // transcript fallback (`pendingInterruptFromTranscript`) reads the artifact

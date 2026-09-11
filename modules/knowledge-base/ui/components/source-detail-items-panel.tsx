@@ -43,14 +43,12 @@ import { kbSourceItemsQueryOptions, useKbSourceMutations } from "../queries.js";
 
 export function SourceDetailItemsPanel({
   itemsPage,
-  kbSlug,
   listQuery,
   runs,
   setItemsPage,
   source,
 }: {
   itemsPage: number;
-  kbSlug: string;
   listQuery?: KbSourcesListQuery;
   runs?: KbSourceRun[];
   setItemsPage: Dispatch<SetStateAction<number>>;
@@ -181,7 +179,7 @@ export function SourceDetailItemsPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="ui-canvas-panel flex shrink-0 flex-col gap-2 rounded-lg border-0 bg-card px-3 py-2">
+      <div className="ui-card-panel flex shrink-0 flex-col gap-2 px-3 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -307,7 +305,7 @@ export function SourceDetailItemsPanel({
         </div>
       </div>
 
-      <div className="ui-canvas-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border-0 bg-card">
+      <div className="ui-card-panel flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-auto">
           <Table noWrapper>
             <TableHeader className={STICKY_HEADER_CLASS}>
@@ -370,7 +368,7 @@ export function SourceDetailItemsPanel({
                       <div className="max-w-md truncate">
                         <Link
                           className="text-primary hover:underline"
-                          to={kbSourceItemPath(kbSlug, item.id)}
+                          to={kbSourceItemPath(item.id)}
                         >
                           {item.title ||
                             item.source_url ||

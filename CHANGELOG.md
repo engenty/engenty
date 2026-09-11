@@ -4,6 +4,950 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.0] - 2026-09-11
+- ADDED **[deploy]** A wizard for the database you already run, wherever it runs
+- ADDED **[deploy]** Ask for what only the operator knows, derive the rest
+- ADDED **[deploy]** Publish public images, and let one image serve any install
+- ADDED **[deploy]** Check the two Supabase settings migrations cannot make
+- ADDED **[ai]** Let an agent declare the tier its work runs at
+- ADDED **[apps]** Put an App's source in git on the spaces tree
+- ADDED **[apps]** Give each App a /data volume
+- ADDED **[notifications]** First to answer wins — space audience, seen per viewer, desk interrupts
+- ADDED **[rooms]** Agents open and grow group rooms, people join them, threads get a visibility
+- ADDED **[ai]** Add reply style instructions for non-copilot agents and refactor test utility functions
+- ADDED **[spaces]** Mark a space deleted, purge it later
+- ADDED **[rooms]** A person's words go into the turn already answering
+- ADDED **[spaces]** The roster as a tree — coordinators with their reports
+- ADDED **[desk]** Open a room with other agents, see who is in it, lift a pause
+- ADDED **[rooms]** A message delivered to a room wakes the agent it addresses
+- ADDED **[threads]** A room has agent members, its agent_id is the host
+- ADDED **[routines]** A Space table write can wake an event routine
+- ADDED **[apps]** An App reads and writes the Space tables it declares
+- ADDED **[spaces]** Top-level engenties set the space up and hire, capped at 20
+- ADDED **[notifications]** Origin labels, decide-in-place, resolve-by-subject
+- ADDED **[ai]** Agent-run tracing through Mastra observability sinks
+- ADDED **[ai]** Workflow_self_revise — a specialist proposes a new version of a Workflow it owns
+- ADDED **[ai-ui]** Instructions pad in the agent drawer, capped pad heights
+- ADDED **[ai]** TASKS.md — a private task pad per engenty, next to MEMORY.md
+- ADDED **[ai-ui]** Workflow detail header, sync button, canvas expand, persisted catalog filters
+- ADDED **[spaces]** MountOperation for Inbox and Files
+- ADDED **[spaces]** Say which mounted module is not ready after the wizard or dialog saves
+- ADDED **[spaces]** Module mountOperation — a module's first-use setup runs on mount
+- ADDED **[tasks]** The cross-space work overview is a plugin contribution
+- ADDED **[kb]** Drop the Chat tab from the module sidebar
+- ADDED **[kb]** One knowledge base per space, /s/<key>/kb URLs, settings by scope
+- ADDED **[modules]** Module operations return a `link` into the record's space
+- ADDED **[connections-external]** Integrations.sh v3, guarded fetch, official MCP client
+- ADDED **[spaces]** Pin and sort Work-tab agents with two-line activity
+- ADDED **[ui-core]** Let a row drive SidebarRowTitleMarquee with an `active` prop
+- ADDED **[ai-ui]** Denser specialist settings with hover-edit fields and module pill
+- ADDED **[app-shell]** Blended topbar is the default, band is the opt-in; rail zones by spacing
+- ADDED **[app-shell]** Shell chrome without hairlines — rail on the canvas, blended topbar, one row grid
+- ADDED **[spaces]** Make Tasks a chosen mount and take tenant switching off the rail
+- ADDED **[ai-ui]** Runs get their own drawer, settings end with the last three
+- ADDED **[ai-ui]** Desk toolbar opens settings and artefacts, menus read as glass
+- ADDED **[ai-ui]** Desk header on the canvas, agent names instead of ids
+- ADDED **[ai-ui]** Agent identity is name + module, breadcrumb switches engenties
+- ADDED **[ai-ui]** Desk is one long conversation — new chat demoted, transcript paged
+- ADDED **[ai-ui]** Space agent desk is chat plus a drawer
+- ADDED **[spaces]** Desk composer mentions, agent pair rooms, memory break line
+- ADDED **[notifications]** Move the bell into the app rail below Settings
+- ADDED **[notifications]** Core notification package, bell, streams
+- ADDED **[tasks]** Retire product Goals from the tasks module
+- ADDED Retire the durable-records Memory module
+- ADDED **[spaces]** Add a hire wizard for custom engenties
+- ADDED **[spaces]** Add a blank purpose and apply apps when switching
+- ADDED **[manage]** Retarget run-kind strings from action-graph to workflow
+- ADDED **[ai]** Retire domain Action — the published runnable is a Workflow
+- ADDED **[ai]** The workspace timezone rides into every sandbox as TZ
+- ADDED **[spaces]** Name the composer approval level and let a space override tenant either way
+- ADDED **[ai]** Enhance action and agent tools with improved descriptions and new caller thread functionality
+- ADDED **[ui]** Move Mastra Studio to Setup and tighten settings section spacing
+- ADDED **[ui]** Active/All tabs on Settings modules so admins can enable plugins without Setup
+- ADDED **[ai]** Pin one tenant onto Mastra Studio for local Play
+- ADDED **[ui]** Refactor routing and navigation structure for setup and settings
+- ADDED **[ai-ui]** Integrate ActionEditor and enhance flow graph interactions
+- ADDED **[ai]** Enhance graph action definitions and UI components
+- ADDED **[ui]** Enhance contract editing and UI interactions
+- ADDED **[ai]** Add retired workflows handling in reconcile module
+- ADDED **[ai]** Enhance agent capabilities with self-revision and thread state tools
+- ADDED **[ai]** Routine unification — the routine is the entity, triggers are rows
+- ADDED **[spaces]** Per-space internet access for the space computer
+- ADDED **[ai]** Mounted engentys — actions are workflows, triggers are bindings
+- ADDED **[ai]** Web_search joins the hired-specialist floor
+- ADDED **[ai]** Space engenty roster in the prompt + harmony leak scrub
+- ADDED **[ai]** Space computer always on + shared-room thread ownership fix
+- ADDED **[ai]** Space computer, one worker default, and the space switch
+- ADDED **[ai]** Let a registered specialist declare its network tier
+- ADDED **[ai]** Give registered specialists a computer, not just files
+- ADDED **[ai]** Give headless runs a real computer, and bound the host
+- ADDED **[manage]** Show a thread's turns as a session stack and waterfall
+- ADDED **[ai]** Observe a chat as stacked turns instead of isolated runs
+- ADDED **[skills]** Add canvas-design skill with font handling and sibling file support
+- ADDED **[manage]** Show run trigger and human vs agent history
+- ADDED **[ai]** Tag recalled history as human vs agent
+- ADDED **[manage]** Distinguish action vs agent runs on the trajectory
+- ADDED **[ai]** Record recalled history as pointers on run trajectories
+- ADDED **[manage]** Show prompt breakdown and a readable run breadcrumb
+- ADDED **[files]** Poll the local-files bridge only while folder UI is open
+- ADDED **[ai]** Drive conversation turns through native Mastra AG-UI
+- ADDED **[manage]** Add a cross-tenant AI run trajectory observer
+- ADDED **[ai]** Capture SYSTEM/CONTEXT trajectory headers for the inspector
+- ADDED **[spaces]** Promote Copilot out of the Agents roster
+- ADDED **[spaces]** Paint markdown reader on shared paper
+- ADDED **[spaces]** Distinguish single-line, multiline, and markdown table cells
+- ADDED **[spaces]** Rename and nest artifacts in the Data tree
+- ADDED **[spaces]** Edit database and CSV table artifacts in one grid
+- ADDED **[spaces]** Drop markdown-only page dialogs after shared overflow
+- ADDED **[spaces]** Add Artifacts + and row overflow menus by type
+- ADDED **[spaces]** Icon artifacts by type and expand folders with a chevron
+- ADDED **[spaces]** Mix markdown pages into Artifacts with a reader-first editor
+- ADDED **[spaces]** List a Space's chats and keep a routine on one thread
+- ADDED **[spaces]** Teach specialists to write Space Data and keep updating it
+- ADDED **[spaces]** Give agents typed tables instead of CSV dumps
+- ADDED **[ai]** Say what the specialist is doing while a routine runs
+- ADDED **[spaces]** Open Folder, Upload, and Connect from the Dateien +
+- ADDED **[spaces]** Collapse Data roots and list pages without a library folder
+- ADDED **[ai]** A routine is a job that produces runs, not a standing task **[breaking]**
+- ADDED **[e2e]** Add UC-10 daily digest scenario and harness
+- ADDED **[ai]** Split space work into focused agent skills
+- ADDED **[ai]** Key shared-room Mastra working memory on the Space
+- ADDED **[spaces]** Add the agents roster and hire through Copilot
+- ADDED **[ai]** Honor Mastra recall filters; keep semantic recall opt-in
+- ADDED **[ai-ui]** One Action screen — sectioned detail, inline steps, honest list
+- ADDED **[ai-ui]** Show what was asked above the run
+- ADDED **[ai]** Record how a run actually started, instead of calling everything a message
+- ADDED **[ai-ui]** Open a run from the Runs tab, and date the ones that predate the hire
+- ADDED **[app-shell]** Enhance secondary navigation components with footer handling
+- ADDED **[ai]** A graph node may ask for approval mid-run
+- ADDED **[ai]** Copilot and coordinator can see, run, and author flows
+- ADDED **[routines]** Agent Space routine UI — canvas, in-place designer, prompt edit rounds
+- ADDED **[routines]** Promote an instruction routine to a flow — nothing is deleted
+- ADDED **[ai-ui]** Inline routine editor, the routine drawn as a diagram, corpses swept
+- ADDED **[ai]** Unpressed Actions in the routine flow picker; copilot declares invoke_action
+- ADDED **[tasks]** Routines declare an outcome and a report floor
+- ADDED **[agent]** Routine detail in the Plan tab, and leaving/deleting an agent
+- ADDED **[agent]** Overflow menu on the agent page
+- ADDED **[agent]** Draw the Manage tab in the admin design language
+- ADDED **[agent]** Manage tab; fix admin showing no routines for an agent
+- ADDED **[agent]** Plan and Runs tabs on the agent page
+- ADDED **[routines]** A routine gets an agent of its own
+- ADDED **[ai-ui]** Put routines on the agent desk
+- ADDED **[tasks]** Routines are standing tasks - task templates retire **[breaking]**
+- ADDED **[connections]** Surface the autonomous-mode gate before it bites
+- ADDED **[ai]** Add OpenRouter as a second model gateway
+- ADDED **[knowledge-base]** Give sources their own sidebar tab
+- ADDED **[knowledge-base]** Pick and propose article templates during ingest
+- ADDED **[knowledge-base]** Open the add-source wizard as a large modal
+- ADDED **[knowledge-base]** Add sources through a guided wizard
+- ADDED **[knowledge-base]** Analyze concepts first, then derive the pages
+- ADDED **[knowledge-base]** Make agentic ingestion plannable and repeatable
+- ADDED **[knowledge-base]** One ingest flow, independent content options
+- ADDED **[tasks]** Govern approvals and model per goal
+- ADDED **[tasks]** Only a human may resolve a tool approval
+- ADDED **[engenty-tools]** Enhance approval handling and task artifact management
+- ADDED **[knowledge-base]** Space-scope the module and give agents the full surface
+- ADDED **[tasks]** Reviews become to-dos and the trust dial governs completion
+- ADDED **[tasks]** Make goals a live coordinator surface
+- ADDED **[spaces]** Include module skills automatically with their apps
+- ADDED **[spaces]** Mark remote and team-hr as settings-placed modules
+- ADDED **[spaces]** Make Copilot the live front door and align durable work
+- ADDED **[agents]** Enhance agent tools and runtime contracts
+- ADDED **[ai-ui]** Show specialist turns and /data results on the chat context card
+- ADDED **[ai]** Let the Coordinator hire specialists and message them in chat
+- ADDED **[manage]** Mark capable agent models in the Gateway catalog
+- ADDED **[modules]** Declare Space policy on closed module operations
+- ADDED **[ai]** Hide Gateway models that cannot run a tool-using agent turn
+- ADDED **[modules]** Declare Space policy on open module operations
+- ADDED **[ai-ui]** Carry Space contract into the voice lane
+- ADDED **[ai]** Enforce Space policy on catalog, execute, and every runtime lane
+- ADDED **[core]** Fail closed on Space resolution and enforce operation policy
+- ADDED **[spaces]** Inject a canonical Space contract into SDK and prompts
+- ADDED **[spaces]** Make the space home talk to the Coordinator
+- ADDED **[agents]** Assign engenty kinds on closed module agents
+- ADDED **[spaces]** Show each agent's engenty in the sidebar roster
+- ADDED **[www]** Sit small engenties on the headlines, and lift the product mocks
+- ADDED **[www]** Paint the landing in brand colour bands, with the locale chooser on dark chrome
+- ADDED **[www]** Put English and German on /en and /de, advertised with hreflang
+- ADDED **[www]** The public landing site for self-hosted open source, in English and German
+- ADDED **[ai]** Add userId to agent desk starters for personalized caching
+- ADDED **[mobile]** Safe-area + dynamic viewport foundation, phone smoke lane
+- ADDED **[ai]** Carry starter chips on the agent instead of a hardcoded UI map
+- ADDED **[ai]** Add starter catalogues for closed-module specialists
+- ADDED **[agent-desk]** Per-agent starter chips and FAB clearance on the composer
+- ADDED **[spaces]** Greet specialists with identity, not a splash
+- ADDED **[spaces]** Hire allow-listed specialists live from the coordinator
+- ADDED **[spaces]** Resolve agent approval per space and grant Plan as named facets
+- ADDED **[spaces]** Mount a hired agent onto the space it was created for
+- ADDED **[spaces]** Turn home into a briefing and specialists into chat
+- ADDED **[ai]** Let space members share specialist and task-agent threads
+- ADDED **[remote]** Classify remote agent as shared
+- ADDED **[ai]** Activate cache-friendly observational memory
+- ADDED **[spaces]** Replace create-space dialog with stepped wizard
+- ADDED **[spaces]** Streamline task context and rail navigation
+- ADDED **[spaces]** Make mounted agents actionable
+- ADDED **[ui]** Make eligible mutations optimistic
+- ADDED **[spaces]** Put the space's agents next to people, with a plus to add
+- ADDED **[spaces]** Keep the space switcher in the breadcrumb when the column is closed
+- ADDED **[spaces]** Let plugins own space tabs and mount tasks on every space
+- ADDED **[inbox]** Keep the mailbox menu to Inbox and Archived
+- ADDED **[ui]** Give cards, tables, and list shells one chrome class
+- ADDED **[spaces]** Make the Data tab landing a real dashboard
+- ADDED **[spaces]** The Data tab becomes a place you can do things
+- ADDED **[files]** Connected folders become write targets
+- ADDED **[ai]** Guard workspace delete, add move/copy, resume headless approvals
+- ADDED **[spaces]** /data becomes a real filesystem, and delete lands gated
+- ADDED **[files]** Let the Files adapter save an edit
+- ADDED **[spaces]** The space's own files become a Data adapter root
+- ADDED **[tasks]** A comment posted mid-run reaches the running agent (U4)
+- ADDED **[tasks]** Surface a task's agent threads, and close an append hole (U3)
+- ADDED **[tasks]** Give an agent one durable thread per task (U1)
+- ADDED **[ai]** Upgrade Mastra 1.57.0 → 1.59.0 (U0)
+- ADDED **[agents]** Hire an agent from a role instead of from an empty form
+- ADDED **[tasks]** Answering a question resumes the run, instead of starting another
+- ADDED **[tasks]** Run a dispatched task on Mastra's background-task substrate
+- ADDED **[flows]** A gate decision is written where the question was asked
+- ADDED **[agents]** HEARTBEAT.md finally reaches the runs it was written for
+- ADDED **[triggers]** An event can start a flow, because its payload becomes the input
+- ADDED **[admin]** One catalog for everything this workspace can run
+- ADDED **[actions]** A button press is a trigger fire, and the action lane is gone
+- ADDED **[tasks]** Review the field updates a flow's agent proposed
+- ADDED **[flows]** Seed an Action's flow on first use, not by migration
+- ADDED **[flows]** Compile an Action into the one-node flow it always was
+- ADDED **[triggers]** A fire carries the values and the subject it was fired with
+- ADDED **[triggers]** Run a trigger now and watch the run it started
+- ADDED **[authz]** A module's agent can read its own module from the start
+- ADDED **[authz]** Grant a role to an agent by name, not by uuid
+- ADDED **[routines]** A routine can run a flow instead of an agent
+- ADDED **[tasks]** Filter the list down to work that runs itself
+- ADDED **[tasks]** Say what a flow task is actually doing
+- ADDED **[tasks]** Hand a task to a flow, not just to an agent
+- ADDED **[ai]** Find and install public skills from chat
+- ADDED **[tasks]** A question carries how it can be answered
+- ADDED **[spaces]** Put created folders in the Data tree, and give Data a home
+- ADDED **[tasks]** A comment has a kind, instead of a leading emoji
+- ADDED **[tasks]** Answer an agent's question from the task
+- ADDED **[tasks]** Let a run speak on the task it is working
+- ADDED **[ui]** Show that a scrollport has more, without painting over it
+- ADDED **[tasks]** Make the wizard header the navigation
+- ADDED **[tasks]** Put where-it-belongs back under the title, and phases in it
+- ADDED **[tasks]** Create a task in two steps, not one wall of pills
+- ADDED **[ai,tasks]** Let a scheduled task run a flow without an agent turn
+- ADDED **[ai]** Make the canvas's "N to fix" badge actually fix things
+- ADDED **[ai]** Live progress while a flow is being drafted
+- ADDED **[ai-ui]** Put Flows and Artifacts on the Engenty dashboard
+- ADDED **[ai-ui]** Give Flows the catalog chrome, and a place in the nav
+- ADDED **[ai-ui]** Search, filters and a list view for the Flows catalog
+- ADDED Draft flows on the planning tier, and give the designer a toolbar
+- ADDED Teach and draw every control-flow entry type
+- ADDED Durable long waits, and a create dialog that drafts the flow
+- ADDED Invoke_action tool, and fix two bugs found by rendering the real UI
+- ADDED LLM authoring, run monitoring and gate approval for graph actions
+- ADDED **[ai-ui]** Action canvas — one picture for authoring, monitoring and approving
+- ADDED **[ai]** Dispatch, resume and HTTP surface for graph actions
+- ADDED **[ai]** Graph action primitives, data model and save-path validation
+- ADDED **[ui]** Apps/ui joins the typecheck gate
+- ADDED **[db-checks]** A single-signature rule guards query_chunks
+- ADDED **[files]** Select all means the files, and the tree opens in one go
+- ADDED **[spaces]** The Data tree's Projects folder follows the mount
+- ADDED **[kb]** Retire the filesystem-sync module — the space Data lane is the sync
+- ADDED **[files]** Folder rows in the files admin expand in place
+- ADDED **[spaces]** The knowledge base is a Data adapter, and the legacy drive lane retires
+- ADDED **[contacts]** The Contacts root is the address book's index
+- ADDED **[invoices]** The space Data folders are receivables, not a list of five words
+- ADDED **[spaces]** The app the copilot builds lands in the space's Data tree
+- ADDED **[spaces]** A real list in the folder pane, and modules that own their index
+- ADDED **[spaces]** A folder is a thing you can open, and its module can render it
+- ADDED **[spaces]** One grid for CSV and .xlsx, and a pane that tells the copilot what is open
+- ADDED **[spaces]** The Data tab — files as protocol, one tree, module-rendered nodes
+- ADDED **[spaces]** Connections are mounted per account, agents get grants (Phase CN)
+- ADDED **[spaces]** A space home you can ask, over the plan you already have
+- ADDED **[spaces]** Contacts, the inbox and time tracking leave the app rail
+- ADDED **[spaces]** A mount stops claiming a record scope nobody chose
+- ADDED **[spaces]** A General section, controls on the right, removals that ask
+- ADDED **[spaces]** One modal per mount kind, and a create dialog that only creates
+- ADDED **[spaces]** Space settings become settings, not a second home screen
+- ADDED **[spaces]** A real space settings page, under the space's own URL
+- ADDED **[spaces]** Headless task runs follow their task's space; fix appearance saves
+- ADDED **[spaces]** Connectors and delegation follow the space too (Phase C3b)
+- ADDED **[spaces]** A run reaches only what its space mounts (Phase C3a)
+- ADDED **[spaces]** The copilot knows its space, and space URLs read like places
+- ADDED **[spaces]** Chat lives in a space (Phase C1 + C2)
+- ADDED **[spaces]** Read-only roster, Settings in the sidebar foot, spaces on Team profiles
+- ADDED **[spaces]** Personal spaces have no members; space roster lives in Settings
+- ADDED **[spaces]** Real personal spaces, built the home-directory way
+- ADDED **[spaces]** One sidebar column with the space on top and modules inside it
+- ADDED **[spaces]** Bind triggers to a space so fired tasks stay in it
+- ADDED **[spaces]** Bind work containers and knowledge bases to a space
+- ADDED **[spaces]** Make the space the entry point in the UI
+- ADDED **[spaces]** Add the Space tier between Project and Global
+- ADDED **[copilot]** Keep parsed PDFs inspectable with page sentinels and reparse
+- CHANGED **[ai-ui]** Pen icon on hover, counter at the card's bottom edge
+- CHANGED **[engenty]** Standardize terminology from 'specialist' to 'engenty' across documentation and code
+- CHANGED **[routes, dal, ui]** Streamline code formatting and improve readability
+- CHANGED **[agents-workspace]** Remove deprecated action flows path and update references
+- CHANGED **[tasks]** Move task settings onto core.tenant_settings typed KV
+- CHANGED **[ai]** The Action is the word — no agent surface says "flow" anymore **[breaking]**
+- CHANGED **[ai-ui]** One list, one name — Actions **[breaking]**
+- CHANGED **[ai]** Rename action_graph -> flow_graph, ring 4 — the tool ids **[breaking]**
+- CHANGED **[ai]** Rename action_graph -> flow_graph, ring 3 — the HTTP surface
+- CHANGED **[ai]** Rename action_graph -> flow_graph, ring 2 — identifiers **[breaking]**
+- CHANGED **[ai]** Rename action_graph -> flow_graph, ring 1 — the database **[breaking]**
+- CHANGED **[www]** Drop unused SittingCrew and keep HeadlinePerch
+- CHANGED **[ai-ui]** One chat-input base for every chat lane
+- CHANGED **[tasks]** The background substrate IS the dispatch path now
+- CHANGED **[spaces]** Split the Data pane so chrome, records, files, folders, and artifacts each have their own module
+- CHANGED **[tasks]** Let the description flex instead of measuring it
+- CHANGED **[spaces]** One roster, two rooms
+- CHANGED **[spaces]** The tree stops dressing for a page that no longer exists
+- CHANGED **[files]** The last two hand-rolled CSV parsers are gone
+- DOCS **[deploy]** Rehearse the 0.1→0.2 upgrade, and correct what it disproved
+- DOCS **[deploy]** Finish the 0.2.0 deletion inventory
+- DOCS **[deploy]** A runbook for the 0.1.x install, and a banner that tells the truth
+- DOCS **[global]** Say what 0.2.0 actually promises about upgrades
+- DOCS **[global]** Give the server install the same shape as the local one
+- DOCS **[global]** Call it Fair Source, not open source
+- DOCS **[spaces]** Document the runtime contract and fail open-module authoring in CI
+- DOCS **[work-model]** One page for how work starts, lives and runs
+- DOCS **[global]** Call it Fair Source, not open source
+- FIXED **[global]** Stop engenty setup deleting the UI's module dependencies
+- FIXED **[deploy]** Publish the per-user browser image like every other one
+- FIXED **[banking,finance-reports]** Scope cross-schema expense reads to the scope too
+- FIXED **[deploy]** Name deploy images in full, and drop the -pro on publish
+- FIXED **[deploy]** Declare the user-browser env in the manifest
+- FIXED **[deploy]** Let the blue-green orchestrator follow ENGENTY_IMAGE_PREFIX
+- FIXED **[deploy]** Put engenty Apps behind the apps compose profile
+- FIXED **[global]** One list decides what stays out of the public mirror
+- FIXED **[ai]** Keep the whole hand-off message on the colleague's desk
+- FIXED **[ai-ui]** Show a colleague at work while the hand-off is in flight
+- FIXED **[artifacts]** The desk pane lists what the chat produced, and keeps its tab
+- FIXED **[ai]** Pause routines whose owner vanished, resume when they return
+- FIXED **[ai-ui]** Markdown interrupt bodies; keep only the last assistant turn
+- FIXED **[ai-ui]** Center colleague markers; quiet Streamdown tables
+- FIXED **[ui]** Optically align Work-tab Engenty avatars with Inbox icons
+- FIXED **[ai-ui]** Agent-name pills, clustered bubbles, and hover rails
+- FIXED **[knowledge-base]** Store fetched HTML once per inbox row
+- FIXED **[ai-ui]** Module workflows no longer read as awaiting publish
+- FIXED **[ai-ui]** Stop voice input repeating finalized phrases
+- FIXED **[spaces]** The create wizard's agents hint names the baseline agents
+- FIXED **[ai]** Let specialists and delegated children obtain tool approvals
+- FIXED **[spaces]** Let the create wizard drop suggested modules from the list
+- FIXED **[ui-core]** Restore overlay shadow on glass menus
+- FIXED **[app-shell]** Give the space tiles the same margin above as beside them
+- FIXED **[app-shell]** Give Settings the same row geometry as a space
+- FIXED **[app-shell]** Open extra spaces from a chooser instead of unfolding the rail
+- FIXED **[manage]** Use eye and code icons for the ledger text switch
+- FIXED **[ai-ui]** Use eye and code icons for the ledger text switch
+- FIXED **[manage]** Format trajectory ledger and wire payloads
+- FIXED **[ai-ui]** Format trajectory ledger and wire payloads
+- FIXED **[ai]** Give each agent in a thread its own sandbox container
+- FIXED **[manage]** Highlight trajectory rows and expand them from the gantt
+- FIXED **[ai-ui]** Highlight trajectory rows and expand them from the gantt
+- FIXED **[copilot]** Collapse the empty full-page drawer and keep the blob home
+- FIXED **[ai]** Resolve every kind of Mastra resource id to its threads
+- FIXED **[ai]** Capture assembled instructions on run trajectories
+- FIXED **[files]** Show space and file names in the admin inspector
+- FIXED **[spaces]** Resume last Copilot chat from the Work roster
+- FIXED **[spaces]** Preview Files-tree PDFs in the native viewer
+- FIXED **[spaces]** Load connected local folders from inside Files
+- FIXED **[manage]** Load the shared reader paper surface
+- FIXED **[spaces]** Keep Data overview under Copilot and hide row ⋮ until hover
+- FIXED **[ui]** Show chat sender names only in shared rooms, above the bubble
+- FIXED **[ui]** Keep the topbar and copilot header at one compact height
+- FIXED **[ai]** Type the author-less thread honestly, and answer what it means
+- FIXED **[ai]** Let a Space member open a routine run from the desk
+- FIXED **[ai]** Make the ai.routines migration re-runnable
+- FIXED **[ai]** Make a routine fire actually reach its Space and its desk
+- FIXED **[ai]** Record headless task runs' events and usage on the desk run detail
+- FIXED **[inbox]** Make agent-granted mailboxes visible to headless reads (CN.5)
+- FIXED **[core]** Let a headless task run resolve its own private Space's surface
+- FIXED **[ai]** A hire for recurring work is told the routine is still owed
+- FIXED **[ai-ui]** A run's timeline shows the call, its arguments and its answer
+- FIXED **[connections]** Grant an account to the agent id an agent actually has
+- FIXED **[ai]** A hired specialist keeps the catalog floor whatever it declares
+- FIXED **[copilot]** A recurring job gets an agent and a routine, not a lone flow
+- FIXED **[ai]** A run that cannot start says so instead of reporting "queued"
+- FIXED **[ai]** A graph node inside a task gets the task's tools
+- FIXED **[ai-ui]** Unify the action detail screen; count readiness, not plumbing
+- FIXED **[routines]** Promote 500, edit mode as the view, flows authored in place
+- FIXED **[tests]** Ring-2 sweep fallout + the long-standing TS2571
+- FIXED **[tasks]** UpdateTask persists flow_graph_id and flow_input
+- FIXED **[actions]** A press is a subject-bound run, never a task **[breaking]**
+- FIXED **[agent]** Tabs in the header, identity in the header, collapse on scroll
+- FIXED **[routines]** One request, one routine
+- FIXED **[ai]** Drop the agent silhouette CHECK so hiring works again
+- FIXED **[tasks]** One routine, one page — close the Routines/Tasks split
+- FIXED **[routines]** A live chat agent can never own a routine
+- FIXED **[ai-ui]** Render timezone-carrying routine schedules verbatim
+- FIXED **[tasks]** Make agent-created routines actually fire, attribute, and honor pre-approvals
+- FIXED **[kb]** Prefill source name when editing an existing source
+- FIXED **[knowledge-base]** Let one large item fill the analysis budget
+- FIXED **[knowledge-base]** Read uploaded documents, not just store them
+- FIXED **[knowledge-base]** Let long ingest calls outlive the client timeout
+- FIXED **[knowledge-base]** Open an attached web original instead of signing it
+- FIXED **[knowledge-base]** Ingest large documents whole
+- FIXED **[ai]** Headless runs survive token expiry and never repeat a write
+- FIXED **[ai]** Give the work coordinator its own model tier
+- FIXED **[ai]** Replay an approved parked tool call exactly once on resume
+- FIXED **[ui-icons]** Make always-on loaders actually spin
+- FIXED **[spaces]** Keep home Coordinator sends and close approval on choose
+- FIXED Fixed failing tests
+- FIXED Unblock lint and the www production build
+- FIXED **[time-tracking]** Use dvh for the notes popover max height
+- FIXED **[ai]** Carry declared starters across the module capability seed
+- FIXED **[dev]** Probe /api/ready instead of openapi so Portless startup is not killed
+- FIXED **[spaces]** Keep rail overflow tiles opaque so the stack does not smear
+- FIXED **[spaces]** Drop the specialist cover wash and merge the topbar
+- FIXED **[tasks]** Make agent dispatch outcomes visible
+- FIXED **[tasks]** Keep empty context visible
+- FIXED **[ui]** Keep scrolled main content clear of the copilot FAB
+- FIXED **[spaces]** The home column scrolls as one, not the briefing alone
+- FIXED **[ui]** Tighten the space sidebar header against the name
+- FIXED **[manage]** Use the shared card chrome on tenant and user grids
+- FIXED **[spaces]** The Data CTA takes the shell's create-button shape
+- FIXED **[spaces]** No cards inside cards on the Data landing
+- FIXED **[spaces]** Rebuild the Data landing on the design system
+- FIXED **[ai-ui]** Keep editor reset/delete in overflow menus and mark instruction overrides
+- FIXED **[skills]** Show nested skill files in the instructions editor
+- FIXED **[skills]** Search and install from skills.sh, not agentskill.sh
+- FIXED **[spaces]** A module mounted in a space knows which of its pages is open
+- FIXED **[copilot]** Do not offer a composer on a thread nobody may write to
+- FIXED **[copilot]** A chat link opens the chat it names, inside a space too
+- FIXED **[tasks]** An answer in the comment thread carries its question
+- FIXED **[tasks]** One run-history row per run
+- FIXED **[flows]** A flow with an agent node could not run headlessly at all
+- FIXED **[tasks]** Read the activity feed in the same direction as comments
+- FIXED **[ai]** A task run's transcript was never saved, and never readable
+- FIXED **[ai]** The flow mirror called an op that does not exist
+- FIXED **[tasks]** "plan only" now actually plans instead of starting
+- FIXED **[tasks]** Cap the growing fields, and put belongs-to at the foot of the step
+- FIXED **[core,ai]** Backdate server-lane JWT iat so PostgREST clock skew cannot reject scheduled fires
+- FIXED **[tasks]** Detach timesheet rows before task delete so SET NULL does not collide on the unique index
+- FIXED **[ui]** Keep closed plugins out of the public apps/ui catalog so open snapshot install stays valid
+- FIXED **[core,ai]** Unbreak db:migrate and the thread-run route test after the merge
+- FIXED **[ai]** Tenant-key the action_request sweep and run lookup
+- FIXED **[ai]** Teach the drafting model the mapConfig rules it kept breaking
+- FIXED **[ui-core]** Open the filter row on the first click, not the second
+- FIXED **[ai-ui]** Move the Flows filters into the filter row
+- FIXED **[ai-ui]** Let drafting run as long as the planning model actually takes
+- FIXED **[ai]** Resolve the tenant's models for every graph delegation
+- FIXED **[ui]** Blend the flow header into the topbar, and let skill cards breathe
+- FIXED **[ai-ui]** Draw a branch as a branch
+- FIXED Reject nested containers, and stop calling a loop "For each"
+- FIXED Two bugs only the signed-in app could show
+- FIXED **[ai]** Refuse waits the engine cannot durably hold
+- FIXED **[import]** The server registrars speak the SDK's route type
+- FIXED **[ui]** The dev session stats read fields that exist
+- FIXED **[ai-ui]** One name for what an interrupt resume accepts
+- FIXED **[ui-plugin-sdk]** The types catch up with the plugin runtime
+- FIXED **[core]** State the function ACLs the spaces migrations left implicit
+- FIXED **[offers]** The stage counts read the envelope's total
+- FIXED **[tasks]** Derive the query allow-lists from the schemas
+- FIXED **[search]** Reset space-blind index rows and scope artifact docs
+- FIXED **[kb]** A rename stops resetting what it never touched, on every lane
+- FIXED **[offers]** The bundle's prose members are HTML, and say so
+- FIXED **[spaces]** Close the migration hazards the v0.2.x audit found
+- FIXED **[build]** Give fast-csv the workspace's @types/node, not its own 14
+- FIXED **[spaces]** Raise sidebar contrast — opaque when pinned, weight for selection
+- FIXED **[spaces]** Stop the space's Settings link bleeding into module sidebars
+- FIXED **[app-shell]** Keep the space rail's stack front tile still while it opens
+- FIXED **[spaces]** Restore the check:space-storage-scope gate lost in the rebase
+- FIXED **[spaces]** Reconcile the rebase with main
+- FIXED **[dev]** Scope the predev Supabase check to the worktree's own stack
+- FIXED **[copilot]** Parse chat PDFs without stuffing originals into the prompt
+- OTHER Bring feat/spaces into main for 0.2.0
+- OTHER Put the browser's tabs in the pane's own top bar, and let the page reach the edges.
+
+The tab strip lived inside the view on a card of its own, below a pane
+header that only repeated the pane's name — two bars and a margin before
+the page began. The strip now portals into the pane top bar, the way the
+artifact pane puts its chooser there; while no browser runs the panel
+portals the name instead. Inside the pane the view drops its rounded card
+and padding, so the toolbar and the page span the full width.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER Real browser chrome for the live view — tabs, back, reload, address pill — and a page sized to the pane, streamed 1:1.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Give the browser view a tab strip and one toolbar row, and let the page fill the pane.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Give the agent browser_evaluate for hidden DOM; keep recording off.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Draw a draggable divider between stacked side panels; the split persists.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Stack side panels vertically in one end-pane column with a single width and handle.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Let an Engenty start the person's browser: ask in the chat, or without asking once allowed.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Give the browser pane the artifact pane's chrome: end-pane slot, card, resize handle, expand.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Open the browser sidebar from any desk view, and explain it before it is started.
+
+The pane now wraps the whole desk body, so the monitor toggle has somewhere
+to open on the engagement list too, not only inside a conversation. Without
+a running browser the pane reads as instructions: what the browser is,
+Start → watch → take over → hand back, the unattended switch, and what Stop
+and Sign out keep or forget.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Forget a burnt refresh token wherever the bearer is fetched, not only on first load.
+
+The access token usually outlives the crash, so the first getSession() still
+succeeds and the failure arrives minutes later, on the refresh inside the
+next bearer lookup — thrown into ensure-current-user and shown verbatim on
+the setup card. The bearer getter now treats that as a dead session (local
+sign-out, no token) and the bootstrap's stale-session matcher knows the
+message, so the shell reaches the login screen from either direction.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER A burnt refresh token means "sign in again", not "check your env vars".
+
+After a hard crash mid-rotation the token in the browser is one Supabase
+has already used, and getSession() reports it as an error. The shell showed
+that message on the setup card with no way out. Now the dead token is
+forgotten locally and the shell falls through to the login screen; any
+other auth failure still shows its message.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Keep the draft of the Mastra issue about the CDP process-group kill next to the code that works around it.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Pin the disarm against Mastra's real disconnect handler.
+
+The control case shows the armed path does call process.kill on the
+remembered group (with a PID that cannot exist); the disarmed handle
+never does, even after Mastra writes the container's PID 1.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Never let the browser handle signal a host process; reach the browser by IP or loopback port.
+
+Mastra's AgentBrowser reads the connected Chromium's PID over CDP and, on
+disconnect or close, runs process.kill(-pid). Our Chromium is the container's
+PID 1, so that was kill(-1) on the host — every process the apps/ai user owns.
+It took the desktop down twice. The registry now makes the PID fields on our
+handle write-ignoring, so the kill helper always returns before signalling;
+a test pins it.
+
+The container is created with the docker CLI carrying Mastra's labels. On a
+dev host without a view network it publishes DevTools on an ephemeral
+loopback port; on a deployment apps/ai dials the container's IP on the view
+network — DevTools refuses a container-name Host header. Attaching a viewer
+now launches the CDP session, waking a sleeping container, so the live view
+shows a page without a tool call first.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Give the browser sidebar one header and a drag handle.
+
+State, Start/Stop and Close sit on one row; the seat is shown once, next to
+Take over. The left edge resizes the pane (min 320 px, the chat keeps 480 px)
+and the width is remembered per browser. The canvas box keeps the page's
+aspect ratio so the column does not jump while frames arrive.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Show the person's browser as a right sidebar on the agent desk.
+
+A Monitor toggle next to the thread-context and artefact toggles opens a
+420 px column beside the chat (an overlay when the content stack is narrow)
+with the browser's state, Start, and the live view with take over / hand
+back. The agent desk chat is where a person actually watches an Engenty work
+in their browser, so this is where the button lives — the copilot drawer's
+inline panel stays for the drawer.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Put the person's browser beside the chat, behind a monitor button.
+
+A Monitor icon in the copilot header opens a panel above the transcript: the
+state of your browser in the current Space, Start when there is none, and the
+live view with take over / hand back when it runs. The view moves into
+@engenty/ai-ui so the settings page and the copilot share one component.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Keep the space's name on the column inside a module, and drop the home line that only counts waiting and working.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Give each person their own browser in a Space, driven in their name and sealed off.
+
+One headless Chromium per user per Space (engenty-browser-<tenant>-<space>-<user>),
+started only when the person asks, driven host-side through Mastra's browser tools
+wrapped with a seat the human always wins, streamed live with takeover, and reachable
+from a routine only when the person switched on unattended use.
+
+Egress is sealed: engenty-egress is internal, the allowlist proxy sits on the app
+network for its own way out, browsers get their own internal network and an open but
+logged blocklist proxy, and engenty-ai meets browsers on a view network only.
+
+The copilot's frontend browser_* tools become ui_* so the two toolsets can share an
+agent. browser_evaluate is excluded from day one.
+
+PLAN-user-browser.md §4.1 records what landed and which host gates are still unrun.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Let artifacts move to a space, task, project or Engenty, and pin the ones you want on Work.
+
+Storing was named pin, which hid that it changes where the artifact lives. Pin now means a personal shortcut on the Work sidebar and dashboard.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Let Data list Ablage like any other folder, and let people edit many rows at once.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Split Belege mail import into accounts and a list.
+
+The space-home click dummy is caught up; scanner drops an unused env import.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Let Copilot keep its own sidebar, and let a Data folder be a list.
+
+Work opens the chat module instead of mixing threads into the space column. Contacts, invoices and offers folders get a real table. The bell is a compact inbox, and home has its own topbar actions.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Put the space on the collapsed trail, and mark the current rail tile.
+
+The name shrinks to the tile when the path is long or the screen is narrow. Close sits clear of the first crumb.
+- OTHER Let the space's name carry its own pencil, and say nothing when there is nothing
+
+The home header named the space at the same size as a list row. It is the
+page's identity: the tile goes to 48px and the name to 17px, and a pencil
+appears beside it on hover, so the one thing you do FROM a space's name —
+change it — is where the name is.
+
+"0 waiting for you, 0 working." is a line that says nothing. It renders now
+only when one of the counts is not zero.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER Grow menus from the trigger, card and contents on one beat.
+
+Scaling the glass Positioner fought placement transform and collapsed
+the origin to the top-left. Fill and enter/exit now live on the Popup,
+with a little more room from the button.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Let the rail switch Spaces, and Close ride the column's seam.
+
+The name stays a label on Work/Data/Plan and drops inside a module; Open lives in the topbar once the column is gone.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Stop waiting on a question the conversation already moved past
+
+A desk row said "Wartet auf dich" about an ask from the day before. Nothing
+was open: `requires_action` is how a suspended run ENDS, it is never cleared,
+and both the sidebar and the home read every run in the feed and let the
+oldest parked one speak for the agent for good — even though a later run in
+the same thread had since completed.
+
+Each conversation now answers for itself, judged by its own newest run, and
+the agent takes the most urgent of them. An ask in ANOTHER thread still
+outranks work in progress, so a desk running jobs in parallel keeps saying
+the thing a person can act on.
+
+And an App now reloads when it is activated. The frame in the chat was built
+while the version was still proposed, so every engenty call it made came back
+`apps.operationNotDeclared` — and it had no way to learn that the answer had
+changed. The decision refetches the frontend and the release's state rides in
+the frame key, so approving reloads the App where it stands.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER Say what an App asks for, and let the person answer where they are
+
+An App built by a colleague came to rest with nobody knowing they were the
+blocker. The home said "Wartet auf deine Antwort" and offered to open a chat;
+the chat offered a row of chips reading `expenses · expenses_list` and
+`table · 01a0862f-…`. Identifiers, not consequences — and the card could not
+even name which App, because a release is a marker message and a decision
+notification, neither of which the home ever read.
+
+It reads them now. The Space home unions the release markers, asks core once
+per App whether those versions are still proposed, and the card carries the
+verdict itself: `apps.approve` is a plain POST with no run to resume, so a
+button there IS the decision rather than a weaker copy of the one in the chat.
+
+And the consent surface reads like consent. The manifest is grouped by what
+it lets the App DO — work in a module, read and write these tables, reach
+these addresses, keep its own files, ask you again every time — each group
+one collapsed line with a count, opening to the sentences that were already
+being fetched and thrown away: the operation contract's summary, the table's
+title. The high-risk group opens itself, because that is the part a person
+most needs to have read. Card and banner derive their groups from the same
+hook, so what the card promises is what the banner shows.
+
+Around it, the smaller things that made the feature hard to use: the message
+excerpt drops its markdown before it is cut, the App can move to the artifact
+panel beside the conversation it belongs to, and closing the Data pane goes
+back where you opened it from instead of stranding you in a file list.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER Let a home card show the words, not the markdown around them.
+
+The last-message excerpt is two lines of plain text, so asterisks and fences were showing through. Strip the notation, put the time next to the title so the description can run full width, and sit the bubble and composer in the same inset column. The inbox bell is a Button so its badge lands at the corner, not on the icon.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Do not treat /import as a record in legacy module links.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Give Belege an Import page for files, tables, mail, and connected apps.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Count what still waits, and let the row's menu have the corner
+
+The badge on Dashboard and on the home's bell counted UNSEEN notifications,
+so it went quiet the moment you glanced at the list — a space with an open
+approval showed nothing. It now counts this space's open needs-you items,
+the same set the notifications page groups under "Braucht deine Antwort",
+via one shared hook so the two numbers cannot disagree.
+
+And on hover a conversation row now yields its right edge: the timestamp
+and the NEW badge fade, and the menu trigger drops its own background, so
+the three dots land on the row's hover surface instead of on top of a word.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER The Space's home is its sidebar, unfolded
+
+A card per conversation, in the sidebar's own order: Favoriten first, then
+the rest. A pinned row always has a card; an unpinned one only while it is
+live — waiting on you, paused at the room's turn budget, running, or
+finished since your last visit. Everything else is one line of names.
+
+`GET /ai/spaces/:id/home` answers the states in one round trip: open
+interrupts, `room_paused`, `ai.agent_run` rows since a cursor, and each
+thread's newest message. `active-thread-runs.ts` is deliberately not a
+source — it is an in-process map a second instance cannot see.
+
+A thread shows at most one LIVE job per state (one room takes one run at a
+time), while finished runs are counted rather than listed. Verdicts stay
+where they can be given: the room's pause lifts on the card, an interrupt
+opens the conversation, where its decision card already waits.
+
+Beside the cards, what the Space keeps: its promoted artifacts and its
+mounts. The same artifacts get a Work-tab section with the Data tree's own
+row menu, and the Work list's Inbox row becomes the Dashboard, whose count
+moved to a bell on the home.
+
+Spaces gain a description — a name, an icon and a colour could not say what
+a space is FOR — shown in the home's heading and edited in settings.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER Keep Belege on one page for list and detail, and edit contacts, currency, and tags on the pane.
+
+Split uses a hash on the list; the path with an id is fullscreen. Lieferant and Klient go through the contacts plugin, amounts carry a currency (plus a home-currency value when it differs), and tags commit as chips.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Upgrade agentOS to 0.2.19 and carry the build patch forward
+
+deployApp() is still broken as published: the build VM has the guest tar
+write the packed release through a host directory mount, and the guest
+cannot write to it — "tar: Permission denied (os error 2)" — so every
+deploy fails, including the package's own README example. createBuildVm
+is byte-identical to the 0.2.14 original, so the patch is regenerated
+unchanged against the new version.
+
+Verified on 0.2.19: an App backend deploys, serves requests, and has a
+real filesystem — node:fs works and /home/agentos survives sleep and a
+cold start. It does not survive a release: the actor key is
+<appId>/<releaseHash>/default, so publishing a new version creates a
+different actor with an empty disk. App data therefore cannot live in
+the isolate.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+- OTHER A colleague's turn is somebody else's words
+
+A room is one thread several agents answer in, and recall handed every
+member the other members' answers as bare assistant messages — its own
+words, as far as the model could tell. Live on 2026-09-08 a woken player
+reasoned "I am the one agent in this conversation", concluded it had
+already moved, answered nothing, and the room fell silent with every run
+reported completed: no error, no pause, just a game that stopped at move
+three.
+
+Another agent's row now arrives as a user turn under the same
+**Message from <name>** header the room's relays already carry — the
+shape the shared-room instructions promised all along. Only what it
+posted survives; its reasoning and its tool calls were its own work, and
+read as the reader's they are the confusion itself. Rows carry the
+author's name alongside the id so the header reads as a name.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Let a room's engenties overlap as shapes
+
+A disc behind each blob punched a hole in the one beside it, so the
+cluster read as three cut-out circles instead of one mark.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Give Belege a list-and-detail workspace and extract through the scanner pipeline.
+- OTHER Allow catalog search entries to carry a null connector id.
+- OTHER Route document extraction through the provider pipeline.
+- OTHER A room is its own page, not a desk's engagement
+
+/s/<key>/rooms/<threadId>: no agent header, a cluster-and-title crumb
+that opens the room's info drawer (name, purpose, visibility, agents,
+people), and a chevron that switches between every conversation of the
+Space — desks and rooms alike, on desks too. The strip above the chat
+is gone; old desk links naming a room redirect.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Keep the new finance modules off the public tree.
+
+Expense categories can carry a bookkeeping account number, and the workspace plugin list enables Belege, Bank, and Reports in pro only.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Add incoming receipts, bank statement upload, and finance reports.
+
+Sales invoices stay outgoing; Belege, uploaded statements, and period reports live as closed modules with the existing document-scanner extract path.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Mention a room or an artifact, not just a colleague
+
+The `@` picker offered agents and people only, so the two things a Space chat
+talks about most — the rooms its agents work in and the artifacts they built —
+could only be named in prose. Rooms and artifacts join the list, and every row
+now leads with a glyph: each agent as its own Engenty, an artifact by its type,
+a room by the chat mark. Without one a mixed list is a single column of text
+where a room reads like an agent.
+
+Each ref kind carries its own instruction instead of one undifferentiated
+"here are some references": an artifact says read it with `artifact_read`
+first, a room says speak in it with `message_agent`'s new `room_id`.
+
+`room_id` is what makes a mentioned room addressable. `agent_ids` names a room
+by its member set, which from a desk always opens a NEW one — so the agent
+would have answered in a second room beside the one the person named. With
+`room_id` the room is the id: everyone in it takes a turn, `agent_ids` narrows
+that to the members named. Membership, the turn budget and the pause stay
+`deliverToRoom`'s; this refuses only a thread that is not a room of this Space.
+
+Reading a room from a desk is still not possible, and the room entry says so
+rather than letting the agent claim it read one.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER A built App asks for its approval in the chat
+
+`app_build` left a version proposed and inert and told nobody. The preview
+artifact carries the Approve/Reject banner, but a colleague builds it in its
+own run, so the conversation the person is watching held no tool call to
+render it in — and no notification was emitted on either hire path.
+
+The publish step now writes an `engenty_app_release` marker row into that
+conversation, which the transcript draws as the App itself, review banner and
+all, and emits an `app_release_proposed` decision row for the bell. A decision
+on either surface resolves the record.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Rank catalog pickers lexically and load search-index from source
+
+Skills, tools, agents, workflows and slash commands now share the wizard's
+BM25/stem ranking, so coding matches code. Vite and Vitest resolve
+@engenty/search-index from src so a stale dist cannot hide that.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Keep desk composer pills and gutters aligned with the textarea
+
+Horizontal mention rings stole space next to the token, a flush lane
+drew the composer to both edges, and the thinking line still said
+sending after the run had already started.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Show when a Space agent is working or waiting for you
+
+A last-active timestamp while a run is in flight reads as stalled. Poll
+the tenant run feed once for the sidebar, and refresh Space queries when
+a desk turn finishes so a hired colleague appears without a reload.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+- OTHER Update pnpm-lock.yaml and enhance Space components with catalog search functionality
+
+- Updated dependencies in pnpm-lock.yaml, including a version bump for esbuild.
+- Integrated `registerCatalogRankRoutes` in `app.ts` to support catalog ranking.
+- Refactored `api-catalog-search-store.ts` to streamline imports and improve code clarity.
+- Enhanced `catalog-ranking.ts` by exporting additional functions for better modularity.
+- Implemented `useSpaceCatalogSearch` in various Space components to improve search capabilities and user experience.
+- Updated localization files to include new strings for catalog searching feedback.
+- Added tests for scoring prefix and inflection-style token matches in `catalog-lexical.test.ts`.
+
+This commit improves the overall functionality and performance of the Space components while ensuring better dependency management.
+- OTHER A new Space starts with its creator on the roster
+
+`core.space_member` was written in exactly two places — an explicit invite
+and claiming an orphaned personal space — so a freshly created Space had
+no rows at all, not even for the person who made it. An open Space is
+enterable without them, so nothing noticed: its People section, the room
+bar's add-someone picker and the composer's `@` list were empty in a Space
+somebody was working in every day. Creating one now writes the creator's
+row as `owner`, which is also the row that keeps them in when the Space
+later goes private. A failed write is logged, not fatal — the Space
+exists and is usable.
+
+`useSpacePeople` is the one place those rows are read, so the three
+surfaces cannot disagree about who is here. The composer's `@` list also
+offers every agent on the roster, the desk's own included: in a room the
+host is one participant among the others, and Game Master was the one
+name you could not mention.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Artifact pane picks from the whole Space, not from tabs
+
+An artifact belongs to the Space we share, not to the chat that made it,
+so the pane's tab strip is now one dropdown: what the pane already holds
+on top, the rest of the Space's artifacts below it, and a search box once
+the two groups pass five entries. The Space's list is the existing
+`container=space:<id>` route, so it carries the Space's own artifacts plus
+its projects' and tasks'.
+
+Closing keeps the two meanings apart: an artifact of the pane's own scope
+archives as it always did, while one opened from the chooser only leaves
+the pane — it belongs to somebody else's chat. Opening the pane is offered
+whenever the Space holds anything, not only when the current chat does.
+
+`PaneTabStrip` goes with the strip it drew; nothing else used it.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Sidebar lists conversations, not agents
+
+The Work tab is a list of conversations, the way Slack's is: Favoriten,
+then this person's own sections, then the built-ins Agenten (the desks),
+Räume and Direktnachrichten. A row lives in exactly one place; pinning
+moves it to Favoriten, hiding drops it until the next message, and a desk
+can never be hidden.
+
+Four kinds, one server-side answer (`threadKind`): a desk is the agent's
+single shared line, a room carries `route_context.room`, a DM carries
+`route_context.dm` — one per person × agent × Space, stable id, private —
+and a pair thread stays what it was. Rooms are listed by participation
+only; everything else in the Space is in `/s/<key>/chats` with a join
+button.
+
+The nav state is per person and lives in the user-settings document
+`shell.spaces.conversation_nav.v1` — sections, order, placement, pins,
+hidden_at — so nothing about one person's arrangement touches another's.
+The old `agent_nav.v1` folds into it once on read.
+
+Rooms also say who is speaking: every assistant row is stamped with the
+agent that wrote it, the message list resolves the name through the
+registry, and the transcript prints it above the bubble on desks and in
+rooms — never in a DM, where there is only one voice to attribute. A
+room's breadcrumb names the room and its members instead of offering the
+host's agent switcher.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+- OTHER Spacer should not have a hight
+- OTHER **[spaces]** Interrupt-card dismiss and reconcile, contacts enhance workflow
+- OTHER Popup design fix
+- OTHER Cleanup
+- OTHER Removed outdated concept
+- OTHER Cleanup
+- OTHER How claude shoudl answer
+- OTHER Skills from anthopic and hermes
+- OTHER **[spaces]** Drop the Chats list from the Work tab
+- OTHER Lint
+- OTHER Lint fix
+- OTHER Code lint
+- OTHER Change slogan
+- PERFORMANCE **[knowledge-base]** Open an article without a skeleton
+- CHORE **[ai-ui]** Drop the ten legacy admin redirects **[breaking]**
+
 ## [0.1.137] - 2026-09-02
 - ADDED **[time-tracking]** Polish report documents and the weekly grid
 - FIXED **[core]** Create Supabase clients only in infra adapters

@@ -1,7 +1,8 @@
 /**
  * Canonical in-app path patterns for copilot prompts.
  *
- * Keep aligned with `apps/ui` authenticated routes and module plugins
+ * Keep aligned with `apps/ui` authenticated routes, Space route mirrors
+ * (`spaceModuleUrlSegment` / `SPACE_MODULE_URL_ALIASES`), and module plugins
  * (e.g. `modules/knowledge-base/ui/kb-paths.ts`).
  */
 export function buildAppNavigationPathsPromptSection(): string {
@@ -12,11 +13,20 @@ export function buildAppNavigationPathsPromptSection(): string {
     "",
     "The patterns below are conventions, not a route table — only the running app knows which pages exist. The `navigate` tool checks against the real routes: it resolves a module prefix when that module has exactly one page, and otherwise fails listing the routes that do exist. Say a page is open only when `navigate` returned it in `to`.",
     "",
+    "Inside a Space, prefer `/s/<space_key>/…`. The module URL segment comes from the running route mirror and is **not** always the module id — do not assume `moduleId === segment`. Example: `engenty-copilot` is `/s/<space_key>/copilot/…`, not `/s/<space_key>/engenty-copilot/…`. Let `navigate` resolve the real route table.",
+    "",
     "| Area | Pattern |",
     "|------|---------|",
+    "| Space home | `/s/<space_key>` |",
+    "| Space-mounted module | `/s/<space_key>/<module-segment>/…` — `<module-segment>` is the route mirror short form, not the module id |",
+    "| Space Data | `/s/<space_key>/data` |",
+    "| Space settings | `/s/<space_key>/settings` |",
+    "| Space chat (Copilot) | `/s/<space_key>/copilot/chat`, `/s/<space_key>/copilot/chat/<threadId>` |",
+    "| Space agent roster | `/s/<space_key>/agents` |",
+    "| Space agent desk | `/s/<space_key>/agents/<agentId>`; hire: `/s/<space_key>/agents/new` |",
     "| Dashboard | `/dashboard` |",
     "| Full-page chat | `/chat`, `/chat/<threadId>` |",
-    "| App settings | `/settings`, `/settings/appearance` |",
+    "| App settings | `/settings`, `/settings/appearance`, `/settings/tenant` |",
     "| AI models & usage (settings) | `/settings/ai` |",
     "| Users (settings) | `/settings/users` |",
     "| Tenant plugins (setup) | `/setup/plugins` |",
@@ -25,8 +35,8 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Agents / AI workspace | `/admin/engenty` (sessions, agents, skills, actions under this prefix) |",
     // A prefix is not a page: over half the modules register no bare
     // `/mdl/<module-folder>` route, and it fell through to the catch-all.
-    "| Module plugins | Pages live under `/mdl/<module-folder>/…`. Common shapes where a module has them: list `/mdl/<module-folder>`; detail `/mdl/<module-folder>/<id>`; edit `/mdl/<module-folder>/<id>/edit`; settings `/mdl/<module-folder>/settings`. These are conventions, not guarantees. |",
-    "| Knowledge Base (per KB slug) | `/mdl/knowledge-base/<kbSlug>` — articles list: `.../articles`; article: `.../<articleId>`; edit: `.../<articleId>/edit`; new draft: `.../new/edit` |",
+    "| Module plugins | Pages live under `/mdl/<module-folder>/…`. Common shapes where a module has them: list `/mdl/<module-folder>`; detail `/mdl/<module-folder>/<id>`; edit `/mdl/<module-folder>/<id>/edit`; settings `/mdl/<module-folder>/settings`. These are conventions, not guarantees. Legacy `/mdl/` links redirect into the Space mirror when that module is Space-placed. Record results from module operations carry a ready `link` — use it verbatim instead of building one. |",
+    "| Knowledge Base (one per space) | `/mdl/knowledge-base` — articles list: `.../articles`; article: `.../<articleId>`; edit: `.../<articleId>/edit`; new draft: `.../new/edit`. Inside a Space the same pages are `/s/<space_key>/kb/…`. Every KB tool result (knowledge base, article, FAQ, category, source) carries a ready `link` in that form — use it verbatim rather than building one. |",
     "",
     "REST APIs use snake_case fields (e.g. `kb_id` UUID in JSON/query). **Routes** use the KB **slug** and article **id** (UUID) in the path. If you lack `kbSlug` or `articleId`, read them from tool or `engentyApi` results — do not guess UUIDs or slugs.",
   ].join("\n");

@@ -7,9 +7,9 @@
 // a result comment that reads like a report and parks the task in `in_review`
 // alongside finished work.
 //
-// Same shape as the routine disposition tokens (routine-disposition.ts), and
-// deliberately NOT routine-only: an ordinary assigned task is exactly where a
-// specialist most often needs something from the person who assigned it.
+// A marker line the model writes and this module strips — cheap and tool-free.
+// An ordinary assigned task is exactly where a specialist most often needs
+// something from the person who assigned it.
 export interface TaskBlockedResult {
   /** The result text with the token line removed. */
   cleanedText: string;

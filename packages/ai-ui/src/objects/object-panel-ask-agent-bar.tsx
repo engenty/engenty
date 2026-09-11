@@ -77,7 +77,7 @@ export function ObjectPanelAskAgentBar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5 border-border/60 border-t bg-background/95 px-3 py-2",
+        "flex flex-wrap items-center gap-1.5 border-border-soft border-t bg-background/95 px-3 py-2",
         className
       )}
     >

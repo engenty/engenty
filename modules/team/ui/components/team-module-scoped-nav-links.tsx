@@ -22,7 +22,7 @@ export function TeamModuleScopedNavLinks() {
   return (
     <nav
       aria-label={t("sidebar.settings_nav_aria")}
-      className="shrink-0 border-border/50 border-t pt-2 pb-2"
+      className="shrink-0 border-border-soft border-t pt-2 pb-2"
     >
       <SidebarGroup className="p-0">
         <SidebarGroupContent>

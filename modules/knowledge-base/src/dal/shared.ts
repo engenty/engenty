@@ -19,6 +19,7 @@ import type {
   KbArticleTemplate,
   KbCategory,
   KbCategoryViewType,
+  KbChunking,
   KbCover,
   KbDisplay,
   KbPageLayoutSettings,
@@ -49,18 +50,11 @@ function parseRootCommentsMode(raw: unknown): KbEffectiveCommentsMode {
 }
 
 export const DEFAULT_KB_SETTINGS: KbSettings = {
-  default_kb_id: null,
   embedding_model: "openai/text-embedding-3-small",
-  auto_generate_summary: true,
-  auto_generate_questions: true,
-  // Mirrors the kbSettingsSchema zod defaults; there is no KV storage for
-  // chunking yet, so these are the effective values everywhere.
-  chunk_strategy: "recursive",
-  chunk_max_length: 1000,
-  chunk_overlap: 100,
   search_vector_min_similarity: 0.45,
   search_verifier_min_query_terms: 3,
   search_verifier_max_candidates: 6,
+  kb_chunking_by_id: {},
   kb_display_by_id: {},
   kb_page_layout_by_id: {},
   sidebar_article_tree_defaults_by_kb: {},
@@ -121,13 +115,14 @@ export function rowToKb(row: Record<string, unknown>): KnowledgeBase {
     id: String(row.id),
     tenant_id: String(row.tenant_id),
     scope_id: String(row.scope_id),
+    space_id: String(row.space_id),
     name: String(row.name),
     slug: String(row.slug),
     description: row.description ? String(row.description) : null,
-    is_default: Boolean(row.is_default),
-    /* Display fields (icon, cover) are not DB columns — populated at API layer. */
+    /* Display + chunking are not DB columns — populated at API layer. */
     icon: null,
     cover: null,
+    chunking: null,
     created_by: row.created_by ? String(row.created_by) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
@@ -151,13 +146,30 @@ export function enrichKbPageLayout(
   return { ...kb, page_layout: layout };
 }
 
-/** Merge display + page layout KV rows onto a KB record. */
+/** Merge display, page layout and chunking KV rows onto a KB record. */
 export function enrichKbFromSettings(
   kb: KnowledgeBase,
   display: KbDisplay | undefined,
-  pageLayout: KbPageLayoutSettings | undefined
+  pageLayout: KbPageLayoutSettings | undefined,
+  chunking?: KbChunking | undefined
 ): KnowledgeBase {
-  return enrichKbPageLayout(enrichKbDisplay(kb, display), pageLayout);
+  return {
+    ...enrichKbPageLayout(enrichKbDisplay(kb, display), pageLayout),
+    chunking: chunking ?? null,
+  };
+}
+
+/** One call for the common "list + settings" shape the routes and tools share. */
+export function enrichKbWithSettings(
+  kb: KnowledgeBase,
+  settings: KbSettings
+): KnowledgeBase {
+  return enrichKbFromSettings(
+    kb,
+    settings.kb_display_by_id[kb.id],
+    settings.kb_page_layout_by_id[kb.id],
+    settings.kb_chunking_by_id?.[kb.id]
+  );
 }
 
 export function rowToTemplate(row: Record<string, unknown>): KbArticleTemplate {

@@ -63,7 +63,7 @@ function SortableCategoryRow({
   } = useSortable({ id: item.slug });
   return (
     <div
-      className="group space-y-1.5 border-border/60 border-b py-2 last:border-b-0"
+      className="group space-y-1.5 border-border-soft border-b py-2 last:border-b-0"
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),

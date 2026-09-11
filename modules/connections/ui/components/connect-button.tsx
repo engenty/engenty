@@ -28,6 +28,13 @@ export interface ConnectButtonProps {
   /** Same-app path the OAuth callback returns to (`?connected=1` / `?error=`). Redirect flow only. */
   redirectTo?: string;
   size?: "sm" | "default";
+  /**
+   * Mount the new account into this space on success (PLAN-spaces.md CN.4
+   * Flow A) — set when the connect was started from inside one, so the user
+   * comes back to a space that can actually use the account. Absent means a
+   * tenant-level connect, which belongs to no space.
+   */
+  spaceId?: string | null;
   variant?: "default" | "outline";
 }
 
@@ -51,6 +58,7 @@ export function ConnectButton({
   onResult,
   redirectTo = "/settings/connections",
   size = "sm",
+  spaceId = null,
   variant = "default",
 }: ConnectButtonProps) {
   const { t } = useTranslation("connections");
@@ -118,6 +126,7 @@ export function ConnectButton({
                 `${window.location.pathname}${window.location.search}`
               : redirectTo,
         sharing,
+        spaceId,
       });
       if (popup) {
         popup.location.replace(authUrl);

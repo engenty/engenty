@@ -12,6 +12,9 @@ import {
   updateOffer,
 } from "./api.js";
 import { ContactOffersTab } from "./components/contact-offers-tab.js";
+import { SpaceDataOfferTab } from "./components/space-data-offer-tab.js";
+import { SpaceDataOffersFolderTab } from "./components/space-data-offers-folder-tab.js";
+import { SpaceDataOffersRootTab } from "./components/space-data-offers-root-tab.js";
 import { createOfferFromLead } from "./lib/create-offer-from-lead.js";
 import { offersLiveBinding } from "./offers-live-binding.js";
 import {
@@ -27,11 +30,65 @@ import { registerOffersObjectWidget } from "./register-object-widget.js";
 const UUID_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
+/**
+ * The space Data pane's slot for an offer bundle.
+ *
+ * Keyed by NODE TYPE, not by node kind: `bundle` is a shape many modules
+ * produce, so only the namespaced type tells an offer from anything else. The
+ * suffix is this module's node type id from `src/space-data/adapter.ts`, kept
+ * as a literal on both sides so apps/ui takes no dependency on this module.
+ */
+const SPACE_DATA_OFFER_SURFACE = "spaces.data.node:offers.offer";
+
+/**
+ * The same slot, for the FOLDER a stage of the pipeline is.
+ *
+ * `spaces.data.folder:<type>` rather than `…node:<type>`: a folder is listed
+ * and a node is read, so the host has two different things to hand a renderer
+ * and cannot use one surface for both. The suffix is `OFFERS_STATUS_NODE_TYPE`
+ * from `src/space-data/adapter.ts`, a literal on both sides for the same reason
+ * the node surface is.
+ */
+const SPACE_DATA_OFFERS_FOLDER_SURFACE = "spaces.data.folder:offers.status";
+
+/** The `Offers` root itself — the pipeline's index, not a list of three names. */
+const SPACE_DATA_OFFERS_ROOT_SURFACE = "spaces.data.folder:offers.root";
+
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(offersLiveBinding);
   setOffersPluginsApi(engenty.plugins);
   registerOffersPdfTemplateUiProvider();
   registerOffersObjectWidget();
+
+  engenty.UI.registerTab({
+    id: "offers-space-data-offer",
+    surface: SPACE_DATA_OFFER_SURFACE,
+    component: SpaceDataOfferTab,
+    label: "Offer",
+    labelKey: "offers:spaceData.tab",
+    icon: DockOffersIcon,
+    order: 100,
+  });
+
+  engenty.UI.registerTab({
+    id: "offers-space-data-folder",
+    surface: SPACE_DATA_OFFERS_FOLDER_SURFACE,
+    component: SpaceDataOffersFolderTab,
+    label: "Offers",
+    labelKey: "offers:spaceData.folder.tab",
+    icon: DockOffersIcon,
+    order: 100,
+  });
+
+  engenty.UI.registerTab({
+    id: "offers-space-data-root",
+    surface: SPACE_DATA_OFFERS_ROOT_SURFACE,
+    component: SpaceDataOffersRootTab,
+    label: "Offers",
+    labelKey: "offers:spaceData.folder.tab",
+    icon: DockOffersIcon,
+    order: 100,
+  });
 
   engenty.i18n.registerNamespace({
     pluginId: "offers",

@@ -18,6 +18,8 @@ export const inboxAttachmentMetaSchema = z.object({
 });
 
 export const inboxThreadSchema = z.object({
+  /** In-app path to this record's page (`/s/<space_key>/<module>/<id>`); set by operations, absent on HTTP rows. */
+  link: z.string().optional(),
   connection_id: z.string(),
   created_at: z.string(),
   id: z.string(),
@@ -131,6 +133,41 @@ export const inboxAccountSchema = z.object({
 
 export const inboxAccountsListResultSchema = z.object({
   accounts: z.array(inboxAccountSchema),
+});
+
+export const inboxAccountBindInputSchema = z.object({
+  connection_id: z.string().min(1),
+  /**
+   * The space the account was placed in. Accepted and unused: a mailbox's sync
+   * state is tenant-wide — which space sees its mail is decided by the mount,
+   * not by a second copy of the sync settings.
+   */
+  space_id: z.string().optional(),
+});
+
+export const inboxAccountBindResultSchema = z.object({
+  /** The sync state row now exists and is enabled for this mailbox. */
+  bound: z.boolean(),
+  connection_id: z.string(),
+  /** Messages the first pull brought in. Zero is a fine answer. */
+  new_messages: z.number(),
+  /** Why the first pull did nothing, when it did nothing. */
+  skipped: z.enum(["autonomous_off", "no_stream", "sync_disabled"]).nullable(),
+  /** The first pull failed; the binding stands and the next sync retries. */
+  sync_error: z.string().nullable(),
+});
+
+/** `inbox_space_mount` — the module's mountOperation; core sends the space. */
+export const inboxSpaceMountInputSchema = z.object({
+  space_id: z.string().min(1),
+});
+
+export const inboxSpaceMountResultSchema = z.object({
+  /** One entry per mailbox the space has placed, bound as `inbox_account_bind` binds. */
+  bound: z.array(inboxAccountBindResultSchema),
+  /** `mailbox` when the space has placed no mail account yet. */
+  needs: z.array(z.string()),
+  ready: z.boolean(),
 });
 
 export const inboxSyncSettingsInputSchema = z.object({

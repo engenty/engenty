@@ -80,7 +80,7 @@ function cssSelector(el: Element): string {
 }
 
 /* ========================================================================== */
-/*  browser_screenshot                                                         */
+/*  ui_screenshot                                                         */
 /* ========================================================================== */
 
 interface ScreenshotEntry {
@@ -167,7 +167,7 @@ export function handleBrowserScreenshot(): JsonValue {
 }
 
 /* ========================================================================== */
-/*  browser_dom_snapshot                                                        */
+/*  ui_dom_snapshot                                                        */
 /* ========================================================================== */
 
 interface DomSnapshotEntry {
@@ -258,7 +258,7 @@ export function handleBrowserDomSnapshot(input: {
 }
 
 /* ========================================================================== */
-/*  browser_scroll                                                             */
+/*  ui_scroll                                                             */
 /* ========================================================================== */
 
 /**
@@ -414,7 +414,7 @@ export function handleBrowserScroll(input: {
 }
 
 /* ========================================================================== */
-/*  browser_click                                                              */
+/*  ui_click                                                              */
 /* ========================================================================== */
 
 export function handleBrowserClick(input: {
@@ -458,7 +458,7 @@ export function handleBrowserClick(input: {
 }
 
 /* ========================================================================== */
-/*  browser_hover                                                              */
+/*  ui_hover                                                              */
 /* ========================================================================== */
 
 export function handleBrowserHover(input: {
@@ -494,7 +494,7 @@ export function handleBrowserHover(input: {
 }
 
 /* ========================================================================== */
-/*  browser_focus                                                              */
+/*  ui_focus                                                              */
 /* ========================================================================== */
 
 export function handleBrowserFocus(input: { selector: string }): JsonValue {
@@ -514,7 +514,7 @@ export function handleBrowserFocus(input: { selector: string }): JsonValue {
 }
 
 /* ========================================================================== */
-/*  browser_input                                                              */
+/*  ui_input                                                              */
 /* ========================================================================== */
 
 export function handleBrowserInput(input: {

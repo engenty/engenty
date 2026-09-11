@@ -26,6 +26,7 @@ import {
   registerKbContextGraph,
   registerKbGraphRagSearchOperation,
 } from "./services/kb-graph-rag.js";
+import { createKnowledgeBaseSpaceDataAdapter } from "./space-data/adapter.js";
 
 // `knowledge-base.article.{created,updated,deleted}` payload contract.
 // `kb_id` rides along for telemetry / future filtering — the search index
@@ -113,7 +114,7 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
   };
 
   // Per-tenant repo factory shared by HTTP routes, gateway operations, and
-  // the search provider's verifier / multi-KB fan-out paths. Every caller
+  // the search provider's verifier path. Every caller
   // knows its tenant (auth, retrieval context, or webhook-resolved row), so
   // the repos always ride a tenant-locked handle.
   const repoFactory = (tenantId: string, scopeId: string) =>
@@ -142,6 +143,11 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
   });
   kbSource.operation.filtersSchema = kbArticlesSearchFiltersSchema;
   server.registerRetrievalSource(kbSource);
+
+  // The knowledge base's face in the space Data tree (PLAN-space-data.md
+  // Phase K). Optional on the host the same way every other adapter is, so a
+  // host without the space data routes still loads this module.
+  server.registerSpaceDataAdapter?.(createKnowledgeBaseSpaceDataAdapter());
   const searchProvider = server
     .getRetrievalService()
     ?.getProvider(KB_ARTICLE_SOURCE_TYPE) as KbArticlesSearchProvider | null;

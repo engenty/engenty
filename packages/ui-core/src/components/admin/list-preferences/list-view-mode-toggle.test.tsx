@@ -30,6 +30,18 @@ describe("ListViewModeToggle", () => {
     expect(onChange).toHaveBeenCalledWith("cards");
   });
 
+  it("puts cards first — it is the default view", () => {
+    render(
+      <ListViewModeToggle labels={labels} onChange={() => {}} value="cards" />
+    );
+
+    expect(
+      screen
+        .getAllByRole("button")
+        .map((el) => el.getAttribute("aria-label") ?? el.textContent)
+    ).toEqual([labels.cards, labels.table]);
+  });
+
   it("marks the active segment with aria-pressed", () => {
     render(
       <ListViewModeToggle labels={labels} onChange={() => {}} value="table" />

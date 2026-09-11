@@ -2,6 +2,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, cn } from "@engenty/ui-core";
 import {
   type BlockedReason,
+  type BlockedReasonHints,
   blockedReason,
 } from "../../src/domain/blocked-reason.js";
 import type { Task, TaskStatusDefinition } from "../../src/schema/types.js";
@@ -22,12 +23,13 @@ type BlockedReasonTask = Pick<
 
 export function resolveBlockedReasonSuffix(
   task: BlockedReasonTask,
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  hints: BlockedReasonHints = {}
 ): string | null {
   if (task.status !== "blocked") {
     return null;
   }
-  const reason: BlockedReason = blockedReason(task);
+  const reason: BlockedReason = blockedReason(task, hints);
   if (reason === "dependencies") {
     const count = (task.blocked_by_task_ids ?? []).length;
     return t("status.blockedSuffix.dependencies", { count });
@@ -38,8 +40,10 @@ export function resolveBlockedReasonSuffix(
 interface TaskStatusBadgeProps {
   compact?: boolean;
   definitions?: TaskStatusDefinition[];
+  /** What only the caller can see — e.g. a question the task is waiting on. */
+  hints?: BlockedReasonHints;
   status: string;
-  /** When status is blocked, include why (approval / deps / failed). */
+  /** When status is blocked, include why (approval / deps / question / failed). */
   task?: BlockedReasonTask;
 }
 
@@ -47,6 +51,7 @@ export function TaskStatusBadge({
   status,
   definitions = [],
   compact,
+  hints,
   task,
 }: TaskStatusBadgeProps) {
   const { t } = useTranslation("tasks");
@@ -55,7 +60,7 @@ export function TaskStatusBadge({
   const toneClass = resolveTaskStatusPillTone(def?.color);
   const suffix =
     task && status === "blocked"
-      ? resolveBlockedReasonSuffix({ ...task, status }, t)
+      ? resolveBlockedReasonSuffix({ ...task, status }, t, hints)
       : null;
 
   return (

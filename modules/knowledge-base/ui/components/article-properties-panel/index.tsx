@@ -75,7 +75,6 @@ export function ArticlePropertiesPanel({
   article,
   collapseUnpinnedMetadata = false,
   disabled,
-  kbSlug,
   onCommitTagIds,
   propertyDefinitions,
   onPatchArticle,
@@ -84,7 +83,6 @@ export function ArticlePropertiesPanel({
   /** When true, only KB compact-pin rows (`show_in_compact`) show until Show more. */
   collapseUnpinnedMetadata?: boolean;
   disabled?: boolean;
-  kbSlug: string;
   /** Article edit draft: apply tag selection locally until page save. */
   onCommitTagIds?: (tagIds: string[]) => void;
   propertyDefinitions: ArticlePropertyDefinition[];
@@ -183,10 +181,7 @@ export function ArticlePropertiesPanel({
   );
 
   const onAddPropertyClick = () => {
-    if (!kbSlug) {
-      return;
-    }
-    navigate(`${kbScopedSettingsPath(kbSlug)}#kb-article-properties`);
+    navigate(`${kbScopedSettingsPath()}#kb-article-properties`);
   };
 
   /** Add-property goes to KB settings — only when full metadata is shown (expanded or no collapse). */

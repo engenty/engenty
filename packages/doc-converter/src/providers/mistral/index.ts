@@ -8,6 +8,7 @@ import type {
   ConversionResult,
   DocConverterProvider,
 } from "../../interface.js";
+import { markdownFromPagedParseResult } from "../../page-break.js";
 
 const logger = createLogger({ name: "doc-converter-mistral" });
 
@@ -104,11 +105,13 @@ export class MistralOcrProvider implements DocConverterProvider {
 
     const result = (await response.json()) as MistralOcrResponse;
     const pages = Array.isArray(result.pages) ? result.pages : [];
-    const markdown = pages
-      .map((p) => (typeof p.markdown === "string" ? p.markdown : ""))
-      .filter(Boolean)
-      .join("\n\n")
-      .trim();
+    const markdown = markdownFromPagedParseResult({
+      pages: pages.map((page, index) => ({
+        markdown: page.markdown,
+        number: (typeof page.index === "number" ? page.index : index) + 1,
+      })),
+      total: pages.length,
+    });
 
     if (!markdown) {
       logger.warn("Mistral OCR: empty markdown in successful response", {

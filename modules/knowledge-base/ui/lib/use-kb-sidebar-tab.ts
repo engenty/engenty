@@ -1,30 +1,31 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { isKbHubChatRoute } from "../kb-paths.js";
 import {
   isKbSidebarArticleRoute,
   isKbSidebarFaqRoute,
   isKbSidebarFavoritesRoute,
+  isKbSidebarSourcesRoute,
 } from "./kb-sidebar-paths.js";
 
-export type KbSidebarTab = "articles" | "faqs" | "favorites" | "chat";
+export type KbSidebarTab = "articles" | "faqs" | "sources" | "favorites";
 
 const DEFAULT_TAB: KbSidebarTab = "articles";
 
-function storageKey(kbSlug: string): string {
-  return `engenty.kb-sidebar-tab.${kbSlug}`;
+function storageKey(kbId: string): string {
+  return `engenty.kb-sidebar-tab.${kbId}`;
 }
 
-function loadStoredTab(kbSlug: string): KbSidebarTab | null {
-  if (typeof window === "undefined" || !kbSlug) {
+function loadStoredTab(kbId: string): KbSidebarTab | null {
+  if (typeof window === "undefined" || !kbId) {
     return null;
   }
   try {
-    const raw = window.localStorage.getItem(storageKey(kbSlug));
+    const raw = window.localStorage.getItem(storageKey(kbId));
     return raw === "faqs" ||
       raw === "articles" ||
-      raw === "favorites" ||
-      raw === "chat"
+      raw === "sources" ||
+      raw === "favorites"
       ? raw
       : null;
   } catch {
@@ -32,43 +33,45 @@ function loadStoredTab(kbSlug: string): KbSidebarTab | null {
   }
 }
 
-function saveStoredTab(kbSlug: string, tab: KbSidebarTab): void {
-  if (typeof window === "undefined" || !kbSlug) {
+function saveStoredTab(kbId: string, tab: KbSidebarTab): void {
+  if (typeof window === "undefined" || !kbId) {
     return;
   }
   try {
-    window.localStorage.setItem(storageKey(kbSlug), tab);
+    window.localStorage.setItem(storageKey(kbId), tab);
   } catch {
     // quota exceeded or private mode
   }
 }
 
-export function useKbSidebarTab(kbSlug: string) {
-  const { pathname } = useLocation();
+export function useKbSidebarTab(kbId: string) {
+  // Canonical, not raw: in a space this is `/s/<key>/kb/…`, and
+  // every matcher below is written against `/mdl/knowledge-base/…`.
+  const pathname = canonicalModulePathname(useLocation().pathname);
   const [tab, setTabState] = useState<KbSidebarTab>(
-    () => loadStoredTab(kbSlug) ?? DEFAULT_TAB
+    () => loadStoredTab(kbId) ?? DEFAULT_TAB
   );
   const isFirstMount = useRef(true);
 
   useEffect(() => {
-    if (isKbSidebarFaqRoute(pathname, kbSlug)) {
+    if (isKbSidebarFaqRoute(pathname)) {
       setTabState("faqs");
-    } else if (isKbSidebarFavoritesRoute(pathname, kbSlug)) {
+    } else if (isKbSidebarSourcesRoute(pathname)) {
+      setTabState("sources");
+    } else if (isKbSidebarFavoritesRoute(pathname)) {
       setTabState("favorites");
-    } else if (isKbSidebarArticleRoute(pathname, kbSlug)) {
+    } else if (isKbSidebarArticleRoute(pathname)) {
       setTabState("articles");
-    } else if (isKbHubChatRoute(pathname)) {
-      setTabState("chat");
     }
-  }, [kbSlug, pathname]);
+  }, [kbId, pathname]);
 
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
       return;
     }
-    saveStoredTab(kbSlug, tab);
-  }, [kbSlug, tab]);
+    saveStoredTab(kbId, tab);
+  }, [kbId, tab]);
 
   const setTab = useCallback((next: KbSidebarTab) => {
     setTabState(next);

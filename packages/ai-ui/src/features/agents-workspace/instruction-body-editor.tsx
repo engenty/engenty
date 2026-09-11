@@ -17,9 +17,9 @@ export function InstructionModeToggle({
   t: (key: string) => string;
 }) {
   return (
-    <div className="flex rounded-md border bg-muted/20 p-0.5">
+    <div className="flex h-7 shrink-0 items-center rounded-md border bg-muted/20 p-px">
       <Button
-        className="h-7 px-2 text-xs"
+        className="h-6 px-2 text-xs"
         onClick={() => onModeChange("wysiwyg")}
         size="sm"
         type="button"
@@ -28,7 +28,7 @@ export function InstructionModeToggle({
         {t("instructions.modeWysiwyg")}
       </Button>
       <Button
-        className="h-7 px-2 text-xs"
+        className="h-6 px-2 text-xs"
         onClick={() => onModeChange("source")}
         size="sm"
         type="button"

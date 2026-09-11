@@ -7,16 +7,17 @@ import { assertValidAgentSkillName } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { Hono } from "hono";
 
-import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
+import {
+  EngentyCoreClient,
+  getEngentyCoreBaseUrlFromEnv,
+} from "../ai/core-http-client.js";
 import { type AiSessionScope, scopeAccessToken } from "../ai/sessions.js";
 import {
   createDefaultSkillRegistryProviderRegistry,
   type SkillRegistryProviderRegistry,
 } from "../ai/skills/providers/registry.js";
-import {
-  parseSkillMarkdown,
-  type SkillFrontmatter,
-} from "../ai/skills/skill-frontmatter.js";
+import { installSkillFromRegistryAndAttach } from "../ai/skills/registry-install.js";
+import type { SkillFrontmatter } from "../ai/skills/skill-frontmatter.js";
 import {
   createSkillProposalStore,
   type SkillProposalStore,
@@ -30,6 +31,8 @@ import {
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { syncTenantManagedSkills } from "../ai/workspace/tenant-skills-seed.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import { createRegistryStore } from "../dal/registry/index.js";
+import { createDbSourceFromEnv } from "../infra/tenant-db.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
 
@@ -283,32 +286,41 @@ export function registerSkillsRoutes(
     }
     try {
       const body = (await c.req.json()) as {
+        agentId?: string;
+        attach?: { agentId?: string; spaceId?: string };
         provider?: string;
         ref?: { id?: string };
+        spaceId?: string;
       };
       const provider = providerRegistry.get(body.provider ?? "");
       const refId = body.ref?.id;
       if (!(provider && refId)) {
         return c.json({ error: "skills.invalidInstallRequest" }, 400);
       }
-      const fetched = await provider.fetchSkill({ id: refId });
-      const parsed = parseSkillMarkdown(fetched.skillMarkdown);
-      assertValidAgentSkillName(fetched.name);
-      const saved = await storage.upsertCustomSkill({
-        body: parsed.body,
-        frontmatter: {
-          ...parsed.frontmatter,
-          engenty: {
-            ...parsed.frontmatter.engenty,
-            originRef: refId,
-            source: provider.id,
-            ...(fetched.sha ? { installedSha: fetched.sha } : {}),
-          },
-        },
-        files: decodeFileInputs(fetched.files),
-        name: fetched.name,
+      const accessToken = scopeAccessToken(resolved.scope)?.trim();
+      const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+      const core =
+        accessToken && coreBaseUrl
+          ? new EngentyCoreClient({ accessToken, coreBaseUrl })
+          : null;
+      const dbSource = createDbSourceFromEnv();
+      const registryStore = dbSource ? createRegistryStore(dbSource) : null;
+      const spaceId = body.attach?.spaceId ?? body.spaceId;
+      const agentId = body.attach?.agentId ?? body.agentId;
+      const installed = await installSkillFromRegistryAndAttach({
+        provider,
+        refId,
+        storage,
+        tenantId: resolved.scope.tenantId,
+        core,
+        registryStore,
+        ...(spaceId ? { spaceId } : {}),
+        ...(agentId ? { agentId } : {}),
       });
-      return c.json({ skill: saved });
+      return c.json({
+        attached: installed.attached,
+        skill: installed.skill,
+      });
     } catch (err) {
       return handleRouteError(
         c,
@@ -399,6 +411,40 @@ export function registerSkillsRoutes(
       return handleRouteError(
         c,
         "failed to read skill file",
+        "agent_skills.internalError",
+        err
+      );
+    }
+  });
+
+  app.put(`${AI_BASE_PATH}/skills/:name/files/:path{.+}`, async (c) => {
+    const resolved = await resolveScope(c, scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const storage = buildSkillStorage(resolved.scope);
+    if (!storage) {
+      return c.json({ error: "agent_skills.unconfiguredCore" }, 503);
+    }
+    try {
+      const name = c.req.param("name");
+      const relativePath = c.req.param("path");
+      assertValidAgentSkillName(name);
+      const body = await c.req.text();
+      await storage.writeCustomSkillFile({
+        bytes: new TextEncoder().encode(body),
+        contentType: "text/plain; charset=utf-8",
+        name,
+        path: relativePath,
+      });
+      return c.json({ path: relativePath });
+    } catch (err) {
+      if (err instanceof SkillReadOnlyError) {
+        return c.json({ error: "skills.readOnly" }, 409);
+      }
+      return handleRouteError(
+        c,
+        "failed to write skill file",
         "agent_skills.internalError",
         err
       );

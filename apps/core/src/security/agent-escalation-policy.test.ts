@@ -5,6 +5,7 @@ import { createAgentEscalationPolicy } from "./agent-escalation-policy.js";
 function input(overrides: {
   agentId?: string;
   goalId?: string;
+  spaceId?: string;
   actingForUserId?: string;
   requiredCapabilities?: string[];
 }): PluginPolicyInput {
@@ -19,6 +20,7 @@ function input(overrides: {
     auth: {
       agentId: overrides.agentId,
       goalId: overrides.goalId,
+      spaceId: overrides.spaceId,
       actingForUserId: overrides.actingForUserId,
       audience: [],
       authMethod: "oauth",
@@ -96,5 +98,44 @@ describe("createAgentEscalationPolicy", () => {
     const decision = await policy(input({ agentId: "a1" }));
     expect(decision?.action).toBe("require_approval");
     expect(listGoalGrantCapabilities).not.toHaveBeenCalled();
+  });
+
+  it("allows when a space mount covers the gap", async () => {
+    const resolveSpaceCapabilities = vi.fn(() =>
+      Promise.resolve(["module.projects.read", "module.projects.write"])
+    );
+    const policy = createAgentEscalationPolicy({
+      resolveAgentCapabilities: () =>
+        Promise.resolve(["module.tasks.read", "module.tasks.write"]),
+      listGoalGrantCapabilities: () => Promise.resolve([]),
+      resolveSpaceCapabilities,
+    });
+    expect(
+      await policy(
+        input({
+          agentId: "a1",
+          spaceId: "s1",
+          requiredCapabilities: ["module.projects.write"],
+        })
+      )
+    ).toBeNull();
+    expect(resolveSpaceCapabilities).toHaveBeenCalledWith("t1", "s1");
+  });
+
+  it("does not read space caps when no space id is set", async () => {
+    const resolveSpaceCapabilities = vi.fn();
+    const policy = createAgentEscalationPolicy({
+      resolveAgentCapabilities: () => Promise.resolve(["module.tasks.read"]),
+      listGoalGrantCapabilities: () => Promise.resolve([]),
+      resolveSpaceCapabilities,
+    });
+    const decision = await policy(
+      input({
+        agentId: "a1",
+        requiredCapabilities: ["module.projects.write"],
+      })
+    );
+    expect(decision?.action).toBe("require_approval");
+    expect(resolveSpaceCapabilities).not.toHaveBeenCalled();
   });
 });

@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GoalStatus } from "../../src/schema/types.js";
 import {
   DEFAULT_TASKS_SIDEBAR_PREFS,
-  type GoalsSidebarGroupBy,
-  type GoalsSidebarSortBy,
-  type RoutinesSidebarEnabledFilter,
-  type RoutinesSidebarGroupBy,
-  type RoutinesSidebarSortBy,
   type TasksSidebarGroupBy,
   type TasksSidebarPrefs,
   type TasksSidebarSortBy,
-  type TasksSidebarTab,
   type TasksSidebarTasksPrefs,
 } from "./tasks-sidebar-organization.js";
 
@@ -42,20 +35,12 @@ function saveStoredPrefs(prefs: TasksSidebarPrefs): void {
   }
 }
 
-const VALID_TABS = new Set<TasksSidebarTab>(["tasks", "goals", "routines"]);
 const VALID_TASK_GROUP_BY = new Set<TasksSidebarGroupBy>([
   "none",
   "status",
   "priority",
   "assignee",
-  "goal",
   "due_date",
-]);
-const VALID_GOAL_GROUP_BY = new Set<GoalsSidebarGroupBy>(["none", "status"]);
-const VALID_ROUTINE_GROUP_BY = new Set<RoutinesSidebarGroupBy>([
-  "none",
-  "source",
-  "enabled",
 ]);
 const VALID_TASK_SORT_BY = new Set<TasksSidebarSortBy>([
   "updated_at",
@@ -63,29 +48,6 @@ const VALID_TASK_SORT_BY = new Set<TasksSidebarSortBy>([
   "title",
   "status",
   "identifier",
-]);
-const VALID_GOAL_SORT_BY = new Set<GoalsSidebarSortBy>([
-  "updated_at",
-  "created_at",
-  "title",
-  "status",
-]);
-const VALID_ROUTINE_SORT_BY = new Set<RoutinesSidebarSortBy>([
-  "name",
-  "last_run_at",
-  "enabled",
-]);
-const VALID_GOAL_STATUS = new Set<GoalStatus | "all">([
-  "all",
-  "planned",
-  "active",
-  "achieved",
-  "cancelled",
-]);
-const VALID_ROUTINE_ENABLED = new Set<RoutinesSidebarEnabledFilter>([
-  "all",
-  "enabled",
-  "disabled",
 ]);
 
 function mergeTasksPrefs(
@@ -121,66 +83,10 @@ function mergeTasksPrefs(
   };
 }
 
-function mergeGoalsPrefs(
-  stored: Partial<TasksSidebarPrefs["goals"]> | undefined
-): TasksSidebarPrefs["goals"] {
-  const defaults = DEFAULT_TASKS_SIDEBAR_PREFS.goals;
-  return {
-    groupBy:
-      stored?.groupBy && VALID_GOAL_GROUP_BY.has(stored.groupBy)
-        ? stored.groupBy
-        : defaults.groupBy,
-    sortBy:
-      stored?.sortBy && VALID_GOAL_SORT_BY.has(stored.sortBy)
-        ? stored.sortBy
-        : defaults.sortBy,
-    sortOrder:
-      stored?.sortOrder === "asc" || stored?.sortOrder === "desc"
-        ? stored.sortOrder
-        : defaults.sortOrder,
-    status:
-      stored?.status && VALID_GOAL_STATUS.has(stored.status)
-        ? stored.status
-        : defaults.status,
-  };
-}
-
-function mergeRoutinesPrefs(
-  stored: Partial<TasksSidebarPrefs["routines"]> | undefined
-): TasksSidebarPrefs["routines"] {
-  const defaults = DEFAULT_TASKS_SIDEBAR_PREFS.routines;
-  return {
-    enabled:
-      stored?.enabled && VALID_ROUTINE_ENABLED.has(stored.enabled)
-        ? stored.enabled
-        : defaults.enabled,
-    groupBy:
-      stored?.groupBy && VALID_ROUTINE_GROUP_BY.has(stored.groupBy)
-        ? stored.groupBy
-        : defaults.groupBy,
-    sortBy:
-      stored?.sortBy && VALID_ROUTINE_SORT_BY.has(stored.sortBy)
-        ? stored.sortBy
-        : defaults.sortBy,
-    sortOrder:
-      stored?.sortOrder === "asc" || stored?.sortOrder === "desc"
-        ? stored.sortOrder
-        : defaults.sortOrder,
-  };
-}
-
 function mergePrefs(
   stored: Partial<TasksSidebarPrefs> | null
 ): TasksSidebarPrefs {
-  return {
-    tab:
-      stored?.tab && VALID_TABS.has(stored.tab)
-        ? stored.tab
-        : DEFAULT_TASKS_SIDEBAR_PREFS.tab,
-    tasks: mergeTasksPrefs(stored?.tasks),
-    goals: mergeGoalsPrefs(stored?.goals),
-    routines: mergeRoutinesPrefs(stored?.routines),
-  };
+  return { tasks: mergeTasksPrefs(stored?.tasks) };
 }
 
 export function useTasksSidebarPrefs() {
@@ -197,10 +103,6 @@ export function useTasksSidebarPrefs() {
     saveStoredPrefs(prefs);
   }, [prefs]);
 
-  const setTab = useCallback((tab: TasksSidebarTab) => {
-    setPrefs((current) => ({ ...current, tab }));
-  }, []);
-
   const updateTasksPrefs = useCallback(
     (updater: (current: TasksSidebarTasksPrefs) => TasksSidebarTasksPrefs) => {
       setPrefs((current) => ({
@@ -211,39 +113,5 @@ export function useTasksSidebarPrefs() {
     []
   );
 
-  const updateGoalsPrefs = useCallback(
-    (
-      updater: (
-        current: TasksSidebarPrefs["goals"]
-      ) => TasksSidebarPrefs["goals"]
-    ) => {
-      setPrefs((current) => ({
-        ...current,
-        goals: updater(current.goals),
-      }));
-    },
-    []
-  );
-
-  const updateRoutinesPrefs = useCallback(
-    (
-      updater: (
-        current: TasksSidebarPrefs["routines"]
-      ) => TasksSidebarPrefs["routines"]
-    ) => {
-      setPrefs((current) => ({
-        ...current,
-        routines: updater(current.routines),
-      }));
-    },
-    []
-  );
-
-  return {
-    prefs,
-    setTab,
-    updateGoalsPrefs,
-    updateRoutinesPrefs,
-    updateTasksPrefs,
-  };
+  return { prefs, updateTasksPrefs };
 }

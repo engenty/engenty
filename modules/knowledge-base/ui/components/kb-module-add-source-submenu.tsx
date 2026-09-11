@@ -25,10 +25,8 @@ import { mergeKbSourceAdaptersForPicker } from "../kb-source-adapters-merge.js";
 import { sourceAdaptersQueryOptions } from "../queries.js";
 
 export function KbModuleAddSourceSubmenu({
-  kbSlug,
   withShellItemProps = false,
 }: {
-  kbSlug: string;
   withShellItemProps?: boolean;
 }) {
   const { t } = useTranslation("kb");
@@ -41,7 +39,7 @@ export function KbModuleAddSourceSubmenu({
   const itemProps = withShellItemProps ? shellSecondaryNavItemProps : {};
 
   const openPreset = (preset: KbOpenSourceAddPreset) => {
-    navigate(kbSourcesPath(kbSlug), {
+    navigate(kbSourcesPath(), {
       state: kbOpenSourceAddLocationState(preset),
     });
   };

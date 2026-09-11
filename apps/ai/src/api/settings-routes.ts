@@ -15,9 +15,14 @@ import {
   TENANT_AI_CONFIG_KEY,
   type TenantAiSettings,
 } from "@engenty/ai-core";
+import type {
+  AgentApprovalMode,
+  ComputerNetworkTier,
+} from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { Hono } from "hono";
+import { resolveSpaceComputerNetworkTier } from "../ai/sandbox/sandbox-env.js";
 import { resolveAgentMaxStepsWithSource } from "../ai/sessions/max-steps.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import { getTenantDbFactoryFromEnv } from "../infra/tenant-db.js";
@@ -128,6 +133,45 @@ export function registerAiSettingsRoutes(
         },
       },
       doc_converter: settings.doc_converter ?? null,
+      // What a space's "Default" approval row actually resolves to — inherit
+      // is a named choice, not a ceiling.
+      agent_approval: {
+        mode: approvalModeEntry(settings.agent_approval?.mode ?? null),
+      },
+      // What a space's "Host default" computer-reach row resolves to. Env
+      // only: the machine is one per space and its network is fixed by
+      // whichever run creates it, so there is no tenant layer to read.
+      space_computer: { network: spaceComputerNetworkEntry() },
     });
   });
+}
+
+interface ResolvedApprovalModeEntry {
+  source: AiSettingSource;
+  /** Raw tenant-pinned mode, or null when nothing is set. */
+  tenant: AgentApprovalMode | null;
+  value: AgentApprovalMode;
+}
+
+function approvalModeEntry(
+  tenant: AgentApprovalMode | null
+): ResolvedApprovalModeEntry {
+  return {
+    source: tenant ? "tenant" : "default",
+    tenant,
+    value: tenant ?? "manual",
+  };
+}
+
+interface ResolvedNetworkTierEntry {
+  source: AiSettingSource;
+  value: ComputerNetworkTier;
+}
+
+function spaceComputerNetworkEntry(): ResolvedNetworkTierEntry {
+  const pinned = readEnv("ENGENTY_SPACE_COMPUTER_NETWORK_TIER")?.trim();
+  return {
+    source: pinned === "none" || pinned === "egress" ? "platform" : "default",
+    value: resolveSpaceComputerNetworkTier(),
+  };
 }

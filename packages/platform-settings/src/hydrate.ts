@@ -38,8 +38,16 @@ export async function hydratePlatformSettingsIntoEnv(params: {
         return;
       }
       const value = entry?.value;
-      if (typeof value === "string" && value.length > 0) {
-        env[key] = value;
+      // Booleans and numbers hydrate too: process.env holds strings, and the
+      // readers (`envIsTruthy`, `Number(...)`) parse them back. Without this a
+      // boolean toggle saved in the Setup UI never reached the process — the
+      // row was there, the env stayed unset.
+      const text =
+        typeof value === "boolean" || typeof value === "number"
+          ? String(value)
+          : value;
+      if (typeof text === "string" && text.length > 0) {
+        env[key] = text;
         hydrated.push(key);
       }
     })

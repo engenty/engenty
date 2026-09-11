@@ -9,8 +9,7 @@ Planning lives in [`dev/`](./dev/README.md). **Handover:** [PLAN.md § Handover 
 - **Card items use `bg-card` only — no border.** Never add `border` or `border-border/*` classes to activity `<li>` card elements or property sidebar rows (`TaskPropertyRow`). Use `shadow-sm` for elevation. Scroll regions that contain cards need horizontal padding (`px-1.5` / `-mx-1.5`) so shadows are not clipped by `overflow-y-auto`.
 - **Status pill rows must be single-line.** Status change messages use `@container` on the activity card: `@min-[26rem]:` keeps actor + status pills + time on one flex row; below that breakpoint use two lines (name/time, then action). Pills use `gap-x-1.5`, compact `text-xxs`, no `truncate`.
 
-- **Canonical work artefact:** `module_tasks.tasks` with identifier `ENG-N`
-- **Goals:** `module_tasks.goals` (Ziele)
+- **Canonical work item:** `module_tasks.tasks` with identifier `ENG-N` — a work item only. The canonical *job* is `ai.routines`; the canonical *execution* is the run. See [work-model.md](../../docs/content/dev/work-model.md).
 - **Plugin links:** `task_contexts` — projects uses `context_type: "project"`
 - **Do not** add task tables to other modules; call `tasks.*` operations
 - **Projects cutover:** Phase 7 only — see [phase-07-projects-brutal-cutover.md](./dev/phase-07-projects-brutal-cutover.md)

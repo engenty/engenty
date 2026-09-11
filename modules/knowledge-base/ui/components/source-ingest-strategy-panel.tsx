@@ -11,7 +11,7 @@ import {
   Textarea,
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
-import { BookOpen, Bot, Check, FileText } from "lucide-react";
+import { BookOpen, Bot, Files, FileText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -20,7 +20,6 @@ import {
   type KbArticleTemplate,
   type KbSourceItem,
   type KbTemplateBindingMode,
-  type KbTemplateContentMode,
   kbTemplateHasContentStructure,
 } from "../../src/schema/types.js";
 import {
@@ -38,7 +37,15 @@ import {
   kbTemplatesQueryOptions,
   useKbSourceMutations,
 } from "../queries.js";
-import { SourceAgenticIngestPanel } from "./source-agentic-ingest-panel.js";
+import {
+  IngestActiveSwitch,
+  SourceAgenticIngestPanel,
+} from "./source-agentic-ingest-panel.js";
+import {
+  type KbIngestContentOptions,
+  SourceIngestOptions,
+} from "./source-ingest-options.js";
+import { SourceTemplateSuggestion } from "./source-template-suggestion.js";
 
 function countIngestReadyItems(items: KbSourceItem[]) {
   const active = items.filter((item) => item.status === "active");
@@ -54,7 +61,6 @@ function countIngestReadyItems(items: KbSourceItem[]) {
 interface Props {
   ingestConfig?: KbSourceIngestConfig;
   kbId: string;
-  kbSlug: string;
   sourceId: string;
   syncRunning?: boolean;
 }
@@ -62,7 +68,6 @@ interface Props {
 export function SourceIngestStrategyPanel({
   ingestConfig,
   kbId,
-  kbSlug,
   sourceId,
   syncRunning = false,
 }: Props) {
@@ -70,16 +75,34 @@ export function SourceIngestStrategyPanel({
   const navigate = useNavigate();
   const { update: updateSourceMut } = useKbSourceMutations();
 
-  const [strategy, setStrategy] = useState<KbSourceIngestStrategy>("articles");
+  // Two separate decisions: WHO authors (we do, or an agent), and — when we
+  // do — how many articles come out. Collapsing them into one card row is what
+  // made "Artikel erstellen" and "Zusammenfassung" look like rival strategies
+  // when they only ever differed in grouping.
+  const [agentic, setAgentic] = useState(false);
+  const [scope, setScope] = useState<"per_entry" | "per_source">("per_entry");
+  const strategy: KbSourceIngestStrategy = agentic ? "agentic" : scope;
   const [parentArticleId, setParentArticleId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [templateMode, setTemplateMode] =
     useState<KbTemplateBindingMode>("inherit");
   const [templateId, setTemplateId] = useState<string>("");
   const [templateTouched, setTemplateTouched] = useState(false);
-  const [contentMode, setContentMode] =
-    useState<KbTemplateContentMode>("full_content");
+  const [content, setContent] = useState<KbIngestContentOptions>({
+    attachOriginal: false,
+    includeFullContent: true,
+    includeQuestions: false,
+    includeSummary: false,
+    splitLongArticles: false,
+  });
   const [instructions, setInstructions] = useState("");
+  const [agenticActive, setAgenticActive] = useState(false);
+  const [authoredActive, setAuthoredActive] = useState(false);
+
+  useEffect(() => {
+    setAgenticActive(ingestConfig?.agentic_active ?? false);
+    setAuthoredActive(ingestConfig?.authored_active ?? false);
+  }, [ingestConfig?.agentic_active, ingestConfig?.authored_active]);
 
   useEffect(() => {
     setCategoryId(ingestConfig?.category_id ?? "");
@@ -88,6 +111,20 @@ export function SourceIngestStrategyPanel({
   useEffect(() => {
     setInstructions(ingestConfig?.agentic_instructions ?? "");
   }, [ingestConfig?.agentic_instructions]);
+
+  useEffect(() => {
+    if (!ingestConfig) {
+      return;
+    }
+    const includeSummary = ingestConfig.include_summary ?? false;
+    setContent({
+      attachOriginal: ingestConfig.attach_original ?? false,
+      includeFullContent: ingestConfig.include_full_content ?? !includeSummary,
+      includeQuestions: ingestConfig.include_questions ?? false,
+      includeSummary,
+      splitLongArticles: ingestConfig.split_long_articles ?? false,
+    });
+  }, [ingestConfig]);
 
   useEffect(() => {
     setParentArticleId(ingestConfig?.parent_article_id ?? "");
@@ -168,14 +205,6 @@ export function SourceIngestStrategyPanel({
     setTemplateId("");
   }, [categoryId, templateTouched]);
 
-  useEffect(() => {
-    setContentMode(
-      selectedTemplateHasStructure
-        ? "template_before_full_content"
-        : "full_content"
-    );
-  }, [selectedTemplateHasStructure]);
-
   const { data: sourceItemsPage } = useQuery(
     kbSourceItemsQueryOptions({
       page: 1,
@@ -214,6 +243,22 @@ export function SourceIngestStrategyPanel({
     [sourceId, t, updateSourceMut]
   );
 
+  const persistActive = useCallback(
+    (patch: { agentic_active?: boolean; authored_active?: boolean }) => {
+      updateSourceMut.mutate(
+        { id: sourceId, input: { ingest_config: patch } },
+        {
+          onError: (err) => {
+            toast.error(
+              err instanceof Error ? err.message : t("sources.save_failed")
+            );
+          },
+        }
+      );
+    },
+    [sourceId, t, updateSourceMut]
+  );
+
   const ingestMutation = useMutation({
     mutationFn: (opts: IngestKbSourceOptions) => ingestKbSource(sourceId, opts),
     onSuccess: (result) => {
@@ -239,8 +284,8 @@ export function SourceIngestStrategyPanel({
         toast.success(
           t("sources.ingest_success", { count: result.ingested_items })
         );
-        if (result.article_ids.length > 0 && kbSlug) {
-          navigate(kbArticlePath(kbSlug, result.article_ids[0]!));
+        if (result.article_ids.length > 0) {
+          navigate(kbArticlePath(result.article_ids[0]!));
         }
       }
     },
@@ -257,17 +302,21 @@ export function SourceIngestStrategyPanel({
         ? buildAgenticIngestInstructionBlock({ instructions })
         : instructions.trim() || undefined;
     ingestMutation.mutate({
+      attach_original: content.attachOriginal,
       category_id: categoryId || null,
-      content_mode: contentMode,
+      include_full_content: content.includeFullContent,
+      include_questions: content.includeQuestions,
+      include_summary: content.includeSummary,
       instructions: agenticInstructionBlock,
       parent_article_id: parentArticleId || undefined,
+      split_long_articles: content.splitLongArticles,
       strategy,
       template_id: templateMode === "template" ? templateId || null : null,
       template_mode: templateMode,
     });
   }, [
     categoryId,
-    contentMode,
+    content,
     ingestMutation,
     instructions,
     parentArticleId,
@@ -303,40 +352,37 @@ export function SourceIngestStrategyPanel({
           })}
         </p>
       ) : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StrategyCard
-          active={strategy === "articles"}
-          description={t("sources.ingest_strategy_articles_desc")}
+          active={!agentic}
+          description={t("sources.ingest_strategy_authored_desc")}
           disabled={ingestMutation.isPending}
           icon={<BookOpen className="h-6 w-6" />}
-          label={t("sources.ingest_strategy_articles_label")}
-          onClick={() => setStrategy("articles")}
+          label={t("sources.ingest_strategy_authored_label")}
+          onClick={() => setAgentic(false)}
         />
         <StrategyCard
-          active={strategy === "summary"}
-          description={t("sources.ingest_strategy_summary_desc")}
-          disabled={ingestMutation.isPending}
-          icon={<FileText className="h-6 w-6" />}
-          label={t("sources.ingest_strategy_summary_label")}
-          onClick={() => setStrategy("summary")}
-        />
-        <StrategyCard
-          active={strategy === "agentic"}
+          active={agentic}
           description={t("sources.ingest_strategy_agentic_desc")}
           disabled={ingestMutation.isPending}
           icon={<Bot className="h-6 w-6" />}
           label={t("sources.ingest_strategy_agentic_label")}
-          onClick={() => setStrategy("agentic")}
+          onClick={() => setAgentic(true)}
         />
       </div>
 
       {/* Strategy-specific options */}
       {strategy === "agentic" ? (
         <SourceAgenticIngestPanel
+          active={agenticActive}
           articles={articles}
           categoryId={categoryId}
           decoratedCategories={decoratedCategories}
           instructions={instructions}
+          onActiveChange={(next) => {
+            setAgenticActive(next);
+            persistActive({ agentic_active: next });
+          }}
           onCategoryChange={setCategoryId}
           onSave={() => {
             const savedCategoryId =
@@ -370,10 +416,52 @@ export function SourceIngestStrategyPanel({
           savePending={updateSourceMut.isPending}
           setInstructions={setInstructions}
           setParentArticleId={setParentArticleId}
+          sourceId={sourceId}
           updatePending={updateSourceMut.isPending}
         />
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-4">
+        <div className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4">
+          <IngestActiveSwitch
+            active={authoredActive}
+            description={t("sources.ingest_active_authored_desc")}
+            id="ingest-authored-active"
+            onChange={(next) => {
+              setAuthoredActive(next);
+              persistActive({ authored_active: next });
+            }}
+          />
+
+          <div className="space-y-2">
+            <p className="font-medium text-sm">
+              {t("sources.ingest_scope_title")}
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <ScopeCard
+                active={scope === "per_entry"}
+                description={t("sources.ingest_scope_per_entry_desc")}
+                disabled={ingestMutation.isPending}
+                icon={<Files className="h-4 w-4" />}
+                label={t("sources.ingest_scope_per_entry_label")}
+                onClick={() => setScope("per_entry")}
+              />
+              <ScopeCard
+                active={scope === "per_source"}
+                description={t("sources.ingest_scope_per_source_desc")}
+                disabled={ingestMutation.isPending}
+                icon={<FileText className="h-4 w-4" />}
+                label={t("sources.ingest_scope_per_source_label")}
+                onClick={() => setScope("per_source")}
+              />
+            </div>
+          </div>
+
+          <SourceIngestOptions
+            onChange={setContent}
+            perSource={scope === "per_source"}
+            templateHasStructure={selectedTemplateHasStructure}
+            value={content}
+          />
+
           <div className="flex flex-col gap-1">
             <label className="font-medium text-sm" htmlFor="ingest-category">
               {t("sources.ingest_category_label")}
@@ -489,49 +577,16 @@ export function SourceIngestStrategyPanel({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <p className="font-medium text-sm">
-              {t("templates.ingest_content_mode", "Article content")}
-            </p>
-            <div className="grid gap-2">
-              {(selectedTemplateHasStructure
-                ? [
-                    ["template_only", "Use template structure"],
-                    [
-                      "template_before_full_content",
-                      "Add template structure before full content",
-                    ],
-                    [
-                      "template_before_summary",
-                      "Add template structure before generated summary",
-                    ],
-                  ]
-                : [
-                    ["full_content", "Add full content"],
-                    ["summary", "Add summary of content"],
-                  ]
-              ).map(([value, label]) => (
-                <button
-                  className={cn(
-                    "flex items-center gap-2 rounded-md border px-3 py-2 text-left text-sm",
-                    contentMode === value
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-card hover:bg-muted/40"
-                  )}
-                  key={value}
-                  onClick={() => setContentMode(value as KbTemplateContentMode)}
-                  type="button"
-                >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-sm border">
-                    {contentMode === value ? (
-                      <Check className="h-3 w-3" />
-                    ) : null}
-                  </span>
-                  {t(`templates.content_mode_${value}`, label)}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SourceTemplateSuggestion
+            disabled={ingestBlocked}
+            kbId={kbId}
+            onCreated={(nextTemplateId) => {
+              setTemplateTouched(true);
+              setTemplateMode("template");
+              setTemplateId(nextTemplateId);
+            }}
+            sourceId={sourceId}
+          />
 
           <div className="flex flex-col gap-1">
             <label
@@ -572,26 +627,24 @@ export function SourceIngestStrategyPanel({
             </Select>
           </div>
 
-          {strategy === "summary" && (
-            <div className="flex flex-col gap-1">
-              <label
-                className="font-medium text-sm"
-                htmlFor="ingest-instructions"
-              >
-                {t("sources.ingest_instructions_label")}
-              </label>
-              <p className="text-muted-foreground text-xs">
-                {t("sources.ingest_instructions_desc")}
-              </p>
-              <Textarea
-                className="min-h-[80px] resize-y text-sm"
-                id="ingest-instructions"
-                onChange={(e) => setInstructions(e.target.value)}
-                placeholder={t("sources.ingest_instructions_placeholder")}
-                value={instructions}
-              />
-            </div>
-          )}
+          <div className="flex flex-col gap-1">
+            <label
+              className="font-medium text-sm"
+              htmlFor="ingest-instructions"
+            >
+              {t("sources.ingest_instructions_label")}
+            </label>
+            <p className="text-muted-foreground text-xs">
+              {t("sources.ingest_instructions_desc")}
+            </p>
+            <Textarea
+              className="min-h-[80px] resize-y text-sm"
+              id="ingest-instructions"
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={t("sources.ingest_instructions_placeholder")}
+              value={instructions}
+            />
+          </div>
         </div>
       )}
 
@@ -613,6 +666,50 @@ export function SourceIngestStrategyPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Compact two-up picker for the grouping choice inside authored ingestion. */
+function ScopeCard({
+  active,
+  description,
+  disabled,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  description: string;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "flex items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors",
+        active
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
+          : "border-border bg-card hover:bg-muted/40",
+        disabled && !active && "cursor-not-allowed opacity-60"
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      <span
+        className={cn("mt-0.5 text-muted-foreground", active && "text-primary")}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium text-sm leading-snug">{label}</span>
+        <span className="block text-muted-foreground text-xs leading-snug">
+          {description}
+        </span>
+      </span>
+    </button>
   );
 }
 

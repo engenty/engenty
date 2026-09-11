@@ -130,6 +130,9 @@ export function TaskAssigneePropertyRows({
           catalog={catalog}
           onChange={onChange}
           onSelect={() => setAssigneeOpen(false)}
+          // This task already exists: handing it to an agent dispatches it on
+          // the spot, and nothing else on the page says so.
+          showAgentDispatchHint
           teamMembersEnabled={teamMembersEnabled}
           value={value}
         />

@@ -10,7 +10,11 @@
       "!apps/ui/public/favicon.svg",
       "!changelog.json",
       "!docs/dev/flows/index.html",
+      // HTML/CSS click-dummy mockups — not product code; keep them out of ultracite.
       "!docs/internal/daybreak",
+      "!docs/internal/space-home",
+      "!docs/internal/work-model-map.html",
+      "!scripts/codemod-actions-to-workflows.mjs",
       "!**/.devtools",
       "!.agent",
       "!.agents",

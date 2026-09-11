@@ -1,13 +1,11 @@
-import {
-  Button,
-  cn,
-  sidebarColumnContentInsetClassName,
-} from "@engenty/ui-core";
+import { cn, sidebarColumnContentInsetClassName } from "@engenty/ui-core";
 import { usePageHeader } from "@engenty/ui-plugin-sdk";
-import { PanelLeft, PanelLeftClose, Pin } from "lucide-react";
 import type { ReactNode } from "react";
 import { ModuleSecondaryNavPanel } from "./module-secondary-nav-panel";
-import type { SecondaryNavLinkItem } from "./types";
+import type {
+  SecondaryNavLinkItem,
+  SecondaryNavRouteTransition,
+} from "./types";
 
 export function ModuleSecondaryNavColumnShell(props: {
   bodyMinWidthPx: number;
@@ -18,120 +16,131 @@ export function ModuleSecondaryNavColumnShell(props: {
   includePageSlots?: boolean;
   /** Header override when `includePageSlots` is false (e.g. Settings label). */
   headerSlot?: ReactNode;
+  /**
+   * Route-level column content: a header that outranks the page's own, and a
+   * block above everything in the body. A space puts its switcher and its
+   * Work/Data/Plan tabs here so the module below keeps using the ordinary
+   * page-config slots unchanged.
+   */
+  routeFooterSlot?: ReactNode;
+  routeHeaderSlot?: ReactNode;
+  routeLeadingSlot?: ReactNode;
+  routeTransition?: SecondaryNavRouteTransition;
   onNavigate?: () => void;
-  onToggle: () => void;
   pathname: string;
   search: string;
   secondaryItems: SecondaryNavLinkItem[];
-  showToggle?: boolean;
-  toggleMode: "collapse" | "pinOpen";
-  forceHover?: boolean;
+  /**
+   * How the column sits in the layout, which decides whether it is TRANSLUCENT.
+   *
+   * `"floating"` — the hover panel, drawn over the page: reading the content
+   * behind it is the point, so it keeps the glass.
+   * `"docked"` — pinned open, holding a column of the layout. Nothing is behind
+   * it worth seeing, and `--popover` (the card at 72% alpha) let the page's own text
+   * ghost through the nav, which is where the contrast went.
+   */
+  surface?: "docked" | "floating";
+  /**
+   * Hover overlay paints a translucent blend; pinned column is opaque.
+   * Kept so the body surface matches the overlay vs docked chrome around it.
+   */
+  blendSurface?: boolean;
 }) {
   const {
     bodyMinWidthPx,
     includePageSlots = true,
     headerSlot,
     onNavigate,
-    onToggle,
     pathname,
+    routeFooterSlot,
+    routeHeaderSlot,
+    routeLeadingSlot,
+    routeTransition,
     search,
     secondaryItems,
-    showToggle = true,
-    toggleMode,
-    forceHover = false,
+    surface = "floating",
+    blendSurface = false,
   } = props;
   const { secondaryNavHeaderSlot, topbarChrome } = usePageHeader();
-  const contentBlend = includePageSlots && topbarChrome === "contentBlend";
-  // Foreign dock previews need opaque floating chrome so page content cannot
-  // bleed through the translucent pinOpen blend surface.
-  const blendSurface = includePageSlots && toggleMode === "pinOpen";
+  // When a route owns the column header it owns the column's CHROME too.
+  // `contentBlend` is a page property, and letting it through made a space's
+  // header row flip padding and border depending on which module was open —
+  // so the space name and the tab strip below it jumped on every tab switch.
+  // The space is fixed furniture; freeze the row at `--shell-row` so it
+  // matches the topbar and opening/closing the column does not jump the
+  // headline.
+  const routeOwnsChrome = routeHeaderSlot != null;
+  const contentBlend =
+    !routeOwnsChrome && includePageSlots && topbarChrome !== "band";
+  // One decision, applied to all three nodes the column paints (frame, header
+  // row, body) so they cannot disagree about how solid the column is.
+  const surfaceClassName = blendSurface
+    ? "bg-transparent"
+    : surface === "docked"
+      ? "bg-card"
+      : "ui-canvas-floating";
+  // The route outranks the page: inside a space the column belongs to the SPACE
+  // and names it, while the module it currently shows is named by the active tab
+  // just below.
   const resolvedHeaderSlot = includePageSlots
-    ? secondaryNavHeaderSlot
+    ? (routeHeaderSlot ?? secondaryNavHeaderSlot)
     : headerSlot;
+  // Settings / Setup use a page header slot, not a route override — they still
+  // need the same compact row as a space. Collapse lives on the seam now, so
+  // this row is only the title.
+  const compactHeader =
+    contentBlend || routeOwnsChrome || resolvedHeaderSlot != null;
 
   return (
     <div
       className={cn(
         "flex min-h-0 flex-1 flex-col overflow-hidden",
-        blendSurface ? "bg-transparent" : "ui-canvas-floating"
+        surfaceClassName
       )}
       data-engenty-region="sidebar"
     >
-      <div
-        className={cn(
-          "flex shrink-0 items-center gap-1",
-          contentBlend ? "px-2" : "px-3",
-          contentBlend ? "h-11" : "h-[52px] border-border/30 border-b",
-          blendSurface ? "bg-transparent" : "ui-canvas-floating"
-        )}
-      >
-        {showToggle ? (
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              className={cn(
-                "shrink-0 opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100",
-                toggleMode === "pinOpen" && "group",
-                forceHover && "opacity-100"
-              )}
-              data-sidebar-toggle
-              onClick={onToggle}
-              size={contentBlend ? "icon-sm" : "icon"}
-              variant="ghost"
-            >
-              {toggleMode === "collapse" ? (
-                <PanelLeftClose className="size-4" />
-              ) : (
-                <span
-                  aria-hidden
-                  className="isolate grid size-4 shrink-0 place-items-center [&>svg]:col-start-1 [&>svg]:row-start-1"
-                >
-                  <PanelLeft
-                    className={cn(
-                      "size-4 group-hover:invisible",
-                      forceHover && "invisible"
-                    )}
-                  />
-                  <Pin
-                    className={cn(
-                      "invisible size-4 group-hover:visible",
-                      forceHover && "visible"
-                    )}
-                  />
-                </span>
-              )}
-              <span className="sr-only">
-                {toggleMode === "collapse"
-                  ? "Toggle navigation"
-                  : "Pin module navigation open"}
-              </span>
-            </Button>
+      {resolvedHeaderSlot ? (
+        <div
+          className={cn(
+            "flex shrink-0 items-center",
+            compactHeader ? "px-1" : "px-3",
+            "h-(--shell-row)",
+            surfaceClassName
+          )}
+        >
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1 overflow-hidden",
+              sidebarColumnContentInsetClassName
+            )}
+          >
+            {resolvedHeaderSlot}
           </div>
-        ) : null}
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          {resolvedHeaderSlot ? (
-            <div
-              className={cn(
-                "min-w-0 flex-1 overflow-hidden",
-                !showToggle && sidebarColumnContentInsetClassName
-              )}
-            >
-              {resolvedHeaderSlot}
-            </div>
-          ) : null}
         </div>
-      </div>
+      ) : null}
 
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col overflow-y-auto",
-          blendSurface ? "bg-transparent" : "ui-canvas-floating"
+          // Room at the foot of the scrollport for the sticky footer, so a row
+          // scrolled into view by the keyboard (or any `scrollIntoView`) is
+          // never parked underneath it. Sized to the footer row.
+          routeFooterSlot != null && "scroll-pb-(--shell-footer)",
+          surfaceClassName
         )}
         style={{ minWidth: bodyMinWidthPx }}
       >
         <ModuleSecondaryNavPanel
+          footerSlot={includePageSlots ? routeFooterSlot : null}
+          // The footer paints the column's own surface, so it is opaque against
+          // the body that overflows it when the window is too short for the nav
+          // — see the note on the footer row in ModuleSecondaryNavPanel.
+          footerSurfaceClassName={surfaceClassName}
           includeAfterItems={includePageSlots}
+          leadingSlot={includePageSlots ? routeLeadingSlot : null}
           onNavigate={onNavigate}
           pathname={pathname}
+          routeTransition={includePageSlots ? routeTransition : undefined}
           search={search}
           secondaryItems={secondaryItems}
         />

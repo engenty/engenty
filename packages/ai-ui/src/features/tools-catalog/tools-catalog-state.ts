@@ -1,5 +1,7 @@
 // Filter state + source derivation for the tools catalog (ui-6 §4).
 
+import { rankRecordsLexically } from "@engenty/search-index";
+
 export type ToolSourceFilter = "all" | "module" | "mcp" | "custom";
 
 export interface RegistryToolEntry {
@@ -83,21 +85,19 @@ export function filterTools(
   tools: RegistryToolEntry[],
   { searchQuery, sourceFilter }: ToolsFilterOptions
 ): RegistryToolEntry[] {
-  const q = searchQuery.trim().toLowerCase();
-  return tools.filter((tool) => {
-    if (
-      sourceFilter !== "all" &&
-      deriveToolSourceCategory(tool) !== sourceFilter
-    ) {
-      return false;
-    }
-    if (!q) {
-      return true;
-    }
-    return (
-      tool.id.toLowerCase().includes(q) ||
-      tool.name.toLowerCase().includes(q) ||
-      (tool.description ?? "").toLowerCase().includes(q)
-    );
-  });
+  const scoped =
+    sourceFilter === "all"
+      ? tools
+      : tools.filter((tool) => deriveToolSourceCategory(tool) === sourceFilter);
+  const query = searchQuery.trim();
+  if (!query) {
+    return scoped;
+  }
+  return rankRecordsLexically(scoped, query, (tool) => ({
+    description: tool.description ?? "",
+    id: tool.id,
+    name: tool.name,
+    source: tool.source ?? "",
+    ...(tool.engenty_mcp_app ? { connectorId: tool.engenty_mcp_app } : {}),
+  }));
 }

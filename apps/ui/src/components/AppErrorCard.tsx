@@ -14,8 +14,8 @@ export function AppErrorCard({
   envPre,
 }: AppErrorCardProps) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="max-w-xl rounded-lg border bg-card p-6">
+    <div className="flex min-h-dvh items-center justify-center p-6">
+      <div className="ui-card-panel max-w-xl p-6">
         <h1 className="font-semibold text-lg">{title}</h1>
         <p className="mt-2 text-muted-foreground text-sm">{message}</p>
         {hint ? (

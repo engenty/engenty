@@ -223,7 +223,7 @@ export function SubAgentSessionToolCallCard(props: ToolCallCardProps) {
       ]}
       headline={props.displayLabel ?? toolName}
     >
-      <details className="mt-2 rounded-md border bg-card p-2 text-sm">
+      <details className="ui-card-panel mt-2 p-2 text-sm">
         <summary className="cursor-pointer font-medium">
           Sub-agent thread
           {messageCount > 0 ? ` (${messageCount} messages)` : ""}

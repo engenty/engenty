@@ -9,6 +9,8 @@ allowed-tools: engenty_tools_search engenty_tool_execute
 
 Use this skill when the user asks to find, list, browse, or inspect existing offers.
 
+Offers are one tenant sales library. A Space mount grants access to that shared book; there is no offer `space_id` and you must not invent one.
+
 ## Tool Process
 
 1. Start with `engenty_tools_search` using `moduleId: "offers"` and `kind: "tool"`.

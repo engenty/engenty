@@ -61,6 +61,47 @@ describe("artifact tools", () => {
     );
   });
 
+  it("stores a specialist's new artifact on the Space so later runs can update it", async () => {
+    const store = fakeStore({
+      updateScope: vi.fn(async () => ({
+        id: "a1",
+        scope_id: "space-1",
+        scope_type: "space",
+      })) as never,
+    });
+    const tools = createArtifactTools({ store });
+    const spaceId = "00000000-0000-4000-8000-000000000010";
+
+    await engentyToolsRunAls.run(
+      {
+        agentTypeKey: "sales.researcher",
+        orchestratorThreadId: threadId,
+        space: {
+          allConnectorPrefixes: new Set(),
+          connectorPrefixes: new Set(),
+          moduleIds: new Set(),
+          readOnlyModuleIds: new Set(),
+          spaceId,
+        },
+        tenantId,
+        userId: "u1",
+      } as never,
+      () =>
+        tools.artifact_write.execute!(
+          { type: "markdown", title: "T", content: "# hi" } as never,
+          testToolContext()
+        )
+    );
+
+    expect(store.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scopeId: spaceId,
+        scopeType: "space",
+        threadId,
+      })
+    );
+  });
+
   it("refuses to create without an active thread and never touches the store", async () => {
     const store = fakeStore();
     const tools = createArtifactTools({ store });

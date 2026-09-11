@@ -201,6 +201,7 @@ export function SourceAdapterEditor({
         : (adapters[0]?.id ?? "url");
     const descriptor = adapters.find((item) => item.id === nextAdapterId);
     setAdapterId(nextAdapterId);
+    setName(source?.name ?? "");
     setSourceEnabled(source?.enabled ?? true);
     const initialStrategy = source?.missing_item_strategy ?? "ignore";
     setStrategy(initialStrategy);
@@ -347,8 +348,7 @@ export function SourceAdapterEditor({
   };
 
   /** Matches create-dialog sections: bordered card on `bg-background`. */
-  const settingsCardClass =
-    "rounded-lg border-0 bg-card p-4 sm:p-5 ui-canvas-panel";
+  const settingsCardClass = "ui-card-panel p-4 sm:p-5";
 
   return (
     <>

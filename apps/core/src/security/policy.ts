@@ -1,4 +1,8 @@
-import { capabilityCovers } from "@engenty/plugin-sdk";
+import {
+  type AgentApprovalMode,
+  capabilityCovers,
+  shouldAskHuman,
+} from "@engenty/plugin-sdk";
 import type { PluginRegistry } from "../plugins/registry.js";
 import type { PrincipalContext } from "./auth.js";
 
@@ -49,6 +53,14 @@ export interface PolicyDeps {
       tenantId: string;
     }): Promise<boolean>;
   } | null;
+  /**
+   * Tenant/space/agent approval-mode overlay. Absent → `manual` (today's
+   * high/critical / requiresApproval gate). Never skips a missing capability.
+   */
+  resolveAgentApproval?: (input: PolicyInput) => Promise<{
+    mode: AgentApprovalMode;
+    spaceWriteMounted: boolean;
+  }>;
 }
 
 function hasCapability(auth: PrincipalContext, required: string): boolean {
@@ -97,7 +109,7 @@ export async function evaluatePolicy(
   registry?: Pick<PluginRegistry, "profilePolicies">,
   deps?: PolicyDeps
 ): Promise<PolicyDecision> {
-  const decision = await evaluatePolicyRules(input, registry);
+  const decision = await evaluatePolicyRules(input, registry, deps);
   if (decision.action !== "require_approval" || !deps?.approvalService) {
     return decision;
   }
@@ -125,7 +137,8 @@ export async function evaluatePolicy(
 
 async function evaluatePolicyRules(
   input: PolicyInput,
-  registry?: Pick<PluginRegistry, "profilePolicies">
+  registry?: Pick<PluginRegistry, "profilePolicies">,
+  deps?: PolicyDeps
 ): Promise<PolicyDecision> {
   const { auth, moduleId, requiredCapabilities, operationId, scopeId } = input;
   if (auth.moduleIds.length > 0 && !auth.moduleIds.includes(moduleId)) {
@@ -158,12 +171,20 @@ async function evaluatePolicyRules(
     auth.principalType === "service" &&
     auth.authMethod === "service_credential" &&
     !auth.agentId;
+  if (auth.principalType === "user" || isPlatformServiceLane) {
+    return { action: "allow", reason: "policy allow" };
+  }
+
+  const resolved = deps?.resolveAgentApproval
+    ? await deps.resolveAgentApproval(input)
+    : { mode: "manual" as const, spaceWriteMounted: false };
   if (
-    auth.principalType !== "user" &&
-    !isPlatformServiceLane &&
-    (input.requiresApproval ||
-      input.riskLevel === "high" ||
-      input.riskLevel === "critical")
+    shouldAskHuman({
+      mode: resolved.mode,
+      requiresApproval: input.requiresApproval,
+      riskLevel: input.riskLevel,
+      spaceWriteMounted: resolved.spaceWriteMounted,
+    })
   ) {
     return {
       action: "require_approval",

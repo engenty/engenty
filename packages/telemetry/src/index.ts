@@ -5,10 +5,6 @@ export {
   initEvlog,
 } from "./evlog-init.js";
 export {
-  initLangfuseOtel,
-  isLangfuseOtelConfigured,
-} from "./langfuse-otel.js";
-export {
   type CreateLoggerOptions,
   createLogger,
   type RuntimeLogger,
@@ -24,7 +20,3 @@ export {
   isProduction,
   nodeEnv,
 } from "./process-env.js";
-export {
-  runWithSpan,
-  type SpanAttributes,
-} from "./trace-helpers.js";

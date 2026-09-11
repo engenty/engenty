@@ -1,17 +1,24 @@
-// Regression: TWO tool calls in one step that both require approval (the
-// parallel `engenty_tool_execute` shape). Interactive chat gates these under the
-// "artifact" policy — a gated call RETURNS the Approve/Deny card as a decision
-// artifact (see lib/tool-approval.ts `buildToolApprovalArtifact`) instead of
-// calling Mastra's native `suspend()`. That is deliberate: two tools that BOTH
-// suspend in one step wedge on Mastra 1.52 — `resumeStream()` cannot find the
-// first suspended run once a second suspension shares the step (see the
-// mastra-1-52-parallel-approval-regression memory). The artifact path keeps
-// parallel tool calls AND is immune, because nothing suspends: both gated calls
-// return their artifact, the run loop surfaces the interrupt, and the resume
-// RE-RUNS with the persisted grant.
+// The "artifact" approval policy: a gated call RETURNS the Approve/Deny card as a
+// decision artifact (lib/tool-approval.ts `buildToolApprovalArtifact`) instead of
+// calling Mastra's native suspend. Because nothing suspends, several gated calls
+// in one step each produce their own card.
 //
-// This test pins that invariant: two parallel approval-gated calls each surface
-// as a decision artifact via `tool_end`, with NO `tool_suspended` and no wedge.
+// USED BY the VOICE lane (realtime-tool-routes.ts), where the client re-calls the
+// tool after approval. NOT by interactive chat, which runs
+// `approvalPolicy: "suspend"` (conversation-run.ts) and gates with a native
+// suspend instead.
+//
+// Why chat left: the artifact policy was adopted only to dodge a 1.52 upstream bug
+// where two suspensions sharing a step wedged `resumeStream()`. That case cannot
+// arise — a gated call parks the turn and a second gated call in the same step
+// never executes (parallel-native-suspend.test.ts). Approvals are sequential
+// because a person answers one card at a time. And an artifact card is a tool
+// RESULT, which @ag-ui/mastra cannot map to a canonical AG-UI interrupt, so it
+// blocked the cutover.
+//
+// This test still pins the artifact invariant for the lane that still uses it:
+// two parallel gated calls each surface as a decision artifact via `tool_end`,
+// with NO `tool_suspended`.
 import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -132,7 +139,7 @@ async function buildHarness(log: string[]) {
   return { controller, session };
 }
 
-describe("parallel approval-gated tool calls (artifact policy)", () => {
+describe("parallel approval-gated tool calls (artifact policy — voice lane)", () => {
   it("surfaces BOTH parallel gated calls as decision artifacts with no Mastra suspend", {
     timeout: 60_000,
   }, async () => {

@@ -8,10 +8,12 @@
 // bundle too, and must stay inert outside the desktop shell.
 import {
   assertSafeRelativePath,
+  type LocalDeleteResult,
   type LocalFileEntry,
   type LocalListResult,
   type LocalReadResult,
   type LocalSearchResult,
+  type LocalWriteResult,
   MAX_FILE_BYTES,
 } from "../../src/protocol.js";
 import { matchesQuery } from "./fsa.js";
@@ -44,6 +46,10 @@ function readDirectoryMap(): Record<string, string> {
 
 export function getDesktopDirectoryPath(connectionId: string): string | null {
   return readDirectoryMap()[connectionId] ?? null;
+}
+
+export function listDesktopDirectoryKeys(): string[] {
+  return Object.keys(readDirectoryMap());
 }
 
 export function putDesktopDirectoryPath(
@@ -243,4 +249,41 @@ export async function searchFiles(
 
   await walk(segments);
   return { matches, truncated };
+}
+
+export async function writeFile(
+  root: string,
+  input: { content_base64?: string; content_text?: string; path: string }
+): Promise<LocalWriteResult> {
+  const segments = assertSafeRelativePath(input.path);
+  if (segments.length === 0) {
+    throw new Error("path is required");
+  }
+  const absolute = joinAbsolute(root, segments);
+  const fs = await import("@tauri-apps/plugin-fs");
+  const bytes =
+    typeof input.content_base64 === "string"
+      ? Uint8Array.from(atob(input.content_base64), (c) => c.charCodeAt(0))
+      : new TextEncoder().encode(input.content_text ?? "");
+  await fs.writeFile(absolute, bytes);
+  const info = await fs.stat(absolute);
+  return {
+    modified_at: toIso(info.mtime),
+    name: segments.at(-1) ?? input.path,
+    path: input.path,
+    size: info.size,
+  };
+}
+
+export async function deletePath(
+  root: string,
+  input: { path: string }
+): Promise<LocalDeleteResult> {
+  const segments = assertSafeRelativePath(input.path);
+  if (segments.length === 0) {
+    throw new Error("path is required");
+  }
+  const fs = await import("@tauri-apps/plugin-fs");
+  await fs.remove(joinAbsolute(root, segments));
+  return { deleted: true, path: input.path };
 }

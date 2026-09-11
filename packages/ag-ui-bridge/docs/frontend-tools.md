@@ -53,7 +53,8 @@ import { createFrontendToolDefinition, toAgUiTool } from "@engenty/ag-ui-bridge"
 
 const navigate = createFrontendToolDefinition({
   name: "navigate",
-  description: "Navigate to an internal app path.",
+  description:
+    "Navigate to an internal app path. Inside a Space prefer /s/<space_key>/… and let this tool resolve the running route table.",
   availability: "enabled",
   owner_module_id: "engenty-copilot",
   parameters: {
@@ -68,6 +69,16 @@ const tools = [toAgUiTool(navigate)];
 ```
 
 Module trees register definitions from `modules/<name>/ai/frontend-tools/` and pass merged catalogs through `@engenty/ai-ui` into `RunAgentInput.tools`.
+
+## Space navigation
+
+`navigate` is a browser action, not app data. Inside a Space the canonical
+patterns are `/s/<space_key>`, `/s/<space_key>/<module-segment>/…`,
+`/s/<space_key>/data`, `/s/<space_key>/settings`, and Space chat/agent-desk
+routes. `<module-segment>` comes from the running route mirror — do not assume
+`moduleId === segment`. The tool checks real routes; say a page is open only
+when `navigate` returned it in `to`. See
+[Spaces runtime contract](../../../docs/agent/spaces-runtime.md).
 
 ## Wire execution (official events)
 
@@ -107,9 +118,9 @@ Client-registered tools under `modules/engenty-copilot/ai/frontend-tools/browser
 
 | Tool | When to use |
 |------|-------------|
-| `browser_dom_snapshot` | **Preferred** — pruned interactive DOM. Pass `root_selector` from Current page `dom_entry_points` (`main` / `list` / `detail` / chrome regions). |
-| `browser_screenshot` | **Last resort** — text viewport inventory for visual/layout questions the DOM cannot answer (not pixels). |
-| `browser_click` / `browser_hover` / `browser_focus` / `browser_input` / `browser_scroll` | Drive the UI using selectors from a DOM snapshot. |
+| `ui_dom_snapshot` | **Preferred** — pruned interactive DOM. Pass `root_selector` from Current page `dom_entry_points` (`main` / `list` / `detail` / chrome regions). |
+| `ui_screenshot` | **Last resort** — text viewport inventory for visual/layout questions the DOM cannot answer (not pixels). |
+| `ui_click` / `ui_hover` / `ui_focus` / `ui_input` / `ui_scroll` | Drive the UI using selectors from a DOM snapshot. |
 
 ## UI guide (spotlight / highlight / modal)
 

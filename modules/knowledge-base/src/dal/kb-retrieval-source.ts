@@ -6,7 +6,8 @@
 // contributes what is genuinely KB-specific:
 //
 //   - document building (article markdown, title, kb_id metadata)
-//   - per-tenant Mastra chunking + embedding model from `kb_settings`
+//   - per-KB Mastra chunking (`kb.chunking` KV row, defaults otherwise) and
+//     the per-tenant embedding model from `kb_settings`
 //   - the lexical fast path for as-you-type queries (`fastPath`)
 //   - the LLM verifier as a `RetrievalEvaluator` (drops irrelevant hits on
 //     multi-term queries; fails open when the AI gateway is unconfigured)
@@ -19,6 +20,7 @@
 //   - Multi-KB fairness caps are gone: all KBs pool in one fused ranking.
 //     The old per-KB limit only compensated for per-KB query fan-out.
 
+import { resolveSpaceKey } from "@engenty/plugin-sdk";
 import type {
   RetrievalEvaluator,
   RetrievalMatch,
@@ -27,8 +29,9 @@ import type {
 import { mastraSplitter } from "@engenty/retrieval/mastra-splitter";
 import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { kbArticlePath } from "../../ui/kb-paths.js";
+import { KB_CHUNKING_DEFAULTS } from "../schema/chunking.js";
 import type { Article, KbSearchResult } from "../schema/types.js";
+import { createKbLinks } from "../services/kb-links.js";
 import {
   isKbSearchVerifierConfigured,
   shouldVerifyKbSearchQuery,
@@ -202,13 +205,33 @@ export function createKbRetrievalSource(
       new Set(Array.from(articleRows.values()).map((row) => String(row.kb_id)))
     );
     const { data: kbRows } = kbIds.length
-      ? await kbs(ctx.tenant_id).select("id, name, slug").in("id", kbIds)
+      ? await kbs(ctx.tenant_id)
+          .select("id, name, slug, space_id")
+          .in("id", kbIds)
       : { data: [] };
     const kbById = new Map(
-      ((kbRows ?? []) as { id: string; name: string; slug: string }[]).map(
-        (row) => [String(row.id), row]
-      )
+      (
+        (kbRows ?? []) as {
+          id: string;
+          name: string;
+          slug: string;
+          space_id: string | null;
+        }[]
+      ).map((row) => [String(row.id), row])
     );
+    // A hit's `url` is the record's link inside its SPACE — the same field the
+    // gateway tools hand back — so a citation the model copies verbatim lands
+    // on the article. Keyed by KB: one key lookup per KB, not per hit.
+    const linksByKbId = new Map<string, ReturnType<typeof createKbLinks>>();
+    for (const kb of kbById.values()) {
+      const spaceKey = kb.space_id
+        ? await resolveSpaceKey(getDb({ tenantId: ctx.tenant_id }) as never, {
+            spaceId: kb.space_id,
+            tenantId: ctx.tenant_id,
+          })
+        : null;
+      linksByKbId.set(kb.id, createKbLinks({ spaceKey }));
+    }
     const results: SearchResult<KbArticleSearchMatch>[] = [];
     for (const match of matches) {
       const article = articleRows.get(match.doc_id);
@@ -226,7 +249,7 @@ export function createKbRetrievalSource(
           score: match.score,
           slug: article.slug,
           title: article.title,
-          url: kb?.slug ? kbArticlePath(kb.slug, article.slug) : undefined,
+          url: linksByKbId.get(String(article.kb_id))?.article(match.doc_id),
         },
         matched_fields: match.matched_fields,
         score: match.score,
@@ -243,6 +266,18 @@ export function createKbRetrievalSource(
       if (!row) {
         return null;
       }
+      // The article's space, carried onto the index row (PLAN-spaces.md P4).
+      // A knowledge base belongs to exactly one space (Phase 6b), so the KB is
+      // where the answer lives — the article has no space of its own.
+      //
+      // Load-bearing, not metadata: search is the one surface a private space's
+      // contents can escape through, because it never passes a `/s/<key>` route
+      // and so no route guard sees it. Without this every article in a personal
+      // space is findable by the whole tenant.
+      const { data: kbRow } = await kbs(tenant_id)
+        .select("space_id")
+        .eq("id", row.kb_id)
+        .maybeSingle();
       return {
         doc_id,
         // Canonical object ref (chat rendering + context-graph identity).
@@ -253,6 +288,8 @@ export function createKbRetrievalSource(
         source_type: KB_ARTICLE_SOURCE_TYPE,
         source_updated_at: row.updated_at,
         scope_id: row.scope_id,
+        space_id:
+          (kbRow as { space_id?: string | null } | null)?.space_id ?? null,
         tenant_id,
         text: row.content_markdown ?? "",
         title: row.title,
@@ -267,11 +304,17 @@ export function createKbRetrievalSource(
         );
       },
     },
-    listDocuments: async ({ limit, tenant_id }) => {
-      const { data, error } = await articles(tenant_id)
+    listDocuments: async ({ limit, metadata, tenant_id }) => {
+      let query = articles(tenant_id)
         .select("id, updated_at")
         .eq("tenant_id", tenant_id)
-        .is("deleted_at", null)
+        .is("deleted_at", null);
+      // `kb_id` is the only container key this source indexes (see
+      // `filter_metadata` in buildDocument), so it is the only one honored.
+      if (metadata?.kb_id) {
+        query = query.eq("kb_id", metadata.kb_id);
+      }
+      const { data, error } = await query
         .order("updated_at", { ascending: false })
         .limit(limit);
       if (error) {
@@ -304,6 +347,15 @@ export function createKbRetrievalSource(
           (payload as { article_id?: string }).article_id ?? null,
         name: "knowledge-base.article.deleted",
       },
+      {
+        // A KB moved space: every article's index row carries the OLD
+        // `space_id` until rebuilt. The route lists the doc ids (payload
+        // `article_ids`) so one event re-indexes the whole library.
+        action: "replace",
+        docId: (payload) =>
+          (payload as { article_ids?: string[] }).article_ids ?? null,
+        name: "knowledge-base.kb.space_changed",
+      },
     ],
     operation: {
       entityName: "article",
@@ -314,6 +366,7 @@ export function createKbRetrievalSource(
         summary:
           "Search knowledge-base articles (hybrid lexical + semantic with relevance verification; short queries stay instant/lexical)",
       },
+      spacePolicy: { kind: "space_owned" },
     },
     retriever: {
       evaluators: [verifierEvaluator],
@@ -337,14 +390,20 @@ export function createKbRetrievalSource(
     },
     source_type: KB_ARTICLE_SOURCE_TYPE,
     splitter: mastraSplitter(async (document) => {
+      // Chunking belongs to the library (content-shaped), not the tenant: the
+      // document's `kb_id` metadata selects the KB's own row, else defaults.
       const settings = await resolveSettings(
         document.tenant_id,
         document.scope_id ?? "default"
       );
+      const kbId = document.filter_metadata?.kb_id;
+      const chunking =
+        (typeof kbId === "string" && settings.kb_chunking_by_id[kbId]) ||
+        KB_CHUNKING_DEFAULTS;
       return {
-        maxSize: settings.chunk_max_length ?? 1000,
-        overlap: settings.chunk_overlap ?? 100,
-        strategy: settings.chunk_strategy ?? "recursive",
+        maxSize: chunking.max_length,
+        overlap: chunking.overlap,
+        strategy: chunking.strategy,
       };
     }),
     visibility: "tenant",

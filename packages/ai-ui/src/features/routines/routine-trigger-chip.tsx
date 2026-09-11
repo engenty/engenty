@@ -1,5 +1,8 @@
+// The routine's primary wake source as one chip. With several triggers the
+// first self-waking one (schedule/event) wins; manual/agent pressability is
+// not worth a chip.
 import { useMemo } from "react";
-import type { RoutineDto } from "./routines-api.js";
+import type { RoutineDto, RoutineTriggerDto } from "./routines-api.js";
 import { cronToHumanLabel } from "./schedule-cron.js";
 
 export interface RoutineTriggerChipProps {
@@ -7,24 +10,34 @@ export interface RoutineTriggerChipProps {
   routine: RoutineDto;
 }
 
+function triggerLabel(
+  trigger: RoutineTriggerDto,
+  locale: string
+): string | null {
+  if (trigger.kind === "event") {
+    return trigger.provider_id === "webhook"
+      ? "Webhook"
+      : (trigger.resource ?? "Event");
+  }
+  if (trigger.kind === "schedule" && trigger.cron) {
+    return cronToHumanLabel(trigger.cron, locale, trigger.timezone);
+  }
+  return null;
+}
+
 export function RoutineTriggerChip({
   routine,
   locale = "en",
 }: RoutineTriggerChipProps) {
   const label = useMemo(() => {
-    if (routine.kind === "event") {
-      return routine.provider_id === "webhook"
-        ? "Webhook"
-        : (routine.resource ?? "Event");
+    for (const trigger of routine.triggers ?? []) {
+      const text = triggerLabel(trigger, locale);
+      if (text) {
+        return text;
+      }
     }
-    return routine.cron ? cronToHumanLabel(routine.cron, locale) : null;
-  }, [
-    routine.cron,
-    routine.kind,
-    routine.provider_id,
-    routine.resource,
-    locale,
-  ]);
+    return null;
+  }, [routine.triggers, locale]);
 
   if (!label) {
     return null;

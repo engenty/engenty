@@ -15,5 +15,6 @@
     "operations": true,
     "ai": true,
     "frontendTools": true
-  }
+  },
+  "placement": "space"
 }

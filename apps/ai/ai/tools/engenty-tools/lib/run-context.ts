@@ -1,5 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ToolExecutionContext } from "@mastra/core/tools";
+import { getEngentyCoreBaseUrlFromEnv } from "../../../../src/ai/core-http-client.js";
+// The gate owns the SHAPE as well as the rule: one type means a new dimension
+// of the surface cannot be added to the carrier and forgotten in the check.
+import { isUnresolvedSpaceGate, type SpaceGateContext } from "./space-gate.js";
 import type { ToolRiskLevel } from "./tool-approval.js";
 
 /**
@@ -62,6 +66,17 @@ export interface EngentyToolsRunContext {
    */
   canSuspendForInteraction?: boolean;
   coreBaseUrl?: string;
+  /**
+   * Exactly-once for identical writes (invocation-dedupe.ts): canonical
+   * invocation key → the first successful result. The execute tool registers
+   * every successful non-read-only invoke here and refuses an identical
+   * repeat with that result attached. A MUTABLE map created per run by the
+   * lane that owns the run (delegate-run seeds one for headless task jobs and
+   * delegated children — including the approved-call replay, which is what
+   * catches a model re-issuing a call that was already replayed). Lanes that
+   * do not seed it keep the old behavior.
+   */
+  executedWriteCalls?: Map<string, unknown>;
   fetchImpl?: typeof fetch;
   // Goal the agent is pursuing — the conversation thread id for chat runs.
   // Forwarded as x-engenty-goal-id; approval grants persist against it.
@@ -73,18 +88,50 @@ export interface EngentyToolsRunContext {
     operationId: string;
     riskLevel: ToolRiskLevel;
     title?: string;
+    /**
+     * The gated call's arguments, when the request names ONE concrete call
+     * (single-operation module ops). Recorded so an approval can replay that
+     * exact call once on resume instead of the model re-deriving it. Bulk
+     * pre-approvals and workspace-tool suspensions carry no input.
+     */
+    input?: Record<string, unknown>;
   }) => void;
   orchestratorThreadId?: string | null;
+  /**
+   * Re-mint this run's bearer after core answers 401 — the retry-once seam
+   * for headless runs whose 15-minute service token expires mid-run (a task
+   * run that outlives its token would otherwise lose every core-backed tool
+   * for its remaining life). The callback returns the fresh token AND writes
+   * it back into this context, so later tool calls start on it. Stamped only
+   * where a mint path exists (service-credential scopes); an interactive
+   * user token has none, and its 401 must surface unchanged.
+   */
+  refreshAccessToken?: () => Promise<string | null>;
+  // The routine whose fire started this run. Forwarded as
+  // x-engenty-routine-id so routine-scoped grants open the gate too.
+  routineId?: string | null;
   runId?: string | null;
+  /**
+   * The space this run is happening in (PLAN-spaces.md Phase C3a —
+   * `resolveRunSpace`).
+   *
+   * - a resolved `SpaceGateSurface` narrows module/connector tools to the
+   *   mounted surface
+   * - `{ kind: "unresolved", ... }` is a claimed Space that could not be
+   *   loaded — module/connector/delegation/`/data` work must refuse with
+   *   `space_context_unresolved`; platform tools and chat stay usable
+   * - absent/null is intentional tenant-global (no Space claimed)
+   *
+   * Unresolved must never be stored as absence: that is the widening this
+   * field exists to prevent.
+   */
+  space?: SpaceGateContext | null;
   // Task a headless run is executing. Forwarded as x-engenty-task-id so
   // core's approval gate can spend task-scoped grants ("this task may do X",
   // approved before the retry's principal existed) and stamp the task on any
   // request it files — the link that lets an approval resume the task.
   taskId?: string | null;
   tenantId?: string | null;
-  // Trigger/routine that materialized the task. Forwarded as
-  // x-engenty-trigger-id so routine-scoped grants open the gate too.
-  triggerId?: string | null;
   // The thread the human is actually watching. Root runs set it to their own
   // thread; a delegated child run inherits it (delegate-run overrides
   // orchestratorThreadId with the CHILD thread, so anything the user must see —
@@ -98,6 +145,45 @@ export const engentyToolsRunAls =
 
 export function getEngentyToolsRunContext() {
   return engentyToolsRunAls.getStore() ?? {};
+}
+
+/**
+ * Make an agent this run itself just mounted visible to the run's own gates.
+ *
+ * The space surface is resolved once at run start and every gate in the run
+ * (the routines mount gate, delegation targets) reads the same object. A live
+ * hire mounts its agent mid-run; without this the very turn that created a
+ * specialist refuses to bind a routine to it or delegate to it. Widens only
+ * the in-memory surface of the current run — core stays authoritative, and
+ * the next run re-resolves from the (invalidated) surface cache.
+ */
+export function addMountedAgentToRunSpace(
+  space: SpaceGateContext | null | undefined,
+  agentId: string
+): void {
+  if (!space || isUnresolvedSpaceGate(space)) {
+    return;
+  }
+  if (space.agentIds instanceof Set) {
+    (space.agentIds as Set<string>).add(agentId);
+    return;
+  }
+  // Older/manual carriers may not have set the field; give them one.
+  (space as { agentIds?: ReadonlySet<string> }).agentIds = new Set([
+    ...(space.agentIds ?? []),
+    agentId,
+  ]);
+}
+
+/** Fill `coreBaseUrl` from env when a run forgot to stamp it (chat ALS). */
+export function withEnvCoreBaseUrl(
+  ctx: EngentyToolsRunContext
+): EngentyToolsRunContext {
+  if (ctx.coreBaseUrl?.trim()) {
+    return ctx;
+  }
+  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+  return coreBaseUrl ? { ...ctx, coreBaseUrl } : ctx;
 }
 
 /**

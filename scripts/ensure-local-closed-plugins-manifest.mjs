@@ -3,7 +3,7 @@
  * After merging upstream into pro, re-enable closed plugins that exist on disk
  * so a public package.json strip cannot drop them from engenty-pro.
  */
-import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-plugin-slugs.mjs";
+import { CLOSED_PLUGIN_SLUGS } from "./lib/closed-paths.mjs";
 import {
   enablePluginsInManifest,
   listWorkspaceModuleSlugsOnDisk,

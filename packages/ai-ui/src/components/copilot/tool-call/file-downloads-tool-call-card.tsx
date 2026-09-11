@@ -123,7 +123,7 @@ export function FileDownloadsToolCallCard(props: ToolCallCardProps) {
         props.className
       )}
     >
-      <div className="border-border/60 border-b px-3 py-2">
+      <div className="border-border-soft border-b px-3 py-2">
         <p className="font-medium text-sm">{headline}</p>
         {isPending ? (
           <p className="mt-0.5 text-muted-foreground text-xs">
@@ -131,7 +131,7 @@ export function FileDownloadsToolCallCard(props: ToolCallCardProps) {
           </p>
         ) : null}
       </div>
-      <ul className="divide-y divide-border/60">
+      <ul className="divide-y divide-border-soft">
         {files.map((file) => (
           <FileDownloadOfferRow file={file} key={file.key} />
         ))}

@@ -43,10 +43,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { AiAgentEntry } from "../../lib/admin/ai-runtime-api";
+import { useAdminAgentsSidebarNavPersistence } from "./admin-agents-sidebar-nav-queries";
+import type { AgentKindFilter } from "./admin-agents-sidebar-nav-state";
 import { catalogQueryMatches } from "./workspace-nav-utils";
-
-type AgentKindFilter = "all" | "system" | "agent";
-type AgentSortOrder = "asc" | "desc";
 
 interface AgentsWorkspaceAgentsPanelProps {
   agents: AiAgentEntry[];
@@ -76,8 +75,15 @@ export function AgentsWorkspaceAgentsPanel({
 }: AgentsWorkspaceAgentsPanelProps) {
   const { t } = useTranslation("ai-ui");
   const [search, setSearch] = useState("");
-  const [kindFilter, setKindFilter] = useState<AgentKindFilter>("all");
-  const [sortOrder, setSortOrder] = useState<AgentSortOrder>("asc");
+  // Kind + sort ride in the user's sidebar settings; the search box stays
+  // local, so a reload never hides the catalog behind a stale query.
+  const { catalogFilters, setCatalogFilters } =
+    useAdminAgentsSidebarNavPersistence();
+  const { kind: kindFilter, sortOrder } = catalogFilters.agents;
+  const setKindFilter = (value: AgentKindFilter) =>
+    setCatalogFilters("agents", { kind: value });
+  const setSortOrder = (value: "asc" | "desc") =>
+    setCatalogFilters("agents", { sortOrder: value });
 
   const searchLower = search.trim().toLowerCase();
   const searchActive = searchLower.length > 0;
@@ -134,7 +140,7 @@ export function AgentsWorkspaceAgentsPanel({
             </span>
             <Tabs
               className="shrink-0"
-              onValueChange={(v) => setSortOrder(v as AgentSortOrder)}
+              onValueChange={(v) => setSortOrder(v as "asc" | "desc")}
               value={sortOrder}
             >
               <TabsList className="h-8 p-0.5">

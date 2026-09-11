@@ -1,18 +1,13 @@
+import type { ConnectorConnectButtonProps } from "@engenty/connections/ui/extensions";
 import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
 import { FolderPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { registerDirectory } from "../api.js";
 import {
-  directoryDisplayName,
-  isDesktopShell,
-  pickDesktopDirectory,
-  putDesktopDirectoryPath,
-} from "../lib/desktop-fs.js";
-import { isSupported, pickDirectory } from "../lib/fsa.js";
-import { putHandle } from "../lib/handle-store.js";
-import { deviceLabel, installationId } from "../lib/installation.js";
+  canGrantLocalFolder,
+  grantLocalFolder,
+} from "../lib/grant-local-folder.js";
 
 const CATALOG_KEY = ["connections", "catalog"];
 
@@ -22,13 +17,13 @@ const CATALOG_KEY = ["connections", "catalog"];
  * register it as a connection, and persist its handle/path locally so the
  * bridge can serve it.
  */
-export function LocalFilesConnectButton() {
+export function LocalFilesConnectButton({
+  spaceId = null,
+}: ConnectorConnectButtonProps) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const desktop = isDesktopShell();
-  const supported = desktop || isSupported();
 
-  if (!supported) {
+  if (!canGrantLocalFolder()) {
     return (
       <Button disabled size="sm" title="Requires Chrome or Edge" type="button">
         <FolderPlus className="mr-1.5 size-4" />
@@ -37,52 +32,18 @@ export function LocalFilesConnectButton() {
     );
   }
 
-  const connectDesktop = async (): Promise<string | null> => {
-    const path = await pickDesktopDirectory();
-    if (!path) {
-      return null; // user cancelled the native picker
-    }
-    const name = directoryDisplayName(path);
-    const { connection_id } = await registerDirectory({
-      deviceLabel: deviceLabel(),
-      directoryName: name,
-      installationId: installationId(),
-    });
-    putDesktopDirectoryPath(connection_id, path);
-    return name;
-  };
-
-  const connectBrowser = async (): Promise<string | null> => {
-    const handle = await pickDirectory();
-    const { connection_id } = await registerDirectory({
-      deviceLabel: deviceLabel(),
-      directoryName: handle.name,
-      installationId: installationId(),
-    });
-    try {
-      await putHandle(connection_id, handle);
-    } catch (storeError) {
-      toast.error(
-        `Could not persist the folder handle: ${
-          storeError instanceof Error ? storeError.message : String(storeError)
-        }`
-      );
-    }
-    return handle.name;
-  };
-
   const connect = async () => {
     setBusy(true);
     try {
-      const name = desktop ? await connectDesktop() : await connectBrowser();
-      if (name === null) {
+      const granted = await grantLocalFolder({ spaceId });
+      if (!granted) {
         return;
       }
       await queryClient.invalidateQueries({ queryKey: CATALOG_KEY });
-      toast.success(`Connected "${name}"`);
+      toast.success(`Connected "${granted.name}"`);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        return; // user cancelled the picker
+        return;
       }
       toast.error(
         `Connect failed: ${

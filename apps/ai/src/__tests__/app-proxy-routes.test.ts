@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EngentyCoreHttpError } from "../ai/core-http-client.js";
 import { AppCapabilityRegistry } from "../api/app-capabilities.js";
-import { registerAppProxyRoutes } from "../api/app-proxy-routes.js";
+import {
+  type AppProxyOptions,
+  registerAppProxyRoutes,
+} from "../api/app-proxy-routes.js";
 
 /**
  * The proxy is the capability wall: an App reaches engenty only through it,
@@ -11,6 +14,13 @@ import { registerAppProxyRoutes } from "../api/app-proxy-routes.js";
  */
 
 const invokeTool = vi.hoisted(() => vi.fn());
+const describeTool = vi.hoisted(() =>
+  vi.fn(async (toolId: string) => ({
+    moduleId: toolId.startsWith("gmail_") ? "connections" : "tasks",
+    operationId: toolId,
+    summary: `summary of ${toolId}`,
+  }))
+);
 const requestFn = vi.hoisted(() => vi.fn());
 
 vi.mock("../ai/core-http-client.js", async () => {
@@ -20,6 +30,7 @@ vi.mock("../ai/core-http-client.js", async () => {
   return {
     ...actual,
     EngentyCoreClient: class {
+      describeTool = describeTool;
       invokeTool = invokeTool;
       request = requestFn;
     },
@@ -30,6 +41,8 @@ vi.mock("../ai/core-http-client.js", async () => {
 const TENANT = "tenant-1";
 const USER = "user-1";
 const APP_ID = "11111111-1111-4111-8111-111111111111";
+const TABLE_ID = "22222222-2222-4222-8222-222222222222";
+const ROW_ID = "33333333-3333-4333-8333-333333333333";
 
 const APP_DETAIL = {
   active_version: {
@@ -38,7 +51,7 @@ const APP_DETAIL = {
         { id: "collect", risk: "low" },
         { id: "finalize", requiresApproval: true, risk: "high" },
       ],
-      engenty: { operations: ["inbox_threads_list"] },
+      engenty: { operations: ["inbox_threads_list"], tables: [TABLE_ID] },
       storage: { config: true, data: true },
     },
     version: 1,
@@ -47,10 +60,65 @@ const APP_DETAIL = {
   status: "active",
 };
 
-function makeApp(capabilities = new AppCapabilityRegistry()) {
+/** A one-column Space table; enough to see coercion and the allow-list act. */
+function makeTables() {
+  const rows = new Map<string, Record<string, unknown>>([
+    [ROW_ID, { turn: "x" }],
+  ]);
+  const table = {
+    columns: [{ id: "turn", name: "Turn", type: "text" as const }],
+    id: TABLE_ID,
+    space_id: "space-1",
+    tenant_id: TENANT,
+    title: "Games",
+  };
+  return {
+    deleteRows: vi.fn(async ({ rowIds }: { rowIds: string[] }) => {
+      for (const id of rowIds) {
+        rows.delete(id);
+      }
+      return rowIds.length;
+    }),
+    getRow: vi.fn(async ({ rowId }: { rowId: string }) =>
+      rows.has(rowId) ? { cells: rows.get(rowId), id: rowId } : null
+    ),
+    getTable: vi.fn(async ({ tableId }: { tableId: string }) =>
+      tableId === TABLE_ID ? table : null
+    ),
+    insertRows: vi.fn(
+      async ({ rows: next }: { rows: Record<string, unknown>[] }) =>
+        next.map((cells, index) => {
+          const id = `new-${index}`;
+          rows.set(id, cells);
+          return { cells, id };
+        })
+    ),
+    listRows: vi.fn(async () =>
+      [...rows.entries()].map(([id, cells]) => ({ cells, id }))
+    ),
+    updateRow: vi.fn(
+      async ({
+        cells,
+        rowId,
+      }: {
+        cells: Record<string, unknown>;
+        rowId: string;
+      }) => {
+        rows.set(rowId, cells);
+        return { cells, id: rowId };
+      }
+    ),
+  } as unknown as NonNullable<AppProxyOptions["tables"]>;
+}
+
+function makeApp(
+  capabilities = new AppCapabilityRegistry(),
+  tables: AppProxyOptions["tables"] = null
+) {
   const app = new Hono();
   registerAppProxyRoutes(app as never, {
     capabilities,
+    tables,
     scopeResolver: async ({ authorization }) => {
       if (!authorization) {
         return { error: "unauthorized", ok: false, status: 401 as const };
@@ -597,6 +665,7 @@ const VERSIONS = {
         engenty: { operations: ["tasks_list", "gmail_send"] },
         storage: { config: false, data: true },
       },
+      sha: "b".repeat(40),
       status: "proposed",
       version: 2,
     },
@@ -606,6 +675,7 @@ const VERSIONS = {
         engenty: { operations: ["tasks_list"] },
         storage: { data: true },
       },
+      sha: "a".repeat(40),
       status: "active",
       version: 1,
     },
@@ -629,9 +699,40 @@ describe("GET /ai/apps/:appId/review", () => {
     await expect(res.json()).resolves.toMatchObject({
       can_approve: true,
       review: {
-        operations: ["tasks_list", "gmail_send"],
+        // Each id names the module or connector it belongs to, so an
+        // approver can tell a mailbox send from a contacts read.
+        operations: [
+          {
+            id: "tasks_list",
+            module: "tasks",
+            summary: "summary of tasks_list",
+          },
+          {
+            id: "gmail_send",
+            module: "connections",
+            summary: "summary of gmail_send",
+          },
+        ],
+        sha: "b".repeat(40),
         status: "proposed",
         version: 2,
+      },
+    });
+  });
+
+  it("still reviews when an operation's contract cannot be read", async () => {
+    describeTool.mockRejectedValueOnce(new Error("unknown tool"));
+    requestFn.mockResolvedValue({ capabilities: ["apps.approve"] });
+    const { app } = makeApp();
+    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
+      headers: authed,
+    });
+    await expect(res.json()).resolves.toMatchObject({
+      review: {
+        operations: [
+          { id: "tasks_list", module: null, summary: null },
+          { id: "gmail_send", module: "connections" },
+        ],
       },
     });
   });
@@ -741,5 +842,88 @@ describe("POST /ai/apps/:appId/review", () => {
     });
     expect(res.status).toBe(400);
     expect(invokeTool).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /ai/apps/:appId/call — Space tables", () => {
+  it("reads a declared table with the same shape the table_read tool answers", async () => {
+    const { app } = makeApp(undefined, makeTables());
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("table_read", { table_id: TABLE_ID }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      result: {
+        columns: [{ id: "turn" }],
+        rows: [{ cells: { turn: "x" }, id: ROW_ID }],
+        table_id: TABLE_ID,
+        title: "Games",
+      },
+    });
+  });
+
+  it("refuses a table the manifest never declared, before touching the store", async () => {
+    const tables = makeTables();
+    const { app } = makeApp(undefined, tables);
+    const other = "44444444-4444-4444-8444-444444444444";
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("table_read", { table_id: other }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "apps.tableNotDeclared",
+      table_id: other,
+    });
+    expect(tables.getTable).not.toHaveBeenCalled();
+  });
+
+  it("writes rows through the column definition and answers the written ids", async () => {
+    const tables = makeTables();
+    const { app } = makeApp(undefined, tables);
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("table_write", {
+        insert: [{ turn: "o" }],
+        table_id: TABLE_ID,
+        update: [{ row_id: ROW_ID, values: { turn: "o" } }],
+      }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      result: {
+        deleted: 0,
+        inserted: ["new-0"],
+        table_id: TABLE_ID,
+        updated: [ROW_ID],
+      },
+    });
+    expect(tables.updateRow).toHaveBeenCalledWith(
+      expect.objectContaining({ cells: { turn: "o" }, tenantId: TENANT })
+    );
+  });
+
+  it("rejects a cell for a column the table does not have instead of storing it", async () => {
+    const tables = makeTables();
+    const { app } = makeApp(undefined, tables);
+    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
+      body: callBody("table_write", {
+        insert: [{ turn: "o", winner: "nobody" }],
+        table_id: TABLE_ID,
+      }),
+      headers: authed,
+      method: "POST",
+    });
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "apps.invalidRowValues",
+    });
+    expect(tables.insertRows).not.toHaveBeenCalled();
   });
 });

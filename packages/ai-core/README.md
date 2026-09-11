@@ -6,7 +6,7 @@ Developer-focused documentation for the current AI runtime package.
 
 `@engenty/ai-core` is the shared agentic SDK for Engenty:
 
-- `registerAiRegistration` — module agents, actions, skills, triggers, heartbeat policies
+- `registerAiRegistration` — module agents, workflows, skills, routines, heartbeat policies
 - `AgentConfig` / `DynamicAiModuleCapability` — contracts for `apps/ai` dynamic agent assembly
 - Mastra tool builders under `ai/tools/` (re-exported from `src/tools/`)
 - AG-UI message helpers, agent UI prompt context, usage/model config
@@ -43,9 +43,7 @@ packages/ai-core
 │   ├── registry.ts
 │   ├── actions/loader.ts
 │   ├── skills/
-│   │   ├── loader.ts
-│   │   ├── builtin.ts
-│   │   └── seed/
+│   │   └── loader.ts
 │   ├── agents/
 │   │   ├── agent-manifest.ts
 │   │   ├── copilot-agent-manifest.ts
@@ -111,7 +109,7 @@ flowchart TB
 
 - Registration: `registerAiRegistration`, `unregisterAiRegistration`, `listActiveAiRegistrations`
 - Dynamic module capability: `AgentConfig`, `DynamicAiModuleCapability`, `MastraToolDefinition`
-- Registry lookup: `resolveAgentDefinitionById`, `resolveActionDefinitionById`, `resolveSkillDefinitionById`
+- Registry lookup: `resolveAgentDefinitionById`, `resolveWorkflowDefinitionById`, `resolveSkillDefinitionById`
 - AG-UI: `buildAgUiMessagesFromSessionMessages`, `agUiMessageText`, `deriveInitialSessionTitleFromText`
 - Agent UI prompt: `buildAgentSystemPromptFromUiState`, `formatAgentUiStateHarnessInstructions`
 - Instructions: `buildAgentLayeredPrompt`, `createEngentyCopilotInstructionDocuments`, `resolveInstructionLayers`

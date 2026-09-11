@@ -197,6 +197,59 @@ describe("loadPluginManifest", () => {
     }
   });
 
+  it("rejects unknown placement values", () => {
+    // Same hard failure as `category`, and for a sharper reason: a typo'd
+    // placement would fall back to a default that decides whether the module
+    // appears on the app rail at all (PLAN-spaces.md Phase 5a).
+    tmpDir = makeTempDir();
+    fs.writeFileSync(path.join(tmpDir, "plugin-entry.ts"), "export {};");
+    fs.writeFileSync(
+      path.join(tmpDir, ENGENTY_PLUGIN_MANIFEST_FILENAME),
+      JSON.stringify({
+        id: "bad-placement",
+        placement: "globl",
+        server: { entry: "./plugin-entry.ts" },
+      })
+    );
+    const result = loadPluginManifest(tmpDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("plugin.manifest.invalid");
+      expect(result.error).toContain("placement must be one of");
+    }
+  });
+
+  it("reads a declared placement and leaves it undefined when absent", () => {
+    // Undefined, NOT defaulted here: the manifest layer reports what was
+    // written, and the UI resolver is the one place that turns absence into
+    // "space" plus a diagnostic naming the plugin.
+    tmpDir = makeTempDir();
+    fs.writeFileSync(path.join(tmpDir, "plugin-entry.ts"), "export {};");
+    fs.writeFileSync(
+      path.join(tmpDir, ENGENTY_PLUGIN_MANIFEST_FILENAME),
+      JSON.stringify({
+        id: "placed",
+        placement: "global",
+        server: { entry: "./plugin-entry.ts" },
+      })
+    );
+    const placed = loadPluginManifest(tmpDir);
+    expect(placed.ok).toBe(true);
+    if (placed.ok) {
+      expect(placed.manifest.placement).toBe("global");
+    }
+
+    fs.writeFileSync(
+      path.join(tmpDir, ENGENTY_PLUGIN_MANIFEST_FILENAME),
+      JSON.stringify({ id: "unplaced", server: { entry: "./plugin-entry.ts" } })
+    );
+    const unplaced = loadPluginManifest(tmpDir);
+    expect(unplaced.ok).toBe(true);
+    if (unplaced.ok) {
+      expect(unplaced.manifest.placement).toBeUndefined();
+    }
+  });
+
   it("reads runtime UI load policy", () => {
     tmpDir = makeTempDir();
     fs.writeFileSync(

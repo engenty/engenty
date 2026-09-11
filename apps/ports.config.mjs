@@ -5,12 +5,14 @@
 // (exported into the environment before `pnpm dev`):
 //
 //   ENGENTY_UI_PORT   ENGENTY_CORE_PORT   ENGENTY_AI_PORT   ENGENTY_DOCS_PORT
+//   ENGENTY_WWW_PORT
 //
 // Consumers:
 //   - apps/ui/vite.config.ts   → its own port AND the /api,/ai,/docs proxy targets
 //   - apps/core (server.ts)    → reads ENGENTY_CORE_PORT (default below)
 //   - apps/ai  (src/index.ts)  → reads ENGENTY_AI_PORT  (default below)
 //   - apps/docs (dev:app)      → reads ENGENTY_DOCS_PORT (default below)
+//   - apps/www  (dev:app)      → reads ENGENTY_WWW_PORT (default below)
 //
 // core/ai/docs each read their own env var so there is no shared PORT to collide.
 
@@ -24,6 +26,7 @@ export const ports = {
   core: fromEnv("ENGENTY_CORE_PORT", 8787),
   ai: fromEnv("ENGENTY_AI_PORT", 8790),
   docs: fromEnv("ENGENTY_DOCS_PORT", 3002),
+  www: fromEnv("ENGENTY_WWW_PORT", 3003),
   manage: fromEnv("ENGENTY_MANAGE_PORT", 5174),
   // apps/app-host — internal only. Never published, never a gateway target,
   // never a Portless host: it serves tenant-authored code and must not be

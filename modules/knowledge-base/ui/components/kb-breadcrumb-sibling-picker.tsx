@@ -19,7 +19,6 @@ export interface KbBreadcrumbSiblingPickerProps {
   contextLabel: string;
   currentId: string;
   kbId: string;
-  kbSlug: string;
   label: string;
   parentArticleId: string | null;
 }
@@ -37,7 +36,6 @@ const renderLink: ContextPopoverRenderLink = ({
 
 export function KbBreadcrumbSiblingPicker({
   kbId,
-  kbSlug,
   parentArticleId,
   currentId,
   label,
@@ -62,7 +60,7 @@ export function KbBreadcrumbSiblingPicker({
     id: a.id,
     label: a.title,
     icon: <FileText className="size-3.5" />,
-    to: kbArticlePath(kbSlug, a.id),
+    to: kbArticlePath(a.id),
     isActive: a.id === currentId,
   }));
 
@@ -73,7 +71,7 @@ export function KbBreadcrumbSiblingPicker({
       footer={{
         icon: <LayoutList className="size-3.5" />,
         label: t("breadcrumb.all_articles"),
-        to: kbArticlesListPath(kbSlug),
+        to: kbArticlesListPath(),
       }}
       isLoading={isFetching && items.length === 0}
       items={items}

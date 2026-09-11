@@ -1,24 +1,13 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMemo } from "react";
-import type {
-  Goal,
-  Task,
-  TaskStatusDefinition,
-} from "../../src/schema/types.js";
-import { groupTasksByGoal } from "../lib/group-tasks-by-goal.js";
+import type { Task, TaskStatusDefinition } from "../../src/schema/types.js";
 import { groupTasksForList } from "../lib/group-tasks-for-list.js";
-import { GeneralTasksSection } from "./general-tasks-section.js";
-import { GoalTasksSection } from "./goal-tasks-section.js";
 import { TaskCard } from "./task-card.js";
 import type { TasksGroupBy } from "./tasks-list-filter-bar.js";
 
 interface TasksGroupedListProps {
   assigneeProfiles?: Map<string, { full_name: string; id: string }>;
-  goals: Goal[];
   groupBy: TasksGroupBy;
-  onAddGeneralTask?: () => void;
-  onAddTaskToGoal?: (goalId: string) => void;
-  onGoalEdit?: (goalId: string) => void;
   onTaskClick?: (task: Task) => void;
   onTaskDelete?: (taskId: string) => void | Promise<void>;
   onTaskEdit?: (task: Task) => void;
@@ -69,11 +58,7 @@ function TaskCardsBlock({
 
 export function TasksGroupedList({
   tasks,
-  goals,
   groupBy,
-  onAddGeneralTask,
-  onAddTaskToGoal,
-  onGoalEdit,
   onTaskClick,
   onTaskEdit,
   onTaskDelete,
@@ -85,34 +70,24 @@ export function TasksGroupedList({
 }: TasksGroupedListProps) {
   const { t } = useTranslation("tasks");
 
-  const goalGrouped = useMemo(
-    () => (groupBy === "goal" ? groupTasksByGoal(tasks, goals) : null),
-    [goals, groupBy, tasks]
-  );
-
   const groups = useMemo(
     () =>
-      groupBy === "goal"
-        ? null
-        : groupTasksForList({
-            assigneeProfiles,
-            goals,
-            groupBy,
-            labels: {
-              agentPrefix: (agentKey) => `Agent: ${agentKey}`,
-              generalTasks: t("list.generalTasks"),
-              missingGoal: t("sidebar.missingGoal"),
-              noProject: t("newTask.noProject"),
-              priority: (priority) => t(`priority.${priority}`, priority),
-              unassigned: t("sidebar.unassigned"),
-            },
-            projectTitleById,
-            taskStatusDefinitions,
-            tasks,
-          }),
+      groupTasksForList({
+        assigneeProfiles,
+        groupBy,
+        labels: {
+          agentPrefix: (agentKey) => `Agent: ${agentKey}`,
+          generalTasks: t("list.generalTasks"),
+          noProject: t("newTask.noProject"),
+          priority: (priority) => t(`priority.${priority}`, priority),
+          unassigned: t("sidebar.unassigned"),
+        },
+        projectTitleById,
+        taskStatusDefinitions,
+        tasks,
+      }),
     [
       assigneeProfiles,
-      goals,
       groupBy,
       projectTitleById,
       t,
@@ -120,40 +95,6 @@ export function TasksGroupedList({
       tasks,
     ]
   );
-
-  if (groupBy === "goal" && goalGrouped) {
-    return (
-      <div className="space-y-6 pb-6">
-        <GeneralTasksSection
-          assigneeProfiles={assigneeProfiles}
-          onAddTask={onAddGeneralTask}
-          onTaskClick={onTaskClick}
-          onTaskDelete={onTaskDelete}
-          onTaskEdit={onTaskEdit}
-          onTaskStatusChange={onTaskStatusChange}
-          showAssignee={showAssignee}
-          taskStatusDefinitions={taskStatusDefinitions}
-          tasks={goalGrouped.generalTasks}
-        />
-        {goalGrouped.goalSections.map((section) => (
-          <GoalTasksSection
-            assigneeProfiles={assigneeProfiles}
-            goal={section.goal}
-            key={section.goal.id}
-            onAddTask={onAddTaskToGoal}
-            onGoalEdit={onGoalEdit}
-            onTaskClick={onTaskClick}
-            onTaskDelete={onTaskDelete}
-            onTaskEdit={onTaskEdit}
-            onTaskStatusChange={onTaskStatusChange}
-            showAssignee={showAssignee}
-            taskStatusDefinitions={taskStatusDefinitions}
-            tasks={section.tasks}
-          />
-        ))}
-      </div>
-    );
-  }
 
   if (!groups) {
     return null;

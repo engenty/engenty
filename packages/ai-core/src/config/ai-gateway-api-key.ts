@@ -1,6 +1,34 @@
 import { env } from "@engenty/telemetry";
+import {
+  DEFAULT_MODEL_GATEWAY_ID,
+  OPENROUTER_GATEWAY_ID,
+} from "./model-ref.js";
 
 const AI_GATEWAY_API_KEY_ENV = "AI_GATEWAY_API_KEY";
+const OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY";
+
+/**
+ * Which env var holds each gateway's credential.
+ *
+ * One var per gateway rather than a single key plus a provider switch: an
+ * install that moves a few roles to OpenRouter keeps every other role on Vercel,
+ * so both credentials have to be present at once. A switch would have made the
+ * two mutually exclusive.
+ */
+const GATEWAY_API_KEY_ENV: Readonly<Record<string, string>> = {
+  [DEFAULT_MODEL_GATEWAY_ID]: AI_GATEWAY_API_KEY_ENV,
+  [OPENROUTER_GATEWAY_ID]: OPENROUTER_API_KEY_ENV,
+};
+
+function read(envKey: string): string | null {
+  const key = env(envKey, "");
+  return key.length > 0 ? key : null;
+}
+
+/** The env var name a gateway's credential is read from, or null if unknown. */
+export function gatewayApiKeyEnvName(gateway: string): string | null {
+  return GATEWAY_API_KEY_ENV[gateway.trim().toLowerCase()] ?? null;
+}
 
 /**
  * Reads `AI_GATEWAY_API_KEY` from the process environment (trimmed).
@@ -8,6 +36,37 @@ const AI_GATEWAY_API_KEY_ENV = "AI_GATEWAY_API_KEY";
  * separate per-request key path unless a provider is constructed with an explicit apiKey.
  */
 export function readAiGatewayApiKeyFromEnv(): string | null {
-  const key = env(AI_GATEWAY_API_KEY_ENV, "");
-  return key.length > 0 ? key : null;
+  return read(AI_GATEWAY_API_KEY_ENV);
+}
+
+/**
+ * Reads `OPENROUTER_API_KEY`. Unlike the Vercel key this is never picked up
+ * implicitly — the OpenRouter provider is always constructed with it explicitly.
+ */
+export function readOpenRouterApiKeyFromEnv(): string | null {
+  return read(OPENROUTER_API_KEY_ENV);
+}
+
+/** The credential for one gateway, or null when it is not configured. */
+export function readGatewayApiKeyFromEnv(gateway: string): string | null {
+  const envKey = gatewayApiKeyEnvName(gateway);
+  return envKey ? read(envKey) : null;
+}
+
+/**
+ * Gateways that currently hold a credential.
+ *
+ * The ~20 "is AI configured at all?" gates across the product ask about the
+ * Vercel key specifically; this answers the broader question a multi-gateway
+ * install actually has, which is whether ANY model can be reached.
+ */
+export function configuredModelGateways(): string[] {
+  return Object.keys(GATEWAY_API_KEY_ENV).filter(
+    (gateway) => readGatewayApiKeyFromEnv(gateway) !== null
+  );
+}
+
+/** True when at least one gateway can serve a model. */
+export function hasAnyModelGatewayApiKey(): boolean {
+  return configuredModelGateways().length > 0;
 }

@@ -6,17 +6,18 @@
   "pages": [
     "README",
     "architecture",
+    "work-model",
     "local-development",
     "setup-process",
     "plugins",
     "connections",
-    "memory",
     "artifacts",
     "objects",
     "generative-ui",
     "ci-pipeline",
     "module-packaging",
     "service-identity",
+    "notifications",
     "remote-channels"
   ]
 }

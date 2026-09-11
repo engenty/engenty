@@ -238,7 +238,7 @@ export function Composer({
       className={cn(
         compact
           ? "relative px-3 py-1.5"
-          : "border-border/60 border-t bg-card px-4 py-3"
+          : "border-border-soft border-t bg-card px-4 py-3"
       )}
     >
       {/* Reading column; `relative` keeps the mention popover anchored to the
@@ -278,7 +278,7 @@ export function Composer({
                 ) : null}
               </button>
             ))}
-            <div className="flex items-center gap-1 border-border/60 border-t px-2 pt-1 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1 border-border-soft border-t px-2 pt-1 text-[10px] text-muted-foreground">
               <AtSign className="size-3" /> {t("composer.mentionHint")}
             </div>
           </div>

@@ -6,6 +6,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import { createPackagesDal } from "../../dal/packages.js";
 import { createSuperadminDal } from "../../dal/superadmin.js";
 import { entitlements } from "../../lib/entitlements-runtime.js";
+import type { ApprovalDecidedEvent } from "../../security/approval-gate.js";
 import {
   createNoopAuditLog,
   type SecurityAuditLogAdapter,
@@ -55,6 +56,8 @@ export function registerSuperadminRoutes(params: {
    * pending requests. Optional so route-only tests can omit it.
    */
   approvalService?: ApprovalService;
+  /** After a decision lands: `emitApprovalDecided` (notifications resolve on it). */
+  onDecided?: (event: ApprovalDecidedEvent) => Promise<void>;
   /** Resolve a tenant's seat entitlement. Injectable for tests. */
   resolveSeatLimit?: (tenantId: string) => Promise<{
     maxUsers: number | null;
@@ -622,6 +625,14 @@ export function registerSuperadminRoutes(params: {
       moduleId: decided.moduleId,
       operationId: decided.operationId,
       detail: { requestId: decided.id, decision, viaSuperadmin: true },
+    });
+    await params.onDecided?.({
+      actorId: authResult.auth.userId ?? null,
+      decision,
+      moduleId: decided.moduleId,
+      operationId: decided.operationId,
+      requestId: decided.id,
+      tenantId: decided.tenantId,
     });
     return jsonApiSuccess(c, decided);
   });

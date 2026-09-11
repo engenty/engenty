@@ -23,6 +23,17 @@ export interface ToolExecutionContext {
   scope: Record<string, unknown> | null;
   /** Scope ID from auth context. */
   scopeId: string | null;
+  /**
+   * True when this agent is activated in the Space rather than merely running
+   * inside one. Distinct from {@link spaceId}: a resolved Space without
+   * confinement still forwards `spaceId` so space-owned records default there.
+   */
+  spaceConfined?: boolean;
+  /**
+   * Active Space for this run, when resolved. Absent/null is intentional
+   * tenant-global — never a stand-in for a claimed Space that failed to load.
+   */
+  spaceId?: string | null;
   /** Tenant ID from auth context. */
   tenantId: string | null;
   /** Authenticated user id (`execution_scope.user_id`) for this invocation. */

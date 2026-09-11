@@ -2,8 +2,14 @@
 
 import { CopilotTranscript, type CopilotTranscriptProps } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button } from "@engenty/ui-core";
-import { Square } from "lucide-react";
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@engenty/ui-core";
+import { ChevronDown, Square } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTaskRunObserverContext } from "../context/task-run-observer-context.js";
 
 /**
@@ -18,6 +24,20 @@ import { useTaskRunObserverContext } from "../context/task-run-observer-context.
 export function TaskRunObserverBody() {
   const { t } = useTranslation("tasks");
   const observer = useTaskRunObserverContext();
+  const [briefOpen, setBriefOpen] = useState(false);
+
+  // A headless run opens on its BRIEF — the whole rendered task, workspace
+  // guidance and prior comments, hundreds of words the reader is standing on
+  // the task page looking at already. Left in the transcript it pushed the
+  // thing they opened this for (what the agent actually did) below the fold.
+  // So the opening turn folds away and the run's own work leads.
+  const [brief, rest] = useMemo(() => {
+    const messages = observer.copilotMessages;
+    const first = messages[0];
+    return first?.role === "user"
+      ? ([first, messages.slice(1)] as const)
+      : ([null, messages] as const);
+  }, [observer.copilotMessages]);
 
   if (!observer.view) {
     return null;
@@ -33,7 +53,25 @@ export function TaskRunObserverBody() {
         </p>
       ) : null}
 
-      {observer.initialPrompt ? (
+      {brief ? (
+        <Collapsible onOpenChange={setBriefOpen} open={briefOpen}>
+          <CollapsibleTrigger className="flex w-full items-center gap-1 text-muted-foreground text-xs hover:text-foreground">
+            <ChevronDown
+              className={`size-3.5 transition-transform ${briefOpen ? "rotate-180" : ""}`}
+            />
+            {t("detail.runObserver.brief")}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <CopilotTranscript
+              messages={[brief]}
+              status="ready"
+              surface="default"
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      ) : observer.initialPrompt ? (
+        // No transcript yet (the run is still starting): the run record's own
+        // snapshot of the prompt is all there is to show.
         <section className="space-y-1 rounded-md bg-muted/30 p-3">
           <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
             {t("detail.runObserver.initialPrompt")}
@@ -49,7 +87,7 @@ export function TaskRunObserverBody() {
       ) : null}
 
       <CopilotTranscript
-        messages={observer.copilotMessages}
+        messages={rest}
         pendingUserText={observer.pendingUserText}
         status={observer.transcriptStatus as CopilotTranscriptProps["status"]}
         surface="default"

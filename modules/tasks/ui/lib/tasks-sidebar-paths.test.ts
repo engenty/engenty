@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   isBriefingPath,
-  isGoalDetailPath,
-  isGoalsListPath,
   isSettingsPath,
   isTaskDetailPath,
   isTasksListPath,
 } from "./tasks-routes.js";
 
-const GOAL_ID = "11111111-1111-4111-8111-111111111111";
 const TASK_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("tasks sidebar path helpers", () => {
@@ -16,14 +13,6 @@ describe("tasks sidebar path helpers", () => {
     expect(isBriefingPath("/mdl/tasks")).toBe(true);
     expect(isBriefingPath("/mdl/tasks/briefing")).toBe(true);
     expect(isBriefingPath("/mdl/tasks/list")).toBe(false);
-  });
-
-  it("detects goals list and detail routes", () => {
-    expect(isGoalsListPath("/mdl/tasks/goals")).toBe(true);
-    expect(isGoalsListPath(`/mdl/tasks/goals/${GOAL_ID}`)).toBe(false);
-    expect(isGoalDetailPath(`/mdl/tasks/goals/${GOAL_ID}`)).toBe(GOAL_ID);
-    expect(isGoalDetailPath(`/mdl/tasks/goals/${GOAL_ID}/edit`)).toBe(GOAL_ID);
-    expect(isGoalDetailPath("/mdl/tasks/goals/not-a-uuid")).toBeNull();
   });
 
   it("detects tasks list and detail routes", () => {

@@ -94,8 +94,59 @@ export function buildCatalogSearchText(
     .join("\n");
 }
 
-function tokenFrequency(tokens: string[], token: string) {
-  return tokens.reduce((count, item) => count + (item === token ? 1 : 0), 0);
+function inflectionStems(token: string): string[] {
+  const stems = [token];
+  if (token.length < 5) {
+    return stems;
+  }
+  if (token.endsWith("ing")) {
+    const base = token.slice(0, -3);
+    if (base.length >= 3) {
+      stems.push(base, `${base}e`);
+    }
+  } else if (token.endsWith("ies") && token.length >= 6) {
+    stems.push(`${token.slice(0, -3)}y`);
+  } else if (token.endsWith("es")) {
+    stems.push(token.slice(0, -2), token.slice(0, -1));
+  } else if (token.endsWith("ed")) {
+    const base = token.slice(0, -2);
+    stems.push(base, `${base}e`);
+  } else if (token.endsWith("s") && !token.endsWith("ss")) {
+    stems.push(token.slice(0, -1));
+  }
+  return [...new Set(stems)];
+}
+
+function tokenMatchStrength(queryToken: string, candidate: string): number {
+  if (queryToken === candidate) {
+    return 1;
+  }
+  let best = 0;
+  for (const queryStem of inflectionStems(queryToken)) {
+    for (const candidateStem of inflectionStems(candidate)) {
+      if (queryStem === candidateStem) {
+        best = Math.max(
+          best,
+          queryStem === queryToken && candidateStem === candidate ? 1 : 0.75
+        );
+        continue;
+      }
+      if (queryStem.length >= 2 && candidateStem.startsWith(queryStem)) {
+        best = Math.max(best, 0.55 * (queryStem.length / candidateStem.length));
+      }
+      if (candidateStem.length >= 4 && queryStem.startsWith(candidateStem)) {
+        best = Math.max(best, 0.4 * (candidateStem.length / queryStem.length));
+      }
+    }
+  }
+  return best;
+}
+
+function weightedTokenFrequency(tokens: string[], queryToken: string) {
+  return tokens.reduce(
+    (sum, token) => sum + tokenMatchStrength(queryToken, token),
+    0
+  );
 }
 
 /** BM25-like weighted-field lexical score; 0 when the query has no overlap. */
@@ -119,14 +170,14 @@ export function scoreCatalogEntry(
   }
 
   return queryTokens.reduce((score, token) => {
-    const termFrequency = tokenFrequency(document.tokens, token);
+    const termFrequency = weightedTokenFrequency(document.tokens, token);
     if (termFrequency === 0) {
       return score;
     }
 
     const fieldScore = document.fields.reduce((sum, field) => {
       const fieldTokens = tokenizeCatalogText(field.text);
-      const fieldFrequency = tokenFrequency(fieldTokens, token);
+      const fieldFrequency = weightedTokenFrequency(fieldTokens, token);
       if (fieldFrequency === 0) {
         return sum;
       }

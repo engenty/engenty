@@ -87,7 +87,7 @@ export function PortalLogin({
   );
 
   return (
-    <div className="mx-auto max-w-md space-y-6 rounded-lg border bg-card p-6">
+    <div className="ui-card-panel mx-auto w-full max-w-md space-y-6 p-6">
       <h1 className="font-semibold text-xl">{projectTitle}</h1>
       {introText && (
         <p className="text-muted-foreground text-sm">{introText}</p>

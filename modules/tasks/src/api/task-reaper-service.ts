@@ -8,8 +8,8 @@
 // alive, and releases dead checkouts (comment + activity + re-dispatch), so
 // no task is ever `in_progress` without a live run behind it.
 //
-// Invoked via the `tasks_reap_stale_checkouts` gateway op — the coordinator
-// heartbeat routine calls it every cycle, and it is safe to run any time
+// Invoked via the `tasks_reap_stale_checkouts` gateway op — the coordinator's
+// housekeeping cycle calls it, and it is safe to run any time
 // (releasing is idempotent and a live run is never touched).
 
 import type { QueueServiceLike } from "@engenty/plugin-sdk";
@@ -20,7 +20,7 @@ import {
 } from "./task-dispatch-service.js";
 
 /** Agent principal attributed to reaper releases. */
-const REAPER_ACTOR = "engenty.coordinator";
+const REAPER_ACTOR = "system.tasks";
 
 /**
  * A checkout whose run row is MISSING is only stale after this grace window
@@ -62,7 +62,10 @@ export interface ReapStaleCheckoutsDeps {
   now?: () => number;
   queue?: QueueServiceLike | null;
   repo: ReaperTasksRepo;
+  /** When set, only claimed tasks in this Space are considered. */
+  spaceId?: string | null;
   tenantId?: string | null;
+  validateAgentAssignment?: (task: Task) => Promise<void>;
 }
 
 export interface ReapStaleCheckoutsResult {
@@ -80,7 +83,9 @@ export async function reapStaleCheckouts(
   deps: ReapStaleCheckoutsDeps
 ): Promise<ReapStaleCheckoutsResult> {
   const now = deps.now ?? Date.now;
-  const claimed = await deps.repo.listClaimedTasks();
+  const claimed = (await deps.repo.listClaimedTasks()).filter(
+    (task) => !deps.spaceId || task.space_id === deps.spaceId
+  );
   const reaped: ReapStaleCheckoutsResult["reaped"] = [];
 
   for (const task of claimed) {
@@ -133,6 +138,7 @@ export async function reapStaleCheckouts(
           queue: deps.queue,
           repo: deps.repo as unknown as DispatchRepo,
           tenantId: deps.tenantId,
+          validateAgentAssignment: deps.validateAgentAssignment,
         },
         released
       );

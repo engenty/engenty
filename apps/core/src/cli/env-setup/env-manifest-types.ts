@@ -30,6 +30,19 @@ export type ObtainStrategy =
 export type EnvRequirement = "always" | "feature" | "optional";
 
 /**
+ * How badly a var is needed — the same everywhere, or per env file.
+ *
+ * Per-scope exists because the same key can be load-bearing in one place and a
+ * override in another: the UI's Supabase values must be present for `pnpm dev`,
+ * where Vite serves the SPA straight from the root env, but a deployment's
+ * gateway writes them into the page from `SUPABASE_URL` / `SUPABASE_ANON_KEY`,
+ * so there they are only needed when the browser-facing address differs.
+ */
+export type EnvRequirementByScope =
+  | EnvRequirement
+  | Partial<Record<EnvScope, EnvRequirement>>;
+
+/**
  * Whether a var may be overridden at runtime from the DB-backed settings store
  * (`@engenty/platform-settings`), and at which scope:
  *  - `"platform"` — editable in the superadmin Setup UI; overrides the env value
@@ -78,7 +91,7 @@ export interface EnvVarSpec {
   group: string;
   key: string;
   obtain: ObtainStrategy;
-  required: EnvRequirement;
+  required: EnvRequirementByScope;
   scopes: readonly EnvScope[];
   /** Masked in reports and prompted via password input. */
   secret: boolean;
@@ -112,7 +125,7 @@ export interface ContributedEnvVarSpec {
   group: string;
   key: string;
   obtain: ObtainStrategy;
-  required: EnvRequirement;
+  required: EnvRequirementByScope;
   scopes: readonly EnvScope[];
   secret: boolean;
   /** Name of a validator in the env-validators registry (e.g. "url"). */
@@ -124,6 +137,16 @@ export interface ContributedEnv {
   /** Optional feature gate surfaced in the wizard multiselect. */
   feature?: EnvFeatureInfo;
   vars: ContributedEnvVarSpec[];
+}
+
+export function requirementForScope(
+  spec: Pick<EnvVarSpec, "required">,
+  scope: EnvScope
+): EnvRequirement {
+  if (typeof spec.required === "string") {
+    return spec.required;
+  }
+  return spec.required[scope] ?? "optional";
 }
 
 export function defaultValueForScope(

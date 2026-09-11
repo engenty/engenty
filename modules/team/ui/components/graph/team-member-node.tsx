@@ -27,7 +27,7 @@ export function TeamMemberNode({
   if (data.isManager && !data.isCollapsed) {
     return (
       <div className="relative h-full w-full rounded-xl border border-primary/30 border-dashed bg-primary/5 p-4 transition-colors">
-        <div className="absolute -top-6 left-0 flex h-[64px] w-[220px] items-center gap-3 rounded-md border bg-card p-3 shadow-sm">
+        <div className="ui-card-raised absolute -top-6 left-0 flex h-[64px] w-[220px] items-center gap-3 p-3">
           <TeamMemberAvatar
             fullName={data.fullName}
             initials={data.initials}
@@ -70,7 +70,7 @@ export function TeamMemberNode({
   }
 
   return (
-    <div className="flex h-[64px] w-[220px] items-center gap-3 rounded-md border bg-card p-3 shadow-sm transition-all hover:border-primary/50">
+    <div className="ui-card-raised flex h-[64px] w-[220px] items-center gap-3 p-3">
       <Handle position={Position.Top} type="target" />
       <TeamMemberAvatar
         fullName={data.fullName}

@@ -1,15 +1,14 @@
 import type { KnowledgeBase } from "../src/schema/types.js";
 
-type KbNameSource = Pick<KnowledgeBase, "name" | "slug" | "is_default">;
+type KbNameSource = Pick<KnowledgeBase, "name" | "slug">;
 
 /**
  * User-facing KB title.
  *
- * The seeded default KB ships with `name = "Default"` as a sentinel. Until the
- * user gives it a real name, we substitute the localized product label
- * ("Knowledge Base" / "Wissensdatenbank") so the UI reads naturally. Once the
- * user renames it, we honor that name even if `is_default` is still true —
- * otherwise the rename would have no visible effect.
+ * A library created from the "new article" empty state ships with
+ * `name = "Default"` as a sentinel. Until the user gives it a real name, we
+ * substitute the localized product label ("Knowledge Base" /
+ * "Wissensdatenbank") so the UI reads naturally.
  */
 export function kbDisplayName(
   kb: KbNameSource,

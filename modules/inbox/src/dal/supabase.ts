@@ -33,8 +33,33 @@ const SCHEMA = "module_inbox";
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
+/** Granted connection ids are interpolated into a PostgREST filter — uuids only. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface CreateInboxRepoSupabaseOptions {
   emitInboxEvent?: EmitInboxEvent;
+  /**
+   * Connections the acting AGENT was granted (PLAN-spaces.md CN.5). Rows of
+   * these connections are visible regardless of `owner_user_id` — a personal
+   * mailbox its owner granted to the agent is that agent's business, and a
+   * headless run carries no user at all. Only ever ADDS the granted accounts'
+   * rows; every other personal row stays owner-only.
+   */
+  grantedConnectionIds?: ReadonlySet<string>;
+  /**
+   * The mailboxes THIS SPACE placed (PLAN-connections-ux.md E1).
+   *
+   * A narrowing, and the opposite of `grantedConnectionIds` in direction: it
+   * only ever REMOVES rows. `null`/absent means the caller is not in a space
+   * (or the mounts could not be read) and nothing is narrowed — every
+   * pre-space caller behaves exactly as before.
+   *
+   * An EMPTY set is a decision, not an absence: a space that placed no mailbox
+   * has no mail, and answering with the tenant's would be the bug this exists
+   * to remove.
+   */
+  spaceConnectionIds?: ReadonlySet<string> | null;
 }
 
 /**
@@ -58,9 +83,37 @@ export function createInboxRepoSupabase(
   const threadDigests = () => supabase.schema(SCHEMA).from("thread_digests");
   const emit = options.emitInboxEvent ?? (() => undefined);
 
+  const grantedIds = [...(options.grantedConnectionIds ?? [])].filter((id) =>
+    UUID_PATTERN.test(id)
+  );
   const visibilityOr = userId
-    ? `owner_user_id.is.null,owner_user_id.eq.${userId}`
+    ? [
+        "owner_user_id.is.null",
+        `owner_user_id.eq.${userId}`,
+        ...(grantedIds.length > 0
+          ? [`connection_id.in.(${grantedIds.join(",")})`]
+          : []),
+      ].join(",")
     : null;
+  // Null (not in a space) means no narrowing. An empty array narrows to
+  // nothing, which is the honest answer for a space that placed no mailbox.
+  const spaceIds = options.spaceConnectionIds
+    ? [...options.spaceConnectionIds].filter((id) => UUID_PATTERN.test(id))
+    : null;
+
+  /**
+   * Keep a row read inside the space's own mailboxes.
+   *
+   * Applied AFTER the visibility OR at every read, never instead of it: the two
+   * answer different questions (whose mail may this caller see, and which mail
+   * belongs to this space), and collapsing them would let a space widen
+   * visibility or a grant escape the space.
+   */
+  function inSpace<
+    TQuery extends { in: (column: string, values: string[]) => TQuery },
+  >(query: TQuery): TQuery {
+    return spaceIds ? query.in("connection_id", spaceIds) : query;
+  }
 
   async function emitForMessages(
     verb: "deleted" | "synced" | "updated",
@@ -91,6 +144,8 @@ export function createInboxRepoSupabase(
       p_status: params.status ?? null,
       p_tenant_id: tenantId,
       p_user_id: userId,
+      p_granted_connection_ids: grantedIds.length > 0 ? grantedIds : null,
+      p_space_connection_ids: spaceIds,
     });
     if (error) {
       throw new Error(`inbox list_threads failed: ${error.message}`);
@@ -127,6 +182,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { data, error } = await query.maybeSingle();
     if (error) {
       throw new Error(`inbox thread get failed: ${error.message}`);
@@ -145,6 +201,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { data, error } = await query.order("received_at", {
       ascending: true,
       nullsFirst: false,
@@ -166,6 +223,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { data, error } = await query.maybeSingle();
     if (error) {
       throw new Error(`inbox message get failed: ${error.message}`);
@@ -184,6 +242,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { data, error } = await query
       .order("received_at", { ascending: false, nullsFirst: false })
       .limit(limit);
@@ -204,6 +263,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { count, error } = await query;
     if (error) {
       throw new Error(`inbox unclassified count failed: ${error.message}`);
@@ -231,6 +291,7 @@ export function createInboxRepoSupabase(
       if (visibilityOr) {
         query = query.or(visibilityOr);
       }
+      query = inSpace(query);
       const { data, error } = await query.select("id");
       if (error) {
         throw new Error(`inbox set category failed: ${error.message}`);
@@ -260,6 +321,7 @@ export function createInboxRepoSupabase(
     if (visibilityOr) {
       query = query.or(visibilityOr);
     }
+    query = inSpace(query);
     const { data, error } = await query.select("id");
     if (error) {
       throw new Error(`inbox set status failed: ${error.message}`);

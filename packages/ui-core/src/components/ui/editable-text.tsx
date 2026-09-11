@@ -14,7 +14,8 @@ export interface EditableTextProps {
   onUpdate?: (text: string) => void;
   placeholder?: string;
   value: string;
-  variant?: "filled" | "plain";
+  /** `filled` = always-on gray field. `hover` = gray only on hover (and when empty). `plain` = no surface. */
+  variant?: "filled" | "hover" | "plain";
   [key: string]: unknown;
 }
 
@@ -22,6 +23,10 @@ const FILLED_PREVIEW_CLASS =
   "cursor-pointer bg-input/30 outline-none ring-offset-0 transition-colors hover:bg-input/60 focus:ring-1 focus:ring-ring focus:ring-offset-0";
 const FILLED_EDIT_CLASS =
   "cursor-text bg-input/30 outline-none ring-offset-0 transition-colors hover:bg-input/60 focus:bg-input/60 focus:ring-1 focus:ring-ring focus:ring-offset-0";
+const HOVER_PREVIEW_CLASS =
+  "cursor-pointer outline-none ring-offset-0 transition-colors empty:bg-input/30 hover:bg-input/30";
+const HOVER_EDIT_CLASS =
+  "cursor-text outline-none ring-offset-0 transition-colors empty:bg-input/30 hover:bg-input/30";
 const PLAIN_PREVIEW_CLASS = "cursor-pointer outline-none";
 const PLAIN_EDIT_CLASS = "cursor-text outline-none";
 
@@ -102,8 +107,17 @@ export function EditableText({
   };
 
   const previewClass =
-    variant === "plain" ? PLAIN_PREVIEW_CLASS : FILLED_PREVIEW_CLASS;
-  const editClass = variant === "plain" ? PLAIN_EDIT_CLASS : FILLED_EDIT_CLASS;
+    variant === "plain"
+      ? PLAIN_PREVIEW_CLASS
+      : variant === "hover"
+        ? HOVER_PREVIEW_CLASS
+        : FILLED_PREVIEW_CLASS;
+  const editClass =
+    variant === "plain"
+      ? PLAIN_EDIT_CLASS
+      : variant === "hover"
+        ? HOVER_EDIT_CLASS
+        : FILLED_EDIT_CLASS;
 
   if (isPreview || disabled) {
     return (

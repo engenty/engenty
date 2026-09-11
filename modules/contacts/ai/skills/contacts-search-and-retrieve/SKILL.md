@@ -9,12 +9,16 @@ allowed-tools: engenty_tools_search engenty_tool_execute web_search
 
 Use this skill when the user asks to find existing contacts, organisations, people, roles, professions, cities, IDs, domains, relations, or similar records in the tenant Contacts database.
 
+## Spaces
+
+Contacts are one tenant address book. A Space mount grants access to that shared book; there is no contact `space_id` and you must not invent one.
+
 ## Tool Process
 
 1. Start with `engenty_tools_search` using `moduleId: "contacts"` and `kind: "tool"`.
 2. Prefer registered `contacts.*` operations. Use HTTP routes only when no registered operation covers the task.
 3. Use `engenty_tool_execute` before unfamiliar writes or when the required input shape is unclear.
-4. Use `engenty_tool_execute` only after choosing the exact operation id and input.
+4. Use `engenty_tool_execute` only after choosing the exact operation id. Pass `input` as a JSON **string** of the operation arguments, not a nested object.
 
 ## Search Operations
 

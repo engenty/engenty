@@ -1,6 +1,7 @@
 import {
   createFrontendToolDefinition,
   RunAgentInputSchema,
+  readAgentUiStateSnapshot,
 } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
@@ -41,13 +42,17 @@ describe("buildAppsAiRunInput", () => {
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
     expect(input.threadId).toBe("session-1");
     expect(input.runId).toEqual(expect.any(String));
-    expect(input.forwardedProps).toEqual({
+    expect(input.forwardedProps).toMatchObject({
       engenty: { model_id: "openai/gpt-5.1" },
     });
     expect(input.messages).toEqual([
       { id: "user-1", role: "user", content: "Hello" },
     ]);
-    expect(input.state).toMatchObject({
+    // The snapshot rides forwardedProps.engenty.ui_state, and `state` is left
+    // EMPTY: AG-UI `state` is the agent's durable shared state, which a
+    // spec-following backend merges into working memory every run.
+    expect(input.state).toEqual({});
+    expect(readAgentUiStateSnapshot(input.forwardedProps)).toMatchObject({
       route: {
         module_id: "engenty-copilot",
         pathname: "/mdl/engenty-copilot/chat/new",
@@ -70,7 +75,7 @@ describe("buildAppsAiRunInput", () => {
     });
 
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
-    expect(input.forwardedProps).toEqual({
+    expect(input.forwardedProps).toMatchObject({
       engenty: { effort: "high", model_id: "openai/gpt-5.1" },
     });
   });
@@ -86,12 +91,17 @@ describe("buildAppsAiRunInput", () => {
       state: {},
     });
 
-    expect(input.forwardedProps).toEqual({ engenty: {} });
+    expect(input.forwardedProps).toMatchObject({ engenty: {} });
+    expect(
+      Object.keys(
+        (input.forwardedProps as { engenty: Record<string, unknown> }).engenty
+      ).sort()
+    ).toEqual(["ui_state"]);
   });
 
   // forwardedProps carries only what the server reads (effort, model_id).
-  // Route scope used to be sent here and was read on no code path; the agent's
-  // route facts come from `state` and `context`. Pinned so it does not drift
+  // Route scope is deliberately NOT sent here; the agent's
+  // route facts come from `ui_state` and `context`. Pinned so it does not drift
   // back in unnoticed — an unread key on every run is pure wire weight.
   it("does not send route scope in forwardedProps", () => {
     const input = buildAppsAiRunInput({
@@ -107,7 +117,12 @@ describe("buildAppsAiRunInput", () => {
       state: {},
     });
 
-    expect(input.forwardedProps).toEqual({ engenty: {} });
+    expect(input.forwardedProps).toMatchObject({ engenty: {} });
+    expect(
+      Object.keys(
+        (input.forwardedProps as { engenty: Record<string, unknown> }).engenty
+      ).sort()
+    ).toEqual(["ui_state"]);
   });
 
   it("uses the provided app-shell state snapshot", () => {
@@ -138,7 +153,8 @@ describe("buildAppsAiRunInput", () => {
       state,
     });
 
-    expect(input.state).toMatchObject(state);
+    expect(input.state).toEqual({});
+    expect(readAgentUiStateSnapshot(input.forwardedProps)).toMatchObject(state);
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
   });
 
@@ -172,7 +188,8 @@ describe("buildAppsAiRunInput", () => {
       state,
     });
 
-    expect(input.state).toMatchObject({
+    expect(input.state).toEqual({});
+    expect(readAgentUiStateSnapshot(input.forwardedProps)).toMatchObject({
       route: { module_id: "tasks", pathname: "/mdl/tasks/t-1" },
     });
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
@@ -204,7 +221,7 @@ describe("buildAppsAiResumeRunInput", () => {
 
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
     expect(input.messages).toEqual([]);
-    expect(input.forwardedProps).toEqual({
+    expect(input.forwardedProps).toMatchObject({
       engenty: { effort: "low", model_id: "openai/gpt-4.1-mini" },
     });
     expect(input.resume).toEqual([

@@ -18,7 +18,7 @@ export const STICKY_HEADER_CLASS =
 export const STICKY_CHECKBOX_HEADER_CLASS = "sticky left-0 z-30 bg-card";
 /** Match `TableRow` hover wash under sticky checkbox (opaque `bg-card` would otherwise clip it). */
 export const STICKY_CHECKBOX_CELL_CLASS =
-  "sticky left-0 z-10 bg-card group-hover:bg-muted/50 group-data-[state=selected]:bg-muted/50";
+  "sticky left-0 z-10 bg-card group-hover:bg-muted/35 group-data-[state=selected]:bg-muted/50";
 
 interface TableSelectionHeaderProps {
   /** Accessible label */

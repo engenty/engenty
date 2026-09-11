@@ -51,7 +51,7 @@ apps/ui ──mounts──► AppLayout (app-shell)
 
 | Concern | Owner |
 |---------|--------|
-| Primary sidebar rail, tenant switcher | `@engenty/app-shell` |
+| Primary sidebar rail, About footer (settings column) | `@engenty/app-shell` |
 | Module secondary column frame + hover preview | `@engenty/app-shell` |
 | Topbar integration with `usePageHeader` | `@engenty/app-shell` |
 | `buildNavigationSections` from UI contributions | `@engenty/app-shell` (`/navigation` subpath) |
@@ -69,14 +69,13 @@ apps/ui ──mounts──► AppLayout (app-shell)
 | `components/app-layout/` | Shell frame — `app-layout-frame`, secondary nav column, mobile sheet, layout hooks |
 | `components/app-topbar.tsx` | Breadcrumbs, secondary-nav toggle, module root icon |
 | `components/app-sidebar.tsx` | Primary rail + admin flyout |
-| `components/sidebar-tenant-switcher.tsx` | Tenant dropdown in rail |
 | `components/enrich-breadcrumb-nav-icon.tsx` | Map first breadcrumb segment to primary-nav icon |
 | `context/copilot-shell-context.tsx` | Copilot slot + responsive dock mode hints |
 | `context/agent-ui-state-context.tsx` | Snapshot + frontend-tool registry |
 | `context/shell-secondary-nav-context.tsx` | Secondary column open state API for modules |
 | `lib/navigation.ts` | Exported via `@engenty/app-shell/navigation` |
 | `types/copilot-layout.ts` | Layout persistence types (no ai-ui) |
-| `types/shell.ts` | `NavigationItem`, `ShellSidebarConfig`, tenants |
+| `types/shell.ts` | `NavigationItem`, `ShellSidebarConfig` |
 
 ## Consumers
 

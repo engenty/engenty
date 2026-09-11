@@ -33,7 +33,12 @@ export interface TaskFormSubmitData {
   collaborator_user_ids: string[];
   description: string | null;
   due_date: string | null;
-  goal_id: string | null;
+  /**
+   * Phase of `project_id`. Stored as `phase_id` in the project context's
+   * metadata (task_contexts), which is where the projects module reads it —
+   * tasks have no phase column of their own.
+   */
+  phase_id?: string | null;
   primary_assignee_agent_type_key: string | null;
   primary_assignee_kind: PrimaryAssigneeKind;
   primary_assignee_user_id: string | null;
@@ -44,7 +49,6 @@ export interface TaskFormSubmitData {
 }
 
 interface TaskFormDialogProps {
-  defaultGoalId?: string | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: TaskFormSubmitData) => Promise<void>;
   open: boolean;
@@ -70,7 +74,6 @@ export function TaskFormDialog({
   onOpenChange,
   onSubmit,
   task,
-  defaultGoalId = null,
   taskStatusDefinitions,
   teamMembersCatalog = [],
   teamMembersEnabled = false,
@@ -122,7 +125,6 @@ export function TaskFormDialog({
           status,
           priority,
           due_date: dueDate,
-          goal_id: task?.goal_id ?? defaultGoalId,
           project_id: task?.project_id ?? null,
           primary_assignee_kind: assignee.primary_assignee_kind,
           primary_assignee_user_id: assignee.primary_assignee_user_id,
@@ -144,8 +146,6 @@ export function TaskFormDialog({
       priority,
       dueDate,
       assignee,
-      defaultGoalId,
-      task?.goal_id,
       onSubmit,
       onOpenChange,
       t,

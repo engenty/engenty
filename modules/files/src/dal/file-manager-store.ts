@@ -343,6 +343,18 @@ export interface MountDbInput {
 
 export interface FileMountStore {
   create(ctx: FileSourceContext, input: MountDbInput): Promise<FileFolderRow>;
+  /**
+   * The mount this owner already has for a connection, if any
+   * (PLAN-connections-ux.md B3b).
+   *
+   * Placing the same account twice must produce one folder, not two: binding
+   * runs again whenever either side is re-added, and a second root mount for
+   * the same drive is a duplicate tree nobody asked for.
+   */
+  findByConnection(
+    ctx: FileSourceContext,
+    connectionId: string
+  ): Promise<FileFolderRow | null>;
   get(ctx: FileSourceContext, folderId: string): Promise<FileFolderRow | null>;
 }
 
@@ -366,6 +378,21 @@ export function createFileMountStore(
         .maybeSingle();
       if (error) {
         throw new Error(`file_folders.getMount failed: ${error.message}`);
+      }
+      return data ? toFolderRow(data as FolderDbRow) : null;
+    },
+
+    async findByConnection(ctx, connectionId) {
+      const { data, error } = await foldersTable(ctx)
+        .select(FOLDER_COLUMNS)
+        .eq("tenant_id", ctx.tenantId)
+        .eq("owner_type", ctx.owner.type)
+        .eq("owner_id", ctx.owner.id)
+        .eq("connection_id", connectionId)
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`file_folders.findMount failed: ${error.message}`);
       }
       return data ? toFolderRow(data as FolderDbRow) : null;
     },

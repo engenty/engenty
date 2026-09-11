@@ -2,7 +2,7 @@
  * Knowledge Base — AI surface, declared via defineModuleAi (Phase 5).
  *
  * agents/<id>/agent.json (+ AGENTS.md), skills/<name>/SKILL.md,
- * actions/<id>/ACTION.md. Dynamic AgentConfigs keep their code-built
+ * workflows/<id>.workflow.json. Dynamic AgentConfigs keep their code-built
  * system prompts via overrides.
  */
 import type {
@@ -12,19 +12,16 @@ import type {
 import { defineModuleAi } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import {
-  createKbAnswersAgent,
   createKbAnswersInstructionDocuments,
   kbAnswersAgentConfig,
 } from "./kb-answers-agent.js";
 import {
   buildKbManagerDynamicTools,
-  createKbManagerAgent,
   createKbManagerInstructionDocuments,
   kbManagerAgentConfig,
 } from "./kb-manager-agent.js";
 
 const moduleAi = defineModuleAi({
-  agentDefinitions: () => [createKbManagerAgent(), createKbAnswersAgent()],
   agents: [
     {
       description: kbManagerAgentConfig.description,

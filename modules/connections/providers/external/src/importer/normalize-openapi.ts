@@ -1,3 +1,5 @@
+import { ImportValidationError } from "../errors.js";
+import type { JsonPatchOperation } from "../registry-client.js";
 import type { NormalizedAction, NormalizeResult } from "../types.js";
 import { classifyHttpOperation } from "./classify.js";
 
@@ -10,12 +12,19 @@ import { classifyHttpOperation } from "./classify.js";
  * import/refresh time, never at plugin boot or action execute time — the
  * stored `NormalizedAction[]` is what boot and execute consume. (Same
  * lazy-import posture the AI app uses for heavyweight optional deps.)
+ *
+ * Registry `specOverrides` are RFC 6902 patches the registry publishes to
+ * correct a published spec (Figma's truncated OAuth scopes, say). They are
+ * applied to the parsed document *before* extraction, and a patch that does
+ * not apply fails the import instead of silently normalizing the unpatched
+ * spec.
  */
 
 /** Hard cap per connector; drops are counted and surfaced, never silent. */
 export const MAX_ACTIONS_PER_CONNECTOR = 500;
 
-const MAX_SPEC_BYTES = 5 * 1024 * 1024;
+/** Spec size ceiling, checked before the body is read and again after. */
+export const MAX_SPEC_BYTES = 5 * 1024 * 1024;
 
 function snakeCaseId(raw: string): string {
   return raw
@@ -27,13 +36,15 @@ function snakeCaseId(raw: string): string {
 }
 
 export async function normalizeOpenApiSpec(
-  specText: string
+  specText: string,
+  options?: { specOverrides?: JsonPatchOperation[] }
 ): Promise<NormalizeResult> {
   if (Buffer.byteLength(specText, "utf8") > MAX_SPEC_BYTES) {
-    throw new Error(
+    throw new ImportValidationError(
       `spec too large (> ${MAX_SPEC_BYTES / (1024 * 1024)} MB); import a smaller spec or use a filtered variant`
     );
   }
+  const overrides = options?.specOverrides ?? [];
   const [{ extract, parse }, { Effect, Option }] = await Promise.all([
     import("@executor-js/plugin-openapi/core"),
     import("effect"),
@@ -44,6 +55,20 @@ export async function normalizeOpenApiSpec(
     ) as T | undefined;
 
   const doc = await Effect.runPromise(parse(specText));
+  if (overrides.length > 0) {
+    const { applyPatch } = await import("rfc6902");
+    const failures = applyPatch(
+      doc as object,
+      overrides as Parameters<typeof applyPatch>[1]
+    ).filter((error) => error !== null);
+    if (failures.length > 0) {
+      throw new ImportValidationError(
+        `registry spec overrides do not apply to this spec: ${failures
+          .map((error) => error.message)
+          .join("; ")}`
+      );
+    }
+  }
   const extracted = await Effect.runPromise(extract(doc));
 
   /** Substitute server-URL variables with their declared defaults. */
@@ -130,6 +155,7 @@ export async function normalizeOpenApiSpec(
 
   return {
     actions,
+    applied_overrides: overrides.length,
     base_url: resolveServerBaseUrl(),
     description: optional<string>(extracted.description) ?? null,
     dropped_count: droppedCount,

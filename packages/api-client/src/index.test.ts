@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiClientResponseError,
   clearApiClient,
+  requestApiBlob,
   requestApiJson,
 } from "./index.js";
 
@@ -130,5 +131,59 @@ describe("requestApiJson", () => {
         baseUrl: "https://engenty.localhost",
       })
     ).rejects.toBeInstanceOf(ApiClientResponseError);
+  });
+});
+
+describe("requestApiBlob", () => {
+  it("sends the bearer token and returns file bytes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]), {
+        headers: { "content-type": "application/pdf" },
+        status: 200,
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const blob = await requestApiBlob("/api/files/download", {
+      authToken: "session-token",
+      baseUrl: "https://engenty.localhost",
+    });
+
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(
+      new Uint8Array([0x25, 0x50, 0x44, 0x46])
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://engenty.localhost/api/files/download",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          authorization: "Bearer session-token",
+        }),
+      })
+    );
+  });
+
+  it("throws the API error envelope when the proxy is unauthenticated", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            ok: false,
+            error: { code: "unauthorized", message: "Unauthorized" },
+          },
+          { status: 401 }
+        )
+      )
+    );
+
+    await expect(
+      requestApiBlob("/api/files/download", {
+        baseUrl: "https://engenty.localhost",
+      })
+    ).rejects.toMatchObject({
+      code: "unauthorized",
+      message: "Unauthorized",
+      status: 401,
+    });
   });
 });

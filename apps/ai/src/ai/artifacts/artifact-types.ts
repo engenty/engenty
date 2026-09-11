@@ -3,6 +3,8 @@
 // looks up the descriptor by `type` and calls `validate` before persisting.
 // Client-side rendering/editing is a separate registry in packages/ai-ui.
 
+import { DATA_TABLE_MIME_TYPE, dataTableHandleSchema } from "@engenty/ai-core";
+
 export interface ArtifactTypeDescriptor {
   mimeType: string;
   type: string;
@@ -48,8 +50,10 @@ export const ARTIFACT_TYPE_IDS = [
   "markdown",
   "html",
   "table",
+  "database",
   "app",
   "file",
+  "folder",
 ] as const;
 
 /**
@@ -60,7 +64,9 @@ export const ARTIFACT_TYPE_IDS = [
  */
 export const ARTIFACT_HANDLE_TYPES: ReadonlySet<string> = new Set([
   "app",
+  "database",
   "file",
+  "folder",
 ]);
 
 function assertNonEmpty(content: string, label: string): void {
@@ -72,7 +78,23 @@ function assertNonEmpty(content: string, label: string): void {
 registerArtifactType({
   type: "markdown",
   mimeType: "text/markdown",
-  validate: (content) => assertNonEmpty(content, "markdown"),
+  validate: (content) => {
+    if (typeof content !== "string") {
+      throw new ArtifactInvalidContentError(
+        "markdown content must be a string"
+      );
+    }
+  },
+});
+
+registerArtifactType({
+  type: "folder",
+  mimeType: "application/vnd.engenty.folder+json",
+  validate: (content) => {
+    if (typeof content !== "string") {
+      throw new ArtifactInvalidContentError("folder content must be a string");
+    }
+  },
 });
 
 registerArtifactType({
@@ -119,7 +141,7 @@ registerArtifactType({
  * handle, and the bytes stay where they were written (agent workspace, a
  * connector folder, an upload). That is what lets a spreadsheet, a PDF or a
  * generated image be an ordinary artifact — previewed in the pane, downloaded,
- * promoted to a task/goal/project — instead of a chat-only download offer that
+ * promoted to a task/project — instead of a chat-only download offer that
  * nothing can reopen.
  */
 registerArtifactType({
@@ -138,6 +160,28 @@ registerArtifactType({
     const handle = parsed as { key?: unknown };
     if (typeof handle?.key !== "string" || handle.key.length === 0) {
       throw new ArtifactInvalidContentError("file handle needs a storage key");
+    }
+  },
+});
+
+registerArtifactType({
+  mimeType: DATA_TABLE_MIME_TYPE,
+  type: "database",
+  validate: (content) => {
+    assertNonEmpty(content, "database");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new ArtifactInvalidContentError(
+        "database content must be a JSON handle: {table_id}"
+      );
+    }
+    const handle = dataTableHandleSchema.safeParse(parsed);
+    if (!handle.success) {
+      throw new ArtifactInvalidContentError(
+        "database handle needs a table_id UUID"
+      );
     }
   },
 });

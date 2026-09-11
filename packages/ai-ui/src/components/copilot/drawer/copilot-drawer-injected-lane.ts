@@ -1,6 +1,9 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { Dispatch, SetStateAction } from "react";
-import type { SubmitMessage } from "../../../agent-provider/types.js";
+import type {
+  EngentyInterruptFeedback,
+  SubmitMessage,
+} from "../../../agent-provider/types.js";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
@@ -25,23 +28,9 @@ export interface CopilotDrawerInjectedLane {
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   pauseRun: () => void;
   pendingUserInsertIndex?: number | null;
+  pendingUserParts?: readonly unknown[] | null;
   pendingUserText?: string | null;
-  resumeInterrupt?: (
-    feedback:
-      | {
-          artifactId: string;
-          choiceId: string;
-          choiceLabel: string;
-          interruptId?: string;
-          payload?: Record<string, unknown>;
-        }
-      | {
-          approved: boolean;
-          interruptId: string;
-          output?: unknown;
-          toolName: string;
-        }
-  ) => void;
+  resumeInterrupt?: (feedback: EngentyInterruptFeedback) => void;
   resumeRun: () => void;
   selectedCandidateValues: Record<string, string | null>;
   selectedSuggestions: Record<string, boolean>;

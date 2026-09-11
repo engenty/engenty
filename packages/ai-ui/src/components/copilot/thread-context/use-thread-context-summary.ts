@@ -1,23 +1,32 @@
 "use client";
 
 import { useMemo } from "react";
+import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
 import { useAgentHost } from "../../../agent-provider/engenty-agent.js";
 import { useArtifactsListQuery } from "../../../artifacts/artifacts-api.js";
 import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
 import { useObjectWidgets } from "../../../objects/object-widget-registry.js";
-import { buildThreadContextSummary } from "./thread-context-summary.js";
+import {
+  buildThreadContextSummary,
+  spaceKeyFromPathname,
+} from "./thread-context-summary.js";
 import type { ThreadContextSummary } from "./thread-context-types.js";
 
 /**
- * Aggregates thread-scoped artefacts (API), connected objects, and sources
- * from the live copilot transcript. Empty when the thread has none of these.
+ * Aggregates thread-scoped artefacts (API), sub-agent runs, chat attachments,
+ * connected objects, and sources from the live copilot transcript. Empty when
+ * the thread has none of these.
  */
 export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
   const { activeThreadId } = useCopilotThreadBinding();
   const host = useAgentHost(hostKey);
-  const threadId = activeThreadId?.trim() || null;
+  const threadId = host.threadId?.trim() || activeThreadId?.trim() || null;
   const artifactsQuery = useArtifactsListQuery("thread", threadId);
   const widgets = useObjectWidgets();
+  // The summary resolves agent NAMES while it builds. Those arrive with the
+  // agent catalog, after the first run rows are already on screen, so the box
+  // has to rebuild when one lands or it keeps showing the id.
+  const agentNamesVersion = useAgentDisplayNamesVersion();
 
   return useMemo(() => {
     const artefacts = (artifactsQuery.data ?? []).map((row) => ({
@@ -25,10 +34,29 @@ export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
       title: row.title,
       type: row.type,
     }));
+    const pendingParts = host.pendingUserParts ?? [];
+    const spaceKey =
+      typeof window === "undefined"
+        ? null
+        : spaceKeyFromPathname(window.location.pathname);
     return buildThreadContextSummary({
       artefacts,
-      messages: host.copilotMessages,
       matchers: widgets,
+      messages: [
+        ...host.copilotMessages,
+        ...(pendingParts.length > 0
+          ? [{ role: "user", parts: pendingParts }]
+          : []),
+      ],
+      spaceKey,
+      threadId,
     });
-  }, [artifactsQuery.data, host.copilotMessages, widgets]);
+  }, [
+    agentNamesVersion,
+    artifactsQuery.data,
+    host.copilotMessages,
+    host.pendingUserParts,
+    threadId,
+    widgets,
+  ]);
 }

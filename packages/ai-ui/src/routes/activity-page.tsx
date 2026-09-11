@@ -214,7 +214,6 @@ export function ActivityPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
   });
 

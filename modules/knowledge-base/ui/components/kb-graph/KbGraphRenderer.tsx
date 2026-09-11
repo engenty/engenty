@@ -18,10 +18,9 @@ interface NodeTooltip {
 interface Props {
   cameraResetNonce: number;
   graph: MultiGraph;
-  kbSlug: string;
 }
 
-export function KbGraphRenderer({ cameraResetNonce, graph, kbSlug }: Props) {
+export function KbGraphRenderer({ cameraResetNonce, graph }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
   const navigate = useNavigate();
@@ -82,7 +81,7 @@ export function KbGraphRenderer({ cameraResetNonce, graph, kbSlug }: Props) {
       event.preventSigmaDefault();
       const slug = graph.getNodeAttribute(node, "slug") as string;
       if (slug) {
-        navigate(kbArticlePath(kbSlug, node));
+        navigate(kbArticlePath(node));
       }
     });
 
@@ -111,7 +110,7 @@ export function KbGraphRenderer({ cameraResetNonce, graph, kbSlug }: Props) {
       sigma.kill();
       sigmaRef.current = null;
     };
-  }, [graph, kbSlug, navigate]);
+  }, [graph, navigate]);
 
   // Re-render on selection change without full reinit
   useEffect(() => {

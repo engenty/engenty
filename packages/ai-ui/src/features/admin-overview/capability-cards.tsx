@@ -1,24 +1,24 @@
-// Overview capability cards (ui-6 §1): Skills / Tools / Actions counts with
+// Overview capability cards (ui-6 §1): Skills / Tools / Flows counts with
 // a short name preview and a link into each catalog.
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { Card, Skeleton } from "@engenty/ui-core";
+import { Skeleton } from "@engenty/ui-core";
 import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  useAiActionsQuery,
   useAiSkillsQuery,
   useAiToolsQuery,
 } from "../../lib/admin/ai-runtime-queries";
 import {
-  ACTIONS_CATALOG_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
+  WORKFLOWS_CATALOG_ROOT_PATH,
 } from "../agents-workspace/agent-workspace-paths";
+import { useFlowCatalog } from "../agents-workspace/use-flow-catalog";
 import {
-  countActions,
+  countFlows,
   countSkills,
   countTools,
   previewNames,
@@ -42,25 +42,20 @@ function CapabilityCard({
   to: string;
 }): ReactNode {
   return (
-    <Link className="block" to={to}>
-      <Card
-        className="h-full p-4 transition-colors hover:bg-muted/40"
-        variant="form"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-medium text-sm">{title}</p>
-          <ArrowRight aria-hidden className="size-4 text-muted-foreground" />
-        </div>
-        {isLoading ? (
-          <Skeleton className="h-7 w-10 rounded" />
-        ) : (
-          <p className="font-semibold text-2xl tabular-nums">{count}</p>
-        )}
-        <p className="text-muted-foreground text-xs">{breakdown}</p>
-        <p className="line-clamp-2 break-words text-muted-foreground text-xs">
-          {names.length > 0 ? names.join(" · ") : emptyHint}
-        </p>
-      </Card>
+    <Link className="ui-card-raised block h-full space-y-2 p-4" to={to}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium text-sm">{title}</p>
+        <ArrowRight aria-hidden className="size-4 text-muted-foreground" />
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-7 w-10 rounded" />
+      ) : (
+        <p className="font-semibold text-2xl tabular-nums">{count}</p>
+      )}
+      <p className="text-muted-foreground text-xs">{breakdown}</p>
+      <p className="line-clamp-2 break-words text-muted-foreground text-xs">
+        {names.length > 0 ? names.join(" · ") : emptyHint}
+      </p>
     </Link>
   );
 }
@@ -69,7 +64,7 @@ export function CapabilityCards() {
   const { t } = useTranslation("ai-ui");
   const skillsQuery = useAiSkillsQuery();
   const toolsQuery = useAiToolsQuery();
-  const actionsQuery = useAiActionsQuery();
+  const { flows, flowsLoading } = useFlowCatalog();
 
   const skills = useMemo(
     () => skillsQuery.data?.skills ?? [],
@@ -79,14 +74,9 @@ export function CapabilityCards() {
     () => toolsQuery.data?.tools ?? [],
     [toolsQuery.data?.tools]
   );
-  const actions = useMemo(
-    () => actionsQuery.data?.actions ?? [],
-    [actionsQuery.data?.actions]
-  );
-
   const skillCounts = countSkills(skills);
   const toolCounts = countTools(tools);
-  const actionCounts = countActions(actions);
+  const flowCounts = countFlows(flows);
 
   return (
     <section aria-label={t("overview.capabilities.title")}>
@@ -116,16 +106,17 @@ export function CapabilityCards() {
           to={TOOLS_ROOT_PATH}
         />
         <CapabilityCard
-          breakdown={t("overview.capabilities.actionsBreakdown", {
-            ...actionCounts,
-            defaultValue: "{{shipped}} shipped · {{custom}} custom",
+          breakdown={t("overview.hubs.flowsBreakdown", {
+            ...flowCounts,
+            defaultValue:
+              "{{live}} live · {{draft}} in draft · {{declared}} declared",
           })}
-          count={actionCounts.total}
-          emptyHint={t("overview.capabilities.actionsEmpty")}
-          isLoading={actionsQuery.isLoading}
-          names={previewNames(actions)}
-          title={t("overview.capabilities.actionsTitle")}
-          to={ACTIONS_CATALOG_ROOT_PATH}
+          count={flowCounts.total}
+          emptyHint={t("workflows.empty")}
+          isLoading={flowsLoading}
+          names={previewNames(flows)}
+          title={t("workspace.sidebarFlows")}
+          to={WORKFLOWS_CATALOG_ROOT_PATH}
         />
       </div>
     </section>

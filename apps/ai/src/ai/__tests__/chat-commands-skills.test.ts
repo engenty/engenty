@@ -93,4 +93,79 @@ describe("buildChatTurnContextEntries skill selection", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.description).toBe("chat_command");
   });
+
+  it("dispatches action slash commands instead of prompting the model to execute them", async () => {
+    const invokeWorkflowCommand = vi.fn(async () => ({
+      deduped: false,
+      runId: "run-1",
+    }));
+    const entries = await buildChatTurnContextEntries({
+      agentId: "engenty.copilot",
+      invokeWorkflowCommand,
+      moduleLoader: {
+        listModuleCapabilities: async () => [
+          {
+            chatCommands: [
+              {
+                workflow_id: "contacts-research",
+                command: "research-contact",
+                id: "contacts.research-contact",
+                kind: "workflow",
+                module_id: "contacts",
+              },
+            ],
+          },
+        ],
+      } as never,
+      prompt: "/research-contact",
+      refs: [
+        {
+          entity: "contacts:contact",
+          label: "Acme",
+          ref: "contacts:contact:contact-1",
+        },
+      ],
+    });
+
+    expect(invokeWorkflowCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        argsText: "",
+        command: expect.objectContaining({ workflow_id: "contacts-research" }),
+      })
+    );
+    expect(entries[0]).toMatchObject({ description: "chat_command_workflow" });
+    expect(entries[0]?.value).toContain("run run-1");
+    expect(entries[0]?.value).toContain("Do not call the Action");
+  });
+});
+
+describe("buildChatTurnContextEntries mentioned agents", () => {
+  it("tells the agent who was mentioned and how to reach them, apart from object refs", async () => {
+    const entries = await buildChatTurnContextEntries({
+      agentId: "chief-of-staff",
+      prompt: "@inbox-overview what is open? Also see @Acme",
+      refs: [
+        {
+          entity: "ai:agent",
+          label: "Inbox Overview Assistant",
+          ref: "ai:agent:inbox.overview",
+        },
+        {
+          entity: "contacts:contact",
+          label: "Acme",
+          ref: "contacts:contact:contact-1",
+        },
+      ],
+    });
+
+    expect(entries.map((entry) => entry.description)).toEqual([
+      "user_mentioned_agents",
+      "user_references",
+    ]);
+    expect(entries[0]?.value).toContain("`inbox.overview`");
+    expect(entries[0]?.value).toContain("message_agent");
+    expect(entries[0]?.value).not.toContain("contacts:contact");
+    expect(entries[1]?.value).toContain("contacts:contact:contact-1");
+    expect(entries[1]?.value).not.toContain("inbox.overview");
+  });
 });

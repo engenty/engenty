@@ -9,7 +9,7 @@ export const ENGENTY_TOOLS_CONTEXT_TOOL_ID = "engenty_tools_context";
 export const engentyToolsContextTool = createTool({
   id: ENGENTY_TOOLS_CONTEXT_TOOL_ID,
   description:
-    "Read safe user and workspace context for the current authenticated request, including current tenant, tenant role, admin flags, supported locales, and onboarding state.",
+    "Read tenant and user identity for the current authenticated request (current tenant, tenant role, admin flags, supported locales, and onboarding). This is tenant/user identity only — not Space context. Do not use it for current_space, mounted modules, or record facts; those come from the runtime current_space / space_mounted_* block.",
   inputSchema: z.object({}),
   execute: async (_input, context) => getEngentyToolsContext(context),
 });

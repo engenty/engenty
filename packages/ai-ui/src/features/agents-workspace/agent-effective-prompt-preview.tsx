@@ -23,7 +23,7 @@ export function AgentEffectivePromptPreview({
   const query = useAgentEffectiveInstructionsQuery(open ? agentId : "");
 
   return (
-    <Card className="ui-canvas-raised mb-3 shrink-0">
+    <Card className="mb-3 shrink-0">
       <CardContent className="p-3">
         <Button
           className="h-auto w-full justify-start gap-2 px-1 py-1 text-left font-medium text-sm"

@@ -79,20 +79,30 @@ export function skillTierPrefix(tenantId: string, tier: SkillTier): string {
   return `${fileStorageTenantObjectKey(tenantId, "ai", "skills", tier)}/`;
 }
 
+export function normalizeSkillRelativePath(relativePath: string): string {
+  return relativePath
+    .split("/")
+    .filter((segment) => segment.length > 0 && segment !== ".")
+    .join("/");
+}
+
 export function skillObjectKey(
   tenantId: string,
   tier: SkillTier,
   name: string,
   relativePath: string
 ): string {
-  const segments = relativePath.split("/").filter(Boolean);
+  const segments = normalizeSkillRelativePath(relativePath).split("/");
+  if (segments.includes("..")) {
+    throw new Error("skill_path_invalid");
+  }
   return fileStorageTenantObjectKey(
     tenantId,
     "ai",
     "skills",
     tier,
     name,
-    ...segments
+    ...segments.filter(Boolean)
   );
 }
 
@@ -149,12 +159,29 @@ export function createSkillStorage(options: CreateSkillStorageOptions) {
   }
 
   async function listSkillFiles(tier: SkillTier, name: string) {
-    const folderPrefix = `${skillObjectKey(tenantId, tier, name, "")}`;
+    const folderPrefix = skillObjectKey(tenantId, tier, name, "");
     const files = await storage.list(folderPrefix, { recursive: true });
-    return files
-      .map((file) => file.key.slice(folderPrefix.length))
-      .filter((path) => path && path !== SKILL_MD)
-      .sort()
+    const paths = files
+      .map((file) => {
+        const rest = file.key.startsWith(folderPrefix)
+          ? file.key.slice(folderPrefix.length)
+          : file.key;
+        return normalizeSkillRelativePath(rest);
+      })
+      .filter((path) => path.length > 0 && !path.split("/").includes(".."));
+    if (!paths.includes(SKILL_MD) && (await readMarkdown(tier, name))) {
+      paths.push(SKILL_MD);
+    }
+    return [...new Set(paths)]
+      .toSorted((left, right) => {
+        if (left === SKILL_MD) {
+          return -1;
+        }
+        if (right === SKILL_MD) {
+          return 1;
+        }
+        return left.localeCompare(right);
+      })
       .map((path) => ({ path }));
   }
 
@@ -258,6 +285,36 @@ export function createSkillStorage(options: CreateSkillStorageOptions) {
         }
       }
       return null;
+    },
+
+    async writeCustomSkillFile(input: {
+      bytes: Uint8Array;
+      contentType?: string;
+      name: string;
+      path: string;
+    }): Promise<void> {
+      const name = input.name.trim();
+      const relativePath = normalizeSkillRelativePath(input.path);
+      if (!relativePath || relativePath === SKILL_MD) {
+        throw new Error("skill_path_invalid");
+      }
+      const customKey = skillObjectKey(tenantId, "custom", name, SKILL_MD);
+      if (!(await storage.exists(customKey))) {
+        if (await this.managedSkillExists(name)) {
+          throw new SkillReadOnlyError(name);
+        }
+        throw new Error(`skill_not_found:${name}`);
+      }
+      await storage.upload(
+        skillObjectKey(tenantId, "custom", name, relativePath),
+        input.bytes,
+        {
+          contentType: input.contentType ?? "application/octet-stream",
+          module: "ai",
+          upsert: true,
+        }
+      );
+      invalidateModuleSkillHintTenant(tenantId);
     },
 
     async managedSkillExists(name: string): Promise<boolean> {

@@ -11,8 +11,10 @@ Use this skill when the user wants to organize, create, read, update, or delete 
 
 ## Target Knowledge Base Context
 
-- **IMPORTANT**: Always verify the active or context Knowledge Base ID before performing any write operations. Do NOT blindly write to the tenant's default Knowledge Base if the user is currently looking at or referring to a specific Knowledge Base from the context.
-- Use `kb_list` to list all available Knowledge Bases and match the name/slug/context of the active KB first.
+- A Space has exactly one Knowledge Base. In a Space-bound run every write resolves to it; `kb_list` returns it (with `link`) when you need its id.
+- Use `kb_list` to get the Space's Knowledge Base.
+- Rename or re-describe a library with `kb_update` (name, description).
+- When `kb_list` is empty, the Knowledge Base module is not mounted in the Space or its setup did not finish. Mount it with `space_setup` (action='add', modules=[{id:'knowledge-base'}]) — the Space's knowledge base is created with the mount, named `<space>-kb`; rename it with `kb_update`. There is no separate create.
 
 ---
 
@@ -61,7 +63,7 @@ To move an article to a different category:
 
 ## 4. Organizing Category / Folder Index Pages
 
-Category and folder index pages (rendered at `/mdl/knowledge-base/kb/:kbSlug/c/:catSlug`) are highly customizable. You can control how sub-categories, articles, custom text blocks, and FAQs are organized by patching the `page_settings.blocks` array.
+Category and folder index pages (the `link` on every category row) are highly customizable. You can control how sub-categories, articles, custom text blocks, and FAQs are organized by patching the `page_settings.blocks` array.
 
 Each block in the `page_settings.blocks` array contains:
 - `id`: Unique string (UUID).

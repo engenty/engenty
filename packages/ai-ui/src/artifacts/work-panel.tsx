@@ -1,5 +1,5 @@
 // One panel, five views: the artifacts + workspace files that live inside a
-// work container (task | goal | routine | project | global). Backed by the
+// work container (task | routine | project | global). Backed by the
 // Phase 2 `?container=<tier>:<id>` routes so every surface renders the same
 // component with only a different container ref. See PLAN-where-work-lives.
 
@@ -17,6 +17,7 @@ import {
 } from "@engenty/ui-core";
 import { LayoutGrid, List, Shapes } from "lucide-react";
 import { useState } from "react";
+import { iconForArtifactType } from "./artifact-icons.js";
 import { ArtifactStoragePicker } from "./artifact-storage-picker.js";
 import { activateArtifact } from "./artifact-store.js";
 import {
@@ -32,14 +33,13 @@ type ArtifactsViewMode = "rows" | "cards";
 
 const VIEW_MODE_STORAGE_KEY = "engenty.work_panel.view";
 
-const CARD_CN =
-  "ui-canvas-raised cursor-pointer rounded-md bg-card text-left transition-shadow hover:shadow-[var(--e-3)]";
+const CARD_CN = "ui-card-raised cursor-pointer text-left";
 
 /** Container tiers that map to a promotable artifact scope (storage binding). */
 function bindingScopeType(
   tier: WorkContainerRef["tier"]
 ): Exclude<ArtifactScopeType, "thread"> | null {
-  if (tier === "task" || tier === "goal" || tier === "project") {
+  if (tier === "task" || tier === "project") {
     return tier;
   }
   return null;
@@ -54,13 +54,14 @@ function ArtifactRowCard({
   dateLabel: string;
   onOpen: () => void;
 }) {
+  const Icon = iconForArtifactType(artifact.type);
   return (
     <button
       className={cn(CARD_CN, "flex w-full items-center gap-3 p-3")}
       onClick={onOpen}
       type="button"
     >
-      <Shapes className="size-4 shrink-0 text-muted-foreground" />
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium text-sm">
         {artifact.title}
       </span>
@@ -83,6 +84,7 @@ function ArtifactGridCard({
   dateLabel: string;
   onOpen: () => void;
 }) {
+  const Icon = iconForArtifactType(artifact.type);
   return (
     <button
       className={cn(CARD_CN, "flex flex-col gap-2 p-4")}
@@ -90,7 +92,7 @@ function ArtifactGridCard({
       type="button"
     >
       <div className="flex w-full items-center justify-between gap-2">
-        <Shapes className="size-4 shrink-0 text-muted-foreground" />
+        <Icon className="size-4 shrink-0 text-muted-foreground" />
         <Badge className="shrink-0" variant="secondary">
           {artifact.type}
         </Badge>

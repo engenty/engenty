@@ -101,13 +101,13 @@ export function ProjectsSidebarGroupedList({ groups, renderItem }) {
 
 ### Footer Component (`*sidebar-footer.tsx`)
 Settings and bottom navigation links are pinned to the bottom of the column:
-- Wrapper `div` uses `shrink-0 border-border/50 border-t pt-2 pr-1 pb-2` (no `pl-2`).
+- Wrapper `div` uses `shrink-0 border-border-soft border-t pt-2 pr-1 pb-2` (no `pl-2`).
 - No wrapping `<nav>` tags.
 
 ```tsx
 export function ProjectsSidebarFooter({ pathname }) {
   return (
-    <div className="shrink-0 border-border/50 border-t pt-2 pr-1 pb-2">
+    <div className="shrink-0 border-border-soft border-t pt-2 pr-1 pb-2">
       <SidebarNavList>
         <SidebarNavRow
           active={pathname === "/mdl/projects/settings"}

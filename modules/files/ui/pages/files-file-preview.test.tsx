@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getFilesPreviewPdfUrl } from "../api.js";
-import { FilePreviewBlock, parseDelimitedText } from "./files-file-preview.js";
+import { FilePreviewBlock } from "./files-file-preview.js";
 
 // Stub the animated icon: its framer-motion internals pull a second React copy
 // in the workspace and are irrelevant to preview behavior under test.
@@ -137,22 +137,5 @@ describe("FilePreviewBlock text preview", () => {
       url: "https://signed.example/archive.zip",
     });
     expect(screen.getByText("No preview")).toBeTruthy();
-  });
-});
-
-describe("parseDelimitedText", () => {
-  it("parses quoted fields, escaped quotes and CRLF", () => {
-    const rows = parseDelimitedText('a,"b,c","d""e"\r\n1,2,3', ",");
-    expect(rows).toEqual([
-      ["a", "b,c", 'd"e'],
-      ["1", "2", "3"],
-    ]);
-  });
-
-  it("parses tab-separated values", () => {
-    expect(parseDelimitedText("a\tb\n1\t2", "\t")).toEqual([
-      ["a", "b"],
-      ["1", "2"],
-    ]);
   });
 });

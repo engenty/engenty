@@ -4,28 +4,22 @@
 //   modules/<name>/ai/
 //     agents/<agent-id>/agent.json   (+ AGENTS.md identity, optional SOUL.md)
 //     skills/<skill-name>/SKILL.md
-//     actions/<action-id>/ACTION.md
-//     routines/<routine-id>/ROUTINE.md
+//     workflows/<id>.workflow.json   (verbatim Mastra DynamicWorkflowGraph)
 //
 // Node-only (fs) — exported from the main entry, never from browser.ts.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "@11ty/gray-matter";
-import {
-  type ActionSchemaReferenceMap,
-  loadActionDefinitionsFromDirectory,
-} from "./actions/loader.js";
 import { loadAgentManifest } from "./agents/agent-manifest.js";
 import { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
 import { DEFAULT_AI_CHAT_MODEL_ID } from "./config/chat-model-id.js";
 import type {
-  ActionDefinition,
-  AgentDefinition,
   AiRegistration,
   InstructionDocumentDefinition,
   RoutineDefinition,
   SkillDefinition,
+  WorkflowDefinition,
 } from "./contracts.js";
 import type { TriggerDefinition } from "./copilot-trigger-contracts.js";
 import {
@@ -33,10 +27,10 @@ import {
   agentConfigSchema,
   type DynamicAiModuleCapability,
   type MastraToolDefinition,
-  toModuleActionCapability,
 } from "./dynamic-contracts.js";
 import type { AgentFnDescriptor } from "./hooks/types.js";
 import { loadSkillDefinitionsFromDirectory } from "./skills/loader.js";
+import { loadModuleWorkflowsFromDirectory } from "./workflows/loader.js";
 
 const AGENT_ID_PATTERN = /^[a-z0-9-]+\.[a-z0-9-]+$/;
 
@@ -46,8 +40,6 @@ export interface AgentConfigOverride extends Partial<Omit<AgentConfig, "id">> {
 }
 
 export interface DefineModuleAiOptions {
-  /** Code-level AgentDefinitions (dynamic prompts, chat routing) — passed through to AiRegistration.agents. */
-  agentDefinitions?: () => AgentDefinition[];
   /**
    * Function agents (hook-composed bodies, conventionally authored in
    * agent.ts beside the agent directory). In-process channel like `tools`;
@@ -56,20 +48,22 @@ export interface DefineModuleAiOptions {
   agentFns?: AgentFnDescriptor[];
   /** Merge/override scanned agent.json configs by id (model resolvers, workspace, instructions). */
   agents?: AgentConfigOverride[];
-  /** Allow ACTION.md agent_id values outside this module's agents (cross-module refs). */
-  allowCrossModuleActionAgents?: boolean;
   /** Module ai/ directory (pass `import.meta.url`; resolved like the skills loader). */
   dir: string;
   instructionDocuments?: InstructionDocumentDefinition[];
   moduleId: string;
-  /** Legacy ACTION.md `input_schema_ref` resolution map. */
-  schemaReferences?: ActionSchemaReferenceMap;
   /** Raw markdown map for the dynamic seed channel when using the `skills` hatch. */
   skillMarkdown?: () => Record<string, string>;
   /** Escape hatch replacing the SKILL.md directory scan (e.g. chatbot dynamic skills). */
   skills?: () => SkillDefinition[];
   /** Mastra tool builders by tool id — passed through to the dynamic capability. */
   tools?: Record<string, MastraToolDefinition>;
+  /**
+   * Trigger declarations whose OWNING agent's manifest lives outside this
+   * module's scanned tree (memory's consolidation runs as the platform
+   * copilot). Reviewed like code; appended after the agent.json scan.
+   */
+  triggerDeclarations?: RoutineDefinition[];
   triggers?: TriggerDefinition[];
 }
 
@@ -98,25 +92,6 @@ function listAgentDirs(agentsDir: string): string[] {
     )
     .map((entry) => entry.name)
     .toSorted((a, b) => a.localeCompare(b));
-}
-
-function listRoutineMarkdownFiles(routinesDir: string): string[] {
-  if (!existsSync(routinesDir)) {
-    return [];
-  }
-  const entries = readdirSync(routinesDir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const path = join(routinesDir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...listRoutineMarkdownFiles(path));
-      continue;
-    }
-    if (entry.isFile() && entry.name === "ROUTINE.md") {
-      files.push(path);
-    }
-  }
-  return files.sort();
 }
 
 function readInstructions(agentDir: string): string | null {
@@ -188,7 +163,12 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
   const aiDir = resolveAiDir(options.dir);
   const agentsDir = join(aiDir, "agents");
   const skillsDir = join(aiDir, "skills");
-  const actionsDir = join(aiDir, "actions");
+  // A registrar built to dist/ resolves relative to dist/ai, where JSON
+  // assets are not copied — fall back to the module's source ai/ tree, the
+  // same escape the skills loader takes.
+  const workflowsDir = existsSync(join(aiDir, "workflows"))
+    ? join(aiDir, "workflows")
+    : join(aiDir, "..", "..", "ai", "workflows");
   const commandsDir = join(aiDir, "commands");
 
   const overridesById = new Map<string, AgentConfigOverride>(
@@ -245,10 +225,18 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
           id: manifest.id,
           instructions,
           model: DEFAULT_AI_CHAT_MODEL_ID,
+          // The module owns every agent it ships; `kind` defaults to
+          // specialist and agent.json declares the exceptions (chat_surface,
+          // delegated) explicitly — no suffix guessing.
+          moduleId: options.moduleId,
           name: manifest.name,
           skillIds: manifest.skills,
           source: "module",
+          starters: manifest.starters ?? [],
           toolIds: manifest.tools,
+          ...(manifest.engenty ? { engenty: manifest.engenty } : {}),
+          ...(manifest.effort ? { effort: manifest.effort } : {}),
+          ...(manifest.agent_scope ? { agentScope: manifest.agent_scope } : {}),
           ...(raw.workspace === undefined ? {} : { workspace: raw.workspace }),
           ...(raw.guardrails === undefined
             ? {}
@@ -257,6 +245,15 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
           ...(raw.backgroundTasks === undefined
             ? {}
             : { backgroundTasks: raw.backgroundTasks }),
+          ...(raw.kind === undefined ? {} : { kind: raw.kind }),
+          ...(raw.interfaceRole === undefined
+            ? {}
+            : { interfaceRole: raw.interfaceRole }),
+          // An agent.json may disclaim module ownership (`"moduleId": null`):
+          // copilot/coordinator ship inside modules but are platform agents
+          // placed by the baseline mount, so recording a module would make
+          // them derivable — and removable — with it.
+          ...(raw.moduleId === undefined ? {} : { moduleId: raw.moduleId }),
           ...override,
         })
       );
@@ -267,7 +264,13 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
       if (seenIds.has(id)) {
         continue;
       }
-      configs.push(agentConfigSchema.parse({ source: "module", ...override }));
+      configs.push(
+        agentConfigSchema.parse({
+          moduleId: options.moduleId,
+          source: "module",
+          ...override,
+        })
+      );
       seenIds.add(id);
     }
     return configs;
@@ -302,47 +305,83 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
     });
   }
 
-  function buildActions(agentIds: Set<string>): ActionDefinition[] {
-    if (!existsSync(actionsDir)) {
-      return [];
-    }
-    const actions = loadActionDefinitionsFromDirectory({
-      actionsDir,
+  function buildWorkflows(): WorkflowDefinition[] {
+    // Verbatim Mastra DynamicWorkflowGraph JSONs. Shape-validated here; the
+    // full Mastra validation runs at the apps/ai reconcile that writes rows.
+    return loadModuleWorkflowsFromDirectory({
       moduleId: options.moduleId,
-      schemaReferences: options.schemaReferences,
+      workflowsDir,
     });
-    if (!options.allowCrossModuleActionAgents) {
-      for (const action of actions) {
-        if (!agentIds.has(action.agent_id)) {
-          throw new Error(
-            `defineModuleAi(${options.moduleId}): action "${action.id}" references agent "${action.agent_id}" outside this module — set allowCrossModuleActionAgents to permit`
-          );
-        }
-      }
-    }
-    return actions;
   }
 
   function buildRoutines(): RoutineDefinition[] {
-    const routinesDir = join(aiDir, "routines");
-    if (!existsSync(routinesDir)) {
-      return [];
+    // Triggers live on the SPECIALIST (decision A): each scanned agent.json
+    // may declare `triggers:` — bindings that wake this agent to run a module
+    // workflow. `module` on an entry names the DECLARING module when the
+    // owning agent lives elsewhere (memory's consolidation runs as the
+    // copilot); it gates the space fan-out at reconcile.
+    const declarations: RoutineDefinition[] = [];
+    for (const agentId of listAgentDirs(agentsDir)) {
+      const manifestPath = join(agentsDir, agentId, "agent.json");
+      if (!existsSync(manifestPath)) {
+        continue;
+      }
+      const raw = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+        id?: string;
+        triggers?: Record<string, unknown>[];
+      };
+      for (const trigger of raw.triggers ?? []) {
+        const id = typeof trigger.id === "string" ? trigger.id : "";
+        const workflow =
+          typeof trigger.workflow === "string" ? trigger.workflow : "";
+        if (!(id && workflow)) {
+          throw new Error(
+            `defineModuleAi(${options.moduleId}): trigger on "${agentId}" needs id and workflow`
+          );
+        }
+        const kind =
+          trigger.kind === "event" || trigger.kind === "manual"
+            ? trigger.kind
+            : "schedule";
+        declarations.push({
+          agent_id: raw.id ?? agentId,
+          cron: typeof trigger.cron === "string" ? trigger.cron : null,
+          enabled_by_default: trigger.enabled_by_default !== false,
+          id,
+          kind,
+          module_id:
+            typeof trigger.module === "string"
+              ? trigger.module
+              : options.moduleId,
+          name: typeof trigger.name === "string" ? trigger.name : id,
+          quiet_hours:
+            typeof trigger.quiet_hours === "string"
+              ? trigger.quiet_hours
+              : null,
+          scope: trigger.scope === "tenant" ? "tenant" : "space",
+          suppress_if_no_op: trigger.suppress_if_no_op === true,
+          timezone:
+            typeof trigger.timezone === "string" ? trigger.timezone : null,
+          workflow,
+          ...(typeof trigger.provider_id === "string"
+            ? { provider_id: trigger.provider_id }
+            : {}),
+          ...(typeof trigger.resource === "string"
+            ? { resource: trigger.resource }
+            : {}),
+          ...(trigger.event_filter && typeof trigger.event_filter === "object"
+            ? { event_filter: trigger.event_filter as Record<string, unknown> }
+            : {}),
+          ...(typeof trigger.input_mapping === "object" &&
+          trigger.input_mapping !== null
+            ? {
+                input_mapping: trigger.input_mapping as Record<string, unknown>,
+              }
+            : {}),
+        });
+      }
     }
-    return listRoutineMarkdownFiles(routinesDir).map((filePath) => {
-      const parsed = matter(readFileSync(filePath, "utf8"));
-      const data = parsed.data as Record<string, any>;
-      return {
-        id: data.id,
-        name: data.name,
-        schedule: data.schedule,
-        enabled_by_default: data.enabled_by_default ?? true,
-        module_id: data.module_id ?? options.moduleId,
-        quiet_hours: data.quiet_hours ?? null,
-        suppress_if_no_op: data.suppress_if_no_op ?? false,
-        target: data.target,
-        description: parsed.content.trim() || undefined,
-      } as unknown as RoutineDefinition;
-    });
+    return [...declarations, ...(options.triggerDeclarations ?? [])];
   }
 
   function buildChatCommands() {
@@ -369,12 +408,10 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
   return {
     aiRegistration(): AiRegistration {
       const agentConfigs = buildAgentConfigs();
-      const agentIds = new Set(agentConfigs.map((config) => config.id));
       const skillMarkdown = buildSkillMarkdown();
       const chatCommands = buildChatCommands();
       return {
-        actions: buildActions(agentIds),
-        agents: options.agentDefinitions?.() ?? [],
+        workflows: buildWorkflows(),
         ...(chatCommands.length > 0 ? { chat_commands: chatCommands } : {}),
         dynamic: {
           agent_configs: agentConfigs,
@@ -401,18 +438,15 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
         (config) => !fnIds.has(config.id)
       );
       const skillMarkdown = buildSkillMarkdown();
-      // Actions/routines travel in serializable form (JSON Schema, no zod) so
-      // apps/ai can consume them over the core capability endpoint. Action
-      // agent-id validation sees BOTH channels (json + function agents).
-      const actions = buildActions(
-        new Set([...scannedConfigs.map((config) => config.id), ...fnIds])
-      ).map(toModuleActionCapability);
+      // Workflow definitions are already plain JSON, so the capability
+      // channel carries them verbatim — no serialization step.
+      const workflows = buildWorkflows();
       const routines = buildRoutines();
       const chatCommands = buildChatCommands();
       return {
         agentConfigs,
         moduleId: options.moduleId,
-        ...(actions.length > 0 ? { actions } : {}),
+        ...(workflows.length > 0 ? { workflows } : {}),
         ...(agentFns.length > 0 ? { agentFns } : {}),
         ...(chatCommands.length > 0 ? { chatCommands } : {}),
         ...(routines.length > 0 ? { routines } : {}),

@@ -49,6 +49,39 @@ export interface ModuleFilesStatParams {
   tenantId: string;
 }
 
+/**
+ * Write params for the storage capability (PLAN-space-data-agent-crud P2.2).
+ *
+ * `contentBase64` XOR `contentText` — the synthesized action's handler enforces
+ * exactly one, so sending both is an error rather than a precedence puzzle.
+ */
+export interface ModuleFilesWriteParams {
+  connectionId: string;
+  contentBase64?: string;
+  contentText?: string;
+  folderRef: string | null;
+  mimeType?: string | null;
+  name: string;
+  principal: ConnectionPolicyPrincipal;
+  tenantId: string;
+}
+
+export interface ModuleFilesDeleteParams {
+  connectionId: string;
+  principal: ConnectionPolicyPrincipal;
+  ref: string;
+  tenantId: string;
+}
+
+export interface ModuleFilesMoveParams {
+  connectionId: string;
+  newName?: string;
+  principal: ConnectionPolicyPrincipal;
+  ref: string;
+  tenantId: string;
+  toFolderRef: string | null;
+}
+
 export interface ConnectionsModuleClientOptions {
   /**
    * Tenant-aware OAuth client-credential resolver for token refresh (so a
@@ -166,6 +199,23 @@ export function createConnectionsModuleClientFromRepo(
       return all.filter((c) => c.status === "active");
     },
 
+    /**
+     * Connection ids granted to the acting agent (PLAN-spaces.md CN.5).
+     *
+     * `agentId` is the core.agents principal uuid — the value the grant rows
+     * store and the one `PluginAuthContext.agentId` carries. Consumers use it
+     * to treat a granted personal account as visible in agent-driven calls,
+     * the same rule the action policy already applies at execution.
+     */
+    async listAgentGrantedConnectionIds(params: {
+      agentId: string;
+      tenantId: string;
+    }): Promise<Set<string>> {
+      return getRepo(params.tenantId).listAgentGrantedConnectionIds({
+        agentId: params.agentId,
+      });
+    },
+
     /** Active connections whose connector declares the files capability. */
     async listFileSources(params: {
       tenantId: string;
@@ -189,6 +239,30 @@ export function createConnectionsModuleClientFromRepo(
         });
       }
       return sources;
+    },
+
+    /**
+     * Does this connection's connector declare `storage` — i.e. can it be
+     * written at all?
+     *
+     * Separate from "may THIS caller write", which the connection's policy
+     * decides when they try. This is the prior question, and it has to be
+     * answerable without attempting a write: a mount whose provider is
+     * read-only should render read-only rather than offer an action that
+     * fails.
+     */
+    async isStorageCapable(params: {
+      connectionId: string;
+      tenantId: string;
+    }): Promise<boolean> {
+      const connection = await getRepo(params.tenantId).getConnection({
+        connectionId: params.connectionId,
+        tenantId: params.tenantId,
+      });
+      if (!connection) {
+        return false;
+      }
+      return Boolean(getConnectorDefinition(connection.connector_id)?.storage);
     },
 
     /** List a folder in a file-capable connection (read-gated like any action). */
@@ -234,6 +308,73 @@ export function createConnectionsModuleClientFromRepo(
         actionId: "files_stat",
         connectionId: params.connectionId,
         input: { ref: params.ref },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<ConnectorFileEntry>;
+    },
+
+    /**
+     * Write a file into a connected folder.
+     *
+     * Calls the SYNTHESIZED `files_write` action, exactly as the read methods
+     * call `files_list` — so the connection's own policy, the ask-by-default
+     * gate on group `write`, the approval and the audit row all apply without a
+     * single line of new gate code. A connector whose definition has no
+     * `storage` never had this action synthesized, and the call fails there:
+     * "read-only mount" stays a real state rather than becoming a surprise.
+     */
+    async filesWrite(
+      params: ModuleFilesWriteParams
+    ): Promise<ConnectorFileEntry> {
+      return client.callAction({
+        actionId: "files_write",
+        connectionId: params.connectionId,
+        input: {
+          folder_ref: params.folderRef,
+          name: params.name,
+          ...(params.contentBase64 === undefined
+            ? {}
+            : { content_base64: params.contentBase64 }),
+          ...(params.contentText === undefined
+            ? {}
+            : { content_text: params.contentText }),
+          ...(params.mimeType === undefined
+            ? {}
+            : { mime_type: params.mimeType }),
+        },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<ConnectorFileEntry>;
+    },
+
+    /** Delete a file in a connected folder — group `destructive`, ask-by-default. */
+    async filesDelete(
+      params: ModuleFilesDeleteParams
+    ): Promise<{ deleted: boolean; ref: string }> {
+      return client.callAction({
+        actionId: "files_delete",
+        connectionId: params.connectionId,
+        input: { ref: params.ref },
+        isAutonomous: false,
+        principal: params.principal,
+        tenantId: params.tenantId,
+      }) as Promise<{ deleted: boolean; ref: string }>;
+    },
+
+    /** Move and/or rename a file in a connected folder. */
+    async filesMove(
+      params: ModuleFilesMoveParams
+    ): Promise<ConnectorFileEntry> {
+      return client.callAction({
+        actionId: "files_move",
+        connectionId: params.connectionId,
+        input: {
+          ref: params.ref,
+          to_folder_ref: params.toFolderRef,
+          ...(params.newName === undefined ? {} : { new_name: params.newName }),
+        },
         isAutonomous: false,
         principal: params.principal,
         tenantId: params.tenantId,

@@ -7,6 +7,7 @@ import {
 import { createLogger } from "@engenty/telemetry";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { getEnvManifest } from "../../cli/env-setup/env-manifest.js";
+import { requirementForScope } from "../../cli/env-setup/env-manifest-types.js";
 import {
   type ConfigurableSetting,
   getConfigurableSettings,
@@ -134,7 +135,7 @@ function deploymentEnvStatus(): DeploymentEnvView[] {
       group: spec.group,
       isSet: Boolean(process.env[spec.key]?.trim()),
       key: spec.key,
-      required: spec.required,
+      required: requirementForScope(spec, "deploy"),
       secret: spec.secret,
     }));
 }

@@ -40,6 +40,13 @@ export interface RunKbSourceOptions {
   background?: boolean;
   force?: boolean;
   limit?: number;
+  /**
+   * Called after a run that fetched content, so armed ingestion modes can turn
+   * the fresh items into articles. Supplied by the caller rather than reached
+   * for here: ingestion needs the request's auth and cross-module gateway,
+   * which the sync engine has no business holding.
+   */
+  onSyncComplete?: (result: RunKbSourceResult) => Promise<void>;
   registry?: DocumentSourceAdapterRegistry;
   /** When provided, only index entries whose `item_key` is in this set are retrieved. */
   retrieve_images?: boolean;
@@ -162,14 +169,17 @@ async function upsertInboxForRetrievedItem(
     fetch_content_type: retrieved.content_type,
     fetch_final_url: retrieved.final_url,
     fetch_provider: retrieved.provider,
-    raw_html: retrieved.raw_html ?? null,
   };
 
   if (existingItem?.inbox_item_id) {
     const inbox = await repos.inbox.getById(existingItem.inbox_item_id);
     if (inbox && inbox.status !== "promoted" && inbox.status !== "discarded") {
+      // `raw_text` is the single copy of the fetched HTML. Older rows also
+      // carried it under `metadata.raw_html` — drop that on write so a re-run
+      // sheds the duplicate instead of carrying it forward.
+      const { raw_html: _legacyRawHtml, ...priorMetadata } = inbox.metadata;
       const updated = await repos.inbox.update(inbox.id, {
-        metadata: { ...inbox.metadata, ...baseMetadata },
+        metadata: { ...priorMetadata, ...baseMetadata },
         raw_markdown: markdownText,
         raw_text: retrieved.raw_html ?? inbox.raw_text ?? null,
         source_url: retrieved.final_url ?? retrieved.source_url,
@@ -486,7 +496,15 @@ async function executeKbSourceRun(
       status: resolveRunStatusFromItemLogs(itemLogs),
       updatedItems,
     });
-    return { run: completedRun, source };
+    const result = { run: completedRun, source };
+    if (completedRun.status !== "failed") {
+      // Never let a downstream ingest turn a successful sync into a failed
+      // one: the items were fetched either way.
+      await options.onSyncComplete?.(result).catch(() => {
+        // Reported through the ingest task / outcome list, not this run.
+      });
+    }
+    return result;
   } catch (error) {
     let message = truncateRunError(formatRunError(error)).trim();
     if (!message) {

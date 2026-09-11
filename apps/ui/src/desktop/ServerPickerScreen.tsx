@@ -42,8 +42,8 @@ export function ServerPickerScreen({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-accent/10 p-4">
-      <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-accent/10 p-4">
+      <div className="ui-card-panel w-full max-w-md p-6">
         <h1 className="font-semibold text-lg">Connect to engenty</h1>
         <p className="mt-2 text-muted-foreground text-sm">
           Enter the URL of the engenty server this desktop app should use. You

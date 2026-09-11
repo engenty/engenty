@@ -3,6 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { normalizeAllowedToolsInput } from "../allowed-tools.js";
+import { AGENT_ENGENTY_KINDS } from "./agent-engenty.js";
+import {
+  AGENT_STARTER_DECLARE_MAX,
+  agentStarterSchema,
+} from "./agent-starters.js";
 
 const DEFAULT_AGENT_ROOT_SEGMENTS = [
   ["agents"],
@@ -11,7 +16,18 @@ const DEFAULT_AGENT_ROOT_SEGMENTS = [
 
 export const aiAgentManifestSchema = z.object({
   $schema: z.literal("engenty/ai-agent-manifest/v1"),
+  /**
+   * Whose agent this is once mounted: `shared` = a company resource whose
+   * rooms, MEMORY.md and TASKS.md are per Space; `personal` = per person.
+   * Omitted = no audience — no shared observations, no memory, no pad
+   * (delegated workers and chat surfaces). Specialists declare `shared`.
+   */
+  agent_scope: z.enum(["personal", "shared"]).optional(),
   description: z.string(),
+  /** Default thinking tier when nobody chose one; see AgentConfig.effort. */
+  effort: z.enum(["low", "medium", "high"]).optional(),
+  /** Optional blob character; omitted agents hash their id. */
+  engenty: z.enum(AGENT_ENGENTY_KINDS).optional(),
   id: z.string(),
   /**
    * Sibling markdown files in the agent directory that appear in the
@@ -24,6 +40,11 @@ export const aiAgentManifestSchema = z.object({
   module_id: z.string(),
   name: z.string(),
   skills: z.array(z.string()),
+  /** Empty-state composer chips; omit to let the desk fall back to generics. */
+  starters: z
+    .array(agentStarterSchema)
+    .max(AGENT_STARTER_DECLARE_MAX)
+    .optional(),
   tools: z.array(z.string()),
 });
 

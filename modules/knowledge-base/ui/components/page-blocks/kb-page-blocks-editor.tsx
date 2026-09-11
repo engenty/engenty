@@ -32,7 +32,6 @@ export type KbPageBlocksEditorTarget =
 interface KbPageBlocksEditorProps {
   categories: KbCategory[];
   isEditMode: boolean;
-  kbSlug: string;
   layout: KbPageLayoutSettings;
   onLayoutChange: (layout: KbPageLayoutSettings) => void;
   target: KbPageBlocksEditorTarget;
@@ -41,7 +40,6 @@ interface KbPageBlocksEditorProps {
 export function KbPageBlocksEditor({
   categories,
   isEditMode,
-  kbSlug,
   layout,
   onLayoutChange,
   target,
@@ -77,7 +75,6 @@ export function KbPageBlocksEditor({
             categories={categories}
             isEditMode={isEditMode}
             kbId={kbId}
-            kbSlug={kbSlug}
             key={block.id}
             onLayoutPatch={patchLayout}
             onOpenSettings={setSettingsBlockId}

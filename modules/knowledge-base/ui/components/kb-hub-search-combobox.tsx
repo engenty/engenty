@@ -16,10 +16,7 @@ import {
   useState,
 } from "react";
 import type { KbArticleSuggestHit } from "../api.js";
-import {
-  suggestKbArticlesHybrid,
-  suggestKbArticlesHybridMany,
-} from "../kb-suggest-hybrid.js";
+import { suggestKbArticlesHybrid } from "../kb-suggest-hybrid.js";
 import {
   kbHubHeroSearchInputClassName,
   kbHubHeroSearchSuggestPanelClassName,
@@ -31,10 +28,8 @@ const SUGGEST_LIMIT = 8;
 
 export interface KbHubSearchComboboxProps {
   disabled?: boolean;
-  /** Pass a single KB id, or kbIds for multi-KB search. */
   kbId?: string;
-  kbIds?: string[];
-  onOpenArticle: (articleId: string, kbId?: string) => void;
+  onOpenArticle: (articleId: string) => void;
   onSeeAll: (query: string) => void;
   onValueChange: (value: string) => void;
   value: string;
@@ -42,7 +37,6 @@ export interface KbHubSearchComboboxProps {
 
 export function KbHubSearchCombobox({
   kbId,
-  kbIds,
   value,
   onValueChange,
   onOpenArticle,
@@ -61,9 +55,7 @@ export function KbHubSearchCombobox({
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const trimmed = value.trim();
-  const effectiveKbIds = kbIds ?? (kbId ? [kbId] : []);
-  const canQuery =
-    trimmed.length >= MIN_CHARS && !disabled && effectiveKbIds.length > 0;
+  const canQuery = trimmed.length >= MIN_CHARS && !disabled && Boolean(kbId);
   const optionCount = suggestions.length + 1;
 
   useEffect(() => {
@@ -79,16 +71,10 @@ export function KbHubSearchCombobox({
       setSuggestions([]);
       void (async () => {
         try {
-          const hits =
-            effectiveKbIds.length === 1
-              ? await suggestKbArticlesHybrid(effectiveKbIds[0], trimmed, {
-                  limit: SUGGEST_LIMIT,
-                  signal: ac.signal,
-                })
-              : await suggestKbArticlesHybridMany(effectiveKbIds, trimmed, {
-                  limit: SUGGEST_LIMIT,
-                  signal: ac.signal,
-                });
+          const hits = await suggestKbArticlesHybrid(kbId ?? "", trimmed, {
+            limit: SUGGEST_LIMIT,
+            signal: ac.signal,
+          });
           if (!ac.signal.aborted) {
             setSuggestions(hits);
           }
@@ -123,10 +109,7 @@ export function KbHubSearchCombobox({
   }, []);
 
   const showPanel =
-    open &&
-    !disabled &&
-    effectiveKbIds.length > 0 &&
-    trimmed.length >= MIN_CHARS;
+    open && !disabled && Boolean(kbId) && trimmed.length >= MIN_CHARS;
 
   const moveActive = useCallback(
     (delta: number) => {
@@ -146,10 +129,7 @@ export function KbHubSearchCombobox({
 
   const activateCurrent = useCallback(() => {
     if (activeIndex >= 0 && activeIndex < suggestions.length) {
-      onOpenArticle(
-        suggestions[activeIndex].id,
-        suggestions[activeIndex].kb_id
-      );
+      onOpenArticle(suggestions[activeIndex].id);
       setOpen(false);
       setActiveIndex(-1);
       return;
@@ -194,7 +174,7 @@ export function KbHubSearchCombobox({
       }
       if (showPanel && !loading && suggestions.length > 0 && activeIndex < 0) {
         e.preventDefault();
-        onOpenArticle(suggestions[0].id, suggestions[0].kb_id);
+        onOpenArticle(suggestions[0].id);
         setOpen(false);
       }
     }
@@ -270,7 +250,7 @@ export function KbHubSearchCombobox({
                         }`}
                         id={`${baseId}-opt-${idx}`}
                         onClick={() => {
-                          onOpenArticle(s.id, s.kb_id);
+                          onOpenArticle(s.id);
                           setOpen(false);
                           setActiveIndex(-1);
                         }}

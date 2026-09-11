@@ -368,7 +368,7 @@ export function InspectorTab({ tenantId }: Props) {
             </div>
           </div>
 
-          <div className="space-y-1.5 border-border/60 border-t pt-3">
+          <div className="space-y-1.5 border-border-soft border-t pt-3">
             <Label className="text-sm" htmlFor="probe">
               {kind === "role" ? "Does this role cover…?" : "Can they do…?"}
             </Label>

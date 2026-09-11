@@ -3,10 +3,14 @@ import {
   createNativeFileSource,
   type NativeBlobStore,
 } from "@engenty/file-storage";
-import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import { type EngentyPluginFactory, foreignSelect } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { registerFileManagerRoutes } from "./api/file-manager-routes.js";
+import {
+  type ResolveOwnerSpaceId,
+  registerFileManagerRoutes,
+} from "./api/file-manager-routes.js";
 import { registerFileSourcesRoutes } from "./api/file-sources-routes.js";
+import { registerSpaceFileOperations } from "./api/space-file-operations.js";
 import {
   createFileManagerStores,
   createFileMountStore,
@@ -16,6 +20,7 @@ import {
   type ConnectorMountRow,
   createConnectorFileSource,
 } from "./sources/connector-file-source.js";
+import { createFilesSpaceDataAdapter } from "./space-data/adapter.js";
 
 /** Bucket the file manager stores native blobs in. */
 const FILE_MANAGER_BUCKET = "files";
@@ -60,6 +65,11 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
     delete: (key) => storage.delete?.(key) ?? Promise.resolve(),
     getUrl: (key, options) => storage.getUrl(key, options),
     exists: storage.exists ? (key) => storage.exists!(key) : undefined,
+    // `upsert` is the point: replacing content writes over the key the entry
+    // already owns, so rename and move stay pure metadata updates.
+    upload: async (key, data, options) => {
+      await storage.upload(key, data, { ...options, upsert: true });
+    },
   };
   const native = createNativeFileSource({ folders, entries, blobs });
 
@@ -99,8 +109,54 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
   });
   const source = createCompositeFileSource({ connector, getMount, native });
 
-  registerFileManagerRoutes(server, source);
-  registerFileSourcesRoutes(server, { client: connectionsClient, mounts });
+  /**
+   * Which space an owner's bytes are rooted in (PLAN-spaces.md §1b).
+   *
+   * A `project` owner answers from `module_projects.projects.space_id`, which
+   * is `not null` since Phase 6. Read through `foreignSelect` because this
+   * crosses a schema boundary on a tenant-locked handle — the tenant and scope
+   * filters are the point, not decoration.
+   *
+   * Returns null for an owner kind with no space of its own; the key builder
+   * throws on null rather than falling back to a tenant-level root, so a new
+   * owner kind fails loudly instead of writing bytes above the boundary.
+   */
+  const resolveOwnerSpaceId: ResolveOwnerSpaceId = async (auth, owner) => {
+    if (owner.ownerType !== "project") {
+      return null;
+    }
+    const { data, error } = await foreignSelect(
+      getDb(auth),
+      { scopeId: auth.scopeId, tenantId: auth.tenantId },
+      {
+        columns: "space_id",
+        schema: "module_projects",
+        table: "projects",
+      }
+    )
+      .eq("id", owner.ownerId)
+      .maybeSingle();
+    if (error) {
+      return null;
+    }
+    const spaceId = (data as { space_id?: unknown } | null)?.space_id;
+    return typeof spaceId === "string" && spaceId.trim() ? spaceId : null;
+  };
+
+  registerFileManagerRoutes(server, source, resolveOwnerSpaceId);
+  registerFileSourcesRoutes(server, {
+    client: connectionsClient,
+    getDb,
+    mounts,
+  });
+
+  // The space's own files, as operations and then as a Data-tree root. The
+  // operations are what the adapter reaches the module through — an HTTP route
+  // is not invocable from `invokeOperation`, so without them `Files/` could not
+  // exist. Registering the adapter grants nothing on its own: the root appears
+  // only where the space has mounted `files` (mount = grant).
+  registerSpaceFileOperations(server, source);
+  server.registerSpaceDataAdapter?.(createFilesSpaceDataAdapter());
 };
 
 export default registerFilesPlugin;

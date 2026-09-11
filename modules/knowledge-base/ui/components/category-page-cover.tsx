@@ -28,8 +28,6 @@ interface CategoryPageCoverProps {
   /** When false, hide cover edit controls (view mode). */
   editable?: boolean;
   header?: ReactNode;
-  /** Parent KB slug — used as the storage path segment for cover uploads. */
-  kbSlug: string;
   onOptimisticCoverChange?: (cover: KbCover | null) => void;
 }
 
@@ -38,7 +36,6 @@ export function CategoryPageCover({
   className,
   editable = true,
   header,
-  kbSlug,
   onOptimisticCoverChange,
 }: CategoryPageCoverProps) {
   const { t } = useTranslation("kb");
@@ -86,7 +83,6 @@ export function CategoryPageCover({
       <KbHubCoverDialog
         currentCover={cover}
         kbId={category.kb_id}
-        kbSlug={kbSlug}
         onApplyCover={(next) => applyCover(next)}
         onOpenChange={setDialogOpen}
         open={dialogOpen}

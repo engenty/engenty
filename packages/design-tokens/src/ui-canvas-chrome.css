@@ -5,8 +5,13 @@
  * Outline controls may still use soft shadow until `ui-chrome-sharp`.
  * Do not pair `.ui-canvas-*` / `.ui-card-*` shadow tokens with Tailwind `shadow-none`
  * (or `ring-*` / `shadow-*` on `.ui-card-selected`) on the same node.
+ * Do not add Tailwind `border`, `bg-card`, `rounded-*`, `hover:bg-*`, or `hover:shadow-*`
+ * on the same node as a `.ui-card-*` / `.ui-canvas-{raised,elevated,panel}` class —
+ * those classes own fill, radius, border, shadow, and hover.
  *
  * Sharp hairline variant: add class `ui-chrome-sharp` on <html> (or wrap a subtree).
+ * Glass fill stub: add class `ui-chrome-glass` on <html> (or wrap a subtree) to flip
+ * card fill + blur via tokens — not wired to product UI yet.
  */
 :root {
   /* —— Fields (search inputs, select triggers, …) —— */
@@ -28,6 +33,13 @@
   --ui-canvas-shell-border-w: 0px;
   --ui-canvas-shell-border-c: transparent;
   --ui-canvas-shell-shadow: var(--shadow-ember-elevated);
+
+  /* Bottom inset on a main-area scroller so last content clears the copilot
+     FAB (60px + 16px inset + 20px breathing). Shell may override this on
+     `[data-engenty-region=main]` when the bottom dock is open.
+     Plus the bottom safe-area inset (ui-viewport.css) so the last row also
+     clears the home indicator — 0px everywhere that has no inset. */
+  --ui-scroll-safe-bottom: calc(96px + var(--ui-safe-bottom, 0px));
 
   /* —— Detail / section cards on canvas —— */
   --ui-canvas-panel-border-w: 0px;
@@ -59,6 +71,17 @@
   --ui-canvas-floating-border-w: 0px;
   --ui-canvas-floating-border-c: transparent;
   --ui-canvas-floating-shadow: var(--shadow-ember-overlay);
+
+  /* —— Card fill / radius / hover (owned by `.ui-card-*`, not Tailwind) —— */
+  --ui-card-bg: var(--card);
+  --ui-card-fg: var(--card-foreground);
+  --ui-card-filter: none;
+  --ui-card-raised-radius: var(--r-3);
+  --ui-card-elevated-radius: var(--radius);
+  --ui-card-hover-bg: var(--ui-card-bg);
+  --ui-card-hover-shadow: var(--e-3);
+  --ui-row-hover-bg: color-mix(in oklch, var(--muted) 35%, transparent);
+  --ui-row-selected-bg: color-mix(in oklch, var(--muted) 50%, transparent);
 }
 
 /* Dark: same hairline fields/rows as light; other surfaces keep ember shadow until sharp */
@@ -80,6 +103,10 @@
   --ui-card-selected-hover-shadow:
     0 2px 6px -1px oklch(from var(--primary) l c h / 0.38),
     0 10px 24px -6px oklch(from var(--primary) l c h / 0.26);
+  --ui-card-bg: var(--card);
+  --ui-card-fg: var(--card-foreground);
+  --ui-card-hover-bg: var(--ui-card-bg);
+  --ui-card-hover-shadow: var(--e-3);
 }
 
 :is(html.ui-chrome-sharp, .ui-chrome-sharp) {
@@ -118,6 +145,13 @@
   --ui-canvas-raised-border-w: 1px;
   --ui-canvas-raised-border-c: oklch(34% 0.014 60);
   --ui-canvas-raised-shadow: none;
+  --ui-card-hover-shadow: none;
+}
+
+:is(html.ui-chrome-glass, .ui-chrome-glass) {
+  --ui-card-bg: color-mix(in oklch, var(--card) 78%, transparent);
+  --ui-card-filter: blur(20px);
+  --ui-card-hover-bg: var(--ui-card-bg);
 }
 
 html.dark.ui-chrome-sharp,
@@ -203,13 +237,34 @@ html.dark .ui-chrome-sharp {
 
   /**
    * Card surfaces (`ui-card-*` preferred; `ui-canvas-*` kept as aliases).
+   * Each class owns fill, radius, border, shadow, and (when interactive) hover.
+   * Do not also apply Tailwind `border` / `bg-card` / `rounded-*` / `hover:bg-*`
+   * / `hover:shadow-*` on the same node.
+   */
+  .ui-card-panel,
+  .ui-canvas-panel,
+  .ui-card-elevated,
+  .ui-canvas-elevated,
+  .ui-card-raised,
+  .ui-canvas-raised {
+    color: var(--ui-card-fg);
+    background-color: var(--ui-card-bg);
+    border-style: solid;
+    -webkit-backdrop-filter: var(--ui-card-filter);
+    backdrop-filter: var(--ui-card-filter);
+    transition:
+      background-color 150ms ease-out,
+      box-shadow 150ms ease-out;
+  }
+
+  /**
    * Section / detail card on the page canvas (settings blocks, read-only panels).
    */
   .ui-card-panel,
   .ui-canvas-panel {
     border-color: var(--ui-canvas-panel-border-c);
-    border-style: solid;
     border-width: var(--ui-canvas-panel-border-w);
+    border-radius: var(--ui-card-elevated-radius);
     box-shadow: var(--ui-canvas-panel-shadow);
   }
 
@@ -219,8 +274,8 @@ html.dark .ui-chrome-sharp {
   .ui-card-elevated,
   .ui-canvas-elevated {
     border-color: var(--ui-canvas-shell-border-c);
-    border-style: solid;
     border-width: var(--ui-canvas-shell-border-w);
+    border-radius: var(--ui-card-elevated-radius);
     box-shadow: var(--ui-canvas-shell-shadow);
   }
 
@@ -231,9 +286,27 @@ html.dark .ui-chrome-sharp {
   .ui-card-raised,
   .ui-canvas-raised {
     border-color: var(--ui-canvas-raised-border-c);
-    border-style: solid;
     border-width: var(--ui-canvas-raised-border-w);
+    border-radius: var(--ui-card-raised-radius);
     box-shadow: var(--ui-canvas-raised-shadow);
+  }
+
+  /**
+   * Interactive hover — paint-only: deepen shadow, keep fill. Auto-applies when
+   * the surface *is* the control (`a` / `button` / `role=button`). Use
+   * `.ui-card-interactive` on a wrapping `div` with a stretch link inside.
+   */
+  :is(
+    .ui-card-raised,
+    .ui-card-elevated,
+    .ui-card-panel,
+    .ui-canvas-raised,
+    .ui-canvas-elevated,
+    .ui-canvas-panel
+  ):is(a, button, [role="button"]):not(.ui-card-selected):hover,
+  .ui-card-interactive:not(.ui-card-selected):hover {
+    background-color: var(--ui-card-hover-bg);
+    box-shadow: var(--ui-card-hover-shadow);
   }
 
   /**
@@ -250,6 +323,18 @@ html.dark .ui-chrome-sharp {
 
   .ui-card-selected:hover {
     box-shadow: var(--ui-card-selected-hover-shadow);
+  }
+
+  /**
+   * Row hover inside a white shell (list rows, table rows). Paint-only.
+   */
+  .ui-row-hover:hover,
+  .ui-canvas-table-row:hover {
+    background-color: var(--ui-row-hover-bg);
+  }
+
+  .ui-canvas-table-row[data-state="selected"] {
+    background-color: var(--ui-row-selected-bg);
   }
 
   /**
@@ -278,16 +363,84 @@ html.dark .ui-chrome-sharp {
   /**
    * Logical: translucent floating panel (Apple-menu-style glass) — a lighter
    * alternative to `.ui-canvas-floating` for surfaces that deliberately read
-   * the content behind them. Only background + blur live here; pair with
-   * Tailwind's `shadow-*`/`ring-*` utilities per consumer (a plain CSS
-   * box-shadow here would NOT compose with Tailwind's ring utility — both
-   * set the box-shadow property outright, so whichever cascades last wins
-   * and the other is lost, not layered). Opt in per component/variant; not a
-   * drop-in replacement for `.ui-canvas-floating`.
+   * the content behind them. Fill + blur live here; elevation is
+   * `--shadow-ember-overlay` on the same node (`[box-shadow:var(--shadow-ember-overlay)]`).
+   * Put fill + blur + overlay shadow on the **Popup** (the animated node), not
+   * the Positioner: scaling the Positioner fights Base UI’s placement
+   * `transform` and the origin collapses to the top-left. Do not pair Tailwind
+   * `ring-*` with `shadow-*`.
    */
   .ui-canvas-glass {
     background-color: var(--popover);
     -webkit-backdrop-filter: blur(40px);
     backdrop-filter: blur(40px);
+  }
+
+  /**
+   * Slim, always-visible scrollbar for small scrollports inside chrome (a
+   * dialog field, a compact list). The platform default is either invisible
+   * until you scroll — which hides that there IS more — or wide enough to
+   * crowd a narrow field.
+   */
+  .ui-thin-scrollbar {
+    scrollbar-color: color-mix(in oklab, currentColor 22%, transparent)
+      transparent;
+    scrollbar-width: thin;
+  }
+
+  .ui-thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .ui-thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .ui-thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, currentColor 22%, transparent);
+    border-radius: 9999px;
+  }
+
+  .ui-thin-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, currentColor 34%, transparent);
+  }
+
+  /**
+   * DESIGN.md main-area scroller: fills the shell column, one overflow-y,
+   * and a bottom safe area so the last block can clear overlapping chrome
+   * (copilot FAB). Prefer this over ad-hoc `overflow-y-auto pb-10`.
+   */
+  .ui-page-scroll {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    padding-bottom: var(--ui-scroll-safe-bottom);
+    overflow-y: auto;
+    scroll-padding-bottom: var(--ui-scroll-safe-bottom);
+  }
+
+  /**
+   * Fades a scrollport's CONTENT out at the bottom edge, signalling "there is
+   * more" without painting anything. A gradient overlay cannot do this job on
+   * engenty chrome: the glass surfaces are translucent by design
+   * (`--popover` is `oklch(from var(--card) l c h / 0.72)`), so an overlay in the
+   * same colour stacks a second layer over the first and reads as a darker
+   * band. A mask has no colour of its own, so it works on any surface and in
+   * both themes.
+   */
+  .ui-scroll-fade-b {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 2rem),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 2rem),
+      transparent 100%
+    );
   }
 }

@@ -10,13 +10,20 @@ import {
 } from "react";
 
 /**
- * Shell topbar presentation. `contentBlend` uses a transparent topbar (no bottom border)
+ * Shell topbar presentation. The default is transparent on the page; `band` opts into a card strip
  * so the bar visually merges with the main canvas `background` (reader-style).
  */
-export type PageTopbarChrome = "default" | "contentBlend";
+/**
+ * How the topbar sits on the page. `"default"` is transparent on the main
+ * area's own surface — the topbar is part of the page, not a bar over it.
+ * `"band"` is the opt-in for a page that needs a distinct sticky strip (a
+ * dense list with controls in the topbar); it paints `bg-card` and wider
+ * density, still without a border.
+ */
+export type PageTopbarChrome = "default" | "band";
 
 /** Paints the shell column + main for Ember paper stacks (`--paper` / `--paper-2`). */
-export type PageContentStackBackground = "default" | "paper";
+export type PageContentStackBackground = "default" | "paper" | "card";
 
 function isPrimitiveBreadcrumbLabel(
   label: PageBreadcrumb["label"]
@@ -109,7 +116,7 @@ interface PageHeaderContextValue {
   actions: ReactNode;
   agentsWorkspaceNav: AgentsWorkspaceNavRegistration | null;
   breadcrumbs: PageBreadcrumb[];
-  /** Topbar column + in-page hero alignment for `contentBlend` (see `paper` stack). */
+  /** Topbar column + in-page hero alignment for the blended topbar (see `paper` stack). */
   contentStackBackground: PageContentStackBackground;
   /** Rendered in the shell secondary nav column below module submenu links (e.g. recents). */
   secondaryNavAfterItems: ReactNode;
@@ -132,8 +139,8 @@ interface PageHeaderContextValue {
   topbarChrome: PageTopbarChrome;
   /**
    * When true, the topbar is positioned absolutely over the content area instead of
-   * in normal flex flow. Pair with `topbarChrome: "contentBlend"` so the transparent
-   * topbar floats over a full-bleed hero/cover at the top of the scroll area.
+   * in normal flex flow, so the transparent topbar floats over a full-bleed
+   * hero/cover at the top of the scroll area.
    */
   topbarOverlap: boolean;
 }
@@ -370,8 +377,9 @@ export function usePageConfig(config: {
   actions?: ReactNode;
   breadcrumbs?: PageBreadcrumb[];
   /**
-   * `paper`: shell column uses `--paper-2` behind the transparent topbar; `#engenty-app-main`
-   * uses `--paper`. Pair with in-page headers at `bg-paper-2` and `topbarChrome: "contentBlend"`.
+   * `paper`: shell column uses `--paper` behind the transparent topbar.
+   * `card`: the same, with `--card` (white) so a document fills the pane
+   * without wrapping a nested sheet.
    */
   contentStackBackground?: PageContentStackBackground;
   secondaryNavAfterItems?: ReactNode;
@@ -391,7 +399,7 @@ export function usePageConfig(config: {
   topbarChrome?: PageTopbarChrome;
   /**
    * When true, the topbar is positioned absolutely over the content area so content
-   * can start from the very top of the main column. Pair with `topbarChrome: "contentBlend"`
+   * can start from the very top of the main column
    * for a full-bleed hero/cover that flows under the transparent topbar. Resets on unmount.
    */
   topbarOverlap?: boolean;

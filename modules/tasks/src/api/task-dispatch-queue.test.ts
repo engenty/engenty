@@ -19,7 +19,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     created_by_user_id: null,
     description: null,
     due_date: null,
-    goal_id: null,
     id: TASK_ID,
     identifier: "T-1",
     parent_id: null,

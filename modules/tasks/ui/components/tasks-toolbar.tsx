@@ -28,6 +28,7 @@ import {
   Rows2,
   SlidersHorizontal,
   User,
+  Workflow,
 } from "lucide-react";
 import type { getTasksToolbarLabels } from "../lib/tasks-toolbar-labels.js";
 import type {
@@ -40,7 +41,12 @@ import type {
 import { TasksDisplayDialog } from "./tasks-display-dialog.js";
 import type { TasksGroupBy } from "./tasks-list-filter-bar.js";
 
-export type TasksAssigneeKind = "user" | "agent" | "";
+/**
+ * Who is doing the work. `runs` is not an assignee kind at all — it is the
+ * machine-run filter (work a run drives rather than a person), which belongs
+ * in the same toggle because it answers the same question a reader is asking.
+ */
+export type TasksAssigneeKind = "user" | "agent" | "runs" | "";
 
 interface TasksToolbarProps {
   assigneeKind?: TasksAssigneeKind;
@@ -231,6 +237,7 @@ export function TasksToolbar({
             segments={[
               { value: "user", label: labels.assigneeHuman, icon: User },
               { value: "agent", label: labels.assigneeAgent, icon: Bot },
+              { value: "runs", label: labels.assigneeRuns, icon: Workflow },
             ]}
             value={assigneeKind}
           />

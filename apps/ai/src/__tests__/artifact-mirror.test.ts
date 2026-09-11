@@ -10,6 +10,7 @@ const artifact: ArtifactRow = {
   id: "0198aaaa-0000-7000-8000-000000000001",
   metadata: {},
   mime_type: null,
+  parent_id: null,
   scope_id: "project-1",
   scope_type: "project",
   size_bytes: null,

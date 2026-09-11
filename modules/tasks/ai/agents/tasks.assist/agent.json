@@ -2,15 +2,63 @@
   "$schema": "engenty/ai-agent-manifest/v1",
   "id": "tasks.assist",
   "name": "Tasks Assist",
-  "description": "Help users prioritize, understand, and update goals and tasks.",
+  "description": "Help users prioritize, understand, and update tasks.",
+  "engenty": "dome",
   "module_id": "tasks",
+  "agent_scope": "shared",
   "skills": ["task-workflow"],
-  "tools": [
-    "engenty_tools_search",
-    "engenty_tool_execute",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
+  "tools": ["engenty_tools_search", "engenty_tool_execute"],
+  "starters": [
+    {
+      "id": "tasks-list-open",
+      "label": "List my open tasks",
+      "prompt": "List my open tasks in this space, starting with anything blocked or waiting on me.",
+      "locales": {
+        "de": {
+          "label": "Offene Aufgaben zeigen",
+          "prompt": "Zeig mir meine offenen Aufgaben in diesem Space, zuerst blockierte oder auf mich wartende."
+        }
+      },
+      "when": {
+        "hasOpenTasks": true
+      }
+    },
+    {
+      "id": "tasks-plan-today",
+      "label": "Plan today's work",
+      "prompt": "Help me plan today's work from my open tasks.",
+      "locales": {
+        "de": {
+          "label": "Heutige Arbeit planen",
+          "prompt": "Hilf mir, die heutige Arbeit aus meinen offenen Aufgaben zu planen."
+        }
+      }
+    },
+    {
+      "id": "tasks-whats-blocked",
+      "label": "What's blocked?",
+      "prompt": "What is blocked or waiting, and what should I unblock first?",
+      "locales": {
+        "de": {
+          "label": "Was ist blockiert?",
+          "prompt": "Was ist blockiert oder wartet, und was sollte ich zuerst l\u00f6sen?"
+        }
+      }
+    },
+    {
+      "id": "tasks-first-task",
+      "label": "Set up a first task",
+      "prompt": "Help me create a first task for this space and break it into steps.",
+      "locales": {
+        "de": {
+          "label": "Erste Aufgabe anlegen",
+          "prompt": "Hilf mir, eine erste Aufgabe f\u00fcr diesen Space anzulegen und in Schritte zu zerlegen."
+        }
+      },
+      "when": {
+        "firstVisit": true
+      }
+    }
   ],
   "workspace": {
     "preset": "staff"

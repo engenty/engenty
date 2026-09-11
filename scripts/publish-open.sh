@@ -24,36 +24,17 @@ DRY_RUN=0
 NO_SYNC=0
 VERIFY=0
 
-# Paths that must never land on the public repo (prefix match).
-# pdf-service/pdf-templates went open 2026-07-05 — EXCEPT the Fontshare font
-# files: the ITF Fontshare EULA forbids redistribution ("uploading them in a
-# public server"). OSS users download them from fontshare.com themselves; the
-# engine degrades when they're absent.
-CLOSED_PREFIXES=(
-  "apps/manage"
-  "docs/internal"
-  "modules/banking"
-  # engenty-apps is PRO-only for now (decision 2026-07-25, PLAN-engenty-apps.md §9).
-  "modules/engenty-apps"
-  "modules/team-hr"
-  # The team-chat module is open; its Slack bridge is a pro provider
-  # (decision 2026-07-17, built 2026-07-19).
-  # engenty-remote starts pro-only (decision pending broader open-sourcing).
-  "modules/engenty-remote"
-  "modules/team-chat/providers/slack-bridge"
-  # time-tracking pulled back to pro-only 2026-07-13 (calendar-sync phase is
-  # commercial; keep the whole module closed while it's in active pro dev).
-  "modules/time-tracking"
-  "packages/banking"
-  "packages/brand-assets"
-  "packages/document-scanner"
-  "packages/engenty-cli"
-  "packages/entitlements"
-  "packages/pdf-service/assets/fonts/fontshare"
-  "packages/plate-editor"
-  # Manage-only dev helper (starts core + apps/manage).
-  "scripts/dev-portless-minimal.sh"
-)
+# The open/closed boundary lives in ONE place — scripts/lib/closed-paths.mjs —
+# because this list, EXCLUDES in publish-open-snapshot.sh, and the plugin slugs
+# used to be maintained by hand and drifted. Prefix match, as before.
+CLOSED_PREFIXES=()
+while IFS= read -r _prefix; do
+  [[ -n "$_prefix" ]] && CLOSED_PREFIXES+=("$_prefix")
+done < <(node "$ROOT/scripts/lib/closed-paths.mjs")
+if [[ ${#CLOSED_PREFIXES[@]} -eq 0 ]]; then
+  echo "Could not read scripts/lib/closed-paths.mjs — refusing to publish." >&2
+  exit 1
+fi
 
 usage() {
   cat <<'EOF'
@@ -173,7 +154,7 @@ is_open_path() {
   fi
 
   case "$path" in
-    apps/core | apps/core/* | apps/ui | apps/ui/* | apps/ai | apps/ai/* | apps/docs | apps/docs/* | apps/ports.config.mjs)
+    apps/core | apps/core/* | apps/ui | apps/ui/* | apps/ai | apps/ai/* | apps/docs | apps/docs/* | apps/www | apps/www/* | apps/ports.config.mjs)
       return 0
       ;;
     packages/* | modules/* | scripts | scripts/* | .github | .github/* | docs | docs/* | deploy | deploy/* | e2e | e2e/*)

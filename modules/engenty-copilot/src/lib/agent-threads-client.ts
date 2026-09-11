@@ -69,6 +69,7 @@ export async function listAgentThreads(params: {
   limit?: number;
   serviceBaseUrl: string;
   signal?: AbortSignal;
+  spaceId?: string | null;
   tenantId: string;
   userId: string;
 }): Promise<AgentThreadDto[]> {
@@ -88,6 +89,10 @@ export async function listAgentThreads(params: {
   }
   if (params.limit != null) {
     search.set("limit", String(params.limit));
+  }
+  const spaceId = params.spaceId?.trim();
+  if (spaceId) {
+    search.set("space_id", spaceId);
   }
   const href = withAppsAiSearchParams(
     appsAiThreadsPath(params.serviceBaseUrl),

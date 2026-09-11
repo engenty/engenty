@@ -28,7 +28,7 @@ import {
   useListDisplayState,
   useTableSelection,
 } from "@engenty/ui-core";
-import { usePageConfig, useWorkspaceContext } from "@engenty/ui-plugin-sdk";
+import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { FolderPlus, Plus, Settings, Trash2 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -53,6 +53,7 @@ import { useProjectsListTaskProgress } from "../hooks/use-projects-list-task-pro
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
 import { buildProjectsListGroups } from "../lib/project-list-grouping.js";
 import { getProjectsToolbarLabels } from "../lib/projects-toolbar-labels.js";
+import { useProjectSpaceScope } from "../lib/use-project-space-scope.js";
 import { useDeleteProjectMutation, useProjectsList } from "../queries.js";
 
 /** Stable fallback so `useEffect` deps are not a new [] every render while loading. */
@@ -87,7 +88,7 @@ const PROJECTS_DISPLAY_DEFAULTS = {
 export function ProjectsListPage() {
   const { t } = useTranslation("projects");
   const navigate = useNavigate();
-  useWorkspaceContext();
+  const spaceId = useProjectSpaceScope();
   const { setCopilotContext } = useCopilotShell();
   const [search, setSearch] = useState("");
 
@@ -143,6 +144,7 @@ export function ProjectsListPage() {
       sortOrder,
       client_id: filters.clientId,
       lead_id: filters.leadId,
+      ...(spaceId ? { space_id: spaceId } : {}),
     }),
     [
       page,
@@ -152,6 +154,7 @@ export function ProjectsListPage() {
       sortOrder,
       filters.clientId,
       filters.leadId,
+      spaceId,
     ]
   );
 
@@ -232,10 +235,9 @@ export function ProjectsListPage() {
     breadcrumbs,
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
-  useProjectsListAgentUiSlice({ projects, search });
+  useProjectsListAgentUiSlice({ projects, search, space_id: spaceId });
 
   useEffect(() => {
     setCopilotContext({
@@ -417,7 +419,7 @@ export function ProjectsListPage() {
           </div>
         ) : null}
         {isLoading && (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="ui-card-elevated overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>

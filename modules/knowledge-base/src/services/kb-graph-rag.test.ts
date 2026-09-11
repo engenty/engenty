@@ -275,6 +275,7 @@ describe("KB GraphRAG Integration & Context Graph Registration", () => {
 
       expect(registeredOperation).not.toBeNull();
       expect(registeredOperation!.operationId).toBe("kb_graph_rag_search");
+      expect(registeredOperation!.spacePolicy).toEqual({ kind: "space_owned" });
 
       // Setup traversals.
       // Starting from "art-from-search" -> resolves to graph ID "g-art-1".

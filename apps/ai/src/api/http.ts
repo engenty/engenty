@@ -224,6 +224,7 @@ function harnessErrorResponse(
       return c.json({ error: err.code, ...err.details }, 409);
     case "agent_threads.usageLimitExceeded":
       return c.json({ error: err.code, ...err.details }, 429);
+    case "agent_threads.resumeInProgress":
     case "agent_threads.taskCheckoutConflict":
       return c.json({ error: err.code, ...err.details }, 409);
     default:

@@ -437,5 +437,13 @@
     "noSearchResults": "Keine Projekte entsprechen Ihrer Suche",
     "projectsSection": "Projekte"
   },
-  "artifactsTab": "Artefakte"
+  "artifactsTab": "Artefakte",
+  "work": {
+    "columns": {
+      "title": "Titel",
+      "client": "Kunde",
+      "start": "Start",
+      "end": "Ende"
+    }
+  }
 }

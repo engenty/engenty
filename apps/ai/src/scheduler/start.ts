@@ -5,13 +5,20 @@ import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { Mastra } from "@mastra/core/mastra";
 import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
+import {
+  EngentyCoreClient,
+  getEngentyCoreBaseUrlFromEnv,
+} from "../ai/core-http-client.js";
+import {
+  createRoutineStoreFromEnv,
+  createRoutineTriggerStoreFromEnv,
+  createWorkflowStoreFromEnv,
+} from "../ai/index.js";
 import { getServiceAccessToken } from "../ai/service-credential.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
 import { reconcileScheduler } from "./heartbeat-sync.js";
-import {
-  createSchedulerOperationInvoker,
-  resolveSchedulerServiceScope,
-} from "./service-invoker.js";
+import { setSchedulerMastra } from "./scheduler-runtime.js";
+import { resolveSchedulerServiceScope } from "./service-invoker.js";
 import { listTenantIds } from "./tenants.js";
 
 const logger = createLogger({ name: "scheduler" });
@@ -55,14 +62,19 @@ export async function startScheduler(options: {
       // has no request behind it, so enter it here with a freshly vended
       // service token. Without this the loader throws "…this run does not
       // include an end-user bearer token" on step 1 and NOTHING downstream
-      // runs — no trigger and no system job ever gets its schedule.
+      // runs — no routine and no system job ever gets its schedule.
       const serviceToken = await getServiceAccessToken({
         tenantId: scope.tenantId,
       });
       if (!serviceToken) {
         throw new Error(
-          "scheduler: no service credential available to reconcile triggers"
+          "scheduler: no service credential available to reconcile routines"
         );
+      }
+      const routines = createRoutineStoreFromEnv();
+      const triggers = createRoutineTriggerStoreFromEnv();
+      if (!(routines && triggers)) {
+        throw new Error("scheduler: routine store unavailable");
       }
       await engentyToolsRunAls.run(
         {
@@ -72,10 +84,23 @@ export async function startScheduler(options: {
         },
         () =>
           reconcileScheduler({
-            invokeOperation: createSchedulerOperationInvoker(scope.tenantId),
+            coreClient: (() => {
+              const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+              return coreBaseUrl
+                ? new EngentyCoreClient({
+                    accessToken: serviceToken,
+                    coreBaseUrl,
+                  })
+                : null;
+            })(),
+            flowGraphs: createWorkflowStoreFromEnv(),
             mastra: options.mastra,
-            moduleLoader: options.moduleLoader,
+            ...(options.moduleLoader
+              ? { moduleLoader: options.moduleLoader }
+              : {}),
+            routines,
             tenantId: scope.tenantId,
+            triggers,
           })
       );
     } catch (err) {
@@ -94,6 +119,9 @@ export async function startScheduler(options: {
   };
 
   const bringOnline = async (firstScope: AiSessionScope): Promise<void> => {
+    // Publish the instance for system jobs (the periodic `scheduler-sync`
+    // pass needs `mastra.schedules` and jobs only receive `{ db, tenantId }`).
+    setSchedulerMastra(options.mastra);
     await options.mastra.startWorkers();
 
     // The scheduler serves EVERY tenant: mint a per-tenant scope and

@@ -60,13 +60,9 @@ describe("category breadcrumb paths", () => {
       slug: "ausbildungen-detailseiten",
       parent_id: "root",
     });
-    const crumbs = buildCategoryTreeBreadcrumbCrumbs(
-      leaf,
-      [root, leaf],
-      "default"
-    );
+    const crumbs = buildCategoryTreeBreadcrumbCrumbs(leaf, [root, leaf]);
     expect(crumbs).toHaveLength(2);
-    expect(crumbs[0]?.to).toBe("/mdl/knowledge-base/default/c/ausbildungen");
+    expect(crumbs[0]?.to).toBe("/mdl/knowledge-base/c/ausbildungen");
     expect(crumbs[1]?.label).toBe("Ausbildungen Detailseiten");
     expect(crumbs[1]?.to).toBeUndefined();
   });

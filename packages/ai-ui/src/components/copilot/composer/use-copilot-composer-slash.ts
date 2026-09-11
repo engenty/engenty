@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -21,6 +22,7 @@ import {
   getSlashQueryAtCursor,
 } from "./copilot-slash-command";
 import { getTextareaCaretViewportRect } from "./textarea-caret-viewport-rect";
+import { useCloseOnOutsidePointerDown } from "./use-close-on-outside-pointer-down";
 
 /**
  * Slash-command typeahead for the compact composer. Mirrors
@@ -203,6 +205,16 @@ export function useCopilotComposerSlash(input: {
   const clearSlashOnSubmit = useCallback(() => {
     setSlashOpen(false);
   }, []);
+
+  const slashInsideRefs = useMemo(
+    () => [slashComposerWrapRef, slashFloatRef],
+    []
+  );
+  useCloseOnOutsidePointerDown({
+    active: slashOpen,
+    insideRefs: slashInsideRefs,
+    onClose: clearSlashOnSubmit,
+  });
 
   return {
     applySlashPick,

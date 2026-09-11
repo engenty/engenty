@@ -1,7 +1,6 @@
 import type { AgentFnDescriptor } from "@engenty/ai-core";
 import { builtinFunctionAgents } from "./agents/function-agents.js";
 import {
-  type AiRegistry,
   CompositeAiRegistry,
   createBuiltinProvider,
   DatabaseProvider,
@@ -22,7 +21,7 @@ export function createDefaultAiRegistry(
     stateChannel?: FunctionAgentStateChannel;
     tenantId?: string;
   } = {}
-): AiRegistry {
+): CompositeAiRegistry {
   const staticAgents = [
     ...builtinFunctionAgents,
     ...(options.functionAgents ?? []),

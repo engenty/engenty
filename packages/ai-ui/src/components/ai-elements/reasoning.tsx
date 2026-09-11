@@ -234,7 +234,7 @@ export const ReasoningContent = memo(
       className={cn("pt-1 pb-0.5 data-[state=closed]:animate-out", className)}
       {...props}
     >
-      <div className="border-border/50 border-l-2 pl-3">
+      <div className="border-border-soft border-l-2 pl-3">
         <MessageResponse className="text-muted-foreground text-sm leading-relaxed">
           {children}
         </MessageResponse>

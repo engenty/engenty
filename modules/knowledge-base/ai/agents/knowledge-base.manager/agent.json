@@ -3,7 +3,9 @@
   "id": "knowledge-base.manager",
   "name": "Knowledge Base Manager",
   "description": "Knowledge base capture, compilation, and maintenance.",
+  "engenty": "oval",
   "module_id": "knowledge-base",
+  "agent_scope": "shared",
   "instruction_keys": ["knowledge-base.manager.agents"],
   "skills": [
     "kb-agentic-source-ingest",
@@ -14,16 +16,44 @@
     "kb-search-and-retrieve",
     "kb-source-manager"
   ],
-  "tools": [
-    "engenty_tools_search",
-    "engenty_tool_execute",
-    "web_search",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
-  ],
+  "tools": ["engenty_tools_search", "engenty_tool_execute", "web_search"],
   "workspace": {
     "enabled": true,
     "preset": "staff"
-  }
+  },
+  "starters": [
+    {
+      "id": "kb-ingest-source",
+      "label": "Ingest a new source",
+      "prompt": "Help me ingest a new knowledge-base source and turn it into draft articles.",
+      "locales": {
+        "de": {
+          "label": "Neue Quelle einlesen",
+          "prompt": "Hilf mir, eine neue Wissensdatenbank-Quelle einzulesen und in Artikelentw\u00fcrfe zu verwandeln."
+        }
+      }
+    },
+    {
+      "id": "kb-draft-article",
+      "label": "Draft an article",
+      "prompt": "Draft a knowledge-base article from a topic I name, using existing sources where they exist.",
+      "locales": {
+        "de": {
+          "label": "Artikel entwerfen",
+          "prompt": "Entwirf einen Wissensdatenbank-Artikel zu einem Thema, das ich nenne, und nutze vorhandene Quellen."
+        }
+      }
+    },
+    {
+      "id": "kb-stale",
+      "label": "Find stale articles",
+      "prompt": "Find knowledge-base articles that look stale or incomplete and propose what to update.",
+      "locales": {
+        "de": {
+          "label": "Veraltete Artikel finden",
+          "prompt": "Finde Wissensdatenbank-Artikel, die veraltet oder unvollst\u00e4ndig wirken, und schlage Updates vor."
+        }
+      }
+    }
+  ]
 }

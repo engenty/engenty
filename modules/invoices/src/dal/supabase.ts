@@ -53,6 +53,7 @@ function rowToInvoice(row: Record<string, unknown>): Invoice {
     clientId: str(row.client_id),
     recipientSnapshot,
     createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at ?? row.created_at),
     status: (str(row.status) as InvoiceStatus) ?? "draft",
     title: str(row.title) ?? null,
     reference: str(row.reference) ?? null,
@@ -168,6 +169,7 @@ export function createInvoiceRepoSupabase(
         ...input,
         id,
         createdAt,
+        updatedAt: createdAt,
         status: input.status ?? "draft",
       };
 

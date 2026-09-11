@@ -1,5 +1,6 @@
 import { type Tool, tool } from "ai";
 import { z } from "zod";
+import { forwardSpaceOnGatewayCall } from "../context/forward-space.js";
 import type { ToolExecutionContext } from "../context/types.js";
 
 const httpMethodSchema = z.enum([
@@ -112,7 +113,7 @@ export function buildEngentyApiCatalogTool(ctx: ToolExecutionContext): Tool {
       'Discover Engenty APIs before fetching data. Prefer searching with kind "tool" first to find callable tools/actions; broaden to kind "all" only when no suitable tool exists. Returns matching HTTP routes and tools with request hints, response schema summaries, and auth metadata.',
     inputSchema: engentyApiCatalogInputSchema,
     execute: async (input: EngentyApiCatalogInput): Promise<unknown> => {
-      const call = ctx.callGatewayMethod;
+      const call = forwardSpaceOnGatewayCall(ctx) ?? ctx.callGatewayMethod;
       if (!call) {
         return { error: "Tool caller not available" };
       }

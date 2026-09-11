@@ -1,7 +1,27 @@
-// Agent picker for the routine form — lists runtime agents minus chatbots.
+// Agent picker for the routine form — lists the agents that may OWN a routine:
+// specialists only. Copilot answers a person who is present; it is not a
+// worker, and a routine on it leaves nobody in the Space visibly owning the
+// job. Keep in step with
+// `canAgentOwnRoutine` in @engenty/plugin-sdk — this filter is the courtesy,
+// that check is the rule.
 import { useTranslation } from "@engenty/i18n/ui";
 import { Label } from "@engenty/ui-core";
 import { useAiAgentsQuery } from "../../lib/admin/ai-runtime-queries.js";
+
+const NON_WORKER_AGENT_IDS = new Set(["engenty.copilot"]);
+
+/** Mirrors the server rule; falls back to the id shape for rows without a role. */
+export function canOwnRoutine(agent: {
+  id: string;
+  role?: string | null;
+}): boolean {
+  if (agent.role) {
+    return agent.role === "specialist";
+  }
+  return !(
+    agent.id.startsWith("chatbot.") || NON_WORKER_AGENT_IDS.has(agent.id)
+  );
+}
 
 export interface RoutineAgentSelectProps {
   id: string;
@@ -30,7 +50,7 @@ export function RoutineAgentSelect({
       >
         <option value="">{t("routines.form.agentPlaceholder")}</option>
         {agents
-          .filter((agent) => !agent.id.startsWith("chatbot."))
+          .filter((agent) => canOwnRoutine(agent))
           .map((agent) => (
             <option key={agent.id} value={agent.id}>
               {agent.name} ({agent.id})

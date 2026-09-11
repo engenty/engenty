@@ -3,20 +3,10 @@ import { getCompanyProfileSettings } from "@engenty/company-profile/ui";
 import {
   keepPreviousData,
   queryOptions,
-  useMutation,
   useQuery,
-  useQueryClient,
 } from "@engenty/query-client";
-import type {
-  OfferBlock,
-  OfferCreateInput,
-  OffersQueryParams,
-  OfferUpdateInput,
-} from "./api.js";
+import type { OffersQueryParams } from "./api.js";
 import {
-  createOffer,
-  createOfferVersion,
-  deleteOffer,
   getNextOfferNumber,
   getOffer,
   getOfferBlocks,
@@ -24,29 +14,26 @@ import {
   getOffers,
   getOfferTemplates,
   getOfferVersions,
-  replaceOfferBlocks,
-  setDefaultOfferTemplate,
-  setOfferSettings,
-  updateOffer,
 } from "./api.js";
-import type { ContactsPluginApi } from "./plugins.js";
 
-export const offerKeys = {
-  all: ["offers"] as const,
-  list: (params: OffersQueryParams) =>
-    [...offerKeys.all, "list", params] as const,
-  detail: (id: string) => [...offerKeys.all, "detail", id] as const,
-  detailPage: (id: string) => [...offerKeys.all, "detail-page", id] as const,
-  editPage: (id: string) => [...offerKeys.all, "edit-page", id] as const,
-  settingsPage: () => [...offerKeys.all, "settings-page"] as const,
-  templates: () => [...offerKeys.all, "templates"] as const,
-  nextNumber: () => [...offerKeys.all, "next-number"] as const,
-  createDialogContacts: () =>
-    [...offerKeys.all, "create-dialog-contacts"] as const,
-  detailContacts: () => [...offerKeys.all, "detail-contacts"] as const,
-  editContacts: () => [...offerKeys.all, "edit-contacts"] as const,
-  versions: (id: string) => [...offerKeys.all, "versions", id] as const,
-};
+// biome-ignore lint/performance/noBarrelFile: preserve the module's established query-hook import path
+export {
+  useCreateOfferMutation,
+  useCreateOfferVersionMutation,
+  useDeleteOfferMutation,
+  useReplaceOfferBlocksMutation,
+} from "./complex-optimistic-mutations.js";
+export {
+  useSetDefaultOfferTemplateMutation,
+  useSetOfferSettingsMutation,
+  useUpdateOfferMutation,
+} from "./optimistic-mutations.js";
+
+import { offerKeys } from "./query-keys.js";
+
+export { offerKeys } from "./query-keys.js";
+
+import type { ContactsPluginApi } from "./plugins.js";
 
 export function offersListOptions(params: OffersQueryParams) {
   return queryOptions({
@@ -243,59 +230,6 @@ export function useOfferEditContactsQuery(
   return useQuery(offerEditContactsOptions(contactsPlugin));
 }
 
-export function useCreateOfferMutation(listParams: OffersQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: OfferCreateInput) => createOffer(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.list(listParams),
-      });
-      await queryClient.invalidateQueries({ queryKey: offerKeys.nextNumber() });
-    },
-  });
-}
-
-export function useReplaceOfferBlocksMutation(id: string | null) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (
-      blocks: Pick<
-        OfferBlock,
-        "id" | "offer_id" | "type" | "content_json" | "order_index"
-      >[]
-    ) => replaceOfferBlocks(id!, blocks),
-    onSuccess: async () => {
-      if (!id) {
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: offerKeys.editPage(id) });
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.detailPage(id),
-      });
-    },
-  });
-}
-
-export function useUpdateOfferMutation(id: string | null) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (patch: OfferUpdateInput) => updateOffer(id!, patch),
-    onSuccess: async () => {
-      if (!id) {
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: offerKeys.detail(id) });
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.detailPage(id),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.editPage(id),
-      });
-    },
-  });
-}
-
 export function offerVersionsOptions(id: string) {
   return queryOptions({
     queryKey: offerKeys.versions(id),
@@ -307,56 +241,5 @@ export function useOfferVersionsQuery(id: string | null) {
   return useQuery({
     ...offerVersionsOptions(id ?? ""),
     enabled: !!id,
-  });
-}
-
-export function useCreateOfferVersionMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => createOfferVersion(id),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: offerKeys.all });
-    },
-  });
-}
-
-export function useDeleteOfferMutation(listParams?: OffersQueryParams) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteOffer(id),
-    onSuccess: async () => {
-      if (listParams) {
-        await queryClient.invalidateQueries({
-          queryKey: offerKeys.list(listParams),
-        });
-      } else {
-        await queryClient.invalidateQueries({ queryKey: offerKeys.all });
-      }
-    },
-  });
-}
-
-export function useSetOfferSettingsMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setOfferSettings,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.settingsPage(),
-      });
-    },
-  });
-}
-
-export function useSetDefaultOfferTemplateMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setDefaultOfferTemplate,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: offerKeys.templates() });
-      await queryClient.invalidateQueries({
-        queryKey: offerKeys.settingsPage(),
-      });
-    },
   });
 }

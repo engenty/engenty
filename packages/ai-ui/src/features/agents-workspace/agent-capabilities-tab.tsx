@@ -7,6 +7,7 @@ import type {
   AiRegisteredAction,
   AiSkillCatalogEntry,
 } from "../../lib/admin/ai-runtime-api";
+import { AgentConnectionsPanel } from "./agent-connections-panel";
 import {
   AgentEffectiveToolsPanel,
   AgentSkillsPanel,
@@ -55,6 +56,16 @@ export function AgentCapabilitiesTab({
           skills={skills}
           t={t}
         />
+      </SettingsFormSection>
+      {/* Connected accounts this agent may use in unattended runs (CN.5).
+          Here, on Capabilities, because that is the tab that answers "what can
+          this agent do" — and lending it a mailbox is exactly that. */}
+      <SettingsFormSection
+        cardClassName="overflow-hidden p-0 sm:p-0"
+        description={t("agentConnections.description")}
+        title={t("agentConnections.title")}
+      >
+        <AgentConnectionsPanel agentId={agent.id} />
       </SettingsFormSection>
     </div>
   );

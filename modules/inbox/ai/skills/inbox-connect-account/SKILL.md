@@ -11,6 +11,13 @@ Use this skill when the inbox is empty, the user asks to connect their email, an
 account's sync is disabled or failing, or any inbox tool implies there is no
 usable account.
 
+## Spaces
+
+- `inbox_list_accounts` in a Space returns **only mounted mailboxes**.
+- If an account exists for the tenant but is absent here, tell the user to
+  **mount it in Space setup**. Do not run `connections_request_connect` to
+  reconnect an account that is merely unmounted.
+
 ## Workflow
 
 1. **Check what exists:** `inbox_list_accounts`. Each account row has
@@ -18,6 +25,8 @@ usable account.
    (`personal`/`org`), and a `sync_state` (`sync_enabled`, `backfill_days`,
    `last_synced_at`, `last_error`).
    - Usable account present → skip to step 4 (sync health).
+   - Empty in a Space → the mailbox may exist for the tenant and only need a
+     Space mount. Ask about mounting before offering a new connect card.
 2. **Offer the connect card:** no account → ask which provider if unclear (with
    `requestDecision` when your tools include it — one choice per provider — and
    in plain prose otherwise; never invent a tool for this), then

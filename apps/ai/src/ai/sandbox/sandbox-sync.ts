@@ -7,8 +7,39 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import {
+  fileStorageSpaceObjectKey,
+  fileStorageTenantObjectKey,
+} from "@engenty/file-storage";
+
 import type { EngentyCoreFileStorageClient } from "../workspace/core-file-storage-client.js";
 import type { SandboxStorageLayout } from "./sandbox-types.js";
+
+/**
+ * Absolute object key for a synced sandbox file, through the canonical builders
+ * so this stays the same layout `createWorkspaceFilesClient` produces. A
+ * space-rooted mount MUST carry its space here: the relative prefix alone
+ * (`ai/workspace/commons/`) is identical for every space.
+ */
+function syncedObjectKey(input: {
+  relativePath: string;
+  spaceId?: string;
+  storagePrefix: string;
+  tenantId: string;
+}): string {
+  const segments = [
+    ...input.storagePrefix.split("/").filter(Boolean),
+    ...input.relativePath.split("/").filter(Boolean),
+  ];
+  const [folder, ...rest] = segments;
+  if (!folder) {
+    throw new Error("sandbox_sync_storage_prefix_empty");
+  }
+  const spaceId = input.spaceId?.trim();
+  return spaceId
+    ? fileStorageSpaceObjectKey(input.tenantId.trim(), spaceId, folder, ...rest)
+    : fileStorageTenantObjectKey(input.tenantId.trim(), folder, ...rest);
+}
 
 function listLocalFilesRecursive(root: string, prefix = ""): string[] {
   const absolute = prefix ? path.join(root, prefix) : root;
@@ -35,13 +66,19 @@ function listLocalFilesRecursive(root: string, prefix = ""): string[] {
 async function uploadLocalTree(params: {
   client: EngentyCoreFileStorageClient;
   localRoot: string;
+  spaceId?: string;
   storagePrefix: string;
   tenantId: string;
 }): Promise<void> {
   const files = listLocalFilesRecursive(params.localRoot);
   for (const relativePath of files) {
     const bytes = readFileSync(path.join(params.localRoot, relativePath));
-    const key = `tenants/${params.tenantId.trim()}/${params.storagePrefix.replace(/\/+$/, "")}/${relativePath}`;
+    const key = syncedObjectKey({
+      relativePath,
+      storagePrefix: params.storagePrefix,
+      tenantId: params.tenantId,
+      ...(params.spaceId ? { spaceId: params.spaceId } : {}),
+    });
     await params.client.upload(key, bytes, { upsert: true });
   }
 }
@@ -49,11 +86,17 @@ async function uploadLocalTree(params: {
 async function downloadStorageTree(params: {
   client: EngentyCoreFileStorageClient;
   localRoot: string;
+  spaceId?: string;
   storagePrefix: string;
   tenantId: string;
 }): Promise<void> {
   mkdirSync(params.localRoot, { recursive: true });
-  const prefix = `tenants/${params.tenantId.trim()}/${params.storagePrefix.replace(/\/+$/, "")}`;
+  const prefix = syncedObjectKey({
+    relativePath: "",
+    storagePrefix: params.storagePrefix,
+    tenantId: params.tenantId,
+    ...(params.spaceId ? { spaceId: params.spaceId } : {}),
+  });
   const listed = await params.client.list(prefix, { recursive: true });
   for (const file of listed) {
     if (!file.key.startsWith(prefix)) {
@@ -83,6 +126,7 @@ export async function pullSandboxWorkspaceFromStorage(params: {
     localRoot: params.layout.stagingPath,
     storagePrefix: params.layout.fileStorageRelativePath,
     tenantId: params.tenantId,
+    ...(params.layout.spaceId ? { spaceId: params.layout.spaceId } : {}),
   });
 }
 
@@ -96,5 +140,6 @@ export async function pushSandboxWorkspaceToStorage(params: {
     localRoot: params.layout.stagingPath,
     storagePrefix: params.layout.fileStorageRelativePath,
     tenantId: params.tenantId,
+    ...(params.layout.spaceId ? { spaceId: params.layout.spaceId } : {}),
   });
 }

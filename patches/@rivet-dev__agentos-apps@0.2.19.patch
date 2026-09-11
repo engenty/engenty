@@ -1,0 +1,163 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index e7d857db5e9be0e6869c3ec3781b80b05831f41d..c188ea57d944f6f82d89f99774ab673c7c53b4c5 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -155,7 +155,18 @@ declare class AgentOSAppsError extends Error {
+     constructor(code: string, message: string, metadata?: Record<string, unknown>);
+ }
+ 
+-declare function setupApps(): {
++/**
++ * engenty patch (2026-09-09): VM options added to every execution replica,
++ * keyed by App rather than by release. Resolved at each VM boot. `mounts` are
++ * appended after the read-only /app artifact; other keys are spread as-is.
++ */
++interface SetupAppsOptions {
++    replicaOptions?: (configuration: {
++        appId: string;
++        release: string;
++    }) => Partial<_rivet_dev_agentos_core.AgentOsOptions> | Promise<Partial<_rivet_dev_agentos_core.AgentOsOptions>>;
++}
++declare function setupApps(options?: SetupAppsOptions): {
+     appsActors: {
+         agentOSAppsApp: rivetkit.ActorDefinition<AppState, unknown, unknown, unknown, unknown, rivetkit_db.DatabaseProvider<rivetkit_db.RawAccess>, Record<never, never>, Record<never, never>, {
+             deploy: (c: {
+diff --git a/dist/index.js b/dist/index.js
+index f77887e6ac1e3949746542a92c3a31b7e500fabf..4593b82f0e025b1770e6e9f9a3d29affcd4c13b5 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1582,6 +1582,21 @@ function resolveAppCallbackSecret(releases, activeRelease) {
+   return activeRelease?.callbackSecret || releases.find((release) => release.callbackSecret)?.callbackSecret || randomUUID2();
+ }
+ function createAppsActors(options = {}) {
++  // engenty patch (2026-09-09) — per-App mounts for the execution replica.
++  //
++  // Upstream gives a replica exactly one mount: the release artifact at /app,
++  // read-only. Everything the App writes lands on the actor's own filesystem,
++  // which is keyed by release and gone at the next deploy. `replicaOptions`
++  // lets the host add VM options per App: engenty mounts a host directory at
++  // /data and runs the guest as root, because the sidecar's node:sqlite
++  // write-back is DAC-checked against the host file's uid and fails for the
++  // default 1000:1000 identity. Resolved at every VM boot so a directory that
++  // was recreated underneath a sleeping replica is picked up on wake. Extra
++  // mounts are appended after /app; every other key is spread as-is.
++  //
++  // Upstream `setupApps()` takes no options; this threads one through. Drop
++  // the patch once agentos-apps exposes per-App VM options itself.
++  const resolveReplicaOptions = options.replicaOptions ?? (() => ({}));
+   const maxSourceBytes = DEFAULT_MAX_SOURCE_BYTES;
+   const maxFiles = DEFAULT_MAX_FILES;
+   const maxVersions = DEFAULT_MAX_VERSIONS;
+@@ -3063,51 +3078,41 @@ function createAppsActors(options = {}) {
+     }
+   };
+   const createBuildVm = async () => {
+-    const outputDirectory = await mkdtemp(
+-      join(tmpdir(), "agentos-apps-build-output-")
+-    );
++    // engenty patch (2026-07-25) — the build VM's host_dir output mount.
++    //
++    // Upstream mounts a host tmpdir at /agentos-app-output via
++    // createHostDirBackend and has the guest `tar` write the packed release
++    // into it. Guest processes cannot write through that backend — every
++    // write fails with "Permission denied (os error 2)" — so the pack step
++    // fails and NO deployApp() call can succeed, including the package's own
++    // README example. Host-side vm.writeFiles() into the same mount works,
++    // which isolates the fault to the guest path.
++    //
++    // Still present in 0.2.19, where this function is byte-identical to the
++    // 0.2.14 original, so the patch carries forward unchanged.
++    //
++    // Pack into the guest VFS instead (verified working) and read the
++    // artifact out with the host-side AgentOs API. Remove this patch once
++    // upstream fixes the mount backend.
++    //
++    // Caveat: vm.readFile goes over the sidecar bridge, capped by
++    // maxPreadBytes (15 MiB). Artifacts above that need chunked reads.
+     const artifactGuestPath = "/agentos-app-output/agentos-app.tar";
+-    const artifactHostPath = join(outputDirectory, "agentos-app.tar");
+-    let vm;
++    const vm = await AgentOs.create({ ...buildVmOptions });
+     try {
+-      vm = await AgentOs.create({
+-        ...buildVmOptions,
+-        mounts: [
+-          ...buildVmOptions.mounts ?? [],
+-          {
+-            path: "/agentos-app-output",
+-            readOnly: false,
+-            plugin: createHostDirBackend({
+-              hostPath: outputDirectory,
+-              readOnly: false
+-            })
+-          }
+-        ]
+-      });
++      await vm.mkdir("/agentos-app-output");
+     } catch (error) {
+-      await rm(outputDirectory, { recursive: true, force: true });
++      await vm.dispose();
+       throw error;
+     }
+     return {
+       artifactGuestPath,
+       writeFiles: (...args) => vm.writeFiles(...args),
+       execArgv: (...args) => vm.execArgv(...args),
+-      artifactSize: async () => (await stat(artifactHostPath)).size,
+-      readArtifact: async () => new Uint8Array(await readFile(artifactHostPath)),
++      artifactSize: async () => Number((await vm.stat(artifactGuestPath)).size),
++      readArtifact: async () => new Uint8Array(await vm.readFile(artifactGuestPath)),
+       dispose: async () => {
+-        const results = await Promise.allSettled([
+-          vm.dispose(),
+-          rm(outputDirectory, { recursive: true, force: true })
+-        ]);
+-        const failures = results.flatMap(
+-          (result) => result.status === "rejected" ? [result.reason] : []
+-        );
+-        if (failures.length > 0) {
+-          throw new AggregateError(
+-            failures,
+-            "failed to dispose AgentOS Apps build VM output"
+-          );
+-        }
++        await vm.dispose();
+       }
+     };
+   };
+@@ -3542,7 +3547,13 @@ function createAppsActors(options = {}) {
+         });
+         guestEngineRegistrations.set(c.actorId, engineRegistration);
+       }
++      // engenty patch (2026-09-09): host-supplied, App-keyed VM options.
++      const replicaExtras = await resolveReplicaOptions({
++        appId: state.configuration.appId,
++        release: state.configuration.release
++      });
+       return {
++        ...replicaExtras,
+         loopbackExemptPorts: replicaLoopbackExemptPorts(
+           state.configuration,
+           engineRegistration?.port
+@@ -3560,7 +3571,8 @@ function createAppsActors(options = {}) {
+               }
+             },
+             readOnly: true
+-          }
++          },
++          ...replicaExtras.mounts ?? []
+         ]
+       };
+     },
+@@ -3776,9 +3788,9 @@ function getErrorCode(error) {
+ }
+ 
+ // src/index.ts
+-function setupApps() {
++function setupApps(options = {}) {
+   return {
+-    appsActors: createAppsActors()
++    appsActors: createAppsActors(options)
+   };
+ }
+ export {

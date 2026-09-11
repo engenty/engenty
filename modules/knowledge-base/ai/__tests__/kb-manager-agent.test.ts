@@ -1,30 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
-  createKbManagerAgent,
+  createKbManagerInstructionDocuments,
   readKbManagerAgentsMarkdown,
 } from "../kb-manager-agent.js";
 
-describe("createKbManagerAgent", () => {
-  it("links AGENTS.md instruction catalog keys", () => {
-    const agent = createKbManagerAgent();
-    expect(agent.instruction_keys).toEqual(["knowledge_base_manager_agents"]);
+describe("kb manager instruction documents", () => {
+  it("seeds the AGENTS.md identity document", () => {
+    const documents = createKbManagerInstructionDocuments();
+    expect(documents.map((document) => document.key)).toEqual([
+      "knowledge_base_manager_agents",
+    ]);
     expect(readKbManagerAgentsMarkdown().trim().length).toBeGreaterThan(100);
-  });
-
-  it("uses catalog-backed tools instead of KB-native wrappers", () => {
-    const agent = createKbManagerAgent();
-    const tools = agent.build_tools?.({
-      action: "direct",
-      agentId: agent.id,
-      callGatewayMethod: async () => ({}),
-      moduleId: "knowledge-base",
-      scope: {},
-      scopeId: "default",
-      tenantId: "t1",
-    });
-    expect(tools).toBeDefined();
-    expect(Object.keys(tools ?? {}).sort()).toEqual(
-      ["engentyApiCatalog", "web_search"].sort()
-    );
   });
 });

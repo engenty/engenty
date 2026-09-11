@@ -1,3 +1,4 @@
+import { spaceKeyFromPathname } from "@engenty/ai-core/browser";
 import {
   type AiRegisteredAgent,
   ENGENTY_COPILOT_HOST_KEY,
@@ -10,11 +11,14 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery, useQueryClient } from "@engenty/query-client";
 import {
+  cn,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
 } from "@engenty/ui-core";
+import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   chatSearchHitsToThreads,
   searchAgentChatThreads,
@@ -23,6 +27,10 @@ import type { AgentThreadDto } from "../../../src/lib/agent-thread-types.js";
 import { formatCopilotThreadShortId } from "../../../src/lib/thread-label.js";
 import { errorMessage } from "../../lib/chat/chat-errors.js";
 import { agentChatSearchQueryKey } from "../../lib/chat/chat-model.js";
+import {
+  copilotSpaceOrder,
+  copilotSpacesQueryOptions,
+} from "../../lib/copilot-spaces.js";
 import { CopilotModuleErrorBoundary } from "../copilot-module-error-boundary.js";
 import { ThreadListBody } from "./thread-list-body.js";
 import { ThreadListProvider } from "./thread-list-context.js";
@@ -45,14 +53,29 @@ function useDebouncedValue(value: string, delayMs: number) {
 }
 
 /** Thread sidebar — host-scoped thread list via `useEngentyThreads`. */
-export function ThreadList() {
+export function ThreadList(props: { className?: string }) {
   const { t } = useTranslation("engenty-copilot");
   const { t: tc } = useTranslation("common");
   const binding = useCopilotThreadBinding();
   const { isTransportReady, serviceBaseUrl } = useEngentyAIContext();
   const queryClient = useQueryClient();
+  const [prefs, setPrefs] = useState<ThreadListOrganizationPrefs>(
+    DEFAULT_THREAD_LIST_PREFS
+  );
+  const { currentSpace } = useWorkspaceContext();
+  const location = useLocation();
+  // Read from the PATHNAME: `currentSpace` falls back to the tenant default
+  // outside `/s/…` and would otherwise filter the root list to that space.
+  const inSpace = spaceKeyFromPathname(location.pathname) != null;
+  // Inside a space the list is locked to that space's chats. At tenant root
+  // the default is `all`; `current` there still means the fallback space.
+  const spaceId =
+    inSpace || prefs.spaceScope === "current"
+      ? (currentSpace?.id ?? null)
+      : null;
   const threads = useEngentyThreads(ENGENTY_COPILOT_HOST_KEY, {
     activeThreadIdOverride: binding.activeThreadId,
+    spaceId,
   });
   const { deleteSession, selectSession, isDeletingSession } =
     useCopilotThreadActions();
@@ -86,6 +109,7 @@ export function ThreadList() {
       groupDate: t("chat.groupDate"),
       groupNone: t("chat.groupNone"),
       groupNoneShort: t("chat.groupNoneShort"),
+      groupSpace: t("chat.groupSpace"),
       groupStatus: t("chat.groupStatus"),
       groupType: t("chat.groupType"),
       listSettings: t("chat.listSettings"),
@@ -106,6 +130,10 @@ export function ThreadList() {
       sortDescending: t("chat.sortDescending"),
       sortTitle: t("chat.sortTitle"),
       sortUpdated: t("chat.sortUpdated"),
+      spaceScope: t("chat.spaceScope"),
+      spaceNone: t("chat.spaceNone"),
+      spaceScopeAll: t("chat.spaceScopeAll"),
+      spaceScopeCurrent: t("chat.spaceScopeCurrent"),
       searchPlaceholder: t("chat.searchChats"),
       sessionMenu: t("chat.sessionMenu"),
       status: t("chat.status"),
@@ -119,9 +147,6 @@ export function ThreadList() {
       visibility: t("chat.visibility"),
     }),
     [t, tc]
-  );
-  const [prefs, setPrefs] = useState<ThreadListOrganizationPrefs>(
-    DEFAULT_THREAD_LIST_PREFS
   );
   const threadLabel = useCallback(
     (row: AgentThreadDto) =>
@@ -154,6 +179,22 @@ export function ThreadList() {
       })),
     [registryAgents]
   );
+  const spacesQuery = useQuery(copilotSpacesQueryOptions);
+  const spaces = spacesQuery.data ?? [];
+  const spaceOrder = useMemo(() => copilotSpaceOrder(spaces), [spaces]);
+  const spaceNameById = useMemo(
+    () => new Map(spaces.map((space) => [space.id, space.name])),
+    [spaces]
+  );
+  const spaceLabel = useCallback(
+    (spaceId: string | null) => {
+      if (!spaceId) {
+        return t("chat.spaceNone");
+      }
+      return spaceNameById.get(spaceId) ?? t("chat.spaceUnknown");
+    },
+    [spaceNameById, t]
+  );
 
   const normalizedSearchQuery = searchQuery.trim();
   const debouncedSearchQuery = useDebouncedValue(normalizedSearchQuery, 200);
@@ -179,14 +220,21 @@ export function ThreadList() {
       }),
     enabled: isTransportReady && debouncedSearchQuery.length > 0,
   });
-  const searchThreads = useMemo(
-    () =>
-      chatSearchHitsToThreads({
-        hits: searchQueryResult.data?.matches ?? [],
-        knownThreads: threads.threads as AgentThreadDto[],
-      }),
-    [searchQueryResult.data?.matches, threads.threads]
-  );
+  const searchThreads = useMemo(() => {
+    const mapped = chatSearchHitsToThreads({
+      hits: searchQueryResult.data?.matches ?? [],
+      knownThreads: threads.threads as AgentThreadDto[],
+    });
+    if (!spaceId) {
+      return mapped;
+    }
+    const knownIds = new Set(
+      (threads.threads as AgentThreadDto[]).map((thread) => thread.id)
+    );
+    return mapped.filter(
+      (thread) => thread.space_id === spaceId || knownIds.has(thread.id)
+    );
+  }, [searchQueryResult.data?.matches, spaceId, threads.threads]);
   const visibleThreads = isSearchActive
     ? searchThreads
     : (threads.threads as AgentThreadDto[]);
@@ -198,6 +246,7 @@ export function ThreadList() {
       datePreviousSevenDays: labels.datePreviousSevenDays,
       dateToday: labels.dateToday,
       dateYesterday: labels.dateYesterday,
+      spaceNone: labels.spaceNone,
       status: {
         draft: labels.statusDraft,
         completed: labels.statusCompleted,
@@ -216,9 +265,18 @@ export function ThreadList() {
         agentLabel: (agentId) => agentLabelById.get(agentId) || agentId,
         labels: organizationLabels,
         prefs,
+        spaceLabel,
+        spaceOrder,
         threads: visibleThreads,
       }),
-    [agentLabelById, organizationLabels, prefs, visibleThreads]
+    [
+      agentLabelById,
+      organizationLabels,
+      prefs,
+      spaceLabel,
+      spaceOrder,
+      visibleThreads,
+    ]
   );
   const organizedThreads = useMemo(
     () => groups.flatMap((group) => group.threads),
@@ -292,10 +350,11 @@ export function ThreadList() {
       onPrefsChange: setPrefs,
       onSearchQueryChange: setSearchQuery,
       onSelectThread: handleSelect,
-      prefs,
+      prefs: inSpace ? { ...prefs, spaceScope: "current" as const } : prefs,
       searchQuery,
       selectedThreadId: threads.activeThreadId,
       serviceBaseUrlPresent: serviceBaseUrl.length > 0,
+      spaceScopeLocked: inSpace,
       threadAgentLabel,
       threadLabel,
       threads: organizedThreads,
@@ -305,6 +364,7 @@ export function ThreadList() {
       agentOptions,
       isDeletingSession,
       isTransportReady,
+      inSpace,
       serviceBaseUrl.length,
       groups,
       handleDelete,
@@ -333,7 +393,12 @@ export function ThreadList() {
       title={labels.moduleErrorTitle}
     >
       <ThreadListProvider value={state}>
-        <aside className="flex h-full min-h-0 w-full shrink-0 flex-col border-0 bg-transparent shadow-none">
+        <aside
+          className={cn(
+            "flex h-full min-h-0 w-full flex-1 flex-col border-0 bg-transparent shadow-none",
+            props.className
+          )}
+        >
           <ThreadListHeader />
           <SidebarContent className="px-0 py-0">
             <SidebarGroup className="p-0 pb-2">

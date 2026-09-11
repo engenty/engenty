@@ -53,7 +53,7 @@ export function listPluginManifestEntries(
       slug,
       onDisk,
       enabled: enabled.has(slug),
-      hasUi: moduleHasUi(manifest),
+      hasUi: moduleHasUi(manifest, onDisk ? dir : undefined),
     };
   });
 }

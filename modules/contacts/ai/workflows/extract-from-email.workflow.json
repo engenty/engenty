@@ -1,0 +1,58 @@
+{
+  "id": "contacts.extract-from-email",
+  "description": "Extract a person and company from an email, check for duplicates, and propose linking steps.",
+  "inputSchema": {
+    "description": "Email text and optional sender hints for person/company extraction.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "email_body": {
+        "description": "Full message body to parse for contacts and companies.",
+        "type": "string",
+        "minLength": 1
+      },
+      "from_email": {
+        "description": "Sender email when known (helps match existing people).",
+        "type": "string",
+        "format": "email"
+      },
+      "from_name": {
+        "description": "Sender display name when known.",
+        "type": "string",
+        "minLength": 1
+      },
+      "create_missing_records": {
+        "description": "When true, the agent may create missing records after duplicate checks.",
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "required": ["email_body"]
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Extract contact from email",
+    "owner_agent_id": "contacts.manager",
+    "allowed_tools": [
+      "extractContactFromEmail",
+      "engenty_tools_search",
+      "engenty_tools_discover",
+      "engenty_tool_execute",
+      "createContact",
+      "createContactRelation"
+    ],
+    "skills": ["contacts-extract-email"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"contacts.manager\"},\"brief\":{\"value\":\"# Extract Contact From Email\\n\\n## Task\\n\\nExtract one person/company proposal from one email body.\\n\\n## Steps\\n\\n1. Call `extractContactFromEmail` with `{ \\\"email_body\\\": \\\"<email text>\\\", \\\"from_email\\\": \\\"<optional>\\\", \\\"from_name\\\": \\\"<optional>\\\" }`.\\n2. Inspect the returned `person`, `company`, `existing_person_matches`, `existing_company_matches`, and `proposed_relation`.\\n3. If duplicates already exist, stop and present the existing matches before proposing creation.\\n4. If the workflow explicitly allows record creation, call `createContact` for the missing person and/or company.\\n5. If both entities should be linked, call `createContactRelation` with `{ \\\"from_contact_id\\\": \\\"<person-id>\\\", \\\"to_contact_id\\\": \\\"<company-id>\\\", \\\"relation_type\\\": \\\"works_at\\\", \\\"role\\\": \\\"<optional>\\\" }`.\\n6. Summarize the extracted result and any duplicate or linking decisions.\\n\\n## Rules\\n\\n- Handle one email extraction task at a time.\\n- Search for duplicates before proposing creation.\\n- Do not guess links when the entity match is ambiguous.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"extractContactFromEmail\",\"engenty_tools_search\",\"engenty_tools_discover\",\"engenty_tool_execute\",\"createContact\",\"createContactRelation\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

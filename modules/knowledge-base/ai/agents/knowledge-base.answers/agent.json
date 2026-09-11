@@ -2,12 +2,38 @@
   "$schema": "engenty/ai-agent-manifest/v1",
   "id": "knowledge-base.answers",
   "name": "KB Answers",
-  "description": "Answers questions strictly from the knowledge base \u2014 read-only, scoped retrieval.",
+  "description": "Answers questions strictly from the knowledge base — read-only, scoped retrieval.",
+  "engenty": "oval",
   "module_id": "knowledge-base",
   "instruction_keys": ["knowledge-base.answers.agents"],
   "skills": ["kb-search-and-retrieve"],
   "tools": ["knowledge_base_article_search", "kb_faqs_list", "requestDecision"],
   "workspace": {
     "enabled": false
-  }
+  },
+  "starters": [
+    {
+      "id": "kb-search",
+      "label": "Search the knowledge base",
+      "prompt": "Search the knowledge base and answer from the matching articles only.",
+      "locales": {
+        "de": {
+          "label": "Wissensdatenbank durchsuchen",
+          "prompt": "Durchsuche die Wissensdatenbank und antworte nur aus den treffenden Artikeln."
+        }
+      }
+    },
+    {
+      "id": "kb-faqs",
+      "label": "List FAQs",
+      "prompt": "List the current FAQs and summarize the most asked topics.",
+      "locales": {
+        "de": {
+          "label": "FAQs zeigen",
+          "prompt": "Liste die aktuellen FAQs und fasse die häufigsten Themen zusammen."
+        }
+      }
+    }
+  ],
+  "kind": "chat_surface"
 }

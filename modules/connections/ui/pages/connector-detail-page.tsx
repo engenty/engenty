@@ -182,7 +182,6 @@ export function ConnectorDetailPage() {
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   return <ConnectorDetailBody basePath={CONNECTIONS_SETTINGS_PATH} />;
@@ -214,7 +213,6 @@ export function ConnectorWorkspaceDetailPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   return <ConnectorDetailBody basePath={CONNECTIONS_ROOT_PATH} />;

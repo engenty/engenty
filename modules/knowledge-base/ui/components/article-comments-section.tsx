@@ -14,8 +14,8 @@ import { resolveArticleEffectiveCommentsMode } from "../lib/kb-effective-comment
 import {
   articleCommentsQueryOptions,
   categoriesQueryOptions,
-  kbsQueryOptions,
   useArticleCommentsMutations,
+  useKbsQuery,
 } from "../queries.js";
 import { getTenantUserBrief } from "../tenant-user-api.js";
 
@@ -176,7 +176,7 @@ function ArticleCommentComposer({
     return (
       <button
         className={cn(
-          "mt-4 flex w-full rounded-md border border-border/80 bg-transparent px-3 py-2.5",
+          "mt-4 flex w-full rounded-md border border-border bg-transparent px-3 py-2.5",
           "text-left text-muted-foreground text-sm transition-colors",
           "hover:border-border hover:bg-muted/20"
         )}
@@ -243,7 +243,7 @@ export function ArticleCommentsSection({
   const { data: categories = [] } = useQuery(
     categoriesQueryOptions(article.kb_id)
   );
-  const { data: kbs = [] } = useQuery(kbsQueryOptions);
+  const { data: kbs = [] } = useKbsQuery();
   const kb = useMemo(
     () => kbs.find((row) => row.id === article.kb_id),
     [article.kb_id, kbs]
@@ -316,7 +316,7 @@ export function ArticleCommentsSection({
               {t("comments.closed_banner")}
             </p>
           ) : null}
-          <ul className="divide-y divide-border/60">
+          <ul className="divide-y divide-border-soft">
             {comments.map((comment) => (
               <ArticleCommentRow
                 comment={comment}

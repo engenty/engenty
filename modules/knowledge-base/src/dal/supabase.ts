@@ -2,6 +2,7 @@
  * Knowledge Base — Supabase DAL implementation.
  */
 
+import { resolveSpaceKey } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createArticleCommentRepo } from "./article-comments.js";
 import { createArticleRepo } from "./articles.js";
@@ -61,6 +62,28 @@ export function createKbRepoFactory(
     inbox: createInboxRepo(supabase, tenantId, scopeId),
     sources: createKbSourceRepo(supabase, tenantId, scopeId),
     source_references: createSourceReferenceRepo(supabase, tenantId, scopeId),
+    spaces: {
+      async getById(spaceId) {
+        const { data, error } = await supabase
+          .schema("core")
+          .from("spaces")
+          .select("key, name")
+          .eq("tenant_id", tenantId)
+          .eq("id", spaceId)
+          .maybeSingle();
+        if (error || !data) {
+          return null;
+        }
+        const row = data as { key?: unknown; name?: unknown };
+        const key = typeof row.key === "string" ? row.key.trim() : "";
+        const name = typeof row.name === "string" ? row.name.trim() : "";
+        return key ? { key, name: name || key } : null;
+      },
+      // `as never`: same TS2589 instantiation-depth trap as the KB repo's
+      // default-space lookup — the structural slice is what the helper wants.
+      keyById: (spaceId) =>
+        resolveSpaceKey(supabase as never, { spaceId, tenantId }),
+    },
     versions,
   };
 }

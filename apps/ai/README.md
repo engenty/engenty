@@ -24,7 +24,17 @@ Public URL: `https://ai.engenty.localhost` (see [portless-local-urls.md](../../d
 1. Start dev: `pnpm dev` (gateway + `apps/ai`) or `pnpm dev:ai`.
 2. In another terminal: `pnpm mastra:studio` (loopback **:43111**, `MASTRA_STUDIO_BASE_PATH=/studio`).
 
-With the core dev gateway (`ENGENTY_DEV_GATEWAY=1`), open **`https://engenty.localhost/studio`**. The studio script sets **`MASTRA_AUTO_DETECT_URL=true`** so Studio auto-configures to **`https://engenty.localhost`** with API prefix **`/ai`** (no manual setup screen when the gateway is up). If a stale config persists, delete **`mastra-studio-config`** in localStorage and reload.
+With the core dev gateway (`ENGENTY_DEV_GATEWAY=1`), open **`https://engenty.localhost/studio`** (or `https://<domain>.engenty.localhost/studio` in a worktree). The studio script sets **`MASTRA_AUTO_DETECT_URL=true`** so Studio auto-configures to the gateway origin with API prefix **`/ai`**. If a stale config persists, delete **`mastra-studio-config`** in localStorage and reload.
+
+**One tenant in Studio:** specialists are not on the process-wide Mastra instance until you pin a tenant.
+
+1. Start with `--studio` (`pnpm dev:portless --domain=<name> --studio`).
+2. Optional boot pin: `ENGENTY_STUDIO_TENANT_ID=<tenant-uuid>` in `.env.local` (ignored in production).
+3. Or open **Profile settings** (developer mode) → **Activate tenant in Studio**. That registers the current workspace tenant’s agents, copies the Bearer token, and opens `/studio`.
+
+Play uses that Bearer as the signed-in user. The JWT tenant must match the pin; otherwise catalog tools stay token-only. Re-click Activate after hiring an agent, or restart with the env pin. Production ignores both Studio flags.
+
+**Editor** ([docs](https://mastra.ai/docs/studio/editor)) is on when Postgres storage is configured (`new MastraEditor()` in `ai/index.ts`). In Studio: Agents → pick an agent → **Editor**. Drafts save in the `ai` schema; they overlay the Studio shell only — production copilot still uses `assembleDynamicAgent`. If save fails on a missing table, run `pnpm engenty db mastra-init`.
 
 Without the gateway, Studio still runs on loopback; configure Settings to match your `apps/ai` URL. CORS allows origins in **`ENGENTY_CORS_ORIGINS`** (`pnpm dev:urls:portless`).
 

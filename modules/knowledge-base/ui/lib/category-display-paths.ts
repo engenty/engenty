@@ -42,28 +42,24 @@ export function buildCategoryAncestorChain(
   return chain;
 }
 
-export function categoryBreadcrumbPath(
-  category: KbCategory,
-  kbSlug: string
-): string {
+export function categoryBreadcrumbPath(category: KbCategory): string {
   if (category.is_default) {
-    return kbHubPath(kbSlug);
+    return kbHubPath();
   }
-  return kbCategoryPath(kbSlug, category.slug);
+  return kbCategoryPath(category.slug);
 }
 
 export function categoryToBreadcrumbCrumb(
   category: KbCategory,
-  kbSlug: string,
   options?: { link?: boolean }
 ): KbBreadcrumbCrumb {
   const seg = truncateKbBreadcrumbSegment(category.name);
-  const link = options?.link !== false && Boolean(kbSlug);
+  const link = options?.link !== false;
   return {
     label: seg.label,
     menuLabel: category.name,
     ...(seg.tooltip ? { tooltip: seg.tooltip } : {}),
-    ...(link ? { to: categoryBreadcrumbPath(category, kbSlug) } : {}),
+    ...(link ? { to: categoryBreadcrumbPath(category) } : {}),
   };
 }
 
@@ -71,7 +67,6 @@ export function categoryToBreadcrumbCrumb(
 export function buildCategoryTreeBreadcrumbCrumbs(
   category: KbCategory,
   categories: KbCategory[],
-  kbSlug: string,
   options?: { linkAncestors?: boolean; linkCurrent?: boolean }
 ): KbBreadcrumbCrumb[] {
   if (category.is_default) {
@@ -82,9 +77,9 @@ export function buildCategoryTreeBreadcrumbCrumbs(
   const linkCurrent = options?.linkCurrent === true;
   return [
     ...ancestors.map((cat) =>
-      categoryToBreadcrumbCrumb(cat, kbSlug, { link: linkAncestors })
+      categoryToBreadcrumbCrumb(cat, { link: linkAncestors })
     ),
-    categoryToBreadcrumbCrumb(category, kbSlug, { link: linkCurrent }),
+    categoryToBreadcrumbCrumb(category, { link: linkCurrent }),
   ];
 }
 

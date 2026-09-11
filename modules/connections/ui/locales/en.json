@@ -1,4 +1,10 @@
 {
+  "agentAccess": {
+    "title": "Used by",
+    "description": "Agents allowed to act on this account in background work. Grant access from the agent itself.",
+    "revoke": "Remove access",
+    "revokeFailed": "Could not remove access. Try again."
+  },
   "menu": {
     "connections": "Connections"
   },
@@ -7,6 +13,9 @@
     "connections": "Connections"
   },
   "catalog": {
+    "needsSetup": "Needs setup",
+    "needsSetupAdmin": "Set up →",
+    "needsSetupMember": "Ask an admin to set this up",
     "connected": "Connected",
     "connectedAs": "Connected as {{account}}",
     "notConnected": "Not connected",
@@ -30,14 +39,16 @@
     "disconnected": "Connection removed.",
     "disconnectFailed": "Disconnecting failed: {{error}}",
     "approvalDecided": "Request {{decision}}.",
-    "approvalDecideFailed": "Deciding the request failed: {{error}}"
+    "approvalDecideFailed": "Deciding the request failed: {{error}}",
+    "connectedAutonomyHint": "Agents can't use it in the background yet — open the connection and enable autonomous use."
   },
   "chatCard": {
     "connected": "Connected",
     "connectPrompt": "Connect your account to continue",
     "connectFailed": "Connecting failed — try again",
     "notConfigured": "Not available yet — an admin must add this connector's credentials in Setup → Platform settings",
-    "connectedContinue": "I've connected {{name}} — please continue."
+    "connectedContinue": "I've connected {{name}} — please continue.",
+    "connectedAutonomyHint": "Usable in chat right away. For background sync and scheduled runs, enable autonomous use in Settings → Connections."
   },
   "connectComplete": {
     "closing": "Finishing up — you can close this window."
@@ -96,7 +107,8 @@
     "disconnectDescription": "The stored tokens are destroyed and agents lose access immediately. You can reconnect at any time.",
     "disconnectConfirm": "Disconnect",
     "disconnecting": "Disconnecting…",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "autonomousOffBadge": "Off — not usable by agents"
   },
   "detail": {
     "notFound": "Unknown connector",
@@ -140,5 +152,12 @@
     "description": "Enter the credentials for this service. They are stored encrypted and never shown again.",
     "optional": "(optional)",
     "submit": "Connect"
+  },
+  "autonomousCallout": {
+    "title": "Agents can't use this connection yet",
+    "description": "Autonomous use is off: nothing syncs in the background and no scheduled or unattended agent run may touch this connection. Using it in chat while you are present still works.",
+    "enableReadOnly": "Allow read-only",
+    "enableFull": "Allow all actions",
+    "askOwner": "Ask the connection owner to enable autonomous use."
   }
 }

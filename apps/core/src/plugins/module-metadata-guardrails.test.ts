@@ -52,7 +52,10 @@ const GATEWAY_METHODS_EXTRACTED_LAYOUT_MODULES: string[] = [];
 
 const PLUGIN_FACTORY_ENTRY_MODULES = ["engenty-copilot"];
 
-const DIRECT_GATEWAY_INVOCATION_ALLOWLIST: Record<string, string> = {};
+const DIRECT_GATEWAY_INVOCATION_ALLOWLIST: Record<string, string> = {
+  "knowledge-base/ai/tools/kb-ai-gateway-sources.ts":
+    "kb_source_ingest (agentic) dispatches the ingest task via tasks_create — the same cross-module edge the HTTP ingest route takes by handing the service its PluginServerApi.",
+};
 
 const UI_PLUGIN_MODULES = ["engenty-copilot"];
 

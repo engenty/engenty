@@ -8,6 +8,7 @@ export {
 } from "@engenty/ag-ui-bridge";
 export {
   resolvePendingUserInsertIndex,
+  resolvePendingUserPartsForTranscript,
   resolvePendingUserTextForTranscript,
 } from "../pending-send-transcript.js";
 export {
@@ -47,6 +48,7 @@ export {
   appsAiThreadsListQueryKey,
   deleteAppsAiThread,
   deleteAppsAiThreads,
+  dismissAppsAiThreadInterrupt,
   getAppsAiThread,
   listAppsAiThreadMessages,
   listAppsAiThreads,
@@ -107,6 +109,7 @@ export { resolveAppsAiFrontendTools } from "./resolve-apps-ai-frontend-tools.js"
 export { transcribeAudioViaAppsAi } from "./transcribe-audio.js";
 export {
   type EngentyAgUiPendingSend,
+  isInterruptResolvedLocally,
   useEngentyAgUiAppsAiSession,
 } from "./use-engenty-ag-ui-apps-ai-session.js";
 export {

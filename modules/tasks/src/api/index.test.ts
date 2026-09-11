@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOAL_BY_ID_PATH, registerTasksApi, TASK_BY_ID_PATH } from "./index.js";
+import { registerTasksApi, TASK_BY_ID_PATH } from "./index.js";
 import { makeMockApi, makeMockTasksRepo } from "./test-helpers.js";
 
 describe("registerTasksApi", () => {
@@ -15,16 +15,13 @@ describe("registerTasksApi", () => {
     expect(routeSignatures).toContain("GET /api/tasks");
     expect(routeSignatures).toContain("GET /api/tasks/briefing");
     expect(routeSignatures).toContain("GET /api/tasks/settings");
-    expect(routeSignatures).toContain("GET /api/tasks/goals");
     expect(routeSignatures).toContain(`GET ${TASK_BY_ID_PATH}`);
-    expect(routeSignatures).toContain(`GET ${GOAL_BY_ID_PATH}`);
     expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/checkout`);
     expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/release`);
     expect(routeSignatures).toContain(`POST ${TASK_BY_ID_PATH}/tool-approvals`);
     expect(routeSignatures).toContain(`GET ${TASK_BY_ID_PATH}/runs`);
     expect(routeSignatures).toContain(`GET ${TASK_BY_ID_PATH}/activity`);
     expect(routeSignatures).toContain("POST /api/tasks");
-    expect(routeSignatures).toContain("POST /api/tasks/goals");
 
     const settingsIndex = httpRoutes.findIndex(
       (r) => r.method === "get" && r.path === "/api/tasks/settings"
@@ -37,19 +34,13 @@ describe("registerTasksApi", () => {
     expect(settingsIndex).toBeLessThan(taskByIdIndex);
   });
 
-  it("registers tasks and goals gateway operations", () => {
+  it("registers tasks gateway operations", () => {
     const repo = makeMockTasksRepo();
     const { api, serverOperations } = makeMockApi();
     registerTasksApi(api, repo);
 
     const ids = serverOperations.map((o) => o.operationId).sort();
     expect(ids).toEqual([
-      "goals_create",
-      "goals_delete",
-      "goals_get",
-      "goals_handoff",
-      "goals_list",
-      "goals_update",
       "tasks_add_comment",
       "tasks_approval_grants_effective",
       "tasks_checkout",
@@ -66,7 +57,6 @@ describe("registerTasksApi", () => {
       "tasks_run_now",
       "tasks_settings_get",
       "tasks_settings_update",
-      "tasks_standing_by_triggers",
       "tasks_update",
     ]);
   });

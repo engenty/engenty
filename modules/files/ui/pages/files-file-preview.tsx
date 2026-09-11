@@ -12,6 +12,7 @@ import {
   isFileStorageOfficePdfPreviewMime,
   isFileStorageTextPreviewMime,
 } from "@engenty/file-storage";
+import { CsvTable } from "@engenty/import";
 import { useQuery } from "@engenty/query-client";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { File, FileImage, FileText } from "lucide-react";
@@ -20,7 +21,6 @@ import { useFilesPreviewAgentUiSlice } from "../hooks/use-files-agent-ui-slice.j
 
 /** Cap rendered text so very large files do not freeze the detail page. */
 const TEXT_PREVIEW_MAX_BYTES = 512 * 1024;
-const CSV_PREVIEW_MAX_ROWS = 200;
 
 export function getFileIcon(mime: string) {
   if (mime.startsWith("image/")) {
@@ -38,94 +38,6 @@ function NoPreview(props: { mimeType: string; label: string }) {
     <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-muted border-dashed p-8 text-center">
       <Icon className="h-16 w-16 text-muted-foreground/40" />
       <p className="text-muted-foreground text-sm">{props.label}</p>
-    </div>
-  );
-}
-
-/** Minimal RFC-4180-ish parser: handles quoted fields, escaped quotes, CRLF. */
-export function parseDelimitedText(
-  text: string,
-  delimiter: string
-): string[][] {
-  const rows: string[][] = [];
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += char;
-      }
-      continue;
-    }
-    if (char === '"') {
-      inQuotes = true;
-    } else if (char === delimiter) {
-      row.push(field);
-      field = "";
-    } else if (char === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else if (char !== "\r") {
-      field += char;
-    }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
-}
-
-function CsvTable(props: { text: string; mimeType: string }) {
-  const delimiter = props.mimeType === "text/tab-separated-values" ? "\t" : ",";
-  const allRows = parseDelimitedText(props.text, delimiter);
-  const rows = allRows.slice(0, CSV_PREVIEW_MAX_ROWS);
-  if (rows.length === 0) {
-    return null;
-  }
-  const [header, ...body] = rows;
-  return (
-    <div className="max-h-[min(70vh,800px)] overflow-auto overscroll-contain">
-      <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 bg-card">
-          <tr>
-            {header?.map((cell, i) => (
-              <th
-                className="border-border border-b px-2 py-1.5 text-left font-medium"
-                key={`h-${i}`}
-              >
-                {cell}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {body.map((cells, r) => (
-            <tr className="odd:bg-muted/30" key={`r-${r}`}>
-              {cells.map((cell, ci) => (
-                <td
-                  className="border-border/60 border-b px-2 py-1 align-top font-mono text-xs"
-                  key={`c-${r}-${ci}`}
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -171,9 +83,19 @@ function TextFilePreview(props: {
   }
 
   return (
-    <div className="ui-canvas-panel rounded-lg border-0 bg-card">
+    <div className="ui-card-panel">
       {isFileStorageCsvMime(props.mimeType) ? (
-        <CsvTable mimeType={props.mimeType} text={query.data.text} />
+        // The shared grid from @engenty/import — the same parser the import
+        // wizard reads with, so preview and importer cannot disagree about
+        // the same bytes. Delimiter detected, TSV included; the grid's row
+        // window keeps large files cheap without a row cap.
+        <div className="max-h-[min(70vh,800px)] overflow-auto overscroll-contain">
+          <CsvTable
+            className="rounded-none border-0"
+            readOnly
+            value={query.data.text}
+          />
+        </div>
       ) : isFileStorageMarkdownMime(props.mimeType) ? (
         <div className="max-h-[min(70vh,800px)] overflow-y-auto overscroll-contain p-3">
           <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
@@ -186,7 +108,7 @@ function TextFilePreview(props: {
         </pre>
       )}
       {query.data.truncated ? (
-        <p className="border-border/60 border-t px-3 py-1.5 text-muted-foreground text-xs">
+        <p className="border-border-soft border-t px-3 py-1.5 text-muted-foreground text-xs">
           {props.truncatedLabel}
         </p>
       ) : null}
@@ -243,7 +165,7 @@ export function FilePreviewBlock(props: {
     }
     return (
       <iframe
-        className="ui-canvas-panel h-full min-h-[600px] w-full rounded-lg border-0"
+        className="ui-card-panel h-full min-h-[600px] w-full"
         src={officePreview.data.url}
         title={filename}
       />
@@ -253,7 +175,7 @@ export function FilePreviewBlock(props: {
   if (mimeType === "application/pdf") {
     return (
       <iframe
-        className="ui-canvas-panel h-full min-h-[600px] w-full rounded-lg border-0"
+        className="ui-card-panel h-full min-h-[600px] w-full"
         src={url}
         title={filename}
       />
@@ -262,7 +184,7 @@ export function FilePreviewBlock(props: {
 
   if (mimeType.startsWith("image/")) {
     return (
-      <div className="ui-canvas-panel flex h-full items-center justify-center rounded-lg border-0 bg-card p-4">
+      <div className="ui-card-panel flex h-full items-center justify-center p-4">
         <img
           alt={filename}
           className="max-h-[600px] w-auto rounded object-contain"
@@ -276,7 +198,7 @@ export function FilePreviewBlock(props: {
 
   if (mimeType.startsWith("audio/")) {
     return (
-      <div className="ui-canvas-panel flex h-full items-center justify-center rounded-lg border-0 bg-card p-8">
+      <div className="ui-card-panel flex h-full items-center justify-center p-8">
         <audio className="w-full max-w-md" controls src={url}>
           <track kind="captions" />
         </audio>
@@ -286,7 +208,7 @@ export function FilePreviewBlock(props: {
 
   if (mimeType.startsWith("video/")) {
     return (
-      <div className="ui-canvas-panel flex h-full items-center justify-center rounded-lg border-0 bg-card p-4">
+      <div className="ui-card-panel flex h-full items-center justify-center p-4">
         <video className="max-h-[500px] w-full rounded" controls src={url}>
           <track kind="captions" />
         </video>

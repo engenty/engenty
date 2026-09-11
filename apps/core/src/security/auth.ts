@@ -1,6 +1,7 @@
 import { envString } from "@engenty/environment/env";
 import type { PluginCallOrigin } from "@engenty/plugin-sdk";
 import { jwtVerify } from "jose";
+import { log } from "../observability/evlog.js";
 import { isTokenIdRevoked } from "./token-revocation.js";
 
 export type PrincipalType = "user" | "agent" | "service";
@@ -44,6 +45,18 @@ export interface PrincipalContext {
   roles: string[];
   scopes: string[];
   sessionId?: string;
+  /**
+   * Space the call happens in (forwarded x-engenty-space-id) — Phase CN.3.
+   *
+   * Connector-account narrowing (CN.3): policies intersect the principal's
+   * own reach with what the space mounts, so an id the caller has no
+   * business naming can only shrink the account set.
+   *
+   * Agent escalation separately unions the space's derived MODULE caps into
+   * the agent's attempt set (still under the token ceiling). That union is
+   * not this header's connector narrowing.
+   */
+  spaceId?: string;
   /**
    * Task a headless run is executing (forwarded x-engenty-task-id). The
    * approval gate consumes task-scoped grants against it, and stamps it on
@@ -139,6 +152,38 @@ export function getSecuritySecret(config: Record<string, unknown>): string {
   return envString(config, "securityJwtSecret", "ENGENTY_SECURITY_JWT_SECRET");
 }
 
+/**
+ * A Supabase user token that verifies but carries no `tenant_id` means the
+ * Customize Access Token hook is not running — the single most common
+ * misconfiguration of a self-hosted install, and one that otherwise presents
+ * only as "correct password, Unauthorized" plus realtime that never starts.
+ *
+ * Migrations ship the hook function and its grants, but enabling it is project
+ * config, so nothing in this repo can guarantee it. Say so once instead of
+ * letting every request fail mutely. `engenty doctor` checks the same thing
+ * ahead of time.
+ */
+let warnedAboutMissingTenantClaim = false;
+
+function warnMissingTenantClaim(payload: Record<string, unknown>): void {
+  if (warnedAboutMissingTenantClaim) {
+    return;
+  }
+  // Only Supabase-issued user tokens are expected to carry the claim; our own
+  // agent and service tokens set it at mint time and never reach here without.
+  const issuer = typeof payload.iss === "string" ? payload.iss : "";
+  const looksLikeSupabaseUserToken =
+    payload.role === "authenticated" || issuer.includes("/auth/v1");
+  if (!looksLikeSupabaseUserToken) {
+    return;
+  }
+  warnedAboutMissingTenantClaim = true;
+  log.error(
+    "security",
+    "Rejecting a valid Supabase token with no tenant_id claim. The Customize Access Token hook is not enabled — point it at core.custom_access_token_hook (Supabase → Authentication → Hooks, or GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI=pg-functions://postgres/core/custom_access_token_hook when self-hosted), then sign out and in again. Verify with: pnpm engenty doctor"
+  );
+}
+
 export async function verifyAccessToken(
   authHeader: string | undefined,
   secret: string | undefined,
@@ -165,6 +210,9 @@ export async function verifyAccessToken(
     const principalId = typeof payload.sub === "string" ? payload.sub : "";
     const principalType = parsePrincipalType(payload);
     if (!(tenantId && principalId)) {
+      if (principalId && !tenantId) {
+        warnMissingTenantClaim(payload);
+      }
       return null;
     }
     const capabilities = parseArrayClaim(payload.capabilities);

@@ -1,18 +1,14 @@
 # Mastra Memory — what we use, what we don't, what to adopt
 
-Status: WIP · 2026-07-02 · basis: `@mastra/memory` 1.22.0 / `@mastra/core` 1.48.0 (installed, `.d.ts`-verified)
+Status: WIP · updated 2026-08-19 · basis: `@mastra/memory` 1.26.2 /
+`@mastra/core` 1.59.0 (installed, `.d.ts`-verified)
 
 ## Current state
 
-Engenty chat memory is `new Memory({ options: { lastMessages: 40 }, storage:
-EngentySessionMemoryStorage })` ([concrete-memory.ts](../../apps/ai/src/ai/memory/concrete-memory.ts)).
-That uses exactly **one** capability — message history — plus the implicit default
-`filterIncompleteToolCalls: true`. Our adapter maps threads/messages onto
-`ai.thread` / `ai.thread_message` and already implements the resource methods
-(`getResourceById/saveResource/updateResource`), including a `workingMemory` column
-that is **never populated** — a ready-made seam.
-
-Everything below is unused surface, ordered by adoption value.
+Engenty chat uses message history, generated thread titles, resource-scoped
+working memory, and the two OM layers below. `EngentySessionMemoryStorage` maps
+threads/messages onto `ai.thread` / `ai.thread_message`; Mastra runtime records
+stay in PostgresStore's `ai.mastra_*` tables.
 
 ## 1. Thread title generation — QUICK WIN
 
@@ -20,16 +16,19 @@ Everything below is unused surface, ordered by adoption value.
 needs only `updateThread` (our adapter supports it as-is). We currently have no title
 synthesis at all; the chat list shows the raw first message. Cheapest possible win.
 
-## 2. Working memory — HIGH VALUE, adapter is already ready
+## 2. Working memory — ADOPTED
 
-A persistent, agent-editable profile injected into the system prompt each turn,
-updated by the agent via an auto-registered `updateWorkingMemory` tool.
+A persistent per-user profile delivered as a state signal. The main agent does
+not receive `updateWorkingMemory`; thread OM's Observer maintains the bounded
+profile.
 
 ```ts
 workingMemory: {
   enabled: true,
-  scope: 'resource',            // default — per USER, across all threads
-  schema: <zod profile schema>, // merge semantics; or template: <markdown> (replace)
+  agentManaged: false,
+  scope: 'resource',
+  schema: <zod profile schema>,
+  useStateSignals: true,
 }
 ```
 
@@ -37,13 +36,12 @@ workingMemory: {
   project X, role Y") — the thing the copilot conspicuously lacks today.
 - Requires the three resource methods on the storage adapter — **ours already has
   them**, with the unused `workingMemory` field waiting. No vector store, no embedder.
-- Costs: agent occasionally spends a tool call updating the profile.
+- Costs: Observer work can update the profile during observation cycles.
 
-Recommendation: adopt with a small Zod schema (not free-form template) so the profile
-stays bounded and inspectable; surface it read-only in the UI (settings → "what the
-assistant knows about you") with a reset button.
+The schema stays deliberately small; durable, reviewable facts remain
+`memory_save` records rather than profile fields.
 
-## 3. Observational Memory (OM) — THE STRATEGIC ONE, needs storage work
+## 3. Observational Memory (OM) — ADOPTED FOR CHAT
 
 Mastra's flagship long-context memory (docs: "recommended", more accurate *and*
 cheaper than semantic recall): a background **Observer** model compresses raw history
@@ -52,22 +50,24 @@ Active observations replace raw history → stable, cacheable prompt prefix, 5�
 compression. Extras we'd get: current-task tracking, suggested responses, optional
 thread titles, custom extractors (incl. auto-managed working memory).
 
-**The catch:** OM requires the MemoryStorage to declare
-`supportsObservationalMemory = true` and implement ~17 OM record methods
-(`getObservationalMemory`, `updateActiveObservations`, buffered-swap methods, flags,
-…). Without them, `observationalMemory: true` is a **silent no-op** (the processor
-factory returns null). `@mastra/pg` 1.14.3 implements the full set.
+Engenty keeps `ai.thread` / `ai.thread_message` ownership and delegates Mastra's
+OM records to the PostgresStore memory domain. Chat uses two observation layers:
 
-Adoption path that keeps our thread/message ownership: extend
-`EngentySessionMemoryStorage` with the OM methods, **delegating the
-`ObservationalMemoryRecord` persistence internally to the pg memory domain** (we
-already run `MastraCompositeStore` + PostgresStore; OM records are runtime state, not
-business data — no reason to hand-model them). Config: default model
-`google/gemini-2.5-flash` (needs a fast 128k model via our gateway), thread scope only
-(resource scope is experimental).
+- native **thread-scoped OM** compresses each conversation independently;
+- an inject-only shared Observer contributes a state-signal snapshot keyed
+  agent × user for copilot, or agent × space for staff agents.
 
-Where it pays: long copilot threads (context bloat is our cost ceiling today) and
-long-running task-specialist runs.
+The generic per-agent `agentScope` classification selects the shared key:
+`personal` → user and `shared` → space. It is part of `AgentConfig` and is
+persisted for database-created agents.
+
+Working memory also uses state signals. The volatile shared/profile layers
+therefore do not rewrite the provider's cacheable system prefix. Native
+resource-scope OM remains unused: it is experimental, processes all threads
+together, and can blur unfinished work between simultaneous conversations.
+
+`ENGENTY_AI_OBSERVATIONAL_MEMORY=false` disables both layers. Task-job threads
+remain outside this rollout.
 
 ## 4. Semantic recall — PROBABLY SKIP in favor of OM
 

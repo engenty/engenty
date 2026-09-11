@@ -18,7 +18,15 @@ export interface AgentFnDescriptor {
   description?: string;
   fn: AgentFn;
   id: string;
+  /** For `kind: "interface"`: how it faces the user. */
+  interfaceRole?: "background" | "live" | "remote";
+  /** Declared classification; defaults to `specialist` in the config schema. */
+  kind?: "chat_surface" | "delegated" | "interface" | "specialist";
+  /** Owning module id; absent = platform. */
+  moduleId?: string | null;
   name: string;
+  /** Provider provenance (never ownership). */
+  source?: "builtin" | "database" | "module";
 }
 
 /**

@@ -8,10 +8,10 @@
 // `in_progress` with a NULL checkout, which is precisely the shape the stale
 // checkout reaper cannot see. A tab that closed stranded the task forever.
 //
-// Pressing the button now enqueues the task on the SAME durable path a routine
-// or coordinator dispatch uses: task-job workflow (snapshotted, resumed on
-// boot) → checkout → run record → release. The UI then observes that run and
-// can re-attach to it after a reload.
+// Pressing the button now enqueues the task on the SAME durable path an
+// assignment or coordinator dispatch uses: task-job workflow (snapshotted,
+// resumed on boot) → checkout → run record → release. The UI then observes that
+// run and can re-attach to it after a reload.
 //
 // Kept behind the small repo interfaces so it unit-tests with in-memory fakes.
 
@@ -35,11 +35,13 @@ export interface RunTaskNowDeps {
   queue?: QueueServiceLike | null;
   repo: RunTaskNowRepo;
   tenantId?: string | null;
+  validateAgentAssignment?: (task: Task) => Promise<void>;
 }
 
 export interface RunTaskNowResult {
-  /** False when the task was already claimed — the live run is returned as-is. */
+  /** True only when this request actually queued work. */
   dispatched: boolean;
+  outcome: "already_running" | "blocked" | "not_dispatchable" | "queued";
   task: Task;
 }
 
@@ -69,7 +71,7 @@ export async function runTaskNow(
   }
   // A live checkout already owns the task; re-queueing would race that run.
   if (task.checkout_run_id) {
-    return { dispatched: false, task };
+    return { dispatched: false, outcome: "already_running", task };
   }
   if (!(deps.queue && deps.tenantId)) {
     throw new Error("task_dispatch_unavailable");
@@ -99,11 +101,23 @@ export async function runTaskNow(
 
   // Blocker-aware: a task with open blockers is flipped to `blocked` and NOT
   // queued, same as any other dispatch.
-  await dispatchTaskIfReady(
-    { queue: deps.queue, repo: deps.repo, tenantId: deps.tenantId },
+  const outcome = await dispatchTaskIfReady(
+    {
+      queue: deps.queue,
+      repo: deps.repo,
+      tenantId: deps.tenantId,
+      validateAgentAssignment: deps.validateAgentAssignment,
+    },
     next
   );
+  if (outcome === "ready") {
+    throw new Error("task_dispatch_not_enqueued");
+  }
 
   const refreshed = await deps.repo.getTask(input.taskId);
-  return { dispatched: true, task: refreshed ?? next };
+  return {
+    dispatched: outcome === "queued",
+    outcome,
+    task: refreshed ?? next,
+  };
 }

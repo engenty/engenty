@@ -1,27 +1,32 @@
 import { z } from "zod";
+import { createGuardedFetch } from "../net/guarded-fetch.js";
+import type { McpTransport } from "../types.js";
 
 /**
- * Minimal MCP client over streamable HTTP for imported MCP connectors:
- * initialize → (tools/list | tools/call) in one short-lived session. Mirrors
- * the JSON-RPC shapes of `apps/ai/src/ai/mcp-apps/http-client.ts` but lives
- * here because it must run inside the module (server-side, per-connection
- * credentials), not in the AI app.
+ * Adapter over the official MCP client (`@modelcontextprotocol/client`) for
+ * imported MCP connectors. It owns three things and nothing else:
+ *
+ * - **transport choice** — streamable HTTP by default; SSE only when the
+ *   registry declares that transport or an admin picked it for a legacy URL,
+ *   and as the fallback when a server rejects the streamable handshake;
+ * - **credentials** — Connections resolves the connection's token and this
+ *   module turns it into request headers; the SDK's own OAuth provider is
+ *   deliberately not used, since grants live in the connections store;
+ * - **session lifetime** — every call opens a client and releases it in
+ *   `finally`: the streamable transport's session is terminated (DELETE) and
+ *   the client closed, so a failed `tools/call` never leaks a server-side
+ *   session.
+ *
+ * Every request the SDK makes goes through the injected guarded fetch, so an
+ * MCP endpoint cannot be pointed at a private address.
  */
-
-export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
-const jsonRpcResponseSchema = z
-  .object({
-    error: z
-      .object({ code: z.number(), message: z.string() })
-      .loose()
-      .nullish(),
-    id: z.union([z.string(), z.number()]).nullish(),
-    result: z.unknown().nullish(),
-  })
-  .loose();
+const CLIENT_INFO = {
+  name: "engenty-connections-external",
+  version: "0.0.1",
+} as const;
 
 export const mcpToolSchema = z
   .object({
@@ -48,123 +53,127 @@ export class McpRequestError extends Error {
   }
 }
 
-async function postJsonRpc(params: {
-  body: Record<string, unknown>;
+export interface McpSessionParams {
   endpoint: string;
-  fetchImpl: typeof fetch;
-  headers: Record<string, string>;
-  sessionId?: string | null;
-}): Promise<{ result: unknown; sessionId: string | null }> {
-  const response = await params.fetchImpl(params.endpoint, {
-    body: JSON.stringify(params.body),
-    headers: {
-      accept: "application/json, text/event-stream",
-      "content-type": "application/json",
-      "mcp-protocol-version": MCP_PROTOCOL_VERSION,
-      ...(params.sessionId ? { "mcp-session-id": params.sessionId } : {}),
-      ...params.headers,
-    },
-    method: "POST",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  const sessionId = response.headers.get("mcp-session-id");
-  const text = await response.text();
-  if (!response.ok) {
-    throw new McpRequestError(
-      `MCP request failed (${response.status}): ${text.slice(0, 500)}`
-    );
-  }
-  // Notifications (no id) return 202/empty bodies.
-  if (!text.trim()) {
-    return { result: null, sessionId };
-  }
-  // Streamable HTTP may answer as a single-message SSE stream.
-  let payload = text;
-  if (text.startsWith("event:") || text.includes("\ndata:")) {
-    const dataLine = text.split("\n").find((line) => line.startsWith("data:"));
-    payload = dataLine ? dataLine.slice("data:".length).trim() : "";
-  }
-  const parsed = jsonRpcResponseSchema.parse(JSON.parse(payload));
-  if (parsed.error) {
-    throw new McpRequestError(
-      `MCP error ${parsed.error.code}: ${parsed.error.message}`
-    );
-  }
-  return { result: parsed.result ?? null, sessionId };
-}
-
-/** initialize + notifications/initialized; returns the session id (if any). */
-async function initializeSession(params: {
-  endpoint: string;
-  fetchImpl: typeof fetch;
-  headers: Record<string, string>;
-}): Promise<string | null> {
-  const { sessionId } = await postJsonRpc({
-    body: {
-      id: 1,
-      jsonrpc: "2.0",
-      method: "initialize",
-      params: {
-        capabilities: {},
-        clientInfo: { name: "engenty-connections-external", version: "0.0.1" },
-        protocolVersion: MCP_PROTOCOL_VERSION,
-      },
-    },
-    ...params,
-  });
-  await postJsonRpc({
-    body: { jsonrpc: "2.0", method: "notifications/initialized" },
-    sessionId,
-    ...params,
-  });
-  return sessionId;
-}
-
-export async function mcpListTools(params: {
-  endpoint: string;
+  /** Injectable for tests; defaults to a guarded fetch. */
   fetchImpl?: typeof fetch;
+  /** Credential + required headers, already rendered by the caller. */
   headers?: Record<string, string>;
-}): Promise<McpTool[]> {
-  const ctx = {
-    endpoint: params.endpoint,
-    fetchImpl: params.fetchImpl ?? fetch,
-    headers: params.headers ?? {},
-  };
-  const sessionId = await initializeSession(ctx);
-  const { result } = await postJsonRpc({
-    body: { id: 2, jsonrpc: "2.0", method: "tools/list", params: {} },
-    sessionId,
-    ...ctx,
-  });
-  const tools = z
-    .object({ tools: z.array(mcpToolSchema).default([]) })
-    .loose()
-    .parse(result ?? {}).tools;
-  return tools;
+  /** Declared transport; streamable HTTP when unknown. */
+  transport?: McpTransport | null;
 }
 
-export async function mcpCallTool(params: {
-  args: Record<string, unknown>;
-  endpoint: string;
-  fetchImpl?: typeof fetch;
-  headers?: Record<string, string>;
-  toolName: string;
-}): Promise<unknown> {
-  const ctx = {
-    endpoint: params.endpoint,
-    fetchImpl: params.fetchImpl ?? fetch,
-    headers: params.headers ?? {},
+/** Streamable HTTP keeps server-side state that outlives `close()`. */
+interface McpTransportLike {
+  terminateSession?: () => Promise<void>;
+}
+
+interface McpClientLike {
+  callTool: (
+    params: { arguments?: Record<string, unknown>; name: string },
+    options?: { timeout?: number }
+  ) => Promise<unknown>;
+  close: () => Promise<void>;
+  connect: (transport: unknown) => Promise<void>;
+  listTools: (
+    params?: Record<string, unknown>,
+    options?: { timeout?: number }
+  ) => Promise<{ tools: unknown[] }>;
+}
+
+/**
+ * Transport factories are resolved lazily so the SDK (and its OAuth/JOSE
+ * dependency tree) is loaded only when an MCP connector actually runs.
+ */
+async function connectClient(
+  params: McpSessionParams,
+  transport: McpTransport
+): Promise<{ client: McpClientLike; transport: McpTransportLike }> {
+  const sdk = await import("@modelcontextprotocol/client");
+  const url = new URL(params.endpoint);
+  const options = {
+    fetch: params.fetchImpl ?? createGuardedFetch(),
+    requestInit: params.headers ? { headers: params.headers } : undefined,
   };
-  const sessionId = await initializeSession(ctx);
-  const { result } = await postJsonRpc({
-    body: {
-      id: 3,
-      jsonrpc: "2.0",
-      method: "tools/call",
-      params: { arguments: params.args, name: params.toolName },
-    },
-    sessionId,
-    ...ctx,
+  const clientTransport =
+    transport === "sse"
+      ? new sdk.SSEClientTransport(url, options)
+      : new sdk.StreamableHTTPClientTransport(url, options);
+  const client = new sdk.Client(CLIENT_INFO) as unknown as McpClientLike;
+  await client.connect(clientTransport);
+  return { client, transport: clientTransport as McpTransportLike };
+}
+
+/**
+ * Run `fn` against a connected client, closing the session in `finally`.
+ * A streamable-HTTP server that refuses the handshake is retried once over
+ * SSE — the legacy transport many hosted servers still answer on.
+ */
+async function withMcpClient<T>(
+  params: McpSessionParams,
+  fn: (client: McpClientLike) => Promise<T>
+): Promise<T> {
+  const declared = params.transport ?? "streamable-http";
+  const attempts: McpTransport[] =
+    declared === "sse" ? ["sse"] : ["streamable-http", "sse"];
+
+  let lastError: unknown;
+  for (const transport of attempts) {
+    let session: { client: McpClientLike; transport: McpTransportLike };
+    try {
+      session = await connectClient(params, transport);
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+    try {
+      return await fn(session.client);
+    } catch (error) {
+      throw new McpRequestError(
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      // Best effort in both steps: the session is already gone if either
+      // fails, and neither may mask the caller's own error.
+      await session.transport.terminateSession?.().catch(() => {
+        // Server does not allow client-side termination.
+      });
+      await session.client.close().catch(() => {
+        // Already closed.
+      });
+    }
+  }
+  throw new McpRequestError(
+    `cannot connect to MCP server ${params.endpoint}: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`
+  );
+}
+
+export async function mcpListTools(
+  params: McpSessionParams
+): Promise<McpTool[]> {
+  return await withMcpClient(params, async (client) => {
+    const result = await client.listTools(undefined, {
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    return z
+      .object({ tools: z.array(mcpToolSchema).default([]) })
+      .loose()
+      .parse(result ?? {}).tools;
   });
-  return result;
+}
+
+export async function mcpCallTool(
+  params: McpSessionParams & {
+    args: Record<string, unknown>;
+    toolName: string;
+  }
+): Promise<unknown> {
+  return await withMcpClient(params, (client) =>
+    client.callTool(
+      { arguments: params.args, name: params.toolName },
+      { timeout: REQUEST_TIMEOUT_MS }
+    )
+  );
 }

@@ -6,17 +6,17 @@ import {
   defaultDocumentSourceAdapterRegistry,
   hashDocumentSourceWebhookToken,
 } from "@engenty/document-sources";
-import {
-  createPluginServerGatewayCaller,
-  type PluginAuthContext,
-  type PluginHttpRouteContext,
-  type PluginServerApi,
+import type {
+  PluginAuthContext,
+  PluginHttpRouteContext,
+  PluginServerApi,
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { KbRepoFactory, KbRepoFactoryFn } from "../dal/contracts.js";
 import { SCHEMA } from "../dal/shared.js";
 import type { KbSource, KbSourceSchedule } from "../schema/sources.js";
 import {
+  kbSourceAnalyzeBodySchema,
   kbSourceCreateSchema,
   kbSourceIndexPreviewSchema,
   kbSourceIngestBodySchema,
@@ -25,13 +25,15 @@ import {
   kbSourceItemUpdateSchema,
   kbSourceListQuerySchema,
   kbSourceRunBodySchema,
+  kbSourceSuggestTemplateBodySchema,
   kbSourceUpdateSchema,
 } from "../schema/zod.js";
-import { ingestKbSource } from "../sources/source-ingestor.js";
+import { analyzeKbSource } from "../sources/source-analyze.js";
 import {
   type RunKbSourceResult,
   runKbSource,
 } from "../sources/source-runner.js";
+import { suggestKbSourceTemplate } from "../sources/source-template-suggest.js";
 import {
   badRequest,
   created,
@@ -43,6 +45,10 @@ import {
   bootstrapFileUploadSourceWithInbox,
   bootstrapManualSourceWithInbox,
 } from "./kb-source-create-bootstrap.js";
+import {
+  runArmedKbSourceIngestions,
+  runKbSourceIngestRequest,
+} from "./kb-source-ingest-service.js";
 
 type GetRepo = (auth?: PluginAuthContext) => KbRepoFactory;
 
@@ -140,7 +146,12 @@ function generateWebhookToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-async function persistInitialIndexedItems(
+/**
+ * Persist the index entries a create request carried (with any keys the user
+ * ignored in the preview). Exported so the gateway `kb_source_create`
+ * operation seeds items exactly like the HTTP route does.
+ */
+export async function persistInitialIndexedItems(
   repos: ReturnType<GetRepo>,
   source: KbSource,
   entries: DocumentSourceIndexEntry[],
@@ -189,11 +200,6 @@ async function findSourceByWebhookToken(
   }
   return data;
 }
-
-// Ingest tasks are assigned to the manager (workforce plan R1 — research-assistant removed)
-export const KB_INGEST_AGENT_TYPE_KEY = "knowledge-base.manager";
-
-import { buildIngestTaskBrief } from "./kb-source-ingest-task-brief.js";
 
 export function registerKbSourceApi(
   api: Pick<
@@ -305,6 +311,7 @@ export function registerKbSourceApi(
             repos,
             source,
             settings as {
+              body_markdown?: string;
               original_filename?: string;
               storage_object_key?: string;
             },
@@ -417,6 +424,14 @@ export function registerKbSourceApi(
           force: body.force,
           background: body.background,
           limit: body.limit,
+          onSyncComplete: async () => {
+            await runArmedKbSourceIngestions({
+              auth: ctx.auth,
+              gateway: api,
+              repos,
+              sourceId: params.id,
+            });
+          },
           retrieve_images: body.retrieve_images,
           selected_item_keys: body.selected_item_keys,
           storageService: api.getStorageService?.("files") ?? null,
@@ -501,6 +516,14 @@ export function registerKbSourceApi(
         results.push(
           await runKbSource(repos, source.id, {
             actorPrincipalId: ctx.auth?.principalId ?? null,
+            onSyncComplete: async () => {
+              await runArmedKbSourceIngestions({
+                auth: ctx.auth,
+                gateway: api,
+                repos,
+                sourceId: source.id,
+              });
+            },
             storageService: api.getStorageService?.("files") ?? null,
             trigger: "schedule",
           })
@@ -636,6 +659,60 @@ export function registerKbSourceApi(
 
   api.registerHttpRoute({
     method: "post",
+    // Read-only: reads synced items and proposes a structure. Writes nothing,
+    // so it needs no approval gate — unlike /ingest below.
+    path: "/api/kb/sources/:id/analyze",
+    handler: async (ctx) => {
+      const repos = getRepo(ctx.auth);
+      const params = ctx.params as { id: string };
+      const body = kbSourceAnalyzeBodySchema.parse(
+        await ctx.request.json().catch(() => ({}))
+      );
+      try {
+        return await analyzeKbSource(repos, params.id, {
+          hint: body.hint,
+          sample_size: body.sample_size,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to analyze source";
+        if (message === "Source not found") {
+          return notFound(message);
+        }
+        return jsonError(503, "analyze_failed", message);
+      }
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
+    // Read-only, same as /analyze: proposes a template, creates nothing. The
+    // user creates the template from the proposal through the templates API.
+    path: "/api/kb/sources/:id/suggest-template",
+    handler: async (ctx) => {
+      const repos = getRepo(ctx.auth);
+      const params = ctx.params as { id: string };
+      const body = kbSourceSuggestTemplateBodySchema.parse(
+        await ctx.request.json().catch(() => ({}))
+      );
+      try {
+        return await suggestKbSourceTemplate(repos, params.id, {
+          hint: body.hint,
+          sample_size: body.sample_size,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to suggest template";
+        if (message === "Source not found") {
+          return notFound(message);
+        }
+        return jsonError(503, "suggest_template_failed", message);
+      }
+    },
+  });
+
+  api.registerHttpRoute({
+    method: "post",
     path: "/api/kb/sources/:id/ingest",
     // Agentic ingest spawns a tasks_create (itself approval-gated) through the
     // in-process gateway caller, so this edge must carry the gate the nested
@@ -649,147 +726,23 @@ export function registerKbSourceApi(
     handler: async (ctx) => {
       const repos = getRepo(ctx.auth);
       const params = ctx.params as { id: string };
-      const source = await repos.sources.getById(params.id);
-      if (!source) {
-        return notFound("Source not found");
-      }
       const body = kbSourceIngestBodySchema.parse(
         await ctx.request.json().catch(() => ({}))
       );
-      const gw = createPluginServerGatewayCaller(api);
-      const isAgentic = body.strategy === "agentic";
-
-      // Create a task for agentic runs so the run is observable in the Tasks UI
-      // and sets up the pattern for future Conductor dispatch. The task is
-      // created by the acting user and assigned to the research-assistant
-      // agent. Status is left at the tenant default; the run outcome is
-      // reported as a comment (statuses are tenant-configurable).
-      let taskId: string | undefined;
-      if (isAgentic && gw.hasOperation("tasks_create")) {
-        try {
-          const kb = await repos.kb.getById(source.kb_id).catch(() => null);
-          const instructions =
-            body.instructions ||
-            source.ingest_config.agentic_instructions ||
-            "(no specific instructions provided — create one draft article per source item)";
-          const categoryId =
-            body.category_id ?? source.ingest_config.category_id ?? null;
-          const parentArticleId =
-            body.parent_article_id ??
-            source.ingest_config.parent_article_id ??
-            null;
-          const description = buildIngestTaskBrief({
-            sourceName: source.name,
-            sourceId: params.id,
-            kbName: kb?.name ?? null,
-            kbId: source.kb_id,
-            kbSlug: kb?.slug ?? null,
-            categoryId,
-            parentArticleId,
-            instructions,
-          });
-          const contexts: Array<{
-            context_type: string;
-            context_id: string;
-          }> = [
-            { context_type: "kb_source", context_id: params.id },
-            { context_type: "knowledge_base", context_id: source.kb_id },
-          ];
-          const task = (await gw.invokeOperation(
-            "tasks_create",
-            {
-              title: `KB Ingest: ${source.name}`,
-              description,
-              primary_assignee_kind: "agent",
-              primary_assignee_agent_type_key: KB_INGEST_AGENT_TYPE_KEY,
-              contexts,
-            },
-            { auth: ctx.auth }
-          )) as { id: string } | null;
-          taskId = task?.id;
-        } catch {
-          // Non-fatal: tasks module may not be enabled
-        }
+      const outcome = await runKbSourceIngestRequest({
+        auth: ctx.auth,
+        body,
+        gateway: api,
+        repos,
+        sourceId: params.id,
+      });
+      if (outcome.status === "not_found") {
+        return notFound("Source not found");
       }
-
-      const reportTaskOutcome = async (content: string) => {
-        if (!(taskId && gw.hasOperation("tasks_add_comment"))) {
-          return;
-        }
-        try {
-          await gw.invokeOperation(
-            "tasks_add_comment",
-            { id: taskId, content },
-            { auth: ctx.auth }
-          );
-        } catch {
-          // Non-fatal
-        }
-      };
-
-      const ingestOpts = {
-        actorPrincipalId: ctx.auth?.principalId ?? null,
-        category_id: body.category_id,
-        content_mode: body.content_mode,
-        instructions: body.instructions,
-        item_ids: body.item_ids,
-        parent_article_id: body.parent_article_id,
-        strategy: body.strategy,
-        template_id: body.template_id,
-        template_mode: body.template_mode,
-      };
-
-      // Agentic runs with a task: the task is auto-dispatched to the
-      // knowledge-base.research-assistant agent via the task dispatcher.
-      // Return immediately — the agent reports its outcome as a task comment.
-      if (isAgentic && taskId) {
-        return {
-          article_ids: [],
-          ingested_items: 0,
-          strategy: body.strategy,
-          task_id: taskId,
-          async_run: true,
-        };
+      if (outcome.status === "failed") {
+        return jsonError(503, "ingest_failed", outcome.message);
       }
-
-      try {
-        const result = await ingestKbSource(repos, params.id, ingestOpts);
-        await reportTaskOutcome(
-          `✅ Ingestion complete — ${result.ingested_items} article(s) created or updated.`
-        );
-        if (
-          body.category_id !== undefined ||
-          body.template_id !== undefined ||
-          body.template_mode !== undefined ||
-          body.content_mode !== undefined
-        ) {
-          await repos.sources.update(params.id, {
-            ingest_config: kbSourceIngestConfigSchema.parse({
-              ...source.ingest_config,
-              category_id:
-                body.category_id === undefined
-                  ? source.ingest_config.category_id
-                  : body.category_id,
-              content_mode:
-                body.content_mode ?? source.ingest_config.content_mode,
-              template_id: body.template_id ?? null,
-              template_mode:
-                body.template_mode ??
-                source.ingest_config.template_mode ??
-                "inherit",
-            }),
-          });
-        }
-        return { ...result, task_id: taskId };
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to ingest source";
-        await reportTaskOutcome(`❌ Ingestion failed — ${message}`);
-        if (message === "Source not found") {
-          return notFound(message);
-        }
-        return jsonError(503, "ingest_failed", message);
-      }
+      return outcome.result;
     },
   });
 
@@ -809,6 +762,16 @@ export function registerKbSourceApi(
         String(sourceRow.scope_id)
       );
       return runKbSource(repos, String(sourceRow.id), {
+        onSyncComplete: async () => {
+          await runArmedKbSourceIngestions({
+            // Webhook runs are tenant-locked and have no user principal; the
+            // armed modes still apply, they just run unattributed.
+            auth: undefined,
+            gateway: api,
+            repos,
+            sourceId: String(sourceRow.id),
+          });
+        },
         storageService: api.getStorageService?.("files") ?? null,
         trigger: "webhook",
       });

@@ -13,7 +13,7 @@
 // persist the same tool call twice, under two message ids and two part shapes.
 //
 // The consequence is a loop, not just a gap. Memory reads `ai.thread_message`
-// (lastMessages: 40), so the next turn starts from an EMPTY transcript plus the
+// (lastMessages fallback when OM is off), so the next turn starts from an EMPTY transcript plus the
 // one-line resume nudge — the model cannot know it already asked, so it asks the
 // same first-step question again, suspends again, and persists nothing again. A
 // thread whose runs are all `requires_action` can never escape on its own.

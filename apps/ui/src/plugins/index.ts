@@ -15,12 +15,12 @@ export type {
   UiRouteContribution,
   UiSettingsItemContribution,
 } from "@engenty/ui-plugin-sdk";
-export { uiPluginCatalog } from "./catalog";
 export {
   createEngentyUiApi,
   createUiPluginRuntime,
   resolveUiContributions,
 } from "./engenty-ui-api";
 export { createHookEngine } from "./hook-engine";
+export { uiPluginCatalog } from "./load-generated-catalog";
 export { resolveUiPlugins } from "./resolver";
 export { useUiPluginContributions } from "./use-ui-plugin-contributions";

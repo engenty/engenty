@@ -3,11 +3,11 @@ import type {
   DocumentSourceMedia,
   DocumentSourceRetrievedItem,
 } from "@engenty/document-sources";
-import { fileStorageTenantObjectKey } from "@engenty/file-storage";
 import type { StorageService } from "@engenty/plugin-sdk";
 import { safeFetchFollowingRedirects } from "@engenty/web-ingest";
 import { MDocument } from "@mastra/rag";
 import type { KbRepoFactory } from "../dal/contracts.js";
+import { type KbStorageOwner, kbStorageKey } from "../lib/kb-storage-key.js";
 import type {
   KbSource,
   KbSourceItem,
@@ -87,6 +87,12 @@ function sha256Bytes(bytes: Uint8Array): string {
 
 async function downloadMediaToFileStorage(args: {
   itemId: string;
+  /**
+   * The source's knowledge base — it owns the space the bytes are rooted in.
+   * `null` when it could not be read: the media is then catalogued, not
+   * downloaded, because no key can be built without a space.
+   */
+  kb: KbStorageOwner | null;
   media: DocumentSourceMedia;
   settings: ReturnType<typeof readMediaCaptureSettings>;
   source: KbSource;
@@ -101,9 +107,9 @@ async function downloadMediaToFileStorage(args: {
     | "storage_object_key"
   >
 > {
-  const { itemId, media, settings, source, storageService } = args;
+  const { itemId, kb, media, settings, source, storageService } = args;
   if (
-    !(storageService && shouldDownloadMedia(settings.mode, media)) ||
+    !(kb && storageService && shouldDownloadMedia(settings.mode, media)) ||
     media.source_url.startsWith("data:")
   ) {
     return {
@@ -174,9 +180,8 @@ async function downloadMediaToFileStorage(args: {
       };
     }
     const hash = sha256Bytes(buffer);
-    const key = fileStorageTenantObjectKey(
-      source.tenant_id,
-      "knowledge-base",
+    const key = kbStorageKey(
+      kb,
       "sources",
       source.id,
       "items",
@@ -257,9 +262,26 @@ export async function persistRetrievedStructure(args: {
   }));
   const mediaInputs: KbSourceItemMediaInput[] = [];
   if (mediaSettings.mode !== "none") {
+    // Resolved ONCE, outside the loop: every media item of a source belongs to
+    // the same knowledge base, and the KB is what names the space the bytes
+    // root in.
+    //
+    // A KB we cannot read means we cannot name a root — and there is no safe
+    // default, since a tenant-level key is exactly the drift this phase
+    // removed. So the media is not downloaded. It is NOT an error: the run's
+    // sections and links are the substance, the bytes are an optimisation, and
+    // failing the whole ingest over an unreadable library would lose the part
+    // that worked. Same fail-soft shape as every other branch below.
+    let mediaKb: KbStorageOwner | null = null;
+    try {
+      mediaKb = (await repos.kb.getById(source.kb_id)) ?? null;
+    } catch {
+      mediaKb = null;
+    }
     for (const [index, media] of (retrieved.media ?? []).entries()) {
       const download = await downloadMediaToFileStorage({
         itemId: item.id,
+        kb: mediaKb,
         media,
         settings: mediaSettings,
         source,

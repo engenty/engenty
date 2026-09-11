@@ -6,6 +6,7 @@ import type {
   WebIngestMediaType,
   WebIngestSection,
 } from "../types.js";
+import { chunkMarkdownIntoSections } from "./markdown-section-chunk.js";
 
 const DOCUMENT_EXTENSIONS = new Set([
   "pdf",
@@ -239,14 +240,35 @@ export function buildWebIngestSections(args: {
     });
   }
   if (args.markdown.trim()) {
-    sections.push({
-      content: args.markdown,
-      kind: "markdown",
-      locator: "markdown",
-      metadata: { role: "markdown" },
-      position: sections.length,
-      title: "Markdown",
-    });
+    // Oversized markdown is stored as multiple ordered sections so downstream
+    // consumers (LLM ingest, per-section reads) see the whole document instead
+    // of a single blob they would truncate.
+    const parts = chunkMarkdownIntoSections(args.markdown);
+    if (parts.length === 1) {
+      sections.push({
+        content: args.markdown,
+        kind: "markdown",
+        locator: "markdown",
+        metadata: { role: "markdown" },
+        position: sections.length,
+        title: "Markdown",
+      });
+    } else {
+      for (const [index, part] of parts.entries()) {
+        sections.push({
+          content: part,
+          kind: "markdown",
+          locator: `markdown:${index + 1}`,
+          metadata: {
+            part: index + 1,
+            part_count: parts.length,
+            role: "markdown",
+          },
+          position: sections.length,
+          title: `Markdown (${index + 1}/${parts.length})`,
+        });
+      }
+    }
   }
   return sections;
 }

@@ -18,6 +18,8 @@ function unwrapBackfillResult(raw: unknown): KbArticleReindexBackfillResult {
 export async function runKbArticleReindex(
   options: {
     batchSize?: number;
+    /** Narrow to one library (`{ kb_id }`); the provider filters its own rows. */
+    metadata?: Record<string, string>;
     onProgress?: (done: number, total: number) => void;
   } = {}
 ): Promise<void> {
@@ -37,7 +39,11 @@ export async function runKbArticleReindex(
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ force: true, limit: batchSize }),
+          body: JSON.stringify({
+            force: true,
+            limit: batchSize,
+            ...(options.metadata ? { metadata: options.metadata } : {}),
+          }),
         }
       )
     );

@@ -17,6 +17,12 @@ import {
  * back onto the agent). Approving with the "allow for this goal" scope inserts a
  * goal grant so the rest of the goal proceeds without re-prompting.
  *
+ * When the call names a space (`auth.spaceId`), the space's derived mount caps
+ * join that union — mounting Projects write is how the planner later gets
+ * `module.projects.*` without stuffing every module into one role pack.
+ * The token remains the ceiling (checked upstream). Space caps only widen the
+ * agent's attempt set under that ceiling.
+ *
  * In chat the acting user's own grants remain the hard ceiling — enforced
  * upstream by the forwarded user token's capability check (an op the user can't
  * do is denied before this policy runs). This policy only governs the band
@@ -33,6 +39,11 @@ export function createAgentEscalationPolicy(deps: {
     tenantId: string,
     goalId: string,
     agentId: string
+  ) => Promise<string[]>;
+  /** Capability ids implied by the space's mounts. Empty when no space. */
+  resolveSpaceCapabilities?: (
+    tenantId: string,
+    spaceId: string
   ) => Promise<string[]>;
 }): PluginProfilePolicy {
   return async (input) => {
@@ -58,7 +69,14 @@ export function createAgentEscalationPolicy(deps: {
           agentId
         )
       : [];
-    const effective = [...agentCaps, ...goalCaps];
+    const spaceCaps =
+      input.auth.spaceId && deps.resolveSpaceCapabilities
+        ? await deps.resolveSpaceCapabilities(
+            input.auth.tenantId,
+            input.auth.spaceId
+          )
+        : [];
+    const effective = [...agentCaps, ...goalCaps, ...spaceCaps];
 
     const covered = required.every((cap) => capabilityCovers(effective, cap));
     if (covered) {

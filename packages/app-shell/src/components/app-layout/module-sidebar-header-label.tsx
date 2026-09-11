@@ -26,7 +26,7 @@ export function ModuleSidebarHeaderLabel({
   const content = (
     <span className="flex min-w-0 items-center gap-1.5">
       {Icon ? (
-        <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+        <Icon aria-hidden className="size-5 shrink-0 text-muted-foreground" />
       ) : null}
       <span className="min-w-0 flex-1 truncate font-semibold text-foreground text-sm">
         {label}

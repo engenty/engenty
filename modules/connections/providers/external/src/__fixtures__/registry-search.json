@@ -1,0 +1,91 @@
+{
+  "figma": {
+    "results": [
+      {
+        "domain": "figma.com",
+        "name": "figma.com",
+        "description": "Figma's REST API lets agents inspect files, comments, components, variables, projects, and webhooks. Its hoste",
+        "kinds": ["mcp", "openapi"],
+        "url": "https://integrations.sh/figma.com/",
+        "surfaces": [
+          {
+            "kind": "mcp",
+            "slug": "figma-com-mcp",
+            "url": "https://mcp.figma.com/mcp",
+            "auth": {
+              "kind": "oauth"
+            }
+          },
+          {
+            "kind": "openapi",
+            "slug": "figma-com",
+            "url": "https://raw.githubusercontent.com/figma/rest-api-spec/refs/heads/main/openapi/openapi.yaml",
+            "specOverrides": [
+              {
+                "op": "replace",
+                "path": "/components/securitySchemes/OAuth2/flows/authorizationCode/scopes",
+                "value": {
+                  "current_user:read": "",
+                  "file_comments:read": "",
+                  "file_comments:write": "",
+                  "file_content:read": "",
+                  "file_dev_resources:read": "",
+                  "file_dev_resources:write": "",
+                  "file_metadata:read": "",
+                  "file_versions:read": "",
+                  "library_assets:read": "",
+                  "library_content:read": "",
+                  "project_metadata:read": "",
+                  "projects:read": "",
+                  "team_library_content:read": "",
+                  "webhooks:read": "",
+                  "webhooks:write": ""
+                }
+              }
+            ],
+            "auth": {
+              "kind": "api_key",
+              "header": "X-Figma-Token: {token}"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "stripe": {
+    "results": [
+      {
+        "domain": "stripe.com",
+        "name": "stripe.com",
+        "description": "Stripe ships an official MCP server with documentation search and account tools, a meticulously specified REST",
+        "kinds": ["mcp", "openapi", "cli"],
+        "url": "https://integrations.sh/stripe.com/",
+        "surfaces": [
+          {
+            "kind": "mcp",
+            "slug": "stripe-com",
+            "url": "https://mcp.stripe.com",
+            "auth": {
+              "kind": "mixed",
+              "header": "Authorization: Bearer {restricted_key}",
+              "note": "OAuth in supporting clients; restricted-key bearer header for autonomous agents. Local stdio alternative: npx -y @stripe/mcp@latest"
+            }
+          },
+          {
+            "kind": "openapi",
+            "slug": "stripe-com-openapi",
+            "url": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+            "auth": {
+              "kind": "api_key",
+              "header": "Authorization: Bearer {secret_key}"
+            }
+          },
+          {
+            "kind": "cli",
+            "slug": "stripe-com-cli"
+          }
+        ]
+      }
+    ]
+  }
+}

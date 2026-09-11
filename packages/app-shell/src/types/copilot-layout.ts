@@ -3,6 +3,31 @@
 /** Bottom composer card height (measured) + gap from main content bottom. */
 export const COPILOT_BOTTOM_DOCK_HEIGHT = 94;
 
+/**
+ * The same clearance as a CSS length, plus the bottom safe-area inset, so a
+ * pinned composer clears the home indicator too. Identical to
+ * `COPILOT_BOTTOM_DOCK_HEIGHT` wherever the inset is 0px (all desktop).
+ */
+export const COPILOT_BOTTOM_DOCK_CLEARANCE = `calc(${COPILOT_BOTTOM_DOCK_HEIGHT}px + var(--ui-safe-bottom, 0px))`;
+
+/**
+ * Bottom inset for a main-area scroller so the last content can clear the
+ * collapsed copilot FAB (`60px` blob + `16px` inset + `20px` breathing).
+ * Keep in lockstep with `--ui-scroll-safe-bottom` in design-tokens.
+ */
+export const UI_SCROLL_SAFE_BOTTOM_PX = 96;
+
+/**
+ * Safe-area-aware forms of the scroller inset, for the shell's inline
+ * `--ui-scroll-safe-bottom` override. Writing the bare px value there would
+ * discard the inset that the root token (ui-canvas-chrome.css) folds in.
+ */
+export const UI_SCROLL_SAFE_BOTTOM = `calc(${UI_SCROLL_SAFE_BOTTOM_PX}px + var(--ui-safe-bottom, 0px))`;
+
+/** Reduced inset used while the bottom dock already reserves space below main. */
+export const UI_SCROLL_SAFE_BOTTOM_DOCKED =
+  "calc(2.5rem + var(--ui-safe-bottom, 0px))";
+
 export const COPILOT_LAYOUT_USER_SETTING_NAME = "copilot.layout";
 
 export type CopilotPersistedPanelMode = "docked" | "floating";

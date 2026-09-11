@@ -27,7 +27,7 @@ export function formatEngentySkillSource(moduleId: string): string {
 }
 
 /**
- * Repo-relative path for a skill file (matches `modules/.../ai/skills` and ai-core seed layout).
+ * Repo-relative path for a skill file (matches `modules/.../ai/skills` and runtime skills).
  */
 export function buildSkillRepoRelativePath(args: {
   logicalPath: string;
@@ -38,7 +38,7 @@ export function buildSkillRepoRelativePath(args: {
   const name = args.skillName.trim();
   const file = args.logicalPath.trim() || "SKILL.md";
   if (mod === "engenty-core") {
-    return `packages/ai-core/src/skills/seed/${name}/${file}`;
+    return `apps/ai/ai/skills/${name}/${file}`;
   }
   return `modules/${mod}/ai/skills/${name}/${file}`;
 }

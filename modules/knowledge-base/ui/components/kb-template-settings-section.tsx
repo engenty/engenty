@@ -18,13 +18,7 @@ import { kbNewTemplatePath, kbTemplatePath } from "../kb-paths.js";
 import { isKbTemplateRouteIdValid } from "../lib/kb-template-route-id.js";
 import { kbTemplatesQueryOptions, useKbTemplateMutations } from "../queries.js";
 
-export function KbTemplateSettingsSection({
-  kbId,
-  kbSlug,
-}: {
-  kbId: string;
-  kbSlug: string;
-}) {
+export function KbTemplateSettingsSection({ kbId }: { kbId: string }) {
   const { t } = useTranslation("kb");
   const { data: templates = [], isLoading } = useQuery(
     kbTemplatesQueryOptions(kbId)
@@ -40,7 +34,7 @@ export function KbTemplateSettingsSection({
       >
         <div className="flex flex-wrap items-center justify-end gap-2 pb-2">
           <Button asChild size="sm" variant="outline">
-            <Link to={kbNewTemplatePath(kbSlug)}>
+            <Link to={kbNewTemplatePath()}>
               <Plus className="mr-1.5 h-4 w-4" />
               {t("templates.new_template")}
             </Link>
@@ -72,7 +66,7 @@ export function KbTemplateSettingsSection({
                 <TableHead>{t("templates.properties")}</TableHead>
                 <TableHead>{t("templates.content_structure")}</TableHead>
                 <TableHead className="w-28 text-right">
-                  {t("settings.kbs.column_actions")}
+                  {t("scoped_settings.column_actions")}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -84,7 +78,7 @@ export function KbTemplateSettingsSection({
                     <TableCell>
                       <Link
                         className="font-medium hover:underline"
-                        to={kbTemplatePath(kbSlug, template.id)}
+                        to={kbTemplatePath(template.id)}
                       >
                         {template.name}
                       </Link>
@@ -105,7 +99,7 @@ export function KbTemplateSettingsSection({
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="icon" variant="ghost">
-                        <Link to={kbTemplatePath(kbSlug, template.id)}>
+                        <Link to={kbTemplatePath(template.id)}>
                           <Edit className="h-4 w-4" />
                         </Link>
                       </Button>

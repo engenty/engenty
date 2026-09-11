@@ -3,7 +3,12 @@ import {
   type EnvDocument,
   isPortlessOwned,
 } from "./env-file-document.js";
-import type { EnvScope, EnvVarSpec } from "./env-manifest-types.js";
+import {
+  type EnvRequirement,
+  type EnvScope,
+  type EnvVarSpec,
+  requirementForScope,
+} from "./env-manifest-types.js";
 
 export type EnvVarStatus =
   | "ok"
@@ -15,6 +20,11 @@ export type EnvVarStatus =
 export interface EnvVarReport {
   error?: string;
   portlessOwned: boolean;
+  /**
+   * `spec.required` resolved for the scope this report is for — read this,
+   * never `spec.required`, which may differ per env file.
+   */
+  requirement: EnvRequirement;
   spec: EnvVarSpec;
   status: EnvVarStatus;
   value?: string;
@@ -62,6 +72,7 @@ export function diffScope(params: DiffScopeParams): ScopeReport {
     return {
       ...statusFor(spec, value),
       portlessOwned: params.doc ? isPortlessOwned(params.doc, spec.key) : false,
+      requirement: requirementForScope(spec, params.scope),
       spec,
       value,
     };
@@ -82,7 +93,7 @@ export function diffScope(params: DiffScopeParams): ScopeReport {
 export function requiredGaps(report: ScopeReport): EnvVarReport[] {
   return report.vars.filter(
     (entry) =>
-      entry.spec.required === "always" &&
+      entry.requirement === "always" &&
       entry.status !== "ok" &&
       !entry.portlessOwned &&
       entry.spec.obtain.kind !== "portless"

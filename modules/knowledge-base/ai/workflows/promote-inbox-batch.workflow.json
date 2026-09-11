@@ -1,0 +1,38 @@
+{
+  "id": "knowledge-base.promote-inbox-batch",
+  "description": "Build a reviewed POST /api/kb/inbox/:id/promote-batch body for multi-page wiki captures; articles only; explicit human approval before API calls.",
+  "inputSchema": {
+    "description": "Inbox item id.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "inbox_id": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Promote inbox to multiple draft articles (batch)",
+    "owner_agent_id": "knowledge-base.manager",
+    "allowed_tools": [
+      "engenty_tools_search",
+      "engenty_tool_execute",
+      "web_search"
+    ],
+    "skills": ["kb-ingest"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"knowledge-base.manager\"},\"brief\":{\"value\":\"# Promote inbox (batch)\\n\\n## Task\\n\\nProduce a reviewed **`POST /api/kb/inbox/:id/promote-batch`** JSON body that creates **one or more draft articles** from a single inbox row, with **one** `primary_index` for which article becomes `inbox.promoted_article_id`. The server inserts **source_references** per article and closes the inbox once (all-or-nothing).\\n\\n## Body (snake_case)\\n\\n- `primary_index` (optional, default `0`): index into `steps` for the primary promoted article (UI navigation target).\\n- `steps`: non-empty array (max 20). Each step:\\n  - `title` (required)\\n  - `content_markdown` (optional; server falls back to inbox raw when omitted on creates)\\n  - `tag_ids`, `status` (optional; default `draft`)\\n  - **Parent**: either `parent_article_id` (existing article in the same KB) **or** `parent_step_index` (0-based index of an **earlier** step that creates/updates the parent article), never both.\\n  - `update_article_id` (optional): PATCH semantics for an existing article in that step.\\n\\n## Steps\\n\\n1. Load the inbox row with `kb_inbox_get` or the catalog-discovered `GET /api/kb/inbox/:id` route and read `triage_metadata` when present (prefer **v2** `promote_steps` if the editor already saved a plan).\\n2. Order steps so parents appear before children; use `parent_step_index` when the parent is created in the same batch.\\n3. Present the exact JSON body and wait for **explicit user approval**; execution is via the inbox UI **Promote batch** (or equivalent) until a promote gateway tool exists.\\n4. After success, list returned `articles` ids and remind that publishing remains a separate UI step.\\n\\n## Rules\\n\\n- **Articles only** in this action (no FAQ rows in `steps`).\\n- Default `status` is **draft**; do not set **published** unless the user clearly requests it.\\n- On failure the server rolls back new creates; do not assume partial success.\\n- Preserve snake_case in all JSON.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"engenty_tools_search\",\"engenty_tool_execute\",\"web_search\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

@@ -32,7 +32,7 @@ describe("knowledgeBaseCreateSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.name).toBe("My KB");
-      expect(result.data.is_default).toBe(false);
+      expect(result.data.space_id).toBeUndefined();
     }
   });
 
@@ -376,8 +376,7 @@ describe("kbSettingsSchema", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.embedding_model).toBe("openai/text-embedding-3-small");
-      expect(result.data.auto_generate_summary).toBe(true);
-      expect(result.data.auto_generate_questions).toBe(true);
+      expect(result.data.kb_chunking_by_id).toEqual({});
       expect(result.data.search_vector_min_similarity).toBe(0.45);
       expect(result.data.search_verifier_min_query_terms).toBe(3);
       expect(result.data.search_verifier_max_candidates).toBe(6);
@@ -387,10 +386,10 @@ describe("kbSettingsSchema", () => {
 
   it("accepts custom settings", () => {
     const result = kbSettingsSchema.safeParse({
-      default_kb_id: "kb-1",
       embedding_model: "openai/text-embedding-3-large",
-      auto_generate_summary: false,
-      auto_generate_questions: false,
+      kb_chunking_by_id: {
+        "kb-1": { max_length: 1500, overlap: 0, strategy: "sentence" },
+      },
       search_vector_min_similarity: 0.72,
       search_verifier_min_query_terms: 5,
       search_verifier_max_candidates: 4,
@@ -526,7 +525,7 @@ describe("kbSourceIngestConfigSchema", () => {
 describe("kbSourceIngestBodySchema", () => {
   it("accepts category_id on ingest", () => {
     const result = kbSourceIngestBodySchema.safeParse({
-      strategy: "articles",
+      strategy: "per_entry",
       category_id: "cat-guides",
     });
     expect(result.success).toBe(true);

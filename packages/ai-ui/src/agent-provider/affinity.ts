@@ -16,7 +16,6 @@ const AFFINITY_EXCLUDED_SCOPE_KEYS = new Set([
   "copilotStartMode",
   "copilotTriggerType",
   "copilot_new_chat_generation",
-  "goals_preview",
   "project_snapshot",
   "task_snapshot",
   "tasks_briefing_snapshot",

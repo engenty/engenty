@@ -25,6 +25,7 @@ import type {
   KbCategory,
   KbCategoryInput,
   KbCategoryUpdateInput,
+  KbChunking,
   KbDisplay,
   KbGraphInlineLink,
   KbGraphNode,
@@ -73,9 +74,9 @@ export type EmitArticleEvent = (
   }
 ) => void | Promise<void>;
 
-// `knowledge-base.category.<verb>` — folder-tree changes. Consumed by the
-// `kb-filesystem-sync` module to keep the OKF `<category-slug>/index.md`
-// representation (and child file prefixes) in step with the DB.
+// `knowledge-base.category.<verb>` — folder-tree changes. The retired
+// kb-filesystem-sync module consumed these for its OKF mirror; the SDK
+// re-index bindings and any future mirror subscribe the same way.
 export type EmitCategoryEvent = (
   verb: "created" | "deleted" | "updated",
   payload: {
@@ -106,14 +107,26 @@ export type KbRepoFactoryFn = (
   scopeId: string
 ) => KbRepoFactory;
 
+/* ── Spaces (core) ── */
+
+/**
+ * The one thing this module reads from `core.spaces`: a space's URL key, so a
+ * tool result can link a record into its space (`/s/<key>/kb/…`).
+ */
+export interface KbSpaceRepo {
+  /** Key and name of a space in this tenant; null when there is no such space. */
+  getById(spaceId: string): Promise<{ key: string; name: string } | null>;
+  keyById(spaceId: string): Promise<string | null>;
+}
+
 /* ── Knowledge Base Repo ── */
 
 export interface KbRepo {
   create(input: KnowledgeBaseInput): Promise<KnowledgeBase>;
   delete(id: string): Promise<boolean>;
   getById(id: string): Promise<KnowledgeBase | null>;
-  getDefault(): Promise<KnowledgeBase | null>;
-  list(): Promise<KnowledgeBase[]>;
+  /** `spaceId` narrows to exactly that space's libraries. */
+  list(filter?: { spaceId?: string | null }): Promise<KnowledgeBase[]>;
   update(
     id: string,
     input: KnowledgeBaseUpdateInput
@@ -381,6 +394,11 @@ export interface KbSourceRepo {
 
 export interface KbSettingsRepo {
   get(): Promise<KbSettings>;
+  /** Replace the library's own chunking (`kb.chunking` scoped KV row); `null` removes it. */
+  patchKbChunking(
+    kbId: string,
+    chunking: KbChunking | null
+  ): Promise<KbChunking | null>;
   /** Merge icon/cover into the per-KB `kb.display` KV row (no full settings read beyond this key). */
   patchKbDisplay(kbId: string, patch: Partial<KbDisplay>): Promise<KbDisplay>;
   /** Replace hub start page block layout (`kb.page_layout` scoped KV row). */
@@ -405,6 +423,7 @@ export interface KbRepoFactory {
   settings: KbSettingsRepo;
   source_references: SourceReferenceRepo;
   sources: KbSourceRepo;
+  spaces: KbSpaceRepo;
   tags: TagRepo;
   templates: KbTemplateRepo;
   versions: KbVersionRepo;

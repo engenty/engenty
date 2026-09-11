@@ -73,6 +73,11 @@ export interface PendingOAuthFlow {
   redirect_to: string | null;
   requested_scopes: string[];
   sharing: ConnectionSharing;
+  /**
+   * The space the connect was started from, mounted on success (CN.4 Flow A).
+   * Null for a connect started from tenant settings, which belongs to no space.
+   */
+  space_id?: string | null;
   tenant_id: string;
   user_id: string;
 }
@@ -274,8 +279,22 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
      * `account` addressing, single-candidate default, ambiguity error).
      */
     async listCandidateConnections(params: {
+      /**
+       * Personal connections the ACTING AGENT was granted (CN.5). Without
+       * this they would not be candidates at all, and the grant would be a row
+       * the policy consults about a connection it never sees.
+       */
+      agentGrantedConnectionIds?: ReadonlySet<string>;
       connectorId: string;
       principalId: string;
+      /**
+       * The VERIFIED personal-space owner the run acts for
+       * (PLAN-space-computer.md §2.1) — resolved by
+       * `resolveVerifiedSpaceOwnerForRun`, never taken from a raw claim. Makes
+       * the owner's personal connections candidates the way the owner's own
+       * calls would; every later clamp still applies.
+       */
+      spaceOwnerUserId?: string | null;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
       const all = await this.listConnections({
@@ -285,7 +304,87 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       return all.filter(
         (c) =>
           c.status === "active" &&
-          (c.sharing === "org" || c.owner_user_id === params.principalId)
+          (c.sharing === "org" ||
+            c.owner_user_id === params.principalId ||
+            (params.spaceOwnerUserId != null &&
+              c.owner_user_id === params.spaceOwnerUserId) ||
+            params.agentGrantedConnectionIds?.has(c.id))
+      );
+    },
+
+    /**
+     * Connections the acting agent has been granted (PLAN-spaces.md CN.5).
+     *
+     * The set an agent-driven call may treat as if it owned. Empty for every
+     * agent nobody granted anything, which is the default and the safe one.
+     */
+    async listAgentGrantedConnectionIds(params: {
+      agentId: string;
+    }): Promise<Set<string>> {
+      const rows = throwOnError(
+        await db()
+          .from("connection_agent_grants")
+          .select("connection_id")
+          .eq("agent_id", params.agentId)
+      ) as Array<{ connection_id: string }>;
+      return new Set(rows.map((row) => row.connection_id));
+    },
+
+    /** Agents granted this connection, for the owner's "Used by" list. */
+    async listConnectionAgentGrants(params: {
+      connectionId: string;
+    }): Promise<Array<{ agent_id: string; created_at: string }>> {
+      return throwOnError(
+        await db()
+          .from("connection_agent_grants")
+          .select("agent_id, created_at")
+          .eq("connection_id", params.connectionId)
+      ) as Array<{ agent_id: string; created_at: string }>;
+    },
+
+    /** Every grant in the tenant, joined by the caller for list surfaces. */
+    async listAgentGrants(): Promise<
+      Array<{ agent_id: string; connection_id: string; created_at: string }>
+    > {
+      return throwOnError(
+        await db()
+          .from("connection_agent_grants")
+          .select("agent_id, connection_id, created_at")
+      ) as Array<{
+        agent_id: string;
+        connection_id: string;
+        created_at: string;
+      }>;
+    },
+
+    /** Grant, or re-grant (idempotent — one row per agent per connection). */
+    async grantConnectionToAgent(params: {
+      agentId: string;
+      connectionId: string;
+      grantedBy: string;
+    }): Promise<void> {
+      throwOnError(
+        await db().from("connection_agent_grants").upsert(
+          {
+            agent_id: params.agentId,
+            connection_id: params.connectionId,
+            granted_by: params.grantedBy,
+          },
+          { onConflict: "connection_id,agent_id" }
+        )
+      );
+    },
+
+    async revokeConnectionFromAgent(params: {
+      agentId: string;
+      connectionId: string;
+    }): Promise<void> {
+      throwOnError(
+        await db()
+          .from("connection_agent_grants")
+          .delete()
+          .eq("connection_id", params.connectionId)
+          .eq("agent_id", params.agentId)
       );
     },
 
@@ -438,6 +537,16 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
           .insert({
             auth_kind: input.authKind ?? "oauth2",
             connector_id: input.connectorId,
+            // PLAN-spaces.md CN.6/1 — a NEW org share starts capped at reads.
+            // The column is nullable and null means uncapped, so sharing an
+            // account with the team used to hand every member its destructive
+            // actions unless someone thought to opt into a cap. The safe
+            // direction is the default; the owner can widen it in settings.
+            // Only on INSERT: a reconnect must not silently undo a cap the
+            // owner deliberately widened.
+            ...(input.sharing === "org"
+              ? { non_owner_max_group: "read" as const }
+              : {}),
             owner_user_id: input.ownerUserId,
             sharing: input.sharing,
             tenant_id: input.tenantId,

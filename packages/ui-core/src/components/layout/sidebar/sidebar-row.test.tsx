@@ -120,9 +120,21 @@ describe("SidebarRowLeadingIcon", () => {
     expect(screen.getByTestId("leading-icon")).toBeTruthy();
   });
 
-  it("renders chevron slot when provided", () => {
+  it("renders chevron in place of the icon by default", () => {
     render(
       <SidebarRowLeadingIcon
+        chevronSlot={<button type="button">Expand</button>}
+        icon={<FileText data-testid="leading-icon" />}
+      />
+    );
+    expect(screen.queryByTestId("leading-icon")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand" })).toBeTruthy();
+  });
+
+  it("keeps the icon when alwaysShowChevron is false", () => {
+    render(
+      <SidebarRowLeadingIcon
+        alwaysShowChevron={false}
         chevronSlot={<button type="button">Expand</button>}
         icon={<FileText data-testid="leading-icon" />}
       />

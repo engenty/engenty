@@ -19,6 +19,22 @@
       "type": "string",
       "description": "Description of the agent's capabilities"
     },
+    "engenty": {
+      "type": "string",
+      "enum": [
+        "round",
+        "drop",
+        "dome",
+        "flame",
+        "oval",
+        "bean",
+        "pebble",
+        "sprout",
+        "tower",
+        "wedge"
+      ],
+      "description": "Engenty silhouette shown on the agent start header (ui-core ENGENTY_KINDS)"
+    },
     "module_id": {
       "type": "string",
       "description": "The module this agent belongs to"
@@ -44,12 +60,84 @@
       },
       "description": "Skills assigned to this agent"
     },
+    "starters": {
+      "type": "array",
+      "maxItems": 6,
+      "description": "Empty-state composer chips. Declare up to 6; the desk shows at most 3 after locale and condition filtering. Authoring: a job not a greeting, answerable with declared tools, chip ≤40 chars, ship en + locales.de.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "prompt"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48,
+            "description": "Chip text (en/default). Keep it short — ≤40 chars in practice."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "Full-sentence prompt submitted when the chip is clicked (en/default)."
+          },
+          "locales": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "prompt"],
+              "properties": {
+                "label": { "type": "string", "minLength": 1, "maxLength": 48 },
+                "prompt": { "type": "string", "minLength": 1, "maxLength": 400 }
+              }
+            }
+          },
+          "when": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "connector": {
+                "type": "string",
+                "description": "Only show when this connector id is mounted on the space."
+              },
+              "module": {
+                "type": "string",
+                "description": "Only show when this module is mounted with agentAccess other than none."
+              },
+              "hasOpenTasks": { "type": "boolean" },
+              "firstVisit": {
+                "type": "boolean",
+                "description": "true when the agent has no threads in this space yet."
+              }
+            }
+          }
+        }
+      }
+    },
     "tools": {
       "type": "array",
       "items": {
         "type": "string"
       },
       "description": "Tools assigned to this agent"
+    },
+    "workspace": {
+      "type": "object",
+      "description": "Optional per-agent workspace request (filesystem + skills + sandbox).",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "preset": {
+          "type": "string",
+          "enum": ["assistant", "staff", "code_execution", "custom"]
+        },
+        "mounts": { "type": "array" },
+        "sandbox": { "type": "object" },
+        "search": { "type": "object" },
+        "skills": { "type": "object" }
+      }
     }
   },
   "required": [

@@ -99,7 +99,6 @@ describe("resolveEngentyAgentAffinityStableSessionKey", () => {
             comment_count: 12,
             description: "x".repeat(800),
             due_date: null,
-            goal_id: "goal-1",
             identifier: "ENG-1",
             primary_assignee_agent_id: null,
             primary_assignee_kind: "user",

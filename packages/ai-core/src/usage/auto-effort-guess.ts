@@ -23,6 +23,11 @@ export interface AutoEffortGuess {
 }
 
 export interface GuessEffortFromPromptInput {
+  /**
+   * The agent's own default tier (`agentDefaultEffort`). Certain when set:
+   * an App Coder's "ok, do it" is still coding.
+   */
+  agentEffort?: AiEffort | null;
   /** Session agent id (e.g. engenty.cli, engenty.copilot). */
   agentId?: string | null;
   /** True when the latest user turn carries file attachments. */
@@ -31,8 +36,29 @@ export interface GuessEffortFromPromptInput {
   text: string;
 }
 
-/** Agents that are coding / CLI specialists — always high when Auto. */
-const HIGH_AGENT_IDS = new Set(["engenty.cli", "engenty.app-coder"]);
+/** Tools whose holder writes code. Coding always runs at the top tier. */
+const CODING_TOOL_IDS: ReadonlySet<string> = new Set(["app_build"]);
+
+/**
+ * The tier an agent's turns run at when nobody chose one — the person left
+ * the composer on Auto, or the turn is a hand-off, a delegation or a routine.
+ * Declared on the agent (`effort`), else implied by a coding tool: whoever
+ * holds `app_build` is building software, whatever their id or name.
+ */
+export function agentDefaultEffort(
+  config:
+    | { effort?: AiEffort | null; toolIds?: readonly string[] | null }
+    | null
+    | undefined
+): AiEffort | null {
+  if (!config) {
+    return null;
+  }
+  if (config.effort) {
+    return config.effort;
+  }
+  return config.toolIds?.some((id) => CODING_TOOL_IDS.has(id)) ? "high" : null;
+}
 
 /**
  * Coding / planning / multi-edit intent. Keep this tight: a false high costs
@@ -63,13 +89,12 @@ export function guessEffortFromPrompt(
   input: GuessEffortFromPromptInput
 ): AutoEffortGuess {
   const text = input.text.trim();
-  const agentId = input.agentId?.trim().toLowerCase() || "";
 
-  if (agentId && HIGH_AGENT_IDS.has(agentId)) {
+  if (input.agentEffort) {
     return {
       confidence: "certain",
-      effort: "high",
-      reason: `agent:${agentId}`,
+      effort: input.agentEffort,
+      reason: `agent:${input.agentId?.trim().toLowerCase() || "default"}`,
     };
   }
 

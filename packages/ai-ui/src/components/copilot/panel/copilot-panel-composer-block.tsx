@@ -1,16 +1,19 @@
 "use client";
 
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
-import { Button, cn, useBlobCharacterCycle } from "@engenty/ui-core";
+import { Button, cn } from "@engenty/ui-core";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import { PromptInputProvider } from "../../ai-elements/prompt-input";
+import { CHAT_LANE_COLUMN_CLASS } from "../chat-lane/chat-lane-layout.js";
 import { CopilotCompactComposerShell } from "../composer/copilot-compact-composer-shell";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import { CopilotComposerSection } from "../composer/copilot-composer-section";
 import { CopilotComposerUsageMeter } from "../composer/copilot-composer-usage-meter";
+import { CopilotEmptyLandingIntro } from "./copilot-empty-landing-intro";
+import type { CopilotEmptyLandingAlign } from "./copilot-panel-content-types";
 
 export function CopilotPanelComposerBlock({
   autoExpand = true,
@@ -26,8 +29,11 @@ export function CopilotPanelComposerBlock({
   composerWrapperClassName,
   dockedSurface,
   draft,
+  emptyLandingAlign,
+  emptyStateHeader,
   emptyStateSubtitle,
   emptyStateTitle,
+  engentyKind,
   error,
   mentionAgentCandidates,
   mentionRefSearch,
@@ -44,6 +50,7 @@ export function CopilotPanelComposerBlock({
   voiceInputEnabled = true,
   voiceInputLang,
 }: {
+  engentyKind?: import("@engenty/ai-core/browser").AgentEngentyKind;
   centerEmptyLanding: boolean;
   autoExpand?: boolean;
   compact: boolean;
@@ -59,6 +66,8 @@ export function CopilotPanelComposerBlock({
    *  attached directly behind the composer card (see shell `dockContent`). */
   dockedSurface?: ReactNode;
   draft: string;
+  emptyLandingAlign?: CopilotEmptyLandingAlign;
+  emptyStateHeader?: ReactNode;
   emptyStateSubtitle?: string;
   emptyStateTitle?: string;
   error?: Error | null;
@@ -77,8 +86,9 @@ export function CopilotPanelComposerBlock({
   voiceInputEnabled?: boolean;
   voiceInputLang?: string;
 }) {
-  const blobCharacter = useBlobCharacterCycle();
   const [isMultiline, setIsMultiline] = useState(false);
+  const showEmptyChrome = emptyLandingAlign != null || centerEmptyLanding;
+  const emptyIntroAlignsStart = emptyLandingAlign === "start";
 
   return (
     <div
@@ -89,151 +99,162 @@ export function CopilotPanelComposerBlock({
       }
       data-copilot-speech-scope
     >
-      {centerEmptyLanding && emptyStateTitle ? (
-        <div className="mb-6 space-y-1 text-center">
-          <p className="font-medium text-2xl text-foreground tracking-tight md:text-3xl">
-            {emptyStateTitle}
-          </p>
-          {emptyStateSubtitle ? (
-            <p className="text-muted-foreground text-sm">
-              {emptyStateSubtitle}
-            </p>
-          ) : null}
-        </div>
+      {showEmptyChrome ? (
+        <CopilotEmptyLandingIntro
+          alignStart={emptyIntroAlignsStart}
+          header={emptyStateHeader}
+          subtitle={emptyStateSubtitle}
+          title={emptyStateTitle}
+        />
       ) : null}
-      <PromptInputProvider initialInput={draft}>
-        <div className={cn("relative", centerEmptyLanding && "w-full")}>
-          {composerDockStyle ? (
-            <CopilotCompactComposerShell
-              autoExpand={autoExpand}
-              belowCard={
-                composerLeadingControl || compactContextControl ? (
-                  <div className="flex items-center gap-2">
-                    {composerLeadingControl}
-                    {compactContextControl}
-                  </div>
-                ) : undefined
-              }
-              chatStatus={status}
-              dockContent={dockedSurface}
-              enableStatusFlap={enableStatusFlap}
-              errorMessage={error?.message ?? null}
-              forceActive={centerEmptyLanding}
-              isMultiline={isMultiline}
-              messages={messages}
-              threadId={threadId}
-              variant="dock-tinted"
-            >
-              <CopilotComposerSection
-                compact
-                composerOverride={composerOverride}
-                composerPlaceholder={composerPlaceholder}
-                draft={draft}
-                focusComposerKey={composerFocusKey}
-                mentionAgentCandidates={mentionAgentCandidates}
-                mentionRefSearch={mentionRefSearch}
-                onComposerMentionAgent={onComposerMentionAgent}
-                onMultilineChange={setIsMultiline}
-                onStop={onStop}
-                setDraft={setDraft}
-                showStarterPrompts={false}
-                slashCommands={slashCommands}
-                starterPrompts={starterPrompts}
-                status={status}
-                submitMessage={submitMessage}
-                transcribeAudio={transcribeAudio}
-                voiceInputEnabled={voiceInputEnabled}
-                voiceInputLang={voiceInputLang}
-              />
-            </CopilotCompactComposerShell>
-          ) : compact ? (
-            <CopilotCompactComposerShell
-              autoExpand={autoExpand}
-              belowCard={
-                compactContextControl ? (
-                  <div className="flex items-center gap-2">
-                    {compactContextControl}
-                  </div>
-                ) : undefined
-              }
-              chatStatus={status}
-              dockContent={dockedSurface}
-              enableStatusFlap={enableStatusFlap}
-              errorMessage={error?.message ?? null}
-              forceActive={centerEmptyLanding}
-              isMultiline={isMultiline}
-              messages={messages}
-              threadId={threadId}
-            >
-              <CopilotComposerSection
-                compact
-                composerOverride={composerOverride}
-                composerPlaceholder={composerPlaceholder}
-                draft={draft}
-                focusComposerKey={composerFocusKey}
-                mentionAgentCandidates={mentionAgentCandidates}
-                mentionRefSearch={mentionRefSearch}
-                onComposerMentionAgent={onComposerMentionAgent}
-                onMultilineChange={setIsMultiline}
-                onStop={onStop}
-                setDraft={setDraft}
-                showStarterPrompts={false}
-                slashCommands={slashCommands}
-                status={status}
-                submitMessage={submitMessage}
-                transcribeAudio={transcribeAudio}
-                voiceInputEnabled={voiceInputEnabled}
-                voiceInputLang={voiceInputLang}
-              />
-            </CopilotCompactComposerShell>
-          ) : (
-            <div className="flex flex-col">
-              {dockedSurface ? (
-                <div className="mb-3">{dockedSurface}</div>
-              ) : null}
-              <CopilotComposerSection
-                composerOverride={composerOverride}
-                composerPlaceholder={composerPlaceholder}
-                draft={draft}
-                focusComposerKey={composerFocusKey}
-                mentionAgentCandidates={mentionAgentCandidates}
-                mentionRefSearch={mentionRefSearch}
-                onComposerMentionAgent={onComposerMentionAgent}
-                onStop={onStop}
-                setDraft={setDraft}
-                showStarterPrompts={messages.length === 0}
-                slashCommands={slashCommands}
-                starterPrompts={starterPrompts}
-                status={status}
-                submitMessage={submitMessage}
-                transcribeAudio={transcribeAudio}
-                voiceInputEnabled={voiceInputEnabled}
-                voiceInputLang={voiceInputLang}
-              />
-              <CopilotComposerUsageMeter
+      <div
+        className={cn(
+          emptyIntroAlignsStart &&
+            showEmptyChrome &&
+            `${CHAT_LANE_COLUMN_CLASS} mt-16 md:mt-20`
+        )}
+      >
+        <PromptInputProvider initialInput={draft}>
+          <div className={cn("relative", showEmptyChrome && "w-full")}>
+            {composerDockStyle ? (
+              <CopilotCompactComposerShell
+                autoExpand={autoExpand}
+                belowCard={
+                  composerLeadingControl || compactContextControl ? (
+                    <div className="flex items-center gap-2">
+                      {composerLeadingControl}
+                      {compactContextControl}
+                    </div>
+                  ) : undefined
+                }
                 chatStatus={status}
+                dockContent={dockedSurface}
+                enableStatusFlap={enableStatusFlap}
+                engentyKind={engentyKind}
+                errorMessage={error?.message ?? null}
+                forceActive={showEmptyChrome}
+                isMultiline={isMultiline}
+                messages={messages}
                 threadId={threadId}
-              />
-            </div>
-          )}
-        </div>
-      </PromptInputProvider>
-      {centerEmptyLanding && starterPrompts && starterPrompts.length > 0 ? (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {starterPrompts.map((item) => (
-            <Button
-              className="h-9 rounded-full bg-background/80 px-4 font-normal shadow-sm"
-              key={item.id}
-              onClick={() => setDraft(item.prompt)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              {item.label}
-            </Button>
-          ))}
-        </div>
-      ) : null}
+                variant="dock-tinted"
+              >
+                <CopilotComposerSection
+                  compact
+                  composerOverride={composerOverride}
+                  composerPlaceholder={composerPlaceholder}
+                  draft={draft}
+                  focusComposerKey={composerFocusKey}
+                  mentionAgentCandidates={mentionAgentCandidates}
+                  mentionRefSearch={mentionRefSearch}
+                  onComposerMentionAgent={onComposerMentionAgent}
+                  onMultilineChange={setIsMultiline}
+                  onStop={onStop}
+                  setDraft={setDraft}
+                  showStarterPrompts={false}
+                  slashCommands={slashCommands}
+                  starterPrompts={starterPrompts}
+                  status={status}
+                  submitMessage={submitMessage}
+                  transcribeAudio={transcribeAudio}
+                  voiceInputEnabled={voiceInputEnabled}
+                  voiceInputLang={voiceInputLang}
+                />
+              </CopilotCompactComposerShell>
+            ) : compact ? (
+              <CopilotCompactComposerShell
+                autoExpand={autoExpand}
+                belowCard={
+                  compactContextControl ? (
+                    <div className="flex items-center gap-2">
+                      {compactContextControl}
+                    </div>
+                  ) : undefined
+                }
+                chatStatus={status}
+                dockContent={dockedSurface}
+                enableStatusFlap={enableStatusFlap}
+                engentyKind={engentyKind}
+                errorMessage={error?.message ?? null}
+                forceActive={showEmptyChrome}
+                isMultiline={isMultiline}
+                messages={messages}
+                threadId={threadId}
+              >
+                <CopilotComposerSection
+                  compact
+                  composerOverride={composerOverride}
+                  composerPlaceholder={composerPlaceholder}
+                  draft={draft}
+                  focusComposerKey={composerFocusKey}
+                  mentionAgentCandidates={mentionAgentCandidates}
+                  mentionRefSearch={mentionRefSearch}
+                  onComposerMentionAgent={onComposerMentionAgent}
+                  onMultilineChange={setIsMultiline}
+                  onStop={onStop}
+                  setDraft={setDraft}
+                  showStarterPrompts={false}
+                  slashCommands={slashCommands}
+                  status={status}
+                  submitMessage={submitMessage}
+                  transcribeAudio={transcribeAudio}
+                  voiceInputEnabled={voiceInputEnabled}
+                  voiceInputLang={voiceInputLang}
+                />
+              </CopilotCompactComposerShell>
+            ) : (
+              <div className="flex flex-col">
+                {dockedSurface ? (
+                  <div className="mb-3">{dockedSurface}</div>
+                ) : null}
+                <CopilotComposerSection
+                  composerOverride={composerOverride}
+                  composerPlaceholder={composerPlaceholder}
+                  draft={draft}
+                  focusComposerKey={composerFocusKey}
+                  mentionAgentCandidates={mentionAgentCandidates}
+                  mentionRefSearch={mentionRefSearch}
+                  onComposerMentionAgent={onComposerMentionAgent}
+                  onStop={onStop}
+                  setDraft={setDraft}
+                  showStarterPrompts={messages.length === 0}
+                  slashCommands={slashCommands}
+                  starterPrompts={starterPrompts}
+                  status={status}
+                  submitMessage={submitMessage}
+                  transcribeAudio={transcribeAudio}
+                  voiceInputEnabled={voiceInputEnabled}
+                  voiceInputLang={voiceInputLang}
+                />
+                <CopilotComposerUsageMeter
+                  chatStatus={status}
+                  threadId={threadId}
+                />
+              </div>
+            )}
+          </div>
+        </PromptInputProvider>
+        {showEmptyChrome && starterPrompts && starterPrompts.length > 0 ? (
+          <div
+            className={cn(
+              "mt-4 flex flex-wrap gap-2",
+              emptyIntroAlignsStart ? "justify-start" : "justify-center"
+            )}
+          >
+            {starterPrompts.map((item) => (
+              <Button
+                className="h-9 rounded-full bg-background/80 px-4 font-normal shadow-sm"
+                key={item.id}
+                onClick={() => setDraft(item.prompt)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

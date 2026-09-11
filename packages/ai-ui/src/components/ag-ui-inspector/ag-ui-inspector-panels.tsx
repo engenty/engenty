@@ -1,6 +1,10 @@
 "use client";
 
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import {
+  type AGUIEvent,
+  trajectoryRowAnchorId,
+  trajectoryRowKeyPreview,
+} from "@engenty/ag-ui-bridge";
 import { Badge, Button, cn, ScrollArea, Separator } from "@engenty/ui-core";
 import { AnimatedCheckIcon, AnimatedCopyIcon } from "@engenty/ui-icons";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -11,10 +15,13 @@ import {
   formatDisplayText,
   formatToolParameters,
   resolveToolDisplayStatus,
+  TRAJECTORY_KIND_LABEL,
   timelineEventClassName,
   timelineMessageClassName,
   toolStatusClassName,
   toolStatusLabel,
+  trajectoryKeyClassName,
+  trajectoryKindClassName,
   truncateInline,
 } from "./ag-ui-inspector-chrome.js";
 import {
@@ -32,6 +39,20 @@ import {
   type InspectorToolCall,
   messagePreview,
 } from "./ag-ui-inspector-model.js";
+import {
+  buildInspectorTrajectory,
+  type InspectorTrajectoryRow,
+  trajectoryTranscript,
+} from "./ag-ui-inspector-trajectory.js";
+import {
+  InspectorLedgerBody,
+  InspectorLedgerDetail,
+  InspectorLedgerMarkup,
+  type LedgerTextMode,
+  LedgerTextModeSwitch,
+} from "./inspector-ledger-text.js";
+import { InspectorWireEvents } from "./inspector-wire-events.js";
+import { TrajectoryGantt } from "./trajectory-gantt.js";
 
 interface TimelineRow {
   count: number;
@@ -173,8 +194,8 @@ function SectionCard({
   title: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-border/80 bg-card shadow-sm">
-      <div className="border-border/60 border-b px-3 py-2">
+    <section className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+      <div className="border-border-soft border-b px-3 py-2">
         <h3 className="font-medium font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           {title}
         </h3>
@@ -189,19 +210,36 @@ export function PromptPanel({
 }: {
   initialPrompt: InspectorInitialPrompt | null;
 }) {
+  const system =
+    initialPrompt?.systemInstructions.trim() ||
+    (initialPrompt?.modelMessages === undefined
+      ? ""
+      : formatJson(initialPrompt.modelMessages)) ||
+    "Waiting for the next copilot run…";
   const runtime =
     initialPrompt?.runtimeContextInstructions ||
     "Waiting for the next copilot run…";
+  const tools = initialPrompt?.toolNames ?? [];
 
   return (
     <ScrollArea className="h-full">
       <div className="space-y-3 p-3">
+        <SectionCard title="System instructions">
+          <CopyablePre value={system} />
+        </SectionCard>
         <SectionCard title="Runtime context">
           <CopyablePre value={runtime} />
         </SectionCard>
-        <SectionCard title="Model messages">
-          <JsonViewer value={initialPrompt?.modelMessages ?? []} />
-        </SectionCard>
+        {tools.length > 0 ? (
+          <SectionCard title="Tools">
+            <CopyablePre value={tools.join("\n")} />
+          </SectionCard>
+        ) : null}
+        {initialPrompt?.modelMessages === undefined ? null : (
+          <SectionCard title="Model messages">
+            <JsonViewer value={initialPrompt.modelMessages} />
+          </SectionCard>
+        )}
       </div>
     </ScrollArea>
   );
@@ -232,7 +270,7 @@ export function TimelinePanel({
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex items-center justify-between gap-2 border-border/60 border-b px-3 py-2">
+      <div className="flex items-center justify-between gap-2 border-border-soft border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Application stream
         </p>
@@ -243,7 +281,7 @@ export function TimelinePanel({
       {rows.length === 0 ? (
         <PanelEmpty>No messages or AG-UI events yet.</PanelEmpty>
       ) : (
-        <div className="divide-y divide-border/60 font-mono text-xs">
+        <div className="divide-y divide-border-soft font-mono text-xs">
           {rows.map((row) => (
             <TimelineRowView key={row.id} row={row} />
           ))}
@@ -339,7 +377,7 @@ export function ToolsPanel({
 
   return (
     <ScrollArea className="h-full">
-      <div className="border-border/60 border-b px-3 py-2">
+      <div className="border-border-soft border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Tool calls
         </p>
@@ -347,7 +385,7 @@ export function ToolsPanel({
       {toolCalls.length === 0 ? (
         <PanelEmpty>No tool calls observed yet.</PanelEmpty>
       ) : (
-        <div className="divide-y divide-border/60">
+        <div className="divide-y divide-border-soft">
           {toolCalls.map((tool, index) => {
             const expanded = open[tool.id] ?? false;
             const displayStatus = resolveToolDisplayStatus(tool);
@@ -394,7 +432,7 @@ export function ToolsPanel({
                   </span>
                 </button>
                 {expanded ? (
-                  <div className="space-y-2 border-border/50 border-t bg-muted/20 px-3 py-3">
+                  <div className="space-y-2 border-border-soft border-t bg-muted/20 px-3 py-3">
                     <JsonViewer label="Arguments" value={tool.args || "{}"} />
                     <Separator />
                     <JsonViewer label="Result" value={tool.result ?? "null"} />
@@ -409,10 +447,233 @@ export function ToolsPanel({
   );
 }
 
+export function RawPanel({
+  events,
+  messages = [],
+}: {
+  events: readonly AGUIEvent[];
+  messages?: readonly EngentyAgUiMessage[];
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [view, setView] = useState<"ledger" | "wire">("ledger");
+  const [textMode, setTextMode] = useState<LedgerTextMode>("markdown");
+  const rows = buildInspectorTrajectory(events, messages);
+  const transcript = trajectoryTranscript(rows);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-border-soft border-b px-3 py-1.5">
+        <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
+          {view === "wire"
+            ? "AG-UI wire · oldest first"
+            : "Trajectory · oldest first"}
+        </p>
+        <div className="flex items-center gap-1">
+          {view === "ledger" && rows.length > 0 ? (
+            <CopyButton reveal="always" value={transcript} />
+          ) : null}
+          {view === "ledger" ? (
+            <LedgerTextModeSwitch onChange={setTextMode} value={textMode} />
+          ) : null}
+          <button
+            className={cn(
+              "h-6 rounded px-2 font-mono text-[10px] uppercase tracking-wide",
+              view === "ledger"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setView("ledger")}
+            type="button"
+          >
+            Ledger
+          </button>
+          <button
+            className={cn(
+              "h-6 rounded px-2 font-mono text-[10px] uppercase tracking-wide",
+              view === "wire"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setView("wire")}
+            type="button"
+          >
+            Wire
+          </button>
+        </div>
+      </div>
+      {view === "wire" ? (
+        <ScrollArea className="min-h-0 flex-1">
+          {events.length === 0 ? (
+            <PanelEmpty>No AG-UI events yet.</PanelEmpty>
+          ) : (
+            <InspectorWireEvents events={events} />
+          )}
+        </ScrollArea>
+      ) : (
+        <>
+          {rows.length > 0 ? (
+            <TrajectoryGantt
+              hoveredId={hoveredId}
+              onHover={setHoveredId}
+              onSelect={(rowId) => {
+                setSelectedId(rowId);
+                setExpandedRowId(rowId);
+              }}
+              rows={rows}
+              selectedId={selectedId}
+            />
+          ) : null}
+          <ScrollArea className="min-h-0 flex-1">
+            {rows.length === 0 ? (
+              <PanelEmpty>No AG-UI events yet.</PanelEmpty>
+            ) : (
+              <div className="w-full divide-y divide-border-soft font-mono text-xs">
+                {rows.map((row) => (
+                  <TrajectoryRowView
+                    expanded={row.id === expandedRowId}
+                    highlighted={row.id === hoveredId || row.id === selectedId}
+                    key={row.id}
+                    onHover={setHoveredId}
+                    onToggleExpand={() =>
+                      setExpandedRowId((current) =>
+                        current === row.id ? null : row.id
+                      )
+                    }
+                    row={row}
+                    textMode={textMode}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function TrajectoryRowView({
+  expanded,
+  highlighted,
+  onHover,
+  onToggleExpand,
+  row,
+  textMode = "markdown",
+}: {
+  expanded?: boolean;
+  highlighted?: boolean;
+  onHover?: (rowId: string | null) => void;
+  onToggleExpand?: () => void;
+  row: InspectorTrajectoryRow;
+  textMode?: LedgerTextMode;
+}) {
+  const [uncontrolledExpanded, setUncontrolledExpanded] = useState(false);
+  const isExpanded = expanded ?? uncontrolledExpanded;
+  const canExpand =
+    row.detail.length > 72 ||
+    row.detail !== row.text ||
+    Boolean(row.resultDetail);
+  const full = [row.detail, row.resultDetail]
+    .filter(Boolean)
+    .join("\n\n── result ──\n");
+  const preview = trajectoryRowKeyPreview(row);
+  const keyTitle = row.keyLabel
+    ? `${TRAJECTORY_KIND_LABEL[row.kind]} · ${row.keyLabel}`
+    : TRAJECTORY_KIND_LABEL[row.kind];
+
+  const toggleExpand = () => {
+    if (onToggleExpand) {
+      onToggleExpand();
+      return;
+    }
+    setUncontrolledExpanded((value) => !value);
+  };
+
+  return (
+    <div
+      className={cn(
+        "group w-full scroll-mt-2 px-3 py-1.5",
+        highlighted ? "bg-sky-500/10" : "hover:bg-muted/30"
+      )}
+      id={trajectoryRowAnchorId(row.id)}
+      onMouseEnter={() => onHover?.(row.id)}
+      onMouseLeave={() => onHover?.(null)}
+    >
+      <div className="grid w-full grid-cols-[4.5rem_auto_minmax(0,1fr)_auto] items-start gap-2">
+        <span className="pt-0.5 font-mono text-[10px] text-muted-foreground">
+          {row.turnStart && row.turn ? `Turn ${row.turn}` : ""}
+        </span>
+        <button
+          className={cn(
+            "flex min-w-0 max-w-[12rem] items-center gap-1 text-left",
+            canExpand && "cursor-pointer"
+          )}
+          disabled={!canExpand}
+          onClick={() => canExpand && toggleExpand()}
+          type="button"
+        >
+          <span
+            className={cn(
+              "inline-flex h-[19px] shrink-0 items-center overflow-hidden rounded px-1.5 font-semibold text-[10px] leading-none tracking-[0.035em]",
+              trajectoryKindClassName(row.kind)
+            )}
+            title={TRAJECTORY_KIND_LABEL[row.kind]}
+          >
+            {TRAJECTORY_KIND_LABEL[row.kind]}
+          </span>
+          {row.keyLabel ? (
+            <span
+              className={cn(
+                "inline-flex h-[19px] min-w-0 max-w-full items-center overflow-hidden rounded px-1.5 font-mono font-semibold text-[10px] leading-none",
+                trajectoryKeyClassName(row.keyLabel, row.kind)
+              )}
+              title={keyTitle}
+            >
+              <span className="min-w-0 truncate">{row.keyLabel}</span>
+            </span>
+          ) : null}
+        </button>
+        {isExpanded ? (
+          <div className="w-full min-w-0 text-left text-foreground/85">
+            <InspectorLedgerDetail detail={row.detail} mode={textMode} />
+            {row.resultDetail ? (
+              <span className="mt-2 block">
+                <span className="mb-1 block font-mono text-muted-foreground">
+                  ── result ──
+                </span>
+                <InspectorLedgerBody mode={textMode} text={row.resultDetail} />
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            className={cn(
+              "w-full min-w-0 text-left text-foreground/85",
+              canExpand && "cursor-pointer"
+            )}
+            disabled={!canExpand}
+            onClick={() => canExpand && toggleExpand()}
+            type="button"
+          >
+            <span className="block w-full min-w-0 truncate">
+              {preview ? <InspectorLedgerMarkup text={preview} /> : null}
+              {row.result ? (
+                <span className="text-muted-foreground"> → {row.result}</span>
+              ) : null}
+            </span>
+          </button>
+        )}
+        <CopyButton value={full} />
+      </div>
+    </div>
+  );
+}
+
 export function JsonPanel({ value }: { value: unknown }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-border/60 border-b px-3 py-2">
+      <div className="shrink-0 border-border-soft border-b px-3 py-2">
         <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wider">
           Shared state (agent.state)
         </p>
@@ -488,11 +749,11 @@ function CopyablePre({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border/50 bg-muted/40",
+        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border-soft bg-muted/40",
         className
       )}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-border/40 border-b bg-muted/25 px-2 py-1">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-border-soft border-b bg-muted/25 px-2 py-1">
         {label ? (
           <span className="font-medium font-mono text-[11px] text-muted-foreground uppercase tracking-wide">
             {label}

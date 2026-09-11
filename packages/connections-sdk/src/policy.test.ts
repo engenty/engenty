@@ -180,6 +180,100 @@ describe("resolveConnectionActionPolicy", () => {
   });
 });
 
+// PLAN-connections-ux.md B1 — the space says how far, the account owner keeps
+// the ceiling. The two halves are set in different places, so a denial has to
+// say which one refused.
+describe("space access level", () => {
+  const orgFull = connection({ autonomous_mode: "full", sharing: "org" });
+
+  it("clamps an autonomous run to the space's level", () => {
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "write", id: "send" },
+        connection: orgFull,
+        isAutonomous: true,
+        overrides: [{ policy: "allow", selector: "send" }],
+        principal: user(OTHER),
+        spaceAccess: "read",
+      })
+    ).toEqual({
+      decision: "deny",
+      reason: "connection_space_access_read_only",
+    });
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "list" },
+        connection: orgFull,
+        isAutonomous: true,
+        overrides: [],
+        principal: user(OTHER),
+        spaceAccess: "read",
+      })
+    ).toEqual({ decision: "allow" });
+  });
+
+  it("refuses outright when the space mounted the account for people only", () => {
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "list" },
+        connection: orgFull,
+        isAutonomous: true,
+        overrides: [],
+        principal: user(OTHER),
+        spaceAccess: "none",
+      })
+    ).toEqual({ decision: "deny", reason: "connection_space_access_none" });
+  });
+
+  it("keeps the account as the ceiling — a space cannot raise it", () => {
+    const readOnlyAccount = connection({
+      autonomous_mode: "read_only",
+      sharing: "org",
+    });
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "write", id: "send" },
+        connection: readOnlyAccount,
+        isAutonomous: true,
+        overrides: [{ policy: "allow", selector: "send" }],
+        principal: user(OTHER),
+        spaceAccess: "write",
+      })
+    ).toEqual({ decision: "deny", reason: "connection_autonomous_read_only" });
+  });
+
+  it("an undecided space falls back to the account alone", () => {
+    for (const spaceAccess of [null, undefined]) {
+      expect(
+        resolveConnectionActionPolicy({
+          action: { group: "read", id: "list" },
+          connection: connection({ sharing: "org" }),
+          isAutonomous: true,
+          overrides: [],
+          principal: user(OTHER),
+          spaceAccess,
+        })
+      ).toEqual({
+        decision: "deny",
+        reason: "connection_autonomous_disabled",
+      });
+    }
+  });
+
+  it("does not clamp a person working in the space", () => {
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "list" },
+        connection: orgFull,
+        isAutonomous: false,
+        overrides: [],
+        principal: user(OTHER),
+        spaceAccess: "none",
+      })
+    ).toEqual({ decision: "allow" });
+  });
+});
+
 describe("grantedOperationIds", () => {
   it("returns only non-read actions the user durably allowed", () => {
     const granted = grantedOperationIds({
@@ -198,5 +292,78 @@ describe("grantedOperationIds", () => {
       toolPrefix: "gmail",
     });
     expect(granted).toEqual(["gmail_draft"]);
+  });
+});
+
+describe("actsForSpaceOwner (personal-space owner resolution, §2.1)", () => {
+  const service = {
+    principalId: "svc-1",
+    principalType: "service",
+  } as const;
+
+  it("passes the sharing clamp for the space owner's personal account", () => {
+    // The stand-in covers the clamp only; autonomous_mode still decides, so
+    // an owner whose account is off stays off in their own space too.
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "a" },
+        actsForSpaceOwner: true,
+        connection: connection({ autonomous_mode: "full" }),
+        isAutonomous: true,
+        overrides: [],
+        principal: service,
+      })
+    ).toEqual({ decision: "allow" });
+  });
+
+  it("keeps the owner's autonomous_mode as the ceiling", () => {
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "a" },
+        actsForSpaceOwner: true,
+        connection: connection({ autonomous_mode: "off" }),
+        isAutonomous: true,
+        overrides: [],
+        principal: service,
+      })
+    ).toEqual({
+      decision: "deny",
+      reason: "connection_autonomous_disabled",
+    });
+  });
+
+  it("keeps the space mount level as a clamp", () => {
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "write", id: "a" },
+        actsForSpaceOwner: true,
+        connection: connection({ autonomous_mode: "full" }),
+        isAutonomous: true,
+        overrides: [],
+        principal: service,
+        spaceAccess: "read",
+      })
+    ).toEqual({
+      decision: "deny",
+      reason: "connection_space_access_read_only",
+    });
+  });
+
+  it("does nothing for a personal account the space owner does not own", () => {
+    // The caller derives the flag per connection; a false flag leaves the
+    // clamp exactly as before.
+    expect(
+      resolveConnectionActionPolicy({
+        action: { group: "read", id: "a" },
+        actsForSpaceOwner: false,
+        connection: connection({ autonomous_mode: "full" }),
+        isAutonomous: true,
+        overrides: [],
+        principal: service,
+      })
+    ).toEqual({
+      decision: "deny",
+      reason: "connection_personal_not_owner",
+    });
   });
 });

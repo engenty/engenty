@@ -1,20 +1,23 @@
 "use client";
 
+import { useTranslation } from "@engenty/i18n/ui";
 import { useEffect, useState } from "react";
 import {
   type ChatAttachmentMeta,
   isImageMimeType,
+  isPdfMimeType,
   readChatAttachmentPart,
 } from "../../../lib/chat-attachment-part.js";
-import {
-  type ChatReferenceItem,
-  readChatReferencePart,
-} from "../../../lib/chat-reference-part.js";
+import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
 import { getFileStorageSignedUrl } from "../../../lib/file-storage-signed-url.js";
 import {
   AttachmentFileTile,
   AttachmentImageTile,
 } from "../../ai-elements/attachment/attachment-tiles.js";
+import {
+  CopilotAttachmentLightbox,
+  type CopilotAttachmentLightboxTarget,
+} from "./copilot-attachment-lightbox.js";
 
 type ResolvedAttachment = ChatAttachmentMeta & { url?: string };
 
@@ -53,22 +56,62 @@ function useResolvedAttachmentUrl(
   return resolved;
 }
 
-function AttachmentTile({ attachment }: { attachment: ResolvedAttachment }) {
+function AttachmentTile({
+  attachment,
+  imageClassName,
+  onPreview,
+}: {
+  attachment: ResolvedAttachment;
+  imageClassName?: string;
+  onPreview: (target: CopilotAttachmentLightboxTarget) => void;
+}) {
+  const { t } = useTranslation("common");
   const url = useResolvedAttachmentUrl(attachment);
-  if (isImageMimeType(attachment.mimeType)) {
+  const isImage = isImageMimeType(attachment.mimeType);
+  const isPdf = isPdfMimeType(attachment.mimeType, attachment.filename);
+  const label =
+    attachment.filename.trim() ||
+    t(
+      isImage
+        ? "copilot.attachments.untitledImage"
+        : "copilot.attachments.untitledFile"
+    );
+  const previewAriaLabel = t("copilot.attachments.preview", { name: label });
+  if (isImage) {
     return (
       <AttachmentImageTile
-        href={url ?? undefined}
-        label={attachment.filename || "image"}
-        size="lg"
+        className={imageClassName}
+        fit="natural"
+        label={label}
+        onPreview={
+          url
+            ? () => onPreview({ filename: label, kind: "image", url })
+            : undefined
+        }
+        previewAriaLabel={previewAriaLabel}
         url={url ?? undefined}
+      />
+    );
+  }
+  if (isPdf) {
+    return (
+      <AttachmentFileTile
+        label={label}
+        mediaType={attachment.mimeType}
+        onPreview={
+          url
+            ? () => onPreview({ filename: label, kind: "pdf", url })
+            : undefined
+        }
+        previewAriaLabel={previewAriaLabel}
+        size="lg"
       />
     );
   }
   return (
     <AttachmentFileTile
       href={url ?? undefined}
-      label={attachment.filename || "file"}
+      label={label}
       mediaType={attachment.mimeType}
       size="lg"
     />
@@ -81,54 +124,66 @@ export interface CopilotAttachmentPreviewProps {
 }
 
 /**
- * Render the attachments carried on a user message: one right-aligned row of
- * separated square tiles above the user bubble — image thumbnails first, then
- * icon file tiles (AI SDK Elements grid variant).
+ * Attachments on a user message, above the text bubble. Images keep their
+ * aspect ratio (never upscaled, height-capped) in a separate grid from files.
  */
 export function CopilotAttachmentPreview({
   parts,
 }: CopilotAttachmentPreviewProps) {
-  // The reference carrier is a `document` part too — pick it out first so it
-  // never renders as a broken file tile.
-  const refs: ChatReferenceItem[] = parts.flatMap(
-    (part) => readChatReferencePart(part) ?? []
-  );
+  const [lightbox, setLightbox] =
+    useState<CopilotAttachmentLightboxTarget | null>(null);
+  // The reference carrier is a `document` part too — skip it so it never
+  // renders as a broken file tile. Its mentions draw inline in the bubble.
   const attachments = parts
     .filter((part) => readChatReferencePart(part) === null)
     .map((part) => readChatAttachmentPart(part))
     .filter((value): value is ResolvedAttachment => value !== null);
 
-  if (attachments.length === 0 && refs.length === 0) {
+  if (attachments.length === 0) {
     return null;
   }
 
-  const ordered = [
-    ...attachments.filter((a) => isImageMimeType(a.mimeType)),
-    ...attachments.filter((a) => !isImageMimeType(a.mimeType)),
-  ];
+  const images = attachments.filter((a) => isImageMimeType(a.mimeType));
+  const files = attachments.filter((a) => !isImageMimeType(a.mimeType));
+  const imageGrid =
+    images.length === 1
+      ? "flex w-full justify-center"
+      : "grid w-full grid-cols-2 gap-2";
+  const imageMaxHeight = images.length === 1 ? undefined : "max-h-52";
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      {ordered.length > 0 ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          {ordered.map((attachment, index) => (
+    <div className="flex w-full flex-col gap-2">
+      <CopilotAttachmentLightbox
+        onOpenChange={(open) => {
+          if (!open) {
+            setLightbox(null);
+          }
+        }}
+        target={lightbox}
+      />
+      {images.length > 0 ? (
+        <div className={imageGrid} data-testid="copilot-attachment-images">
+          {images.map((attachment, index) => (
             <AttachmentTile
               attachment={attachment}
-              key={`${attachment.storageKey || attachment.url || "att"}-${index}`}
+              imageClassName={imageMaxHeight}
+              key={`${attachment.storageKey || attachment.url || "img"}-${index}`}
+              onPreview={setLightbox}
             />
           ))}
         </div>
       ) : null}
-      {refs.length > 0 ? (
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {refs.map((ref) => (
-            <span
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-secondary-foreground text-xs"
-              key={ref.ref}
-              title={ref.ref}
-            >
-              <span className="max-w-44 truncate">@{ref.label}</span>
-            </span>
+      {files.length > 0 ? (
+        <div
+          className="flex flex-wrap justify-end gap-2"
+          data-testid="copilot-attachment-files"
+        >
+          {files.map((attachment, index) => (
+            <AttachmentTile
+              attachment={attachment}
+              key={`${attachment.storageKey || attachment.url || "file"}-${index}`}
+              onPreview={setLightbox}
+            />
           ))}
         </div>
       ) : null}

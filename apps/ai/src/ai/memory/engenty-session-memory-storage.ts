@@ -6,15 +6,16 @@ import {
   ACTIVE_ARTIFACT_METADATA_KEY,
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
 } from "@engenty/ag-ui-bridge";
+import { formatAgentMessageHeader } from "@engenty/ai-core";
 import type { MastraDBMessage, StorageThreadType } from "@mastra/core/memory";
 import type {
+  MemoryStorage,
   StorageListMessagesInput,
   StorageListMessagesOutput,
   StorageListThreadsInput,
   StorageListThreadsOutput,
   StorageResourceType,
 } from "@mastra/core/storage";
-import { MemoryStorage } from "@mastra/core/storage";
 import type {
   ThreadMessageRole,
   ThreadMessageRow,
@@ -22,13 +23,35 @@ import type {
   ThreadStore,
 } from "../../dal/threads/index.js";
 import {
+  ROOM_AGENT_TURNS_KEY,
+  ROOM_PAUSED_KEY,
+  ROOM_PURPOSE_KEY,
+} from "../rooms/room-turns.js";
+import { speakerUserIdFromMastraMessage } from "../sessions/speaker-turn-processor.js";
+import {
   TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
 } from "../sessions/tool-approval-grants.js";
 import type { AiScopeCredential } from "../sessions/types.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
+import {
+  expandIncludeWindows,
+  filterMessagesForRecall,
+  paginateRecallMessages,
+  recallListOutput,
+  sqlDateBoundsFromFilter,
+  unionRecallPageWithIncludes,
+} from "./list-messages-recall.js";
+import { ObservationalMemoryDelegatingStorage } from "./observational-memory-storage.js";
+import { parseSharedObservationalMemoryResourceId } from "./shared-observational-memory.js";
 
 const DEFAULT_MESSAGE_LIMIT = 500;
+/** Metadata key on an assistant row: the agent that wrote it. */
+export const MESSAGE_AUTHOR_AGENT_KEY = "author_agent_id";
+/** Metadata key on an assistant row: that agent's name, so a colleague reads
+ *  the turn under a name rather than an id. Same key the room's relays use. */
+export const MESSAGE_AUTHOR_AGENT_NAME_KEY = "author_agent_name";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MASTRA_THREAD_METADATA_KEYS = new Set([
@@ -52,6 +75,14 @@ const EXTERNALLY_OWNED_METADATA_KEYS = [
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
+  // A room's turn budget is merged by the room (rooms/deliver.ts) while the
+  // run that spends it is still streaming; live on 2026-09-07 six turns read
+  // back as two once the run's own save wrote its snapshot over them.
+  ROOM_AGENT_TURNS_KEY,
+  ROOM_PAUSED_KEY,
+  // What the room is for: written by people and the room-opening tool, read
+  // by every turn — a run's snapshot must not erase it.
+  ROOM_PURPOSE_KEY,
 ] as const;
 
 export interface EngentySessionMemoryScope {
@@ -66,6 +97,11 @@ export interface EngentySessionMemoryScope {
 export interface EngentySessionMemoryStorageOptions {
   agentId: string;
   /**
+   * The agent's display name, persisted on its own rows so the other members
+   * of a room read its turns under a name instead of an engenty id.
+   */
+  agentName?: string;
+  /**
    * Persist `sendMessage` as a visible user row. Artifact-resume re-runs steer
    * the model with a synthetic "Approved: you may now run …" prompt that must
    * not become a transcript bubble — the Approve/Deny widget already records
@@ -73,7 +109,25 @@ export interface EngentySessionMemoryStorageOptions {
    */
   persistCurrentUserTurn?: boolean;
   scope: EngentySessionMemoryScope;
+  /**
+   * Whether this run's thread is a shared room (Space-keyed Mastra
+   * `resourceId` — see createEngentyMastraResourceId). The row alone cannot
+   * tell: a shared child thread and a personal copilot thread both carry
+   * `created_by_user_id` AND `space_id`, and only the agent's scope separates
+   * them. Without this bit `getThreadById` answers `created_by_user_id` for
+   * the run's own thread while the run presents the space id, and Mastra's
+   * thread-ownership assert kills the run.
+   */
+  sharedRoom?: boolean;
+  /**
+   * Space this run is bound to. Shared-room Mastra `resourceId` is this id
+   * (see createEngentyMastraResourceId); recall must treat it as a room key,
+   * not a speaker.
+   */
+  spaceId?: string | null;
   store: ThreadStore;
+  /** The run's own thread — the one `sharedRoom` speaks about. */
+  threadId?: string;
   // Durable AG-UI `image`/`document` parts for the current user turn. Mastra
   // saves the user turn text-only, so these are appended (once) to the durable
   // user message so attachments survive a thread reload.
@@ -92,9 +146,13 @@ export function createEngentySessionMemoryStorage(
   return new EngentySessionMemoryStorage(options);
 }
 
-export class EngentySessionMemoryStorage extends MemoryStorage {
+export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingStorage {
   readonly #agentId: string;
+  readonly #agentName: string | null;
+  readonly #runThreadId: string | null;
   readonly #scope: EngentySessionMemoryScope;
+  readonly #sharedRoom: boolean;
+  readonly #spaceId: string | null;
   readonly #store: ThreadStore;
   // Attachment parts for the current turn + a one-shot guard so they are folded
   // onto the first persisted user message only (the insert wins; later re-saves
@@ -111,7 +169,12 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   constructor(options: EngentySessionMemoryStorageOptions) {
     super();
     this.#agentId = options.agentId;
+    this.#agentName = options.agentName?.trim() || null;
+    this.#runThreadId = options.threadId ?? null;
     this.#scope = options.scope;
+    this.#sharedRoom = options.sharedRoom === true;
+    const spaceId = options.spaceId?.trim();
+    this.#spaceId = spaceId || null;
     this.#store = options.store;
     this.#userAttachmentParts = options.userAttachmentParts ?? [];
     this.#persistCurrentUserTurn = options.persistCurrentUserTurn !== false;
@@ -120,6 +183,31 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
       UUID_PATTERN.test(options.userMessageId)
         ? options.userMessageId
         : null;
+  }
+
+  #conversationResourceIds(threadIds: readonly string[]): string[] {
+    const ids = [...threadIds];
+    if (this.#spaceId) {
+      ids.push(this.#spaceId);
+    }
+    return ids;
+  }
+
+  #resourceIdMatchesThread(session: ThreadRow, resourceId: string): boolean {
+    if (resourceId === session.id) {
+      return true;
+    }
+    const threadSpace = session.space_id?.trim();
+    if (threadSpace && resourceId === threadSpace) {
+      return true;
+    }
+    if (!threadSpace && this.#spaceId && resourceId === this.#spaceId) {
+      return true;
+    }
+    return (
+      session.created_by_user_id !== null &&
+      session.created_by_user_id === resourceId
+    );
   }
 
   async dangerouslyClearAll(): Promise<void> {
@@ -143,10 +231,33 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     if (!session) {
       return null;
     }
-    if (resourceId && session.created_by_user_id !== resourceId) {
+    // Personal rooms key Mastra resourceId on the owner. Shared specialist
+    // rooms key it on the Space so every chat with that agent there shares
+    // one working-memory record; threadId is the no-space fallback.
+    if (resourceId && !this.#resourceIdMatchesThread(session, resourceId)) {
       return null;
     }
-    return sessionToThread(session);
+    const thread = sessionToThread(session);
+    if (resourceId) {
+      return { ...thread, resourceId };
+    }
+    // Mastra fetches the run's thread WITHOUT a resourceId and asserts
+    // ownership against the resource the run presents. For the run's OWN
+    // thread that resource is exactly what `createEngentyMastraResourceId`
+    // computes from this lane's inputs — the Space (threadId when spaceless)
+    // for a shared room, the run scope's principal otherwise. A delegated
+    // run acts as the SERVICE principal while its thread row records the
+    // human who pressed the button, so answering `created_by_user_id` here
+    // kills every graph-run delegation on the ownership assert.
+    if (session.id === this.#runThreadId) {
+      return {
+        ...thread,
+        resourceId: this.#sharedRoom
+          ? (this.#spaceId ?? session.id)
+          : this.#scope.userId,
+      };
+    }
+    return thread;
   }
 
   async saveThread({
@@ -248,20 +359,98 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     });
   }
 
+  /**
+   * Threads belonging to a Mastra `resourceId`.
+   *
+   * A resourceId here is one of three unrelated kinds of key: a user id
+   * (personal rooms), a Space or thread id (shared rooms — see
+   * `createEngentyMastraResourceId`), or the shared observational-memory key,
+   * a synthetic composite naming the agent plus its audience. Only the first
+   * is a `thread_participant.principal_id`, so the others have to be resolved
+   * here — resource-scoped observation lists the resource's threads on every
+   * turn, and handing the composite to the participant query (a uuid column)
+   * failed the whole output-processor workflow on a Postgres cast error, while
+   * a Space or thread id passed the cast and quietly matched nobody.
+   */
+  async #listThreadsForResource(input: {
+    agentId?: string;
+    limit: number;
+    resourceId?: string;
+  }): Promise<ThreadRow[]> {
+    const shared = input.resourceId
+      ? parseSharedObservationalMemoryResourceId(input.resourceId)
+      : null;
+    if (shared) {
+      // The key carries its own tenant and agent: observations must not reach
+      // across either, whatever this storage happens to be scoped to.
+      if (shared.tenantId !== this.#scope.tenantId) {
+        return [];
+      }
+      return shared.audience === "space"
+        ? this.#store.listThreadsForSpaceAgent({
+            agentId: shared.agentId,
+            limit: input.limit,
+            spaceId: shared.audienceId,
+            tenantId: shared.tenantId,
+          })
+        : this.#store.listThreadsForUser({
+            agentId: shared.agentId,
+            limit: input.limit,
+            tenantId: shared.tenantId,
+            userId: shared.audienceId,
+          });
+    }
+    const resourceId = input.resourceId ?? this.#scope.userId;
+    // Nothing left is a principal unless it is a uuid, and asking anyway is
+    // the cast error again.
+    if (!UUID_PATTERN.test(resourceId)) {
+      return [];
+    }
+    // A shared room keys its resource on the Space, so the resource's threads
+    // are this agent's threads in that room — no participant owns them.
+    if (this.#spaceId && resourceId === this.#spaceId) {
+      return this.#store.listThreadsForSpaceAgent({
+        agentId: input.agentId ?? this.#agentId,
+        limit: input.limit,
+        spaceId: this.#spaceId,
+        tenantId: this.#scope.tenantId,
+      });
+    }
+    // A Space-less shared room falls back to keying on the thread itself, and
+    // a thread id is no more a principal than a Space id is. The caller's own
+    // id is ruled out first, so the personal path never pays for this lookup
+    // and a user id — which matches no thread row — never reaches it.
+    if (resourceId !== this.#scope.userId) {
+      const thread = await this.#store.getThread({
+        tenantId: this.#scope.tenantId,
+        threadId: resourceId,
+      });
+      if (thread) {
+        return thread.archived_at ? [] : [thread];
+      }
+    }
+    return this.#store.listThreadsForUser({
+      ...(input.agentId ? { agentId: input.agentId } : {}),
+      limit: input.limit,
+      tenantId: this.#scope.tenantId,
+      userId: resourceId,
+    });
+  }
+
   async listThreads(
     args: StorageListThreadsInput
   ): Promise<StorageListThreadsOutput> {
     const page = args.page ?? 0;
     const perPage = args.perPage ?? 100;
     const limit = perPage === false ? DEFAULT_MESSAGE_LIMIT : perPage;
-    const sessions = await this.#store.listThreadsForUser({
-      tenantId: this.#scope.tenantId,
-      userId: args.filter?.resourceId ?? this.#scope.userId,
-      agentId:
-        typeof args.filter?.metadata?.agent_id === "string"
-          ? args.filter.metadata.agent_id
-          : undefined,
+    const sessions = await this.#listThreadsForResource({
+      ...(typeof args.filter?.metadata?.agent_id === "string"
+        ? { agentId: args.filter.metadata.agent_id }
+        : {}),
       limit: Math.max(limit * (page + 1), limit),
+      ...(args.filter?.resourceId
+        ? { resourceId: args.filter.resourceId }
+        : {}),
     });
     const filtered = sessions
       .map(sessionToThread)
@@ -287,37 +476,114 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     const threadIds = Array.isArray(args.threadId)
       ? args.threadId
       : [args.threadId];
-    const limit =
-      args.perPage === false
-        ? DEFAULT_MESSAGE_LIMIT
-        : (args.perPage ?? DEFAULT_MESSAGE_LIMIT) * ((args.page ?? 0) + 1);
+    const sessionThreadIds = threadIds.filter(isEngentySessionThreadId);
+    const dateBounds = sqlDateBoundsFromFilter(args.filter?.dateRange);
     const rows = (
       await Promise.all(
-        threadIds.filter(isEngentySessionThreadId).map((threadId) =>
+        sessionThreadIds.map((id) =>
           this.#store.listMessagesOrdered({
+            ...dateBounds,
+            limit: false,
             tenantId: this.#scope.tenantId,
-            threadId,
-            limit,
+            threadId: id,
           })
         )
       )
     ).flat();
-    const messages = rows
-      .map((row) => rowToMastraMessage(row))
-      .filter((message) => message != null)
-      .filter((message) => includedMessageMatches(message, args.include))
-      // Only assert the resource on messages that actually carry one (a user
-      // turn's author). Assistant/tool/system turns have no `author_user_id`
-      // (→ `resourceId: undefined`); they belong to the thread (already scoped
-      // by threadId + tenant). Dropping them here gave the model recall with the
-      // user's questions but NONE of its own answers → it re-answered every prior
-      // request each run ("answers all previous messages").
-      .filter((message) =>
-        args.resourceId && message.resourceId
-          ? message.resourceId === args.resourceId
-          : true
-      );
-    return paginateMessages(messages, args);
+    const conversationResourceIds =
+      this.#conversationResourceIds(sessionThreadIds);
+    const filtered = filterMessagesForRecall(
+      rows
+        .map((row) => rowToMastraMessageForAgent(row, this.#agentId))
+        .filter((message) => message != null),
+      {
+        conversationResourceIds,
+        ...(args.filter?.dateRange ? { dateRange: args.filter.dateRange } : {}),
+        ...(args.filter?.metadata ? { metadata: args.filter.metadata } : {}),
+        ...(args.resourceId ? { resourceId: args.resourceId } : {}),
+      }
+    );
+    const paged = paginateRecallMessages({
+      messages: filtered,
+      orderBy: args.orderBy,
+      page: args.page,
+      perPage: args.perPage,
+      ...(args.include ? { include: args.include } : {}),
+    });
+    const included = args.include?.length
+      ? await this.#resolveIncludedMessages({
+          conversationResourceIds,
+          include: args.include,
+          ...(args.resourceId ? { resourceId: args.resourceId } : {}),
+        })
+      : [];
+    return recallListOutput({
+      hasMore: paged.hasMore,
+      messages: unionRecallPageWithIncludes({
+        included,
+        orderBy: args.orderBy,
+        paginated: paged.paginated,
+      }),
+      page: paged.page,
+      perPage: paged.perPage,
+      total: paged.total,
+    });
+  }
+
+  async #resolveIncludedMessages(input: {
+    conversationResourceIds: readonly string[];
+    include: NonNullable<StorageListMessagesInput["include"]>;
+    resourceId?: string;
+  }): Promise<MastraDBMessage[]> {
+    const targetIds = [
+      ...new Set(
+        input.include
+          .map((item) => item.id)
+          .filter((id) => UUID_PATTERN.test(id.trim()))
+      ),
+    ];
+    if (targetIds.length === 0) {
+      return [];
+    }
+    const { messages: targets } = await this.listMessagesById({
+      messageIds: targetIds,
+    });
+    const messagesById = new Map(
+      targets.map((message) => [message.id, message])
+    );
+    const threadIds = [
+      ...new Set(
+        targets
+          .map((message) => message.threadId)
+          .filter(
+            (threadId): threadId is string =>
+              typeof threadId === "string" && isEngentySessionThreadId(threadId)
+          )
+      ),
+    ];
+    const orderedByThread = new Map<string, MastraDBMessage[]>();
+    await Promise.all(
+      threadIds.map(async (threadId) => {
+        const threadRows = await this.#store.listMessagesOrdered({
+          limit: false,
+          tenantId: this.#scope.tenantId,
+          threadId,
+        });
+        orderedByThread.set(
+          threadId,
+          threadRows
+            .map((row) => rowToMastraMessageForAgent(row, this.#agentId))
+            .filter((message) => message != null)
+        );
+      })
+    );
+    return expandIncludeWindows({
+      conversationResourceIds: input.conversationResourceIds,
+      include: input.include,
+      messagesById,
+      orderedByThread,
+      ...(input.resourceId ? { resourceId: input.resourceId } : {}),
+    });
   }
 
   async listMessagesById({
@@ -325,12 +591,22 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }: {
     messageIds: string[];
   }): Promise<{ messages: MastraDBMessage[] }> {
-    if (messageIds.length === 0) {
+    const ids = messageIds.filter(
+      (id) => typeof id === "string" && UUID_PATTERN.test(id.trim())
+    );
+    if (ids.length === 0) {
       return { messages: [] };
     }
-    throw new Error(
-      "EngentySessionMemoryStorage cannot list messages by id without a thread id"
-    );
+    const rows = await this.#store.listMessagesByIds({
+      messageIds: ids,
+      tenantId: this.#scope.tenantId,
+    });
+    return {
+      messages: rows
+        .filter((row) => isEngentySessionThreadId(row.thread_id))
+        .map((row) => rowToMastraMessageForAgent(row, this.#agentId))
+        .filter((message) => message != null),
+    };
   }
 
   async saveMessages(args: {
@@ -356,8 +632,22 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
       const role = isUserMessageSignal(message)
         ? "user"
         : mastraRoleToSessionRole(message.role);
+      // NEVER the raw scope user: `author_user_id` is an FK to `core.users`,
+      // and a service principal is not a user row. A headless run's first
+      // message hit that FK, `appendMessage` threw, and the throw aborted the
+      // whole save loop — so the run persisted NOTHING, not even the assistant
+      // turn, and every task run's transcript was silently lost. `saveThread`
+      // above already goes through `scopeAttributionUserId` for exactly this
+      // reason; this path did not.
+      const attributedUserId = scopeAttributionUserId(this.#scope);
+      // Shared rooms key Mastra resourceId on the Space (or thread). That is
+      // not a user id (FK to core.users) — persist the authenticated speaker.
       const authorUserId =
-        role === "user" ? (message.resourceId ?? this.#scope.userId) : null;
+        role === "user" && attributedUserId
+          ? speakerUserIdFromMastraMessage(message, attributedUserId, {
+              ...(this.#spaceId ? { spaceId: this.#spaceId } : {}),
+            })
+          : null;
       // Fold this turn's attachment parts onto the first persisted user message.
       // One-shot: later re-saves are ignored by the upsert's `ignoreDuplicates`,
       // so the enriched first insert wins. Mastra also turns the `files` handed
@@ -459,8 +749,19 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
           // Mastra hangs meaning off content.metadata — a state signal's
           // identity lives there, and without it getActiveStateSignals cannot
           // reconstruct the signal on load. author_user_id is a projection on
-          // read, so it is deliberately not stored in here.
-          metadata: extractMastraMessageMetadata(message),
+          // read, so it is deliberately not stored in here. An assistant row
+          // names the agent that wrote it: in a room several agents answer in
+          // one thread, and the transcript has to say which one is speaking.
+          metadata:
+            role === "assistant"
+              ? {
+                  ...(extractMastraMessageMetadata(message) ?? {}),
+                  [MESSAGE_AUTHOR_AGENT_KEY]: this.#agentId,
+                  ...(this.#agentName
+                    ? { [MESSAGE_AUTHOR_AGENT_NAME_KEY]: this.#agentName }
+                    : {}),
+                }
+              : extractMastraMessageMetadata(message),
           // Preserve the message id (a uuid) so re-saves are idempotent
           // and updateMessages can match by id — fixes durable-run duplicate rows.
           ...(insertId ? { id: insertId } : {}),
@@ -537,18 +838,16 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
 
   // --- Resources (working memory) -------------------------------------------
   //
-  // Resource records back RESOURCE-scoped working memory (the per-user profile
-  // the agent maintains via `updateWorkingMemory`). We keep thread/message
-  // ownership but delegate resource persistence to the pg memory domain
-  // (`ai.mastra_resources`) — runtime state, not business data. The Mastra
-  // resourceId is the engenty user id; rows are keyed `${tenantId}:${userId}`
-  // so a user's profile stays tenant-scoped (user ids are global).
+  // Resource records back RESOURCE-scoped working memory. Personal Copilot
+  // keys `${tenantId}:${userId}`; shared specialist rooms key
+  // `${tenantId}:${spaceId}` so every chat with that agent in the Space shares
+  // one profile. ThreadId remains the no-space fallback.
 
   #resourceKey(resourceId: string): string {
     return `${this.#scope.tenantId}:${resourceId}`;
   }
 
-  async #resourceStore(): Promise<MemoryStorage | null> {
+  protected override async getRuntimeMemoryStore(): Promise<MemoryStorage | null> {
     const { mastra } = await import("../../../ai/index.js");
     const storage = mastra.getStorage();
     if (!storage) {
@@ -567,10 +866,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }: {
     resourceId: string;
   }): Promise<StorageResourceType | null> {
-    if (resourceId !== this.#scope.userId) {
-      return null;
-    }
-    const store = await this.#resourceStore();
+    const store = await this.getRuntimeMemoryStore();
     if (!store) {
       return makeResource(resourceId);
     }
@@ -590,10 +886,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }: {
     resource: StorageResourceType;
   }): Promise<StorageResourceType> {
-    if (resource.id !== this.#scope.userId) {
-      return resource;
-    }
-    const store = await this.#resourceStore();
+    const store = await this.getRuntimeMemoryStore();
     if (!store) {
       return resource;
     }
@@ -612,10 +905,7 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
     resourceId: string;
     workingMemory?: string;
   }): Promise<StorageResourceType> {
-    if (resourceId !== this.#scope.userId) {
-      return makeResource(resourceId, metadata, workingMemory);
-    }
-    const store = await this.#resourceStore();
+    const store = await this.getRuntimeMemoryStore();
     if (!store) {
       return makeResource(resourceId, metadata, workingMemory);
     }
@@ -628,10 +918,35 @@ export class EngentySessionMemoryStorage extends MemoryStorage {
   }
 }
 
+/**
+ * The Mastra resource a thread belongs to, derived from the ROW alone.
+ *
+ * `createEngentyMastraResourceId` is the authority: every real memory call
+ * carries its answer, and `getThreadById` overwrites the mapped value with the
+ * caller's resourceId whenever one is passed — which the run path always does.
+ * This is only the fallback for the calls that pass none.
+ *
+ * The row alone cannot reproduce that rule in full: telling a SHARED
+ * specialist room from a personal one needs the agent's scope, which is a
+ * registry lookup (and which a hired agent does not even carry — see
+ * thread-access.ts). So an authored thread keeps answering with its author,
+ * exactly as before.
+ *
+ * What the row CAN decide is the case that was broken: no author means
+ * unattended work — a routine fire, a task run — which is a shared room by
+ * definition, so it keys on the Space and falls back to the thread itself,
+ * the same two steps the authority takes. It used to emit the author verbatim,
+ * which for those threads is `null`: a value Mastra's own `resourceId: string`
+ * forbids and nothing can be keyed on.
+ */
+function threadRowResourceId(session: ThreadRow): string {
+  return session.created_by_user_id ?? session.space_id?.trim() ?? session.id;
+}
+
 export function sessionToThread(session: ThreadRow): StorageThreadType {
   return {
     id: session.id,
-    resourceId: session.created_by_user_id,
+    resourceId: threadRowResourceId(session),
     createdAt: new Date(session.created_at),
     updatedAt: new Date(session.updated_at),
     ...(session.title ? { title: session.title } : {}),
@@ -713,6 +1028,67 @@ export function rowToMastraMessage(
       },
     },
   };
+}
+
+/**
+ * The same row, as the agent reading it now should see it.
+ *
+ * A room is one thread several agents answer in, so a member's own recall is
+ * full of turns it did not write. Handed back as bare `assistant` messages
+ * they read as the reader's own words: live on 2026-09-08 a woken player
+ * reasoned "I am the one agent in this conversation", concluded it had
+ * already moved and answered nothing, and the room fell silent with every
+ * run reported completed. A colleague's turn therefore arrives as somebody
+ * else's — a user turn under the `**Message from …**` header the room's
+ * relays already carry, which is the shape SHARED_ROOM_INSTRUCTIONS promises.
+ *
+ * Only what the colleague POSTED survives. Its reasoning and its tool calls
+ * were its own work: as the reader's own they are exactly the confusion, and
+ * a user turn cannot carry tool calls in the first place.
+ */
+export function rowToMastraMessageForAgent(
+  row: ThreadMessageRow,
+  readerAgentId: string
+): MastraDBMessage | null {
+  const message = rowToMastraMessage(row);
+  if (!message || row.role !== "assistant") {
+    return message;
+  }
+  const metadata = row.metadata as Record<string, unknown> | null | undefined;
+  const authorId = metadata?.[MESSAGE_AUTHOR_AGENT_KEY];
+  if (typeof authorId !== "string" || !authorId || authorId === readerAgentId) {
+    return message;
+  }
+  const authorName = metadata?.[MESSAGE_AUTHOR_AGENT_NAME_KEY];
+  const header = formatAgentMessageHeader(
+    typeof authorName === "string" && authorName.trim()
+      ? authorName.trim()
+      : authorId,
+    authorId
+  );
+  const spoken = (
+    message.content.parts as Array<{ text?: unknown; type?: unknown }>
+  ).filter(
+    (part) =>
+      part?.type === "text" &&
+      typeof part.text === "string" &&
+      part.text.trim().length > 0
+  );
+  if (spoken.length === 0) {
+    return null;
+  }
+  return {
+    ...message,
+    role: "user",
+    content: {
+      ...message.content,
+      parts: spoken.map((part, index) =>
+        index === 0
+          ? { ...part, text: `${header}${part.text as string}` }
+          : part
+      ),
+    },
+  } as MastraDBMessage;
 }
 
 function sessionRoleToMastraRole(
@@ -889,20 +1265,6 @@ function metadataMatches(
   );
 }
 
-function includedMessageMatches(
-  message: MastraDBMessage,
-  include: StorageListMessagesInput["include"]
-) {
-  if (!include?.length) {
-    return true;
-  }
-  return include.some(
-    (included) =>
-      included.id === message.id &&
-      (included.threadId ? included.threadId === message.threadId : true)
-  );
-}
-
 function sortThreads(
   threads: StorageThreadType[],
   orderBy: StorageListThreadsInput["orderBy"]
@@ -913,36 +1275,6 @@ function sortThreads(
     const delta = a[field].getTime() - b[field].getTime();
     return direction === "ASC" ? delta : -delta;
   });
-}
-
-function paginateMessages(
-  messages: MastraDBMessage[],
-  args: Pick<StorageListMessagesInput, "orderBy" | "page" | "perPage">
-): StorageListMessagesOutput {
-  const page = args.page ?? 0;
-  const perPage = args.perPage ?? 40;
-  const sorted = [...messages].sort((a, b) => {
-    const delta = a.createdAt.getTime() - b.createdAt.getTime();
-    return args.orderBy?.direction === "DESC" ? -delta : delta;
-  });
-  if (perPage === false) {
-    return {
-      messages: sorted,
-      total: sorted.length,
-      page,
-      perPage,
-      hasMore: false,
-    };
-  }
-  const start = page * perPage;
-  const paged = sorted.slice(start, start + perPage);
-  return {
-    messages: paged,
-    total: sorted.length,
-    page,
-    perPage,
-    hasMore: start + perPage < sorted.length,
-  };
 }
 
 function makeResource(

@@ -3,6 +3,8 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { Button, cn, Textarea } from "@engenty/ui-core";
 import { type KeyboardEvent, useState } from "react";
+import { InterruptCardBody } from "./interrupt-card-body.js";
+import { InterruptCardDismissButton } from "./interrupt-card-dismiss-button.js";
 
 export interface FeedbackArtifact {
   artifactId: string;
@@ -141,11 +143,11 @@ export function FeedbackArtifactResolvedCard(props: {
   feedback: string;
 }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+    <section className="rounded-lg border border-border-soft bg-muted/20 px-3 py-2.5">
       <p className="font-medium text-foreground/90 text-sm">
         {props.artifact.title}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-muted-foreground text-sm">
+      <p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-sm">
         {props.feedback}
       </p>
     </section>
@@ -154,6 +156,8 @@ export function FeedbackArtifactResolvedCard(props: {
 
 export function FeedbackArtifactCard(props: {
   artifact: FeedbackArtifact;
+  /** Close the card without answering. */
+  onDismiss?: () => void;
   onSubmit: (artifactId: string, feedback: string) => void;
 }) {
   const [value, setValue] = useState("");
@@ -180,16 +184,24 @@ export function FeedbackArtifactCard(props: {
     <section
       aria-busy={submitting}
       className={cn(
-        "space-y-3 rounded-lg border bg-card p-3 shadow-sm transition-opacity",
+        "ui-card-panel space-y-3 p-3 transition-opacity",
         submitting && "pointer-events-none opacity-70"
       )}
     >
-      <div className="space-y-1">
-        <h3 className="font-medium text-foreground text-sm">
-          {props.artifact.title}
-        </h3>
-        {props.artifact.body ? (
-          <p className="text-muted-foreground text-sm">{props.artifact.body}</p>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-1">
+          <h3 className="font-medium text-foreground text-sm">
+            {props.artifact.title}
+          </h3>
+          {props.artifact.body ? (
+            <InterruptCardBody body={props.artifact.body} />
+          ) : null}
+        </div>
+        {props.onDismiss ? (
+          <InterruptCardDismissButton
+            disabled={submitting}
+            onDismiss={props.onDismiss}
+          />
         ) : null}
       </div>
 

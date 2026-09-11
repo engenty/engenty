@@ -242,6 +242,17 @@ export function readHtmlExtractFromSourceSettings(
 const FETCH_UA = "EngentyDocumentSources/1.0";
 
 /**
+ * Per-item retrieval body cap. Larger than web-ingest's 2MB default because
+ * source items are stored whole (consolidated laws, long reference pages run
+ * well past 2MB of HTML); oversized markdown is chunked into ordered sections
+ * downstream rather than truncated.
+ */
+const RETRIEVE_ITEM_MAX_BYTES = 10_000_000;
+
+/** Large pages need more than web-ingest's 15s default to download fully. */
+const RETRIEVE_ITEM_TIMEOUT_MS = 30_000;
+
+/**
  * Resolves the host and rejects any URL that lands on a private/link-local
  * address — not just one that spells a private address literally.
  */
@@ -289,7 +300,7 @@ export async function fetchText(
 
 async function fetchRawHtml(
   url: string,
-  limitBytes = 2_000_000
+  limitBytes = RETRIEVE_ITEM_MAX_BYTES
 ): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
@@ -399,6 +410,8 @@ export async function retrieveUrlItem(
 
   const base: IngestUrlToMarkdownOptions = {
     fetchUserAgent: `${FETCH_UA} (+${process.env.ENGENTY_UI_BASE_URL?.trim() || "engenty"}; document source)`,
+    maxBytes: RETRIEVE_ITEM_MAX_BYTES,
+    timeoutMs: RETRIEVE_ITEM_TIMEOUT_MS,
   };
 
   if (strategy === "firecrawl") {

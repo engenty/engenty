@@ -42,7 +42,7 @@ export function DisciplinesSection({
           {t("sections.disciplinesDesc")}
         </p>
       </div>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-panel overflow-hidden">
         <div className="p-4">
           <div className="max-w-lg space-y-2">
             <div className="flex items-center gap-1.5 px-1 text-muted-foreground text-xs">

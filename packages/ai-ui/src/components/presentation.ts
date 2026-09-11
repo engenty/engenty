@@ -104,6 +104,7 @@ export {
   type CopilotPanelMode,
   type CopilotRouteContext,
   formatCopilotRouteStatusLabel,
+  UI_SCROLL_SAFE_BOTTOM_PX,
 } from "./copilot/drawer/copilot-drawer.js";
 export type { CopilotDrawerInjectedSession } from "./copilot/drawer/copilot-drawer-injected-session.js";
 export {
@@ -142,6 +143,13 @@ export {
   HitlApprovalCard,
 } from "./copilot/interrupts/hitl-approval-card.js";
 export { pendingInterruptFromTranscript } from "./copilot/interrupts/pending-interrupt-from-transcript.js";
+/**
+ * The chat panel's empty landing — title, subtitle, the tinted composer shell
+ * and starter prompts — as one block. Exported so a surface that LAUNCHES a
+ * conversation without hosting one (the space home) shows the same thing the
+ * chat page shows, instead of a lookalike that drifts from it.
+ */
+export { CopilotPanelComposerBlock } from "./copilot/panel/copilot-panel-composer-block.js";
 export {
   COPILOT_DOCK_COMPOSER_CARD_CLASS,
   CopilotPanelContent,
@@ -187,6 +195,11 @@ export {
   shouldShowTopOpenInterruptBanner,
   transcriptHasActiveSandboxCommandToolPart,
 } from "./copilot/tool-call/sandbox-command-transcript-utils.js";
+export {
+  matchesSkillsFindOutput,
+  parseSkillsFindOutput,
+  SkillsFindToolCallCard,
+} from "./copilot/tool-call/skills-find-tool-call-card.js";
 export {
   registerDefaultToolCallUiCards,
   registerToolCallUi,

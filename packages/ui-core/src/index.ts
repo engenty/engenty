@@ -91,6 +91,7 @@ export {
   ENGENTY_CORE_KINDS,
   ENGENTY_FILL,
   ENGENTY_FORMS,
+  ENGENTY_KIND_FILL,
   ENGENTY_KINDS,
   Engenty,
   type EngentyForm,
@@ -134,7 +135,7 @@ export {
   computeShellBreadcrumbCompactCollapsed,
   computeSidebarListInsertPlace,
   filterSidebarForest,
-  readerBlendTopbarActionButtonClassName,
+  readerBlendTopbarWorkflowButtonClassName,
   type ShellBreadcrumbCompactOptions,
   type ShellBreadcrumbItem,
   ShellBreadcrumbPlainText,
@@ -174,6 +175,7 @@ export {
   SidebarRowLeadingIcon,
   type SidebarRowLeadingIconProps,
   type SidebarRowProps,
+  SidebarRowTitleMarquee,
   SidebarSectionLabel,
   type SidebarSectionLabelProps,
   SidebarTab,
@@ -523,4 +525,13 @@ export {
   type PasswordStrengthLevel,
   scorePasswordStrength,
 } from "./lib/password-input";
+export {
+  uiCardElevatedClassName,
+  uiCardInteractiveClassName,
+  uiCardPanelClassName,
+  uiCardRaisedClassName,
+  uiRowHoverClassName,
+  uiStatusCardClassName,
+} from "./lib/ui-card-chrome";
+export { uiPageScrollClassName } from "./lib/ui-page-scroll";
 export { cn } from "./utils";

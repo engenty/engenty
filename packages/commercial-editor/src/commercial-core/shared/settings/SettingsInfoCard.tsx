@@ -16,7 +16,7 @@ interface SettingsInfoCardProps {
 }
 
 export const SettingsInfoCard = ({ items }: SettingsInfoCardProps) => (
-  <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
+  <div className="ui-card-panel overflow-hidden p-4">
     <div className="grid gap-3 text-sm">
       {items.map((item, index) => {
         const stacked = item.layout === "stack";

@@ -87,7 +87,7 @@ export function CurrencySection({
           {t("sections.currencyDesc")}
         </p>
       </div>
-      <div className="divide-y overflow-hidden rounded-lg border bg-card">
+      <div className="ui-card-panel divide-y overflow-hidden">
         <div className="flex items-center justify-between gap-4 p-4">
           <div className="min-w-0 flex-1">
             <Label className="font-semibold text-base" htmlFor="default-locale">

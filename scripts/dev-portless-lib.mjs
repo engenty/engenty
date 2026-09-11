@@ -13,7 +13,7 @@ export const SLOT_PORT_STEP = 10;
 export const SLOT_REGISTRY_DIR = ".engenty";
 export const SLOT_REGISTRY_FILE = "dev-slots.json";
 
-/** @typedef {{ ui: number; core: number; ai: number; docs: number; studio: number; manage: number; appHost: number }} DevPorts */
+/** @typedef {{ ui: number; core: number; ai: number; docs: number; www: number; studio: number; manage: number; appHost: number }} DevPorts */
 
 /** @typedef {{ slot: number; ports: DevPorts }} DomainSlotEntry */
 
@@ -24,6 +24,7 @@ const BASE_PORTS = {
   core: 8787,
   ai: 8790,
   docs: 3002,
+  www: 3003,
   studio: 43_111,
   // Manage is a gateway sub-path (/manage), like the UI — served on its own
   // localhost port, reached through the gateway origin (no direct portless host).
@@ -109,6 +110,7 @@ export function portsForSlot(slot) {
     core: BASE_PORTS.core + step,
     ai: BASE_PORTS.ai + step,
     docs: BASE_PORTS.docs + step,
+    www: BASE_PORTS.www + step,
     studio: BASE_PORTS.studio + step,
     manage: BASE_PORTS.manage + step,
     appHost: BASE_PORTS.appHost + step,
@@ -166,7 +168,7 @@ export function resolveDevPorts(params = {}) {
     return {
       domain,
       slot: existing.slot,
-      ports: existing.ports,
+      ports: { ...portsForSlot(existing.slot), ...existing.ports },
       registryPath,
     };
   }
@@ -205,14 +207,21 @@ export function portlessHttpsOrigin(hostname) {
 }
 
 /**
- * @param {{ coreName: string; aiName: string; docsName: string; domain?: string | null }} names
+ * @param {{ coreName: string; aiName: string; docsName: string; wwwName?: string; domain?: string | null }} names
  */
 export function buildPortlessRouteNames(names) {
-  const { coreName, aiName, docsName, domain = null } = names;
+  const {
+    coreName,
+    aiName,
+    docsName,
+    wwwName = "www.engenty",
+    domain = null,
+  } = names;
   return {
     gateway: buildPortlessRouteName(coreName, domain),
     ai: buildPortlessRouteName(aiName, domain),
     docs: buildPortlessRouteName(docsName, domain),
+    www: buildPortlessRouteName(wwwName, domain),
     gatewayHostname: buildGatewayHostname(coreName, domain),
     gatewayOrigin: portlessHttpsOrigin(buildGatewayHostname(coreName, domain)),
     aiOrigin: portlessHttpsOrigin(
@@ -220,6 +229,9 @@ export function buildPortlessRouteNames(names) {
     ),
     docsOrigin: portlessHttpsOrigin(
       `${buildPortlessRouteName(docsName, domain)}.localhost`
+    ),
+    wwwOrigin: portlessHttpsOrigin(
+      `${buildPortlessRouteName(wwwName, domain)}.localhost`
     ),
   };
 }
@@ -234,6 +246,7 @@ export function buildGatewayEnvExports(ports, options = {}) {
     ENGENTY_CORE_PORT: String(ports.core),
     ENGENTY_AI_PORT: String(ports.ai),
     ENGENTY_DOCS_PORT: String(ports.docs),
+    ENGENTY_WWW_PORT: String(ports.www),
     ENGENTY_MANAGE_PORT: String(ports.manage),
     ENGENTY_APP_HOST_PORT: String(ports.appHost),
     // apps/ai reaches app-host directly; deliberately NOT a gateway URL.
@@ -294,6 +307,7 @@ export function resolveDevPortlessConfig(params = {}) {
     coreName: names.coreName,
     aiName: names.aiName,
     docsName: names.docsName,
+    wwwName: names.wwwName,
     domain,
   });
   const env = buildGatewayEnvExports(ports, { includeStudio: !domain });
@@ -313,6 +327,7 @@ export function resolveDevPortlessConfig(params = {}) {
       { name: routes.gateway, port: ports.core },
       { name: routes.ai, port: ports.ai },
       { name: routes.docs, port: ports.docs },
+      { name: routes.www, port: ports.www },
     ],
   };
 }

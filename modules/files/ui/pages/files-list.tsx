@@ -1,5 +1,10 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@engenty/query-client";
 import {
   AdminListCardsView,
   AdminListTableView,
@@ -58,6 +63,8 @@ import {
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
 import {
+  ChevronsDownUp,
+  ChevronsUpDown,
   File,
   FolderOpen,
   HardDrive,
@@ -66,7 +73,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -81,6 +88,7 @@ import {
   type FilesColumnVisibility,
   type FilesFileWithId,
   type FilesSortColumn,
+  sortFilesBy,
 } from "../components/file-columns.js";
 import { FilePreviewPanel } from "../components/file-preview-panel.js";
 import { FilesCards } from "../components/files-cards.js";
@@ -94,6 +102,10 @@ import {
 
 /** Uploads build a `tenants/<id>/…` key, so only the shared bucket accepts them. */
 const UPLOADABLE_BUCKET = "files";
+
+/** Bounds on "expand all" — see `expandAll`. Generous, but not unbounded. */
+const EXPAND_ALL_MAX_DEPTH = 8;
+const EXPAND_ALL_MAX_FOLDERS = 400;
 
 function FilesDisplayMenu(props: {
   columnOrder: FilesColumnKey[];
@@ -183,6 +195,13 @@ export function FilesListPage() {
     null
   );
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  // Which folder rows are expanded in place, by prefix. Reset when the browsing
+  // context changes (bucket, or drilling into a folder) — a prefix from the old
+  // context would either not appear or, worse, appear at the wrong depth.
+  const [expandedPrefixes, setExpandedPrefixes] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [expandingAll, setExpandingAll] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -215,6 +234,7 @@ export function FilesListPage() {
 
   const rawFiles = searching ? searchQuery.data : childrenQuery.data?.files;
   const folders = searching ? [] : (childrenQuery.data?.folders ?? []);
+  const segmentLabels = childrenQuery.data?.segment_labels ?? {};
   // `isLoading` is only true on the very first fetch — `keepPreviousData` keeps
   // the prior folder rendered while navigating, so we never blank the page.
   const isLoading = searching ? searchQuery.isLoading : childrenQuery.isLoading;
@@ -307,41 +327,188 @@ export function FilesListPage() {
     if (!rawFiles) {
       return [];
     }
-    const withId = rawFiles.map((f) => ({ ...f, id: f.key }));
-    withId.sort((a, b) => {
-      let cmp = 0;
-      switch (sortBy) {
-        case "filename":
-          cmp = a.filename.localeCompare(b.filename);
-          break;
-        case "size":
-          cmp = a.size_bytes - b.size_bytes;
-          break;
-        case "mime_type":
-          cmp = a.mime_type.localeCompare(b.mime_type);
-          break;
-        case "created_at":
-          cmp = a.created_at.localeCompare(b.created_at);
-          break;
-      }
-      return sortOrder === "desc" ? -cmp : cmp;
-    });
-    return withId;
+    return sortFilesBy(
+      rawFiles.map((f) => ({ ...f, id: f.key })),
+      sortBy,
+      sortOrder
+    );
   }, [rawFiles, sortBy, sortOrder]);
+
+  /* ── Files revealed by the tree ──
+   *
+   * Every expanded folder's children are rows on screen, so "select all" has to
+   * mean them too — before this it meant the top level only, which in a folder
+   * of nothing but folders selected nothing at all.
+   *
+   * These are the same query keys the expanded `FolderBranch` rows already use,
+   * so React Query serves them from cache and nothing is fetched twice; reading
+   * them here (rather than out of the cache directly) is what makes the page
+   * re-render when a newly expanded folder's children land.
+   */
+  const expandedList = useMemo(
+    () => Array.from(expandedPrefixes),
+    [expandedPrefixes]
+  );
+  const expandedQueries = useQueries({
+    queries: expandedList.map((folderPrefix) =>
+      filesChildrenQueryOptions({
+        bucket: selectedBucket,
+        prefix: folderPrefix,
+      })
+    ),
+  });
+  const revealedFiles = useMemo<FilesFileWithId[]>(
+    () =>
+      expandedQueries.flatMap((q) =>
+        (q.data?.files ?? []).map((f) => ({ ...f, id: f.key }))
+      ),
+    [expandedQueries]
+  );
+
+  /** Every file row currently rendered, top level plus everything expanded. */
+  const visibleFiles = useMemo<FilesFileWithId[]>(
+    () => [...sortedFiles, ...revealedFiles],
+    [sortedFiles, revealedFiles]
+  );
 
   /* ── Selection ── */
   const { selectedIds, handleSelectAll, handleSelectOne, clearSelection } =
-    useTableSelection({ items: sortedFiles });
+    useTableSelection({ items: visibleFiles });
   const hasSelection = selectedIds.size > 0;
+
+  /**
+   * ⌘A / Ctrl+A selects the files, not the page's characters.
+   *
+   * Without this the browser's own "Select all" wins and highlights every glyph
+   * in the table — which is what it looked like the list was doing, because it
+   * was. Typing in the search box still gets the native behaviour.
+   */
+  // Held in a ref so the listener is bound once: `handleSelectAll` gets a new
+  // identity whenever the visible-file list does, which is every render.
+  const selectAllRef = useRef(handleSelectAll);
+  selectAllRef.current = handleSelectAll;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "a") {
+        return;
+      }
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      selectAllRef.current(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const goToPrefix = useCallback(
     (next: string) => {
       setPrefix(next);
       setSelectedFile(null);
+      setExpandedPrefixes(new Set());
       clearSelection();
     },
     [clearSelection]
   );
+
+  const toggleFolder = useCallback((folderPrefix: string) => {
+    setExpandedPrefixes((current) => {
+      const next = new Set(current);
+      if (next.has(folderPrefix)) {
+        // Collapsing drops the whole subtree: leaving descendants in the set
+        // would silently re-open them the next time the parent is expanded.
+        for (const open of current) {
+          if (open === folderPrefix || open.startsWith(folderPrefix)) {
+            next.delete(open);
+          }
+        }
+      } else {
+        next.add(folderPrefix);
+      }
+      return next;
+    });
+  }, []);
+
+  /**
+   * Expand every folder below the current one.
+   *
+   * Walks the tree a level at a time through the query cache, so folders the
+   * user already opened cost nothing and the rest are fetched once and stay
+   * cached for the rows that render them.
+   *
+   * Bounded, because a bucket is arbitrarily deep and "expand all" on a storage
+   * root could otherwise mean thousands of requests. When a bound is hit the
+   * tree still expands as far as it got and says so — a silently truncated tree
+   * looks identical to a fully expanded one.
+   */
+  const expandAll = useCallback(async () => {
+    setExpandingAll(true);
+    try {
+      const found = new Set<string>();
+      let frontier = folders.map((f) => f.prefix);
+      let depth = 0;
+      let truncated = false;
+
+      while (frontier.length > 0) {
+        if (
+          depth >= EXPAND_ALL_MAX_DEPTH ||
+          found.size >= EXPAND_ALL_MAX_FOLDERS
+        ) {
+          truncated = true;
+          break;
+        }
+        const levels = await Promise.all(
+          frontier.map((folderPrefix) =>
+            queryClient
+              .fetchQuery(
+                filesChildrenQueryOptions({
+                  bucket: selectedBucket,
+                  prefix: folderPrefix,
+                })
+              )
+              .then((data) => ({ data, folderPrefix }))
+              // One unreadable folder must not abandon the whole walk.
+              .catch(() => null)
+          )
+        );
+        const next: string[] = [];
+        for (const level of levels) {
+          if (!level) {
+            continue;
+          }
+          found.add(level.folderPrefix);
+          for (const child of level.data.folders) {
+            next.push(child.prefix);
+          }
+        }
+        frontier = next;
+        depth += 1;
+      }
+
+      setExpandedPrefixes(found);
+      if (truncated) {
+        toast.info(
+          t("tree.expandAllTruncated", {
+            count: found.size,
+            depth: EXPAND_ALL_MAX_DEPTH,
+          })
+        );
+      }
+    } finally {
+      setExpandingAll(false);
+    }
+  }, [folders, queryClient, selectedBucket, t]);
+
+  const collapseAll = useCallback(() => setExpandedPrefixes(new Set()), []);
+
+  const anyExpanded = expandedPrefixes.size > 0;
 
   const handleBucketChange = useCallback(
     (bucket: string) => {
@@ -349,6 +516,7 @@ export function FilesListPage() {
       setPrefix("");
       setSearch("");
       setSelectedFile(null);
+      setExpandedPrefixes(new Set());
       clearSelection();
     },
     [clearSelection]
@@ -429,25 +597,30 @@ export function FilesListPage() {
     segments.forEach((segment, i) => {
       const isLast = i === segments.length - 1;
       const target = `${segments.slice(0, i + 1).join("/")}/`;
+      const label = segmentLabels[segment] ?? segment;
       crumbs.push({
         label: isLast ? (
-          <span className="max-w-[16rem] truncate px-1.5 py-0.5 font-medium text-foreground">
-            {segment}
+          <span
+            className="max-w-[16rem] truncate px-1.5 py-0.5 font-medium text-foreground"
+            title={segment}
+          >
+            {label}
           </span>
         ) : (
           <button
             className="max-w-[16rem] truncate rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => goToPrefix(target)}
+            title={segment}
             type="button"
           >
-            {segment}
+            {label}
           </button>
         ),
-        menuLabel: segment,
+        menuLabel: label,
       });
     });
     return crumbs;
-  }, [prefix, selectedBucket, goToPrefix]);
+  }, [prefix, selectedBucket, goToPrefix, segmentLabels]);
 
   usePageConfig({
     breadcrumbs: pageBreadcrumbs,
@@ -478,7 +651,7 @@ export function FilesListPage() {
           <Skeleton className="h-9 w-64" />
           <Skeleton className="h-9 w-24" />
         </div>
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="ui-card-elevated overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -561,6 +734,21 @@ export function FilesListPage() {
 
       <ListToolbarActions moreLabel="More">
         <ListToolbarIdleControls>
+          {/* Only the table draws the tree, and a search returns a flat
+              recursive result with no folders to expand. */}
+          {display.viewMode === "table" && !searching && folders.length > 0 ? (
+            <ListToolbarIconButton
+              aria-label={
+                anyExpanded ? t("tree.collapseAll") : t("tree.expandAll")
+              }
+              disabled={expandingAll}
+              onClick={() => (anyExpanded ? collapseAll() : void expandAll())}
+              title={anyExpanded ? t("tree.collapseAll") : t("tree.expandAll")}
+              type="button"
+            >
+              {anyExpanded ? <ChevronsDownUp /> : <ChevronsUpDown />}
+            </ListToolbarIconButton>
+          ) : null}
           <ListViewModeToggle
             labels={{
               cards: t("display.cardsView"),
@@ -687,6 +875,7 @@ export function FilesListPage() {
               bucket={selectedBucket}
               columnOrder={display.columnOrder}
               columnVisibility={display.columnVisibility}
+              expandedPrefixes={expandedPrefixes}
               files={sortedFiles}
               folders={folders}
               onDelete={setDeleteKey}
@@ -698,6 +887,7 @@ export function FilesListPage() {
               onSelectAll={handleSelectAll}
               onSelectOne={handleSelectOne}
               onSortChange={handleSortChange}
+              onToggleFolder={toggleFolder}
               selectedIds={selectedIds}
               sortBy={sortBy}
               sortOrder={sortOrder}

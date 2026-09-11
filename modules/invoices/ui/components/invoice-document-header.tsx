@@ -33,7 +33,7 @@ interface InvoiceDocumentHeaderProps {
  * Blended editor header: recipient topline (with change/link actions) +
  * editable title + status stepper, collapsing to a single compact line on
  * scroll. Mirrors the offers editor's DocumentHeader, adapted to the invoice
- * lifecycle. Pair with `usePageConfig({ topbarChrome: "contentBlend",
+ * lifecycle. Pair with `usePageConfig({
  * topbarOverlap: true })`; `pt-14` clears the ~44px floating topbar.
  */
 export function InvoiceDocumentHeader({

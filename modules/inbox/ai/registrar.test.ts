@@ -9,6 +9,31 @@ describe("inboxAiRegistration", () => {
     unregisterAiRegistration("inbox");
   });
 
+  // PLAN-connections-ux.md E3 — a bound mailbox pulls once at binding; this is
+  // what keeps it current afterwards.
+  it("declares the sync trigger on the inbox specialist", () => {
+    const registration = inboxAiRegistration({
+      invokeInboxOperation: noopInvokeInboxOperation,
+    });
+    const routine = registration.routines?.find(
+      (item) => item.id === "inbox.sync"
+    );
+
+    expect(routine).toMatchObject({
+      agent_id: "inbox.assist",
+      enabled_by_default: true,
+      kind: "schedule",
+      module_id: "inbox",
+      // One mailbox pull per tenant — fanning out per space would pull the
+      // same accounts N times.
+      scope: "tenant",
+      // Nothing to report on a quiet cycle — a trigger that speaks every 15
+      // minutes is one people turn off.
+      suppress_if_no_op: true,
+      workflow: "inbox.sync",
+    });
+  });
+
   it("exposes inbox.assist with triage/connect/reply skills and Phase-1 tools", () => {
     const registration = inboxAiRegistration({
       invokeInboxOperation: noopInvokeInboxOperation,

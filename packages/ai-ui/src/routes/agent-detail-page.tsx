@@ -57,11 +57,11 @@ export function AgentDetailPage() {
   });
 
   const shellNav = useAgentsWorkspaceShellNav({
-    actions: detail.workspaceNavActions,
-    actionsLoading: detail.actionsQuery.isLoading,
     agents: detail.agents,
-    onSelectAction: detail.navigateToAction,
+    flows: detail.workspaceNavFlows,
+    flowsLoading: detail.flowsLoading,
     onSelectAgent: detail.navigateToAgent,
+    onSelectFlow: detail.navigateToFlow,
     onSelectSkill: detail.navigateToSkill,
     selectedAgentId: detail.selectedAgentId,
     skills: detail.workspaceNavSkills,
@@ -73,7 +73,6 @@ export function AgentDetailPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend.
     topbarOverlap: true,
   });
@@ -82,8 +81,16 @@ export function AgentDetailPage() {
   // events don't bubble, so a capturing listener on the wrapper catches any
   // descendant scroll container (each tab manages its own scroll).
   const scrollRootRef = useRef<HTMLDivElement>(null);
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  useEffect(() => setHeaderCollapsed(false), [activeTab]);
+  const [headerCollapsed, setHeaderCollapsed] = useState(
+    activeTab === "instructions" || activeTab === "workspace"
+  );
+  useEffect(
+    () =>
+      setHeaderCollapsed(
+        activeTab === "instructions" || activeTab === "workspace"
+      ),
+    [activeTab]
+  );
   useEffect(() => {
     const root = scrollRootRef.current;
     if (!root) {

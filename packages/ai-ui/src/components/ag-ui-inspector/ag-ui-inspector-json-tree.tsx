@@ -154,7 +154,7 @@ function JsonNode({
         )}
       </button>
       {open ? (
-        <div className="ml-2 border-border/50 border-l pl-2.5">
+        <div className="ml-2 border-border-soft border-l pl-2.5">
           {entries.length === 0 ? (
             <div className="py-0.5 text-muted-foreground italic">empty</div>
           ) : (
@@ -192,11 +192,11 @@ export function InspectorJsonTree({
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border/50 bg-muted/40",
+        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border-soft bg-muted/40",
         className
       )}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-border/40 border-b bg-muted/25 px-2 py-1">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-border-soft border-b bg-muted/25 px-2 py-1">
         <div className="flex items-center gap-1">
           <Button
             className="h-6 px-1.5 font-mono text-[10px]"

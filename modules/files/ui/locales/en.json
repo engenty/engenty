@@ -53,9 +53,17 @@
   },
   "empty": {
     "title": "No files yet",
-    "description": "Upload files or they will appear here when modules store documents.",
+    "description": "Upload files or publish file deliverables here. Documents stored by modules also appear in this real Files store.",
     "prefixTitle": "No files in this folder",
-    "prefixDescription": "Task workspace files appear here after checkout."
+    "prefixDescription": "This folder is ready for files and published deliverables. Task workspace files stay with their task until copied here."
+  },
+  "tree": {
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}",
+    "emptyFolder": "Empty folder",
+    "expandAll": "Expand all folders",
+    "collapseAll": "Collapse all folders",
+    "expandAllTruncated": "Expanded {{count}} folders, up to {{depth}} levels deep. Open the rest from their own rows."
   },
   "preview": {
     "generating": "Generating preview…",
@@ -126,12 +134,15 @@
       "confirmRemoveSource": "Remove the connected source \"{{name}}\"? Files in the provider are not touched.",
       "mounted": "Connected \"{{name}}\".",
       "mounting": "Connecting…",
-      "none": "No file sources connected — open Connections settings",
+      "none": "No other file sources connected yet.",
       "noSubfolders": "No subfolders — mount this level or go back.",
       "pickDescription": "Navigate to the folder you want to connect, then confirm.",
+      "pickSource": "Connect a folder from this computer, or choose an account already connected.",
       "pickTitle": "Connect a folder from {{name}}",
       "removeSource": "Remove source",
+      "thisComputer": "This computer",
       "useThisFolder": "Use this folder"
     }
-  }
+  },
+  "spaceFilesTab": "Files"
 }

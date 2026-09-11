@@ -197,7 +197,7 @@ export function CSVImportSourceZone({
     return (
       <div
         className={cn(
-          "flex flex-col gap-3 rounded-lg border bg-card p-4",
+          "ui-card-panel flex flex-col gap-3 p-4",
           ZONE_MIN_HEIGHT_CLASS
         )}
       >

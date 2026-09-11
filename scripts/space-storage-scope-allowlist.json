@@ -1,0 +1,66 @@
+{
+  "comment": "Files that build a TENANT-rooted storage key (`tenants/<t>/\u2026`), classified. PLAN-spaces.md \u00a71b nests exactly one boundary, so a key written above it is either deliberate (`tenant-level`: the bytes belong to the tenant, above every space) or a recorded finding (`debt`: the owner has space-scoped rows and its bytes have not followed yet). The guard is scripts/check-space-storage-scope.mjs. It reads each owner's migrations for `space_id`, so a `tenant-level` entry whose module later gains a space column becomes an error \u2014 that is the mechanism, not the list.",
+  "allow": [
+    {
+      "file": "apps/core/src/api/routes/file-storage-tenant-buckets.ts",
+      "kind": "tenant-level",
+      "despiteSpaceScopedOwner": true,
+      "reason": "Defines the tenant root of each bucket \u2014 the segment every other key hangs off, space-rooted ones included. apps/core owns core.spaces, so the space_id escalation fires on it by construction; this one file is exempt, not the app."
+    },
+    {
+      "file": "apps/ai/src/ai/sandbox/sandbox-sync.ts",
+      "kind": "tenant-level",
+      "reason": "Picks the root by spaceId: fileStorageSpaceObjectKey when a space is present, tenant root only for tenant-level syncs. The tenant branch is the fallback, not the default."
+    },
+    {
+      "file": "apps/ai/src/ai/skills/skill-proposals.ts",
+      "kind": "tenant-level",
+      "reason": "Skills are a tenant-wide library shared across spaces (\u00a71b: `tenants/<t>/ai/skills/\u2026` explicitly stays tenant-level)."
+    },
+    {
+      "file": "apps/ai/src/ai/skills/skill-storage.ts",
+      "kind": "tenant-level",
+      "reason": "Same tenant-wide skill library."
+    },
+    {
+      "file": "apps/ai/src/ai/workspace/contracts.ts",
+      "kind": "tenant-level",
+      "reason": "Read-only skill mount paths for the tenant skill library."
+    },
+    {
+      "file": "modules/company-profile/src/api/gateway-methods.ts",
+      "kind": "tenant-level",
+      "reason": "One company profile per tenant \u2014 logo and brand assets are above every space by definition."
+    },
+    {
+      "file": "modules/company-profile/src/api/index.ts",
+      "kind": "tenant-level",
+      "reason": "Same tenant-wide company profile assets."
+    },
+    {
+      "file": "modules/pdf-templates/src/api/index.ts",
+      "kind": "tenant-level",
+      "reason": "Document templates are tenant-wide branding, used by every space; the module has no space-scoped rows."
+    },
+    {
+      "file": "modules/expenses/src/api/upload-routes.ts",
+      "kind": "tenant-level",
+      "reason": "Expense receipts belong to the tenant's bookkeeping, not to a space: module_expenses scopes its rows by (tenant_id, scope_id) and has no space_id column, and every expenses operation is tenant_shared. If the module gains a space column this entry becomes an error, which is the point."
+    },
+    {
+      "file": "modules/engenty-copilot/src/lib/copilot-workspace.ts",
+      "kind": "tenant-level",
+      "reason": "The copilot's per-user home. \u00a71b keeps the personal home at the tenant root on purpose \u2014 it follows the person across spaces, not the space."
+    },
+    {
+      "file": "modules/engenty-copilot/src/lib/ensure-copilot-user-workspace-prefix.ts",
+      "kind": "tenant-level",
+      "reason": "Creates the same per-user home prefix."
+    },
+    {
+      "file": "modules/files/ui/api.ts",
+      "kind": "tenant-level",
+      "reason": "The tenant file browser: builds and validates the tenant root itself. A space's file space is reached through module_files owners (fileSpaceOwnerPath), not through this path builder."
+    }
+  ]
+}

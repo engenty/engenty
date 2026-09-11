@@ -9,6 +9,92 @@ export type ThreadPrincipalType = "user" | "group";
 export type ThreadParticipantRole = "owner" | "member" | "viewer";
 
 /**
+ * Who may read a thread. `space`: anyone who may enter its Space — a shared
+ * specialist's desk is one conversation for the whole team. `private`: the
+ * people in `thread_participant` and the room's agents only.
+ */
+export type ThreadVisibility = "private" | "space";
+
+/** Route-context key marking a thread opened as a room (name, purpose, members). */
+export const THREAD_ROOM_KEY = "room";
+
+/**
+ * Route-context key marking a direct message: one person's private line with
+ * one agent in a Space. One per person, agent and Space (a stable id), created
+ * the first time it is opened, never named.
+ */
+export const THREAD_DM_KEY = "dm";
+
+export function isRoomThread(
+  routeContext: Record<string, unknown> | null | undefined
+): boolean {
+  return routeContext?.[THREAD_ROOM_KEY] === true;
+}
+
+export function isDmThread(
+  routeContext: Record<string, unknown> | null | undefined
+): boolean {
+  return routeContext?.[THREAD_DM_KEY] === true;
+}
+
+/**
+ * What a thread IS, decided in one place so every list agrees:
+ * - `run`: a routine fire, a task's or a workflow's working thread — the
+ *   machine's, nobody chats there;
+ * - `pair`: two agents' delegated room, people read it;
+ * - `room`: opened as one — named, with members;
+ * - `dm`: one person's private line with an agent;
+ * - `desk`: everything else an agent hosts in a Space — its one shared
+ *   conversation with the team.
+ */
+export type ThreadKind = "desk" | "dm" | "pair" | "room" | "run";
+
+export function threadKind(
+  thread: Pick<ThreadRow, "route_context"> & {
+    created_by_user_id?: string | null;
+  }
+): ThreadKind {
+  const route = thread.route_context ?? {};
+  if (route.routine_id || route.task_id || route.workflow_id) {
+    return "run";
+  }
+  if (route.delegated === true) {
+    return "pair";
+  }
+  if (isDmThread(route)) {
+    return "dm";
+  }
+  if (isRoomThread(route)) {
+    return "room";
+  }
+  return "desk";
+}
+
+/**
+ * An agent's place in a room. The `host` is the thread's `agent_id` — the
+ * desk that lists the room first, the memory owner, the one that answers when
+ * nobody is addressed. Every other agent that may speak there is a `member`.
+ */
+export type ThreadAgentRole = "host" | "member";
+
+export interface ThreadAgentRow {
+  agent_id: string;
+  created_at: string;
+  role: ThreadAgentRole;
+  tenant_id: string;
+  thread_id: string;
+}
+
+/**
+ * A person's place in a room: the `owner` opened it (or the room was opened
+ * for them by an agent); everyone else who was added or posted is a `member`.
+ */
+export interface ThreadUserParticipantRow {
+  role: ThreadParticipantRole;
+  user_id: string;
+}
+
+/**
  * `signal` is Mastra's state/notification signal, not a conversation turn.
  * Mastra reconstructs signals with a hard `role === "signal"` filter, so the
  * role must survive the round trip — but transcripts must exclude it.
@@ -24,15 +110,31 @@ export interface ThreadRow {
   agent_id: string;
   archived_at: string | null;
   created_at: string;
-  created_by_user_id: string;
+  /**
+   * Null on an UNATTENDED thread — a routine fire or a task run has no human
+   * author, and stamping one would make its transcript a private chat the
+   * service principal executing the run is then refused from
+   * (`registerActionRun`, and the "Four rooms" rule in thread-access.ts).
+   * Typed `string` for a long time, which is why nothing warned about the
+   * author-less case in either the listing path or the access path.
+   */
+  created_by_user_id: string | null;
   id: string;
   metadata: Record<string, unknown>;
   route_context: Record<string, unknown>;
+  /**
+   * The space this chat lives in (PLAN-spaces.md Phase C2). Null means
+   * "pre-space" — the thread predates the column and shows only under "All
+   * spaces". Visibility, not authorization: what an agent may reach is decided
+   * by the capability system and the space mount set.
+   */
+  space_id: string | null;
   status: AgentSessionStatus;
   summary: string | null;
   tenant_id: string;
   title: string | null;
   updated_at: string;
+  visibility: ThreadVisibility;
   workspace_key: string | null;
 }
 
@@ -64,6 +166,18 @@ export type AgentRunStatus =
   | "requires_action"
   | "paused";
 
+/** How a run started. Null means unknown, never a guess. */
+export type AgentRunTrigger =
+  | "message"
+  | "command"
+  | "button"
+  | "cron"
+  | "hook"
+  | "direct"
+  // A work item was assigned to a specialist, so a run opened against it. The
+  // task is the run's SUBJECT, not its owner.
+  | "task";
+
 export interface AgentRunRow {
   agent_id: string;
   cancelled_at: string | null;
@@ -87,6 +201,8 @@ export interface AgentRunRow {
   status: AgentRunStatus;
   tenant_id: string;
   thread_id: string;
+  /** How the run started; null on rows written before the column existed. */
+  trigger: AgentRunTrigger | null;
 }
 
 export interface AgentRunEventRow {

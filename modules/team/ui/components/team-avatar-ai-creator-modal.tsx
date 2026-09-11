@@ -366,7 +366,7 @@ export function TeamAvatarAiCreatorModal({
     }
   }, [onDeleteAvatar, onOpenChange]);
 
-  const photoActionButtons = capturedPhotoUrl ? (
+  const photoWorkflowButtons = capturedPhotoUrl ? (
     <div className="flex flex-wrap justify-center gap-2">
       <Button
         disabled={isApplying || isGenerating}
@@ -485,7 +485,7 @@ export function TeamAvatarAiCreatorModal({
 
               <div className="flex justify-center gap-3">
                 {capturedPhotoUrl ? (
-                  photoActionButtons
+                  photoWorkflowButtons
                 ) : (
                   <Button
                     className="bg-ember text-white hover:bg-ember/90"
@@ -527,7 +527,7 @@ export function TeamAvatarAiCreatorModal({
                 )}
               </div>
 
-              {capturedPhotoUrl ? photoActionButtons : null}
+              {capturedPhotoUrl ? photoWorkflowButtons : null}
             </div>
           )}
 

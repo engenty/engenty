@@ -33,6 +33,12 @@ export interface GatewayModelOption {
   available_for_video: boolean;
   context_tokens: number | null;
   display_name: string | null;
+  /**
+   * Which gateway serves this row. The server has always sent it; dropping it
+   * here is what made two gateways' rows for the same model indistinguishable
+   * in the picker — and unselectable, since the select keys on the value.
+   */
+  gateway: string;
   id: string;
   input_per_mtok_micros: number | null;
   label: string;
@@ -40,6 +46,8 @@ export interface GatewayModelOption {
   output_per_mtok_micros: number | null;
   price_tier: GatewayModelPriceTier | null;
   provider: string;
+  reasoning: boolean;
+  tool_use: boolean;
   use_cases: GatewayModelUseCase[];
   vision: boolean;
   web_search: boolean;
@@ -48,6 +56,8 @@ export interface GatewayModelOption {
 export async function listGatewayModelOptions(
   params: {
     availability_purpose?: GatewayModelAvailabilityPurpose;
+    /** Narrow to one gateway. Omit to offer every configured gateway's models. */
+    gateway?: string;
     max_price_tier?: GatewayModelPriceTier;
     search?: string;
     use_case?: GatewayModelUseCase;
@@ -61,6 +71,9 @@ export async function listGatewayModelOptions(
   const searchParams = new URLSearchParams();
   if (params.availability_purpose) {
     searchParams.set("availability_purpose", params.availability_purpose);
+  }
+  if (params.gateway) {
+    searchParams.set("gateway", params.gateway);
   }
   if (params.max_price_tier) {
     searchParams.set("max_price_tier", params.max_price_tier);

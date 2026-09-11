@@ -334,7 +334,7 @@ export function ChangelogDialog({ open, onOpenChange }: ChangelogDialogProps) {
                         data-changelog-section={key}
                         key={key}
                       >
-                        <h3 className="sticky top-0 z-10 flex items-baseline gap-3 border-border/60 border-b bg-popover px-6 py-2.5 font-semibold text-base">
+                        <h3 className="sticky top-0 z-10 flex items-baseline gap-3 border-border-soft border-b bg-popover px-6 py-2.5 font-semibold text-base">
                           <HighlightSearchText
                             activeMatchIndex={activeMatchIndex}
                             matchCounter={matchCounter}

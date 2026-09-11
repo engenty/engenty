@@ -144,7 +144,8 @@ export function ArtifactsCatalogToolbar(props: ArtifactsCatalogToolbarProps) {
     { label: t("artifactsCatalog.scope.thread"), value: "thread" },
     { label: t("artifactsCatalog.scope.task"), value: "task" },
     { label: t("artifactsCatalog.scope.project"), value: "project" },
-    { label: t("artifactsCatalog.scope.goal"), value: "goal" },
+    { label: t("artifactsCatalog.scope.space"), value: "space" },
+    { label: t("artifactsCatalog.scope.agent"), value: "agent" },
   ];
   const typeChipOptions = [
     { label: t("artifactsCatalog.filter.allTypes"), value: "all" },

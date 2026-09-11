@@ -32,6 +32,8 @@ function makeSession(overrides: Partial<ThreadRow> = {}): ThreadRow {
     tenant_id: tenantId,
     title: "Ada chat",
     updated_at: "2026-05-17T00:00:10.000Z",
+    space_id: null,
+    visibility: "space",
     workspace_key: "workspace",
     ...overrides,
   };
@@ -62,8 +64,28 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     deleteThreadsForUser: vi.fn(async () => ({ deleted: 1 })),
     getThread: vi.fn(async () => thread),
     getThreadGlobally: vi.fn(async () => thread),
+    getThreadObservationalMemory: vi.fn(async () => null),
     listMessagesOrdered: vi.fn(async () => [message]),
+    listMessagesByIds: vi.fn(async () => [message]),
+    listHeadlessThreadsForTask: vi.fn(async () => []),
+    listRunThreadsForSpaceAgent: vi.fn(async () => []),
+    listLatestMessagesForThreads: vi.fn(async () => new Map()),
+    listAppReleaseMarkersForThreads: vi.fn(async () => []),
+    listUnattendedThreadsForSpace: vi.fn(async () => []),
+    addAgentMember: vi.fn(async () => {}),
+    listAgentMembers: vi.fn(async () => []),
+    listDmsForUser: vi.fn(async () => []),
+    listRoomsForSpace: vi.fn(async () => []),
+    listSpaceRoomsDirectory: vi.fn(async () => []),
+    listParticipantThreadIds: vi.fn(async () => []),
+    setThreadVisibility: vi.fn(async () => thread),
+    removeAgentMember: vi.fn(async () => {}),
+    addUserParticipant: vi.fn(async () => {}),
+    listUserParticipants: vi.fn(async () => []),
+    removeUserParticipant: vi.fn(async () => {}),
+    listThreadsForSpaceAgent: vi.fn(async () => []),
     listThreadsForUser: vi.fn(async () => [thread]),
+    setThreadStatus: vi.fn(async () => {}),
     updateMessageParts: vi.fn(async (input) => ({
       message: makeMessage({
         author_user_id: null,
@@ -111,6 +133,106 @@ describe("EngentySessionMemoryStorage", () => {
         workspace_key: "workspace",
       },
     });
+  });
+
+  it("accepts a conversation-keyed resourceId for shared rooms", async () => {
+    const store = makeStore();
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    const thread = await storage.getThreadById({
+      resourceId: threadId,
+      threadId,
+    });
+
+    expect(thread).toMatchObject({
+      id: threadId,
+      resourceId: threadId,
+    });
+  });
+
+  it("accepts a space-keyed resourceId for shared rooms", async () => {
+    const spaceId = "00000000-0000-4000-8000-000000000099";
+    const store = makeStore({
+      getThread: vi.fn(async () => makeSession({ space_id: spaceId })),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      spaceId,
+      store,
+    });
+
+    const thread = await storage.getThreadById({
+      resourceId: spaceId,
+      threadId,
+    });
+
+    expect(thread).toMatchObject({
+      id: threadId,
+      resourceId: spaceId,
+    });
+  });
+
+  it("answers the Space key for the run's own shared-room thread when Mastra fetches without a resourceId", async () => {
+    // Mastra's thread-ownership assert fetches WITHOUT a resourceId and
+    // compares strings itself. A shared child thread carries BOTH
+    // `created_by_user_id` and `space_id`, so the row-only mapping would
+    // answer the owner while the run presents the Space — killing every
+    // message_agent run against a hired (shared-scope) agent in a Space.
+    const spaceId = "00000000-0000-4000-8000-000000000099";
+    const store = makeStore({
+      getThread: vi.fn(async () => makeSession({ space_id: spaceId })),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "fun.hello-world",
+      scope: { tenantId, userId },
+      sharedRoom: true,
+      spaceId,
+      store,
+      threadId,
+    });
+
+    const thread = await storage.getThreadById({ threadId });
+
+    expect(thread).toMatchObject({ id: threadId, resourceId: spaceId });
+  });
+
+  it("keeps the owner key for a personal thread even when it is space-bound", async () => {
+    const spaceId = "00000000-0000-4000-8000-000000000099";
+    const store = makeStore({
+      getThread: vi.fn(async () => makeSession({ space_id: spaceId })),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      sharedRoom: false,
+      spaceId,
+      store,
+      threadId,
+    });
+
+    const thread = await storage.getThreadById({ threadId });
+
+    expect(thread).toMatchObject({ id: threadId, resourceId: userId });
+  });
+
+  it("falls back to the thread id for a spaceless shared room", async () => {
+    const store = makeStore();
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "fun.hello-world",
+      scope: { tenantId, userId },
+      sharedRoom: true,
+      store,
+      threadId,
+    });
+
+    const thread = await storage.getThreadById({ threadId });
+
+    expect(thread).toMatchObject({ id: threadId, resourceId: threadId });
   });
 
   it("does not query agent sessions for Mastra internal workflow thread ids", async () => {
@@ -206,6 +328,42 @@ describe("EngentySessionMemoryStorage", () => {
             artifact_id: "artifact-1",
             shown_at: "2026-08-06T00:00:00.000Z",
           },
+        }),
+      })
+    );
+  });
+
+  it("re-injects a room's turn budget the same way — the run that spends it must not reset it", async () => {
+    const store = makeStore({
+      getThread: vi.fn(async () =>
+        makeSession({
+          metadata: { agent_turns_since_human: 6, room_paused: false },
+        })
+      ),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "players.tom",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveThread({
+      thread: {
+        id: threadId,
+        resourceId: userId,
+        createdAt: new Date("2026-05-17T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-17T00:00:00.000Z"),
+        // The run's snapshot was taken two turns ago.
+        metadata: { agent_id: "players.tom", agent_turns_since_human: 4 },
+        title: "Arena",
+      },
+    });
+
+    expect(store.upsertThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          agent_turns_since_human: 6,
+          room_paused: false,
         }),
       })
     );
@@ -396,6 +554,190 @@ describe("EngentySessionMemoryStorage", () => {
       parts: [{ type: "text", text: "Hello" }],
       authorUserId: userId,
     });
+  });
+
+  it("persists the authenticated speaker when Mastra resourceId is the thread", async () => {
+    const store = makeStore({ listMessagesOrdered: vi.fn(async () => []) });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: "00000000-0000-4000-8000-0000000000cc",
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:01.000Z"),
+          threadId,
+          resourceId: threadId,
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Hello from a shared room" }],
+          },
+        },
+      ],
+    });
+
+    expect(store.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorUserId: userId,
+        role: "user",
+        threadId,
+      })
+    );
+  });
+
+  it("persists the authenticated speaker when Mastra resourceId is the space", async () => {
+    const spaceId = "00000000-0000-4000-8000-0000000000aa";
+    const store = makeStore({ listMessagesOrdered: vi.fn(async () => []) });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      spaceId,
+      store,
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: "00000000-0000-4000-8000-0000000000cd",
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:01.000Z"),
+          threadId,
+          resourceId: spaceId,
+          content: {
+            format: 2,
+            parts: [{ type: "text", text: "Hello from a space room" }],
+          },
+        },
+      ],
+    });
+
+    expect(store.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorUserId: userId,
+        role: "user",
+        threadId,
+      })
+    );
+  });
+
+  it("recalls every speaker when Mastra lists by conversation resourceId", async () => {
+    const otherUserId = "00000000-0000-4000-8000-000000000099";
+    const rows: ThreadMessageRow[] = [
+      makeMessage({
+        author_user_id: otherUserId,
+        id: "00000000-0000-4000-8000-0000000000b1",
+        parts: [{ type: "text", text: "from a colleague" }],
+      }),
+      makeMessage({
+        author_user_id: null,
+        id: "00000000-0000-4000-8000-0000000000b2",
+        parts: [{ type: "text", text: "got it" }],
+        role: "assistant",
+      }),
+    ];
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    const listed = await storage.listMessages({
+      perPage: false,
+      resourceId: threadId,
+      threadId,
+    });
+
+    expect(listed.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(listed.messages[0]?.resourceId).toBe(otherUserId);
+  });
+
+  it("recalls every speaker when Mastra lists by space resourceId", async () => {
+    const spaceId = "00000000-0000-4000-8000-0000000000aa";
+    const otherUserId = "00000000-0000-4000-8000-0000000000bb";
+    const rows: ThreadMessageRow[] = [
+      makeMessage({
+        author_user_id: otherUserId,
+        id: "00000000-0000-4000-8000-0000000000c1",
+        parts: [{ type: "text", text: "from a colleague" }],
+      }),
+      makeMessage({
+        author_user_id: null,
+        id: "00000000-0000-4000-8000-0000000000c2",
+        parts: [{ type: "text", text: "got it" }],
+        role: "assistant",
+      }),
+    ];
+    const store = makeStore({
+      getThread: vi.fn(async () => makeSession({ space_id: spaceId })),
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      spaceId,
+      store,
+    });
+
+    const listed = await storage.listMessages({
+      perPage: false,
+      resourceId: spaceId,
+      threadId,
+    });
+
+    expect(listed.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(listed.messages[0]?.resourceId).toBe(otherUserId);
+  });
+
+  it("lists messages by id for Mastra state-signal hydration", async () => {
+    const signalMessage = makeMessage({
+      id: "00000000-0000-4000-8000-0000000000c1",
+      parts: [{ type: "text", text: "profile snapshot" }],
+      role: "user",
+    });
+    const listMessagesByIds = vi.fn(async () => [signalMessage]);
+    const store = makeStore({ listMessagesByIds });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    const listed = await storage.listMessagesById({
+      messageIds: [signalMessage.id, "not-a-uuid"],
+    });
+
+    expect(listMessagesByIds).toHaveBeenCalledWith({
+      messageIds: [signalMessage.id],
+      tenantId,
+    });
+    expect(listed.messages).toHaveLength(1);
+    expect(listed.messages[0]).toMatchObject({
+      id: signalMessage.id,
+      threadId,
+    });
+  });
+
+  it("returns no messages for an empty listMessagesById call", async () => {
+    const store = makeStore();
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.coordinator",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    await expect(storage.listMessagesById({ messageIds: [] })).resolves.toEqual(
+      {
+        messages: [],
+      }
+    );
+    expect(store.listMessagesByIds).not.toHaveBeenCalled();
   });
 
   it("new user inserts adopt the client-assigned userMessageId", async () => {
@@ -722,6 +1064,25 @@ describe("EngentySessionMemoryStorage", () => {
     });
   });
 
+  it("keys an unattended thread on its Space, never on a null author", () => {
+    // A routine fire has no human author on purpose. Emitting that null
+    // verbatim gave Mastra a `resourceId` its own type forbids and nothing can
+    // be keyed on; the Space is what `createEngentyMastraResourceId` picks for
+    // a shared room, which every unattended thread is.
+    const spaceId = "00000000-0000-4000-8000-0000000000aa";
+    expect(
+      sessionToThread(
+        makeSession({ created_by_user_id: null, space_id: spaceId })
+      )
+    ).toMatchObject({ resourceId: spaceId });
+  });
+
+  it("falls back to the thread itself when an unattended thread has no Space", () => {
+    expect(
+      sessionToThread(makeSession({ created_by_user_id: null, space_id: null }))
+    ).toMatchObject({ resourceId: threadId });
+  });
+
   it("recalls assistant/tool turns even when a resourceId is passed", async () => {
     // Mastra recall calls `listMessages({ threadId, resourceId, ... })`. Assistant
     // and tool turns have no `author_user_id` (→ `resourceId: undefined`), so a
@@ -775,6 +1136,34 @@ describe("EngentySessionMemoryStorage", () => {
       "assistant",
       "assistant",
     ]);
+    expect(store.listMessagesOrdered).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: false })
+    );
+  });
+
+  it("passes the OM observation cursor to unbounded message recall", async () => {
+    const listMessagesOrdered = vi.fn(async () => []);
+    const store = makeStore({ listMessagesOrdered });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+    const start = new Date("2026-05-17T01:00:00.000Z");
+
+    await storage.listMessages({
+      filter: { dateRange: { start } },
+      perPage: false,
+      resourceId: userId,
+      threadId,
+    });
+
+    expect(listMessagesOrdered).toHaveBeenCalledWith({
+      after: start,
+      limit: false,
+      tenantId,
+      threadId,
+    });
   });
 
   it("round-trips tool history through MessageList for model and UI prompts", async () => {
@@ -980,5 +1369,171 @@ describe("tool parts recalled with defined arguments", () => {
 
     const part = message?.content.parts[0] as { input?: unknown };
     expect(part.input).toEqual({ query: "time tracking" });
+  });
+
+  it("paginates recalled messages and reports hasMore", async () => {
+    const rows = [0, 1, 2, 3, 4].map((index) =>
+      makeMessage({
+        created_at: `2026-05-17T00:00:0${index}.000Z`,
+        id: `00000000-0000-4000-8000-0000000001${index}0`,
+      })
+    );
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    const page0 = await storage.listMessages({
+      page: 0,
+      perPage: 2,
+      threadId,
+    });
+    expect(page0.messages.map((message) => message.id)).toEqual([
+      rows[0]?.id,
+      rows[1]?.id,
+    ]);
+    expect(page0.total).toBe(5);
+    expect(page0.hasMore).toBe(true);
+    expect(page0.perPage).toBe(2);
+
+    const rest = await storage.listMessages({
+      perPage: false,
+      threadId,
+    });
+    expect(rest.messages).toHaveLength(5);
+    expect(rest.hasMore).toBe(false);
+  });
+
+  it("filters recalled messages by inclusive date range", async () => {
+    const rows = [
+      makeMessage({
+        created_at: "2024-12-31T00:00:00.000Z",
+        id: "00000000-0000-4000-8000-000000000201",
+      }),
+      makeMessage({
+        created_at: "2025-03-01T00:00:00.000Z",
+        id: "00000000-0000-4000-8000-000000000202",
+      }),
+      makeMessage({
+        created_at: "2025-07-01T00:00:00.000Z",
+        id: "00000000-0000-4000-8000-000000000203",
+      }),
+    ];
+    const listMessagesOrdered = vi.fn(async () => [...rows]);
+    const store = makeStore({ listMessagesOrdered });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+    const start = new Date("2025-01-01T00:00:00.000Z");
+    const end = new Date("2025-06-01T00:00:00.000Z");
+
+    const listed = await storage.listMessages({
+      filter: { dateRange: { end, start } },
+      perPage: false,
+      threadId,
+    });
+
+    expect(listed.messages.map((message) => message.id)).toEqual([
+      "00000000-0000-4000-8000-000000000202",
+    ]);
+    expect(listMessagesOrdered).toHaveBeenCalledWith({
+      after: start,
+      before: end,
+      limit: false,
+      tenantId,
+      threadId,
+    });
+  });
+
+  it("filters recalled messages by shallow metadata", async () => {
+    const rows = [
+      makeMessage({
+        id: "00000000-0000-4000-8000-000000000301",
+        metadata: {
+          archivedAt: null,
+          category: "billing",
+          escalated: true,
+          priority: 2,
+        },
+      }),
+      makeMessage({
+        id: "00000000-0000-4000-8000-000000000302",
+        metadata: { category: "billing", escalated: false, priority: 2 },
+      }),
+    ];
+    const store = makeStore({
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+
+    const listed = await storage.listMessages({
+      filter: {
+        metadata: {
+          archivedAt: null,
+          category: "billing",
+          escalated: true,
+          priority: 2,
+        },
+      },
+      perPage: false,
+      threadId,
+    });
+    expect(listed.messages.map((message) => message.id)).toEqual([
+      "00000000-0000-4000-8000-000000000301",
+    ]);
+  });
+
+  it("unions include neighbor windows with the current page", async () => {
+    const rows = [0, 1, 2, 3, 4].map((index) =>
+      makeMessage({
+        created_at: `2026-05-17T00:00:0${index}.000Z`,
+        id: `00000000-0000-4000-8000-0000000004${index}0`,
+      })
+    );
+    const store = makeStore({
+      listMessagesByIds: vi.fn(async ({ messageIds }) =>
+        rows.filter((row) => messageIds.includes(row.id))
+      ),
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+    });
+    const targetId = rows[3]?.id ?? "";
+
+    const listed = await storage.listMessages({
+      include: [
+        {
+          id: targetId,
+          withNextMessages: 1,
+          withPreviousMessages: 1,
+        },
+      ],
+      page: 0,
+      perPage: 2,
+      threadId,
+    });
+
+    expect(listed.messages.map((message) => message.id)).toEqual([
+      rows[0]?.id,
+      rows[1]?.id,
+      rows[2]?.id,
+      rows[3]?.id,
+      rows[4]?.id,
+    ]);
+    expect(listed.total).toBe(5);
+    expect(listed.hasMore).toBe(true);
   });
 });

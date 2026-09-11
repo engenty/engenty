@@ -49,7 +49,6 @@ export function InvoicesSettingsPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const preview = useMemo(() => {

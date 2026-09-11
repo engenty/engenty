@@ -49,6 +49,38 @@ export function defaultFabAnchor(inset: number): CopilotFabAnchor {
 }
 
 /**
+ * After a FAB pointer-up with no snap target: keep the current corner on a
+ * click. Committing the leftover `{0,0}` drag seed is what parked the avatar
+ * in the top-left corner.
+ */
+export function resolveFabFreeDropAnchor(input: {
+  lastPosition: { x: number; y: number };
+  moved: boolean;
+  size: Size;
+  viewport: Viewport;
+}): CopilotFabAnchor | null {
+  if (!input.moved) {
+    return null;
+  }
+  return computeFabAnchor(input.lastPosition, input.size, input.viewport);
+}
+
+/**
+ * Skip layout math when the window has not been sized yet — clamping a
+ * bottom-right home into a 0×0 viewport yields the top-left origin.
+ */
+export function isUsableFabViewport(
+  viewport: Viewport,
+  size: Size,
+  margin: number
+): boolean {
+  return (
+    viewport.width >= size.width + margin * 2 &&
+    viewport.height >= size.height + margin * 2
+  );
+}
+
+/**
  * Resolve an edge anchor back to an absolute, in-viewport position for the
  * current window size.
  */

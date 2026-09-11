@@ -8,167 +8,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  enabledModuleSlugSet,
-  readEngentyPluginsManifest,
-  resolveEnabledModules,
-} from "./lib/engenty-modules.mjs";
+  resolveMigrationOwners,
+  resolveRepoRoot,
+} from "./lib/migration-owners.mjs";
 
 const TIMESTAMP_REGEX = /^(\d{14})_(.+)\.sql$/;
 const PLUGIN_SLUG_PREFIX = "plugin_";
-
-function resolveRepoRoot() {
-  let dir = process.cwd();
-  for (let i = 0; i < 20; i++) {
-    const pkgPath = path.join(dir, "package.json");
-    if (fs.existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-        if (
-          Array.isArray(pkg.workspaces) &&
-          pkg.workspaces.includes("modules/*")
-        ) {
-          return dir;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-  return process.cwd();
-}
-
-function readPackageJson(dir) {
-  const p = path.join(dir, "package.json");
-  if (!fs.existsSync(p)) {
-    return null;
-  }
-  try {
-    return JSON.parse(fs.readFileSync(p, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-function readManifestId(dir) {
-  const p = path.join(dir, "engenty.plugin.json");
-  if (!fs.existsSync(p)) {
-    return null;
-  }
-  try {
-    const id = JSON.parse(fs.readFileSync(p, "utf-8")).id;
-    return typeof id === "string" && id.trim() ? id.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-function discoverMigrationOwners(parentDir, ownerKind, enabledModuleSlugs) {
-  if (!(fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory())) {
-    return [];
-  }
-  const isModulesParent =
-    ownerKind === "module" && parentDir.endsWith(`${path.sep}modules`);
-  const owners = [];
-  const addOwner = (ownerDir, name) => {
-    const pkg = readPackageJson(ownerDir);
-    if (!pkg) {
-      return;
-    }
-    const migrationsDir = pkg.engenty?.migrationsDir ?? "supabase/migrations";
-    const migrationsPath = path.resolve(ownerDir, migrationsDir);
-    if (
-      !(
-        fs.existsSync(migrationsPath) &&
-        fs.statSync(migrationsPath).isDirectory()
-      )
-    ) {
-      return;
-    }
-    owners.push({
-      kind: ownerKind,
-      name,
-      packageName: pkg.name,
-      migrationsPath,
-    });
-  };
-
-  for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
-    if (!ent.isDirectory()) {
-      continue;
-    }
-    const ownerDir = path.join(parentDir, ent.name);
-    if (
-      !(
-        isModulesParent &&
-        enabledModuleSlugs &&
-        !enabledModuleSlugs.has(ent.name)
-      )
-    ) {
-      addOwner(ownerDir, ent.name);
-    }
-    if (!isModulesParent) {
-      continue;
-    }
-    const providersDir = path.join(ownerDir, "providers");
-    if (
-      !(fs.existsSync(providersDir) && fs.statSync(providersDir).isDirectory())
-    ) {
-      continue;
-    }
-    for (const child of fs.readdirSync(providersDir, { withFileTypes: true })) {
-      if (!child.isDirectory()) {
-        continue;
-      }
-      const childDir = path.join(providersDir, child.name);
-      const slug = readManifestId(childDir);
-      if (!slug) {
-        continue;
-      }
-      if (enabledModuleSlugs && !enabledModuleSlugs.has(slug)) {
-        continue;
-      }
-      addOwner(childDir, slug);
-    }
-  }
-  return owners.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * Level A: migration owners for modules installed from the registry
- * (node_modules). Their SQL ships in the tarball under the same migrationsDir
- * convention, so they aggregate identically to workspace modules.
- */
-function discoverRegistryMigrationOwners(root) {
-  const owners = [];
-  for (const mod of resolveEnabledModules(root, { strict: false })) {
-    if (mod.source !== "registry") {
-      continue;
-    }
-    const pkg = readPackageJson(mod.dir);
-    if (!pkg) {
-      continue;
-    }
-    const migrationsDir = pkg.engenty?.migrationsDir ?? "supabase/migrations";
-    const migrationsPath = path.resolve(mod.dir, migrationsDir);
-    if (
-      fs.existsSync(migrationsPath) &&
-      fs.statSync(migrationsPath).isDirectory()
-    ) {
-      owners.push({
-        kind: "module",
-        name: mod.slug,
-        packageName: pkg.name,
-        migrationsPath,
-      });
-    }
-  }
-  return owners.sort((a, b) => a.name.localeCompare(b.name));
-}
 
 function validateTimestamp(basename, ownerLabel) {
   const m = basename.match(TIMESTAMP_REGEX);
@@ -265,27 +110,9 @@ function isAggregatedMigration(content) {
 
 function main() {
   const root = resolveRepoRoot();
-  const appsDir = path.join(root, "apps");
-  const modulesDir = path.join(root, "modules");
-  const packagesDir = path.join(root, "packages");
   const outDir = path.join(root, "supabase", "migrations");
 
-  // Workspace scans must exclude registry-source modules — those are owned by
-  // discoverRegistryMigrationOwners (from node_modules), and a leftover
-  // modules/<slug> checkout would otherwise duplicate them.
-  const { plugins } = readEngentyPluginsManifest(root);
-  const enabledModuleSlugs = new Set(
-    [...enabledModuleSlugSet(root)].filter(
-      (slug) => plugins[slug]?.source !== "registry"
-    )
-  );
-
-  const owners = [
-    ...discoverMigrationOwners(appsDir, "core"),
-    ...discoverMigrationOwners(modulesDir, "module", enabledModuleSlugs),
-    ...discoverMigrationOwners(packagesDir, "module", enabledModuleSlugs),
-    ...discoverRegistryMigrationOwners(root),
-  ];
+  const owners = resolveMigrationOwners(root);
   if (owners.length === 0) {
     return;
   }

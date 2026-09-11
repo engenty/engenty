@@ -1,40 +1,22 @@
+import { resolveDefaultSpaceId } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidv7 } from "uuidv7";
-import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import {
-  assertGoalDepth,
-  canTransitionGoalStatus,
-} from "../domain/goal-lifecycle.js";
-import {
-  checkGoalTaskBudget,
-  type GoalTaskGuardTask,
-  MAX_OPEN_AGENT_TASKS_PER_GOAL,
-} from "../domain/goal-task-budget.js";
-import {
-  assertAgentTaskGoal,
   canTransitionTaskStatus,
   normalizeTaskAssignees,
-  resolveTaskGoalId,
   TASK_AGENT_CHECKOUT_ENTRY_STATUSES,
   type TaskStatus,
 } from "../domain/task-lifecycle.js";
+import { resolveCreateSpaceId } from "../lib/resolve-create-space-id.js";
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
-import {
-  definitionsToSettingsSlice,
-  mergeTaskStatusDefinitionsFromPayload,
-  normalizeTaskStatusDefinitionsFromStorage,
-} from "../lib/task-status-settings.js";
 import type {
-  Goal,
-  GoalCreateInput,
-  GoalsPaginatedResponse,
-  GoalsQueryParams,
-  GoalUpdateInput,
   Task,
   TaskActivity,
   TaskActivityEventType,
   TaskCheckoutInput,
   TaskComment,
+  TaskCommentKind,
+  TaskCommentMetadata,
   TaskContext,
   TaskContextInput,
   TaskCreateInput,
@@ -47,12 +29,20 @@ import type {
   TasksQueryParams,
   TaskUpdateInput,
 } from "../schema/types.js";
+import { detachTimesheetRowsForTaskDelete } from "./detach-timesheet-rows-for-task-delete.js";
 import { allocateTaskIdentifier } from "./task-identifier.js";
+import { createTaskSettingsStore } from "./task-settings.js";
 
-/** Cap for task run history lists — standing routines accumulate forever. */
+/** Cap for task run history lists — a long-lived task accumulates runs. */
 export const TASK_RUNS_LIST_LIMIT = 30;
 
 const SCHEMA = "module_tasks";
+/**
+ * Read-only, and only ever for `space_id` inheritance (resolveCreateSpaceId).
+ * The projects module is an optional install, so the lookup has to tolerate the
+ * table not being there — a failed read falls through to the next container.
+ */
+const PROJECTS_SCHEMA = "module_projects";
 
 export interface TasksRepoAuditOptions {
   /** Bus fan-out hook for task activity rows (fire-and-forget). */
@@ -76,9 +66,9 @@ function rowToTask(row: Record<string, unknown>): Task {
     description: (row.description as string | null) ?? null,
     status: String(row.status),
     priority: row.priority as Task["priority"],
-    goal_id: (row.goal_id as string | null) ?? null,
     parent_id: (row.parent_id as string | null) ?? null,
     project_id: (row.project_id as string | null) ?? null,
+    space_id: row.space_id as string,
     primary_assignee_kind:
       row.primary_assignee_kind as Task["primary_assignee_kind"],
     primary_assignee_user_id:
@@ -90,7 +80,6 @@ function rowToTask(row: Record<string, unknown>): Task {
     created_by_agent_type_key:
       (row.created_by_agent_type_key as string | null) ?? null,
     due_date: (row.due_date as string | null) ?? null,
-    trigger_id: (row.trigger_id as string | null) ?? null,
     // approval_grants / approval_grants_once live in core.approval_grants
     // (subject = task id) — the detail route hydrates them from there.
     pending_approval_operation_ids:
@@ -100,26 +89,6 @@ function rowToTask(row: Record<string, unknown>): Task {
     completed_at: (row.completed_at as string | null) ?? null,
     cancelled_at: (row.cancelled_at as string | null) ?? null,
     checkout_run_id: (row.checkout_run_id as string | null) ?? null,
-    created_at: String(row.created_at),
-    updated_at: String(row.updated_at),
-  };
-}
-
-function rowToGoal(row: Record<string, unknown>): Goal {
-  return {
-    id: String(row.id),
-    tenant_id: String(row.tenant_id),
-    scope_id: String(row.scope_id),
-    title: String(row.title),
-    description: (row.description as string | null) ?? null,
-    status: row.status as Goal["status"],
-    parent_id: (row.parent_id as string | null) ?? null,
-    project_id: (row.project_id as string | null) ?? null,
-    owner_user_id: (row.owner_user_id as string | null) ?? null,
-    owner_agent_id: (row.owner_agent_id as string | null) ?? null,
-    owner_agent_type_key: (row.owner_agent_type_key as string | null) ?? null,
-    level: String(row.level ?? "task"),
-    target_date: (row.target_date as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -167,8 +136,30 @@ export function createTasksRepoSupabase(
     audit?.recordAuditEvent?.({ type, detail });
   };
 
-  const settingsTable = () => supabase.schema(SCHEMA).from("tenant_settings");
-  const goals = () => supabase.schema(SCHEMA).from("goals");
+  /**
+   * The space a new task belongs to: explicit, else inherited from the
+   * container it is created inside, else the tenant's default space. Never null
+   * — a work container outside every space is the one state the tier forbids.
+   */
+  function createSpaceId(params: {
+    explicit?: string | null;
+    inheritFrom?: [
+      schema: string,
+      table: string,
+      id: string | null | undefined,
+    ][];
+  }) {
+    return resolveCreateSpaceId({
+      // `as never` on both: matching these structural client slices against
+      // SupabaseClient's generics blows the instantiation-depth limit (TS2589).
+      client: supabase as never,
+      tenantId,
+      resolveDefault: () => resolveDefaultSpaceId(supabase as never, tenantId),
+      ...params,
+    });
+  }
+
+  const settingsStore = createTaskSettingsStore(supabase, tenantId, scopeId);
   const tasks = () => supabase.schema(SCHEMA).from("tasks");
   const collaborators = () =>
     supabase.schema(SCHEMA).from("task_collaborators");
@@ -198,43 +189,6 @@ export function createTasksRepoSupabase(
     return (
       status === "completed" || status === "failed" || status === "cancelled"
     );
-  }
-
-  async function ensureSettingsRow(): Promise<TaskSettings> {
-    const { data, error } = await settingsTable()
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("scope_id", scopeId)
-      .maybeSingle();
-    if (error) {
-      throw new Error(`Failed to load task settings: ${error.message}`);
-    }
-    if (!data) {
-      const defs = BUILTIN_TASK_STATUS_DEFINITIONS.map((d) => ({ ...d }));
-      const { error: insertError } = await settingsTable().insert({
-        tenant_id: tenantId,
-        scope_id: scopeId,
-        identifier_prefix: "ENG",
-        stale_after_days: 7,
-        task_status_definitions: defs,
-      });
-      if (insertError) {
-        throw new Error(`Failed to seed task settings: ${insertError.message}`);
-      }
-      return {
-        identifier_prefix: "ENG",
-        stale_after_days: 7,
-        ...definitionsToSettingsSlice(defs),
-      };
-    }
-    const definitions = normalizeTaskStatusDefinitionsFromStorage(
-      data.task_status_definitions
-    );
-    return {
-      identifier_prefix: String(data.identifier_prefix ?? "ENG"),
-      stale_after_days: Number(data.stale_after_days ?? 7),
-      ...definitionsToSettingsSlice(definitions),
-    };
   }
 
   function assertStatusAllowed(
@@ -312,6 +266,23 @@ export function createTasksRepoSupabase(
     }
   }
 
+  async function replaceTaskContexts(
+    taskId: string,
+    rows: TaskContextInput[]
+  ): Promise<void> {
+    const { error: deleteError } = await contexts()
+      .delete()
+      .eq("task_id", taskId)
+      .eq("tenant_id", tenantId)
+      .eq("scope_id", scopeId);
+    if (deleteError) {
+      throw new Error(
+        `Failed to replace task contexts: ${deleteError.message}`
+      );
+    }
+    await insertTaskContexts(taskId, rows);
+  }
+
   async function appendActivity(input: {
     task_id: string;
     event_type: TaskActivityEventType | string;
@@ -347,55 +318,15 @@ export function createTasksRepoSupabase(
     return activity;
   }
 
-  async function goalDepth(parentId: string | null): Promise<number> {
-    if (!parentId) {
-      return 0;
-    }
-    const { data, error } = await goals()
-      .select("parent_id")
-      .eq("id", parentId)
-      .eq("tenant_id", tenantId)
-      .eq("scope_id", scopeId)
-      .maybeSingle();
-    if (error || !data) {
-      return 0;
-    }
-    const parentParent = (data as { parent_id: string | null }).parent_id;
-    return 1 + (parentParent ? 1 : 0);
-  }
-
   return {
     async getSettings(): Promise<TaskSettings> {
-      return ensureSettingsRow();
+      return settingsStore.get();
     },
 
     async updateSettings(
       input: TaskSettingsUpdateInput
     ): Promise<TaskSettings> {
-      const current = await ensureSettingsRow();
-      const definitions = input.task_status_definitions
-        ? mergeTaskStatusDefinitionsFromPayload(input.task_status_definitions)
-        : current.task_status_definitions;
-      const row = {
-        identifier_prefix:
-          input.identifier_prefix?.trim() || current.identifier_prefix,
-        stale_after_days: input.stale_after_days ?? current.stale_after_days,
-        task_status_definitions: definitions,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await settingsTable().upsert({
-        tenant_id: tenantId,
-        scope_id: scopeId,
-        ...row,
-      });
-      if (error) {
-        throw new Error(`Failed to update task settings: ${error.message}`);
-      }
-      return {
-        identifier_prefix: row.identifier_prefix,
-        stale_after_days: row.stale_after_days,
-        ...definitionsToSettingsSlice(definitions),
-      };
+      return settingsStore.update(input);
     },
 
     async listTasksPaginated(
@@ -501,20 +432,28 @@ export function createTasksRepoSupabase(
       if (params.status) {
         query = query.eq("status", params.status);
       }
-      if (params.goal_id) {
-        query = query.eq("goal_id", params.goal_id);
-      }
       if (params.parent_id) {
         query = query.eq("parent_id", params.parent_id);
       }
       if (params.project_id) {
         query = query.eq("project_id", params.project_id);
       }
-      if (params.trigger_id) {
-        query = query.eq("trigger_id", params.trigger_id);
+      if (params.space_id) {
+        query = query.eq("space_id", params.space_id);
+      } else if (params.space_ids) {
+        if (params.space_ids.length === 0) {
+          return { data: [], total: 0, page, pageSize };
+        }
+        query = query.in("space_id", [...params.space_ids]);
       }
       if (params.assignee_kind) {
         query = query.eq("primary_assignee_kind", params.assignee_kind);
+      }
+      if (params.primary_assignee_agent_type_key) {
+        query = query.eq(
+          "primary_assignee_agent_type_key",
+          params.primary_assignee_agent_type_key
+        );
       }
       if (params.search?.trim()) {
         const q = `%${params.search.trim()}%`;
@@ -536,7 +475,25 @@ export function createTasksRepoSupabase(
       const data = await Promise.all(
         (rows ?? []).map(async (row) => {
           const task = rowToTask(row as Record<string, unknown>);
-          task.collaborator_user_ids = await loadCollaboratorIds(task.id);
+          const [collaboratorIds, latestComment] = await Promise.all([
+            loadCollaboratorIds(task.id),
+            params.include_agent_desk_state
+              ? comments()
+                  .select("kind")
+                  .eq("task_id", task.id)
+                  .eq("tenant_id", tenantId)
+                  .eq("scope_id", scopeId)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+              : Promise.resolve({ data: null }),
+          ]);
+          task.collaborator_user_ids = collaboratorIds;
+          if (params.include_agent_desk_state) {
+            task.has_open_question =
+              (latestComment.data as { kind?: string } | null)?.kind ===
+              "question";
+          }
           return task;
         })
       );
@@ -607,6 +564,10 @@ export function createTasksRepoSupabase(
               (row as { created_by_agent_type_key: string | null })
                 .created_by_agent_type_key ?? null,
             created_at: String((row as { created_at: string }).created_at),
+            kind: ((row as { kind?: TaskCommentKind }).kind ??
+              "note") as TaskCommentKind,
+            metadata: ((row as { metadata?: TaskCommentMetadata }).metadata ??
+              {}) as TaskCommentMetadata,
           })
         ),
       };
@@ -696,75 +657,27 @@ export function createTasksRepoSupabase(
       input: TaskCreateInput,
       opts?: { createdByUserId?: string | null; actorKind?: "user" | "agent" }
     ): Promise<Task> {
-      const settings = await ensureSettingsRow();
+      const settings = await settingsStore.get();
       const status = input.status ?? "todo";
       assertStatusAllowed(settings, status);
 
-      let parentGoalId: string | null = null;
-      if (input.parent_id) {
-        const { data: parent } = await tasks()
-          .select("goal_id")
-          .eq("id", input.parent_id)
-          .maybeSingle();
-        parentGoalId =
-          (parent as { goal_id: string | null } | null)?.goal_id ?? null;
-      }
-
-      const goal_id = resolveTaskGoalId({
-        explicit_goal_id: input.goal_id ?? null,
-        parent_goal_id: parentGoalId,
+      // Inherit before falling back: a task inside a container belongs to that
+      // container's space, and a chain spanning two spaces is precisely what
+      // resolveWorkVisibility has to complain about later.
+      //
+      // Order follows the containment ladder inward-out — parent task, then
+      // project — so the NEAREST container wins. The project is the one that
+      // reaches another module's schema, and it is the one that made this list
+      // wrong before: `createProjectLinkedTask` passes `project_id` and nothing
+      // else, so every task added to a project in a non-default space used to
+      // land in Company.
+      const space_id = await createSpaceId({
+        explicit: input.space_id,
+        inheritFrom: [
+          [SCHEMA, "tasks", input.parent_id],
+          [PROJECTS_SCHEMA, "projects", input.project_id],
+        ],
       });
-
-      if (input.created_by_agent_type_key) {
-        assertAgentTaskGoal({ actorKind: "agent_create", goal_id });
-      }
-
-      // A goal is the one place a looping planner can pile up duplicates, so
-      // the guard sits here — in the single create path every caller goes
-      // through — rather than in any one agent's prompt.
-      if (goal_id) {
-        const { data: siblingRows, error: siblingError } = await tasks()
-          .select("id, identifier, primary_assignee_kind, status, title")
-          .eq("tenant_id", tenantId)
-          .eq("scope_id", scopeId)
-          .eq("goal_id", goal_id);
-        if (siblingError) {
-          throw new Error(`Failed to load goal tasks: ${siblingError.message}`);
-        }
-        const verdict = checkGoalTaskBudget(
-          (siblingRows ?? []) as GoalTaskGuardTask[],
-          input.title
-        );
-        if (verdict.kind === "duplicate") {
-          // Idempotent: hand back what already covers this step. A retry (or a
-          // planner that re-proposes the same step) must not double the plan.
-          const existing = await this.getTask(verdict.existing.id);
-          if (existing) {
-            record("tasks.create_deduplicated", {
-              existing_id: existing.id,
-              goal_id,
-              title: input.title,
-            });
-            return existing;
-          }
-        }
-        if (verdict.kind === "budget_exhausted") {
-          // The message itself has to carry the numbers: it is what the
-          // agent reads back as the tool result, and the structured `details`
-          // are not propagated through the gateway error envelope.
-          const err = new Error(
-            `goal_open_task_budget_exhausted: this goal already has ${verdict.open} open agent tasks (limit ${MAX_OPEN_AGENT_TASKS_PER_GOAL}). Do not create more — review the existing tasks instead.`
-          ) as Error & {
-            details: unknown;
-          };
-          err.details = {
-            goal_id,
-            limit: MAX_OPEN_AGENT_TASKS_PER_GOAL,
-            open_agent_tasks: verdict.open,
-          };
-          throw err;
-        }
-      }
 
       const assignee = normalizeTaskAssignees(input);
       const identifier = await allocateTaskIdentifier(
@@ -785,7 +698,6 @@ export function createTasksRepoSupabase(
         description: input.description ?? null,
         status,
         priority: input.priority ?? "medium",
-        goal_id,
         parent_id: input.parent_id ?? null,
         primary_assignee_kind: assignee.primary_assignee_kind,
         primary_assignee_user_id: assignee.primary_assignee_user_id,
@@ -795,8 +707,8 @@ export function createTasksRepoSupabase(
         created_by_agent_type_key: input.created_by_agent_type_key ?? null,
         due_date: input.due_date ?? null,
         blocked_by_task_ids: input.blocked_by_task_ids ?? [],
-        ...(input.trigger_id == null ? {} : { trigger_id: input.trigger_id }),
         ...(input.project_id == null ? {} : { project_id: input.project_id }),
+        space_id,
         // request_depth: dead column kept for compat — DB default 0
         created_at: now,
         updated_at: now,
@@ -839,7 +751,7 @@ export function createTasksRepoSupabase(
       if (!existing) {
         return null;
       }
-      const settings = await ensureSettingsRow();
+      const settings = await settingsStore.get();
       const nextStatus = input.status ?? existing.status;
       assertStatusAllowed(settings, nextStatus);
 
@@ -892,9 +804,6 @@ export function createTasksRepoSupabase(
       if (input.priority !== undefined) {
         updates.priority = input.priority;
       }
-      if (input.goal_id !== undefined) {
-        updates.goal_id = input.goal_id;
-      }
       if (input.due_date !== undefined) {
         updates.due_date = input.due_date;
       }
@@ -911,13 +820,18 @@ export function createTasksRepoSupabase(
         input.collaborator_user_ids !== undefined
       ) {
         const assignee = normalizeTaskAssignees({
+          // Merged view of the patch over the row, so an explicit null actually
+          // clears the field it patches instead of reading as "unchanged".
           primary_assignee_kind:
             input.primary_assignee_kind ?? existing.primary_assignee_kind,
           primary_assignee_user_id:
-            input.primary_assignee_user_id ?? existing.primary_assignee_user_id,
+            input.primary_assignee_user_id === undefined
+              ? existing.primary_assignee_user_id
+              : input.primary_assignee_user_id,
           primary_assignee_agent_type_key:
-            input.primary_assignee_agent_type_key ??
-            existing.primary_assignee_agent_type_key,
+            input.primary_assignee_agent_type_key === undefined
+              ? existing.primary_assignee_agent_type_key
+              : input.primary_assignee_agent_type_key,
           collaborator_user_ids:
             input.collaborator_user_ids ?? existing.collaborator_user_ids,
         });
@@ -942,6 +856,9 @@ export function createTasksRepoSupabase(
       }
       if (!data) {
         return null;
+      }
+      if (input.contexts !== undefined) {
+        await replaceTaskContexts(id, input.contexts);
       }
       const updated = rowToTask(data as Record<string, unknown>);
       updated.collaborator_user_ids = await loadCollaboratorIds(id);
@@ -1023,18 +940,12 @@ export function createTasksRepoSupabase(
         return false;
       }
 
-      // Preserve time entries that reference this task before the cascade NULLs
-      // their task_id, which would violate module_time_tracking_level_check on
-      // entries with no other anchor.
-      const timeEntries = () =>
-        supabase.schema("module_time_tracking").from("time_entries");
-      await timeEntries()
-        .update({ manual_task_title: existing.title })
-        .eq("task_id", id)
-        .is("project_id", null)
-        .is("phase_id", null)
-        .is("manual_project_title", null)
-        .or("manual_task_title.is.null,manual_task_title.eq.");
+      await detachTimesheetRowsForTaskDelete(supabase, {
+        tenantId,
+        scopeId,
+        taskId: id,
+        taskTitle: existing.title,
+      });
 
       const { error } = await tasks()
         .delete()
@@ -1051,10 +962,20 @@ export function createTasksRepoSupabase(
     async addComment(
       taskId: string,
       content: string,
-      opts?: { createdByUserId?: string | null; createdByAgentTypeKey?: string }
+      opts?: {
+        createdByUserId?: string | null;
+        createdByAgentTypeKey?: string;
+        kind?: TaskCommentKind;
+        metadata?: TaskCommentMetadata;
+      }
     ): Promise<TaskComment> {
       const id = uuidv7();
       const now = new Date().toISOString();
+      // Default by author, not by content: a comment nobody classified is a
+      // person's note, and an agent that did not say otherwise is reporting
+      // progress. Nothing here reads the text.
+      const kind: TaskCommentKind =
+        opts?.kind ?? (opts?.createdByAgentTypeKey ? "progress" : "note");
       const row = {
         id,
         tenant_id: tenantId,
@@ -1064,6 +985,8 @@ export function createTasksRepoSupabase(
         created_by_user_id: opts?.createdByUserId ?? null,
         created_by_agent_type_key: opts?.createdByAgentTypeKey ?? null,
         created_at: now,
+        kind,
+        metadata: opts?.metadata ?? {},
       };
       const { data, error } = await comments().insert(row).select().single();
       if (error) {
@@ -1085,12 +1008,16 @@ export function createTasksRepoSupabase(
         created_by_user_id: row.created_by_user_id,
         created_by_agent_type_key: row.created_by_agent_type_key,
         created_at: now,
+        kind,
+        metadata: row.metadata,
       };
     },
 
     /**
-     * Newest agent-result comment (`🤖 …`) on a task — used when waking
-     * dependents so the blocker's outcome reaches the dependent brief.
+     * Newest result comment on a task — used when waking dependents so the
+     * blocker's outcome reaches the dependent brief. Selected by `kind`; it
+     * used to match `content like '🤖%'`, which silently missed any result
+     * whose copy changed.
      */
     async getLatestAgentResultComment(taskId: string): Promise<string | null> {
       const { data, error } = await comments()
@@ -1098,7 +1025,7 @@ export function createTasksRepoSupabase(
         .eq("task_id", taskId)
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId)
-        .like("content", "🤖%")
+        .eq("kind", "result")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -1111,211 +1038,6 @@ export function createTasksRepoSupabase(
       return typeof content === "string" && content.trim()
         ? content.trim()
         : null;
-    },
-
-    async listGoalsPaginated(
-      params: GoalsQueryParams
-    ): Promise<GoalsPaginatedResponse> {
-      const page = Math.max(params.page ?? 1, 1);
-      const pageSize = Math.min(Math.max(params.pageSize ?? 25, 1), 200);
-      const sortBy =
-        params.sortBy === "created_at" ||
-        params.sortBy === "title" ||
-        params.sortBy === "status"
-          ? params.sortBy
-          : "updated_at";
-      const sortOrder = params.sortOrder === "asc";
-
-      let query = goals()
-        .select("*", { count: "exact", head: false })
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId);
-
-      if (params.status) {
-        query = query.eq("status", params.status);
-      }
-      if (params.owner_agent_type_key) {
-        query = query.eq("owner_agent_type_key", params.owner_agent_type_key);
-      }
-      if (params.owner_kind === "agent") {
-        query = query.not("owner_agent_type_key", "is", null);
-      } else if (params.owner_kind === "user") {
-        query = query
-          .is("owner_agent_type_key", null)
-          .not("owner_user_id", "is", null);
-      }
-      if (params.parent_id) {
-        query = query.eq("parent_id", params.parent_id);
-      }
-      if (params.project_id) {
-        query = query.eq("project_id", params.project_id);
-      }
-      if (params.search?.trim()) {
-        query = query.ilike("title", `%${params.search.trim()}%`);
-      }
-
-      const {
-        data: rows,
-        error,
-        count,
-      } = await query
-        .order(sortBy, { ascending: sortOrder })
-        .range((page - 1) * pageSize, page * pageSize - 1);
-
-      if (error) {
-        throw new Error(`Failed to list goals: ${error.message}`);
-      }
-
-      const data: Goal[] = [];
-      for (const row of rows ?? []) {
-        const goal = rowToGoal(row as Record<string, unknown>);
-        const { count: taskCount } = await tasks()
-          .select("id", { count: "exact", head: true })
-          .eq("goal_id", goal.id);
-        goal.linked_task_count = taskCount ?? 0;
-        data.push(goal);
-      }
-
-      return {
-        data,
-        total: count ?? data.length,
-        page,
-        pageSize,
-      };
-    },
-
-    async getGoal(id: string): Promise<Goal | null> {
-      const { data, error } = await goals()
-        .select("*")
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .maybeSingle();
-      if (error) {
-        throw new Error(`Failed to get goal: ${error.message}`);
-      }
-      if (!data) {
-        return null;
-      }
-      const goal = rowToGoal(data as Record<string, unknown>);
-      const { count: taskCount } = await tasks()
-        .select("id", { count: "exact", head: true })
-        .eq("goal_id", goal.id);
-      goal.linked_task_count = taskCount ?? 0;
-      return goal;
-    },
-
-    async createGoal(input: GoalCreateInput): Promise<Goal> {
-      const depth = await goalDepth(input.parent_id ?? null);
-      assertGoalDepth(depth);
-
-      const id = uuidv7();
-      const now = new Date().toISOString();
-      const row = {
-        id,
-        tenant_id: tenantId,
-        scope_id: scopeId,
-        title: input.title.trim(),
-        description: input.description ?? null,
-        status: input.status ?? "planned",
-        parent_id: input.parent_id ?? null,
-        ...(input.project_id == null ? {} : { project_id: input.project_id }),
-        owner_user_id: input.owner_user_id ?? null,
-        owner_agent_id: null,
-        owner_agent_type_key: input.owner_agent_type_key ?? null,
-        level: input.level ?? "task",
-        target_date: input.target_date ?? null,
-        created_at: now,
-        updated_at: now,
-      };
-      const { data, error } = await goals().insert(row).select().single();
-      if (error) {
-        throw new Error(`Failed to create goal: ${error.message}`);
-      }
-      const created = rowToGoal((data ?? row) as Record<string, unknown>);
-      record("goals.created", { id: created.id, title: created.title });
-      return created;
-    },
-
-    async updateGoal(id: string, input: GoalUpdateInput): Promise<Goal | null> {
-      const { data: existing, error: loadError } = await goals()
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      if (loadError) {
-        throw new Error(`Failed to load goal: ${loadError.message}`);
-      }
-      if (!existing) {
-        return null;
-      }
-      const current = rowToGoal(existing as Record<string, unknown>);
-      const nextStatus = input.status ?? current.status;
-      if (!canTransitionGoalStatus(current.status, nextStatus)) {
-        throw new Error("goal_status_transition_denied");
-      }
-      if (
-        input.parent_id !== undefined &&
-        input.parent_id !== current.parent_id
-      ) {
-        const depth = await goalDepth(input.parent_id);
-        assertGoalDepth(depth);
-      }
-
-      const updates: Record<string, unknown> = {
-        updated_at: new Date().toISOString(),
-      };
-      if (input.title !== undefined) {
-        updates.title = input.title.trim();
-      }
-      if (input.description !== undefined) {
-        updates.description = input.description;
-      }
-      if (input.status !== undefined) {
-        updates.status = input.status;
-      }
-      if (input.parent_id !== undefined) {
-        updates.parent_id = input.parent_id;
-      }
-      if (input.owner_user_id !== undefined) {
-        updates.owner_user_id = input.owner_user_id;
-      }
-      if (input.owner_agent_type_key !== undefined) {
-        updates.owner_agent_type_key = input.owner_agent_type_key;
-      }
-      if (input.level !== undefined) {
-        updates.level = input.level;
-      }
-      if (input.target_date !== undefined) {
-        updates.target_date = input.target_date;
-      }
-      if (input.project_id !== undefined) {
-        updates.project_id = input.project_id;
-      }
-
-      const { data, error } = await goals()
-        .update(updates)
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .select()
-        .single();
-      if (error) {
-        throw new Error(`Failed to update goal: ${error.message}`);
-      }
-      return data ? rowToGoal(data as Record<string, unknown>) : null;
-    },
-
-    async deleteGoal(id: string): Promise<boolean> {
-      const { error } = await goals()
-        .delete()
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId);
-      if (error) {
-        throw new Error(`Failed to delete goal: ${error.message}`);
-      }
-      record("goals.deleted", { id });
-      return true;
     },
 
     async checkoutTask(
@@ -1413,19 +1135,45 @@ export function createTasksRepoSupabase(
         });
       }
 
-      const taskRunId = uuidv7();
-      const { error: runError } = await taskRuns().insert({
-        id: taskRunId,
-        tenant_id: tenantId,
-        scope_id: scopeId,
-        task_id: taskId,
-        agent_session_run_id: runId,
-        // DB still allows work|review; only checkout is ever written.
-        role: "checkout" as const,
-        created_at: now,
-      });
-      if (runError) {
-        throw new Error(`Failed to record task run: ${runError.message}`);
+      // ONE run row per run. A resumed run re-enters checkout under the SAME
+      // run id — it parked for a person, was released to `in_review`, and the
+      // same background task resumed once the answer landed. The early return
+      // above only covers a task still `in_progress`, so this path runs a
+      // second time, and a blind insert would mint a second row for one run:
+      // run history would then show the run twice, split at the point where it
+      // stopped to ask.
+      const { data: priorRun } = await taskRuns()
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("scope_id", scopeId)
+        .eq("task_id", taskId)
+        .eq("agent_session_run_id", runId)
+        .eq("role", "checkout")
+        .maybeSingle();
+      if (priorRun) {
+        // Running again means the recorded outcome is no longer the run's
+        // outcome. Clearing it also re-opens the row for release, which only
+        // stamps a row whose `finished_at` is still null.
+        const { error: reopenError } = await taskRuns()
+          .update({ finished_at: null, outcome: null })
+          .eq("id", (priorRun as { id: string }).id);
+        if (reopenError) {
+          throw new Error(`Failed to reopen task run: ${reopenError.message}`);
+        }
+      } else {
+        const { error: runError } = await taskRuns().insert({
+          id: uuidv7(),
+          tenant_id: tenantId,
+          scope_id: scopeId,
+          task_id: taskId,
+          agent_session_run_id: runId,
+          // DB still allows work|review; only checkout is ever written.
+          role: "checkout" as const,
+          created_at: now,
+        });
+        if (runError) {
+          throw new Error(`Failed to record task run: ${runError.message}`);
+        }
       }
 
       await appendActivity({
@@ -1586,89 +1334,8 @@ export function createTasksRepoSupabase(
       return "finished";
     },
 
-    /**
-     * Tasks materialized by a trigger. With `nonTerminalOnly`, excludes
-     * done/cancelled (standing-task lookup). Ordered newest-first.
-     */
-    async listTriggerTasks(
-      triggerId: string,
-      opts?: { limit?: number; nonTerminalOnly?: boolean }
-    ): Promise<Task[]> {
-      let query = tasks()
-        .select("*")
-        .eq("trigger_id", triggerId)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .order("created_at", { ascending: false });
-      if (opts?.nonTerminalOnly) {
-        query = query.not("status", "in", "(done,cancelled)");
-      }
-      if (opts?.limit !== undefined) {
-        query = query.limit(opts.limit);
-      }
-      const { data, error } = await query;
-      if (error) {
-        throw new Error(`Failed to list trigger tasks: ${error.message}`);
-      }
-      return (data ?? []).map((row) =>
-        rowToTask(row as Record<string, unknown>)
-      );
-    },
-
-    /**
-     * Standing tasks for many triggers in one query (routine list enrichment).
-     * Returns the newest non-terminal task per trigger_id.
-     */
-    async listStandingTasksByTriggerIds(
-      triggerIds: string[]
-    ): Promise<Map<string, Task>> {
-      const result = new Map<string, Task>();
-      if (triggerIds.length === 0) {
-        return result;
-      }
-      const { data, error } = await tasks()
-        .select("*")
-        .in("trigger_id", triggerIds)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .not("status", "in", "(done,cancelled)")
-        .order("created_at", { ascending: false });
-      if (error) {
-        throw new Error(
-          `Failed to list standing trigger tasks: ${error.message}`
-        );
-      }
-      for (const row of data ?? []) {
-        const task = rowToTask(row as Record<string, unknown>);
-        if (task.trigger_id && !result.has(task.trigger_id)) {
-          result.set(task.trigger_id, task);
-        }
-      }
-      return result;
-    },
-
-    /**
-     * Open (not yet finished) tasks a trigger materialized — thin wrapper kept
-     * for callers that still want the pre-standing-task "stacking" set
-     * (entry + running + blocked, not in_review).
-     */
-    async listOpenTriggerTasks(triggerId: string): Promise<Task[]> {
-      const { data, error } = await tasks()
-        .select("*")
-        .eq("trigger_id", triggerId)
-        .eq("tenant_id", tenantId)
-        .eq("scope_id", scopeId)
-        .in("status", ["todo", "backlog", "in_progress", "blocked"]);
-      if (error) {
-        throw new Error(`Failed to list trigger tasks: ${error.message}`);
-      }
-      return (data ?? []).map((row) =>
-        rowToTask(row as Record<string, unknown>)
-      );
-    },
-
     async listTaskRuns(taskId: string): Promise<TaskRun[]> {
-      // Immortal standing tasks accumulate forever; keep list payloads bounded.
+      // A task re-run many times accumulates runs; keep list payloads bounded.
       const { data, error } = await taskRuns()
         .select("*")
         .eq("task_id", taskId)

@@ -11,6 +11,10 @@ The company profile is what every offer, invoice and PDF prints as the sender â€
 name, address, VAT id, bank details. A wrong value here goes out on documents
 that are legal and financial records, so evidence matters more than coverage.
 
+This is one tenant legal/company profile shared across Spaces. A Space mount
+grants access to that same profile; there is no profile `space_id` and you must
+not invent one.
+
 ## Tool Process
 
 1. `company_profile_get` â€” **always first**. Never write a field without seeing

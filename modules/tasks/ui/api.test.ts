@@ -22,7 +22,6 @@ describe("tasks ui api", () => {
           description: null,
           status: "todo",
           priority: "medium",
-          goal_id: null,
           parent_id: null,
           primary_assignee_kind: "none",
           primary_assignee_user_id: null,

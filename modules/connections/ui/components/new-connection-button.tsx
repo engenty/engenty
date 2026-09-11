@@ -23,9 +23,15 @@ import { getConnectUrl } from "../api.js";
 export function NewConnectionButton({
   connectors,
   redirectTo,
+  spaceId = null,
 }: {
   connectors: Pick<CatalogConnector, "icon" | "id" | "name">[];
   redirectTo: string;
+  /**
+   * Mount what gets connected into this space (PLAN-spaces.md CN.4 Flow A).
+   * Set when the user arrived here from a space's "Add account".
+   */
+  spaceId?: string | null;
 }) {
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
@@ -37,6 +43,7 @@ export function NewConnectionButton({
         connectorId,
         redirectTo,
         sharing,
+        spaceId,
       });
       window.location.assign(authUrl);
     } catch (error) {

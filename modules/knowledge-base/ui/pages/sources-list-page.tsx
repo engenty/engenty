@@ -43,7 +43,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Link2, Play, Trash2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { KbSource, KbSourceStatus } from "../../src/schema/types.js";
 import {
@@ -53,6 +53,7 @@ import {
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { SourceAdapterDialog } from "../components/source-adapter-dialog.js";
 import type { SourceAdapterDialogInput } from "../components/source-adapter-editor.js";
+import { SourceCreateWizardDialog } from "../components/source-create-wizard/source-create-wizard-dialog.js";
 import { SourceItemsDialog } from "../components/source-items-dialog.js";
 import { SourcesCards } from "../components/sources-cards.js";
 import type {
@@ -63,8 +64,11 @@ import { SourcesTable } from "../components/sources-table.js";
 import { SourcesTableToolbar } from "../components/sources-table-toolbar.js";
 import { useKbSourcesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-content.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { parseKbOpenSourceAddFromLocation } from "../kb-open-source-add-state.js";
-import { KB_MODULE_BASE, kbSourcePath, kbSourcesPath } from "../kb-paths.js";
+import {
+  parseKbOpenSourceAddFromLocation,
+  parseKbSourceAddFromSearch,
+} from "../kb-open-source-add-state.js";
+import { kbSourcePath } from "../kb-paths.js";
 import { mergeKbSourceAdaptersForPicker } from "../kb-source-adapters-merge.js";
 import {
   kbModulePageListShellSectionClassName,
@@ -73,11 +77,11 @@ import {
 import { getSourcesToolbarLabels } from "../lib/sources-toolbar-labels.js";
 import {
   kbSourcesListQueryOptions,
-  kbsQueryOptions,
   sourceAdaptersQueryOptions,
   useKbSourceMutations,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const SOURCES_DISPLAY_DEFAULTS = {
   viewMode: "table" as const,
@@ -108,7 +112,6 @@ export function SourcesListPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const location = useLocation();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createPresetAdapterId, setCreatePresetAdapterId] = useState<
     string | null
@@ -128,12 +131,13 @@ export function SourcesListPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [fileUploadDialogOpen, setFileUploadDialogOpen] = useState(false);
   const [extraSourceSubmitting, setExtraSourceSubmitting] = useState(false);
   const [pendingDropFiles, setPendingDropFiles] = useState<File[] | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const { data: adaptersRaw = [] } = useQuery(sourceAdaptersQueryOptions);
   const adapters = useMemo(
     () => mergeKbSourceAdaptersForPicker(adaptersRaw),
@@ -145,20 +149,7 @@ export function SourcesListPage() {
     [adapters]
   );
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
-  const kbId = useMemo(
-    () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
-    [kbSlugParam, kbs]
-  );
-  const kbSlug = useMemo(
-    () => (kbId ? slugFromKbId(kbs, kbId) : undefined),
-    [kbs, kbId]
-  );
-
-  useEffect(() => {
-    if (!kbsLoading && kbSlugParam && !kbId) {
-      navigate(KB_MODULE_BASE, { replace: true });
-    }
-  }, [kbId, kbSlugParam, kbsLoading, navigate]);
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const display = useListDisplayState<
     keyof SourcesColumnVisibility,
@@ -211,20 +202,8 @@ export function SourcesListPage() {
   } = useQuery(kbSourcesListQueryOptions(listQuery));
   const mutations = useKbSourceMutations(listQuery);
 
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (nextSlug) {
-        navigate(kbSourcesPath(nextSlug));
-      }
-    },
-    [kbs, navigate]
-  );
-
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbId ?? "",
-    kbSlug: kbSlug ?? "",
-    onKbChange: navigateKb,
   });
 
   const openCreateWithAdapter = useCallback((adapterId: string) => {
@@ -262,13 +241,25 @@ export function SourcesListPage() {
     openCreateWithAdapter,
   ]);
 
+  // `?add=wizard` — set by the `/sources/new` deep link and by the sidebar.
+  // Cleared once consumed so a reload does not reopen the wizard.
+  useEffect(() => {
+    if (parseKbSourceAddFromSearch(location.search) === null) {
+      return;
+    }
+    setWizardOpen(true);
+    navigate(
+      { pathname: location.pathname, search: "" },
+      { replace: true, state: null }
+    );
+  }, [location.pathname, location.search, navigate]);
+
   const pageActions = useMemo(
-    () => (kbSlug ? <KbModuleShellActions kbSlug={kbSlug} /> : null),
-    [kbSlug]
+    () => (kbId ? <KbModuleShellActions /> : null),
+    []
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: useMemo(
@@ -291,9 +282,9 @@ export function SourcesListPage() {
 
   const handleDialogStarted = useCallback(
     (sourceId: string) => {
-      navigate(kbSourcePath(kbSlug ?? kbSlugParam ?? "", sourceId));
+      navigate(kbSourcePath(sourceId));
     },
-    [kbSlug, kbSlugParam, navigate]
+    [navigate]
   );
 
   /**
@@ -542,7 +533,7 @@ export function SourcesListPage() {
         ? String(listError)
         : null;
 
-  if (kbsLoading || !kbId || !kbSlug) {
+  if (kbsLoading || !kbId) {
     return (
       <section className={kbModulePageShellSectionClassName}>
         <Skeleton className="h-10 w-full max-w-xl" />
@@ -705,7 +696,6 @@ export function SourcesListPage() {
             allSelected={allSelected}
             columnOrder={columnOrder}
             columnVisibility={columnVisibility}
-            kbSlug={kbSlug}
             listQuery={listQuery}
             onDeleteRequest={setDeleteTarget}
             onEdit={(source) => {
@@ -738,7 +728,6 @@ export function SourcesListPage() {
         <AdminListCardsView header={toolbarHeader}>
           <SourcesCards
             adapters={adapters}
-            kbSlug={kbSlug}
             onDelete={setDeleteTarget}
             onEdit={(source) => {
               setCreatePresetAdapterId(null);
@@ -884,7 +873,6 @@ export function SourcesListPage() {
         source={selectedSource}
       />
       <SourceItemsDialog
-        kbSlug={kbSlug ?? ""}
         onOpenChange={setItemsOpen}
         open={itemsOpen}
         source={selectedSource}
@@ -892,6 +880,11 @@ export function SourcesListPage() {
 
       {kbId ? (
         <>
+          <SourceCreateWizardDialog
+            kbId={kbId}
+            onOpenChange={setWizardOpen}
+            open={wizardOpen}
+          />
           <KbManualSourceDialog
             kbId={kbId}
             onOpenChange={setManualDialogOpen}
@@ -906,7 +899,6 @@ export function SourcesListPage() {
           <KbFileUploadSourceDialog
             initialFiles={pendingDropFiles ?? undefined}
             kbId={kbId}
-            kbSlug={kbSlug}
             onOpenChange={(open) => {
               setFileUploadDialogOpen(open);
               if (!open) {

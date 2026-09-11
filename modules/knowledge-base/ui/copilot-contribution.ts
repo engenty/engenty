@@ -2,6 +2,7 @@
  * Knowledge Base — copilot contribution (KB manager agent + starter prompts).
  */
 
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
 import { invalidateKbDataAfterCopilotAssistantTurn } from "./kb-copilot-invalidate.js";
 
@@ -9,7 +10,9 @@ const KB_MANAGER_AGENT_ID = "knowledge-base.manager";
 
 export const kbCopilotContribution: UiCopilotContribution = {
   matches: (ctx) => {
-    const path = ctx.pathname ?? "";
+    // Canonical, not raw: in a space this is `/s/<key>/kb/…`, and
+    // failing to recognise it means the copilot opens without the KB agent.
+    const path = canonicalModulePathname(ctx.pathname ?? "");
     if (path.startsWith("/mdl/knowledge-base")) {
       return true;
     }

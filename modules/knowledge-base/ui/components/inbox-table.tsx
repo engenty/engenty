@@ -38,7 +38,6 @@ interface InboxTableProps {
   columnOrder: (keyof InboxColumnVisibility)[];
   columnVisibility: InboxColumnVisibility;
   items: InboxItem[];
-  kbSlug: string;
   onFetchItemUrl: (item: InboxItem) => void;
   onOpenItem: (item: InboxItem) => void;
   onRequestDeleteItem: (item: InboxItem) => void;
@@ -55,7 +54,6 @@ interface InboxTableProps {
 
 export function InboxTable({
   items,
-  kbSlug,
   columnVisibility,
   columnOrder,
   sortBy,
@@ -91,7 +89,7 @@ export function InboxTable({
             <Link
               className="text-primary hover:underline"
               onClick={(e) => e.stopPropagation()}
-              to={kbInboxDetailPath(kbSlug, row.id)}
+              to={kbInboxDetailPath(row.id)}
             >
               {row.title}
             </Link>
@@ -121,7 +119,7 @@ export function InboxTable({
                 className="shrink-0 rounded-sm text-primary hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={(e) => e.stopPropagation()}
                 title={t("inbox.open_linked_source")}
-                to={kbSourcePath(kbSlug, sid)}
+                to={kbSourcePath(sid)}
               >
                 <Plug className="h-4 w-4" />
               </Link>

@@ -18,8 +18,10 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 };
 
 interface RegistryAgentConfig {
+  agentScope?: AiRegisteredAgent["agentScope"];
   description?: string;
   effort?: AiRegisteredAgent["effort"];
+  engenty?: AiRegisteredAgent["engenty"];
   id: string;
   limits?: AiRegisteredAgent["limits"];
   managed_by_module?: string | null;
@@ -73,7 +75,15 @@ export function mapRegistryAgentToRegisteredAgent(
     module_id: moduleId,
     name: agent.name,
     skills: agent.skillIds ?? [],
+    // Whose threads these are — the space's Chats view groups by it, and a
+    // dropped field silently reads as `shared`, i.e. it tells a member their
+    // own private copilot chats are on display to the whole space.
+    ...(agent.agentScope ? { agentScope: agent.agentScope } : {}),
     ...(agent.effort ? { effort: agent.effort } : {}),
+    // The blob the agent was actually given. Without it every consumer falls
+    // back to hashing the id, so the same agent wears a different face in the
+    // roster (which reads the catalog) and in a chat list (which reads this).
+    ...(agent.engenty ? { engenty: agent.engenty } : {}),
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
     ...(agent.purpose ? { purpose: agent.purpose } : {}),
@@ -101,14 +111,26 @@ export function getCustomAgent(agentId: string, signal?: AbortSignal) {
   );
 }
 
-export function createCustomAgent(input: CustomAgentConfig) {
-  return requestAiServiceJson<{ agent: CustomAgentConfig }>(
-    "/ai/registry/agents",
-    {
-      body: JSON.stringify(input),
-      method: "POST",
-    }
-  );
+export interface AgentSpaceMountResult {
+  error?: string;
+  ok: boolean;
+  spaceId: string;
+}
+
+export interface CreateCustomAgentInput extends CustomAgentConfig {
+  /** The agent this hire reports to in those spaces (mount routing). */
+  reportsTo?: string | null;
+  spaceIds: string[];
+}
+
+export function createCustomAgent(input: CreateCustomAgentInput) {
+  return requestAiServiceJson<{
+    agent: CustomAgentConfig;
+    mounted: AgentSpaceMountResult[];
+  }>("/ai/registry/agents", {
+    body: JSON.stringify(input),
+    method: "POST",
+  });
 }
 
 export function updateCustomAgent(
@@ -124,9 +146,9 @@ export function updateCustomAgent(
   );
 }
 
-export function deleteCustomAgent(agentId: string) {
+export function deleteCustomAgent(agentId: string, force = false) {
   return requestAiServiceJson<{ deleted: boolean }>(
-    `/ai/registry/agents/${encodeURIComponent(agentId)}`,
+    `/ai/registry/agents/${encodeURIComponent(agentId)}${force ? "?force=true" : ""}`,
     { method: "DELETE" }
   );
 }

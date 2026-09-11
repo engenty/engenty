@@ -30,15 +30,24 @@ import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
  *
  * When Auto sizes a turn, the control briefly flashes the resolved tier (and
  * model id when known) and toasts — without changing the stored "Auto" pick.
+ *
+ * `hostKey` points it at a lane: the copilot host by default, or a specialist
+ * desk's per-agent host, so every chat lane offers the same control. The stored
+ * pick is deliberately shared across lanes — "how much thinking should this
+ * turn get" is a preference about the person asking, not about who is asked.
  */
-export function CopilotEffortControl(props: { disabled?: boolean }) {
+export function CopilotEffortControl(props: {
+  disabled?: boolean;
+  hostKey?: string;
+}) {
+  const hostKey = props.hostKey ?? ENGENTY_COPILOT_HOST_KEY;
   const { t } = useTranslation("engenty-copilot");
   const ai = useEngentyAIContext();
-  const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
+  const host = useAgentHost(hostKey);
   const developerMode = useDeveloperModeEnabled();
   const modelByEffort = useEffortModelBindings(developerMode);
-  const resolvedFlash = useEffortResolvedFeedback(ENGENTY_COPILOT_HOST_KEY);
-  const lastResolved = useEffortLastResolved(ENGENTY_COPILOT_HOST_KEY);
+  const resolvedFlash = useEffortResolvedFeedback(hostKey);
+  const lastResolved = useEffortLastResolved(hostKey);
   const {
     allowedEfforts,
     effort,
@@ -53,7 +62,7 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
 
   useAgentHostConfig({
     effort,
-    hostKey: ENGENTY_COPILOT_HOST_KEY,
+    hostKey,
     // Leaving expert mode drops the pin: host config only ever merges, so
     // without this an experiment with a model id would silently outlive the
     // switch that produced it.
@@ -98,7 +107,10 @@ export function CopilotEffortControl(props: { disabled?: boolean }) {
         value={effort}
       />
       {expertActive ? (
-        <CopilotModelChooserControl disabled={props.disabled} />
+        <CopilotModelChooserControl
+          disabled={props.disabled}
+          hostKey={hostKey}
+        />
       ) : null}
     </>
   );

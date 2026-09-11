@@ -7,6 +7,17 @@ Default guide for contributors and coding agents in this repository.
 - **Vitest** — add tests and run `pnpm test`
 - **Agent rules:** canonical content lives in [`docs/agent/rules/`](./docs/agent/rules/). Cursor symlinks them under `.cursor/rules/`. Claude reads this file + linked rules. Load a rule when the task matches its description — do not load everything every turn.
 
+## Chat with the User / Developer
+
+- give short - less verbose answers
+- don't invent tech speech - we do not already use in our project
+- prefer bullet points and tables
+- use mermaid if helpful
+- don't add low confidence - "here is one more thing ..." at the 
+- unless prompted, stay on one task at a time
+- don't trust your memory on architectural questions - we shifted concepts over time - expect contradictions, we need to clean up
+- clean up past - outdated memory - and point it to the user if you are confused
+
 ## Environment
 
 - Package manager: `pnpm` (`pnpm@10.23.0`)
@@ -22,7 +33,7 @@ Default guide for contributors and coding agents in this repository.
 | `apps/ai` | Agent runtime (Mastra + AG-UI) |
 | `apps/docs` | Documentation site (Fumadocs) |
 | `packages/*` | Shared libraries (`ui-core`, `plugin-sdk`, `ai-core`, …) |
-| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, contacts, engenty-coordinator, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking). Connector providers are nested workspace plugins under `modules/connections/providers/*` (google, microsoft, slack) yet keep flat slugs (`connections-google`, …) in `engenty.plugins`. |
+| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, contacts, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking). Connector providers are nested workspace plugins under `modules/connections/providers/*` (google, microsoft, slack) yet keep flat slugs (`connections-google`, …) in `engenty.plugins`. |
 
 Core apps and packages must not depend on optional modules — use plugin hooks, events, and gateway methods instead.
 
@@ -105,6 +116,8 @@ Strict lowercase snake_case: `^[a-z0-9_]{1,64}$` (e.g. `shell_set_theme`). Use `
 ## AI runtime & chat UI
 
 - Product chat: **AG-UI** on `apps/ai` via `@engenty/ai-ui` — not Vercel AI SDK `useChat`
+- Work nouns (specialist, workflow, routine, run, task, goal): [work-model.md](./docs/content/dev/work-model.md) — canonical; do not restate the model elsewhere, link it
+- Spaces runtime contract: [spaces-runtime.md](./docs/agent/spaces-runtime.md) — canonical tenant/Space, catalog/evidence, and record-scope semantics
 - Models / env: [ai-gateway.mdc](./docs/agent/rules/ai-gateway.mdc), `packages/ai-core/docs/howto-ai-config.md`
 - Chat primitives: [ai-elements.mdc](./docs/agent/rules/ai-elements.mdc)
 

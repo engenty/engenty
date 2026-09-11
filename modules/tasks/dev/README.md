@@ -1,3 +1,8 @@
+> **Superseded.** These phase docs describe the retired
+> routine-as-standing-task model — task checkout as the run mutex, the task
+> dispatcher as the executor. The current work model is
+> [work-model.md](../../../docs/content/dev/work-model.md).
+
 # Tasks module — dev docs index
 
 Planning and phased implementation for `@engenty/tasks`.
@@ -15,7 +20,7 @@ Each phase file has **`Status: done`** (or backend done for phase 7) and **exit 
 | [phase-00-baseline-and-contract-tests.md](./phase-00-baseline-and-contract-tests.md) | **Start here** — contract tests + grep gates |
 | [phase-01-module-scaffold-and-schema.md](./phase-01-module-scaffold-and-schema.md) | Package, migrations, mandatory plugin |
 | [phase-02-tasks-backend-api.md](./phase-02-tasks-backend-api.md) | DAL, routes, operations |
-| [phase-03-goals-and-lifecycle.md](./phase-03-goals-and-lifecycle.md) | Goals + status machine + identifiers |
+| ~~phase-03-goals-and-lifecycle.md~~ | Removed 2026-09 with the Goals feature; the status machine and identifiers live in phase 2 |
 | [phase-04-checkout-and-live-runs.md](./phase-04-checkout-and-live-runs.md) | Agent checkout, runs, activity |
 | [phase-05-ui-hub.md](./phase-05-ui-hub.md) | Module UI |
 | [phase-06-ai-copilot-integration.md](./phase-06-ai-copilot-integration.md) | AI skills, agents, tools |

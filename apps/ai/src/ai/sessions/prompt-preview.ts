@@ -99,6 +99,29 @@ export function flattenInstructions(instructions: unknown): string {
   return "";
 }
 
+/**
+ * Resolve the agent's assembled system instructions to a string.
+ *
+ * Call the method on the agent (keeps Mastra's `this`) with an empty
+ * request-context bag. Extracting `getInstructions` and invoking it unbound
+ * returns empty; calling with no argument can return the raw instructions
+ * callback, which `flattenInstructions` also treats as empty. Prompt-preview
+ * and the trajectory header share this helper so they cannot drift.
+ */
+export async function resolveAgentInstructions(agent: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  getInstructions?: (...args: any[]) => unknown;
+}): Promise<string> {
+  if (typeof agent.getInstructions !== "function") {
+    return "";
+  }
+  let raw: unknown = await Promise.resolve(agent.getInstructions({}));
+  if (typeof raw === "function") {
+    raw = await Promise.resolve((raw as (args?: unknown) => unknown)({}));
+  }
+  return flattenInstructions(raw).trim();
+}
+
 function renderMessagePart(part: unknown): string {
   if (typeof part === "string") {
     return part;
@@ -226,8 +249,29 @@ export function describePromptTool(
   };
 }
 
+function readPromptMessageId(message: unknown): string | null {
+  if (!message || typeof message !== "object") {
+    return null;
+  }
+  const record = message as Record<string, unknown>;
+  for (const key of ["id", "messageId"] as const) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  const content = record.content;
+  if (content && typeof content === "object" && !Array.isArray(content)) {
+    const nestedId = (content as Record<string, unknown>).id;
+    if (typeof nestedId === "string" && nestedId.trim()) {
+      return nestedId.trim();
+    }
+  }
+  return null;
+}
+
 export function describePromptMessage(message: unknown): PromptPreviewMessage {
-  const record = (message ?? {}) as { id?: unknown; role?: unknown };
+  const record = (message ?? {}) as { role?: unknown };
   const rendered = renderMessageText(message);
   const truncated = rendered.length > MAX_MESSAGE_TEXT_CHARS;
   let serialized = 0;
@@ -239,7 +283,7 @@ export function describePromptMessage(message: unknown): PromptPreviewMessage {
   return {
     chars: serialized,
     estimated_tokens: estimateTokens(serialized),
-    id: typeof record.id === "string" ? record.id : null,
+    id: readPromptMessageId(message),
     role: typeof record.role === "string" ? record.role : "unknown",
     text: truncated ? rendered.slice(0, MAX_MESSAGE_TEXT_CHARS) : rendered,
     text_truncated: truncated,
@@ -260,8 +304,8 @@ export interface BuildThreadPromptPreviewInput {
 export async function buildThreadPromptPreview(
   input: BuildThreadPromptPreviewInput
 ): Promise<ThreadPromptPreview> {
-  const [instructions, tools, recalled] = await Promise.all([
-    Promise.resolve(input.agent.getInstructions({})),
+  const [systemText, tools, recalled] = await Promise.all([
+    resolveAgentInstructions(input.agent),
     input.agent.getToolsForExecution({
       resourceId: input.resourceId,
       threadId: input.threadId,
@@ -276,7 +320,6 @@ export async function buildThreadPromptPreview(
       : Promise.resolve(null),
   ]);
 
-  const systemText = flattenInstructions(instructions);
   const toolEntries = Object.entries(tools ?? {})
     .map(([name, tool]) => describePromptTool(name, tool))
     .sort((a, b) => b.chars - a.chars);

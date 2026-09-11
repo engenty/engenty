@@ -6,7 +6,6 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
-  buildActionDetailPath,
   buildAgentActivityPath,
   buildAgentCapabilitiesPath,
   buildAgentDetailPath,
@@ -125,15 +124,6 @@ export function useAgentsWorkspaceNavigation() {
     [location.pathname, navigate, searchParams]
   );
 
-  const navigateToAction = useCallback(
-    (actionId: string) => {
-      navigate(buildActionDetailPath(actionId), {
-        replace: true,
-      });
-    },
-    [navigate]
-  );
-
   return {
     activeSection,
     searchParams,
@@ -149,7 +139,6 @@ export function useAgentsWorkspaceNavigation() {
     navigateToAgentSessions,
     navigateToAgentsLanding,
     navigateToAgentWorkspace,
-    navigateToAction,
     navigateToSkill,
     setFileParam(file: string | null) {
       replaceSearchParam("file", file);

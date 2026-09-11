@@ -21,19 +21,42 @@ export const describeInputSchema = z.object({
   id: z.string().trim().min(1),
 });
 
-export const runInputSchema = z.object({
-  id: z.string().trim().min(1),
-  // A real object schema, not z.unknown(): unknown serializes to an EMPTY JSON
-  // schema in the tool definition, and providers with strict schema-conformant
-  // function calling then constrain the arguments down to {} — dropping every
-  // key the model wanted to pass.
-  input: z
-    .record(z.string(), z.unknown())
-    .optional()
-    .describe(
-      "The selected tool's input object, matching its contract inputSchema."
-    ),
-});
+/** Execute-side schema: objects (code-mode, tests) and JSON strings both parse. */
+export const runInputSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    input: z
+      .union([z.string(), z.record(z.string(), z.unknown())])
+      .optional()
+      .describe(
+        "Operation arguments as a JSON string, or as an object. Nested objects are stripped by some providers — prefer a JSON string."
+      ),
+  })
+  .catchall(z.unknown());
+
+/**
+ * What the chat model sees for `engenty_tool_execute`. Nested `input: { … }`
+ * objects serialize as an empty JSON schema (or `additionalProperties: false`
+ * with no properties) and providers then constrain the call to `input: {}`.
+ * A required JSON **string** survives function calling; execute parses it.
+ */
+export const runExecuteModelInputJsonSchema = {
+  additionalProperties: false,
+  properties: {
+    id: {
+      description:
+        "Operation id from engenty_tools_search, e.g. contacts_create",
+      type: "string",
+    },
+    input: {
+      description:
+        'JSON object of the operation arguments as a STRING, e.g. {"type":"organisation","display_name":"SFG","website":"https://www.sfg.at/"}. Use "{}" only for read-only tools that take no arguments. Do not pass a nested object — providers strip nested objects to {}.',
+      type: "string",
+    },
+  },
+  required: ["id", "input"],
+  type: "object",
+} as const;
 
 export type DescribeEngentyToolInput = z.input<typeof describeInputSchema>;
 export type DiscoverEngentyToolInput = z.input<typeof discoverInputSchema>;

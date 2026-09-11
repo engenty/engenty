@@ -20,7 +20,10 @@ import type {
   EmitArticleEvent,
   KbArticleFtsSuggestion,
 } from "./contracts.js";
-import { flattenKbArticleReadingOrder } from "./kb-article-nav-order.js";
+import {
+  buildKbArticleParentChain,
+  flattenKbArticleReadingOrder,
+} from "./kb-article-nav-order.js";
 import type { KbVersionRepo } from "./kb-versions.js";
 import { getTagsForIds, rowToArticle, SCHEMA } from "./shared.js";
 
@@ -773,31 +776,6 @@ export function createArticleRepo(
         sort_order: number;
       };
 
-      const parent_chain: Array<{ id: string; title: string; slug: string }> =
-        [];
-      let pid: string | null = self.parent_article_id
-        ? String(self.parent_article_id)
-        : null;
-      while (pid) {
-        const { data: parent } = await arts()
-          .select("id, title, slug, parent_article_id")
-          .eq("id", pid)
-          .eq("tenant_id", tenantId)
-          .is("deleted_at", null)
-          .maybeSingle();
-        if (!parent) {
-          break;
-        }
-        const p = parent as {
-          id: string;
-          title: string;
-          slug: string;
-          parent_article_id: string | null;
-        };
-        parent_chain.unshift({ id: p.id, title: p.title, slug: p.slug });
-        pid = p.parent_article_id ? String(p.parent_article_id) : null;
-      }
-
       const { data: allArts, error: allErr } = await arts()
         .select("id, title, slug, parent_article_id, sort_order")
         .eq("tenant_id", tenantId)
@@ -816,6 +794,11 @@ export function createArticleRepo(
         parent_article_id: string | null;
         sort_order: number;
       }>;
+      // The parent chain comes out of the same set the reading order is built
+      // from — walking it with one query per ancestor put the depth of the tree
+      // into the latency of every article the reader opens.
+      const parent_chain = buildKbArticleParentChain(navArticles, id);
+
       const ordered = flattenKbArticleReadingOrder(navArticles);
       const idx = ordered.findIndex((a) => a.id === id);
       const prevVal = idx > 0 ? ordered[idx - 1]! : null;

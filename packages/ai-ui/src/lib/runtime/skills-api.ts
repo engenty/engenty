@@ -9,6 +9,7 @@ export type SkillTier = "managed" | "custom";
 
 export interface FileStorageSkillSummary {
   allowed_tools: string[];
+  category?: string;
   description: string;
   editable: boolean;
   engenty_modules: string[];
@@ -92,6 +93,40 @@ export function getFileStorageSkill(name: string, signal?: AbortSignal) {
   );
 }
 
+export function skillFileApiPath(name: string, relativePath: string): string {
+  const path = relativePath
+    .split("/")
+    .filter((segment) => segment.length > 0 && segment !== ".")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/ai/skills/${encodeURIComponent(name)}/files/${path}`;
+}
+
+export function getFileStorageSkillFile(
+  name: string,
+  relativePath: string,
+  signal?: AbortSignal
+) {
+  return requestAiServiceJson<string>(skillFileApiPath(name, relativePath), {
+    signal,
+  });
+}
+
+export function putFileStorageSkillFile(input: {
+  name: string;
+  path: string;
+  text: string;
+}) {
+  return requestAiServiceJson<{ path: string }>(
+    skillFileApiPath(input.name, input.path),
+    {
+      body: input.text,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+      method: "PUT",
+    }
+  );
+}
+
 export function upsertFileStorageSkill(input: UpsertFileStorageSkillInput) {
   const { name, ...body } = input;
   return requestAiServiceJson<{ skill: FileStorageSkillDetail }>(
@@ -134,11 +169,18 @@ export function searchSkillRegistry(
 }
 
 export function installSkillFromRegistry(input: {
+  attach?: { agentId?: string; spaceId?: string };
   provider: string;
   ref: { id: string };
 }) {
-  return requestAiServiceJson<{ skill: FileStorageSkillDetail }>(
-    "/ai/skills/registry/install",
-    { body: JSON.stringify(input), method: "POST" }
-  );
+  return requestAiServiceJson<{
+    attached?: {
+      agent: { error?: string; id: string; ok: boolean } | null;
+      space: { error?: string; id: string; ok: boolean } | null;
+    };
+    skill: FileStorageSkillDetail;
+  }>("/ai/skills/registry/install", {
+    body: JSON.stringify(input),
+    method: "POST",
+  });
 }

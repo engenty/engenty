@@ -20,6 +20,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { moduleTier, readClosedPrefixes } from "./lib/closed-prefixes.mjs";
 import {
   resolveEnabledModules,
   resolveRepoRoot,
@@ -66,47 +67,6 @@ export function transformModuleManifestForPublish(pkg, { version, tier } = {}) {
   out.devDependencies = undefined;
   out.publishConfig = { ...(out.publishConfig ?? {}), registry: REGISTRY };
   return out;
-}
-
-/**
- * Read the CLOSED_PREFIXES bash array from scripts/publish-open.sh — the single
- * source of truth for pro-only paths (also used by the public-mirror sync).
- * Parsing it here avoids a second, driftable copy of the list.
- */
-export function readClosedPrefixes(repoRoot) {
-  const src = fs.readFileSync(
-    path.join(repoRoot, "scripts", "publish-open.sh"),
-    "utf-8"
-  );
-  const lines = src.split("\n");
-  const start = lines.findIndex((line) => line.includes("CLOSED_PREFIXES=("));
-  if (start === -1) {
-    throw new Error("CLOSED_PREFIXES not found in scripts/publish-open.sh");
-  }
-  // Read until the closing paren on its own line — a regex up to the first `)`
-  // truncates on the `)` inside the array's comments. Only entries are quoted.
-  const prefixes = [];
-  for (let i = start + 1; i < lines.length; i++) {
-    if (/^\s*\)/.test(lines[i])) {
-      break;
-    }
-    for (const match of lines[i].matchAll(/"([^"]+)"/g)) {
-      prefixes.push(match[1]);
-    }
-  }
-  return prefixes;
-}
-
-/**
- * "pro" if the module's repo-relative dir is under a closed prefix, else "open".
- * Pure/exported for tests.
- */
-export function moduleTier(relDir, closedPrefixes) {
-  const normalized = relDir.split(path.sep).join("/");
-  const isClosed = closedPrefixes.some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`)
-  );
-  return isClosed ? "pro" : "open";
 }
 
 function parseArgs(argv) {

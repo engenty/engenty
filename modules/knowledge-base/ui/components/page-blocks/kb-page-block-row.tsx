@@ -56,7 +56,6 @@ interface KbPageBlockRowProps {
   categories: KbCategory[];
   isEditMode: boolean;
   kbId: string;
-  kbSlug: string;
   onLayoutPatch: (
     updater: (prev: KbPageLayoutSettings) => KbPageLayoutSettings
   ) => void;
@@ -72,7 +71,6 @@ export function KbPageBlockRow({
   categories,
   isEditMode,
   kbId,
-  kbSlug,
   onLayoutPatch,
   onOpenSettings,
   parentCategoryId,
@@ -143,7 +141,6 @@ export function KbPageBlockRow({
           block={block}
           editable={isEditMode}
           kbId={kbId}
-          kbSlug={kbSlug}
           onChange={(patch) =>
             onLayoutPatch((prev) =>
               updatePageBlock(prev, block.id, patch as Partial<KbPageBlock>)
@@ -160,19 +157,13 @@ export function KbPageBlockRow({
           categories={categories}
           editable={isEditMode}
           kbId={kbId}
-          kbSlug={kbSlug}
           parentCategoryId={parentCategoryId}
         />
       );
     }
     if (block.type === "faqs") {
       return (
-        <KbPageFaqsBlockView
-          block={block}
-          editable={isEditMode}
-          kbId={kbId}
-          kbSlug={kbSlug}
-        />
+        <KbPageFaqsBlockView block={block} editable={isEditMode} kbId={kbId} />
       );
     }
     return (
@@ -182,7 +173,6 @@ export function KbPageBlockRow({
         categoryId={parentCategoryId ?? undefined}
         editable={isEditMode}
         kbId={kbId}
-        kbSlug={kbSlug}
       />
     );
   }

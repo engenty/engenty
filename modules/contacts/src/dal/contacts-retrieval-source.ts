@@ -289,6 +289,7 @@ export function createContactsRetrievalSource(options: {
         summary:
           "Search contacts by name, organization, role, email, location, or relationships",
       },
+      spacePolicy: { kind: "tenant_shared" },
     },
     retriever: {
       hydrate: async (matches, ctx) => {

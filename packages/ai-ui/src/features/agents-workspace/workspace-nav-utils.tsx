@@ -2,21 +2,20 @@ import type { LucideIcon } from "lucide-react";
 import { Bot, Cpu, Plus } from "lucide-react";
 import type { AiAgentEntry } from "../../lib/admin/ai-runtime-api";
 import {
-  ACTIONS_CATALOG_ROOT_PATH,
   ACTIVITY_ROOT_PATH,
   CONNECTIONS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
+  WORKFLOWS_CATALOG_ROOT_PATH,
 } from "./agent-workspace-url-state";
 
 export const TENANT_SKILLS_FOLDER_ID = "__tenant__";
-export const TENANT_ACTIONS_FOLDER_ID = "__tenant_actions__";
 export const OVERVIEW_RECENT_SESSIONS = 5;
 
 export type WorkspaceNavPrimaryTab =
   | "agents"
   | "sessions"
   | "skills"
-  | "actions"
+  | "flows"
   | "connections";
 
 export function workspaceNavPrimaryTabFromPathname(
@@ -34,11 +33,13 @@ export function workspaceNavPrimaryTabFromPathname(
   ) {
     return "skills";
   }
+  // A module workflow's detail page belongs to the same tab: it and the graph
+  // it reconciles into are two views of one runnable.
   if (
-    pathname === ACTIONS_CATALOG_ROOT_PATH ||
-    pathname.startsWith(`${ACTIONS_CATALOG_ROOT_PATH}/`)
+    pathname === WORKFLOWS_CATALOG_ROOT_PATH ||
+    pathname.startsWith(`${WORKFLOWS_CATALOG_ROOT_PATH}/`)
   ) {
-    return "actions";
+    return "flows";
   }
   if (
     pathname === CONNECTIONS_ROOT_PATH ||

@@ -2,39 +2,28 @@ import "@engenty/tiptap-editor/styles.css";
 import { DockEngentyIcon } from "@engenty/ui-icons";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import {
-  ACTIONS_CATALOG_ROOT_PATH,
   ACTIVITY_ROOT_PATH,
   AGENTS_CATALOG_ROOT_PATH,
   AGENTS_WORKSPACE_ROOT_PATH,
   ARTIFACTS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
+  WORKFLOWS_CATALOG_ROOT_PATH,
 } from "./features/agents-workspace/agent-workspace-paths.js";
-import { ActionDetailPage } from "./routes/action-detail-page.js";
-import { ActionsCatalogPage } from "./routes/actions-catalog-page.js";
+import { ComputersPage } from "./features/computers/computers-page.js";
 import { ActivityPage } from "./routes/activity-page.js";
 import { AgentDetailPage } from "./routes/agent-detail-page.js";
 import { AgentFormPage } from "./routes/agent-form-page.js";
 import { AgentsCatalogPage } from "./routes/agents-catalog-page.js";
 import { ArtifactsCatalogPage } from "./routes/artifacts-catalog-page.js";
 import { ArtifactsDetailPage } from "./routes/artifacts-detail-page.js";
-import { LegacyRedirect } from "./routes/legacy-redirect.js";
 import { OverviewPage } from "./routes/overview-page.js";
 import { SkillDetailPage } from "./routes/skill-detail-page.js";
 import { SkillsCatalogPage } from "./routes/skills-catalog-page.js";
 import { ToolFormPage } from "./routes/tool-form-page.js";
 import { ToolsCatalogPage } from "./routes/tools-catalog-page.js";
-
-const RESERVED_SECTIONS = [
-  "agents",
-  "skills",
-  "tools",
-  "artifacts",
-  "actions",
-  "activity",
-  // Owned by the connections module (route registered there).
-  "connections",
-];
+import { WorkflowDetailRouter } from "./routes/workflow-detail-router.js";
+import { WorkflowLibraryPage } from "./routes/workflow-library-page.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.i18n.registerNamespace({
@@ -160,20 +149,36 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 215,
   });
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Computers — every live sandbox, listed and killable (compute rule 5) ──
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_computers",
+    path: `${AGENTS_WORKSPACE_ROOT_PATH}/computers`,
+    component: ComputersPage,
+    order: 216,
+  });
+
+  // ── Actions — the one list of everything this workspace can run ───────────
+  //
+  // An Action holds the input parameters and is what a button, a slash
+  // command, a routine or an agent calls. Its steps are one agent turn or a
+  // whole graph — a SHAPE, not a second species, so there is no second
+  // catalog and no second URL space. `/actions/:id` takes either id the
+  // catalog produces (a declared module-workflow id, or a stored graph uuid) and
+  // the router picks the right view.
 
   engenty.UI.registerRoute({
     id: "ai_ui_admin_actions",
-    path: ACTIONS_CATALOG_ROOT_PATH,
-    component: ActionsCatalogPage,
-    order: 219,
+    path: WORKFLOWS_CATALOG_ROOT_PATH,
+    component: WorkflowLibraryPage,
+    order: 220,
   });
 
   engenty.UI.registerRoute({
     id: "ai_ui_admin_actions_detail",
-    path: `${ACTIONS_CATALOG_ROOT_PATH}/:actionId`,
-    component: ActionDetailPage,
-    order: 220,
+    path: `${WORKFLOWS_CATALOG_ROOT_PATH}/:workflowId`,
+    component: WorkflowDetailRouter,
+    order: 220.5,
   });
 
   // ── Skills ────────────────────────────────────────────────────────────────
@@ -229,96 +234,6 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: `${TOOLS_ROOT_PATH}/:toolId/edit`,
     component: ToolFormPage,
     order: 228,
-  });
-
-  // ── Legacy redirects ──────────────────────────────────────────────────────
-  // /sessions → /activity
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_sessions_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/sessions`,
-    component: () => LegacyRedirect({ to: ACTIVITY_ROOT_PATH }),
-    order: 230,
-  });
-
-  // /agents/dynamic → /agents
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_agents_redirect",
-    path: `${AGENTS_CATALOG_ROOT_PATH}/dynamic`,
-    component: () => LegacyRedirect({ to: AGENTS_CATALOG_ROOT_PATH }),
-    order: 231,
-  });
-
-  // /agents/dynamic/new → /agents/new
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_agents_new_redirect",
-    path: `${AGENTS_CATALOG_ROOT_PATH}/dynamic/new`,
-    component: () => LegacyRedirect({ to: `${AGENTS_CATALOG_ROOT_PATH}/new` }),
-    order: 231.1,
-  });
-
-  // /agents/dynamic/:agentId/edit → /agents/:agentId/edit
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_agent_edit_redirect",
-    path: `${AGENTS_CATALOG_ROOT_PATH}/dynamic/:agentId/edit`,
-    component: () =>
-      LegacyRedirect({
-        to: `${AGENTS_CATALOG_ROOT_PATH}/:agentId/edit`,
-        paramKeys: ["agentId"],
-      }),
-    order: 231.2,
-  });
-
-  // /tools/dynamic* → /tools*
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_tools_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/tools/dynamic`,
-    component: () => LegacyRedirect({ to: TOOLS_ROOT_PATH }),
-    order: 232,
-  });
-
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_tools_new_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/tools/dynamic/new`,
-    component: () => LegacyRedirect({ to: `${TOOLS_ROOT_PATH}/new` }),
-    order: 232.1,
-  });
-
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_dynamic_tools_edit_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/tools/dynamic/:toolId/edit`,
-    component: () =>
-      LegacyRedirect({
-        to: `${TOOLS_ROOT_PATH}/:toolId/edit`,
-        paramKeys: ["toolId"],
-      }),
-    order: 232.2,
-  });
-
-  // /admin/engenty/:agentId* → /admin/engenty/agents/:agentId*
-  // Only fires for non-reserved first segments (reserved = static routes above).
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_agent_catchall_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/:legacyAgentId`,
-    component: () =>
-      LegacyRedirect({
-        to: `${AGENTS_CATALOG_ROOT_PATH}/:legacyAgentId`,
-        paramKeys: ["legacyAgentId"],
-        reservedGuard: RESERVED_SECTIONS,
-      }),
-    order: 299,
-  });
-
-  engenty.UI.registerRoute({
-    id: "ai_ui_legacy_agent_catchall_sub_redirect",
-    path: `${AGENTS_WORKSPACE_ROOT_PATH}/:legacyAgentId/*`,
-    component: () =>
-      LegacyRedirect({
-        to: `${AGENTS_CATALOG_ROOT_PATH}/:legacyAgentId`,
-        paramKeys: ["legacyAgentId"],
-        reservedGuard: RESERVED_SECTIONS,
-        appendSplat: true,
-      }),
-    order: 299.1,
   });
 
   // ── Admin menu (bottom rail; first via app-shell ADMIN_MENU_SORT_RANK_BY_ID)

@@ -13,11 +13,13 @@ export function TaskApprovedToolsSection({
   grants,
   onceGrants,
   disabled,
+  showHeading = true,
 }: {
   taskId: string;
   grants: string[];
   onceGrants: string[];
   disabled?: boolean;
+  showHeading?: boolean;
 }) {
   const { t } = useTranslation("tasks");
   const revokeMutation = useRevokeApprovalGrantMutation(taskId);
@@ -32,10 +34,12 @@ export function TaskApprovedToolsSection({
 
   return (
     <div className="space-y-1.5 px-1 pt-1">
-      <h4 className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
-        <ShieldCheck className="h-3.5 w-3.5" />
-        {t("detail.approvedTools")}
-      </h4>
+      {showHeading ? (
+        <h4 className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {t("detail.approvedTools")}
+        </h4>
+      ) : null}
       <ul className="flex flex-wrap gap-1.5">
         {grants.map((op) => (
           <li

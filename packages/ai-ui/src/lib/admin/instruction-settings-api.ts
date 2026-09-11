@@ -6,7 +6,7 @@ export type InstructionOwnerKind =
   | "tenant"
   | "module"
   | "agent"
-  | "action";
+  | "workflow";
 
 export interface AiInstructionDocument {
   body: string;
@@ -20,7 +20,7 @@ export interface AiInstructionDocument {
     | "tenant"
     | "module"
     | "agent"
-    | "action"
+    | "workflow"
     | "tenant_override"
     | "user_override";
   metadata: Record<string, unknown>;
@@ -78,7 +78,7 @@ function deriveOwnerKind(
     metadataOwnerKind === "tenant" ||
     metadataOwnerKind === "module" ||
     metadataOwnerKind === "agent" ||
-    metadataOwnerKind === "action"
+    metadataOwnerKind === "workflow"
   ) {
     return metadataOwnerKind;
   }
@@ -87,7 +87,7 @@ function deriveOwnerKind(
     document.layer === "tenant" ||
     document.layer === "module" ||
     document.layer === "agent" ||
-    document.layer === "action"
+    document.layer === "workflow"
   ) {
     return document.layer;
   }
@@ -110,9 +110,6 @@ function deriveFilename(document: AiInstructionDocument) {
   }
   if (document.document_key.includes(".heartbeat")) {
     return "HEARTBEAT.md";
-  }
-  if (document.layer === "action") {
-    return "ACTION.md";
   }
   return DEFAULT_AGENTS_FILENAME;
 }

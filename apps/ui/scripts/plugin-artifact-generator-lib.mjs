@@ -356,23 +356,45 @@ export function normalizeManifestUiEntry({ manifest, manifestPath, pkgDir }) {
   };
 }
 
-export function renderCatalog(entries) {
+export function renderCatalog(entries, options = {}) {
+  const catalogTypeImport = options.catalogTypeImport ?? "./catalog";
+  const loaderImport = options.loaderImport ?? "./runtime-ui-loader";
   const lines = [
     "/* AUTO-GENERATED FILE. DO NOT EDIT. */",
-    'import type { UiPluginCatalogEntry } from "./catalog";',
-    'import { createGeneratedUiPluginCatalogEntry } from "./runtime-ui-loader";',
+    `import type { UiPluginCatalogEntry } from "${catalogTypeImport}";`,
+    `import { createGeneratedUiPluginCatalogEntry } from "${loaderImport}";`,
     "",
     "export const uiPluginCatalog: UiPluginCatalogEntry[] = [",
     ...entries.map((entry) => {
       const sourceInfo = entry.sourceInfo
         ? `, sourceInfo: ${JSON.stringify(entry.sourceInfo)}`
         : "";
-      return `  createGeneratedUiPluginCatalogEntry({ pluginId: "${entry.id}", importPath: "${entry.importPath}", exportName: "${entry.exportName}", loadModule: async () => await import("${entry.importPath}"), loadStatic: async () => (await import("${entry.importPath}")).${entry.exportName}, optionalPluginIds: [${(entry.optionalPluginIds ?? []).map((pluginId) => `"${pluginId}"`).join(", ")}]${sourceInfo} }),`;
+      const specifier = entry.moduleSpecifier ?? entry.importPath;
+      return `  createGeneratedUiPluginCatalogEntry({ pluginId: "${entry.id}", importPath: "${entry.importPath}", exportName: "${entry.exportName}", loadModule: async () => await import("${specifier}"), loadStatic: async () => (await import("${specifier}")).${entry.exportName}, optionalPluginIds: [${(entry.optionalPluginIds ?? []).map((pluginId) => `"${pluginId}"`).join(", ")}]${sourceInfo} }),`;
     }),
     "];",
     "",
   ];
   return `${lines.join("\n")}`;
+}
+
+export function partitionUiPluginsByVisibility(entries, closedPrefixes) {
+  const open = [];
+  const closed = [];
+  for (const entry of entries) {
+    const rootDir = String(entry?.sourceInfo?.rootDir ?? "")
+      .split(path.sep)
+      .join("/");
+    const isClosed = (closedPrefixes ?? []).some(
+      (prefix) => rootDir === prefix || rootDir.startsWith(`${prefix}/`)
+    );
+    if (isClosed) {
+      closed.push(entry);
+    } else {
+      open.push(entry);
+    }
+  }
+  return { closed, open };
 }
 
 export function renderTailwindSources({

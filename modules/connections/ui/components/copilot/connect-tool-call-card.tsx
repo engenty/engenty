@@ -105,7 +105,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
         "my-1 flex items-center gap-3.5 rounded-xl border p-3.5 shadow-sm transition-colors",
         connected
           ? "border-emerald-600/25 bg-emerald-500/5"
-          : "border-border/70 bg-card"
+          : "border-border bg-card"
       )}
     >
       <ConnectorIcon icon={connector.icon} />
@@ -131,6 +131,14 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
                 ? t("chatCard.connectPrompt")
                 : t("chatCard.notConfigured")}
         </p>
+        {flowState === "connected" ? (
+          // Just connected NOW → autonomous use is at its OFF default. Chat
+          // use works (the user is present); sync and scheduled runs do not,
+          // and nothing else says so at this moment.
+          <p className="mt-0.5 text-muted-foreground text-xs">
+            {t("chatCard.connectedAutonomyHint")}
+          </p>
+        ) : null}
       </div>
       {connected ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">

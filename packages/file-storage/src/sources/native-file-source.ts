@@ -38,11 +38,42 @@ export interface CreateNativeFileSourceOptions {
   signedUrlExpiresIn?: number;
 }
 
+/**
+ * Every file space's bytes sit under its space's prefix — PLAN-spaces.md §1b:
+ * "one prefix per space covers everything", which is what makes space export,
+ * space delete and per-space mirroring single operations.
+ *
+ *   space owner   → `tenants/<t>/spaces/<s>/files/<entry>`
+ *   other owners  → `tenants/<t>/spaces/<s>/files/<ownerType>/<ownerId>/<entry>`
+ *
+ * The second shape is the pre-space tail (`files/spaces/<type>/<id>/<entry>`)
+ * moved below the space root, so the two layouts read as the same thing in a
+ * bucket listing.
+ *
+ * This key is computed ONCE, at upload, and stored on the entry row; reads use
+ * the stored value. Changing the layout therefore affects new uploads only —
+ * files written under the old root keep resolving from their stored key. There
+ * is no migration, and there does not need to be one.
+ *
+ * `ctx.spaceId` is REQUIRED for a non-space owner and deliberately has no
+ * fallback: a default here would silently re-open the tenant-level root that
+ * Phase 6 closed, and the bytes would be wrong in a way nothing surfaces until
+ * someone exports a space and finds them missing. The caller resolves it
+ * server-side (never from the request) — see the files module's `spaceContext`.
+ */
 function defaultBuildStorageKey(
   ctx: FileSourceContext,
   entryId: string
 ): string {
-  return `tenants/${ctx.tenantId}/files/spaces/${ctx.owner.type}/${ctx.owner.id}/${entryId}`;
+  if (ctx.owner.type === "space") {
+    return `tenants/${ctx.tenantId}/spaces/${ctx.owner.id}/files/${entryId}`;
+  }
+  if (!ctx.spaceId) {
+    throw new Error(
+      `file_space_missing_space_id:${ctx.owner.type}:${ctx.owner.id}`
+    );
+  }
+  return `tenants/${ctx.tenantId}/spaces/${ctx.spaceId}/files/${ctx.owner.type}/${ctx.owner.id}/${entryId}`;
 }
 
 function toFolderNode(row: FileFolderRow): FileSourceFolder {
@@ -86,6 +117,25 @@ export class FileSourceReadOnlyError extends Error {
   constructor(message = "Connected sources are read-only") {
     super(message);
     this.name = "FileSourceReadOnlyError";
+  }
+}
+
+/**
+ * Thrown when a save carries a token older than the file's current one — the
+ * file moved under the editor. Surfaced as 409 so the writer can SEE the other
+ * edit rather than have theirs win by arriving second.
+ */
+export class FileSourceConflictError extends Error {
+  /** The row's current token, so the client can offer to reload. */
+  readonly currentUpdatedAt: string;
+
+  constructor(
+    currentUpdatedAt: string,
+    message = "This file changed since it was opened"
+  ) {
+    super(message);
+    this.currentUpdatedAt = currentUpdatedAt;
+    this.name = "FileSourceConflictError";
   }
 }
 
@@ -236,6 +286,36 @@ export function createNativeFileSource(
       return toFileNode(updated);
     },
 
+    async replaceContent(ctx, fileId, input) {
+      const entry = await requireEntry(ctx, fileId);
+      // A pending entry is an upload still in flight — it has no content to
+      // replace, and writing to its key would race the upload it belongs to.
+      if (entry.status !== "active") {
+        throw new FileSourceNotFoundError("File not found");
+      }
+      if (entry.updatedAt !== input.expectedUpdatedAt) {
+        throw new FileSourceConflictError(entry.updatedAt);
+      }
+
+      // Bytes first, row second, and deliberately in that order. The two stores
+      // cannot be written atomically, so one of them has to be able to fail
+      // second: if the row update fails here the object is new while
+      // `sizeBytes` is stale, the caller gets an error, and — because
+      // `updatedAt` did not move either — retrying the same save succeeds and
+      // repairs the row. Row-first would report the new size for content that
+      // never landed, which nothing later can detect.
+      await blobs.upload(entry.storageKey, input.data, {
+        contentType: entry.mimeType,
+      });
+      const updated = await entries.update(ctx, fileId, {
+        sizeBytes: input.data.byteLength,
+      });
+      if (!updated) {
+        throw new FileSourceNotFoundError("File not found");
+      }
+      return toFileNode(updated);
+    },
+
     async deleteFile(ctx, fileId) {
       const entry = await requireEntry(ctx, fileId);
       if (entry.storageKey) {
@@ -250,6 +330,24 @@ export function createNativeFileSource(
         signed: true,
         expiresIn: signedUrlExpiresIn,
       });
+    },
+
+    async readBytes(ctx, fileId) {
+      const entry = await requireEntry(ctx, fileId);
+      const url = await blobs.getUrl(entry.storageKey, {
+        signed: true,
+        expiresIn: signedUrlExpiresIn,
+      });
+      let response: Response;
+      try {
+        response = await fetch(url);
+      } catch {
+        throw new FileSourceNotFoundError("File not found");
+      }
+      if (!response.ok) {
+        throw new FileSourceNotFoundError("File not found");
+      }
+      return new Uint8Array(await response.arrayBuffer());
     },
   };
 }

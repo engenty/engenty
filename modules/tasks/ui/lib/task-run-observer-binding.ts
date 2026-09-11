@@ -18,7 +18,6 @@ function buildTaskRoutingScope(task: Task) {
     currentModule: "tasks",
     entityId: task.id,
     entity_id: task.id,
-    goal_id: task.goal_id,
     task_id: task.id,
     task_identifier: task.identifier,
     ...(titleHint ? { task_title: titleHint } : {}),

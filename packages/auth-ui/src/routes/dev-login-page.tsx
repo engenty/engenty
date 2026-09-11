@@ -99,8 +99,8 @@ export function DevLoginPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3rem)] items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-accent/10 p-4">
-      <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-lg">
+    <div className="flex min-h-[calc(100dvh-3rem)] items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-accent/10 p-4">
+      <div className="ui-card-panel w-full max-w-md p-6">
         <h1 className="font-semibold text-lg">Dev login</h1>
         <p className="mt-2 text-muted-foreground text-sm">{error ?? message}</p>
         {error ? (

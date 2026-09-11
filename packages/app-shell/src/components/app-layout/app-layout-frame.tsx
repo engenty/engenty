@@ -1,7 +1,16 @@
 import { cn } from "@engenty/ui-core";
-import { usePageHeader } from "@engenty/ui-plugin-sdk";
+import {
+  type PageContentStackBackground,
+  usePageHeader,
+} from "@engenty/ui-plugin-sdk";
 import { EyeOff, Pin } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   CopilotShellContentArea,
   CopilotShellMain,
@@ -9,22 +18,46 @@ import {
 } from "../../context/copilot-shell-context";
 import { ShellSecondaryNavProvider } from "../../context/shell-secondary-nav-context";
 import { useShellSecondaryNavWidth } from "../../hooks/use-shell-secondary-nav-width";
-import { COPILOT_BOTTOM_DOCK_HEIGHT } from "../../types/copilot-layout";
+import { isCopilotShellSlotOpen } from "../../lib/copilot-chrome";
+import {
+  COPILOT_BOTTOM_DOCK_CLEARANCE,
+  UI_SCROLL_SAFE_BOTTOM,
+  UI_SCROLL_SAFE_BOTTOM_DOCKED,
+} from "../../types/copilot-layout";
 import { AppSidebar } from "../app-sidebar";
 import { AppTopbar } from "../app-topbar";
-import { COMPACT_SIDEBAR_WIDTH_PX } from "./constants";
+import { PaneResizeHandle } from "../pane/pane";
+import {
+  COMPACT_SIDEBAR_WIDTH_PX,
+  SECONDARY_NAV_WIDTH_TRANSITION_MS,
+} from "./constants";
 import { MobileNavSheet } from "./mobile-nav-sheet";
 import { ModuleSecondaryNavColumnShell } from "./module-secondary-nav-column-shell";
 import { ModuleSidebarHeaderLabel } from "./module-sidebar-header-label";
 import { SecondaryNavColumn } from "./secondary-nav-column";
+import { SecondaryNavSeamToggle } from "./secondary-nav-seam-toggle";
 import type { AppLayoutFrameProps } from "./types";
 import { useCopilotInlineSidebarWidth } from "./use-copilot-inline-sidebar-width";
 import { useSecondaryNavLayout } from "./use-secondary-nav-layout";
 import { useSuppressPaneWidthTransition } from "./use-suppress-pane-width-transition";
+import { useWorkspaceEndPaneWidth } from "./use-workspace-end-pane-width";
 import {
   setWorkspaceEndPaneElement,
+  useWorkspaceEndPaneCount,
   useWorkspaceEndPaneExpanded,
 } from "./workspace-end-pane";
+
+function contentStackFillClass(
+  background: PageContentStackBackground
+): string | undefined {
+  if (background === "paper") {
+    return "bg-paper";
+  }
+  if (background === "card") {
+    return "bg-card";
+  }
+  return;
+}
 
 export function AppLayoutFrame({
   appMenuActions,
@@ -33,16 +66,30 @@ export function AppLayoutFrame({
   defaultTopbarTitle,
   modulesReorderable,
   onModulesReorder,
+  secondaryNavHeaderOverride,
+  secondaryNavFooterSlot,
+  secondaryNavLeadingSlot,
+  secondaryNavRouteBreadcrumb,
+  secondaryNavRouteTransition,
   secondaryNavPersistence,
+  railEndSlot,
+  spacesZone,
   children,
 }: AppLayoutFrameProps & { children: ReactNode }) {
   const { contentStackBackground } = usePageHeader();
-  const { dockMode, open: copilotOpen } = useCopilotShell();
+  const {
+    chromeHidden,
+    dockMode,
+    open: copilotPersistedOpen,
+  } = useCopilotShell();
+  const copilotOpen = isCopilotShellSlotOpen({
+    chromeHidden,
+    open: copilotPersistedOpen,
+  });
   const endPaneExpanded = useWorkspaceEndPaneExpanded();
+  const endPaneCount = useWorkspaceEndPaneCount();
+  const endPaneWidth = useWorkspaceEndPaneWidth();
   const suppressPaneWidthTransition = useSuppressPaneWidthTransition();
-
-  const [forceHoverToggle, setForceHoverToggle] = useState(false);
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
 
   // Sidebar size & collapse states
   const [sidebarMode, setSidebarMode] = useState<"compact" | "extended">(() => {
@@ -167,20 +214,11 @@ export function AppLayoutFrame({
     };
   }, []);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-      // If the user moves the mouse, disable forced hover so the browser's
-      // native hover states kick in.
-      setForceHoverToggle(false);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, []);
-
   const secondaryNav = useSecondaryNavLayout(sections, {
+    hasRouteSlots:
+      secondaryNavHeaderOverride != null ||
+      secondaryNavLeadingSlot != null ||
+      secondaryNavFooterSlot != null,
     secondaryNavPersistence,
   });
   const {
@@ -210,22 +248,6 @@ export function AppLayoutFrame({
     skipNextSecondaryNavOpenTransitionRef,
   } = secondaryNav;
 
-  useEffect(() => {
-    if (overlayOpen) {
-      const timer = setTimeout(() => {
-        const element = document.elementFromPoint(
-          lastMousePosRef.current.x,
-          lastMousePosRef.current.y
-        );
-        if (element?.closest("[data-sidebar-toggle]")) {
-          setForceHoverToggle(true);
-        }
-      }, 300); // 300ms matches transition duration
-      return () => clearTimeout(timer);
-    }
-    setForceHoverToggle(false);
-  }, [overlayOpen]);
-
   const {
     displayedWidthPx: secondaryNavDisplayedWidthPx,
     handleResizeKeyDown: handleSecondaryNavResizeKeyDown,
@@ -252,9 +274,35 @@ export function AppLayoutFrame({
     skipNextSecondaryNavOpenTransitionRef.current
   );
 
+  // Topbar Open / space crumb must not appear while the column is still
+  // shrinking — that was a second "GA game ▾" sitting in the canvas.
+  const [secondaryNavClosing, setSecondaryNavClosing] = useState(false);
+  const wasSecondaryNavOpenRef = useRef(secondaryNavOpen);
+  useLayoutEffect(() => {
+    const wasOpen = wasSecondaryNavOpenRef.current;
+    wasSecondaryNavOpenRef.current = secondaryNavOpen;
+    if (wasOpen && !secondaryNavOpen && useSecondaryNavWidthTransition) {
+      setSecondaryNavClosing(true);
+      return;
+    }
+    if (secondaryNavOpen) {
+      setSecondaryNavClosing(false);
+    }
+  }, [secondaryNavOpen, useSecondaryNavWidthTransition]);
+  useEffect(() => {
+    if (!secondaryNavClosing) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setSecondaryNavClosing(false);
+    }, SECONDARY_NAV_WIDTH_TRANSITION_MS + 50);
+    return () => window.clearTimeout(timeoutId);
+  }, [secondaryNavClosing]);
+  const topbarSecondaryNavOpen = secondaryNavOpen || secondaryNavClosing;
+
   return (
     <ShellSecondaryNavProvider value={shellSecondaryNavValue}>
-      <div className="shell-root flex h-screen w-full overflow-hidden p-0">
+      <div className="shell-root flex h-dvh w-full overflow-hidden p-0">
         {/* Sidebar layout placeholder: occupies layout space when pinned, collapses to 0 when hidden and not hovered */}
         <div
           className="hidden h-full shrink-0 transition-[width] duration-300 ease-in-out md:block"
@@ -296,9 +344,11 @@ export function AppLayoutFrame({
             onItemHoverEnter={openNavItemHover}
             onItemHoverLeave={closeNavItemHover}
             onModulesReorder={onModulesReorder}
+            railEndSlot={railEndSlot}
             sections={sections}
             shell={shell}
             sidebarWidth={sidebarWidth}
+            spacesZone={spacesZone}
             style={{ width: sidebarWidth }}
           />
         </div>
@@ -342,6 +392,7 @@ export function AppLayoutFrame({
           secondaryItems={shellSecondaryLinks}
           sections={sections}
           shell={shell}
+          spacesZone={spacesZone}
         />
 
         <div className="relative min-w-0 flex-1 p-0 md:pl-0">
@@ -350,12 +401,19 @@ export function AppLayoutFrame({
               {hasSecondaryNav ? (
                 <div
                   className={cn(
-                    "relative z-0 hidden h-full min-h-0 shrink-0 overflow-hidden md:flex",
-                    secondaryNavOpen && "shell-divider",
-                    !secondaryNavOpen && "pointer-events-none",
+                    "relative z-0 hidden h-full min-h-0 shrink-0 md:flex",
+                    secondaryNavOpen
+                      ? "shell-divider overflow-visible"
+                      : "pointer-events-none overflow-hidden",
                     useSecondaryNavWidthTransition &&
                       "transition-[width] duration-300 ease-in-out"
                   )}
+                  onTransitionEnd={(event) => {
+                    if (event.propertyName !== "width") {
+                      return;
+                    }
+                    setSecondaryNavClosing(false);
+                  }}
                   style={{
                     width: secondaryNavOpen ? secondaryNavDisplayedWidthPx : 0,
                   }}
@@ -369,6 +427,10 @@ export function AppLayoutFrame({
                       onResizePointerDown={handleSecondaryNavResizePointerDown}
                       onToggle={closeSecondaryNavPinned}
                       pathname={pathname}
+                      routeFooterSlot={secondaryNavFooterSlot}
+                      routeHeaderSlot={secondaryNavHeaderOverride}
+                      routeLeadingSlot={secondaryNavLeadingSlot}
+                      routeTransition={secondaryNavRouteTransition}
                       search={search}
                       secondaryItems={shellSecondaryLinks}
                       widthDisplayedPx={secondaryNavDisplayedWidthPx}
@@ -379,15 +441,21 @@ export function AppLayoutFrame({
               {showHoverSecondaryColumn ? (
                 <div
                   className={cn(
-                    "ui-canvas-floating absolute inset-y-0 left-0 z-30 hidden flex-col overflow-hidden md:flex",
+                    "ui-canvas-floating absolute inset-y-0 left-0 z-30 hidden flex-col md:flex",
+                    // A floating panel over the page: `ui-canvas-floating`'s
+                    // shadow is its whole edge; a border on top of it was the
+                    // one hairline left in the shell.
                     overlayIncludePageSlots
-                      ? "!bg-card/80 [&_.bg-card]:!bg-transparent [&_.bg-background]:!bg-transparent border-border border-r"
-                      : "border-border border-r bg-card",
+                      ? "!bg-card/80 [&_.bg-card]:!bg-transparent [&_.bg-background]:!bg-transparent"
+                      : "bg-card",
                     "ease-in-out will-change-transform",
-                    "transition-transform duration-300",
+                    "overflow-visible transition-transform duration-300",
                     overlayOpen
                       ? "translate-x-0"
-                      : "pointer-events-none -translate-x-full"
+                      : // Extra 0.75rem = half the seam control (size-6), so the
+                        // overlapping pin/close rides off-canvas with the sheet
+                        // instead of peeking at the content’s left edge.
+                        "pointer-events-none -translate-x-[calc(100%+0.75rem)]"
                   )}
                   onMouseEnter={() => {
                     openHoverPanel();
@@ -399,42 +467,51 @@ export function AppLayoutFrame({
                   onMouseLeave={() => {
                     closeHoverPanel();
                     closeNavItemHover();
-                    setForceHoverToggle(false);
                   }}
                   style={{ width: secondaryNavWidthPx }}
                 >
-                  <ModuleSecondaryNavColumnShell
-                    bodyMinWidthPx={secondaryNavWidthPx}
-                    forceHover={forceHoverToggle}
-                    headerSlot={
-                      hoveredNavItem ? (
-                        <ModuleSidebarHeaderLabel
-                          icon={hoveredNavItem.icon}
-                          label={hoveredNavItem.label}
-                          to={hoveredNavItem.to}
-                        />
-                      ) : undefined
-                    }
-                    includePageSlots={overlayIncludePageSlots}
-                    onToggle={
-                      secondaryNavAllowPinned
-                        ? pinSecondaryNavFromHover
-                        : closeHoverPanel
-                    }
-                    pathname={pathname}
-                    search={search}
-                    secondaryItems={overlayLinkList}
-                    toggleMode={
-                      secondaryNavAllowPinned ? "pinOpen" : "collapse"
-                    }
-                  />
+                  <div className="relative flex h-full min-h-0 flex-col">
+                    <SecondaryNavSeamToggle
+                      onToggle={
+                        secondaryNavAllowPinned
+                          ? pinSecondaryNavFromHover
+                          : closeHoverPanel
+                      }
+                      toggleMode={
+                        secondaryNavAllowPinned ? "pinOpen" : "collapse"
+                      }
+                    />
+                    <ModuleSecondaryNavColumnShell
+                      blendSurface={
+                        overlayIncludePageSlots && secondaryNavAllowPinned
+                      }
+                      bodyMinWidthPx={secondaryNavWidthPx}
+                      headerSlot={
+                        hoveredNavItem ? (
+                          <ModuleSidebarHeaderLabel
+                            icon={hoveredNavItem.icon}
+                            label={hoveredNavItem.label}
+                            to={hoveredNavItem.to}
+                          />
+                        ) : undefined
+                      }
+                      includePageSlots={overlayIncludePageSlots}
+                      pathname={pathname}
+                      routeFooterSlot={secondaryNavFooterSlot}
+                      routeHeaderSlot={secondaryNavHeaderOverride}
+                      routeLeadingSlot={secondaryNavLeadingSlot}
+                      routeTransition={secondaryNavRouteTransition}
+                      search={search}
+                      secondaryItems={overlayLinkList}
+                    />
+                  </div>
                 </div>
               ) : null}
 
               <CopilotShellContentArea
                 className={cn(
                   "relative z-0 flex min-w-0 flex-1 flex-col overflow-hidden",
-                  contentStackBackground === "paper" && "bg-paper",
+                  contentStackFillClass(contentStackBackground),
                   // End pane expanded: main collapses, the slot takes the row.
                   endPaneExpanded && "flex-[0_1_0px]"
                 )}
@@ -464,7 +541,8 @@ export function AppLayoutFrame({
                   onToggleSidebarHidden={() =>
                     updateSidebarHidden(!isSidebarHidden)
                   }
-                  secondaryNavOpen={secondaryNavOpen}
+                  routeBreadcrumb={secondaryNavRouteBreadcrumb}
+                  secondaryNavOpen={topbarSecondaryNavOpen}
                   sections={sections}
                   shell={shell}
                 />
@@ -476,29 +554,57 @@ export function AppLayoutFrame({
                   <CopilotShellMain
                     className={cn(
                       "flex min-h-0 flex-1 flex-col overflow-hidden",
-                      contentStackBackground === "paper"
-                        ? "bg-paper"
-                        : "bg-background"
+                      contentStackFillClass(contentStackBackground) ??
+                        "bg-background"
                     )}
-                    style={
-                      copilotOpen && dockMode === "bottom"
-                        ? { paddingBottom: COPILOT_BOTTOM_DOCK_HEIGHT }
-                        : undefined
-                    }
+                    style={{
+                      // Docked composer already reserves the bottom of <main>;
+                      // shrink the page-scroll safe area so the two do not stack.
+                      ["--ui-scroll-safe-bottom" as string]:
+                        copilotOpen && dockMode === "bottom"
+                          ? UI_SCROLL_SAFE_BOTTOM_DOCKED
+                          : UI_SCROLL_SAFE_BOTTOM,
+                      ...(copilotOpen && dockMode === "bottom"
+                        ? { paddingBottom: COPILOT_BOTTOM_DOCK_CLEARANCE }
+                        : {}),
+                    }}
                   >
                     {children}
                   </CopilotShellMain>
                 </div>
               </CopilotShellContentArea>
 
+              {/* Workspace end-pane column: one width, one handle; panes
+                  portal in and stack vertically (workspace-end-pane.ts). */}
               <div
                 className={cn(
                   "flex h-full min-h-0",
-                  contentStackBackground === "paper" && "bg-paper",
+                  contentStackFillClass(contentStackBackground),
                   endPaneExpanded && "min-w-0 flex-1"
                 )}
-                ref={setWorkspaceEndPaneElement}
-              />
+              >
+                {endPaneCount > 0 && !endPaneExpanded ? (
+                  <PaneResizeHandle
+                    isResizing={endPaneWidth.isResizing}
+                    label="Resize side panel"
+                    onKeyDown={endPaneWidth.handleResizeKeyDown}
+                    onPointerDown={endPaneWidth.handleResizePointerDown}
+                  />
+                ) : null}
+                <div
+                  className={cn(
+                    "flex h-full min-h-0 flex-col",
+                    endPaneCount > 0 && "py-2 pr-2",
+                    endPaneExpanded && "min-w-0 flex-1 pl-2"
+                  )}
+                  ref={setWorkspaceEndPaneElement}
+                  style={
+                    endPaneCount > 0 && !endPaneExpanded
+                      ? { width: endPaneWidth.displayedWidthPx }
+                      : undefined
+                  }
+                />
+              </div>
 
               {showInlineCopilotSidebar ? (
                 <div

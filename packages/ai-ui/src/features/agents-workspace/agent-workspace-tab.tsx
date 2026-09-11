@@ -16,7 +16,7 @@ export function AgentWorkspaceTab({ t, workspace }: AgentWorkspaceTabProps) {
 
   if (viewQuery.isLoading) {
     return (
-      <Card className="ui-canvas-elevated">
+      <Card>
         <CardContent className="p-4 text-muted-foreground text-sm">
           {t("workspace.loading")}
         </CardContent>
@@ -26,7 +26,7 @@ export function AgentWorkspaceTab({ t, workspace }: AgentWorkspaceTabProps) {
 
   if (!view) {
     return (
-      <Card className="ui-canvas-elevated">
+      <Card>
         <CardContent className="p-4 text-muted-foreground text-sm">
           {t("workspace.notConfigured")}
         </CardContent>

@@ -116,4 +116,41 @@ describe("parseTenantAiSettings", () => {
       }).realtime_voice
     ).toMatchObject({ voice_register: null });
   });
+
+  it("parses doc_converter.browser_parse and ignores unknown values", () => {
+    expect(
+      parseTenantAiSettings({
+        doc_converter: { browser_parse: "liteparse", provider: "local" },
+      }).doc_converter
+    ).toMatchObject({ browser_parse: "liteparse", provider: "local" });
+    expect(
+      parseTenantAiSettings({
+        doc_converter: { browser_parse: "wasm" },
+      }).doc_converter
+    ).toMatchObject({ browser_parse: null });
+  });
+
+  it("treats generated_starters as opt-in and default-off", () => {
+    expect(parseTenantAiSettings({}).generated_starters).toBe(false);
+    expect(
+      parseTenantAiSettings({ generated_starters: true }).generated_starters
+    ).toBe(true);
+    expect(
+      parseTenantAiSettings({ generated_starters: "yes" }).generated_starters
+    ).toBe(false);
+  });
+
+  it("parses agent_approval mode and per-agent overrides", () => {
+    expect(
+      parseTenantAiSettings({
+        agent_approval: {
+          mode: "auto",
+          agents: { "engenty.coordinator": "manual", nope: "yolo" },
+        },
+      }).agent_approval
+    ).toEqual({
+      mode: "auto",
+      agents: { "engenty.coordinator": "manual" },
+    });
+  });
 });

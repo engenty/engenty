@@ -1,10 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { ENGENTY_FILL, type EngentyKind } from "./colors";
 import { useEngentyGaze } from "./use-engenty-gaze";
 
 export interface EngentyProps {
+  /**
+   * Idle SMIL morph + pointer gaze. Off for dense chrome (sidebar rows) so only
+   * the selected agent spends cycles wobbling.
+   */
+  animated?: boolean;
   className?: string;
   kind?: EngentyKind;
   /** Pixel width/height of the SVG. */
@@ -478,6 +483,7 @@ function Body({ kind }: { kind: EngentyKind }) {
 
 /** Flat landing engenty — SMIL idle morph + pointer-following eye/body. */
 export function Engenty({
+  animated = true,
   kind = "round",
   size = 160,
   className,
@@ -485,7 +491,24 @@ export function Engenty({
   const svgRef = useRef<SVGSVGElement>(null);
   const eye = EYE_BY_KIND[kind];
   const shadow = SHADOW[kind];
-  useEngentyGaze(svgRef, eye);
+  useEngentyGaze(svgRef, eye, animated);
+
+  // SMIL is not CSS — pause/unpause the SVG timeline when the row is idle.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) {
+      return;
+    }
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (animated && !reduced) {
+      svg.unpauseAnimations();
+      return;
+    }
+    svg.pauseAnimations();
+    svg.setCurrentTime(0);
+  }, [animated]);
 
   return (
     <svg

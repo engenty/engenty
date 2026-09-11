@@ -28,9 +28,10 @@ export const ENV_SCOPES: Record<EnvScope, EnvScopeInfo> = {
  */
 export const CORE_ENV_FEATURES: EnvFeatureInfo[] = [
   {
-    description: "LLM tracing via LangFuse (disabled when unset)",
+    description:
+      "Agent run tracing from apps/ai to Langfuse, any OTLP backend, or the Mastra store (off when no sink is configured)",
     id: "observability",
-    label: "Observability (LangFuse)",
+    label: "Observability",
   },
 ];
 
@@ -119,7 +120,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>` from `engenty service-token create --name ai-service`. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
+      "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>` from `engenty service-token create --name ai-service`. A locked-down mint must list module.read,module.write,module.execute plus Plan caps (module.tasks.read,module.tasks.write) — module.read does not cover module.tasks.read. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_SECRET",
     obtain: { kind: "manual" },
@@ -182,65 +183,24 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   {
     defaultValue: { root: "http://127.0.0.1:54321" },
     description:
-      "Supabase API endpoint for the UI (Vite reads it from the workspace root; baked into production bundles at build time).",
+      "Supabase API endpoint for the UI. Required locally, where Vite serves the SPA and reads this from the workspace root. In a deployment the gateway writes it into the served page and falls back to SUPABASE_URL — set it there only when the browser-facing address differs, e.g. SUPABASE_URL is container-internal Docker DNS.",
     group: "Supabase",
     key: "VITE_SUPABASE_URL",
     obtain: { kind: "supabase", statusKeys: ["API_URL"] },
-    required: "always",
+    required: { deploy: "optional", root: "always" },
     scopes: ["root", "deploy"],
     secret: false,
     validate: isHttpUrl,
   },
   {
     description:
-      "Supabase anon/publishable key for the UI (public browser key). Local: from pnpm supabase.",
+      "Supabase anon/publishable key for the UI (public browser key). Local: from pnpm supabase. In a deployment the gateway writes it into the served page and falls back to SUPABASE_ANON_KEY, so it is only needed when the two differ.",
     exampleValue: "sb_publishable_...",
     group: "Supabase",
     key: "VITE_SUPABASE_ANON_KEY",
     obtain: { kind: "supabase", statusKeys: ["PUBLISHABLE_KEY", "ANON_KEY"] },
-    required: "always",
+    required: { deploy: "optional", root: "always" },
     scopes: ["root", "deploy"],
-    secret: false,
-  },
-
-  // ── Observability (LangFuse) ──
-  {
-    description: "LangFuse secret key (LLM tracing; disabled when unset).",
-    feature: "observability",
-    group: "Observability (LangFuse)",
-    key: "LANGFUSE_SECRET_KEY",
-    obtain: {
-      kind: "provider",
-      instructions: ["Project settings → API keys in LangFuse."],
-      url: "https://cloud.langfuse.com",
-    },
-    required: "optional",
-    scopes: ["root"],
-    secret: true,
-  },
-  {
-    description: "LangFuse public key.",
-    feature: "observability",
-    group: "Observability (LangFuse)",
-    key: "LANGFUSE_PUBLIC_KEY",
-    obtain: {
-      kind: "provider",
-      instructions: ["Project settings → API keys in LangFuse."],
-      url: "https://cloud.langfuse.com",
-    },
-    required: "optional",
-    scopes: ["root"],
-    secret: false,
-  },
-  {
-    description: "LangFuse base URL (cloud region or self-hosted instance).",
-    exampleValue: "https://cloud.langfuse.com",
-    feature: "observability",
-    group: "Observability (LangFuse)",
-    key: "LANGFUSE_BASE_URL",
-    obtain: { kind: "manual" },
-    required: "optional",
-    scopes: ["root"],
     secret: false,
   },
 
@@ -303,6 +263,34 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     required: "optional",
     scopes: ["root"],
     secret: true,
+  },
+
+  // ── Mastra Studio (dev) ──
+  {
+    description:
+      "Set by `pnpm dev:studio` / `pnpm dev:portless --studio`. Ignored in production.",
+    exampleValue: "1",
+    group: "Mastra Studio",
+    key: "ENGENTY_MASTRA_STUDIO_API",
+    obtain: {
+      kind: "manual",
+      instructions: [
+        "Do not set this by hand. Pass --studio on the dev script.",
+      ],
+    },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
+    description:
+      "Optional tenant UUID to pin onto Mastra Studio at boot (local / single-tenant). Ignored in production and when Studio is off. Setup → Mastra Studio → Activate tenant in Studio can set the runtime pin when this is unset.",
+    group: "Mastra Studio",
+    key: "ENGENTY_STUDIO_TENANT_ID",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
   },
 
   // ── Core API & AI workspace ──
@@ -381,6 +369,17 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     scopes: ["root"],
     secret: false,
   },
+  {
+    description:
+      "Days a marked-deleted space stays recoverable before the background sweep hard-deletes it and its data. Defaults to 7. Set to 0 to purge on the next sweep.",
+    exampleValue: "7",
+    group: "Core API & AI workspace",
+    key: "ENGENTY_SPACE_PURGE_AFTER_DAYS",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
 
   // ── engenty Apps (tenant-authored apps) ──
   {
@@ -404,6 +403,17 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     required: "optional",
     scopes: ["root", "deploy"],
     secret: true,
+  },
+  {
+    description:
+      "Root of the spaces tree, shared by app-host and engenty-ai: every App's source repository and /data directory live under tenants/<tenant>/spaces/<space>/apps/<slug>. app-host commits and deploys from it and mounts data/ at /data inside the App's isolate; engenty-ai binds a space's apps/ into that space's computer at /sandbox/apps. Defaults to ~/.engenty/spaces; the compose files bind /opt/engenty/spaces.",
+    exampleValue: "/opt/engenty/spaces",
+    group: "engenty Apps",
+    key: "ENGENTY_SPACES_DIR",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
   },
   {
     description: "Local port for apps/app-host (internal only).",
@@ -573,12 +583,12 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
-      "CORS for apps/ai (comma-separated origins allowed to call /ai).",
+      "CORS for apps/ai (comma-separated origins allowed to call /ai). Defaults to PUBLIC_APP_URL, which is the whole list for a single-origin install — set it only to allow additional origins.",
     exampleValue: "https://app.example.com",
     group: "Production edge",
     key: "ENGENTY_CORS_ORIGINS",
     obtain: { kind: "manual" },
-    required: "always",
+    required: "optional",
     scopes: ["deploy"],
     secret: false,
   },
@@ -633,6 +643,49 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     required: "optional",
     scopes: ["deploy"],
     secret: false,
+  },
+  {
+    description:
+      "Idle browsers are stopped after this many ms (logins survive in the profile). Default 15 min.",
+    exampleValue: "900000",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_IDLE_STOP_MS",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Running browsers per tenant, host-wide. Over the ceiling, Start answers 429. Default 4.",
+    exampleValue: "4",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_MAX_PER_TENANT",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Running browsers per person, host-wide. Over the ceiling, Start answers 429. Default 2.",
+    exampleValue: "2",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_MAX_PER_USER",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: false,
+  },
+  {
+    description:
+      "Shared secret for the live-view tickets across engenty-ai instances (also used by the voice cascade). Random per process when unset, which only works while there is one instance.",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_REALTIME_TICKET_SECRET",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["deploy"],
+    secret: true,
   },
 ];
 

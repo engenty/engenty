@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — plain .mjs sibling, no type declarations.
+import { moduleTier } from "./lib/closed-prefixes.mjs";
+// @ts-expect-error — plain .mjs sibling, no type declarations.
 import {
   isAlreadyPublished,
   isSecondaryRateLimit,
-  moduleTier,
   REGISTRY,
   transformModuleManifestForPublish,
 } from "./publish-modules.mjs";

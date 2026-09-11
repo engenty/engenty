@@ -1,6 +1,5 @@
 import type {
   AgentConfig,
-  AgentDefinition,
   InstructionDocumentDefinition,
 } from "@engenty/ai-core";
 import { DEFAULT_AI_CHAT_MODEL_ID, readAgentTextAsset } from "@engenty/ai-core";
@@ -58,15 +57,4 @@ export function createKbAnswersInstructionDocuments(): InstructionDocumentDefini
       title: "Knowledge Base Answers identity",
     },
   ];
-}
-
-export function createKbAnswersAgent(): AgentDefinition {
-  return {
-    build_tools: () => ({}),
-    description: "Answers questions strictly from the knowledge base.",
-    id: KB_ANSWERS_AGENT_ID,
-    instruction_keys: ["knowledge_base_answers_agents"],
-    module_id: "knowledge-base",
-    name: "KB Answers",
-  };
 }

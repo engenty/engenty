@@ -34,7 +34,7 @@ export function InstructionFilesSidebar({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="min-h-0 px-0">
-        <ScrollArea className="h-[calc(100vh-18rem)]">
+        <ScrollArea className="h-[calc(100dvh-18rem)]">
           <div className="space-y-4 px-3 pb-3">
             {groups.map((group) => (
               <section className="space-y-2" key={group.owner_id}>

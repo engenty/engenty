@@ -92,6 +92,68 @@ describe("synthesizeSearchOperation — security boundary", () => {
   });
 });
 
+describe("synthesizeSearchOperation — space containment", () => {
+  it("scopes a space_owned search to the run's space and drops spoofed space_ids", async () => {
+    const provider = makeProvider({ hybrid: true, lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "space_owned" },
+    });
+
+    await op.handler(
+      { filters: { space_ids: ["evil-space"] }, limit: 5, query: "ada" },
+      { auth: { spaceId: "space-1", tenantId: "t1", userId: "u1" } }
+    );
+
+    expect(provider.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: expect.objectContaining({ space_ids: ["space-1"] }),
+      })
+    );
+  });
+
+  it("leaves an unbound run (no space) unscoped", async () => {
+    const provider = makeProvider({ hybrid: true, lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "space_owned" },
+    });
+
+    await op.handler({ limit: 5, query: "ada" }, { auth: { tenantId: "t1" } });
+
+    const call = (provider.search as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as {
+      filters: Record<string, unknown>;
+    };
+    expect(call.filters.space_ids).toBeUndefined();
+  });
+
+  it("never scopes a tenant_shared source by space", async () => {
+    const provider = makeProvider({ hybrid: true, lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "tenant_shared" },
+    });
+
+    await op.handler(
+      { limit: 5, query: "ada" },
+      { auth: { spaceId: "space-1", tenantId: "t1" } }
+    );
+
+    const call = (provider.search as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as {
+      filters: Record<string, unknown>;
+    };
+    expect(call.filters.space_ids).toBeUndefined();
+  });
+});
+
 describe("synthesizeSearchOperation — explicit lexical (BM25)", () => {
   it("forwards strategy='lexical' verbatim even when hybrid/semantic exist", async () => {
     const provider = makeProvider({
@@ -133,6 +195,29 @@ describe("synthesizeSearchOperation — explicit lexical (BM25)", () => {
   });
 });
 
+describe("synthesizeSearchOperation — spacePolicy", () => {
+  it("puts the declared policy on the synthesized operation", () => {
+    const provider = makeProvider({ lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "tenant_shared" },
+    });
+    expect(op.spacePolicy).toEqual({ kind: "tenant_shared" });
+  });
+
+  it("leaves spacePolicy undefined when the registration omits it", () => {
+    const provider = makeProvider({ lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+    });
+    expect(op.spacePolicy).toBeUndefined();
+  });
+});
+
 describe("createSearchIndexHost — plugin reload", () => {
   it("re-synthesizes the search op when the same provider id re-registers", async () => {
     const { createSearchIndexRegistry } = await import("@engenty/search-index");
@@ -161,5 +246,30 @@ describe("createSearchIndexHost — plugin reload", () => {
     expect(registerOperation.mock.calls[1]?.[0]?.operationId).toBe(
       "tests_entity_search"
     );
+  });
+
+  it("forwards a declared spacePolicy onto the registered operation", async () => {
+    const { createSearchIndexRegistry } = await import("@engenty/search-index");
+    const { createSearchIndexHost } = await import("./search-index-host.js");
+    const registerOperation = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    const register = createSearchIndexHost({
+      events: {
+        core: { emit: vi.fn().mockResolvedValue(undefined) },
+        modules: { on: vi.fn().mockReturnValue({ dispose: vi.fn() }) },
+      } as never,
+      registry: createSearchIndexRegistry(),
+      server: { registerOperation } as never,
+    });
+
+    register(makeProvider({ lexical: true }), {
+      capabilities: { lexical: true },
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "user_owned" },
+    });
+
+    expect(registerOperation.mock.calls[0]?.[0]?.spacePolicy).toEqual({
+      kind: "user_owned",
+    });
   });
 });

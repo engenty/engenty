@@ -2,6 +2,7 @@
  * Compact FAQ list (or empty hint) in the module secondary column.
  */
 
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { matchesPath } from "@engenty/app-shell/navigation";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -27,15 +28,16 @@ const FAQ_SIDEBAR_PREVIEW_SIZE = 8;
 export function KbSidebarFaqsSection({
   embedded = false,
   kbId,
-  kbSlug,
 }: {
   /** When true, omit section heading (tabs provide context). */
   embedded?: boolean;
   kbId: string;
-  kbSlug: string;
 }) {
   const { t } = useTranslation("kb");
-  const { pathname, search } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/kb/…`, and
+  // every matcher below is written against `/mdl/knowledge-base/…`.
+  const { pathname: rawPathname, search } = useLocation();
+  const pathname = canonicalModulePathname(rawPathname);
   const { data: faqPage, isLoading } = useQuery(
     faqsQueryOptions({
       kb_id: kbId,
@@ -47,7 +49,7 @@ export function KbSidebarFaqsSection({
   );
 
   const faqs = faqPage?.data ?? [];
-  const listTo = kbFaqsListPath(kbSlug);
+  const listTo = kbFaqsListPath();
   const listActive = matchesPath(pathname, search, listTo);
 
   return (
@@ -79,7 +81,7 @@ export function KbSidebarFaqsSection({
         ) : (
           <SidebarMenu className="gap-0.5">
             {faqs.map((faq) => {
-              const to = kbFaqPath(kbSlug, faq.id);
+              const to = kbFaqPath(faq.id);
               const isActive = matchesPath(pathname, search, to);
               return (
                 <SidebarRow isActive={isActive} key={faq.id}>

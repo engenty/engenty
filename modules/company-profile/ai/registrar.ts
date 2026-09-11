@@ -1,5 +1,5 @@
 // Company Profile AI surface — declared via defineModuleAi (Phase 5).
-// agents/company-profile.manager/agent.json + AGENTS.md, actions/*/ACTION.md;
+// agents/company-profile.manager/agent.json + AGENTS.md, workflows/*.workflow.json;
 // tools built per call from the gateway invoker the plugin host supplies.
 // Instructions stay code-built (editable field list derives from the zod schema).
 import type {
@@ -12,7 +12,6 @@ import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import {
   COMPANY_PROFILE_MANAGER_AGENT_ID,
   companyProfileDynamicInstructions,
-  createCompanyProfileManagerAgentDefinition,
 } from "./company-profile-manager.js";
 import {
   buildCompanyWebsitePagesTool,
@@ -51,11 +50,6 @@ const COMPANY_PROFILE_TRIGGERS: TriggerDefinition[] = [
 
 function defineCompanyProfileAi(options: CompanyProfileAiOptions) {
   return defineModuleAi({
-    agentDefinitions: () => [
-      createCompanyProfileManagerAgentDefinition({
-        invokeCompanyProfileOperation: options.invokeCompanyProfileOperation,
-      }),
-    ],
     agents: [
       {
         id: COMPANY_PROFILE_MANAGER_AGENT_ID,

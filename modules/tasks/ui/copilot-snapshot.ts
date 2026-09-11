@@ -2,7 +2,6 @@
  * Compact, agent-friendly snapshots for preloaded tasks copilot context.
  */
 import type {
-  Goal,
   Task,
   TaskDetail,
   TasksBriefingResponse,
@@ -13,7 +12,6 @@ export interface TaskSnapshot {
   comment_count: number;
   description: string | null;
   due_date: string | null;
-  goal_id: string | null;
   identifier: string;
   primary_assignee_agent_type_key: string | null;
   primary_assignee_kind: string;
@@ -25,17 +23,9 @@ export interface TaskSnapshot {
 }
 
 export interface TaskPreviewItem {
-  goal_id: string | null;
   id: string;
   identifier: string;
   priority: string;
-  status: string;
-  title: string;
-}
-
-export interface GoalPreviewItem {
-  id: string;
-  linked_task_count?: number;
   status: string;
   title: string;
 }
@@ -71,7 +61,6 @@ function toTaskPreviewItem(task: Task): TaskPreviewItem {
     title: task.title,
     status: task.status,
     priority: task.priority,
-    goal_id: task.goal_id,
   };
 }
 
@@ -86,7 +75,6 @@ export function buildTaskSnapshot(task: TaskDetail): TaskSnapshot {
     title: task.title,
     status: task.status,
     priority: task.priority,
-    goal_id: task.goal_id,
     description: trimDescription(task.description),
     due_date: task.due_date,
     primary_assignee_kind: task.primary_assignee_kind,
@@ -96,21 +84,6 @@ export function buildTaskSnapshot(task: TaskDetail): TaskSnapshot {
     comment_count: task.comments?.length ?? 0,
     recent_comments: recentComments,
   };
-}
-
-/** Build a capped goals preview for Agent UI state page.goals_preview. */
-export function buildGoalsPreview(
-  goals: Goal[],
-  limit = 10
-): GoalPreviewItem[] {
-  return goals.slice(0, limit).map((goal) => ({
-    id: goal.id,
-    title: goal.title,
-    status: goal.status,
-    ...(goal.linked_task_count == null
-      ? {}
-      : { linked_task_count: goal.linked_task_count }),
-  }));
 }
 
 /** Build a capped tasks preview for Agent UI state page.tasks_preview. */

@@ -2,9 +2,16 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import type { EngentyPluginListItem } from "../../../src/ai/core-http-client.js";
+import { catalogDiscoveryResult } from "./lib/catalog-result.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
 import { normalizeToolContract } from "./lib/format.js";
+import { getEngentyToolsRunContext } from "./lib/run-context.js";
+import {
+  isModuleVisibleInSpace,
+  isToolVisibleInSpace,
+  isUnresolvedSpaceGate,
+} from "./lib/space-gate.js";
 import type { NormalizedEngentyToolEntry } from "./schema/types.js";
 
 export const ENGENTY_TOOLS_MODULES_TOOL_ID = "engenty_tools_modules";
@@ -12,7 +19,7 @@ export const ENGENTY_TOOLS_MODULES_TOOL_ID = "engenty_tools_modules";
 export const engentyToolsModulesTool = createTool({
   id: ENGENTY_TOOLS_MODULES_TOOL_ID,
   description:
-    "List active Engenty modules for the current user/tenant, including valid moduleIds, names, descriptions, base URLs, and tool counts.",
+    "List Engenty modules mounted in this Space, including valid moduleIds, names, descriptions, base URLs, and tool counts. When this run is not Space-bound, lists the tenant's active modules. Catalog discovery only — these are module contracts, not app records.",
   inputSchema: z.object({}),
   execute: async (_input, context) => listEngentyToolModules(context),
 });
@@ -42,15 +49,27 @@ export async function listEngentyToolModules(
         .listToolContracts()
         .then((contracts) => contracts.map(normalizeToolContract)),
     ]);
-    const statsByModule = summarizeToolsByModule(entries);
+    // Inside a space, "active modules" means the ones this SPACE carries — the
+    // rail already shows only those, and a module list that disagrees with the
+    // rail is the copilot telling the user about an app that is not there.
+    const space = getEngentyToolsRunContext().space;
+    const statsByModule = summarizeToolsByModule(
+      entries.filter((entry) =>
+        isToolVisibleInSpace(
+          {
+            operationId: entry.id,
+            ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
+          },
+          space
+        )
+      )
+    );
 
-    return {
-      ok: true,
-      catalog_only: true,
-      message:
-        "Module discovery completed. These are active modules for the current user/tenant.",
+    const spaceBound = Boolean(space) && !isUnresolvedSpaceGate(space);
+    return catalogDiscoveryResult(space, {
       modules: plugins
         .filter(isActiveModule)
+        .filter((plugin) => isModuleVisibleInSpace(plugin.id, space))
         .map((plugin) => {
           const stats = statsByModule.get(plugin.id);
           return {
@@ -68,10 +87,12 @@ export async function listEngentyToolModules(
           };
         })
         .sort((a, b) => a.moduleId.localeCompare(b.moduleId)),
-      next: "Use one of these moduleId values exactly with engenty_tools_search, then run the selected tool with engenty_tool_execute.",
+      note: spaceBound
+        ? "These modules are mounted in this Space. Use a moduleId with engenty_tools_search, then run the selected tool with engenty_tool_execute."
+        : "Use one of these moduleId values exactly with engenty_tools_search, then run the selected tool with engenty_tool_execute.",
       routing:
         "routePrefix is where a module's pages live, not a page itself. Pass it to `navigate` and it resolves to the module's page when there is exactly one, or fails listing the real routes. Never state you opened a page unless navigate returned that path in `to`.",
-    };
+    });
   } catch (err) {
     return coreErrorToToolResult(err);
   }

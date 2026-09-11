@@ -4,6 +4,7 @@ import {
   ADMIN_AGENTS_ASIDE_WIDTH_MIN_PX,
   ADMIN_AGENTS_SIDEBAR_NAV_USER_SETTING_NAME,
   DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE,
+  DEFAULT_CATALOG_FILTERS,
   ENGENTY_COPILOT_AGENT_ID,
   mergeAdminAgentsSidebarNavDefaults,
   parseAdminAgentsSidebarNavFromUnknown,
@@ -26,6 +27,7 @@ describe("admin agents sidebar nav state", () => {
       })
     ).toEqual({
       asideWidthPx: DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE.asideWidthPx,
+      catalogFilters: DEFAULT_CATALOG_FILTERS,
       moduleFolders: { actions: {}, skills: {} },
       pinnedAgents: [ENGENTY_COPILOT_AGENT_ID],
       pinnedSessions: [],
@@ -78,6 +80,33 @@ describe("admin agents sidebar nav state", () => {
     );
   });
 
+  it("keeps known catalog filters and drops values this build cannot render", () => {
+    const parsed = parseAdminAgentsSidebarNavFromUnknown({
+      catalogFilters: {
+        agents: { kind: "system", sortOrder: "desc" },
+        flows: { groupBy: "module", source: "nonsense", sortOrder: "desc" },
+        skills: { module: "contacts", tier: "custom" },
+      },
+      v: 1,
+    });
+    expect(parsed.catalogFilters.agents).toEqual({
+      kind: "system",
+      sortOrder: "desc",
+    });
+    // `source` is not one of this build's options, so it falls back rather than
+    // filtering the catalog down to nothing the chrome can explain.
+    expect(parsed.catalogFilters.flows).toEqual({
+      groupBy: "module",
+      source: "all",
+      sortOrder: "desc",
+    });
+    expect(parsed.catalogFilters.skills).toEqual({
+      ...DEFAULT_CATALOG_FILTERS.skills,
+      module: "contacts",
+      tier: "custom",
+    });
+  });
+
   it("parseAdminAgentsSidebarNavFromUnknown reads moduleFolders booleans", () => {
     expect(
       parseAdminAgentsSidebarNavFromUnknown({
@@ -94,6 +123,7 @@ describe("admin agents sidebar nav state", () => {
       })
     ).toEqual({
       asideWidthPx: DEFAULT_ADMIN_AGENTS_SIDEBAR_NAV_STATE.asideWidthPx,
+      catalogFilters: DEFAULT_CATALOG_FILTERS,
       moduleFolders: { actions: { contacts: true }, skills: {} },
       pinnedAgents: [ENGENTY_COPILOT_AGENT_ID],
       pinnedSessions: [],

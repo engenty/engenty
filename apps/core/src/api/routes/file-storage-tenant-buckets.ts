@@ -35,6 +35,9 @@ export const FILE_EXPLORER_BUCKETS: readonly TenantBucket[] = [
   { id: "module-invoices-pdfs", tenantRoot: (t) => `${t}/` },
   { id: "module-team-contracts", tenantRoot: (t) => `${t}/` },
   { id: "module-leads-documents", tenantRoot: (t) => `${t}/` },
+  // Retained after the kb-filesystem-sync module was dropped (2026-08-15):
+  // installs may still hold pre-v0.2 OKF mirror blobs, and tenant-data
+  // lifecycle must keep covering them.
   { id: "kb-sync", tenantRoot: (t) => `${t}/` },
 ];
 

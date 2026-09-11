@@ -6,12 +6,15 @@ import { z } from "zod";
 import type { AiService } from "../ai/index.js";
 import {
   getLiveRunEventsSnapshot,
+  publishRunEvent,
   requestRunCancellation,
   subscribeRunEvents,
 } from "../ai/sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../ai/sessions/run-tracking.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import type { RegistryStore } from "../dal/registry/index.js";
 import type { AgentRunStore } from "../dal/threads/index.js";
+import { registerAdminThreadRoutes } from "./admin-thread-routes.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -19,12 +22,16 @@ import {
   uuidString,
 } from "./http.js";
 import {
+  attachRunNeighbors,
   mapAgentRunEventRow,
+  mapAgentRunToPlatformRecord,
   mapAgentRunToRecord,
   mapAgentRunToSummary,
+  mapSummaryStatusToAiRunStatus,
 } from "./run-api-mapper.js";
 
 const runsBase = `${AI_BASE_PATH}/v1/runs`;
+const adminRunsBase = `${AI_BASE_PATH}/v1/admin/runs`;
 const sessionsBase = `${AI_BASE_PATH}/v1/threads`;
 
 /**
@@ -40,14 +47,233 @@ const listRunsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
+const listAdminRunsQuerySchema = z.object({
+  agent_id: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: z.string().min(1).optional(),
+  tenant_id: uuidString.optional(),
+});
+
+export function requireSuperAdmin(
+  c: { json: (object: unknown, status?: number) => Response },
+  scope: { isSuperAdmin?: boolean }
+): Response | null {
+  if (scope.isSuperAdmin === true) {
+    return null;
+  }
+  return c.json({ error: "agent_runs.superadminRequired" }, 403);
+}
+
+export async function mapPlatformRuns(
+  runStore: AgentRunStore,
+  runs: Parameters<AgentRunStore["describePlatformRuns"]>[0]
+) {
+  const described = await runStore.describePlatformRuns(runs);
+  return runs.map((run) =>
+    mapAgentRunToPlatformRecord(run, {
+      model: run.model_id ? (described.models.get(run.model_id) ?? null) : null,
+      spaceId: described.threadSpaceIds.get(run.thread_id) ?? null,
+      threadTitle: described.threadTitles.get(run.thread_id) ?? null,
+    })
+  );
+}
+
 export function registerAgentRunRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     getRunStore: () => AgentRunStore | null;
+    /** Registry rows, for the agent's own registration time. */
+    getRegistryStore?: () => RegistryStore | null;
     aiService: AiService;
     scopeResolver: AiScopeResolver;
   }
 ): void {
+  registerAdminThreadRoutes(app, {
+    getRunStore: opts.getRunStore,
+    mapPlatformRuns,
+    requireSuperAdmin,
+    scopeResolver: opts.scopeResolver,
+  });
+  app.get(adminRunsBase, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const adminError = requireSuperAdmin(c, scope.scope);
+    if (adminError) {
+      return adminError;
+    }
+    const runStore = opts.getRunStore();
+    if (!runStore) {
+      return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
+    }
+    const parsed = listAdminRunsQuerySchema.safeParse({
+      agent_id: c.req.query("agent_id") ?? c.req.query("agentId"),
+      limit: c.req.query("limit"),
+      status: c.req.query("status"),
+      tenant_id: c.req.query("tenant_id") ?? c.req.query("tenantId"),
+    });
+    if (!parsed.success) {
+      return c.json({ error: "agent_runs.invalidQuery" }, 400);
+    }
+    const statusFilter = parsed.data.status
+      ? mapSummaryStatusToAiRunStatus(parsed.data.status)
+      : undefined;
+    if (parsed.data.status && statusFilter == null) {
+      return c.json({ error: "agent_runs.invalidQuery" }, 400);
+    }
+    try {
+      const runs = await runStore.listRunsForPlatform({
+        ...(parsed.data.tenant_id ? { tenantId: parsed.data.tenant_id } : {}),
+        ...(parsed.data.agent_id ? { agentId: parsed.data.agent_id } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        limit: parsed.data.limit,
+      });
+      return c.json({
+        runs: await mapPlatformRuns(runStore, runs),
+      });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "list platform runs failed",
+        "agent_runs.listFailed",
+        err
+      );
+    }
+  });
+
+  app.get(`${adminRunsBase}/:runId`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const adminError = requireSuperAdmin(c, scope.scope);
+    if (adminError) {
+      return adminError;
+    }
+    const runId = c.req.param("runId");
+    if (!uuidString.safeParse(runId).success) {
+      return c.json({ error: "agent_runs.invalidRunId" }, 400);
+    }
+    const runStore = opts.getRunStore();
+    if (!runStore) {
+      return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const run = await runStore.getRunById(runId);
+      if (!run) {
+        return c.json({ error: "agent_runs.notFound" }, 404);
+      }
+      const mappedRuns = await mapPlatformRuns(runStore, [run]);
+      const mapped = mappedRuns[0];
+      if (!mapped) {
+        return c.json({ error: "agent_runs.notFound" }, 404);
+      }
+      if (!run.thread_id) {
+        return c.json({
+          run: mapped,
+          summary: mapAgentRunToSummary(run),
+        });
+      }
+      const siblings = await runStore.listRunsForPlatformThread({
+        threadId: run.thread_id,
+      });
+      const mappedSiblings = await mapPlatformRuns(runStore, siblings);
+      const withNeighbors = attachRunNeighbors(mappedSiblings);
+      const neighbor =
+        withNeighbors.find((record) => record.id === runId) ?? mapped;
+      return c.json({
+        run: neighbor,
+        summary: mapAgentRunToSummary(run),
+      });
+    } catch (err) {
+      return handleRouteError(c, "get run failed", "agent_runs.getFailed", err);
+    }
+  });
+
+  app.get(`${adminRunsBase}/:runId/events`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const adminError = requireSuperAdmin(c, scope.scope);
+    if (adminError) {
+      return adminError;
+    }
+    const runId = c.req.param("runId");
+    if (!uuidString.safeParse(runId).success) {
+      return c.json({ error: "agent_runs.invalidRunId" }, 400);
+    }
+    const runStore = opts.getRunStore();
+    if (!runStore) {
+      return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const run = await runStore.getRunById(runId);
+      if (!run) {
+        return c.json({ error: "agent_runs.notFound" }, 404);
+      }
+      const events = await runStore.listRunEventsByRunId({ runId });
+      return c.json({
+        events: events.map(mapAgentRunEventRow),
+        run_id: runId,
+      });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "list run events failed",
+        "agent_runs.eventsFailed",
+        err
+      );
+    }
+  });
+
+  // Platform observer: reconstruct the NEXT prompt on this run's thread.
+  // Superadmin-gated and not NODE_ENV-gated — Manage needs this in every
+  // environment. The tenant `/threads/:id/prompt-preview` route stays local-only.
+  app.get(`${adminRunsBase}/:runId/prompt-preview`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const adminError = requireSuperAdmin(c, scope.scope);
+    if (adminError) {
+      return adminError;
+    }
+    const runId = c.req.param("runId");
+    if (!uuidString.safeParse(runId).success) {
+      return c.json({ error: "agent_runs.invalidRunId" }, 400);
+    }
+    const runStore = opts.getRunStore();
+    if (!runStore) {
+      return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
+    }
+    try {
+      const run = await runStore.getRunById(runId);
+      if (!(run?.thread_id && run.tenant_id)) {
+        return c.json({ error: "agent_runs.notFound" }, 404);
+      }
+      const preview = await opts.aiService.threads.getThreadPromptPreview({
+        scope: {
+          ...scope.scope,
+          isSuperAdmin: true,
+          tenantId: run.tenant_id,
+        },
+        threadId: run.thread_id,
+      });
+      return c.json({ preview });
+    } catch (err) {
+      console.error("[admin prompt-preview] failed:", err);
+      return c.json(
+        {
+          error: "agent_runs.promptPreviewFailed",
+          message: err instanceof Error ? err.message : String(err),
+        },
+        500
+      );
+    }
+  });
+
   app.get(runsBase, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -78,7 +304,19 @@ export function registerAgentRunRoutes(
             tenantId: scope.scope.tenantId,
             limit: parsed.data.limit,
           });
+      // Runs are keyed by the agent KEY, which outlives any one registry row:
+      // rehire the same key and yesterday's runs are still that agent's work.
+      // The registration time lets the list say which side of the hire a run
+      // falls on instead of quietly presenting all of it as new.
+      const registered = agentId
+        ? await opts
+            .getRegistryStore?.()
+            ?.getAgentRecord(scope.scope.tenantId, agentId)
+            .then((record) => record?.created_at ?? null)
+            .catch(() => null)
+        : null;
       return c.json({
+        agent_registered_at: registered ?? null,
         runs: runs.map(mapAgentRunToSummary),
       });
     } catch (err) {
@@ -321,7 +559,15 @@ export function registerAgentRunRoutes(
     if (!runStore) {
       return c.json({ error: "agent_runs.unconfiguredDatabase" }, 503);
     }
-    const sinceRaw = Number.parseInt(c.req.query("since") ?? "-1", 10);
+    // `Last-Event-ID` is what a browser EventSource sends on automatic reconnect,
+    // and it carries the `id:` we now write on every frame — so a plain EventSource
+    // resumes with no client code at all. `?since=` stays for callers that hold a
+    // cursor from the JSON listing endpoint instead. Explicit query wins.
+    const lastEventId = c.req.header("Last-Event-ID");
+    const sinceRaw = Number.parseInt(
+      c.req.query("since") ?? lastEventId ?? "-1",
+      10
+    );
     const since = Number.isFinite(sinceRaw) ? sinceRaw : -1;
 
     const run = await runStore
@@ -337,12 +583,12 @@ export function registerAgentRunRoutes(
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         let closed = false;
-        const write = (event: AGUIEvent) => {
+        const write = (event: AGUIEvent, seq?: number) => {
           if (closed) {
             return;
           }
           try {
-            controller.enqueue(encoder.encode(encodeAgUiSseEvent(event)));
+            controller.enqueue(encoder.encode(encodeAgUiSseEvent(event, seq)));
           } catch {
             closed = true;
           }
@@ -377,7 +623,7 @@ export function registerAgentRunRoutes(
               if (seq <= lastSeq) {
                 return;
               }
-              write(event);
+              write(event, seq);
               lastSeq = seq;
               if (finishEvents.has((event as { type: string }).type)) {
                 sawFinish = true;
@@ -502,6 +748,28 @@ export function registerAgentRunRoutes(
       });
       if (!run) {
         return c.json({ error: "agent_runs.notFound" }, 404);
+      }
+      const wasTerminal =
+        existing.status === "completed" ||
+        existing.status === "failed" ||
+        existing.status === "cancelled";
+      if (!wasTerminal) {
+        // Terminal event on the bus so every attached SSE stream (the
+        // originating POST and GET attaches) closes NOW. The executor's own
+        // abort path usually publishes RUN_FINISHED, but an executor hung in
+        // a non-abortable await never does (seen live: a run cancelled in the
+        // DB whose streams stayed open forever, wedging the client on
+        // "streaming"). Bus-only, not persisted — replays of a finished run
+        // already close at end-of-log. MAX_SAFE_INTEGER seq outranks anything
+        // the executor published so attached streams never drop it as stale.
+        publishRunEvent(runId, {
+          event: {
+            type: EventType.RUN_FINISHED,
+            runId,
+            threadId: run.thread_id,
+          } as AGUIEvent,
+          seq: Number.MAX_SAFE_INTEGER,
+        });
       }
       return c.json({
         run: mapAgentRunToRecord(run),

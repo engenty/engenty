@@ -4,6 +4,7 @@ import { registerCompanyProfileGatewayMethods } from "./gateway-methods.js";
 interface CapturedOp {
   handler: (input: unknown, ctx: unknown) => Promise<unknown>;
   operationId: string;
+  spacePolicy?: { kind: string };
 }
 
 function collectOperations() {
@@ -34,6 +35,18 @@ afterEach(() => {
 });
 
 describe("company_profile_set operation", () => {
+  it("declares tenant_shared spacePolicy on every operation", () => {
+    const { server, ops } = collectOperations();
+    registerCompanyProfileGatewayMethods(server as never, makeRepo() as never);
+
+    expect([...ops.values()].map((op) => op.spacePolicy)).toEqual([
+      { kind: "tenant_shared" },
+      { kind: "tenant_shared" },
+      { kind: "tenant_shared" },
+      { kind: "tenant_shared" },
+    ]);
+  });
+
   it("partial-merges the provided fields", async () => {
     const { server, ops } = collectOperations();
     const repo = makeRepo();

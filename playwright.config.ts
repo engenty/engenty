@@ -14,7 +14,27 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /mobile-.*\.smoke\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"] },
+    },
+    // Phone lane. Scoped to the mobile specs rather than the whole suite: the
+    // desktop specs drive chrome that is deliberately collapsed below `md`
+    // (sidebar → nav sheet), so running them here would assert against a UI
+    // that is not supposed to be visible. Widen this once the mobile layouts
+    // of the core surfaces land and their specs are viewport-aware.
+    //
+    // WebKit is not optional here — iOS is the only engine where `dvh` and
+    // `env(safe-area-inset-*)` behave differently from the desktop baseline,
+    // which is the entire reason those tokens exist.
+    {
+      name: "mobile-safari",
+      testMatch: /mobile-.*\.smoke\.spec\.ts$/,
+      use: { ...devices["iPhone 14"] },
+    },
+    {
+      name: "mobile-chrome",
+      testMatch: /mobile-.*\.smoke\.spec\.ts$/,
+      use: { ...devices["Pixel 7"] },
     },
   ],
   reporter: process.env.CI
@@ -36,6 +56,11 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm run dev",
+    // Portless `*.engenty.localhost` uses a local CA; the browser already
+    // sets ignoreHTTPSErrors below, but the webServer probe is a separate
+    // Node fetch that would otherwise treat the origin as down and spawn a
+    // second `pnpm run dev` on top of the worktree stack.
+    ignoreHTTPSErrors: true,
     reuseExistingServer: true,
     stdout: "ignore",
     timeout: 600_000,

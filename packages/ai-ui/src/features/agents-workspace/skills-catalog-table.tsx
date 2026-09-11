@@ -47,7 +47,7 @@ export function SkillStatusBadge({
   return (
     <Badge
       className={cn(
-        "border-border/70 bg-card font-normal text-[11px]",
+        "border-border bg-card font-normal text-[11px]",
         custom ? "text-primary" : "text-muted-foreground"
       )}
       variant="outline"
@@ -128,7 +128,7 @@ const COLUMN_TO_SORT: Partial<
  * Base styling for a group's `<TableBody>`: `bg-card` cells, hover wash, and no
  * inner row dividers (`--ui-canvas-row-divider-w:0px`). Always applied. When
  * grouped, {@link groupCardChromeClass} adds the borderless soft-shadow card
- * (`ui-canvas-raised`, per DESIGN.md) on top; a flat (ungrouped) list gets none.
+ * (`ui-card-raised`, per DESIGN.md) on top; a flat (ungrouped) list gets none.
  */
 const rowBodyBaseClass = cn(
   "[--ui-canvas-row-divider-w:0px]",
@@ -139,7 +139,7 @@ const rowBodyBaseClass = cn(
 
 /** Per-group card chrome — only when grouped (a flat list gets no card). */
 const groupCardChromeClass = cn(
-  "ui-canvas-raised rounded-md",
+  "ui-card-raised",
   "[&>tr:first-child>td:first-child]:rounded-tl-md",
   "[&>tr:first-child>td:last-child]:rounded-tr-md",
   "[&>tr:last-child>td:first-child]:rounded-bl-md",
@@ -326,7 +326,7 @@ export function SkillCatalogTable({
                             <TableCell key={key}>
                               <Badge
                                 className={cn(
-                                  "border-border/70 bg-card font-normal text-[11px]",
+                                  "border-border bg-card font-normal text-[11px]",
                                   skill.requires_sandbox
                                     ? "text-primary"
                                     : "text-muted-foreground"

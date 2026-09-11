@@ -109,7 +109,7 @@ export function AuditLogEntry({
     : undefined;
 
   return (
-    <div className="grid grid-cols-[7rem_6rem_minmax(7rem,9rem)_1fr_auto] items-start gap-4 border-border/50 border-b px-4 py-3 hover:bg-muted/30">
+    <div className="grid grid-cols-[7rem_6rem_minmax(7rem,9rem)_1fr_auto] items-start gap-4 border-border-soft border-b px-4 py-3 hover:bg-muted/30">
       <div
         className="shrink-0 font-mono text-muted-foreground text-xs tabular-nums"
         title={absoluteTime}

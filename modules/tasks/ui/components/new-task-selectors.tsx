@@ -17,11 +17,10 @@ import {
   Bot,
   Check,
   FolderKanban,
+  Layers,
   Minus,
-  Target,
 } from "lucide-react";
 import type {
-  Goal,
   TaskPriority,
   TaskStatusDefinition,
 } from "../../src/schema/types.js";
@@ -50,6 +49,201 @@ export const PRIORITY_ORDER: TaskPriority[] = [
 // Shared pill button style
 export const pillClass =
   "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors cursor-pointer";
+
+// ── New-task dialog form chrome ───────────────────────────────────────
+// The dialog reads top-to-bottom as a form, not as a sentence of pills: a
+// small-caps section label, then full-width rows whose VALUE sits in the
+// foreground. Muted is reserved for placeholders and consequence hints, so
+// "nothing chosen yet" is visually distinct from "this is what will happen".
+export const sectionLabelClass =
+  "font-medium text-[11px] text-muted-foreground uppercase tracking-wider";
+
+export const fieldRowClass =
+  "flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-accent/40 cursor-pointer";
+
+export const hintClass = "text-muted-foreground text-xs";
+
+// ── Wizard stepper ────────────────────────────────────────────────────
+// Doubles as the back navigation: a completed step is a button, so there is
+// no separate "Back" in the footer competing with it. A step you have not
+// earned yet (no title) stays inert rather than disappearing, so the shape of
+// the flow is visible from the first keystroke.
+export interface WizardStep {
+  label: string;
+  reachable: boolean;
+  step: number;
+}
+
+interface WizardStepperProps {
+  current: number;
+  onSelect: (step: number) => void;
+  steps: WizardStep[];
+}
+
+export function WizardStepper({
+  steps,
+  current,
+  onSelect,
+}: WizardStepperProps) {
+  return (
+    <nav aria-label="Steps" className="flex items-center gap-1.5">
+      {steps.map((entry, index) => {
+        const active = entry.step === current;
+        const selectable = entry.reachable && !active;
+        return (
+          <div className="flex items-center gap-1.5" key={entry.step}>
+            {index > 0 && <span className="h-px w-4 bg-border" />}
+            <button
+              aria-current={active ? "step" : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1 text-xs transition-colors ${
+                active
+                  ? "bg-accent font-medium text-foreground"
+                  : selectable
+                    ? "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    : "text-muted-foreground/50"
+              }`}
+              disabled={!(active || selectable)}
+              onClick={() => onSelect(entry.step)}
+              type="button"
+            >
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] tabular-nums ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {entry.step}
+              </span>
+              {entry.label}
+            </button>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ── Segmented choice ──────────────────────────────────────────────────
+// Used for the decisions where the options are peers and the choice changes
+// what happens next (agent vs team, start now vs plan). A segmented control
+// rather than a dropdown so all options — including the ones not built yet,
+// rendered disabled — stay visible.
+//
+// Selected is a tint of the brand colour, not a fill. `--secondary` is
+// `--paper-2` here, near enough to the track that it would not read as chosen
+// at all; a solid fill in either foreground or primary turns several of these
+// into heavy blocks competing with the submit button. A tint reads at a glance
+// and still recedes behind the one control that commits the form.
+//
+// Geometry: the track pads by 4px (`p-1`) and the chip rounds one step tighter
+// than the track, so the chip nests concentrically. No ring — a ring paints
+// OUTSIDE the button box, so inside a padded track it lands on the track's own
+// border and reads as a rendering fault.
+export interface SegmentOption {
+  disabled?: boolean;
+  icon?: typeof Minus;
+  /** Keeps a semantic icon colour (priority) through the selected state. */
+  iconClassName?: string;
+  label: string;
+  value: string;
+}
+
+interface SegmentedChoiceProps {
+  onChange: (value: string) => void;
+  options: SegmentOption[];
+  value: string;
+}
+
+export function SegmentedChoice({
+  options,
+  value,
+  onChange,
+}: SegmentedChoiceProps) {
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-1">
+      {options.map((option) => {
+        const Icon = option.icon;
+        const active = option.value === value;
+        return (
+          <button
+            aria-pressed={active}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium text-sm leading-6 transition-colors ${
+              active
+                ? "bg-primary/12 text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            } ${option.disabled ? "cursor-not-allowed opacity-40 hover:text-muted-foreground" : ""}`}
+            disabled={option.disabled}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            type="button"
+          >
+            {Icon ? (
+              <Icon className={`h-3.5 w-3.5 ${option.iconClassName ?? ""}`} />
+            ) : null}
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Person / agent option list ────────────────────────────────────────
+interface OptionSelectorProps {
+  emptyLabel: string;
+  kind: "user" | "agent";
+  onSelect: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  searchPlaceholder: string;
+  selected: string | null;
+}
+
+export function AssigneeOptionSelectorContent({
+  options,
+  selected,
+  onSelect,
+  kind,
+  searchPlaceholder,
+  emptyLabel,
+}: OptionSelectorProps) {
+  return (
+    <Command className="bg-transparent">
+      {options.length >= 7 && <CommandInput placeholder={searchPlaceholder} />}
+      <CommandList className="max-h-64 overflow-y-auto">
+        <CommandEmpty>{emptyLabel}</CommandEmpty>
+        <CommandGroup>
+          {options.map((option) => (
+            <CommandItem
+              className="flex cursor-pointer items-center justify-between px-2 py-1.5 text-sm"
+              key={option.value}
+              onSelect={() => onSelect(option.value)}
+              value={option.label.toLowerCase()}
+            >
+              <div className="flex items-center gap-2">
+                {kind === "agent" ? (
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Bot className="h-3.5 w-3.5 text-muted-foreground" />
+                  </span>
+                ) : (
+                  <Avatar className="h-5 w-5 shrink-0">
+                    <AvatarFallback className="bg-primary text-[10px] text-primary-foreground">
+                      {getInitials(option.label)}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <span className="truncate">{option.label}</span>
+              </div>
+              {selected === option.value && (
+                <Check className="h-4 w-4 shrink-0 text-foreground" />
+              )}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  );
+}
 
 // ── Assignee Pill ─────────────────────────────────────────────────────
 interface AssigneePillProps {
@@ -86,24 +280,30 @@ export function AssigneePillContent({ assignee, label }: AssigneePillProps) {
   );
 }
 
-// ── Goal Pill + Popover Content ───────────────────────────────────────
-interface GoalSelectorProps {
-  goalId: string | null;
-  goals: Goal[];
+// ── Phase Selector ────────────────────────────────────────────────────
+// A phase is a project's own subdivision — "in <phase>" is what belongs-where
+// means inside a project, and a task cannot sensibly sit in a phase of a
+// project it is not in.
+interface PhaseSelectorProps {
+  noPhaseLabel: string;
   onSelect: (id: string | null) => void;
+  phaseId: string | null;
+  phases: Array<{ id: string; title: string }>;
+  searchPlaceholder: string;
 }
 
-export function GoalSelectorContent({
-  goalId,
-  goals,
+export function PhaseSelectorContent({
+  phaseId,
+  phases,
   onSelect,
-}: GoalSelectorProps) {
-  const { t } = useTranslation("tasks");
+  noPhaseLabel,
+  searchPlaceholder,
+}: PhaseSelectorProps) {
   return (
     <Command className="bg-transparent">
-      <CommandInput placeholder={t("newTask.searchGoals")} />
+      {phases.length >= 7 && <CommandInput placeholder={searchPlaceholder} />}
       <CommandList className="max-h-64 overflow-y-auto">
-        <CommandEmpty>{t("newTask.noGoalMatch")}</CommandEmpty>
+        <CommandEmpty>{noPhaseLabel}</CommandEmpty>
         <CommandGroup>
           <CommandItem
             className="flex cursor-pointer items-center justify-between px-2 py-1.5 text-sm"
@@ -111,28 +311,26 @@ export function GoalSelectorContent({
           >
             <div className="flex items-center gap-2">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted">
-                <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
               </span>
-              <span className="text-muted-foreground">
-                {t("newTask.noGoal")}
-              </span>
+              <span className="text-muted-foreground">{noPhaseLabel}</span>
             </div>
-            {!goalId && <Check className="h-4 w-4 shrink-0 text-foreground" />}
+            {!phaseId && <Check className="h-4 w-4 shrink-0 text-foreground" />}
           </CommandItem>
-          {goals.map((g) => (
+          {phases.map((p) => (
             <CommandItem
               className="flex cursor-pointer items-center justify-between px-2 py-1.5 text-sm"
-              key={g.id}
-              onSelect={() => onSelect(g.id)}
-              value={g.title.toLowerCase()}
+              key={p.id}
+              onSelect={() => onSelect(p.id)}
+              value={p.title.toLowerCase()}
             >
               <div className="flex items-center gap-2">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted">
-                  <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                 </span>
-                <span className="truncate">{g.title}</span>
+                <span className="truncate">{p.title}</span>
               </div>
-              {goalId === g.id && (
+              {phaseId === p.id && (
                 <Check className="h-4 w-4 shrink-0 text-foreground" />
               )}
             </CommandItem>

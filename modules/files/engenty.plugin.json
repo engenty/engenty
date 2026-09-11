@@ -18,5 +18,13 @@
     "ai": false,
     "frontendTools": false
   },
-  "requires": ["module.connections"]
+  "requires": ["module.connections"],
+  "connections": [
+    {
+      "capability": "files",
+      "required": false,
+      "bindOperation": "files_account_bind"
+    }
+  ],
+  "mountOperation": "files_space_mount"
 }

@@ -20,7 +20,6 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  ListFilterSelectTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -39,12 +38,7 @@ import {
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { BookOpen, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type {
   ArticleSortColumn,
   ArticleStatus,
@@ -59,13 +53,7 @@ import {
 import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { useKbArticlesListAgentUiSlice } from "../hooks/use-kb-agent-ui-slice.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbDisplayName } from "../kb-display-name.js";
-import {
-  KB_ARTICLES_LIST_PATH,
-  kbArticlePath,
-  kbArticlesListPath,
-  kbBrowsePath,
-} from "../kb-paths.js";
+import { kbArticlePath } from "../kb-paths.js";
 import { articleCardsGridWrapperClassName } from "../lib/article-cards-grid.js";
 import { getArticlesToolbarLabels } from "../lib/articles-toolbar-labels.js";
 import {
@@ -74,17 +62,12 @@ import {
 } from "../lib/kb-page-shell.js";
 import {
   kbSettingsQueryOptions,
-  kbsQueryOptions,
   useArticlesListQuery,
   useDeleteArticleMutation,
+  useKbsQuery,
   useUpdateArticleMutation,
 } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 const ARTICLES_DISPLAY_DEFAULTS = {
   viewMode: "table" as const,
@@ -124,7 +107,6 @@ export function ArticlesListPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
   const location = useLocation();
-  const { kbSlug: kbSlugParam } = useParams<{ kbSlug?: string }>();
   const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState("");
@@ -135,66 +117,17 @@ export function ArticlesListPage() {
     }
   }, [qFromUrl]);
 
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
-  const kbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
-
-  const kbSlug = useMemo(() => slugFromKbId(kbs, kbId), [kbs, kbId]);
-
-  useEffect(() => {
-    if (kbsLoading || !kbs.length || !kbId) {
-      return;
-    }
-    const slug = slugFromKbId(kbs, kbId);
-    if (!slug) {
-      return;
-    }
-    if (kbSlugParam) {
-      return;
-    }
-    const isLegacyArticles = location.pathname === KB_ARTICLES_LIST_PATH;
-    const isLegacyBrowse = location.pathname === "/mdl/knowledge-base/browse";
-    if (isLegacyArticles || isLegacyBrowse) {
-      const base = isLegacyBrowse
-        ? kbBrowsePath(slug)
-        : kbArticlesListPath(slug);
-      navigate(`${base}${articlesListSearchQuery(search)}`, { replace: true });
-    }
-  }, [kbsLoading, kbs, kbId, kbSlugParam, location.pathname, navigate, search]);
-
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (!nextSlug) {
-        return;
-      }
-      const isBrowse =
-        location.pathname.endsWith("/browse") ||
-        location.pathname === "/mdl/knowledge-base/browse";
-      const base = isBrowse
-        ? kbBrowsePath(nextSlug)
-        : kbArticlesListPath(nextSlug);
-      navigate(`${base}${articlesListSearchQuery(search)}`);
-    },
-    [kbs, navigate, search, location.pathname]
-  );
+  const kbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId,
-    kbSlug: kbSlug ?? "",
-    onKbChange: navigateKb,
   });
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
-    actions: kbSlug ? <KbModuleShellActions kbSlug={kbSlug} /> : null,
+    actions: kbId ? <KbModuleShellActions /> : null,
     breadcrumbs: [
       ...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : []),
       { label: t("hub.browse_all") },
@@ -380,7 +313,7 @@ export function ArticlesListPage() {
             <Skeleton className="h-9 w-64" />
             <Skeleton className="h-9 w-24" />
           </div>
-          <Skeleton className="min-h-0 flex-1 rounded-lg border bg-card" />
+          <Skeleton className="ui-card-elevated min-h-0 flex-1 overflow-hidden" />
         </div>
       </section>
     );
@@ -433,28 +366,6 @@ export function ArticlesListPage() {
 
   const toolbarHeader = (
     <>
-      <Select
-        onValueChange={(v) => {
-          setPage(1);
-          navigateKb(v);
-        }}
-        value={kbId || undefined}
-      >
-        <ListFilterSelectTrigger className="w-[220px]">
-          <SelectValue placeholder={t("list.kb_placeholder")}>
-            {kbs.find((kb) => kb.id === kbId)
-              ? kbDisplayName(kbs.find((kb) => kb.id === kbId)!, t)
-              : null}
-          </SelectValue>
-        </ListFilterSelectTrigger>
-        <SelectContent>
-          {kbs.map((kb) => (
-            <SelectItem key={kb.id} value={kb.id}>
-              {kbDisplayName(kb, t)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       <ArticlesTableToolbar
         bulkActions={bulkActions}
         clearSelectionLabel={t("list.clear_selection")}
@@ -579,9 +490,7 @@ export function ArticlesListPage() {
             columnVisibility={columnVisibility}
             onDataChange={() => refetchList()}
             onRowClick={(article: Article) =>
-              kbSlug
-                ? navigate(kbArticlePath(kbSlug, article.slug || article.id))
-                : undefined
+              navigate(kbArticlePath(article.slug || article.id))
             }
             onSelectAll={handleSelectAll}
             onSelectOne={handleSelectOne}
@@ -596,15 +505,7 @@ export function ArticlesListPage() {
 
       {!loading && articles.length > 0 && viewMode === "cards" && (
         <AdminListCardsView header={toolbarHeader}>
-          <ArticlesCards
-            articles={articles}
-            onCardClick={(article) =>
-              kbSlug
-                ? navigate(kbArticlePath(kbSlug, article.slug || article.id))
-                : undefined
-            }
-            tableSize={tableSize}
-          />
+          <ArticlesCards articles={articles} tableSize={tableSize} />
         </AdminListCardsView>
       )}
 

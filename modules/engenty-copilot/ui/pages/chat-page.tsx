@@ -2,6 +2,7 @@
 // The app-root provider owns threadId, transcript, navigation, and session
 // list state; this page registers shell chrome and renders panels.
 
+import { spaceKeyFromPathname } from "@engenty/ai-core/browser";
 import {
   ENGENTY_COPILOT_HOST_KEY,
   type ObjectDisplayIntent,
@@ -23,11 +24,16 @@ import {
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { DockChatIcon } from "@engenty/ui-icons";
-import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
+import {
+  type PageBreadcrumb,
+  usePageConfig,
+  useWorkspaceContext,
+} from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChatPanel } from "../components/chat/chat-panel.js";
 import { ChatTopbarActions } from "../components/chat/new-chat-action.js";
+import { SpaceMismatchNotice } from "../components/chat/space-mismatch-notice.js";
 import { CopilotModuleErrorBoundary } from "../components/copilot-module-error-boundary.js";
 import { ThreadList } from "../components/thread-list/thread-list.js";
 import { logCopilotChatPanel } from "../dev/chat-panel-debug.js";
@@ -54,10 +60,30 @@ export function CopilotChatPage() {
   const navigate = useNavigate();
   const moduleLabel = t("menu.label");
   const { secondaryNavOpen } = useShellSecondaryNav();
+  /**
+   * Outside a space this page owns the column: Copilot's name and its thread
+   * list. Inside a space the space layout drills in (back arrow + this same
+   * list), so the header stays the space's — only the thread list is ours, and
+   * it is already space-filtered.
+   *
+   * Read from the PATHNAME, not from `currentSpace`: that one falls back to the
+   * tenant default outside `/s/…` and so cannot answer "am I in a space at all".
+   */
+  const spaceKey = spaceKeyFromPathname(location.pathname);
+  const inSpace = spaceKey != null;
   const copilotShell = useCopilotShellOrNull();
   // `?subRun=` swaps the main panel for the monitor view; same host + thread binding.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
   const activeThreadId = binding.activeThreadId?.trim() ?? "";
+  // In a space, runs publish their artifacts SPACE-scoped (app-build-steps
+  // publishes to `als.space`), so the pane must merge that scope or an app the
+  // agent just built would not appear in the chat that built it.
+  const { currentSpace } = useWorkspaceContext();
+  const spaceArtifactScope = useMemo(
+    () =>
+      currentSpace ? { id: currentSpace.id, type: "space" as const } : null,
+    [currentSpace]
+  );
 
   // What object cards may do on this surface. Full-page chat owns a pane, so
   // records open beside the conversation rather than replacing it; and when a
@@ -134,19 +160,23 @@ export function CopilotChatPage() {
   const breadcrumbs = useMemo((): PageBreadcrumb[] => {
     // When the session list is pinned, the module label lives in the sidebar
     // header — omit the matching topbar crumb (same pattern as projects/tasks).
-    const trail: PageBreadcrumb[] = secondaryNavOpen
-      ? []
-      : [
-          {
-            compactKept: true,
-            label: (
-              <span className="truncate font-medium text-foreground">
-                {moduleLabel}
-              </span>
-            ),
-            menuLabel: moduleLabel,
-          },
-        ];
+    // Inside a space the sidebar no longer carries the module's name (the
+    // column belongs to the space), so the topbar has to — the open column is
+    // not a reason to drop the crumb there.
+    const trail: PageBreadcrumb[] =
+      secondaryNavOpen && !inSpace
+        ? []
+        : [
+            {
+              compactKept: true,
+              label: (
+                <span className="truncate font-medium text-foreground">
+                  {moduleLabel}
+                </span>
+              ),
+              menuLabel: moduleLabel,
+            },
+          ];
 
     if (activeThreadId && thread.session) {
       const title = thread.session.title || tc("copilot.newChat");
@@ -198,6 +228,7 @@ export function CopilotChatPage() {
     return trail;
   }, [
     activeThreadId,
+    inSpace,
     moduleLabel,
     secondaryNavOpen,
     subAgentDelegation,
@@ -209,14 +240,15 @@ export function CopilotChatPage() {
   const topbarActions = useMemo(() => <ChatTopbarActions />, []);
   const secondaryNavAfterItems = useMemo(() => <ThreadList />, []);
   const secondaryNavHeaderSlot = useMemo(
-    () => (
-      <ModuleSidebarHeaderLabel
-        icon={DockChatIcon}
-        label={moduleLabel}
-        to={COPILOT_CHAT_ROOT}
-      />
-    ),
-    [moduleLabel]
+    () =>
+      inSpace ? null : (
+        <ModuleSidebarHeaderLabel
+          icon={DockChatIcon}
+          label={moduleLabel}
+          to={COPILOT_CHAT_ROOT}
+        />
+      ),
+    [inSpace, moduleLabel]
   );
 
   usePageConfig({
@@ -225,7 +257,6 @@ export function CopilotChatPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   useEffect(() => {
@@ -282,6 +313,14 @@ export function CopilotChatPage() {
           hostKey={ENGENTY_COPILOT_HOST_KEY}
           key={host.threadResetKey}
         >
+          {/* Above the transcript, not inside it: the mismatch is a fact about
+              the whole conversation, and a note between messages would scroll
+              away from the exact person who needs it. */}
+          <SpaceMismatchNotice
+            onContinueHere={() => startNewChat()}
+            routeSpaceId={inSpace ? (currentSpace?.id ?? null) : null}
+            threadSpaceId={thread.session?.space_id}
+          />
           {subRunToolCallId ? (
             <SubAgentRunFullPage
               labels={subRunLabels}
@@ -293,7 +332,10 @@ export function CopilotChatPage() {
             <ChatPanel />
           )}
         </ThreadContextPane>
-        <WorkspaceArtifactPane hostKey={ENGENTY_COPILOT_HOST_KEY} />
+        <WorkspaceArtifactPane
+          extraScope={spaceArtifactScope}
+          hostKey={ENGENTY_COPILOT_HOST_KEY}
+        />
       </ObjectDisplayIntentProvider>
     </CopilotModuleErrorBoundary>
   );

@@ -1,5 +1,6 @@
 import {
   buildMastraChatThreadSearchTool,
+  forwardSpaceOnGatewayCall,
   type ToolExecutionContext,
 } from "@engenty/ai-core";
 import type {
@@ -120,16 +121,24 @@ async function searchProvider(
 }
 
 export function createChatThreadSearchTool() {
-  return buildMastraChatThreadSearchTool(createTool, {
+  const spaceId = () => {
+    const space = getEngentyToolsRunContext().space;
+    return space && "spaceId" in space ? (space.spaceId ?? null) : null;
+  };
+  const ctx: ToolExecutionContext = {
     // `action`/`moduleId` are required by ToolExecutionContext but unread on
     // this path — the tool resolves everything it needs from the ALS run
     // context below. Naming them keeps the context self-describing in logs.
     action: "chat_thread_search",
     moduleId: "ai",
+    spaceConfined: false,
+    get spaceId() {
+      return spaceId();
+    },
     callGatewayMethod: async (name, input) => {
-      const ctx = getEngentyToolsRunContext();
-      const tenantId = ctx.tenantId?.trim();
-      const userId = ctx.userId?.trim();
+      const run = getEngentyToolsRunContext();
+      const tenantId = run.tenantId?.trim();
+      const userId = run.userId?.trim();
       if (!(tenantId && userId)) {
         throw new Error(
           "Chat thread search requires tenant + user scope on this run."
@@ -160,5 +169,8 @@ export function createChatThreadSearchTool() {
     get userId() {
       return getEngentyToolsRunContext().userId ?? null;
     },
-  } satisfies ToolExecutionContext);
+  };
+  ctx.callGatewayMethod =
+    forwardSpaceOnGatewayCall(ctx) ?? ctx.callGatewayMethod;
+  return buildMastraChatThreadSearchTool(createTool, ctx);
 }

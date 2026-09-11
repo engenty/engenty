@@ -14,50 +14,36 @@
 #     PUBLIC_REMOTE     git remote for engenty/engenty (default: upstream)
 #     PUBLIC_BRANCH     branch to publish to (default: main)
 #     MESSAGE           commit message (default: "chore: sync open source")
+#     PUBLIC_TAG        also tag the published commit (e.g. v0.2.0); the mirror's
+#                       publish-images.yml builds its release images from it, and
+#                       the tag gives OSS users a release to check out
 #     DRY_RUN=1         build + safety-check, but don't push
 #
 # The CI wrapper (.github/workflows/publish-open.yml) adds a token-authed remote
 # and calls this on every v* tag.
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 SOURCE="${1:-origin/main}"
 PUBLIC_REMOTE="${PUBLIC_REMOTE:-upstream}"
 PUBLIC_BRANCH="${PUBLIC_BRANCH:-main}"
 MESSAGE="${MESSAGE:-chore: sync open source}"
+PUBLIC_TAG="${PUBLIC_TAG:-}"
 DRY_RUN="${DRY_RUN:-0}"
 
-# Paths that must NEVER land on the public repo (prefix match). Keep in sync with
-# CLOSED_PREFIXES in scripts/publish-open.sh, plus infra that is pro-only.
-# `scripts/publish-open-exclusions.test.ts` fails if the two lists drift apart —
-# they did once (packages/entitlements was closed here but not there), and a
-# one-sided list is exactly how closed code reaches the public repo.
-EXCLUDES=(
-  apps/manage
-  docs/internal
-  modules/banking
-  # engenty-apps is PRO-only for now (see publish-open.sh)
-  modules/engenty-apps
-  # engenty-remote starts pro-only (see publish-open.sh)
-  modules/engenty-remote
-  modules/team-hr
-  # Slack bridge is a pro provider inside the open team-chat module
-  modules/team-chat/providers/slack-bridge
-  # time-tracking pulled back to pro-only 2026-07-13 (see publish-open.sh)
-  modules/time-tracking
-  packages/banking
-  packages/brand-assets
-  packages/document-scanner
-  packages/engenty-cli
-  packages/entitlements
-  packages/pdf-service/assets/fonts/fontshare
-  packages/plate-editor
-  # Manage-only dev helper (starts core + apps/manage); meaningless without the
-  # closed app it launches.
-  scripts/dev-portless-minimal.sh
-  # Deploy pipeline is engenty-pro-only; on the public repo it just 403s
-  # (its token can't push to pro-owned GHCR packages).
-  .github/workflows/build-images.yml
-)
+# The open/closed boundary lives in ONE place — scripts/lib/closed-paths.mjs —
+# because this list, CLOSED_PREFIXES in publish-open.sh, and the plugin slugs
+# used to be maintained by hand and drifted. Prefix match, as before.
+EXCLUDES=()
+while IFS= read -r _prefix; do
+  [[ -n "$_prefix" ]] && EXCLUDES+=("$_prefix")
+done < <(node "$ROOT/scripts/lib/closed-paths.mjs")
+if [[ ${#EXCLUDES[@]} -eq 0 ]]; then
+  echo "Could not read scripts/lib/closed-paths.mjs — refusing to publish." >&2
+  exit 1
+fi
 
 git fetch -q "$PUBLIC_REMOTE" "$PUBLIC_BRANCH"
 
@@ -90,6 +76,31 @@ stripped_pkg="$(git show "$SOURCE:package.json" | node scripts/strip-closed-plug
 pkg_blob="$(printf '%s' "$stripped_pkg" | git hash-object -w --stdin)"
 GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "100644,$pkg_blob,package.json"
 
+# The deploy files name their images in full, because Coolify's compose parser
+# ignores a `${VAR:-default}` fallback in an `image:` field and an unset
+# variable takes the app down mid-deploy. So the pro tree says
+# `engenty-pro-<service>` and the mirror says `engenty-<service>`: same files,
+# one name dropped here, and neither side has an environment variable to
+# remember. Also rewritten in the index, for the same reason as package.json.
+for deploy_file in \
+  deploy/docker-compose.prebuilt.yaml \
+  deploy/docker-compose.edge.prebuilt.yaml \
+  deploy/docker-compose.backend.prebuilt.yaml \
+  deploy/docker-compose.migrate.prebuilt.yaml \
+  deploy/scripts/coolify-deploy.sh; do
+  if ! git cat-file -e "$SOURCE:$deploy_file" 2>/dev/null; then
+    continue
+  fi
+  original="$(git show "$SOURCE:$deploy_file")"
+  public="${original//ghcr.io\/engenty\/engenty-pro-/ghcr.io/engenty/engenty-}"
+  if [[ "$public" == "$original" ]]; then
+    continue
+  fi
+  mode="$(git ls-tree "$SOURCE" -- "$deploy_file" | awk '{print $1}')"
+  blob="$(printf '%s\n' "$public" | git hash-object -w --stdin)"
+  GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "$mode,$blob,$deploy_file"
+done
+
 tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
 
 # Safety: refuse if any excluded path survived into the tree.
@@ -107,7 +118,7 @@ plugin_leak="$(git show "$tree:package.json" | node -e "
 const chunks = [];
 process.stdin.on('data', (c) => chunks.push(c));
 process.stdin.on('end', async () => {
-  const { CLOSED_PLUGIN_SLUGS } = await import('./scripts/lib/closed-plugin-slugs.mjs');
+  const { CLOSED_PLUGIN_SLUGS } = await import('./scripts/lib/closed-paths.mjs');
   const pkg = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   const listed = Object.keys(pkg?.engenty?.plugins ?? {});
   console.log(CLOSED_PLUGIN_SLUGS.filter((s) => listed.includes(s)).join('\n'));
@@ -125,8 +136,19 @@ printf 'Publish %s -> %s/%s\n  %s\n' "$SOURCE" "$PUBLIC_REMOTE" "$PUBLIC_BRANCH"
 
 if [[ "$DRY_RUN" == "1" ]]; then
   echo "[dry-run] not pushing."
+  if [[ -n "$PUBLIC_TAG" ]]; then
+    echo "[dry-run] would tag the published commit $PUBLIC_TAG."
+  fi
   exit 0
 fi
 
 git push "$PUBLIC_REMOTE" "$commit:$PUBLIC_BRANCH"
 echo "Published: $MESSAGE"
+
+# The tag names the snapshot commit, not the pro commit it was filtered from —
+# that one does not exist on the mirror. Pushed after the branch so a tag never
+# points at a commit the branch has not reached.
+if [[ -n "$PUBLIC_TAG" ]]; then
+  git push "$PUBLIC_REMOTE" "$commit:refs/tags/$PUBLIC_TAG"
+  echo "Tagged: $PUBLIC_TAG"
+fi

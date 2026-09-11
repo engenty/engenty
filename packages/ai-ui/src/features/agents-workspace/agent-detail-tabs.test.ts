@@ -34,14 +34,6 @@ describe("getAgentDetailAffordances", () => {
     expect(copilot.showChatActiveToggle).toBe(true);
     expect(copilot.chatActiveLocked).toBe(true);
 
-    const coordinator = getAgentDetailAffordances({
-      agent_origin: "registry",
-      id: "engenty.coordinator",
-      role: "coordinator",
-    });
-    expect(coordinator.showChatActiveToggle).toBe(true);
-    expect(coordinator.chatActiveLocked).toBe(true);
-
     expect(
       getAgentDetailAffordances({
         agent_origin: "registry",

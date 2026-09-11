@@ -24,6 +24,7 @@ export {
   resolveEngentyThreadHostProfile,
 } from "./thread-host-profile.js";
 export {
+  activeThreadStorageKey,
   readActiveThreadIdForHost,
   readAllActiveThreadIds,
   writeActiveThreadIdForHost,

@@ -24,9 +24,11 @@ import {
 } from "@engenty/ui-core";
 import { AnimatedDownloadIcon } from "@engenty/ui-icons";
 import { FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import type { SourceReference } from "../../../src/schema/types.js";
 import type { useArticleEditState } from "../../hooks/use-article-edit-state.js";
+import { kbHubPath } from "../../kb-paths.js";
 import { articleDetailQueryOptions } from "../../queries.js";
 import { ArticleHeaderChrome } from "../article-header-chrome.js";
 import { ArticleHeaderTopline } from "../article-header-topline.js";
@@ -53,7 +55,6 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
     candidateParents,
     contentMarkdown,
     conversionSessionRef,
-    createDefaultKbMutation,
     defaultCategoryId,
     dialogOpenedForSessionRef,
     downloadOriginal,
@@ -74,7 +75,6 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
     kbArticlePageShellSectionClassName,
     kbCategories,
     kbIdForForm,
-    kbSlugEffective,
     kbTags,
     kbTemplates,
     noKbs,
@@ -206,18 +206,14 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
 
       <ArticleHeaderChrome
         article={article}
-        kbSlug={kbSlugEffective}
         parentChainOverride={
           parentChainForHeader.length > 0 ? parentChainForHeader : undefined
         }
         templateTopline={
           sourceProvenance || kbIdForForm ? (
             <ArticleHeaderTopline>
-              {sourceProvenance && kbSlugEffective ? (
-                <ArticleSourceTopline
-                  kbSlug={kbSlugEffective}
-                  provenance={sourceProvenance}
-                />
+              {sourceProvenance ? (
+                <ArticleSourceTopline provenance={sourceProvenance} />
               ) : null}
               {kbIdForForm ? (
                 <ArticleTemplateTopline
@@ -251,7 +247,6 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
         <ArticlePropertiesPanel
           article={draftArticle}
           collapseUnpinnedMetadata
-          kbSlug={kbSlugEffective}
           onCommitTagIds={(ids) => setSelectedTagIds(ids)}
           onPatchArticle={handlePropertyPatch}
           propertyDefinitions={propertyDefinitions}
@@ -261,30 +256,21 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
       )}
 
       {noKbs ? (
+        // The library is created when the module is mounted; missing means
+        // that setup did not finish, and the hub offers the retry.
         <div className="flex items-center gap-3 rounded-md border border-amber-300/40 bg-amber-100/10 p-3 text-sm">
           <span className="flex-1 text-amber-900 dark:text-amber-200">
-            {t(
-              "article.no_kb_warning",
-              "No knowledge base exists yet. Create one to start adding articles."
-            )}
+            {t("article.no_kb_warning")}
           </span>
-          <Button
-            disabled={createDefaultKbMutation.isPending}
-            onClick={() => createDefaultKbMutation.mutate()}
-            size="sm"
-            variant="outline"
-          >
-            {createDefaultKbMutation.isPending
-              ? "Creating…"
-              : t("article.create_default_kb", "Create default knowledge base")}
+          <Button asChild size="sm" variant="outline">
+            <Link to={kbHubPath()}>{t("article.no_kb_link")}</Link>
           </Button>
         </div>
       ) : null}
 
       <div className="space-y-6">
-        {article && kbSlugEffective && !isNew ? (
+        {article && !isNew ? (
           <ArticleSourceReferencesBlock
-            kbSlug={kbSlugEffective}
             refs={
               (article as { source_references?: SourceReference[] })
                 .source_references ?? []
@@ -332,9 +318,7 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
         </div>
       </div>
 
-      {article && kbSlugEffective && !isNew ? (
-        <ArticleSiblingNav article={article} kbSlug={kbSlugEffective} />
-      ) : null}
+      {article && !isNew ? <ArticleSiblingNav article={article} /> : null}
 
       {article &&
       !isNew &&
@@ -346,7 +330,7 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
           </h3>
           <div className="flex flex-col gap-2">
             {article.original_document_name ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm">
+              <div className="ui-card-panel flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="break-all font-medium leading-tight">
@@ -377,7 +361,7 @@ export function ArticleEditView({ state }: ArticleEditViewProps) {
             ) : null}
             {article.attachments?.map((att) => (
               <div
-                className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm"
+                className="ui-card-panel flex items-center gap-2 px-3 py-2 text-sm"
                 key={att.id}
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />

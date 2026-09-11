@@ -13,6 +13,8 @@ export interface CopilotDecisionInterruptFeedback {
 
 export interface CopilotToolCallActionsValue {
   awaitingInterrupt?: boolean;
+  /** The card's ✕ — closes the open interrupt without answering it. */
+  dismissInterrupt?: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   openInterrupt?: AgUiOpenInterruptMetadata | null;
@@ -37,6 +39,7 @@ const EMPTY_RESULTS: Record<string, string> = {};
 export function CopilotToolCallActionsProvider({
   awaitingInterrupt = false,
   children,
+  dismissInterrupt,
   onSandboxCommandApprove,
   onSandboxCommandReject,
   openInterrupt,
@@ -47,6 +50,7 @@ export function CopilotToolCallActionsProvider({
 }: {
   awaitingInterrupt?: boolean;
   children: ReactNode;
+  dismissInterrupt?: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
   openInterrupt?: AgUiOpenInterruptMetadata | null;
@@ -61,6 +65,7 @@ export function CopilotToolCallActionsProvider({
   const value = useMemo(
     () => ({
       awaitingInterrupt,
+      dismissInterrupt,
       onSandboxCommandApprove,
       onSandboxCommandReject,
       openInterrupt: openInterrupt ?? null,
@@ -71,6 +76,7 @@ export function CopilotToolCallActionsProvider({
     }),
     [
       awaitingInterrupt,
+      dismissInterrupt,
       onSandboxCommandApprove,
       onSandboxCommandReject,
       openInterrupt,

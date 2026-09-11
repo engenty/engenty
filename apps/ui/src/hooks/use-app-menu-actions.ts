@@ -7,8 +7,8 @@ import {
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
 import { useTranslation } from "@engenty/i18n/ui";
+import type { QueryClient } from "@engenty/query-client";
 import { useQueryClient } from "@engenty/query-client";
-import type { QueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";

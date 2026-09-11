@@ -62,6 +62,7 @@ services:
       ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
       ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # engenty Apps — the modules/engenty-apps plugin runs HERE, in core, not
       # only in apps/ai: it is what builds and calls deployed apps. Without
@@ -69,6 +70,9 @@ services:
       # build fails, while app-host itself sits there perfectly healthy.
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree, shared with app-host: a space's apps/ is bound into
+      # that space's computer at /sandbox/apps.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully
@@ -101,11 +105,22 @@ services:
       dockerfile: deploy/Dockerfile.ai
     container_name: engenty-ai
     restart: unless-stopped
+    # One Node process holds every tenant's runs, workspaces and sandbox
+    # providers, so this is the real ceiling long before the sandbox containers
+    # are. Raise both numbers together: a mem_limit without a matching heap
+    # bound turns a slow-GC problem into an OOM-kill, because Node grows past
+    # the cgroup ceiling rather than collecting. Heap ≈ 75% of the limit.
+    # Literal, never `${VAR:-default}`: Coolify's compose parser drops the
+    # fallback in non-env fields, and a silently-unset limit is the failure this
+    # line exists to prevent.
+    mem_limit: 4g
+    cpus: 2.0
     depends_on:
       engenty-migrate:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=${ENGENTY_AI_MAX_OLD_SPACE_MB:-3072}
       HOST: 0.0.0.0
       PORT: 8790
       ENGENTY_CORE_BASE_URL: http://engenty-edge:8787
@@ -116,6 +131,16 @@ services:
       # Docker setup is expected to error loudly rather than silently degrade.
       ENGENTY_SANDBOX_PROVIDER: docker
       ENGENTY_SANDBOX_DOCKER_IMAGE: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-engenty-sandbox:latest}
+      # Where an `egress` sandbox is allowed to go — the proxy above. Both are
+      # required together: the network alone would give the sandbox the open
+      # internet, and the proxy alone would be unreachable.
+      ENGENTY_SANDBOX_EGRESS_NETWORK: engenty-egress
+      ENGENTY_SANDBOX_EGRESS_PROXY_URL: http://engenty-egress-proxy:8888
+      # A user's browser gets its own sealed network and its own (open, logged)
+      # proxy; apps/ai drives it over CDP on the view network below.
+      ENGENTY_BROWSER_EGRESS_NETWORK: engenty-browser-egress
+      ENGENTY_BROWSER_EGRESS_PROXY_URL: http://engenty-browser-proxy:8888
+      ENGENTY_BROWSER_VIEW_NETWORK: engenty-browser-view
       # MUST equal the host bind path below: when ENGENTY_SANDBOX_PROVIDER=docker
       # the staging dir is bind-mounted into sibling containers via the host
       # Docker daemon, and `-v` sources resolve on the host — so the in-container
@@ -138,6 +163,7 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # AI service identity — the durable credential apps/ai exchanges at core
       # for 15-min tokens (scheduler, task dispatcher, remote channels).
@@ -147,6 +173,9 @@ services:
       # no port and is not a gateway target.
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree, shared with app-host: a space's apps/ is bound into
+      # that space's computer at /sandbox/apps.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     volumes:
       # Mirror the host sandbox dir 1:1 (same path inside and outside the
       # container) so sibling sandbox containers can bind-mount staging dirs.
@@ -154,17 +183,34 @@ services:
       # rejects variable substitution in volume definitions. If you change the
       # sandbox dir, edit this line AND set ENGENTY_SANDBOX_HOST_DIR to match.
       - /opt/engenty/sandboxes:/opt/engenty/sandboxes
+      # The spaces tree, same rule: literal path, mirrored 1:1.
+      - /opt/engenty/spaces:/opt/engenty/spaces
       # Required when ENGENTY_SANDBOX_PROVIDER=docker — spawns sibling containers via Docker Engine.
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - engenty
+      # CDP to user browsers (`engenty-browser-*`), nothing else lives here.
+      - engenty-browser-view
 
   # Runtime for tenant-authored engenty Apps. Serves NO public traffic: no
   # published port, no gateway target, no Traefik labels. Only engenty-ai talks
   # to it, over internal Docker DNS with a shared secret. Apps themselves are
   # rendered in opaque-origin iframes in the SPA, so they never get an origin
-  # that could read the platform session — see PLAN-engenty-apps.md §2.3.
+  # that could read the platform session.
+  # Behind the `apps` profile: engenty Apps is the pro-only modules/engenty-apps
+  # plugin, and the public build ships without it. Ungated, a public install
+  # starts a service nothing can call, which then refuses to boot because
+  # ENGENTY_APP_HOST_TOKEN is unset in production (apps/app-host/src/config.ts)
+  # and crash-loops on `restart: unless-stopped`.
+  #
+  # PRO deployments must therefore ask for it: `--profile apps`, or
+  # COMPOSE_PROFILES=apps on Coolify (which has no --profile flag). Without it
+  # the service is skipped by `up` AND by `build`, and every app build fails
+  # against a host that was never started. The blue-green production layout is
+  # unaffected — docker-compose.backend.prebuilt.yaml runs app-host always.
   engenty-app-host:
+    profiles:
+      - apps
     build:
       context: ..
       dockerfile: deploy/Dockerfile.app-host
@@ -175,6 +221,10 @@ services:
       HOST: 0.0.0.0
       ENGENTY_APP_HOST_PORT: 8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree: every App's source repository and /data directory.
+      # Same path inside and outside the container, like the sandbox dir on
+      # engenty-ai, which binds a space's apps/ into that space's computer.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     # Bounds on tenant-authored code. agentos-apps exposes replica scaling but
     # no per-app memory knob, so the container is where the ceiling lives: each
     # app VM is ~22 MB plus the two native child processes. Raise deliberately.
@@ -186,6 +236,10 @@ services:
       # image). Named volume, not a bind: nothing on the host needs to read it,
       # but losing it drops every deployed app release.
       - engenty-app-host-data:/data
+      # The spaces tree (App repositories, App data). Literal host path,
+      # mirrored 1:1 — see the sandbox note on engenty-ai. Back it up: it is
+      # the Apps' source and database. Owned by uid 1000 (DEPLOY.md).
+      - /opt/engenty/spaces:/opt/engenty/spaces
     networks:
       - engenty
 
@@ -201,6 +255,20 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.sandbox
     image: ${ENGENTY_SANDBOX_DOCKER_IMAGE:-engenty-sandbox:latest}
+    command: ["true"]
+    restart: "no"
+    networks:
+      - engenty
+
+  # Build-only, same contract as engenty-sandbox above: produces the space
+  # browser image for the HOST daemon to launch
+  # as sibling containers. Plain image name — Coolify's compose parser drops
+  # `${VAR:-default}` in image fields.
+  engenty-browser:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.browser
+    image: engenty-browser:latest
     command: ["true"]
     restart: "no"
     networks:
@@ -247,9 +315,88 @@ services:
     networks:
       - engenty
 
+  # Everything a sandbox is allowed to reach.
+  #
+  # A sandbox with `network: "egress"` joins `engenty-egress` INSTEAD of the
+  # app network and points its proxy env here, so model-generated code can
+  # install a package or call an API without also being able to reach
+  # engenty-edge, the database, or anything else on the app network — the
+  # things a sandbox has no business talking to and every reason to be kept
+  # away from. Sandboxes with `network: "none"` (the default) join nothing.
+  #
+  # The allowlist is `deploy/egress-proxy/filter` — one host regex per line,
+  # default-deny. It ships with the package registries an agent needs to install
+  # what its script imports; add the APIs your agents call.
+  engenty-egress-proxy:
+    image: monokal/tinyproxy:latest
+    container_name: engenty-egress-proxy
+    restart: unless-stopped
+    # Run tinyproxy against OUR config rather than the image's generated one:
+    # the image's arguments configure which CLIENTS may connect, and what this
+    # proxy exists to control is which UPSTREAMS they may reach.
+    entrypoint: ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]
+    # Small by construction: it forwards bytes and holds no state.
+    mem_limit: 256m
+    cpus: 0.5
+    volumes:
+      # Literal paths, no `${VAR}` — Coolify's compose parser drops the
+      # fallback in volume definitions.
+      - ./egress-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./egress-proxy/filter:/etc/tinyproxy/filter:ro
+    # No published port: only containers on the egress network reach it. It
+    # ALSO sits on `engenty` because `engenty-egress` is `internal` (no
+    # gateway): the proxy needs a route upstream that its clients do not have.
+    networks:
+      - engenty-egress
+      - engenty
+
+  # Everything a USER BROWSER is allowed to reach — which is the internet.
+  #
+  # An `engenty-browser-<tenant>-<space>-<user>` container is a headless
+  # Chromium acting in one user's name; Chromium is started with
+  # `--proxy-server` pointing here and bypasses nothing, so this proxy's log
+  # is the record of every host that browser reached. `deploy/browser-proxy/
+  # filter` is a BLOCKLIST (our own containers, private ranges, metadata),
+  # not an allowlist — the user, not the operator, decides where a browser goes.
+  engenty-browser-proxy:
+    image: monokal/tinyproxy:latest
+    container_name: engenty-browser-proxy
+    restart: unless-stopped
+    entrypoint: ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]
+    mem_limit: 256m
+    cpus: 0.5
+    volumes:
+      - ./browser-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./browser-proxy/filter:/etc/tinyproxy/filter:ro
+    networks:
+      - engenty-browser-egress
+      - engenty
+
 networks:
   engenty:
     driver: bridge
+  # Sandboxes only. Deliberately separate from `engenty`: a container on this
+  # network can reach the egress proxy and nothing else of ours. `internal`
+  # is what makes the allowlist an allowlist: without it the network has a
+  # NAT gateway and a sandbox that ignores `HTTPS_PROXY` reaches the internet
+  # directly.
+  engenty-egress:
+    driver: bridge
+    internal: true
+    # Named explicitly: apps/ai hands this string to the Docker daemon as the
+    # network a sandbox joins, and a compose-prefixed name would not resolve.
+    name: engenty-egress
+  # User browsers only: browser containers and their proxy.
+  engenty-browser-egress:
+    driver: bridge
+    internal: true
+    name: engenty-browser-egress
+  # Browsers ⇄ engenty-ai, CDP on :9222. A browser is attached here AFTER
+  # start (`docker network connect`); machines never join it.
+  engenty-browser-view:
+    driver: bridge
+    internal: true
+    name: engenty-browser-view
 
 volumes:
   # Durable RivetKit engine store for apps/app-host (deployed app releases).

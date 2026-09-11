@@ -4,6 +4,7 @@ export type ConnectionsActionErrorCode =
   | "connection_approval_pending"
   | "connection_denied"
   | "connection_not_connected"
+  | "connection_not_in_space"
   | "connection_stream_unsupported";
 
 /**

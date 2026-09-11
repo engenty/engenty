@@ -9,13 +9,7 @@ import {
 } from "@engenty/ui-core";
 import { Keyboard, MessageSquarePlus, Radio } from "lucide-react";
 import type { CSSProperties, PointerEvent } from "react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clampFloatingPositionToViewport } from "../session/copilot-floating-bounds";
 import {
@@ -131,6 +125,40 @@ export interface CopilotFabTriggerProps {
   suppressDuringMorph?: boolean;
 }
 
+function committedFabAnchorStyle(
+  fabPosition: { x: number; y: number } | null | undefined
+): CSSProperties {
+  if (fabPosition && typeof window !== "undefined") {
+    const clamped = clampFloatingPositionToViewport({
+      x: fabPosition.x,
+      y: fabPosition.y,
+      margin: BUTTON_SNAP_FAB_INSET,
+      surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
+      surfaceHeight: BUTTON_SNAP_FAB_SIZE,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    return {
+      position: "fixed",
+      left: clamped.x,
+      top: clamped.y,
+      width: BUTTON_SNAP_FAB_WIDTH,
+      height: BUTTON_SNAP_FAB_SIZE,
+      zIndex: COPILOT_Z_SNAP_HINT + 5,
+    };
+  }
+  return (
+    resolveFabTriggerAnchorStyle() ?? {
+      position: "fixed",
+      right: BUTTON_SNAP_FAB_INSET,
+      bottom: BUTTON_SNAP_FAB_INSET,
+      width: BUTTON_SNAP_FAB_WIDTH,
+      height: BUTTON_SNAP_FAB_SIZE,
+      zIndex: COPILOT_Z_SNAP_HINT + 5,
+    }
+  );
+}
+
 export function CopilotFabTrigger({
   ariaLabel,
   bottomDockIndicatorStyle,
@@ -151,45 +179,9 @@ export function CopilotFabTrigger({
   snapTarget,
   suppressDuringMorph = false,
 }: CopilotFabTriggerProps) {
-  const [anchorStyle, setAnchorStyle] = useState<CSSProperties | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const character = useBlobCharacterCycle();
-
-  useLayoutEffect(() => {
-    const sync = () => {
-      if (fabPosition) {
-        // Clamp the persisted position to the current viewport. A position
-        // saved on a larger/other-sized window can otherwise render the FAB
-        // off-screen (and thus invisible) on a smaller viewport.
-        const clamped = clampFloatingPositionToViewport({
-          x: fabPosition.x,
-          y: fabPosition.y,
-          margin: BUTTON_SNAP_FAB_INSET,
-          surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
-          surfaceHeight: BUTTON_SNAP_FAB_SIZE,
-          viewportWidth: window.innerWidth,
-          viewportHeight: window.innerHeight,
-        });
-        setAnchorStyle({
-          position: "fixed",
-          left: clamped.x,
-          top: clamped.y,
-          width: BUTTON_SNAP_FAB_WIDTH,
-          height: BUTTON_SNAP_FAB_SIZE,
-          zIndex: COPILOT_Z_SNAP_HINT + 5,
-        });
-      } else {
-        setAnchorStyle(resolveFabTriggerAnchorStyle());
-      }
-    };
-    sync();
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.addEventListener("resize", sync);
-    return () => window.removeEventListener("resize", sync);
-  }, [fabPosition]);
 
   // Cleanup leave timer
   useEffect(
@@ -239,7 +231,7 @@ export function CopilotFabTrigger({
   }, [onOpenPrompt]);
 
   const useDragPosition = isDragging && dragPosition != null;
-  const style: CSSProperties | undefined = useDragPosition
+  const style: CSSProperties = useDragPosition
     ? {
         position: "fixed",
         left: dragPosition.x,
@@ -248,7 +240,7 @@ export function CopilotFabTrigger({
         width: BUTTON_SNAP_FAB_WIDTH,
         height: BUTTON_SNAP_FAB_SIZE,
       }
-    : (anchorStyle ?? undefined);
+    : committedFabAnchorStyle(fabPosition);
 
   const dialHandlers: Record<string, () => void> = {
     chat: handleNewChat,
@@ -397,7 +389,9 @@ export function CopilotFabTrigger({
       <style>{fabMenuStyles}</style>
       {overlays}
       {flyoutMenu}
-      {triggerWithHover}
+      {typeof document === "undefined"
+        ? triggerWithHover
+        : createPortal(triggerWithHover, document.body, "copilot-fab-trigger")}
     </>
   );
 }

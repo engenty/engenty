@@ -2,6 +2,7 @@
  * Tasks-style module nav + entity tabs for the KB secondary column.
  */
 
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -60,21 +61,21 @@ function KbSidebarNavRow({
 }
 
 export function KbSidebarChrome({
-  kbSlug,
   onTabChange,
   tab,
 }: {
-  kbSlug: string;
   onTabChange: (tab: KbSidebarTab) => void;
   tab: KbSidebarTab;
 }) {
   const { t } = useTranslation("kb");
-  const { pathname } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/kb/…`, and
+  // every matcher below is written against `/mdl/knowledge-base/…`.
+  const pathname = canonicalModulePathname(useLocation().pathname);
 
   const navActive = {
-    start: isKbHubStartPath(pathname, kbSlug),
-    articles: isKbArticlesListNavPath(pathname, kbSlug),
-    faqs: isKbFaqsListNavPath(pathname, kbSlug),
+    start: isKbHubStartPath(pathname),
+    articles: isKbArticlesListNavPath(pathname),
+    faqs: isKbFaqsListNavPath(pathname),
     chat: isKbHubChatRoute(pathname),
   };
 
@@ -93,25 +94,25 @@ export function KbSidebarChrome({
             active={navActive.start}
             icon={LayoutDashboard}
             label={t("sidebar.nav_start")}
-            to={kbHubPath(kbSlug)}
+            to={kbHubPath()}
           />
           <KbSidebarNavRow
             active={navActive.articles}
             icon={FileText}
             label={t("inbox.nav_articles")}
-            to={kbArticlesListPath(kbSlug)}
+            to={kbArticlesListPath()}
           />
           <KbSidebarNavRow
             active={navActive.faqs}
             icon={HelpCircle}
             label={t("inbox.nav_faqs")}
-            to={kbFaqsListPath(kbSlug)}
+            to={kbFaqsListPath()}
           />
           <KbSidebarNavRow
             active={navActive.chat}
             icon={MessageSquare}
             label={t("sidebar.nav_chat")}
-            to={kbHubChatPath(kbSlug)}
+            to={kbHubChatPath()}
           />
         </SidebarNavList>
       </nav>
@@ -122,7 +123,9 @@ export function KbSidebarChrome({
       >
         <SidebarTab value="articles">{t("sidebar.tabs.articles")}</SidebarTab>
         <SidebarTab value="faqs">{t("sidebar.tabs.faqs")}</SidebarTab>
-        <SidebarTab value="chat">{t("sidebar.tabs.chat", "Chat")}</SidebarTab>
+        <SidebarTab value="sources">
+          {t("sidebar.tabs.sources", "Sources")}
+        </SidebarTab>
         <SidebarTab
           aria-label={t("sidebar.tabs.favorites")}
           icon

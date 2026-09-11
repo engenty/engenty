@@ -90,4 +90,52 @@ describe("engenty open interrupt metadata", () => {
     const expiresAt = buildAgUiOpenInterruptExpiresAt(0, 60_000);
     expect(expiresAt).toBe("1970-01-01T00:01:00.000Z");
   });
+
+  // The resume resolves its own model. Losing the tier here sends the second
+  // half of a turn to the `chat` purpose (`model.medium`), so the question and
+  // the answer come from two different models.
+  it("round-trips the effort tier the suspending run resolved to", () => {
+    const open = readAgUiOpenInterrupt({
+      ag_ui_open_interrupt: {
+        artifact_id: "a",
+        effort: "low",
+        interrupt_id: "i",
+        run_id: "r1",
+        title: "t",
+        tool_call_id: "tc",
+      },
+    });
+    expect(open?.effort).toBe("low");
+  });
+
+  it("drops an effort value that is not a tier", () => {
+    for (const effort of ["auto", "LOW", "", 3, null]) {
+      const open = readAgUiOpenInterrupt({
+        ag_ui_open_interrupt: {
+          artifact_id: "a",
+          effort,
+          interrupt_id: "i",
+          title: "t",
+          tool_call_id: "tc",
+        },
+      });
+      expect(open).not.toBeNull();
+      expect(open?.effort).toBeUndefined();
+    }
+  });
+
+  // An interrupt written before this field existed must still resume — it just
+  // resolves the way it always did.
+  it("reads an interrupt that carries no effort", () => {
+    const open = readAgUiOpenInterrupt({
+      ag_ui_open_interrupt: {
+        artifact_id: "a",
+        interrupt_id: "i",
+        title: "t",
+        tool_call_id: "tc",
+      },
+    });
+    expect(open).not.toBeNull();
+    expect(open?.effort).toBeUndefined();
+  });
 });

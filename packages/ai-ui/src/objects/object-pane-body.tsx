@@ -39,7 +39,7 @@ export function ObjectPaneBody({ objectRef }: { objectRef: ObjectRef }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
       {href ? (
-        <div className="border-border/50 border-t px-3 py-2">
+        <div className="border-border-soft border-t px-3 py-2">
           <Link
             className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
             to={href}

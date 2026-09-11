@@ -81,6 +81,40 @@ export async function cancelTaskAgentRun(
   return result.run;
 }
 
+/**
+ * Hand a just-saved comment to the run executing this task right now.
+ *
+ * `false` for every "it did not land" reason — no live run, another replica,
+ * the service unreachable — so the caller falls back to parking it for the next
+ * dispatch. Never throws: the comment is already on the task, and failing this
+ * must not look like failing to comment.
+ */
+export async function deliverCommentToLiveRun(
+  taskId: string,
+  content: string,
+  signal?: AbortSignal
+): Promise<boolean> {
+  const baseUrl = resolveAiServiceBaseUrl();
+  if (!baseUrl) {
+    return false;
+  }
+  try {
+    const result = await requestApiJson<{ delivered?: boolean }>(
+      `/ai/v1/tasks/${encodeURIComponent(taskId)}/deliver`,
+      {
+        authToken: (await getCurrentAccessToken()) ?? undefined,
+        baseUrl,
+        body: JSON.stringify({ content }),
+        method: "POST",
+        signal,
+      }
+    );
+    return result.delivered === true;
+  } catch {
+    return false;
+  }
+}
+
 export function readRunInitialPrompt(
   contextSnapshot: Record<string, unknown> | null | undefined
 ): string | null {

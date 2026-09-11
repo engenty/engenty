@@ -17,6 +17,18 @@
     "./ui/extensions": {
       "types": "./ui/extensions.ts",
       "default": "./dist/ui/extensions.js"
+    },
+    "./ui/api": {
+      "types": "./ui/api.ts",
+      "default": "./ui/api.ts"
+    },
+    "./ui/queries": {
+      "types": "./ui/queries.ts",
+      "default": "./ui/queries.ts"
+    },
+    "./ui/lib/policy": {
+      "types": "./ui/lib/policy.ts",
+      "default": "./ui/lib/policy.ts"
     }
   },
   "engenty": {

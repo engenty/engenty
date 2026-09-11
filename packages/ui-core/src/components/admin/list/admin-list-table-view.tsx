@@ -43,7 +43,7 @@ export function AdminListTableView({
       className={cn(
         transparent
           ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-          : "ui-canvas-elevated flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border-0 bg-card"
+          : "ui-card-elevated flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       )}
     >
       <div className="relative min-h-0 flex-1">

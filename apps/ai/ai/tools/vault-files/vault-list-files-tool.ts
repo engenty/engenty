@@ -8,7 +8,7 @@ export const VAULT_LIST_FILES_TOOL_ID = "vault_list_files";
 export const vaultListFilesTool = createTool({
   id: VAULT_LIST_FILES_TOOL_ID,
   description:
-    "List tenant vault files under a prefix. Use for cross-module storage discovery outside agent workspace mounts.",
+    "List durable tenant Files under a prefix. This deliverable store is separate from run workspace mounts and from /data module records.",
   inputSchema: z.object({
     prefix: z
       .string()

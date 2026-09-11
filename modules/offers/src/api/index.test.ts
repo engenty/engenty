@@ -142,6 +142,7 @@ describe("registerOffersApi", () => {
       requiredCapabilities: ["module.offers.read"],
       riskLevel: "low",
       idempotent: true,
+      spacePolicy: { kind: "tenant_shared" },
     });
     const del = serverOperations.find(
       (operation) => operation.operationId === "offers_delete"

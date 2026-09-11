@@ -59,7 +59,16 @@ export function presetToCron(preset: PresetSchedule): string {
   return "* * * * *";
 }
 
-export function cronToPreset(cron: string): PresetSchedule {
+/**
+ * `convertUtcToLocal` (default true) matches `presetToCron`, which writes the
+ * cron in UTC. A trigger that carries an explicit IANA `timezone` has its cron
+ * written in THAT zone's local time instead — pass `false` so the hours read
+ * back verbatim rather than being shifted as if they were UTC.
+ */
+export function cronToPreset(
+  cron: string,
+  convertUtcToLocal = true
+): PresetSchedule {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) {
     return { type: "custom", hour: 0, minute: 0, cron };
@@ -87,8 +96,8 @@ export function cronToPreset(cron: string): PresetSchedule {
   date.setFullYear(2026, 5, 1); // June 1, 2026 is a Monday
   date.setUTCHours(hour, min, 0, 0);
 
-  const localHour = date.getHours();
-  const localMinute = date.getMinutes();
+  const localHour = convertUtcToLocal ? date.getHours() : hour;
+  const localMinute = convertUtcToLocal ? date.getMinutes() : min;
 
   if (domStr === "*" && monthStr === "*") {
     if (dowStr === "*") {
@@ -99,6 +108,14 @@ export function cronToPreset(cron: string): PresetSchedule {
     }
     const dow = Number.parseInt(dowStr || "0", 10);
     if (!Number.isNaN(dow) && dow >= 0 && dow <= 6) {
+      if (!convertUtcToLocal) {
+        return {
+          type: "weekly",
+          hour: localHour,
+          minute: localMinute,
+          dayOfWeek: dow,
+        };
+      }
       const utcDay = date.getUTCDay();
       const diff = dow - utcDay;
       date.setUTCDate(date.getUTCDate() + diff);
@@ -115,8 +132,18 @@ export function cronToPreset(cron: string): PresetSchedule {
   return { type: "custom", hour: 0, minute: 0, cron };
 }
 
-export function cronToHumanLabel(cron: string, locale = "en"): string {
-  const preset = cronToPreset(cron);
+/**
+ * `timezone` set means the cron's hours are already local to that zone (the
+ * agent-created path): render them verbatim, suffixed with the zone. Without
+ * it the cron is UTC (the form's preset path) and converts to viewer-local.
+ */
+export function cronToHumanLabel(
+  cron: string,
+  locale = "en",
+  timezone?: string | null
+): string {
+  const preset = cronToPreset(cron, !timezone);
+  const tzSuffix = timezone ? ` (${timezone})` : "";
   const formatTime = (h: number, m: number) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${pad(h)}:${pad(m)}`;
@@ -129,21 +156,21 @@ export function cronToHumanLabel(cron: string, locale = "en"): string {
       return isDe ? "Stündlich" : "Hourly";
     case "daily":
       return isDe
-        ? `Täglich um ${formatTime(preset.hour, preset.minute)}`
-        : `Daily at ${formatTime(preset.hour, preset.minute)}`;
+        ? `Täglich um ${formatTime(preset.hour, preset.minute)}${tzSuffix}`
+        : `Daily at ${formatTime(preset.hour, preset.minute)}${tzSuffix}`;
     case "weekdays":
       return isDe
-        ? `Werktags um ${formatTime(preset.hour, preset.minute)}`
-        : `Weekdays at ${formatTime(preset.hour, preset.minute)}`;
+        ? `Werktags um ${formatTime(preset.hour, preset.minute)}${tzSuffix}`
+        : `Weekdays at ${formatTime(preset.hour, preset.minute)}${tzSuffix}`;
     case "weekly": {
       const dayName = isDe
         ? DAYS_DE[preset.dayOfWeek ?? 1]
         : DAYS_EN[preset.dayOfWeek ?? 1];
       return isDe
-        ? `Wöchentlich am ${dayName} um ${formatTime(preset.hour, preset.minute)}`
-        : `Weekly on ${dayName} at ${formatTime(preset.hour, preset.minute)}`;
+        ? `Wöchentlich am ${dayName} um ${formatTime(preset.hour, preset.minute)}${tzSuffix}`
+        : `Weekly on ${dayName} at ${formatTime(preset.hour, preset.minute)}${tzSuffix}`;
     }
     default:
-      return cron;
+      return timezone ? `${cron}${tzSuffix}` : cron;
   }
 }

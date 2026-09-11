@@ -47,6 +47,36 @@ describe("task checkout", () => {
     expect(second.status).toBe("in_progress");
   });
 
+  // A run that stops for a person parks the task (released to `in_review`) and
+  // resumes under the SAME run id once the answer lands. That second checkout
+  // used to insert a second run row, so run history showed one run twice —
+  // split at the point where it stopped to ask.
+  it("records one run row when a parked run resumes under the same id", async () => {
+    const repo = makeMockTasksRepo();
+    const task = await repo.createTask({ title: "Asks a question" });
+    await repo.checkoutTask(task.id, {
+      agent_session_run_id: runA,
+      agent_type_key: "dynamic_supervisor",
+    });
+    // Parking is two writes: release clears the checkout, then the run's
+    // finalize parks the task at `in_review` so the briefing surfaces the ask.
+    await repo.releaseTask(task.id, { outcome: "needs_input" });
+    await repo.updateTask(task.id, { status: "in_review" });
+    // Answering re-opens it: the comment path flips it back to `todo` and
+    // re-dispatches, which is how checkout is reachable a second time.
+    await repo.updateTask(task.id, { status: "todo" });
+    await repo.checkoutTask(task.id, {
+      agent_session_run_id: runA,
+      agent_type_key: "dynamic_supervisor",
+    });
+
+    const rows = await repo.listTaskRuns(task.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.agent_session_run_id).toBe(runA);
+    // Re-opened: the run is running again, so its prior ending is not final.
+    expect(rows[0]?.finished_at).toBeFalsy();
+  });
+
   it("releases checkout and returns task to todo", async () => {
     const repo = makeMockTasksRepo();
     const task = await repo.createTask({ title: "Release me" });

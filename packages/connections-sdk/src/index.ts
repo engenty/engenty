@@ -60,10 +60,19 @@ export {
   type PendingOAuthFlow,
 } from "./repo.js";
 export {
+  CONNECTOR_ACTION_SPACE_POLICY,
   defineConnector,
   registerConnectorModule,
   withAccountParam,
 } from "./runtime.js";
+export {
+  listMountedConnectionAccess,
+  listMountedConnectionIds,
+  mountConnectionInSpace,
+  resolveSpaceRecordAccounts,
+  resolveVerifiedSpaceOwnerForRun,
+  type SpaceConnectionAccess,
+} from "./space-mounts.js";
 export { storageCapabilityActions } from "./storage-capability.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
 export {

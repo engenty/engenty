@@ -71,7 +71,7 @@ export function BriefingHero({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card/50 px-3 py-2">
+    <div className="rounded-lg border border-border-soft bg-card/50 px-3 py-2">
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="font-semibold text-xl tabular-nums">{value}</div>
     </div>

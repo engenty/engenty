@@ -1,7 +1,7 @@
 # Phase 4 — checkout and live runs
 
 **Status:** done (2026-05) — checklist below retained for audit  
-**Depends on:** [phase-03-goals-and-lifecycle.md](./phase-03-goals-and-lifecycle.md)  
+**Depends on:** phase-03 (Goals — removed 2026-09)  
 **Blocks:** [phase-05-ui-hub.md](./phase-05-ui-hub.md)
 
 ## Intent

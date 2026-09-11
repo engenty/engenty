@@ -5,7 +5,7 @@ import { TabsList, TabsTrigger } from "@engenty/ui-core";
 export type EngentyListTab =
   | "agents"
   | "skills"
-  | "actions"
+  | "flows"
   | "tools"
   | "artifacts";
 
@@ -19,7 +19,9 @@ export function EngentyListSubNav() {
     >
       <TabsTrigger value="agents">{t("workspace.sidebarAgents")}</TabsTrigger>
       <TabsTrigger value="skills">{t("workspace.sidebarSkills")}</TabsTrigger>
-      <TabsTrigger value="actions">{t("workspace.sidebarActions")}</TabsTrigger>
+      {/* One entry for everything runnable: a module workflow compiles to a flow,
+          so they are one catalog with a source filter. */}
+      <TabsTrigger value="flows">{t("workspace.sidebarFlows")}</TabsTrigger>
       <TabsTrigger value="tools">{t("workspace.sidebarTools")}</TabsTrigger>
       <TabsTrigger value="artifacts">
         {t("workspace.sidebarArtifacts")}

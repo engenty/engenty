@@ -157,7 +157,6 @@ export function CgSourcesPage() {
       { label: "Context Graph", to: "/admin/context-graph" },
       { label: "Sources" },
     ],
-    topbarChrome: "contentBlend",
   });
 
   const sourcesQuery = useQuery({

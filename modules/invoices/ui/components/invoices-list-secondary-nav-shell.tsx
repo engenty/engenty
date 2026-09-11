@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -62,7 +63,9 @@ function InvoiceNavRow({
  */
 export function InvoicesSidebarPanel() {
   const { t, i18n } = useTranslation("invoices");
-  const { pathname } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
+  // matcher below is written against `/mdl/<module>/…`.
+  const pathname = canonicalModulePathname(useLocation().pathname);
 
   useEffect(() => {
     void i18n.loadNamespaces(["invoices"]);
@@ -234,7 +237,7 @@ export function InvoicesSidebarPanel() {
               </nav>
             </SidebarGroup>
 
-            <div className="shrink-0 border-border/50 border-t" />
+            <div className="shrink-0 border-border-soft border-t" />
 
             <SidebarGroup className="min-h-0 flex-1 p-0 pt-3">
               <SidebarNavSectionLabel>

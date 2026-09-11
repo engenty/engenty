@@ -57,7 +57,6 @@ export function TeamGlobalSettingsLayout({
     useSettingsSecondaryShellNav(t("globalSettings.breadcrumb_settings"));
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
     breadcrumbs: [

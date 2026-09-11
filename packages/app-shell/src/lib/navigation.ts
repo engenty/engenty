@@ -6,8 +6,12 @@ import type {
 } from "@engenty/ui-plugin-sdk";
 import { PLUGIN_CATEGORIES, pluginCategoryRank } from "@engenty/ui-plugin-sdk";
 import {
+  Bell,
   Box,
+  Boxes,
+  Building2,
   Cable,
+  Clapperboard,
   Code2,
   Flag,
   KeyRound,
@@ -109,9 +113,15 @@ function buildCopilotNavItems(
   copilotApps: UiContributions["copilotApps"],
   t: TranslateFn
 ): NavigationItem[] {
-  return [...copilotApps]
-    .sort((left, right) => (left.order ?? 10_000) - (right.order ?? 10_000))
-    .map((app) => mapCopilotAppToNavItem(app, t));
+  return (
+    [...copilotApps]
+      // Copilot is space-placed for mounts, but `/mdl/engenty-copilot` is the
+      // personal desk: it still gets a rail tile pointing at that canonical
+      // path. Settings-placed chat surfaces stay off the rail.
+      .filter((app) => app.placement !== "settings")
+      .sort((left, right) => (left.order ?? 10_000) - (right.order ?? 10_000))
+      .map((app) => mapCopilotAppToNavItem(app, t))
+  );
 }
 
 function adminMenuContributionSortKey(entry: AdminMenuEntry): number {
@@ -156,6 +166,7 @@ function buildAdminNavItems(
 export function buildNavigationSections(
   contributions: UiContributions,
   options: {
+    canSwitchTenant?: boolean;
     developerModeEnabled?: boolean;
     isSuperAdmin?: boolean;
     isTenantAdmin?: boolean;
@@ -166,19 +177,20 @@ export function buildNavigationSections(
   const isTenantAdmin = options.isTenantAdmin === true;
   const isAdmin = isSuperAdmin || isTenantAdmin;
   const developerModeEnabled = options.developerModeEnabled === true;
-  const tasksMenuItem = contributions.adminMenuItems.find(
-    (entry) => entry.id === "tasks_module_menu"
-  );
-  const projectsMenuItem = contributions.adminMenuItems.find(
-    (entry) => entry.id === "projects_module_menu"
-  );
-  // Modules rail mirrors Settings: PLUGIN_CATEGORIES, then `order` within
-  // category. Children keep parent linkage via the full filtered entry list.
+  const canSwitchTenant = isSuperAdmin && options.canSwitchTenant === true;
+  // Zone ③ is GLOBAL APPS only (PLAN-spaces.md Phase 5a): tools you carry
+  // across every space. Space-placed modules (tasks, projects, offers, the kb,
+  // …) are reached inside a space, so they leave the rail entirely rather than
+  // being special-cased out of it one id at a time, which is what the old
+  // `tasks_module_menu`/`projects_module_menu` exclusions were.
+  //
+  // The section id stays `"modules"` on purpose — `applyDockModuleOrder`
+  // filters on it, so renaming it would silently break tenant-curated rail
+  // order and the persisted `shell.dock_module_order`, for a cosmetic gain.
+  // Empty on a default install (no in-repo module declares "global") and KEPT
+  // DELIBERATELY — see the matching note on the copilot-apps filter above.
   const moduleMenuEntries = contributions.adminMenuItems.filter(
-    (entry) =>
-      entry.section === "modules" &&
-      entry.id !== "tasks_module_menu" &&
-      entry.id !== "projects_module_menu"
+    (entry) => entry.section === "modules" && entry.placement === "global"
   );
   const moduleTopLevel = moduleMenuEntries
     .filter((entry) => !entry.parentId)
@@ -203,12 +215,11 @@ export function buildNavigationSections(
   const adminMenuEntries = isAdmin
     ? contributions.adminMenuItems.filter((entry) => entry.section === "admin")
     : [];
-  // Connections is a personal surface (`requiresAdmin: false`) but lives in the
-  // core settings block (after AI usage, before developer-mode / module rows),
-  // not among module settings below the separator.
-  const CONNECTIONS_SETTINGS_TO = "/settings/connections";
+  // Connections is a personal surface (`requiresAdmin: false`). Admins see it
+  // in Setup; members keep it in Settings (they have no Setup rail).
+  const CONNECTIONS_PATH = "/setup/connections";
   const connectionsSettingsItem = contributions.settingsItems.find(
-    (item) => item.to === CONNECTIONS_SETTINGS_TO
+    (item) => item.to === CONNECTIONS_PATH
   );
   const mapSettingsContribution = (item: SettingsMenuEntry) => ({
     to: item.to,
@@ -220,14 +231,12 @@ export function buildNavigationSections(
     (isAdmin || connectionsSettingsItem.requiresAdmin === false)
       ? mapSettingsContribution(connectionsSettingsItem)
       : null;
-  // Module settings below the separator — Connections is promoted above.
+  // Module settings below the separator — Connections is promoted into Setup
+  // (admins) or the core Settings block (members).
   // Groups follow PLUGIN_CATEGORIES; item `order` sorts within a category only.
   const moduleSettingsItems = contributions.settingsItems
     .filter(
-      (item) =>
-        item.to !== "/settings/profile" &&
-        item.to !== "/settings/ai" &&
-        item.to !== CONNECTIONS_SETTINGS_TO
+      (item) => item.to !== "/settings/profile" && item.to !== CONNECTIONS_PATH
     )
     // Module settings are tenant configuration — hidden from members, who see
     // only genuinely personal surfaces (declared via `requiresAdmin: false`).
@@ -254,49 +263,38 @@ export function buildNavigationSections(
     // editor; personal theme/language live in the user menu).
     ...(isAdmin
       ? [
+          ...(canSwitchTenant
+            ? [
+                {
+                  to: "/settings/tenant",
+                  label: t("settings.tenant.title"),
+                  icon: Building2,
+                },
+              ]
+            : []),
+          {
+            // Spaces (PLAN-spaces.md Phase 3b). A temporary home: Phase 5 gives
+            // the rail a spaces zone and "New space" moves there, leaving this
+            // as the admin list. Admin-gated because mounting issues grants.
+            to: "/settings/spaces",
+            label: t("spaces.title"),
+            icon: Boxes,
+          },
           {
             to: "/settings/appearance",
             label: t("settings.appearanceTitle"),
             icon: Palette,
           },
           {
-            // AI models + usage limits edit TENANT config (overrides of the
-            // platform defaults), so this is a Settings surface, not a Setup one.
-            to: "/settings/ai",
-            label: t("settings.aiModels.menuLabel"),
-            icon: Sparkles,
-          },
-          {
-            to: "/settings/integration-keys",
-            label: t("settings.integrationKeys.menuLabel"),
-            icon: KeyRound,
+            // Streams + routes post into messengers — a governance surface.
+            to: "/settings/notifications",
+            label: t("settings.notificationStreamsTitle"),
+            icon: Bell,
           },
         ]
       : []),
-    ...(connectionsNavItem ? [connectionsNavItem] : []),
-    ...(developerModeEnabled
-      ? [
-          {
-            to: "/settings/development",
-            label: t("settings.development.title"),
-            icon: Code2,
-          },
-          ...(isSuperAdmin
-            ? [
-                {
-                  to: "/settings/features",
-                  label: t("featureFlags.title"),
-                  icon: Flag,
-                },
-                {
-                  to: "/settings/search-index",
-                  label: t("settings.searchIndex.title"),
-                  icon: Search,
-                },
-              ]
-            : []),
-        ]
-      : []),
+    // Members have no Setup rail — Connections stays findable in Settings.
+    ...(!isAdmin && connectionsNavItem ? [connectionsNavItem] : []),
   ];
   const settingsChildren = [
     ...coreSettingsChildren,
@@ -306,35 +304,19 @@ export function buildNavigationSections(
     ...moduleSettingsChildren,
   ];
 
-  return [
-    {
-      id: "primary",
-      items: [
-        ...copilotNavItems,
-        ...(tasksMenuItem
-          ? [
-              mapTopLevelEntryToNavItem(
-                tasksMenuItem,
-                contributions.adminMenuItems,
-                t
-              ),
-            ]
-          : []),
-        ...(projectsMenuItem
-          ? [
-              mapTopLevelEntryToNavItem(
-                projectsMenuItem,
-                contributions.adminMenuItems,
-                t
-              ),
-            ]
-          : []),
-      ],
-    },
+  // An empty section is dropped, not rendered empty. The renderer gives every
+  // section a label and a trailing separator, so a section with no items shows
+  // an "Apps" heading over nothing and a rule floating between its neighbours —
+  // the same stray separator that got the `primary` section deleted below.
+  return sectionsWithItems([
+    // The `primary` section is GONE (Phase 5a ③): Tasks/Projects moved into
+    // the space and left it empty. Zone ③ is spaces → tools you carry
+    // BETWEEN spaces, plus Copilot, which keeps a rail home even though
+    // its chats are per-space. Records modules stay off the rail.
     {
       id: "modules",
-      label: t("navigation.modules"),
-      items: moduleItems,
+      label: t("navigation.apps"),
+      items: [...copilotNavItems, ...moduleItems],
     },
     {
       id: "admin",
@@ -350,13 +332,9 @@ export function buildNavigationSections(
           icon: DockSettingsIcon,
           children: settingsChildren.length > 0 ? settingsChildren : undefined,
         };
-        const setupItem = isSuperAdmin
-          ? {
-              id: "shell_setup",
-              to: "/setup",
-              label: t("navigation.setup"),
-              icon: DockSetupIcon,
-              children: [
+        const setupChildren = [
+          ...(isSuperAdmin
+            ? [
                 {
                   to: "/setup/platform",
                   label: t("navigation.setupPlatform"),
@@ -377,13 +355,71 @@ export function buildNavigationSections(
                   label: t("navigation.setupConnectors"),
                   icon: Cable,
                 },
-              ],
-            }
-          : null;
+              ]
+            : []),
+          ...(isAdmin
+            ? [
+                {
+                  to: "/setup/ai",
+                  label: t("settings.aiModels.menuLabel"),
+                  icon: Sparkles,
+                },
+                {
+                  to: "/setup/integration-keys",
+                  label: t("settings.integrationKeys.menuLabel"),
+                  icon: KeyRound,
+                },
+                ...(connectionsNavItem ? [connectionsNavItem] : []),
+              ]
+            : []),
+          ...(developerModeEnabled
+            ? [
+                {
+                  to: "/setup/development",
+                  label: t("settings.development.title"),
+                  icon: Code2,
+                },
+                {
+                  to: "/setup/studio",
+                  label: t("navigation.mastraStudio"),
+                  icon: Clapperboard,
+                },
+                ...(isSuperAdmin
+                  ? [
+                      {
+                        to: "/setup/features",
+                        label: t("featureFlags.title"),
+                        icon: Flag,
+                      },
+                      {
+                        to: "/setup/search-index",
+                        label: t("settings.searchIndex.title"),
+                        icon: Search,
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
+        ];
+        const setupItem =
+          setupChildren.length > 0
+            ? {
+                id: "shell_setup",
+                to: "/setup",
+                label: t("navigation.setup"),
+                icon: DockSetupIcon,
+                children: setupChildren,
+              }
+            : null;
         return buildAdminNavItems(adminMenuEntries, settingsItem, t, setupItem);
       })(),
     },
-  ];
+  ]);
+}
+
+/** Sections that would render as a heading over nothing are left out entirely. */
+function sectionsWithItems(sections: NavigationSection[]): NavigationSection[] {
+  return sections.filter((section) => section.items.length > 0);
 }
 
 function flattenItems(sections: NavigationSection[]) {
@@ -605,6 +641,19 @@ export function getSecondaryNavItems(
     const setupItem = flattenItems(sections).find((i) => i.to === "/setup");
     if (setupItem?.children && setupItem.children.length > 0) {
       return setupItem.children;
+    }
+    // Personal connections live at /setup/connections; members have no Setup
+    // rail, so keep them in the Settings secondary nav.
+    if (
+      currentPath === "/setup/connections" ||
+      currentPath.startsWith("/setup/connections/")
+    ) {
+      const settingsItem = flattenItems(sections).find(
+        (i) => i.to === "/settings"
+      );
+      if (settingsItem?.children && settingsItem.children.length > 0) {
+        return settingsItem.children;
+      }
     }
   }
 

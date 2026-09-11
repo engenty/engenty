@@ -7,6 +7,8 @@
  * "empty".
  */
 
+import { joinPagesWithBreaks, type PageSlice } from "./page-break.js";
+
 function collectMdFromStructuredItem(item: unknown): string[] {
   if (!item || typeof item !== "object") {
     return [];
@@ -22,6 +24,39 @@ function collectMdFromStructuredItem(item: unknown): string[] {
   return [];
 }
 
+function pageNumberFrom(page: Record<string, unknown>, index: number): number {
+  if (typeof page.page_number === "number" && page.page_number > 0) {
+    return page.page_number;
+  }
+  if (typeof page.index === "number" && page.index >= 0) {
+    return page.index + 1;
+  }
+  return index + 1;
+}
+
+function slicesFromPages(
+  pages: unknown[],
+  field: "markdown" | "text"
+): PageSlice[] {
+  const slices: PageSlice[] = [];
+  for (let index = 0; index < pages.length; index++) {
+    const raw = pages[index];
+    if (!raw || typeof raw !== "object") {
+      continue;
+    }
+    const page = raw as Record<string, unknown>;
+    const body = page[field];
+    if (typeof body !== "string" || !body.trim()) {
+      continue;
+    }
+    slices.push({
+      number: pageNumberFrom(page, index),
+      markdown: body.trim(),
+    });
+  }
+  return slices;
+}
+
 function markdownFromItemsRoot(itemsRoot: unknown): string {
   if (!itemsRoot || typeof itemsRoot !== "object") {
     return "";
@@ -30,27 +65,44 @@ function markdownFromItemsRoot(itemsRoot: unknown): string {
   if (!Array.isArray(pages)) {
     return "";
   }
-  const parts: string[] = [];
-  for (const p of pages) {
-    if (!p || typeof p !== "object" || p === null) {
+  const slices: PageSlice[] = [];
+  for (let index = 0; index < pages.length; index++) {
+    const raw = pages[index];
+    if (!raw || typeof raw !== "object" || raw === null) {
       continue;
     }
-    const page = p as Record<string, unknown>;
+    const page = raw as Record<string, unknown>;
     if (page.success === false) {
       continue;
     }
     if (!Array.isArray(page.items)) {
       continue;
     }
+    const parts: string[] = [];
     for (const item of page.items) {
       parts.push(...collectMdFromStructuredItem(item));
     }
+    slices.push({
+      number: pageNumberFrom(page, index),
+      markdown: parts.join("\n\n").trim(),
+    });
   }
-  return parts.join("\n\n").trim();
+  return joinPagesWithBreaks(slices, slices.length);
+}
+
+function markdownFromPageList(
+  pages: unknown[] | undefined,
+  field: "markdown" | "text"
+): string {
+  if (!Array.isArray(pages)) {
+    return "";
+  }
+  return joinPagesWithBreaks(slicesFromPages(pages, field), pages.length);
 }
 
 /**
  * Normalize a `parsing.get` / `waitForCompletion` JSON body into one markdown string.
+ * Prefer per-page arrays so we can inject `<page-break>` sentinels.
  */
 export function markdownFromLlamaCloudParsingResult(result: unknown): string {
   if (result == null || typeof result !== "object") {
@@ -58,52 +110,36 @@ export function markdownFromLlamaCloudParsingResult(result: unknown): string {
   }
   const r = result as Record<string, unknown>;
 
+  const mdObj = r.markdown;
+  if (mdObj && typeof mdObj === "object" && mdObj !== null) {
+    const fromPages = markdownFromPageList(
+      (mdObj as { pages?: unknown[] }).pages,
+      "markdown"
+    );
+    if (fromPages) {
+      return fromPages;
+    }
+  }
+
   const full = r.markdown_full;
   if (typeof full === "string" && full.trim()) {
     return full.trim();
   }
 
+  const textObj = r.text;
+  if (textObj && typeof textObj === "object" && textObj !== null) {
+    const fromPages = markdownFromPageList(
+      (textObj as { pages?: unknown[] }).pages,
+      "text"
+    );
+    if (fromPages) {
+      return fromPages;
+    }
+  }
+
   const textFull = r.text_full;
   if (typeof textFull === "string" && textFull.trim()) {
     return textFull.trim();
-  }
-
-  const mdObj = r.markdown;
-  if (mdObj && typeof mdObj === "object" && mdObj !== null) {
-    const pages = (mdObj as { pages?: unknown[] }).pages;
-    if (Array.isArray(pages)) {
-      const parts: string[] = [];
-      for (const p of pages) {
-        if (p && typeof p === "object" && p !== null) {
-          const page = p as Record<string, unknown>;
-          if (typeof page.markdown === "string" && page.markdown.trim()) {
-            parts.push(page.markdown.trim());
-          }
-        }
-      }
-      if (parts.length) {
-        return parts.join("\n\n").trim();
-      }
-    }
-  }
-
-  const textObj = r.text;
-  if (textObj && typeof textObj === "object" && textObj !== null) {
-    const pages = (textObj as { pages?: unknown[] }).pages;
-    if (Array.isArray(pages)) {
-      const parts: string[] = [];
-      for (const p of pages) {
-        if (p && typeof p === "object" && p !== null) {
-          const page = p as Record<string, unknown>;
-          if (typeof page.text === "string" && page.text.trim()) {
-            parts.push(page.text.trim());
-          }
-        }
-      }
-      if (parts.length) {
-        return parts.join("\n\n").trim();
-      }
-    }
   }
 
   const fromItems = markdownFromItemsRoot(r.items);

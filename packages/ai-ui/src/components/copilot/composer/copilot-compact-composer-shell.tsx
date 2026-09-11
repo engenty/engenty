@@ -4,7 +4,13 @@ import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import {
   BLOB_CHARACTER_COLORS,
   BlobAvatar,
+  type BlobCharacter,
   cn,
+  ENGENTY_FILL,
+  ENGENTY_KIND_FILL,
+  Engenty,
+  type EngentyKind,
+  resolveBlobCharacter,
   useBlobCharacterCycle,
 } from "@engenty/ui-core";
 import type { CSSProperties, ReactNode } from "react";
@@ -54,17 +60,23 @@ export interface CopilotCompactComposerShellProps {
   /** Rendered under the card, left of the usage meter (e.g. context chooser). */
   belowCard?: ReactNode;
   cardChrome?: ReactNode;
+  /** When set, the peeking blob uses this character instead of cycling. */
+  character?: BlobCharacter;
   chatStatus: "ready" | "streaming" | "submitted" | "error";
   children: ReactNode;
   className?: string;
   /** Persisted expanded status-flap body height (px). */
   compactStatusFlapHeight?: number;
+  /** Tighter padding for a composer inside a card rather than the dock. */
+  dense?: boolean;
   /** Docked surfaces (message queue, approval / decision cards) rendered as a
    *  flap directly attached behind the composer card — card background, no gap.
    *  While set, the status flap is suppressed and the blob avatar rides this
    *  flap's top edge instead of overlapping its content. */
   dockContent?: ReactNode;
   enableStatusFlap?: boolean;
+  /** Specialist desks: styleguide engenty instead of the cycling BlobAvatar. */
+  engentyKind?: EngentyKind;
   errorMessage?: string | null;
   /** Force the active state (avatar + belowCard always visible). Use on the
    *  copilot start screen so the context chooser is always shown. */
@@ -250,12 +262,15 @@ export function CopilotCompactComposerShell({
   autoExpand = true,
   belowCard,
   cardChrome,
+  character,
   chatStatus,
   children,
   className,
   compactStatusFlapHeight,
+  dense = false,
   dockContent = null,
   enableStatusFlap = true,
+  engentyKind,
   errorMessage = null,
   forceActive = false,
   interruptContent = null,
@@ -327,7 +342,8 @@ export function CopilotCompactComposerShell({
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [hasContent, setHasContent] = useState(false);
-  const blobCharacter = useBlobCharacterCycle();
+  const cycledCharacter = useBlobCharacterCycle();
+  const blobCharacter = resolveBlobCharacter(character ?? cycledCharacter);
   const cardRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -378,16 +394,24 @@ export function CopilotCompactComposerShell({
             shouldShowAvatar ? "avatar-enter-active" : "avatar-leave-active"
           )}
         >
-          <BlobAvatar
-            character={blobCharacter}
-            state={
-              chatStatus === "submitted"
-                ? "thinking"
-                : chatStatus === "streaming"
-                  ? "streaming"
-                  : "idle"
-            }
-          />
+          {engentyKind ? (
+            <Engenty
+              className="[&_.e-shadow]:hidden"
+              kind={engentyKind}
+              size={48}
+            />
+          ) : (
+            <BlobAvatar
+              character={blobCharacter}
+              state={
+                chatStatus === "submitted"
+                  ? "thinking"
+                  : chatStatus === "streaming"
+                    ? "streaming"
+                    : "idle"
+              }
+            />
+          )}
         </div>
       </>
     ) : null;
@@ -409,8 +433,11 @@ export function CopilotCompactComposerShell({
       style={
         {
           paddingTop: rendered ? STATUS_FLAP_LAYOUT_CLEARANCE : 0,
-          "--blob-accent":
-            BLOB_CHARACTER_COLORS[blobCharacter % BLOB_CHARACTER_COLORS.length],
+          "--blob-accent": engentyKind
+            ? ENGENTY_FILL[ENGENTY_KIND_FILL[engentyKind]]
+            : BLOB_CHARACTER_COLORS[
+                blobCharacter % BLOB_CHARACTER_COLORS.length
+              ],
         } as CSSProperties
       }
     >
@@ -571,7 +598,9 @@ export function CopilotCompactComposerShell({
           className={cn(
             "relative z-10 border-red transition-all duration-200",
             cardVariantClasses[variant],
-            "rounded-[1.7rem] px-4 py-[0.7rem]"
+            dense
+              ? "rounded-[1.35rem] px-2 py-1"
+              : "rounded-[1.7rem] px-4 py-[0.7rem]"
           )}
           data-variant={variant}
           onInput={(e) => {

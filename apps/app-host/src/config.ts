@@ -1,3 +1,5 @@
+import { resolveSpacesDir } from "@engenty/environment/env";
+
 /**
  * app-host configuration.
  *
@@ -13,7 +15,7 @@ export interface AppHostConfig {
   internalToken: string | null;
   /** Hard ceiling on a single deployment's total source bytes. */
   maxSourceBytes: number;
-  /** Per-app Rivet namespace. Phase 7 default; see PLAN-engenty-apps.md §6. */
+  /** One Rivet namespace per App, so one App's actors cannot name another's. */
   perAppNamespace: boolean;
   port: number;
   production: boolean;
@@ -24,6 +26,12 @@ export interface AppHostConfig {
     minReplicas: number;
     targetConcurrency: number;
   };
+  /**
+   * Root of the spaces tree: every App's source repository and data directory
+   * live under it (see app-store.ts for the layout). Shared with engenty-ai,
+   * which binds a space's `apps/` into that space's computer.
+   */
+  spacesDir: string;
 }
 
 function intFromEnv(name: string, fallback: number): number {
@@ -50,6 +58,7 @@ export function loadAppHostConfig(): AppHostConfig {
   }
 
   return {
+    spacesDir: resolveSpacesDir(),
     // Mirrors apps/ai: loopback by default, containers override via HOST.
     hostname:
       process.env.ENGENTY_APP_HOST_HOST ?? process.env.HOST ?? "127.0.0.1",
@@ -61,7 +70,12 @@ export function loadAppHostConfig(): AppHostConfig {
     production,
     requestTimeoutMs: intFromEnv("ENGENTY_APP_HOST_REQUEST_TIMEOUT_MS", 30_000),
     scaling: {
-      maxReplicas: intFromEnv("ENGENTY_APP_HOST_MAX_REPLICAS", 32),
+      // One replica per App. `/data/app.db` is opened through the guest's
+      // `node:sqlite`, which checks the file out to a host copy and writes it
+      // back on close — two replicas would be two checkouts of one file, last
+      // writer wins. A single process owns the database, as any Node service
+      // would.
+      maxReplicas: intFromEnv("ENGENTY_APP_HOST_MAX_REPLICAS", 1),
       // Scale to zero: an idle app costs nothing but its stored release.
       minReplicas: 0,
       targetConcurrency: intFromEnv("ENGENTY_APP_HOST_TARGET_CONCURRENCY", 8),

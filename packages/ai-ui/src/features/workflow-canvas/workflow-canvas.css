@@ -1,0 +1,59 @@
+/**
+ * React Flow chrome, themed.
+ *
+ * `@xyflow/react/dist/style.css` hard-codes light values — most visibly
+ * `.react-flow__controls-button { background: #fefefe; fill: #000 }`, which in
+ * dark mode renders a white button with a near-white icon: invisible.
+ *
+ * Utility classes lose to it (equal specificity, and the library's sheet can
+ * load later), so the overrides live here and hang off a wrapper class to win
+ * on specificity honestly rather than with `!important`. Values are design
+ * tokens, so both themes follow the app.
+ */
+
+.engenty-workflow-canvas .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 0.5rem);
+  box-shadow: none;
+}
+
+.engenty-workflow-canvas .react-flow__controls-button {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  fill: var(--foreground);
+}
+
+.engenty-workflow-canvas .react-flow__controls-button:hover {
+  background: var(--accent);
+}
+
+.engenty-workflow-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.engenty-workflow-canvas .react-flow__minimap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 0.5rem);
+}
+
+/* The connection-line and selection colours default to React Flow's blue. */
+.engenty-workflow-canvas .react-flow__edge-path {
+  stroke: var(--border);
+}
+
+.engenty-workflow-canvas .react-flow__attribution {
+  display: none;
+}
+
+/* Step nodes are click targets everywhere they're drawn (inspect / open the
+   flow editor); the outcome band is not. The wake-source node is one only
+   where the host wires the triggers dialog. */
+.engenty-workflow-canvas .react-flow__node-action {
+  cursor: pointer;
+}
+
+.engenty-workflow-canvas--triggers-clickable .react-flow__node-trigger {
+  cursor: pointer;
+}

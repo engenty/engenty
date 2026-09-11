@@ -1,11 +1,13 @@
 import type {
   EngentyPluginsApi,
+  EngentyPluginsApiCore,
   EngentyUiApi,
   PluginMethodsRecord,
   PluginSourceInfo,
   UiAdminMenuItemContribution,
   UiBackgroundComponentContribution,
   UiBrandSource,
+  UiChatCommandContribution,
   UiContributions,
   UiCopilotAppContribution,
   UiCopilotContribution,
@@ -18,6 +20,7 @@ import type {
   UiRouteContribution,
   UiRouteScope,
   UiSettingsItemContribution,
+  UiSpaceTabContribution,
   UiTabContribution,
 } from "@engenty/ui-plugin-sdk";
 import { createHookEngine } from "./hook-engine";
@@ -26,6 +29,7 @@ interface MutableUiContributions {
   adminMenuItems: UiAdminMenuItemContribution[];
   backgroundComponents: UiBackgroundComponentContribution[];
   brandSource?: UiBrandSource;
+  chatCommands: UiChatCommandContribution[];
   copilotApps: UiCopilotAppContribution[];
   copilotArticleHrefResolver?: (
     slug: string,
@@ -39,6 +43,7 @@ interface MutableUiContributions {
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
+  spaceTabs: UiSpaceTabContribution[];
   tabs: UiTabContribution[];
 }
 
@@ -115,6 +120,7 @@ export function createUiPluginRuntime(
       liveBindings: [],
       navigationPrefetch: [],
       settingsItems: [],
+      spaceTabs: [],
       tabs: [],
     },
     hooks: createHookEngine<UiEventMap>(),
@@ -129,7 +135,7 @@ export function createEngentyPluginsApi(
 ): EngentyPluginsApi {
   const normalizedPluginId = normalizePluginId(pluginId);
 
-  const core: Omit<EngentyPluginsApi, string> = {
+  const core: EngentyPluginsApiCore = {
     expose: (methods) => {
       runtime.pluginMethodsById.set(normalizedPluginId, methods);
     },
@@ -145,12 +151,16 @@ export function createEngentyPluginsApi(
       const normalizedTarget = normalizePluginId(targetPluginId);
       return runtime.enabledPluginIds.has(normalizedTarget);
     },
-    get: (targetPluginId) => {
+    get: <TMethods extends PluginMethodsRecord = PluginMethodsRecord>(
+      targetPluginId: string
+    ) => {
       const normalizedTarget = normalizePluginId(targetPluginId);
       if (!runtime.enabledPluginIds.has(normalizedTarget)) {
         return null;
       }
-      return runtime.pluginMethodsById.get(normalizedTarget) ?? null;
+      // The store is untyped by design; the generic is the caller's claim.
+      return (runtime.pluginMethodsById.get(normalizedTarget) ??
+        null) as TMethods | null;
     },
   };
 
@@ -201,6 +211,7 @@ export function createEngentyUiApi(
         icon: input.icon,
         parentId: input.parentId?.trim(),
         order: input.order,
+        placement: input.placement,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.adminMenuItem"),
         useBadgeCount: input.useBadgeCount,
       });
@@ -232,6 +243,22 @@ export function createEngentyUiApi(
         icon: input.icon,
         order: input.order,
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.tab"),
+      });
+    },
+    registerSpaceTab: (input) => {
+      const id = normalizeId(input.id, "space tab");
+      const rest = input.path?.trim().replace(/^\/+/, "");
+      runtime.contributions.spaceTabs.push({
+        id,
+        pluginId: normalizedPluginId,
+        ...(input.embedOnHome ? { embedOnHome: true } : {}),
+        icon: input.icon,
+        label: input.label?.trim(),
+        labelKey: input.labelKey?.trim(),
+        moduleId: input.moduleId?.trim() || undefined,
+        order: input.order,
+        ...(rest ? { path: rest } : {}),
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.spaceTab"),
       });
     },
     registerChatCommand: (input) => {
@@ -373,6 +400,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    spaceTabs,
     tabs,
     chatCommands,
   ] = await Promise.all([
@@ -407,6 +435,7 @@ export async function resolveUiContributions(
     runtime.hooks.emit("ui.settingsItems", [
       ...runtime.contributions.settingsItems,
     ]),
+    runtime.hooks.emit("ui.spaceTabs", [...runtime.contributions.spaceTabs]),
     runtime.hooks.emit("ui.tabs", [...runtime.contributions.tabs]),
     runtime.hooks.emit("ui.chatCommands", [
       ...runtime.contributions.chatCommands,
@@ -429,6 +458,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    spaceTabs,
     tabs,
   };
   void runtime.hooks.emit("ui.contributionsResolved", resolved);

@@ -6,7 +6,23 @@ export interface WorkspaceTenant {
   slug: string;
 }
 
+/**
+ * The space the user is currently working in — the steady container above
+ * Project (PLAN-spaces.md). Until the rail lets a user switch spaces, this is
+ * the tenant's default (Company) space.
+ *
+ * Modules need it because space-scoped storage prefixes are
+ * `tenants/<t>/spaces/<s>/…`: a UI that builds a workspace path without it
+ * would link into the pre-space tenant root and 404.
+ */
+export interface WorkspaceSpace {
+  id: string;
+  key: string;
+  name: string;
+}
+
 interface WorkspaceContextValue {
+  currentSpace: WorkspaceSpace | null;
   currentTenant: WorkspaceTenant | null;
   /** Engenty `core.users` id (from workspace context); null when unknown. */
   currentUserId: string | null;
@@ -31,6 +47,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export interface WorkspaceProviderProps {
   children: ReactNode;
+  currentSpace?: WorkspaceSpace | null;
   currentTenant: WorkspaceTenant | null;
   currentUserId?: string | null;
   isSuperAdmin?: boolean;
@@ -39,12 +56,14 @@ export interface WorkspaceProviderProps {
 
 export function WorkspaceProvider({
   children,
+  currentSpace = null,
   currentTenant,
   currentUserId = null,
   isSuperAdmin = false,
   isTenantAdmin = false,
 }: WorkspaceProviderProps) {
   const value: WorkspaceContextValue = {
+    currentSpace,
     currentTenant,
     currentUserId: currentUserId ?? null,
     isSuperAdmin,
@@ -63,6 +82,7 @@ export function useWorkspaceContext(): WorkspaceContextValue {
     // Default to NOT admin: a module rendering outside a provider should hide
     // admin-only affordances rather than offer a dead end.
     return {
+      currentSpace: null,
       currentTenant: null,
       currentUserId: null,
       isSuperAdmin: false,

@@ -1,0 +1,26 @@
+{
+  "id": "company-profile.research",
+  "description": "Research public sources and suggest company profile field updates as a bounded one-shot task.",
+  "inputSchema": {
+    "description": "No structured fields; scope and tenant context drive which company profile to research.",
+    "type": "object"
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Company Profile Research",
+    "owner_agent_id": "company-profile.manager",
+    "allowed_tools": ["loadCompanyProfile", "companyWebsitePages", "web_search"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"company-profile.manager\"},\"brief\":{\"value\":\"# Company Profile Research\\n\\n## Task\\n\\nResearch the tenant company profile from public sources and summarize validated field suggestions for human review on the settings form.\\n\\n## Steps\\n\\n1. Call `loadCompanyProfile` first to read current stored values and the website URL if present.\\n2. When a public website exists, call `companyWebsitePages` only for real public hosts (skip localhost, `.local`, `.engenty.localhost`, staging placeholders, and internal-only URLs).\\n3. Use `web_search` for complementary evidence (official site, imprint, registry, contact pages, LinkedIn company page, etc.).\\n4. Summarize every validated suggestion in chat with evidence and `source_url` when possible.\\n5. Remind the user that suggestions are draft until they save the form.\\n\\n## Rules\\n\\n- Only suggest fields with clear evidence; include `source_url` when possible.\\n- Use snake_case keys from the editable field list in the agent prompt.\\n- Prefer official or primary sources over third-party directories.\\n- Do not suggest banking fields unless an official public source provides them.\\n- List multiple plausible values clearly when evidence conflicts.\\n- Never claim data was persisted without an explicit user save.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"loadCompanyProfile\",\"companyWebsitePages\",\"web_search\"]}}",
+      "type": "mapping"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

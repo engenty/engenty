@@ -15,18 +15,26 @@ export function AppLayout({
   fetchResolvedFeatureFlags,
   defaultTopbarTitle,
   children,
+  currentSpace = null,
+  currentTenant = null,
   currentUserId = null,
   isSuperAdmin = false,
   isTenantAdmin = false,
   modulesReorderable,
   onModulesReorder,
   shellUiHost,
+  secondaryNavHeaderOverride,
+  secondaryNavFooterSlot,
+  secondaryNavLeadingSlot,
+  secondaryNavRouteBreadcrumb,
+  secondaryNavRouteTransition,
   secondaryNavPersistence,
+  railEndSlot,
+  spacesZone,
 }: AppLayoutProps) {
-  const currentTenant = shell.tenantSwitcher?.currentTenant ?? null;
-
   return (
     <WorkspaceProvider
+      currentSpace={currentSpace}
       currentTenant={currentTenant}
       currentUserId={currentUserId}
       isSuperAdmin={isSuperAdmin}
@@ -40,9 +48,16 @@ export function AppLayout({
             fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
             modulesReorderable={modulesReorderable}
             onModulesReorder={onModulesReorder}
+            railEndSlot={railEndSlot}
+            secondaryNavFooterSlot={secondaryNavFooterSlot}
+            secondaryNavHeaderOverride={secondaryNavHeaderOverride}
+            secondaryNavLeadingSlot={secondaryNavLeadingSlot}
             secondaryNavPersistence={secondaryNavPersistence}
+            secondaryNavRouteBreadcrumb={secondaryNavRouteBreadcrumb}
+            secondaryNavRouteTransition={secondaryNavRouteTransition}
             sections={sections}
             shell={shell}
+            spacesZone={spacesZone}
           >
             {children}
           </AppLayoutFrame>

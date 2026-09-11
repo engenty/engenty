@@ -3,6 +3,10 @@
 const RUN_ERROR_CODE_LABELS: Record<string, string> = {
   "agent_threads.contextLengthExceeded":
     "This conversation is too long for the selected model. Start a new chat or ask for a smaller export (for example a filtered list).",
+  "agent_threads.outputTruncated":
+    "The assistant ran out of context before it could write a reply. Start a new chat or continue with a shorter request.",
+  "agent_threads.contentFiltered":
+    "The model provider's content filter stopped the reply. Rephrase the request and try again.",
   "agent_threads.runFailed":
     "The assistant run failed. Try again or start a new chat.",
   "agent_threads.usageLimitExceeded":

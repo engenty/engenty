@@ -6,6 +6,7 @@ import type {
   SkillStorage,
 } from "../../skills/skill-storage.js";
 import {
+  assertUniqueManagedSkillNames,
   ensureTenantManagedSkillsSeed,
   type ManagedSkillPack,
   syncTenantManagedSkills,
@@ -168,5 +169,59 @@ describe("tenant managed skills seed", () => {
     expect(first.skipped).toEqual(["inbox-triage"]);
     expect(second.skipped).toEqual(["inbox-triage"]);
     expect(manifestReads).toBe(1);
+  });
+
+  it("throws when two packs share a skill name", () => {
+    expect(() =>
+      assertUniqueManagedSkillNames([
+        { name: "plan", skillMarkdown: "# a", source: "builtin" },
+        { name: "plan", skillMarkdown: "# b", source: "library" },
+      ])
+    ).toThrow("skill_name_collision:plan (builtin vs library)");
+  });
+
+  it("rewrites a managed skill when sibling files change", async () => {
+    const skillMarkdown = packMarkdown("canvas-design", "library");
+    const pack: ManagedSkillPack = {
+      files: [
+        {
+          bytes: new TextEncoder().encode("font-v2"),
+          path: "canvas-fonts/Lora-Regular.ttf",
+        },
+      ],
+      name: "canvas-design",
+      skillMarkdown,
+      source: "library",
+    };
+    const writes: { files?: { path: string }[]; name: string }[] = [];
+    const storage = {
+      readManagedSeedManifest: async () => ({
+        skills: {
+          "canvas-design": {
+            sha: sha(skillMarkdown),
+            source: "library",
+          },
+        },
+        version: 1 as const,
+      }),
+      readManagedProvenance: async () => null,
+      writeManagedSeedManifest: async () => undefined,
+      writeManagedSkill: async (input: {
+        files?: { path: string }[];
+        name: string;
+      }) => {
+        writes.push(input);
+      },
+    } as unknown as SkillStorage;
+
+    const result = await ensureTenantManagedSkillsSeed({
+      packs: [pack],
+      storage,
+    });
+
+    expect(result.written).toEqual(["canvas-design"]);
+    expect(writes[0]?.files?.map((file) => file.path)).toEqual([
+      "canvas-fonts/Lora-Regular.ttf",
+    ]);
   });
 });

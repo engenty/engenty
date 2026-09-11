@@ -38,7 +38,8 @@ describe("engenty.file-analyst as a function agent", () => {
     expect(config.instructions).toBe(ENGENTY_FILE_ANALYST_INSTRUCTIONS);
     expect(config.toolIds).toEqual(ENGENTY_FILE_ANALYST_TOOL_IDS);
     expect(config.skillIds).toEqual([]);
-    expect(config.source).toBe("builtin");
+    // Ownership is declared on the descriptor now; the render stamps nothing.
+    expect(config.kind).toBe("delegated");
     // No purpose declared → runtime inheritance stays structural (chat tier),
     // exactly like the old static config (which had no purpose field).
     expect(config.purpose).toBeUndefined();

@@ -214,6 +214,22 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
       "register-all.ts"
     ),
     "@engenty/api-client": path.join(apiClient, "src", "index.ts"),
+    // Catalog ranking is imported by the UI; compile from source so a stale
+    // `dist` cannot hide stemming/BM25 changes during Vite serve or build.
+    "@engenty/search-index": path.join(
+      repoRoot,
+      "packages",
+      "search-index",
+      "src",
+      "index.ts"
+    ),
+    "@engenty/ag-ui-bridge": path.join(
+      repoRoot,
+      "packages",
+      "ag-ui-bridge",
+      "src",
+      "index.ts"
+    ),
     "@engenty/environment": path.join(environment, "index.ts"),
     // Used by contacts/team/secrets import pages; modules are not deps of apps/ui
     // so Vite must alias the package for source resolution from the UI app root.
@@ -277,6 +293,7 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
           userManagementUi,
           "plugin.tsx"
         ),
+        "@engenty/user-management-ui": path.join(userManagementUi, "index.ts"),
         "@engenty/ui-icons": path.join(uiIcons, "index.ts"),
         "@engenty/i18n/ui": i18nUi,
         "@engenty/app-shell/navigation": path.join(appShell, "navigation.ts"),
@@ -349,6 +366,7 @@ export default defineConfig(({ command }) => {
     },
     optimizeDeps: {
       exclude: [
+        "@engenty/ag-ui-bridge",
         "@engenty/ai-ui",
         "@engenty/app-shell",
         "@engenty/user-management-ui",
@@ -363,6 +381,9 @@ export default defineConfig(({ command }) => {
         "@engenty/ui-icons",
         "@engenty/pdf-templates",
         "@engenty/user-settings",
+        "@engenty/search-index",
+        "@firecrawl/anydoc-wasm",
+        "@llamaindex/liteparse-wasm",
       ],
     },
     server: {
@@ -372,7 +393,7 @@ export default defineConfig(({ command }) => {
       allowedHosts: [".localhost"],
       watch: {
         ignored: [
-          /node_modules\/(?!@engenty\/(ai-ui|app-shell|auth-ui|contacts|secrets|import|generative-ui|knowledge-base|copilot|projects|user-management-ui|ui-core|ui-icons|pdf-templates)(\/|$))/,
+          /node_modules\/(?!@engenty\/(ai-ui|app-shell|auth-ui|contacts|secrets|import|generative-ui|knowledge-base|copilot|projects|user-management-ui|ui-core|ui-icons|pdf-templates|search-index)(\/|$))/,
           "**/.git/**",
           // Module planning notes (`modules/<id>/dev/**`) — not imported UI.
           // Keep `ui/dev/**` watchable (debug helpers under the ui tree).

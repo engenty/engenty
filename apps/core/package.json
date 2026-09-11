@@ -21,7 +21,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/api-entry.ts src/infra/index.ts --format esm --clean --external pdfjs-dist --external sharp --external @napi-rs/canvas --external @engenty/entitlements",
+    "build": "tsup src/index.ts src/cli.ts src/api-entry.ts src/infra/index.ts --format esm --clean --external pdfjs-dist --external sharp --external @napi-rs/canvas --external @engenty/entitlements --external @engenty/ai-skills",
     "api": "bash ../../scripts/portless-dev.sh",
     "api:app": "ENV=development ENGENTY_DEV_GATEWAY=1 ENGENTY_CORE_PORT=${ENGENTY_CORE_PORT:-8787} tsx watch --clear-screen=false --exclude \"**/node_modules/**\" --exclude \"**/.git/**\" --exclude \"**/.turbo/**\" --exclude \"**/coverage/**\" --exclude \"../../packages/**/dist/**\" --exclude \"../../modules/**/dist/**\" src/api-entry.ts",
     "dev:portless": "pnpm run api:app",
@@ -36,6 +36,7 @@
     "@clack/prompts": "^1.6.0",
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/ai-core": "workspace:*",
+    "@engenty/ai-skills": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
     "@engenty/approvals-sdk": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
@@ -45,6 +46,7 @@
     "@engenty/file-storage": "workspace:*",
     "@engenty/generative-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
+    "@engenty/notifications": "workspace:*",
     "@engenty/platform-settings": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/queue": "workspace:*",

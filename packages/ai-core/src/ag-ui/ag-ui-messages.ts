@@ -12,6 +12,7 @@ type Message = AgUiMessageBase & {
 type AssistantMessage = Extract<Message, { role: "assistant" }>;
 
 export interface PersistedAgUiSessionMessageRecord {
+  author_name?: string | null;
   author_user_id?: string | null;
   client_message_id?: string | null;
   created_at?: string;
@@ -345,6 +346,10 @@ export function buildAgUiMessagesFromSessionMessages(
       ...(record.run_id ? { run_id: record.run_id } : {}),
       ...(record.seq === undefined ? {} : { seq: record.seq }),
       ...(record.created_at ? { created_at: record.created_at } : {}),
+      ...(record.author_user_id
+        ? { author_user_id: record.author_user_id }
+        : {}),
+      ...(record.author_name ? { author_name: record.author_name } : {}),
     };
     if (record.role === "tool") {
       const toolPart = firstToolPart(record.parts);

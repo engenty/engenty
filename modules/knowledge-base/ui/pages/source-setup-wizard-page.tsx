@@ -16,13 +16,13 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { listKbSourceIndex, runKbSourceNow } from "../api.js";
 import { SourceIndexBrowser } from "../components/source-index-browser.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { KB_MODULE_BASE, kbSourcePath, kbSourcesPath } from "../kb-paths.js";
+import { kbSourcePath, kbSourcesPath } from "../kb-paths.js";
 import { mergeKbSourceAdaptersForPicker } from "../kb-source-adapters-merge.js";
 import {
   kbModulePageShellInnerNarrowClassName,
@@ -30,26 +30,23 @@ import {
 } from "../lib/kb-page-shell.js";
 import {
   kbSourceDetailQueryOptions,
-  kbsQueryOptions,
   sourceAdaptersQueryOptions,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
 type WizardStep = 1 | 2;
 
 export function SourceSetupWizardPage() {
   const { t } = useTranslation("kb");
   const navigate = useNavigate();
-  const { kbSlug: kbSlugParam, sourceId } = useParams<{
-    kbSlug?: string;
-    sourceId: string;
-  }>();
+  const { sourceId } = useParams<{ sourceId: string }>();
 
   const [step, setStep] = useState<WizardStep>(1);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [retrieveImages, setRetrieveImages] = useState(false);
 
-  const { data: kbsRaw, isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw, isLoading: kbsLoading } = useKbsQuery();
   const { data: adaptersRaw = [] } = useQuery(sourceAdaptersQueryOptions);
   const adapters = useMemo(
     () => mergeKbSourceAdaptersForPicker(adaptersRaw),
@@ -57,21 +54,13 @@ export function SourceSetupWizardPage() {
   );
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
 
-  const kbIdFromUrl = useMemo(
-    () => (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : null),
-    [kbSlugParam, kbs]
-  );
+  const kbIdFromUrl = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const { data: detail, isLoading: detailLoading } = useQuery(
     kbSourceDetailQueryOptions(sourceId ?? "")
   );
   const source = detail?.data;
 
-  const canonicalSlug = useMemo(
-    () => (source ? slugFromKbId(kbs, source.kb_id) : undefined),
-    [kbs, source]
-  );
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
   const kbId = source?.kb_id ?? kbIdFromUrl ?? "";
 
   const {
@@ -100,7 +89,7 @@ export function SourceSetupWizardPage() {
       }),
     onSuccess: () => {
       toast.success(t("sources.setup_wizard_run_started"));
-      navigate(kbSourcePath(kbSlug, sourceId!));
+      navigate(kbSourcePath(sourceId!));
     },
     onError: (err) => {
       toast.error(
@@ -121,30 +110,18 @@ export function SourceSetupWizardPage() {
     );
   }, [adapters, source]);
 
-  const navigateKb = useCallback(
-    (nextKbId: string) => {
-      const nextSlug = slugFromKbId(kbs, nextKbId);
-      if (nextSlug) {
-        navigate(kbSourcesPath(nextSlug));
-      }
-    },
-    [kbs, navigate]
-  );
-
-  const sourcesListHref = kbSlug ? kbSourcesPath(kbSlug) : KB_MODULE_BASE;
+  const sourcesListHref = kbSourcesPath();
 
   const kbShellNav = useKbModuleSecondaryShellNav({
     kbId: kbId || "",
-    kbSlug: kbSlug || "",
-    onKbChange: navigateKb,
   });
 
   const cancelAction = useMemo(
     () =>
-      source && kbSlug ? (
+      source ? (
         <Button
           className={topbarIconButtonClassName}
-          onClick={() => navigate(kbSourcePath(kbSlug, source.id))}
+          onClick={() => navigate(kbSourcePath(source.id))}
           size="sm"
           type="button"
           variant="outline"
@@ -153,11 +130,10 @@ export function SourceSetupWizardPage() {
           <TopbarActionLabel>{t("actions.cancel")}</TopbarActionLabel>
         </Button>
       ) : null,
-    [kbSlug, navigate, source, t]
+    [navigate, source, t]
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: cancelAction,
     breadcrumbs: source
@@ -166,7 +142,7 @@ export function SourceSetupWizardPage() {
           { label: t("sources.title"), to: sourcesListHref },
           {
             label: source.name,
-            to: kbSourcePath(kbSlug, source.id),
+            to: kbSourcePath(source.id),
           },
           { label: t("sources.setup_wizard_title") },
         ]
@@ -261,7 +237,7 @@ export function SourceSetupWizardPage() {
 
             <div className="flex items-center justify-between pt-2">
               <Button
-                onClick={() => navigate(kbSourcePath(kbSlug, source.id))}
+                onClick={() => navigate(kbSourcePath(source.id))}
                 size="sm"
                 type="button"
                 variant="outline"

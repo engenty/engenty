@@ -57,6 +57,15 @@ export interface AiChatSearchHit {
   tenant_id: string;
   text: string;
   thread_id: string;
-  user_id: string;
+  /**
+   * The thread's author — null for an unattended run (a routine fire, a task
+   * run). In practice a hit never carries null: this source declares
+   * `visibility: "user"`, whose rule in `search.query_chunks` is
+   * `owner_user_id = p_user_id`, and that is never true of NULL. So an
+   * author-less transcript is indexed and returned to nobody. Typed honestly
+   * rather than asserted, because the day that visibility changes the readers
+   * should have been told.
+   */
+  user_id: string | null;
   workspace_key: string | null;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_THREADS_CONTENT_FILTERED,
   AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED,
+  AGENT_THREADS_OUTPUT_TRUNCATED,
   formatAgentStreamFailureMessage,
   isContextLengthExceededError,
   readMastraStreamFailure,
@@ -56,5 +58,51 @@ describe("mastra stream failure helpers", () => {
         finishReason: "stop",
       })
     ).resolves.toBeNull();
+  });
+
+  it("names a length-truncated stream instead of passing it as success", async () => {
+    await expect(
+      readMastraStreamFailure({
+        finishReason: "length",
+      })
+    ).resolves.toEqual(new Error(AGENT_THREADS_OUTPUT_TRUNCATED));
+  });
+
+  it("names a content-filtered stream instead of passing it as success", async () => {
+    await expect(
+      readMastraStreamFailure({
+        finishReason: "content-filter",
+      })
+    ).resolves.toEqual(new Error(AGENT_THREADS_CONTENT_FILTERED));
+  });
+
+  it("lets a truncated-but-visible answer pass — the user can see it", async () => {
+    await expect(
+      readMastraStreamFailure(
+        { finishReason: "length" },
+        { hasAssistantText: true }
+      )
+    ).resolves.toBeNull();
+    await expect(
+      readMastraStreamFailure(
+        { finishReason: "content-filter" },
+        { hasAssistantText: true }
+      )
+    ).resolves.toBeNull();
+  });
+
+  it("still reports finishReason 'error' when text was written", async () => {
+    await expect(
+      readMastraStreamFailure(
+        {
+          finishReason: "error",
+          getFullOutput: async () => ({
+            finishReason: "error",
+            error: new Error("boom"),
+          }),
+        },
+        { hasAssistantText: true }
+      )
+    ).resolves.toEqual(new Error("boom"));
   });
 });

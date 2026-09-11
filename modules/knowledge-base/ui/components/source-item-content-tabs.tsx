@@ -79,7 +79,7 @@ export function SourceItemContentTabs({
 
   if (inboxBodyLoading) {
     return (
-      <div className="ui-canvas-panel w-full min-w-0 rounded-lg border-0 bg-card px-3 py-3 sm:px-4">
+      <div className="ui-card-panel w-full min-w-0 px-3 py-3 sm:px-4">
         <Skeleton className="h-40 w-full" />
       </div>
     );
@@ -127,7 +127,7 @@ export function SourceItemContentTabs({
           </TabsTrigger>
         </TabsList>
       </div>
-      <div className="ui-canvas-panel w-full min-w-0 overflow-x-auto rounded-lg border-0 bg-card px-3 py-3 sm:px-4">
+      <div className="ui-card-panel w-full min-w-0 overflow-x-auto px-3 py-3 sm:px-4">
         <TabsContent className="mt-0 min-w-0 outline-none" value="parsed">
           {bodyJson ? (
             <RichEditor

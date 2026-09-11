@@ -1,6 +1,19 @@
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@engenty/ai-skills": path.resolve(
+        import.meta.dirname,
+        "../../packages/ai-skills/src/index.ts"
+      ),
+      "@engenty/search-index": path.resolve(
+        import.meta.dirname,
+        "../../packages/search-index/src/index.ts"
+      ),
+    },
+  },
   test: {
     /** Match repo-wide server tests (see root vitest.config.ts). */
     pool: "forks",

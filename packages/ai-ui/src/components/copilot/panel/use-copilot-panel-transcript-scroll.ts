@@ -13,6 +13,7 @@ export function useCopilotPanelTranscriptScroll(input: {
   autoScrollKey?: string | number | null;
   draft: string;
   messages: readonly { id: string }[];
+  pendingUserParts?: readonly unknown[] | null;
   pendingUserText?: string | null;
   showTranscriptLoading: boolean;
   status: "ready" | "streaming" | "submitted" | "error";
@@ -27,7 +28,8 @@ export function useCopilotPanelTranscriptScroll(input: {
   );
   const autoScrollSignature = buildCopilotAutoScrollSignature(
     input.messages as CopilotPanelContentProps["messages"],
-    input.pendingUserText
+    input.pendingUserText,
+    input.pendingUserParts
   );
 
   useEffect(() => {

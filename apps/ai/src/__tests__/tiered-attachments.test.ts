@@ -2,6 +2,7 @@ import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
   classifyAttachmentTier,
+  collectThreadUserAttachments,
   formatAttachmentManifestEntry,
   INLINE_TEXT_MAX_BYTES,
   isModelFeedableMime,
@@ -31,7 +32,7 @@ const csvPart = {
 };
 
 describe("tiered attachment classification", () => {
-  it("keeps images/PDFs as model_native", () => {
+  it("keeps images as model_native and routes PDFs to tool_backed", () => {
     expect(
       classifyAttachmentTier({
         byteLength: 99,
@@ -45,7 +46,8 @@ describe("tiered attachment classification", () => {
         mimeType: "application/pdf",
         filename: "x.pdf",
       })
-    ).toBe("model_native");
+    ).toBe("tool_backed");
+    expect(isModelFeedableMime("application/pdf")).toBe(false);
     expect(isModelFeedableMime("text/csv")).toBe(false);
   });
 
@@ -114,6 +116,75 @@ describe("latestUserAttachments", () => {
   });
 });
 
+describe("collectThreadUserAttachments", () => {
+  it("keeps a prior PDF when the latest user turn is text-only", () => {
+    const pdfPart = {
+      type: "document",
+      source: {
+        mimeType: "application/pdf",
+        type: "url",
+        value: "https://x/notes.pdf",
+      },
+      metadata: {
+        engenty_attachment: {
+          extractedBy: "anydoc",
+          extractedMarkdown: "Attersee 22 °C",
+          filename: "notes.pdf",
+          mimeType: "application/pdf",
+          size: 80_000,
+          storageKey: "tenants/t1/chat/uploads/1_notes.pdf",
+        },
+      },
+    };
+    const refs = collectThreadUserAttachments(
+      runInput([
+        { role: "user", content: [pdfPart] },
+        { role: "assistant", content: "ok" },
+        { role: "user", content: [{ type: "text", text: "search the pdf" }] },
+      ])
+    );
+    expect(refs).toEqual([
+      {
+        extractedBy: "anydoc",
+        extractedMarkdown: "Attersee 22 °C",
+        filename: "notes.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 80_000,
+        storageKey: "tenants/t1/chat/uploads/1_notes.pdf",
+      },
+    ]);
+  });
+
+  it("reads attachment parts from stored thread rows", () => {
+    const refs = collectThreadUserAttachments(
+      runInput([
+        {
+          parts: [
+            {
+              metadata: {
+                engenty_attachment: {
+                  filename: "notes.pdf",
+                  mimeType: "application/pdf",
+                  size: 12,
+                  storageKey: "tenants/t1/chat/notes.pdf",
+                },
+              },
+              source: {
+                mimeType: "application/pdf",
+                type: "url",
+                value: "https://x/notes.pdf",
+              },
+              type: "document",
+            },
+          ],
+          role: "user",
+        },
+      ])
+    );
+    expect(refs[0]?.storageKey).toBe("tenants/t1/chat/notes.pdf");
+  });
+});
+
 describe("formatAttachmentManifestEntry", () => {
   it("mentions file_analyst for tool_backed feeds", () => {
     const text = formatAttachmentManifestEntry({
@@ -128,6 +199,22 @@ describe("formatAttachmentManifestEntry", () => {
     expect(text).toContain("agent-file_analyst");
     expect(text).toContain("storage_key: tenants/t1/chat/uploads/big.csv");
     expect(text).toContain("Preview (truncated)");
+  });
+
+  it("lists the extracted markdown sidecar when present", () => {
+    const text = formatAttachmentManifestEntry({
+      filename: "notes.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 80_000,
+      storageKey: "tenants/t1/chat/uploads/1_notes.pdf",
+      extractedStorageKey: "tenants/t1/chat/uploads/1_notes.pdf.extracted.md",
+      tier: "inline_text",
+      body: "Attersee 22 °C",
+    });
+    expect(text).toContain(
+      "extracted_storage_key: tenants/t1/chat/uploads/1_notes.pdf.extracted.md"
+    );
+    expect(text).toContain("fully inlined");
   });
 
   it("marks inline content clearly", () => {

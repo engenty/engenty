@@ -6,9 +6,14 @@ import {
   createApiCatalogSearchStore,
 } from "../../../src/dal/api-catalog/api-catalog-search-store.js";
 import { getAiSearchIndexRegistry } from "../../../src/runtime/ai-search-runtime.js";
+import { catalogDiscoveryResult } from "./lib/catalog-result.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
-import type { ToolRequestContextCarrier } from "./lib/run-context.js";
+import {
+  getEngentyToolsRunContext,
+  type ToolRequestContextCarrier,
+} from "./lib/run-context.js";
+import { isToolVisibleInSpace } from "./lib/space-gate.js";
 import {
   type SearchEngentyToolInput,
   searchInputSchema,
@@ -116,23 +121,42 @@ export async function searchEngentyTools(
       usedFallback = entries.length > 0;
     }
 
-    const fitted = fitMatchesToBudget(
-      entries.map((entry) => projectContract(entry))
+    // Applied AFTER the search, not as a filter passed into it: the index is
+    // tenant-wide and the space narrowing is a property of this run, so
+    // pushing it down would mean teaching every catalog provider about spaces.
+    // Both the primary search and the module fallback pass through here.
+    const space = getEngentyToolsRunContext().space;
+    const visible = entries.filter((entry) =>
+      isToolVisibleInSpace(
+        {
+          operationId:
+            entry.operationId ?? entry.toolId ?? entry.methodName ?? "",
+          ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
+        },
+        space
+      )
     );
-    return {
-      ok: true,
-      catalog_only: true,
+    const fitted = fitMatchesToBudget(
+      visible.map((entry) => projectContract(entry))
+    );
+    return catalogDiscoveryResult(space, {
       matches: fitted.matches,
-      message: usedFallback
-        ? "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search."
+      ...(usedFallback
+        ? {
+            note: "No tool contract matched that query text. Returning available module tools instead; this was only catalog discovery, not an app data search.",
+          }
         : fitted.compacted > 0
-          ? `Catalog discovery completed. These matches are tool contracts, not app data results. ${fitted.compacted} lower-ranked match(es) list only their parameter names to keep this result small — narrow the query if you need their full schema.`
-          : "Catalog discovery completed. These matches are tool contracts, not app data results.",
-      next:
-        entries.length > 0
-          ? "Use engenty_tool_execute with the selected id to fetch or change app data."
-          : "No tool contracts matched. This does not prove app data is missing; broaden catalog discovery or check whether the module registered operations.",
-    };
+          ? {
+              compacted: fitted.compacted,
+              note: `${fitted.compacted} lower-ranked match(es) list only their parameter names to keep this result small — narrow the query if you need their full schema.`,
+            }
+          : {}),
+      ...(visible.length === 0
+        ? {
+            note: "No tool contracts matched. This does not prove app data is missing; broaden catalog discovery or check whether the module registered operations.",
+          }
+        : {}),
+    });
   } catch (err) {
     return coreErrorToToolResult(err);
   }

@@ -1,3 +1,8 @@
+import {
+  coerceRowValues,
+  mergeRowValues,
+  TableColumnValueError,
+} from "@engenty/ai-core";
 import { capabilityCovers } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
@@ -8,8 +13,14 @@ import {
   EngentyCoreHttpError,
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/core-http-client.js";
+import { APP_RELEASE_SUBJECT } from "../ai/jobs/app-release-announce.js";
 import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import {
+  createDataTableStoreFromEnv,
+  type DataTableStore,
+} from "../dal/data-tables/index.js";
+import { resolveNotifications } from "../notifications/inbox.js";
 import {
   type AppCapabilityRegistry,
   appCapabilities,
@@ -75,6 +86,8 @@ const BRIDGE_TOOLS = new Set([
   "data_list",
   "data_set",
   "engenty_call",
+  "table_read",
+  "table_write",
 ]);
 
 /**
@@ -112,6 +125,26 @@ const dataArgsSchema = z.object({
   value: z.unknown().optional(),
 });
 
+// Space tables ride the same store the table_read / table_write tools use;
+// the shapes match so what an agent writes an App reads without translation.
+const tableReadArgsSchema = z.object({
+  limit: z.number().int().min(1).max(500).optional(),
+  offset: z.number().int().min(0).optional(),
+  table_id: z.string().uuid(),
+});
+
+const rowValuesSchema = z.record(z.string(), z.unknown());
+
+const tableWriteArgsSchema = z.object({
+  delete: z.array(z.string().uuid()).max(200).optional(),
+  insert: z.array(rowValuesSchema).max(200).optional(),
+  table_id: z.string().uuid(),
+  update: z
+    .array(z.object({ row_id: z.string().uuid(), values: rowValuesSchema }))
+    .max(200)
+    .optional(),
+});
+
 const reviewDecisionBodySchema = z.object({
   decision: z.enum(["approve", "reject"]),
   reason: z.string().max(1000).optional(),
@@ -122,7 +155,7 @@ interface AppDetail {
   active_version: {
     manifest: {
       actions?: { id: string; requiresApproval?: boolean; risk: string }[];
-      engenty?: { operations?: string[] };
+      engenty?: { operations?: string[]; tables?: string[] };
       storage?: { config?: boolean; data?: boolean };
     };
     version: number;
@@ -151,6 +184,8 @@ function coreClient(accessToken: string): EngentyCoreClient {
 interface ResolvedApp {
   actions: { id: string; requiresApproval?: boolean; risk: string }[];
   allowedOperations: string[];
+  /** Space table ids the manifest declares — the bridge reaches no other. */
+  allowedTables: string[];
   storage: { config: boolean; data: boolean };
   version: number;
 }
@@ -168,6 +203,7 @@ async function loadApp(
   return {
     actions: detail.active_version.manifest.actions ?? [],
     allowedOperations: detail.active_version.manifest.engenty?.operations ?? [],
+    allowedTables: detail.active_version.manifest.engenty?.tables ?? [],
     storage: {
       config: detail.active_version.manifest.storage?.config === true,
       data: detail.active_version.manifest.storage?.data === true,
@@ -179,6 +215,8 @@ async function loadApp(
 export interface AppProxyOptions {
   capabilities?: AppCapabilityRegistry;
   scopeResolver: AiScopeResolver;
+  /** Space table store; resolved from the environment when not injected. */
+  tables?: DataTableStore | null;
 }
 
 export function registerAppProxyRoutes(
@@ -186,6 +224,16 @@ export function registerAppProxyRoutes(
   opts: AppProxyOptions
 ): void {
   const capabilities = opts.capabilities ?? appCapabilities;
+  let tableStore: DataTableStore | null = opts.tables ?? null;
+  const tables = (): DataTableStore => {
+    tableStore ??= createDataTableStoreFromEnv();
+    if (!tableStore) {
+      throw new Error(
+        "app proxy: table store unavailable — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+      );
+    }
+    return tableStore;
+  };
 
   /**
    * Caller identity. Either the viewing user's own JWT (browser) or a
@@ -329,9 +377,10 @@ export function registerAppProxyRoutes(
                   risk: string;
                 }[];
                 egress?: { connect?: string[] };
-                engenty?: { operations?: string[] };
+                engenty?: { operations?: string[]; tables?: string[] };
                 storage?: { config?: boolean; data?: boolean };
               };
+              sha: string;
               status: string;
               version: number;
             }[];
@@ -356,14 +405,50 @@ export function registerAppProxyRoutes(
       if (!subject) {
         return c.json({ can_approve: canApprove, review: null });
       }
+      // An operation id alone does not say what is being approved:
+      // `gmail_send_message` and `contacts_list` look alike in a list. Name
+      // the module (or connector) each id belongs to, from its contract.
+      const operations = await Promise.all(
+        (subject.manifest.engenty?.operations ?? []).map(async (id) => {
+          try {
+            const contract = await client.describeTool(id);
+            return {
+              id,
+              module: contract.moduleId ?? null,
+              summary: contract.summary ?? null,
+            };
+          } catch {
+            return { id, module: null, summary: null };
+          }
+        })
+      );
+      // A table id says nothing about what is in it. The person deciding is
+      // being asked about "Reisekosten 2026", not about
+      // `01a0862f-731f-…` — name every table the manifest declares.
+      const declaredTables = subject.manifest.engenty?.tables ?? [];
+      const namedTables = await Promise.all(
+        declaredTables.map(async (id) => {
+          try {
+            const table = await tables().getTable({
+              tableId: id,
+              tenantId: scope.scope.tenantId,
+            });
+            return { id, title: table?.title ?? null };
+          } catch {
+            return { id, title: null };
+          }
+        })
+      );
       return c.json({
         can_approve: canApprove,
         review: {
           actions: subject.manifest.actions ?? [],
           egress: subject.manifest.egress?.connect ?? [],
-          operations: subject.manifest.engenty?.operations ?? [],
+          operations,
+          sha: subject.sha,
           status: subject.status,
           storage: subject.manifest.storage ?? {},
+          tables: namedTables,
           version: subject.version,
         },
       });
@@ -416,6 +501,14 @@ export function registerAppProxyRoutes(
           version: parsed.data.version,
         }
       );
+      // Decided: the open row about this version, wherever it was raised, is
+      // no longer a question.
+      await resolveNotifications({
+        outcome: parsed.data.decision === "approve" ? "resumed" : "abandoned",
+        subjectId: `${appId}:${parsed.data.version}`,
+        subjectType: APP_RELEASE_SUBJECT,
+        tenantId: scope.scope.tenantId,
+      });
       return c.json({ ok: true, result });
     } catch (err) {
       if (err instanceof EngentyCoreHttpError) {
@@ -573,6 +666,136 @@ export function registerAppProxyRoutes(
             // One handle per invocation: it stops meaning anything the moment
             // the action returns, rather than lingering for its full TTL.
             capabilities.revoke(capability);
+          }
+        }
+
+        case "table_read": {
+          const call = tableReadArgsSchema.safeParse(args);
+          if (!call.success) {
+            return c.json({ error: "apps.invalidArguments" }, 400);
+          }
+          // Same rule as operations: a table the manifest never named does
+          // not exist for the App, whoever is viewing it.
+          if (!resolved.allowedTables.includes(call.data.table_id)) {
+            return c.json(
+              { error: "apps.tableNotDeclared", table_id: call.data.table_id },
+              403
+            );
+          }
+          const table = await tables().getTable({
+            tableId: call.data.table_id,
+            tenantId: caller.tenantId,
+          });
+          if (!table) {
+            return c.json(
+              { error: "apps.tableNotFound", table_id: call.data.table_id },
+              404
+            );
+          }
+          const rows = await tables().listRows({
+            ...(call.data.limit === undefined
+              ? {}
+              : { limit: call.data.limit }),
+            ...(call.data.offset === undefined
+              ? {}
+              : { offset: call.data.offset }),
+            tableId: table.id,
+            tenantId: caller.tenantId,
+          });
+          return c.json({
+            ok: true,
+            result: {
+              columns: table.columns,
+              rows: rows.map((row) => ({ cells: row.cells, id: row.id })),
+              table_id: table.id,
+              title: table.title,
+            },
+          });
+        }
+
+        case "table_write": {
+          const call = tableWriteArgsSchema.safeParse(args);
+          if (!call.success) {
+            return c.json({ error: "apps.invalidArguments" }, 400);
+          }
+          if (!resolved.allowedTables.includes(call.data.table_id)) {
+            return c.json(
+              { error: "apps.tableNotDeclared", table_id: call.data.table_id },
+              403
+            );
+          }
+          const table = await tables().getTable({
+            tableId: call.data.table_id,
+            tenantId: caller.tenantId,
+          });
+          if (!table) {
+            return c.json(
+              { error: "apps.tableNotFound", table_id: call.data.table_id },
+              404
+            );
+          }
+          // Rows only. The column definition is the agent's (table_write
+          // tool) or a person's (Data tab); an App fills the table it was
+          // given.
+          try {
+            const inserted = call.data.insert?.length
+              ? (
+                  await tables().insertRows({
+                    rows: call.data.insert.map((values) =>
+                      coerceRowValues(table.columns, values)
+                    ),
+                    tableId: table.id,
+                    tenantId: caller.tenantId,
+                  })
+                ).map((row) => row.id)
+              : [];
+            const updated: string[] = [];
+            for (const patch of call.data.update ?? []) {
+              const existing = await tables().getRow({
+                rowId: patch.row_id,
+                tableId: table.id,
+                tenantId: caller.tenantId,
+              });
+              if (!existing) {
+                return c.json(
+                  { error: "apps.rowNotFound", row_id: patch.row_id },
+                  404
+                );
+              }
+              const saved = await tables().updateRow({
+                cells: mergeRowValues(
+                  table.columns,
+                  existing.cells,
+                  patch.values
+                ),
+                rowId: patch.row_id,
+                tableId: table.id,
+                tenantId: caller.tenantId,
+              });
+              updated.push(saved.id);
+            }
+            const deleted = call.data.delete?.length
+              ? await tables().deleteRows({
+                  rowIds: call.data.delete,
+                  tableId: table.id,
+                  tenantId: caller.tenantId,
+                })
+              : 0;
+            return c.json({
+              ok: true,
+              result: { deleted, inserted, table_id: table.id, updated },
+            });
+          } catch (error) {
+            if (error instanceof TableColumnValueError) {
+              return c.json(
+                {
+                  error: "apps.invalidRowValues",
+                  message: `${error.columnId}: ${error.message}`,
+                },
+                400
+              );
+            }
+            throw error;
           }
         }
 

@@ -2,6 +2,7 @@
 export * from "./articles.js";
 export * from "./attachments.js";
 export * from "./categories.js";
+export * from "./chunking.js";
 export * from "./comments.js";
 export * from "./faqs.js";
 export * from "./inbox.js";

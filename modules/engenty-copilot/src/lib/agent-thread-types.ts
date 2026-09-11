@@ -13,6 +13,16 @@ export interface AgentThreadDto {
   id: string;
   metadata: Record<string, unknown>;
   route_context: Record<string, unknown>;
+  /**
+   * The space this conversation belongs to (PLAN-spaces.md Phase C2).
+   *
+   * Null on a thread from before the backfill. Worth carrying on the wire
+   * rather than inferring from the URL: they are exactly the two things that
+   * can disagree, and when they do the run follows the THREAD — so a chat can
+   * be answering with another space's tools while the address bar says
+   * otherwise, which is only visible if both numbers are in hand.
+   */
+  space_id: string | null;
   status: AgentThreadStatus;
   summary: string | null;
   tenant_id: string;

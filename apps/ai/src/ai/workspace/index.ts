@@ -1,4 +1,12 @@
 export {
+  type AllowedSkillResolutionKind,
+  builtinPlatformSkillNames,
+  isSkillWorkspaceMount,
+  type ModuleSkillCapability,
+  resolveAllowedSkillNames,
+  skillNamesByModuleFromCapabilities,
+} from "./allowed-skills.js";
+export {
   defaultTenantSkillPaths,
   type EngentyWorkspaceAgentConfig,
   type EngentyWorkspaceMountSpec,
@@ -10,6 +18,11 @@ export {
   parseEngentyWorkspaceAgentConfig,
   parseEngentyWorkspaceRuntimeSpec,
 } from "./contracts.js";
+export {
+  FilteredSkillFilesystem,
+  skillNameFromMountPath,
+  wrapSkillFilesystem,
+} from "./filtered-skill-filesystem.js";
 export {
   type CreateEngentyAgentWorkspaceResult,
   createEngentyAgentWorkspace,

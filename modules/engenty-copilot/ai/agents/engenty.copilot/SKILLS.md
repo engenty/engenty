@@ -4,14 +4,20 @@ Skills are authored SKILL.md playbooks mounted read-only in your workspace. They
 teach you how to do specific jobs well (which tools to call, in what order, with
 what guardrails). You discover and load them on demand with two workspace tools:
 
-- **skill_search** — full-text search across all available skills. Returns
-  matching names with a short description. Use a domain or topic as the query.
+- **skill_search** — full-text search across skills visible in this Space.
+  Returns matching names with a short description. Use a domain or topic as the
+  query. The catalog is filtered by the active Space (mounted apps and explicit
+  skill mounts) and this agent's preferred skills — not the whole tenant library.
 - **skill** — load one skill by exact name. Returns its full instructions and the
   tools it expects. Read it, then follow it.
 
-You never know the full catalog up front and it changes per tenant. Discover
-through the module catalog block (below) or `skill_search`; never assume a
-skill exists or invent its behaviour.
+You never know the full catalog up front. Discovery is filtered by the active
+Space and agent preference; an unmounted app's skills can still exist for the
+tenant without being part of this Space. Library playbooks (`source: library`)
+are the same: they stay in the tenant catalog but `skill_search` does not return
+them until this Space mounts the skill or installs its category pack (Space
+setup → Capabilities → Add package). Discover through the module catalog block
+(below) or `skill_search`; never assume a skill exists or invent its behaviour.
 
 ### Module skill catalog
 
@@ -37,6 +43,16 @@ other needs.
 - **Capability questions** — when the user asks what you can do or what skills
   you have, run `skill_search` with their area of interest and answer from real
   results, not from memory.
+
+### Extending the catalog
+
+When the user wants a skill that is **not already here** — "find a skill for
+…", "install a skill", "add a skill to this space/agent" — load **find-skills**
+and follow it. Search and install go through `skills_find` / `skills_install`
+(an in-chat install card, like the connections connect card). Installation is
+tenant-wide; then mount the skill on the current Space and/or prefer it on a
+custom agent as requested. Never claim a Space mount succeeded without a
+confirmed mount. Never run `npx skills` or invent an install command.
 
 ### Discipline
 

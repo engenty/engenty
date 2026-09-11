@@ -72,7 +72,10 @@ Rules:
 - Preserve headings, lists, tables (as Markdown tables when clear), and emphasis.
 - Do not wrap the result in a code fence.
 - Use null or omit sections that are not present; output only the document body as Markdown.
-- For scanned or image-only pages, transcribe visible text faithfully.`,
+- For scanned or image-only pages, transcribe visible text faithfully.
+- For multi-page PDFs, start each page with this sentinel on its own line:
+  <page-break number="N" total="T"></page-break>
+  Use 1-based PDF page numbers. Do not wrap the page body in tags. Do not use HTML comments.`,
         },
         {
           role: "user",

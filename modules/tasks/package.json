@@ -1,7 +1,7 @@
 {
   "name": "@engenty/tasks",
   "version": "0.0.1",
-  "description": "Canonical goals and tasks for human and agent collaboration",
+  "description": "Canonical tasks for human and agent collaboration",
   "private": true,
   "type": "module",
   "main": "./dist/src/plugin.js",
@@ -27,25 +27,21 @@
       "types": "./ui/comments.ts",
       "default": "./dist/ui/comments.js"
     },
+    "./ui/work-tabs": {
+      "types": "./ui/work-tabs.ts",
+      "default": "./dist/ui/work-tabs.js"
+    },
     "./lib/task-workspace": {
       "types": "./src/lib/task-workspace.ts",
       "default": "./dist/src/lib/task-workspace.js"
-    },
-    "./lib/routine-ref": {
-      "types": "./src/lib/routine-ref.ts",
-      "default": "./dist/src/lib/routine-ref.js"
-    },
-    "./lib/routine-workspace": {
-      "types": "./src/lib/routine-workspace.ts",
-      "default": "./dist/src/lib/routine-workspace.js"
     }
   },
   "engenty": {
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts src/lib/routine-ref.ts src/lib/routine-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "biome check ."
@@ -58,6 +54,7 @@
     "@engenty/approvals-sdk": "workspace:*",
     "@engenty/ai-core": "workspace:*",
     "@engenty/ai-ui": "workspace:*",
+    "@engenty/notifications-ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/environment": "workspace:*",
@@ -67,6 +64,7 @@
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/telemetry": "workspace:*",
+    "@engenty/tenant-settings": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",

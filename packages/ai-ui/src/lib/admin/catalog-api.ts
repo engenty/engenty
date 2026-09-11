@@ -14,76 +14,33 @@ import {
   upsertFileStorageSkill,
 } from "../runtime/skills-api.js";
 import type {
-  AiActionRecord,
   AiFileRecord,
   AiRegisteredAction,
   AiSkillCatalogEntry,
+  AiSkillMetadata,
   AiSkillRecord,
   CreateAiSkillInput,
   UpdateAiSkillInput,
 } from "./ai-runtime-types.js";
 
-// apps/ai `GET /ai/v1/actions` item — code-defined actions are read-only.
-interface AppsAiActionItem {
-  agent_id: string;
-  allowed_tools?: string[];
-  context_type?: string | null;
-  default_thread_mode: "reuse" | "new" | "none";
-  description: string | null;
-  id: string;
-  input_schema_json: Record<string, unknown> | null;
-  instruction_keys?: string[];
-  module_id: string;
-  name: string;
-  prompt?: string;
-  skills?: string[];
-}
-
-// Adapt the apps/ai action shape into the legacy admin `AiActionRecord` so the
-// catalog + detail pages render read-only without a parallel model. Code-defined
-// actions are always `source_kind: "seed"` → the detail page hides edit/delete.
-function toAppsAiActionRecord(a: AppsAiActionItem): AiActionRecord {
-  const isCore = a.module_id === "engenty-core";
-  const schema = a.input_schema_json ?? { type: "object" };
-  return {
-    agent_id: a.agent_id,
-    allowed_tools: a.allowed_tools ?? [],
-    context_type: a.context_type ?? null,
-    created_at: "",
-    default_thread_mode: a.default_thread_mode,
-    description: a.description ?? null,
-    has_input_schema:
-      Object.keys(
-        (schema as { properties?: Record<string, unknown> }).properties ?? {}
-      ).length > 0,
-    has_tenant_override: false,
-    id: a.id,
-    input_schema_json: schema,
-    instruction_keys: a.instruction_keys ?? [],
-    last_seeded_at: null,
-    last_synced_at: null,
-    module_id: a.module_id,
-    name: a.name,
-    owner_id: a.id,
-    owner_kind: isCore ? "core" : "module",
-    prompt: a.prompt ?? "",
-    record_id: a.id,
-    reference_kind: isCore ? "core" : "module",
-    skills: a.skills ?? [],
-    source_kind: "seed",
-    source_reference: a.module_id,
-    tenant_id: null,
-    updated_at: "",
-  };
-}
-
 // Map a file-storage skill `source` (module|builtin|upload|<provider id>) to the
 // module id the legacy admin grouping expects.
-function moduleIdFromSource(source: string): string {
+function moduleIdFromSource(source: string): string | null {
   if (source === "builtin" || source === "module") {
     return "engenty-core";
   }
+  if (source === "library" || source === "upload") {
+    return null;
+  }
   return source;
+}
+
+function skillMetadataForSource(source: string): AiSkillMetadata {
+  const moduleId = moduleIdFromSource(source);
+  if (!moduleId) {
+    return {};
+  }
+  return { module_id: moduleId };
 }
 
 function summaryToSkillRecord(summary: FileStorageSkillSummary): AiSkillRecord {
@@ -105,7 +62,7 @@ function summaryToSkillRecord(summary: FileStorageSkillSummary): AiSkillRecord {
     last_seeded_at: null,
     last_synced_at: null,
     license: null,
-    metadata: { module_id: moduleId },
+    metadata: skillMetadataForSource(summary.source),
     metadata_order: [],
     name: summary.name,
     owner_id: "",
@@ -129,13 +86,14 @@ function detailToSkillRecord(detail: FileStorageSkillDetail): AiSkillRecord {
   };
 }
 
-export async function getAiActions(
+// Module-shipped workflow actions are read-only — the wire shape IS the model.
+export function getAiWorkflows(
   signal?: AbortSignal
-): Promise<{ actions: AiRegisteredAction[] }> {
-  const { actions } = await requestAiServiceJson<{
-    actions: AppsAiActionItem[];
-  }>("/ai/v1/actions", { signal });
-  return { actions: actions.map(toAppsAiActionRecord) };
+): Promise<{ workflows: AiRegisteredAction[] }> {
+  return requestAiServiceJson<{ workflows: AiRegisteredAction[] }>(
+    "/ai/v1/workflows/catalog",
+    { signal }
+  );
 }
 
 export async function getAiSkillCatalog(signal?: AbortSignal) {
@@ -149,7 +107,7 @@ export async function getAiSkillCatalog(signal?: AbortSignal) {
         editable: summary.editable,
         engenty_modules: summary.engenty_modules,
         license: null,
-        metadata: { module_id: moduleIdFromSource(summary.source) },
+        metadata: skillMetadataForSource(summary.source),
         name: summary.name,
         origins: [],
         requires_sandbox: summary.requires_sandbox,
@@ -173,8 +131,8 @@ export async function getAiSkillDetail(skillId: string, signal?: AbortSignal) {
     content_text: "",
     last_seeded_at: null,
     last_synced_at: null,
-    logical_path: file.path,
-    module_id: moduleIdFromSource(skill.source),
+    logical_path: file.path.replace(/^\/+/, ""),
+    module_id: moduleIdFromSource(skill.source) ?? "",
     owner_key: skill.name,
     owner_type: "skill",
     reference_kind: skill.tier === "custom" ? "tenant" : "module",
@@ -215,18 +173,14 @@ export function deleteAiSkill(skillId: string) {
   return deleteFileStorageSkill(skillId);
 }
 
-export async function getAiActionDetail(
-  actionId: string,
+export async function getAiWorkflowDetail(
+  workflowId: string,
   signal?: AbortSignal
-): Promise<{ action: AiActionRecord; files: AiFileRecord[] }> {
-  const { actions } = await requestAiServiceJson<{
-    actions: AppsAiActionItem[];
-  }>("/ai/v1/actions", { signal });
-  const found = actions.find((a) => a.id === actionId);
+): Promise<{ workflow: AiRegisteredAction }> {
+  const { workflows } = await getAiWorkflows(signal);
+  const found = workflows.find((a) => a.id === workflowId);
   if (!found) {
-    throw new Error(`Action not found: ${actionId}`);
+    throw new Error(`Workflow not found: ${workflowId}`);
   }
-  // No file backing on the read-only path — the detail page reconstructs the
-  // ACTION.md source from the draft when `files` is empty.
-  return { action: toAppsAiActionRecord(found), files: [] };
+  return { workflow: found };
 }

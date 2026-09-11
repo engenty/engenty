@@ -60,9 +60,18 @@ export function selectSubAgentDelegationFromMessages(
       const resolved = toolName.startsWith("agent-")
         ? toolName
         : (part.resolvedToolName?.trim() ?? toolName);
-      const agentId = resolved.startsWith("agent-")
+      let agentId = resolved.startsWith("agent-")
         ? resolved.slice("agent-".length)
         : resolved;
+      if (
+        (toolName === "message_agent" || resolved === "message_agent") &&
+        part.input &&
+        typeof part.input === "object" &&
+        "agent_id" in part.input &&
+        typeof (part.input as { agent_id?: unknown }).agent_id === "string"
+      ) {
+        agentId = (part.input as { agent_id: string }).agent_id.trim();
+      }
       return {
         agentId,
         agentName: resolveAgentDisplayName(agentId),

@@ -1,11 +1,10 @@
 // Token accounting for a conversation turn, shared by the START executor and
 // both RESUME lanes.
 //
-// It lives here because the resume lanes used to skip metering entirely: an
-// approval-gated turn does its cheap half before the gate and its expensive
-// half after, and only the first half was ever billed or reported. The durable
-// run row had the same hole — `tracker.complete()` was called with a status and
-// nothing else, so a failed resume stored `error_message = NULL`.
+// Shared because an approval-gated turn splits across lanes: the cheap half runs
+// before the gate and the expensive half after. Metering only the start lane
+// silently under-bills every gated turn, so both resume lanes meter too, and
+// `tracker.complete()` carries the failure message rather than a bare status.
 import { type AiUsageStore, recordAiUsage } from "@engenty/ai-core";
 import type { AiSessionScope } from "../sessions/types.js";
 
@@ -16,52 +15,6 @@ export interface RunUsage {
   reasoning?: number | null;
 }
 
-/**
- * Fold one `usage_update` payload into a running total.
- *
- * Mastra's AgentController emits `usage_update` once per `step-finish`, carrying
- * THAT STEP's usage — not a running total. Metering the last payload therefore
- * billed a five-step turn as if it were one step. The accumulator keeps Mastra's
- * own field names so the result stays a valid `TokenUsage` for
- * `usageFromSession`.
- */
-export function accumulateSessionUsage(total: unknown, step: unknown): unknown {
-  const stepUsage = usageFromSession(step);
-  if (!stepUsage) {
-    return total;
-  }
-  const current = usageFromSession(total);
-  const add = (a: number | null | undefined, b: number | null | undefined) =>
-    a == null && b == null ? null : (a ?? 0) + (b ?? 0);
-  return {
-    cachedInputTokens: add(current?.cached, stepUsage.cached),
-    completionTokens: add(current?.output, stepUsage.output),
-    promptTokens: add(current?.input, stepUsage.input),
-    reasoningTokens: add(current?.reasoning, stepUsage.reasoning),
-  };
-}
-
-/** Map a Mastra `TokenUsage` to the `recordAiUsage` usage shape. */
-export function usageFromSession(usage: unknown): RunUsage | null {
-  if (!usage || typeof usage !== "object") {
-    return null;
-  }
-  const u = usage as {
-    cachedInputTokens?: unknown;
-    completionTokens?: unknown;
-    promptTokens?: unknown;
-    reasoningTokens?: unknown;
-  };
-  const num = (v: unknown) =>
-    typeof v === "number" && Number.isFinite(v) ? v : null;
-  return {
-    cached: num(u.cachedInputTokens),
-    input: num(u.promptTokens),
-    output: num(u.completionTokens),
-    reasoning: num(u.reasoningTokens),
-  };
-}
-
 /** Meter a turn's tokens. Best-effort: usage must never fail a run. */
 export async function recordSessionUsage(input: {
   agentId: string;
@@ -69,16 +22,18 @@ export async function recordSessionUsage(input: {
   runId: string;
   scope: AiSessionScope;
   threadId: string;
-  usage: unknown;
+  /**
+   * Already normalized: every producer exposes `runUsage`, so normalization
+   * happens at the source. Do not accept a raw provider shape here — a producer
+   * that spells usage differently would then meter nothing, silently.
+   */
+  usage: RunUsage | null;
   usageStore: AiUsageStore | null | undefined;
 }): Promise<void> {
-  if (!input.usageStore) {
+  if (!(input.usageStore && input.usage)) {
     return;
   }
-  const usage = usageFromSession(input.usage);
-  if (!usage) {
-    return;
-  }
+  const usage = input.usage;
   try {
     await recordAiUsage({
       agent_id: input.agentId,
@@ -94,4 +49,53 @@ export async function recordSessionUsage(input: {
   } catch (error) {
     console.error(`[conversation ${input.runId}] usage failed:`, error);
   }
+}
+
+/**
+ * The AG-UI driver's usage, normalized to `RunUsage`.
+ *
+ * `@ag-ui/mastra` reports `TokenUsage[]` on `RUN_FINISHED.usage` — one entry per
+ * model call — where the Session path accumulated a single running total on the
+ * converter. Two of the four field names already match (`cachedInputTokens`,
+ * `reasoningTokens`); only input/output are spelled differently.
+ *
+ * `entries` is summed for the run total. Pass `lastOnly` for window occupancy, which
+ * is the LAST call's input rather than the sum — the same distinction the Session
+ * path drew between `totalUsage` and `lastUsage`, and summing there would report a
+ * context window several times larger than any single call actually used.
+ *
+ * Invariants carried over: cached ⊆ input, reasoning ⊆ output.
+ */
+export function usageFromAgUiTokens(
+  entries: unknown,
+  options?: { lastOnly?: boolean }
+): RunUsage | null {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return null;
+  }
+  const considered = options?.lastOnly ? [entries.at(-1)] : entries;
+  const num = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  let cached: number | null = null;
+  let input: number | null = null;
+  let output: number | null = null;
+  let reasoning: number | null = null;
+  const add = (total: number | null, next: number | null) =>
+    next === null ? total : (total ?? 0) + next;
+  for (const raw of considered) {
+    if (!raw || typeof raw !== "object") {
+      continue;
+    }
+    const u = raw as {
+      cachedInputTokens?: unknown;
+      inputTokens?: unknown;
+      outputTokens?: unknown;
+      reasoningTokens?: unknown;
+    };
+    cached = add(cached, num(u.cachedInputTokens));
+    input = add(input, num(u.inputTokens));
+    output = add(output, num(u.outputTokens));
+    reasoning = add(reasoning, num(u.reasoningTokens));
+  }
+  return { cached, input, output, reasoning };
 }

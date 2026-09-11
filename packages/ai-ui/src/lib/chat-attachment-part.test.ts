@@ -3,6 +3,7 @@ import {
   buildChatAttachmentPart,
   type ChatAttachmentMeta,
   isImageMimeType,
+  isPdfMimeType,
   readChatAttachmentPart,
 } from "./chat-attachment-part.js";
 
@@ -18,6 +19,14 @@ describe("chat-attachment-part", () => {
     expect(isImageMimeType("image/jpeg")).toBe(true);
     expect(isImageMimeType("application/pdf")).toBe(false);
     expect(isImageMimeType(undefined)).toBe(false);
+  });
+
+  it("classifies PDFs by mime or filename", () => {
+    expect(isPdfMimeType("application/pdf")).toBe(true);
+    expect(isPdfMimeType("APPLICATION/PDF")).toBe(true);
+    expect(isPdfMimeType("application/octet-stream", "report.pdf")).toBe(true);
+    expect(isPdfMimeType("application/zip", "archive.zip")).toBe(false);
+    expect(isPdfMimeType(undefined)).toBe(false);
   });
 
   it("builds an image part with url source + engenty metadata", () => {

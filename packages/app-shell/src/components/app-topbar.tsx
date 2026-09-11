@@ -13,7 +13,7 @@ import {
   ShellBreadcrumbTrail,
 } from "@engenty/ui-core";
 import { DockEngentyIcon } from "@engenty/ui-icons";
-import { usePageHeader } from "@engenty/ui-plugin-sdk";
+import { type PageBreadcrumb, usePageHeader } from "@engenty/ui-plugin-sdk";
 import {
   Code2,
   EyeOff,
@@ -38,6 +38,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { findActiveNavLabel } from "../lib/navigation";
 import type { NavigationSection, ShellSidebarConfig } from "../types/shell";
 import { enrichFirstBreadcrumbWithNavIcon } from "./enrich-breadcrumb-nav-icon";
+
+function isPrimitiveBreadcrumbLabel(
+  label: PageBreadcrumb["label"] | undefined
+): boolean {
+  return typeof label === "string" || typeof label === "number";
+}
 
 /** Slim slash divider between topbar breadcrumb segments. */
 function BreadcrumbSlash() {
@@ -84,6 +90,13 @@ interface AppTopbarProps {
   onToggleSecondaryNav?: () => void;
   /** Toggle dock (primary sidebar) between pinned and auto-hide. */
   onToggleSidebarHidden?: () => void;
+  /**
+   * A crumb the ROUTE contributes ahead of the page's own — the space a module
+   * is open in. Shown only while the secondary column is collapsed: when it is
+   * open the space is already named at the top of it, and two copies of one
+   * name on one screen is worse than none.
+   */
+  routeBreadcrumb?: PageBreadcrumb | null;
   secondaryNavOpen?: boolean;
   sections: NavigationSection[];
   /** Shell sidebar config — used for userMenu rendering in the app menu. */
@@ -100,6 +113,7 @@ export function AppTopbar({
   isSidebarHovering,
   secondaryNavOpen,
   moduleRootNavItem,
+  routeBreadcrumb,
   onToggleSecondaryNav,
   onToggleSidebarHidden,
   onSecondaryNavHoverEnter,
@@ -133,28 +147,46 @@ export function AppTopbar({
     topbarChrome,
     topbarOverlap,
   } = usePageHeader();
-  const contentBlend = topbarChrome === "contentBlend";
+  // Blended is the default: transparent on the page's own surface, compact
+  // density. `"band"` is the page's opt-in for a distinct card-coloured strip.
+  const contentBlend = topbarChrome !== "band";
   const visibleBreadcrumbs = useMemo(() => {
     // When the sidebar is open and the page passes no breadcrumbs, show nothing
     // in the trail — the module title often lives in `secondaryNavHeaderSlot`;
     // the module root icon is rendered separately in this topbar when the column is open.
     const sidebarOpenAndEmpty =
       !!(hasSecondaryNav && secondaryNavOpen) && breadcrumbs.length === 0;
-    const base = sidebarOpenAndEmpty
-      ? []
-      : breadcrumbs.length > 0
-        ? breadcrumbs
-        : [{ label: currentTitle }];
-    return enrichFirstBreadcrumbWithNavIcon(base, location.pathname, sections, {
-      suppress:
-        !!(hasSecondaryNav && secondaryNavOpen) ||
-        secondaryNavHeaderSlot != null,
-    });
+    // `currentTitle` is the shell's guess from the nav sections, and inside a
+    // space it guesses "Dashboard". When the route already names where you are,
+    // an empty page trail should stay empty rather than invent a second crumb.
+    const base =
+      sidebarOpenAndEmpty || (routeBreadcrumb && breadcrumbs.length === 0)
+        ? []
+        : breadcrumbs.length > 0
+          ? breadcrumbs
+          : [{ label: currentTitle }];
+    const enriched = enrichFirstBreadcrumbWithNavIcon(
+      base,
+      location.pathname,
+      sections,
+      {
+        suppress:
+          !!(hasSecondaryNav && secondaryNavOpen) ||
+          secondaryNavHeaderSlot != null,
+      }
+    );
+    // Prepended AFTER enrichment: the icon lookup decorates the FIRST crumb
+    // with the module's nav icon, and the space is not that module.
+    if (routeBreadcrumb && !(hasSecondaryNav && secondaryNavOpen)) {
+      return [routeBreadcrumb, ...enriched];
+    }
+    return enriched;
   }, [
     breadcrumbs,
     currentTitle,
     hasSecondaryNav,
     location.pathname,
+    routeBreadcrumb,
     secondaryNavHeaderSlot,
     secondaryNavOpen,
     sections,
@@ -222,12 +254,19 @@ export function AppTopbar({
         suppressEmptyTopbar && "hidden max-md:flex",
         /* When topbarOverlap, float above the content (absolute within non-scrolling column). */
         topbarOverlap ? "absolute inset-x-0 top-0" : "sticky top-0",
+        // Same shell row either way. The band paints the card surface with
+        // wider density and still no border; the default paints nothing.
         contentBlend
-          ? "h-11 gap-1 border-0 bg-transparent px-2 py-0 shadow-none"
-          : "h-[52px] gap-2 border-b bg-card/85 px-3 backdrop-blur"
+          ? "h-(--shell-row) gap-1 bg-transparent px-2 py-0"
+          : "h-(--shell-row) gap-2 bg-card/85 px-3 backdrop-blur",
+        // Seam Close/Pin is size-6 centred on the column edge, so half of it
+        // sits on the canvas. Default px-2/px-3 is not enough; clear it on md+
+        // while the column is open. Collapsed, Open already occupies this side.
+        hasSecondaryNav && secondaryNavOpen && "max-md:pl-2 md:pl-6"
       )}
       data-engenty-region="topbar"
       data-topbar-chrome={contentBlend ? "content-blend" : undefined}
+      data-topbar-overlap={topbarOverlap ? "true" : undefined}
     >
       {/* When workspace sidebar is open and the topbar is transparent, extend
           the sidebar bg-card into the topbar area so the background is seamless. */}
@@ -249,6 +288,7 @@ export function AppTopbar({
         {/* Mobile hamburger — hidden md+ since primary sidebar is always visible */}
         <Button
           className={cn("md:hidden", contentBlend && "size-8")}
+          data-shell-mobile-nav-trigger=""
           onClick={onMenuClick}
           size="icon"
           variant={contentBlend ? "ghost" : "outline"}
@@ -311,7 +351,7 @@ export function AppTopbar({
               "hover:bg-accent/80 hover:shadow-sm active:scale-95",
               contentBlend
                 ? "size-7 rounded-md"
-                : "size-8 border border-border/40 bg-muted/30 shadow-xs"
+                : "size-8 border border-border-soft bg-muted/30 shadow-xs"
             )}
             onClick={() => setAppMenuOpen(true)}
             type="button"
@@ -333,8 +373,10 @@ export function AppTopbar({
             <Link
               aria-label={moduleRootNavItem.label}
               className={cn(
-                "flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100",
-                contentBlend ? "size-7 opacity-50" : "size-6 opacity-40"
+                // Muted colour, not opacity: furniture stays legible and does
+                // not ghost the surface behind it.
+                "flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                contentBlend ? "size-7" : "size-6"
               )}
               to={moduleRootNavItem.to}
             >
@@ -343,8 +385,13 @@ export function AppTopbar({
           </>
         ) : null}
 
-        {/* 4) Breadcrumb trail */}
-        {visibleBreadcrumbs.length > 0 ? <BreadcrumbSlash /> : null}
+        {/* 4) Breadcrumb trail — no leading slash when the first crumb is a
+            custom node (space tile): it sits next to the toggle the same way
+            the name sat in the column header. */}
+        {visibleBreadcrumbs.length > 0 &&
+        isPrimitiveBreadcrumbLabel(visibleBreadcrumbs[0]?.label) ? (
+          <BreadcrumbSlash />
+        ) : null}
         <ShellBreadcrumbTrail
           className={cn(
             "min-w-0 flex-1",
@@ -366,14 +413,15 @@ export function AppTopbar({
         className={cn(
           "app-topbar-actions flex shrink-0 items-center",
           contentBlend ? "gap-1" : "gap-2",
-          "max-md:[&_button[data-slot=button]_svg]:m-0",
+          "max-md:[&_[data-slot=button]_svg]:m-0",
           contentBlend &&
             cn(
               // Force compact topbar actions: nested wrappers pass explicit
               // h-4 / min-w / defaults that otherwise win the cascade without !.
-              "[&_button]:!h-7 [&_button]:!min-h-7 [&_button]:!min-w-0 [&_button]:!gap-1 [&_button]:!px-2 [&_button]:!py-0 [&_button]:!text-xs [&_button]:!leading-tight",
-              "[&_button_svg]:!size-3.5 [&_button_svg]:!shrink-0",
-              "[&_button[data-variant=outline]]:!border-border/45 [&_button[data-variant=outline]]:!bg-transparent [&_button[data-variant=outline]]:!shadow-none"
+              // `[data-slot=button]` covers native buttons and asChild links.
+              "[&_[data-slot=button]]:!h-7 [&_[data-slot=button]]:!min-h-7 [&_[data-slot=button]]:!min-w-0 [&_[data-slot=button]]:!gap-1 [&_[data-slot=button]]:!px-2 [&_[data-slot=button]]:!py-0 [&_[data-slot=button]]:!text-xs [&_[data-slot=button]]:!leading-tight",
+              "[&_[data-slot=button]_svg]:!size-3.5 [&_[data-slot=button]_svg]:!shrink-0",
+              "[&_[data-slot=button][data-variant=outline]]:!border-border-soft [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!shadow-none"
             )
         )}
       >

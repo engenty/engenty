@@ -3,21 +3,52 @@
   "id": "invoices.manager",
   "name": "Invoices Manager",
   "description": "Assemble, edit, and manage invoices.",
+  "engenty": "flame",
   "module_id": "invoices",
+  "agent_scope": "shared",
   "skills": [
     "invoices-search-and-retrieve",
     "invoices-create-and-edit",
     "invoices-blocks-management"
   ],
-  "tools": [
-    "engenty_tools_search",
-    "engenty_tool_execute",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
-  ],
+  "tools": ["engenty_tools_search", "engenty_tool_execute"],
   "workspace": {
     "enabled": true,
     "preset": "staff"
-  }
+  },
+  "starters": [
+    {
+      "id": "invoices-find",
+      "label": "Find an invoice",
+      "prompt": "Find the latest invoices and summarize which ones still need action.",
+      "locales": {
+        "de": {
+          "label": "Rechnung finden",
+          "prompt": "Finde die neuesten Rechnungen und fasse zusammen, welche noch Handlung brauchen."
+        }
+      }
+    },
+    {
+      "id": "invoices-draft",
+      "label": "Draft a new invoice",
+      "prompt": "Draft a new invoice. Ask me for the customer, line items, and due date.",
+      "locales": {
+        "de": {
+          "label": "Neue Rechnung erstellen",
+          "prompt": "Erstelle eine neue Rechnung. Frag mich nach Kunde, Positionen und F\u00e4lligkeit."
+        }
+      }
+    },
+    {
+      "id": "invoices-unpaid",
+      "label": "List unpaid invoices",
+      "prompt": "List unpaid invoices and who we are waiting on.",
+      "locales": {
+        "de": {
+          "label": "Unbezahlte Rechnungen",
+          "prompt": "Liste unbezahlte Rechnungen und auf wen wir warten."
+        }
+      }
+    }
+  ]
 }

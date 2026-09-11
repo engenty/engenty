@@ -9,8 +9,8 @@ import {
   ChevronRight,
   FileTerminal,
   House,
-  ListChecks,
   MessagesSquare,
+  Workflow,
   Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -18,25 +18,25 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   useAdminAiThreadsQuery,
-  useAiActionsQuery,
   useAiAgentsQuery,
   useAiSkillsQuery,
   useAiToolsQuery,
 } from "../../lib/admin/ai-runtime-queries.js";
 import {
-  countActions,
+  countFlows,
   countSkills,
   countTools,
 } from "../admin-overview/overview-counts.js";
 import {
-  buildActionsCatalogPath,
   buildActivityPath,
   buildAgentsCatalogPath,
   buildAgentsWorkspacePath,
   buildConnectionsPath,
   buildSkillsCatalogPath,
   buildToolsPath,
+  buildWorkflowsCatalogPath,
 } from "../agents-workspace/agent-workspace-url-state.js";
+import { useFlowCatalog } from "../agents-workspace/use-flow-catalog.js";
 
 interface AdminLinkRowProps {
   description: string;
@@ -114,19 +114,18 @@ function AdminLinkRow({
 export function CopilotAdminLinksSection() {
   const { t } = useTranslation("ai-ui");
   const agentsQuery = useAiAgentsQuery();
-  const actionsQuery = useAiActionsQuery();
+  const { flows, flowsLoading } = useFlowCatalog();
   const skillsQuery = useAiSkillsQuery();
   const toolsQuery = useAiToolsQuery();
   const sessionsQuery = useAdminAiThreadsQuery(null, false);
   const connectionsQuery = useWorkspaceConnectionsCount();
 
   const agents = agentsQuery.data?.agents ?? [];
-  const actions = actionsQuery.data?.actions ?? [];
   const skills = skillsQuery.data?.skills ?? [];
   const tools = toolsQuery.data?.tools ?? [];
   const sessions = sessionsQuery.data?.sessions ?? [];
 
-  const actionCounts = useMemo(() => countActions(actions), [actions]);
+  const flowCounts = useMemo(() => countFlows(flows), [flows]);
   const skillCounts = useMemo(() => countSkills(skills), [skills]);
   const toolCounts = useMemo(() => countTools(tools), [tools]);
 
@@ -145,16 +144,14 @@ export function CopilotAdminLinksSection() {
           : agentCount === 0
             ? t("copilotAdminLinks.hints.agentsEmpty")
             : t("copilotAdminLinks.hints.agents", { count: agentCount }),
-      actions: actionsQuery.isError
-        ? errorHint
-        : actionsQuery.isLoading
-          ? loadingHint
-          : actionCounts.total === 0
-            ? t("copilotAdminLinks.hints.actionsEmpty")
-            : t("copilotAdminLinks.hints.actions", {
-                count: actionCounts.total,
-                custom: actionCounts.custom,
-              }),
+      flows: flowsLoading
+        ? loadingHint
+        : flowCounts.total === 0
+          ? t("workflows.empty")
+          : t("copilotAdminLinks.hints.flows", {
+              count: flowCounts.total,
+              live: flowCounts.live,
+            }),
       skills: skillsQuery.isError
         ? errorHint
         : skillsQuery.isLoading
@@ -194,9 +191,8 @@ export function CopilotAdminLinksSection() {
             : t("copilotAdminLinks.hints.activity", { count: sessions.length }),
     };
   }, [
-    actionCounts,
-    actionsQuery.isError,
-    actionsQuery.isLoading,
+    flowCounts,
+    flowsLoading,
     agents.length,
     agentsQuery.isError,
     agentsQuery.isLoading,
@@ -232,11 +228,11 @@ export function CopilotAdminLinksSection() {
       to: buildAgentsCatalogPath(),
     },
     {
-      Icon: ListChecks,
-      descriptionKey: "copilotAdminLinks.rows.actions",
-      hint: hints.actions,
-      labelKey: "workspace.sidebarActions",
-      to: buildActionsCatalogPath(),
+      Icon: Workflow,
+      descriptionKey: "copilotAdminLinks.rows.flows",
+      hint: hints.flows,
+      labelKey: "workspace.sidebarFlows",
+      to: buildWorkflowsCatalogPath(),
     },
     {
       Icon: FileTerminal,

@@ -81,6 +81,7 @@ export function buildCopilotDrawerPanelContentProps(
     error: input.injected.error ?? null,
     messages: input.injected.messages,
     pendingUserInsertIndex: input.injected.pendingUserInsertIndex,
+    pendingUserParts: input.injected.pendingUserParts,
     pendingUserText: input.injected.pendingUserText,
     status:
       input.injected.awaitingInterrupt && input.injected.status === "ready"

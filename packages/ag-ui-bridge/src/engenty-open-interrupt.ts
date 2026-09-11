@@ -59,6 +59,23 @@ export interface AgUiOpenInterruptMetadata {
   artifact_id: string;
   body?: string;
   choices?: AgUiOpenInterruptChoice[];
+  /**
+   * The effort tier the suspending run resolved to.
+   *
+   * A suspended turn is answered by a SECOND run, which re-resolves its own
+   * model. Without this the resume resolves with no effort at all and falls
+   * through to the `chat` purpose (`model.medium`) — so a question asked at
+   * `low` came back answered by a different model than the one that asked it.
+   * Carried here because the open interrupt is already the only thing joining
+   * the two runs.
+   *
+   * The tier, not the model id: re-deriving through the role binding preserves
+   * the gateway, the tenant layer and governance clamping, none of which
+   * survive pinning a bare model id.
+   *
+   * Mirrors ai-core's `AiEffort`, inlined to keep this package dependency-free.
+   */
+  effort?: "high" | "low" | "medium";
   /** ISO-8601 expiry; resume rejected after this instant. */
   expires_at?: string;
   interrupt_id: string;
@@ -147,6 +164,7 @@ export function readAgUiOpenInterrupt(
   const toolName = record.tool_name;
   const toolInput = record.tool_input;
   const runId = record.run_id;
+  const effort = record.effort;
   if (
     typeof interruptId !== "string" ||
     typeof toolCallId !== "string" ||
@@ -166,6 +184,9 @@ export function readAgUiOpenInterrupt(
     artifact_id: artifactId,
     ...(typeof body === "string" && body.trim() ? { body: body.trim() } : {}),
     ...(choices ? { choices } : {}),
+    ...(effort === "low" || effort === "medium" || effort === "high"
+      ? { effort }
+      : {}),
     ...(record.multi_select === true ? { multi_select: true } : {}),
     ...(typeof expiresAt === "string" && expiresAt.trim()
       ? { expires_at: expiresAt.trim() }

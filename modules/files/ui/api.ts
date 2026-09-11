@@ -74,11 +74,15 @@ export interface FilesFolderInfo {
   name: string;
   /** Tenant-relative prefix to navigate into, ending with `/`. */
   prefix: string;
+  /** UUID/slug tooltip when `name` is a resolved space label. */
+  title?: string;
 }
 
 export interface FilesChildren {
   files: FilesFileInfo[];
   folders: FilesFolderInfo[];
+  /** UUID segment → display name (spaces and native file-space entries). */
+  segment_labels?: Record<string, string>;
 }
 
 /** Single-level (folder-aware) listing for the explorer at a tenant prefix. */
@@ -99,7 +103,14 @@ export async function listFilesChildren(
 export async function getFilesUrl(
   key: string,
   bucket?: string
-): Promise<{ url: string; key: string }> {
+): Promise<{
+  filename?: string;
+  key: string;
+  mime_type?: string;
+  path_label?: string;
+  segment_labels?: Record<string, string>;
+  url: string;
+}> {
   const params = new URLSearchParams({ key });
   if (bucket) {
     params.set("bucket", bucket);

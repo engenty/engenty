@@ -18,7 +18,6 @@ const TEAM_CHAT_POST_TOOL_ID = "team_chat_post";
 function defineTeamChatAi(options: TeamChatAiOptions) {
   const invoke = options.invokeTeamChatOperation;
   return defineModuleAi({
-    agentDefinitions: () => [],
     dir: import.meta.url,
     moduleId: "team-chat",
     tools: {

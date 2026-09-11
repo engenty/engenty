@@ -64,10 +64,10 @@ export function AuthLoginLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="grid min-h-screen"
+      className="grid min-h-dvh"
       style={{ background: "var(--color-paper, oklch(98.4% 0.006 70))" }}
     >
-      <div className="grid min-h-screen lg:grid-cols-[440px_1fr]">
+      <div className="grid min-h-dvh lg:grid-cols-[440px_1fr]">
         {/* Left: landing-colored brand panel */}
         <div
           className="relative hidden flex-col justify-between overflow-hidden lg:flex"
@@ -97,7 +97,29 @@ export function AuthLoginLayout({ children }: { children: ReactNode }) {
                 >
                   <EngentyWordmark onDark />
                 </p>
-                <p style={{ fontSize: 13, color: BRAND_MUTED }}>{t.tagline}</p>
+                <div className="space-y-0.5">
+                  <p style={{ fontSize: 13, color: BRAND_MUTED }}>
+                    {t.tagline}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: BRAND_SOFT,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {t.taglineLead}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: BRAND_SOFT,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {t.taglineAside}
+                  </p>
+                </div>
               </div>
             </div>
 

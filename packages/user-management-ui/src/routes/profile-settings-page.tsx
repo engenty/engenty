@@ -1,6 +1,7 @@
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useCoreAuthSession } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
+import { NotificationPreferencesSection } from "@engenty/notifications-ui";
 import { Button } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -113,7 +114,6 @@ export function ProfileSettingsPage() {
   usePageConfig({
     breadcrumbs,
     actions: loading || !member ? null : pageActions,
-    topbarChrome: "contentBlend",
     secondaryNavHeaderSlot,
   });
 
@@ -138,8 +138,8 @@ export function ProfileSettingsPage() {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl space-y-6 p-page">
-        <h1 className="font-semibold text-xl">My Profile</h1>
+      <div className="mx-auto w-full max-w-5xl space-y-8 p-page">
+        <h1 className="font-semibold text-xl leading-none">My Profile</h1>
 
         <AuthenticationSection userId={userId} />
         <PublicProfileSection form={form} />
@@ -150,6 +150,7 @@ export function ProfileSettingsPage() {
           saveRef={preferredAppearanceSaveRef}
         />
         <PushNotificationsSection />
+        <NotificationPreferencesSection />
       </div>
     </div>
   );

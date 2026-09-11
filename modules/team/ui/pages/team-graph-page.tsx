@@ -211,14 +211,14 @@ function TeamGraphCanvasInner() {
 
   if (isMembersPending || isGroupsPending) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-lg border bg-card">
+      <div className="ui-card-elevated flex min-h-[420px] items-center justify-center">
         <span className="text-muted-foreground text-sm">Loading graph...</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-0 min-h-[420px] w-full flex-1 rounded-lg border bg-card">
+    <div className="ui-card-elevated min-h-0 min-h-[420px] w-full flex-1">
       <ReactFlow
         edges={layoutedEdges}
         fitView
@@ -252,7 +252,6 @@ export function TeamGraphPage() {
     ],
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   return (

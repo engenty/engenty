@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@engenty/ui-core";
+import { CHAT_LANE_COLUMN_CLASS } from "../chat-lane/chat-lane-layout.js";
 
 export interface CopilotTranscriptLoadingProps {
   className?: string;
@@ -26,7 +27,7 @@ export function CopilotTranscriptLoading({
       aria-label={label}
       className={cn(
         "flex min-h-[5.5rem] flex-col gap-2.5 pt-1",
-        surface === "chat" && "mx-auto w-full max-w-[42rem]",
+        surface === "chat" && CHAT_LANE_COLUMN_CLASS,
         className
       )}
       role="status"

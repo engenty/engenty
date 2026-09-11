@@ -1,3 +1,5 @@
+import { applyWorkerSandboxDefault } from "@engenty/ai-core";
+
 import type {
   AgentConfig,
   AgentResolveContext,
@@ -20,7 +22,11 @@ export class CompositeAiRegistry implements AiRegistry {
     for (const provider of this.providers) {
       const config = await provider.getAgentConfig(id, context);
       if (config) {
-        return config;
+        // The Worker compute default (PLAN-agent-computers.md §1.1), applied
+        // at the read seam so every consumer — chat, delegation, headless
+        // runs, the registry API — sees one answer. Providers stay dumb;
+        // declarations (a sandbox block, `enabled:false`) always win.
+        return applyWorkerSandboxDefault(config);
       }
     }
     return;
@@ -44,7 +50,7 @@ export class CompositeAiRegistry implements AiRegistry {
       }
       for (const config of await provider.listAgentConfigs()) {
         if (!configsById.has(config.id)) {
-          configsById.set(config.id, config);
+          configsById.set(config.id, applyWorkerSandboxDefault(config));
         }
       }
     }

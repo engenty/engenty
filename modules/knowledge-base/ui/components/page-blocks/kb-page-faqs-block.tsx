@@ -19,14 +19,12 @@ export interface KbPageFaqsBlockViewProps {
   block: KbPageFaqsBlock;
   editable?: boolean;
   kbId: string;
-  kbSlug: string;
 }
 
 export function KbPageFaqsBlockView({
   block,
   editable = false,
   kbId,
-  kbSlug,
 }: KbPageFaqsBlockViewProps) {
   const { t } = useTranslation("kb");
 
@@ -62,7 +60,7 @@ export function KbPageFaqsBlockView({
       <ul className={kbFlatRowListClassName}>
         {faqs.map((faq) => (
           <li key={faq.id}>
-            <Link className={kbFlatRowLinkClass} to={kbFaqPath(kbSlug, faq.id)}>
+            <Link className={kbFlatRowLinkClass} to={kbFaqPath(faq.id)}>
               {faq.question}
             </Link>
           </li>
@@ -71,7 +69,7 @@ export function KbPageFaqsBlockView({
       {block.show_view_all_link ? (
         <Link
           className="text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
-          to={kbFaqsListPath(kbSlug)}
+          to={kbFaqsListPath()}
         >
           {t("hub.view_faqs")}
         </Link>

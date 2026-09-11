@@ -13,6 +13,7 @@ const labels: ThreadListOrganizationLabels = {
   datePreviousSevenDays: "Previous 7 days",
   dateToday: "Today",
   dateYesterday: "Yesterday",
+  spaceNone: "No space",
   status: {
     completed: "Completed",
     draft: "Draft",
@@ -32,6 +33,7 @@ function makeThread(overrides: Partial<AgentThreadDto>): AgentThreadDto {
     created_by_user_id: "user-1",
     id: "session-1",
     metadata: {},
+    space_id: null,
     route_context: {},
     status: "completed",
     summary: null,
@@ -218,5 +220,70 @@ describe("organizeThreadList", () => {
       "Task ENG 142",
     ]);
     expect(groups[0]?.threads.map((thread) => thread.id)).toEqual(["generic"]);
+  });
+
+  it("groups sessions by space, personal first, none last", () => {
+    const groups = organizeThreadList({
+      agentLabel: (id) => id,
+      labels,
+      prefs: {
+        ...DEFAULT_THREAD_LIST_PREFS,
+        archived: "all",
+        groupBy: "space",
+      },
+      spaceLabel: (spaceId) =>
+        spaceId === "personal-id"
+          ? "Matthias"
+          : spaceId === "company-id"
+            ? "Company"
+            : spaceId === "game-id"
+              ? "game"
+              : "No space",
+      spaceOrder: ["personal-id", "company-id", "game-id"],
+      threads: [
+        makeThread({ id: "none", space_id: null }),
+        makeThread({ id: "game", space_id: "game-id" }),
+        makeThread({ id: "personal", space_id: "personal-id" }),
+        makeThread({ id: "company", space_id: "company-id" }),
+      ],
+    });
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Matthias",
+      "Company",
+      "game",
+      "No space",
+    ]);
+    expect(groups[0]?.threads.map((thread) => thread.id)).toEqual(["personal"]);
+  });
+
+  it("places unknown spaces after known ones and before none", () => {
+    const groups = organizeThreadList({
+      agentLabel: (id) => id,
+      labels,
+      prefs: {
+        ...DEFAULT_THREAD_LIST_PREFS,
+        archived: "all",
+        groupBy: "space",
+      },
+      spaceLabel: (spaceId) =>
+        spaceId === "company-id"
+          ? "Company"
+          : spaceId
+            ? "Unknown space"
+            : "No space",
+      spaceOrder: ["company-id"],
+      threads: [
+        makeThread({ id: "none", space_id: null }),
+        makeThread({ id: "gone", space_id: "deleted-id" }),
+        makeThread({ id: "company", space_id: "company-id" }),
+      ],
+    });
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Company",
+      "Unknown space",
+      "No space",
+    ]);
   });
 });

@@ -30,6 +30,8 @@ export const MAX_BACKFILL_LIMIT = 200;
 const BackfillBodySchema = z.object({
   force: z.boolean().optional(),
   limit: z.number().int().min(1).max(MAX_BACKFILL_LIMIT).optional(),
+  /** Narrow to one container (e.g. `{ kb_id }`); the provider maps it onto its own rows. */
+  metadata: z.record(z.string(), z.string()).optional(),
   resume_after: z.string().optional(),
   tenant_id: z.string().nullable().optional(),
   user_id: z.string().nullable().optional(),

@@ -1,0 +1,26 @@
+/**
+ * Reading size for Large / Reader only. Normal uses the TipTap package
+ * default (0.9375rem). Package `@engenty/tiptap-editor/styles.css` sets that
+ * body size; these overrides win on the document wrap.
+ */
+.markdown-document-reading-large .tiptap-base-editor .tiptap,
+.markdown-document-reading-large .tiptap-rich-editor .tiptap,
+.markdown-document-reading-tone .tiptap-base-editor .tiptap,
+.markdown-document-reading-tone .tiptap-rich-editor .tiptap {
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+.markdown-document-reading-large h1,
+.markdown-document-reading-tone h1 {
+  font-size: 2.35rem;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.markdown-document-reading-tone .tiptap-base-editor .tiptap,
+.markdown-document-reading-tone .tiptap-rich-editor .tiptap,
+.markdown-document-reading-tone h1,
+.markdown-document-reading-tone input {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}

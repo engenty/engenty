@@ -11,6 +11,37 @@ export interface AiInstructionOwnerGroup {
   title: string;
 }
 
+export interface InstructionOverrideFlags {
+  tenant: boolean;
+  user: boolean;
+}
+
+export function instructionOverrideFlagsByKey(
+  documents: AiInstructionDocument[]
+): Map<string, InstructionOverrideFlags> {
+  const flags = new Map<string, InstructionOverrideFlags>();
+  for (const document of documents) {
+    const current = flags.get(document.document_key) ?? {
+      tenant: false,
+      user: false,
+    };
+    if (document.layer === "tenant_override") {
+      current.tenant = true;
+    }
+    if (document.layer === "user_override") {
+      current.user = true;
+    }
+    flags.set(document.document_key, current);
+  }
+  return flags;
+}
+
+export function hasInstructionOverride(
+  flags: InstructionOverrideFlags | undefined
+): boolean {
+  return Boolean(flags?.tenant || flags?.user);
+}
+
 function isCopilotInstructionOwner(ownerId: string) {
   return ownerId === "engenty.copilot";
 }

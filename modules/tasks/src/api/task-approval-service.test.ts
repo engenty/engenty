@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Task } from "../schema/types.js";
 import {
   type ApprovalTasksRepo,
-  type ApprovalTriggersRepo,
+  assertHumanApprovalActor,
   type CoreGrantsWriter,
   resolveTaskToolApproval,
 } from "./task-approval-service.js";
@@ -15,12 +15,12 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     id: overrides.id ?? `task-${seq}`,
     tenant_id: "tenant",
     scope_id: "scope",
+    space_id: "space-1",
     identifier: `ENG-${seq}`,
     title: "T",
     description: null,
     status: "blocked",
     priority: "medium",
-    goal_id: null,
     parent_id: null,
     project_id: null,
     primary_assignee_kind: "agent",
@@ -30,7 +30,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     created_by_user_id: null,
     created_by_agent_type_key: null,
     due_date: null,
-    trigger_id: null,
     approval_grants: [],
     approval_grants_once: [],
     started_at: null,
@@ -68,16 +67,6 @@ function makeTasksRepo(task: Task) {
     },
   };
   return { activity, comments, repo };
-}
-
-function makeTriggersRepo() {
-  const grants: { id: string; op: string }[] = [];
-  const repo: ApprovalTriggersRepo = {
-    addTriggerApprovalGrant: async (id, op) => {
-      grants.push({ id, op });
-    },
-  };
-  return { grants, repo };
 }
 
 function makeCoreGrants() {
@@ -158,6 +147,33 @@ describe("resolveTaskToolApproval", () => {
     expect(tasks.comments.join("\n")).toContain("Re-running the task.");
   });
 
+  it("refuses approval-driven retry when the assignee is unmounted", async () => {
+    const task = makeTask();
+    const tasks = makeTasksRepo(task);
+    const q = queue();
+    await expect(
+      resolveTaskToolApproval(
+        {
+          queue: q,
+          tasksRepo: tasks.repo,
+          tenantId: "tenant",
+          validateAgentAssignment: async () => {
+            throw new Error("agent_not_mounted");
+          },
+        },
+        {
+          decision: "approve",
+          operationId: "contacts_delete",
+          scope: "task",
+          taskId: task.id,
+        }
+      )
+    ).rejects.toThrow("agent_not_mounted");
+    expect(
+      (q as { send: ReturnType<typeof vi.fn> }).send
+    ).not.toHaveBeenCalled();
+  });
+
   it("approve on a claimed task records the grant without promising a re-run", async () => {
     // A live checkout owns the task — that run finalizes it; re-dispatching
     // would race it, and the old comment claimed a re-run that never happened.
@@ -216,51 +232,24 @@ describe("resolveTaskToolApproval", () => {
     ]);
   });
 
-  it("approve 'routine' writes the trigger grant", async () => {
-    const task = makeTask({ trigger_id: "trigger-1" });
-    const tasks = makeTasksRepo(task);
-    const triggers = makeTriggersRepo();
-    await resolveTaskToolApproval(
-      {
-        queue: queue(),
-        tasksRepo: tasks.repo,
-        tenantId: "tenant",
-        triggersRepo: triggers.repo,
-      },
-      {
-        decision: "approve",
-        operationId: "y_op",
-        scope: "routine",
-        taskId: task.id,
-      }
-    );
-    expect(triggers.grants).toEqual([{ id: "trigger-1", op: "y_op" }]);
-  });
-
   it("writes each approval scope into the core grant store", async () => {
     // The core row is the ONLY store (columns dropped): dispatch reads it for
     // the pre-gate set, core-side gates spend it via the forwarded task id.
     const cases: {
-      scope: "once" | "task" | "routine";
+      scope: "once" | "task";
       expected: { scope: string; subject: (task: Task) => string };
     }[] = [
       { scope: "once", expected: { scope: "once", subject: (t) => t.id } },
       { scope: "task", expected: { scope: "task", subject: (t) => t.id } },
-      {
-        scope: "routine",
-        expected: { scope: "trigger", subject: () => "trig-1" },
-      },
     ];
     for (const c of cases) {
-      const task = makeTask({ trigger_id: "trig-1" });
+      const task = makeTask();
       const tasks = makeTasksRepo(task);
-      const triggers = makeTriggersRepo();
       const core = makeCoreGrants();
       await resolveTaskToolApproval(
         {
           coreGrants: core.writer,
           tasksRepo: tasks.repo,
-          triggersRepo: triggers.repo,
         },
         {
           decision: "approve",
@@ -293,27 +282,6 @@ describe("resolveTaskToolApproval", () => {
       }
     );
     expect(core.grants).toEqual([]);
-  });
-
-  it("approve 'routine' without a trigger throws", async () => {
-    const task = makeTask({ trigger_id: null });
-    const tasks = makeTasksRepo(task);
-    const triggers = makeTriggersRepo();
-    await expect(
-      resolveTaskToolApproval(
-        {
-          tasksRepo: tasks.repo,
-          tenantId: "tenant",
-          triggersRepo: triggers.repo,
-        },
-        {
-          decision: "approve",
-          operationId: "z_op",
-          scope: "routine",
-          taskId: task.id,
-        }
-      )
-    ).rejects.toThrow("task_has_no_trigger");
   });
 
   // The task's own pending list — not the dismissible inbox notification — is
@@ -357,5 +325,202 @@ describe("resolveTaskToolApproval", () => {
     );
     expect(result.status).toBe("blocked");
     expect(tasks.comments.join(" ")).toContain("Denied");
+  });
+
+  // A parked run can wait on SEVERAL gated ops at once. Re-dispatching after
+  // the first approval wasted a run: it re-parked on the next ungranted op and
+  // its checkout wiped the pending list, destroying the other open asks. The
+  // dispatch is therefore state-driven — it only fires once the pending set is
+  // EMPTY, regardless of whether the last decision arrived one-by-one or as a
+  // batch.
+  describe("multi-op pending set", () => {
+    it("approving one of two records the grant but holds the dispatch", async () => {
+      const task = makeTask({
+        pending_approval_operation_ids: ["contacts_delete", "contacts_merge"],
+      });
+      const tasks = makeTasksRepo(task);
+      const core = makeCoreGrants();
+      const q = queue();
+      const result = await resolveTaskToolApproval(
+        {
+          coreGrants: core.writer,
+          queue: q,
+          tasksRepo: tasks.repo,
+          tenantId: "tenant",
+        },
+        {
+          decision: "approve",
+          operationId: "contacts_delete",
+          scope: "once",
+          taskId: task.id,
+        }
+      );
+      // Grant recorded, ask retired — but the task stays parked (like a deny
+      // leaves it) so nothing auto-dispatches it into a run that would just
+      // re-park and wipe the remaining ask.
+      expect(core.grants).toEqual([
+        { operationId: "contacts_delete", scope: "once", subjectId: task.id },
+      ]);
+      expect(task.pending_approval_operation_ids).toEqual(["contacts_merge"]);
+      expect(result.status).toBe("blocked");
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).not.toHaveBeenCalled();
+      expect(tasks.comments.join("\n")).toContain("Waiting on 1 more");
+      expect(tasks.activity[0]?.payload).toMatchObject({
+        redispatched: false,
+        remaining_pending: 1,
+      });
+    });
+
+    it("approving the last pending op dispatches exactly once", async () => {
+      const task = makeTask({
+        pending_approval_operation_ids: ["contacts_delete", "contacts_merge"],
+      });
+      const tasks = makeTasksRepo(task);
+      const q = queue();
+      await resolveTaskToolApproval(
+        { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+        {
+          decision: "approve",
+          operationId: "contacts_delete",
+          scope: "once",
+          taskId: task.id,
+        }
+      );
+      const result = await resolveTaskToolApproval(
+        { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+        {
+          decision: "approve",
+          operationId: "contacts_merge",
+          scope: "once",
+          taskId: task.id,
+        }
+      );
+      expect(task.pending_approval_operation_ids).toEqual([]);
+      expect(result.status).toBe("todo");
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).toHaveBeenCalledWith(
+        AGENT_TASK_DISPATCH_QUEUE,
+        expect.objectContaining({ task_id: task.id })
+      );
+    });
+
+    it("batch-approving all pending ops grants each and dispatches once", async () => {
+      const task = makeTask({
+        pending_approval_operation_ids: ["contacts_delete", "contacts_merge"],
+      });
+      const tasks = makeTasksRepo(task);
+      const core = makeCoreGrants();
+      const q = queue();
+      const result = await resolveTaskToolApproval(
+        {
+          coreGrants: core.writer,
+          queue: q,
+          tasksRepo: tasks.repo,
+          tenantId: "tenant",
+        },
+        {
+          decision: "approve",
+          operationIds: ["contacts_delete", "contacts_merge"],
+          scope: "once",
+          taskId: task.id,
+        }
+      );
+      expect(core.grants).toEqual([
+        { operationId: "contacts_delete", scope: "once", subjectId: task.id },
+        { operationId: "contacts_merge", scope: "once", subjectId: task.id },
+      ]);
+      expect(task.pending_approval_operation_ids).toEqual([]);
+      expect(result.status).toBe("todo");
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it("denying one of two keeps both entries and never dispatches", async () => {
+      // Deny semantics are unchanged: the entry stays (approvable later), the
+      // task stays blocked — and since the pending set therefore never empties
+      // through a deny, the empty-set dispatch rule holds trivially.
+      const task = makeTask({
+        pending_approval_operation_ids: ["contacts_delete", "contacts_merge"],
+      });
+      const tasks = makeTasksRepo(task);
+      const q = queue();
+      const result = await resolveTaskToolApproval(
+        { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+        { decision: "deny", operationId: "contacts_delete", taskId: task.id }
+      );
+      expect(task.pending_approval_operation_ids).toEqual([
+        "contacts_delete",
+        "contacts_merge",
+      ]);
+      expect(result.status).toBe("blocked");
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).not.toHaveBeenCalled();
+    });
+
+    it("single-op requests without a pending list still dispatch (back-compat)", async () => {
+      const task = makeTask();
+      const tasks = makeTasksRepo(task);
+      const q = queue();
+      const result = await resolveTaskToolApproval(
+        { queue: q, tasksRepo: tasks.repo, tenantId: "tenant" },
+        {
+          decision: "approve",
+          operationId: "contacts_delete",
+          scope: "task",
+          taskId: task.id,
+        }
+      );
+      expect(result.status).toBe("todo");
+      expect(
+        (q as { send: ReturnType<typeof vi.fn> }).send
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws when neither operationId nor operationIds is given", async () => {
+      const task = makeTask();
+      const tasks = makeTasksRepo(task);
+      await expect(
+        resolveTaskToolApproval(
+          { tasksRepo: tasks.repo },
+          { decision: "approve", scope: "task", taskId: task.id }
+        )
+      ).rejects.toThrow("operation_id_required");
+    });
+  });
+});
+
+describe("assertHumanApprovalActor", () => {
+  it("allows a plain user principal (explicit and legacy-absent)", () => {
+    expect(() =>
+      assertHumanApprovalActor({ principalType: "user" })
+    ).not.toThrow();
+    expect(() => assertHumanApprovalActor({})).not.toThrow();
+    expect(() => assertHumanApprovalActor(undefined)).not.toThrow();
+  });
+
+  it("rejects agent and service principals", () => {
+    expect(() => assertHumanApprovalActor({ principalType: "agent" })).toThrow(
+      "tool_approval_requires_user"
+    );
+    expect(() =>
+      assertHumanApprovalActor({ principalType: "service" })
+    ).toThrow("tool_approval_requires_user");
+  });
+
+  it("rejects an agent riding any token (x-engenty-agent-id set)", () => {
+    expect(() =>
+      assertHumanApprovalActor({ agentId: "a-1", principalType: "user" })
+    ).toThrow("tool_approval_requires_user");
+    expect(() =>
+      assertHumanApprovalActor({ agentId: "a-1", principalType: "service" })
+    ).toThrow("tool_approval_requires_user");
   });
 });

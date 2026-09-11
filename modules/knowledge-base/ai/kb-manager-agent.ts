@@ -1,14 +1,8 @@
 import type {
   AgentConfig,
-  AgentDefinition,
   InstructionDocumentDefinition,
 } from "@engenty/ai-core";
-import {
-  buildEngentyApiCatalogTool,
-  DEFAULT_AI_CHAT_MODEL_ID,
-  readAgentTextAsset,
-  webSearchTool,
-} from "@engenty/ai-core";
+import { DEFAULT_AI_CHAT_MODEL_ID, readAgentTextAsset } from "@engenty/ai-core";
 
 export const KB_MANAGER_AGENT_ID = "knowledge-base.manager";
 
@@ -55,8 +49,10 @@ export function createKbManagerInstructionDocuments(): InstructionDocumentDefini
 }
 
 export const kbManagerAgentConfig: AgentConfig = {
+  agentScope: "shared",
   description:
     "Capture raw material to inbox, triage and suggest KB structure, answer with citations, and run maintenance checks.",
+  engenty: "oval",
   id: KB_MANAGER_AGENT_ID,
   instructions: readKbManagerAgentsMarkdown(),
   model: DEFAULT_AI_CHAT_MODEL_ID,
@@ -72,18 +68,4 @@ export const kbManagerAgentConfig: AgentConfig = {
 
 export function buildKbManagerDynamicTools(): Record<string, object> {
   return {};
-}
-
-export function createKbManagerAgent(): AgentDefinition {
-  return {
-    build_tools: (execCtx) => ({
-      engentyApiCatalog: buildEngentyApiCatalogTool(execCtx) as object,
-      web_search: webSearchTool,
-    }),
-    description: "Knowledge base capture, compilation, and maintenance.",
-    id: KB_MANAGER_AGENT_ID,
-    instruction_keys: ["knowledge_base_manager_agents"],
-    module_id: "knowledge-base",
-    name: "Knowledge Base Specialist",
-  };
 }

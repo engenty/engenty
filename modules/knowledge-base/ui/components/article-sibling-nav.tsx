@@ -5,19 +5,15 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { Article } from "../../src/schema/types.js";
-import { KB_MODULE_BASE, kbArticlePath, kbHubPath } from "../kb-paths.js";
+import { kbArticlePath, kbHubPath } from "../kb-paths.js";
 
-export function ArticleSiblingNav({
-  article,
-  kbSlug,
-}: {
-  article: Article;
-  kbSlug: string;
-}) {
+const siblingLinkClassName =
+  "h-auto min-w-0 max-w-full px-2 py-1 font-normal text-muted-foreground hover:text-foreground sm:max-w-[min(24rem,55vw)]";
+
+export function ArticleSiblingNav({ article }: { article: Article }) {
   const { t } = useTranslation("kb");
-  const navigate = useNavigate();
   const prev = article.prev_sibling;
   const next = article.next_sibling;
   const prevToHub = article.prev_to_kb_hub === true;
@@ -34,49 +30,42 @@ export function ArticleSiblingNav({
       <div className="flex min-w-0 flex-1 justify-start">
         {prev ? (
           <Button
-            className="h-auto min-w-0 max-w-full px-2 py-1 font-normal text-muted-foreground hover:text-foreground sm:max-w-[min(24rem,55vw)]"
-            onClick={() =>
-              kbSlug
-                ? navigate(kbArticlePath(kbSlug, prev.id))
-                : navigate(`/mdl/knowledge-base/${prev.id}`)
-            }
+            asChild
+            className={siblingLinkClassName}
             size="sm"
-            type="button"
             variant="ghost"
           >
-            <ChevronLeft className="mr-0.5 h-4 w-4 shrink-0" />
-            <span className="truncate">{prev.title}</span>
+            <Link to={kbArticlePath(prev.id)}>
+              <ChevronLeft className="mr-0.5 h-4 w-4 shrink-0" />
+              <span className="truncate">{prev.title}</span>
+            </Link>
           </Button>
         ) : prevToHub ? (
           <Button
-            className="h-auto min-w-0 max-w-full px-2 py-1 font-normal text-muted-foreground hover:text-foreground sm:max-w-[min(24rem,55vw)]"
-            onClick={() =>
-              kbSlug ? navigate(kbHubPath(kbSlug)) : navigate(KB_MODULE_BASE)
-            }
+            asChild
+            className={siblingLinkClassName}
             size="sm"
-            type="button"
             variant="ghost"
           >
-            <ChevronLeft className="mr-0.5 h-4 w-4 shrink-0" />
-            <span className="truncate">{t("breadcrumb.home")}</span>
+            <Link to={kbHubPath()}>
+              <ChevronLeft className="mr-0.5 h-4 w-4 shrink-0" />
+              <span className="truncate">{t("breadcrumb.home")}</span>
+            </Link>
           </Button>
         ) : null}
       </div>
       <div className="flex min-w-0 flex-1 justify-end">
         {next ? (
           <Button
-            className="h-auto min-w-0 max-w-full px-2 py-1 font-normal text-muted-foreground hover:text-foreground sm:max-w-[min(24rem,55vw)]"
-            onClick={() =>
-              kbSlug
-                ? navigate(kbArticlePath(kbSlug, next.id))
-                : navigate(`/mdl/knowledge-base/${next.id}`)
-            }
+            asChild
+            className={siblingLinkClassName}
             size="sm"
-            type="button"
             variant="ghost"
           >
-            <span className="truncate">{next.title}</span>
-            <ChevronRight className="ml-0.5 h-4 w-4 shrink-0" />
+            <Link to={kbArticlePath(next.id)}>
+              <span className="truncate">{next.title}</span>
+              <ChevronRight className="ml-0.5 h-4 w-4 shrink-0" />
+            </Link>
           </Button>
         ) : null}
       </div>

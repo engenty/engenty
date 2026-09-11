@@ -78,6 +78,7 @@ async function createFirstTenant(
 const BRAND_EMBER = "oklch(44% 0.16 30)";
 const BRAND_CREAM = "oklch(88% 0.11 75)";
 const BRAND_MUTED = "oklch(92% 0.03 40)";
+const BRAND_SOFT = "oklch(100% 0 0 / 0.55)";
 const PANEL_STEP_COLORS = [
   { bg: BRAND_CREAM },
   { bg: "oklch(78% 0.12 264)" }, // soft cobalt on ember
@@ -114,7 +115,15 @@ function SetupLeftPanel({ step }: { step: Step }) {
             >
               <EngentyWordmark onDark />
             </p>
-            <p style={{ fontSize: 13, color: BRAND_MUTED }}>{t.tagline}</p>
+            <div className="space-y-0.5">
+              <p style={{ fontSize: 13, color: BRAND_MUTED }}>{t.tagline}</p>
+              <p style={{ fontSize: 12, color: BRAND_SOFT, lineHeight: 1.35 }}>
+                {t.taglineLead}
+              </p>
+              <p style={{ fontSize: 12, color: BRAND_SOFT, lineHeight: 1.35 }}>
+                {t.taglineAside}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -540,14 +549,14 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
 
   return (
     <div
-      className="grid min-h-screen"
+      className="grid min-h-dvh"
       style={{
         gridTemplateColumns: "1fr",
         background: "var(--color-paper, oklch(98.4% 0.006 70))",
       }}
     >
       {/* Two-column on lg+ */}
-      <div className="grid min-h-screen lg:grid-cols-[420px_1fr]">
+      <div className="grid min-h-dvh lg:grid-cols-[420px_1fr]">
         {/* Left: decorative brand panel */}
         <SetupLeftPanel step={step} />
 

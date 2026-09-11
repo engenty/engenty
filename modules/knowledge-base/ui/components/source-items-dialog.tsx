@@ -20,14 +20,12 @@ import { kbSourceItemPath } from "../kb-paths.js";
 import { kbSourceItemsQueryOptions, useKbSourceMutations } from "../queries.js";
 
 interface SourceItemsDialogProps {
-  kbSlug: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   source: KbSource | null;
 }
 
 export function SourceItemsDialog({
-  kbSlug,
   onOpenChange,
   open,
   source,
@@ -79,7 +77,7 @@ export function SourceItemsDialog({
                         <Link
                           className="text-primary hover:underline"
                           onClick={() => onOpenChange(false)}
-                          to={kbSourceItemPath(kbSlug, item.id)}
+                          to={kbSourceItemPath(item.id)}
                         >
                           {item.title ||
                             item.source_url ||

@@ -19,8 +19,23 @@ export interface SandboxCommandResult {
 }
 
 export interface SandboxRunIdentity {
-  lifecycle: "run" | "session" | "task";
+  /**
+   * The agent the sandbox belongs to. Part of the `session` identity so a
+   * parent and its sub-agent get their own containers rather than sharing one
+   * whose HostConfig was fixed by whichever started first.
+   */
+  agentId: string;
+  lifecycle: "run" | "session" | "task" | "space";
   runId: string;
+  /**
+   * Space the run is bound to, when it is bound to one.
+   *
+   * The sandbox's scratch is a space-scoped cache like every other work mount
+   * — rooting it per space keeps two spaces of the same tenant
+   * from sharing a staging dir, and gives the admission ceiling a per-space
+   * dimension.
+   */
+  spaceId?: string;
   taskIdentifier?: string;
   tenantId: string;
   threadId: string;
@@ -28,6 +43,12 @@ export interface SandboxRunIdentity {
 
 export interface SandboxStorageLayout {
   fileStorageRelativePath: string;
+  /**
+   * Space this mount's bytes belong to, when it is space-rooted
+   * Two spaces' commons share the identical relative path, so
+   * syncing without it would push one space's files into another's prefix.
+   */
+  spaceId?: string;
   stagingPath: string;
 }
 

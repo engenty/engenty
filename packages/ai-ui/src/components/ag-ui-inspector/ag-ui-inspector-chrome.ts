@@ -1,4 +1,4 @@
-import type { AGUIEvent } from "@engenty/ag-ui-bridge";
+import type { AGUIEvent, TrajectoryCellKind } from "@engenty/ag-ui-bridge";
 import type { InspectorToolCall } from "./ag-ui-inspector-model.js";
 
 export type InspectorToolDisplayStatus = "pending" | "success" | "error";
@@ -74,6 +74,55 @@ export function timelineMessageClassName(role: string): string {
     return "text-foreground";
   }
   return "text-muted-foreground";
+}
+
+export type InspectorTrajectoryKind = TrajectoryCellKind;
+
+export const TRAJECTORY_KIND_LABEL: Record<InspectorTrajectoryKind, string> = {
+  assistant: "ASSISTANT",
+  context: "CONTEXT",
+  history: "HISTORY",
+  system: "SYSTEM",
+  tool: "TOOL",
+  user: "USER",
+};
+
+export function trajectoryKindClassName(kind: InspectorTrajectoryKind): string {
+  switch (kind) {
+    case "user":
+      return "bg-sky-500/15 text-sky-800 dark:text-sky-300";
+    case "context":
+      return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300";
+    case "history":
+      return "bg-teal-500/15 text-teal-800 dark:text-teal-300";
+    case "assistant":
+      return "bg-violet-500/15 text-violet-800 dark:text-violet-300";
+    case "tool":
+      return "bg-amber-500/15 text-amber-800 dark:text-amber-300";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+export function trajectoryKeyClassName(
+  key: string,
+  kind: InspectorTrajectoryKind
+): string {
+  switch (key) {
+    case "user":
+    case "human":
+      return "bg-sky-500/20 text-sky-800 dark:text-sky-300";
+    case "agent":
+      return "bg-amber-500/20 text-amber-900 dark:text-amber-200";
+    case "assistant":
+      return "bg-violet-500/20 text-violet-800 dark:text-violet-300";
+    case "signal":
+      return "bg-fuchsia-500/20 text-fuchsia-800 dark:text-fuchsia-300";
+    default:
+      return kind === "tool"
+        ? "bg-amber-500/25 text-amber-900 dark:text-amber-200"
+        : "bg-muted text-muted-foreground";
+  }
 }
 
 export function truncateInline(value: string, max = 96): string {

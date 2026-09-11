@@ -17,6 +17,7 @@ import type {
   ConversionResult,
   DocConverterProvider,
 } from "../../interface.js";
+import { markdownFromPagedParseResult } from "../../page-break.js";
 
 const logger = createLogger({ name: "doc-converter-liteparse" });
 
@@ -38,7 +39,7 @@ async function createParser(
 ): Promise<import("@llamaindex/liteparse").LiteParse> {
   const { LiteParse } = await import("@llamaindex/liteparse");
   const base: Partial<import("@llamaindex/liteparse").LiteParseConfig> = {
-    outputFormat: "text",
+    outputFormat: "markdown",
   };
   if (typeof options?.max_pages === "number" && options.max_pages > 0) {
     base.maxPages = options.max_pages;
@@ -74,7 +75,14 @@ export class LiteParseProvider implements DocConverterProvider {
     const parser = await createParser(options);
     const result = await parser.parse(data);
 
-    const markdown = result.text ?? "";
+    const markdown = markdownFromPagedParseResult({
+      fallback: result.text,
+      pages: (result.pages ?? []).map((page) => ({
+        number: page.pageNum,
+        text: page.text,
+      })),
+      total: result.pages?.length,
+    });
     const metadata: ConversionResult["metadata"] = {
       word_count: markdown.split(/\s+/).filter(Boolean).length,
     };

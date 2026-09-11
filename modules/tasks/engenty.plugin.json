@@ -1,7 +1,7 @@
 {
   "id": "tasks",
   "name": "Tasks",
-  "description": "Canonical goals and tasks for human and agent collaboration",
+  "description": "Canonical tasks for human and agent collaboration",
   "version": "0.0.1",
   "kind": "module",
   "category": "engenty",
@@ -9,8 +9,6 @@
     "module.tasks",
     "module.tasks.read",
     "module.tasks.write",
-    "module.goals.read",
-    "module.goals.write",
     "platform.work",
     "ui.route.module.tasks"
   ],
@@ -19,5 +17,6 @@
     "operations": true,
     "ai": true,
     "ui": true
-  }
+  },
+  "placement": "space"
 }

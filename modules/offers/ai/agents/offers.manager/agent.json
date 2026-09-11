@@ -3,21 +3,52 @@
   "id": "offers.manager",
   "name": "Offers Manager",
   "description": "Create, edit, and manage sales offers.",
+  "engenty": "bean",
   "module_id": "offers",
+  "agent_scope": "shared",
   "skills": [
     "offers-search-and-retrieve",
     "offers-create-and-edit",
     "offers-blocks-management"
   ],
-  "tools": [
-    "engenty_tools_search",
-    "engenty_tool_execute",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
-  ],
+  "tools": ["engenty_tools_search", "engenty_tool_execute"],
   "workspace": {
     "enabled": true,
     "preset": "staff"
-  }
+  },
+  "starters": [
+    {
+      "id": "offers-find",
+      "label": "Find an offer",
+      "prompt": "Find the latest sales offers and tell me which ones are still open.",
+      "locales": {
+        "de": {
+          "label": "Angebot finden",
+          "prompt": "Finde die neuesten Angebote und sag mir, welche noch offen sind."
+        }
+      }
+    },
+    {
+      "id": "offers-draft",
+      "label": "Draft a new offer",
+      "prompt": "Draft a new sales offer. Ask me for the customer and the scope.",
+      "locales": {
+        "de": {
+          "label": "Neues Angebot erstellen",
+          "prompt": "Erstelle ein neues Angebot. Frag mich nach Kunde und Leistungsumfang."
+        }
+      }
+    },
+    {
+      "id": "offers-open",
+      "label": "List open offers",
+      "prompt": "List open offers and which ones are waiting on a customer decision.",
+      "locales": {
+        "de": {
+          "label": "Offene Angebote",
+          "prompt": "Liste offene Angebote und welche auf eine Kundenentscheidung warten."
+        }
+      }
+    }
+  ]
 }

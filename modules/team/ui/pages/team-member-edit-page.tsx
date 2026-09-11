@@ -241,7 +241,6 @@ export function TeamMemberEditPage() {
     actions: pageActions,
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (loading) {

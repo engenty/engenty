@@ -31,6 +31,12 @@ export interface UseEngentyThreadsOptions {
   agentId?: string | null;
   enabled?: boolean;
   includeArchived?: boolean;
+  /**
+   * Narrow the list to one space (PLAN-spaces.md Phase C2). Omitted keeps the
+   * pre-space behaviour — every space — so hosts that know nothing about spaces
+   * (the KB sidebar's chat section, embeds) are unaffected.
+   */
+  spaceId?: string | null;
 }
 
 export interface CreateEngentyThreadOptions {
@@ -80,6 +86,7 @@ export function useEngentyThreads(
 
   const threadsListQueryKey = ctx.threadsListQueryKey(hostKey, {
     includeArchived: options.includeArchived,
+    spaceId: options.spaceId,
   });
 
   const listQuery = useAppsAiThreadsQuery({
@@ -89,6 +96,7 @@ export function useEngentyThreads(
     includeArchived: options.includeArchived,
     limit: profile.listLimit,
     serviceBaseUrl: ctx.serviceBaseUrl,
+    spaceId: options.spaceId,
   });
 
   const persistedActive = ctx.getActiveThreadId(hostKey);
@@ -131,6 +139,8 @@ export function useEngentyThreads(
         created_by_user_id: ctx.userId,
         id,
         metadata: { draft: true },
+        // Unpersisted — the space lands with the first run's upsert.
+        space_id: null,
         route_context: mergeRouteContextWithHostKey({}, hostKey),
         status: "draft",
         summary: null,

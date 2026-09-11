@@ -41,9 +41,10 @@ function describeNextStep(envelope: AppBuildEnvelope): string {
     case "published":
     case "built":
       return (
-        `Version ${envelope.version} is built and proposed. Tell the user it is ready, ` +
-        "and that activating it requires their approval via app_release_approve " +
-        `(app_id ${envelope.app_id}, version ${envelope.version}).`
+        `Version ${envelope.version} is built and proposed. The conversation now ` +
+        "carries the App with its Approve button, and the person has a decision " +
+        "notification. Tell them it is ready and that activating it is theirs — " +
+        "do not report the App as live until they approve it."
       );
     case "build_failed":
       return (
@@ -58,7 +59,7 @@ function describeNextStep(envelope: AppBuildEnvelope): string {
 export const appBuildTool = createTool({
   id: "app_build",
   description:
-    "Build an engenty App in one step: creates (or reuses) the app, writes the draft files, compiles the release, and publishes a live preview artifact into this chat. Returns the build log on failure. Use this instead of calling app_create/app_file_write/app_release_propose individually.",
+    "Build an engenty App in one step: creates (or reuses) the app, writes the draft files, compiles the release, and publishes a live preview artifact into this chat. Returns the build log on failure. Load the app-authoring skill BEFORE calling this — the manifest shape, the engenty:bridge import and how an App reads Space tables are specified there, not guessable. Use this instead of calling app_create/app_file_write/app_release_propose individually.",
   inputSchema,
   outputSchema: appBuildResultSchema,
   execute: async (input): Promise<AppBuildResult> => {

@@ -7,6 +7,7 @@ import {
   ENGENTY_COPILOT_HOST_KEY,
   useAgentHost,
 } from "../agent-provider/index.js";
+import { isThreadWritableByViewer } from "../threads/thread-write-access.js";
 import { useCopilotThreadBinding } from "./copilot-thread-binding-provider.js";
 import { isCopilotThreadNotFoundError } from "./copilot-thread-not-found.js";
 import { useCopilotInitialMessages } from "./use-copilot-initial-messages.js";
@@ -39,6 +40,16 @@ export function useCopilotSelectedThread() {
       thread.isLoadingMessages) ||
     isAwaitingInitialHydrate;
 
+  /**
+   * Surfaces that can open somebody else's thread — a task's agent thread is
+   * reachable from the task page — swap the composer out rather than offer an
+   * input the server would reject on every send.
+   */
+  const isReadOnlyThread = !isThreadWritableByViewer(
+    thread.session,
+    binding.userId
+  );
+
   const status = useMemo(
     () =>
       host.pendingSend && host.status === "ready"
@@ -52,6 +63,7 @@ export function useCopilotSelectedThread() {
     host,
     initialMessages,
     isLoadingSelectedSessionMessages,
+    isReadOnlyThread,
     isSelectedSessionNotFound,
     isTransportReady: ai.isTransportReady,
     openInterruptFromSession,

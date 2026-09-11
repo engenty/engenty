@@ -1,8 +1,10 @@
-// skills.sh / agentskill.sh registry provider. Public API, no key required.
-//   search:  GET /api/agent/search?q=<query>&limit=<n>
-//   install: GET /api/agent/skills/<slug>/install   (returns SKILL.md content)
-// Responses are parsed defensively because the public payload shape is loosely
-// documented; the provider is injectable (fetchImpl + baseUrl) for testing.
+// skills.sh registry provider. Public API, no key required.
+//   search:  GET /api/search?q=<query>&limit=<n>
+//   install: GET /r/<owner>/<repo>/<skill>   (shadcn registry-item JSON)
+// The documented /api/v1/* surface requires a Vercel OIDC token; the website
+// search and /r/ snapshot do not. Responses are parsed defensively because the
+// public payload shape is loosely documented; the provider is injectable
+// (fetchImpl + baseUrl) for testing.
 
 import type {
   FetchedSkill,
@@ -12,7 +14,7 @@ import type {
   SkillSearchResult,
 } from "./types.js";
 
-const DEFAULT_BASE_URL = "https://agentskill.sh";
+const DEFAULT_BASE_URL = "https://skills.sh";
 
 export interface SkillsShProviderOptions {
   baseUrl?: string;
@@ -31,6 +33,20 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function fileText(file: Record<string, unknown>): string | undefined {
+  return (
+    asString(file.content) ?? asString(file.contents) ?? asString(file.text)
+  );
+}
+
+function filePath(file: Record<string, unknown>): string | undefined {
+  return asString(file.path) ?? asString(file.name);
+}
+
+function isSkillMarkdownPath(path: string): boolean {
+  return path === "SKILL.md" || path.endsWith("/SKILL.md");
+}
+
 // Normalize a registry slug to a valid local skill name (last path segment).
 function skillNameFromSlug(slug: string): string {
   const last = slug.split("/").filter(Boolean).at(-1) ?? slug;
@@ -38,6 +54,14 @@ function skillNameFromSlug(slug: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function registryItemPath(slug: string): string {
+  return slug
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
 }
 
 function parseSearchResult(raw: unknown): SkillSearchResult | null {
@@ -49,7 +73,9 @@ function parseSearchResult(raw: unknown): SkillSearchResult | null {
       ? `${asString(record.owner)}/${asString(record.name)}`
       : undefined);
   const name =
-    asString(record.name) ?? (slug ? skillNameFromSlug(slug) : undefined);
+    asString(record.name) ??
+    asString(record.skillId) ??
+    (slug ? skillNameFromSlug(slug) : undefined);
   if (!(slug && name)) {
     return null;
   }
@@ -64,6 +90,23 @@ function parseSearchResult(raw: unknown): SkillSearchResult | null {
   };
 }
 
+function extractSkillMarkdownFromFiles(files: unknown[]): string | undefined {
+  let nested: string | undefined;
+  for (const entry of files) {
+    const file = asRecord(entry);
+    const path = filePath(file);
+    const text = fileText(file);
+    if (!(path && text && isSkillMarkdownPath(path))) {
+      continue;
+    }
+    if (path === "SKILL.md") {
+      return text;
+    }
+    nested ??= text;
+  }
+  return nested;
+}
+
 function extractSkillMarkdown(
   record: Record<string, unknown>
 ): string | undefined {
@@ -72,14 +115,15 @@ function extractSkillMarkdown(
     asString(record.content) ??
     asString(record.markdown) ??
     asString(asRecord(record.skill).content) ??
-    asString(asRecord(record.skill).skillMd);
+    asString(asRecord(record.skill).skillMd) ??
+    (Array.isArray(record.files)
+      ? extractSkillMarkdownFromFiles(record.files)
+      : undefined);
   return raw ? stripAgentskillShHeader(raw) : undefined;
 }
 
-// The install endpoint prepends a # comment block (slug, sha, auto-review
-// instructions) to the SKILL.md content. All useful data is already present
-// in the JSON response fields; the block renders as markdown headings when
-// kept, so strip it before storing.
+// Older agentskill.sh payloads prepend a # comment block. Harmless no-op for
+// skills.sh snapshots; kept so mixed/legacy fixtures still store clean markdown.
 function stripAgentskillShHeader(markdown: string): string {
   return markdown
     .replace(/^# --- agentskill\.sh ---[\s\S]*?^# ---$/m, "")
@@ -91,16 +135,17 @@ function extractFiles(record: Record<string, unknown>): FetchedSkillFile[] {
   const files: FetchedSkillFile[] = [];
   for (const entry of raw) {
     const file = asRecord(entry);
-    const path = asString(file.path) ?? asString(file.name);
+    const path = filePath(file);
     if (!path || path === "SKILL.md") {
       continue;
     }
+    const text = fileText(file);
     files.push({
       path,
       ...(asString(file.contentBase64)
         ? { contentBase64: asString(file.contentBase64) }
         : {}),
-      ...(asString(file.content) ? { text: asString(file.content) } : {}),
+      ...(text ? { text } : {}),
     });
   }
   return files;
@@ -128,11 +173,12 @@ export function createSkillsShProvider(
 
     async search(query, opts) {
       const limit = opts?.pageSize ?? 10;
-      const url = `${baseUrl}/api/agent/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+      const url = `${baseUrl}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`;
       const data = await getJson(url);
+      const record = asRecord(data);
       const list = Array.isArray(data)
         ? data
-        : (asRecord(data).skills ?? asRecord(data).results ?? []);
+        : (record.skills ?? record.results ?? record.data ?? []);
       const results: SkillSearchResult[] = [];
       for (const raw of Array.isArray(list) ? list : []) {
         const parsed = parseSearchResult(raw);
@@ -145,22 +191,24 @@ export function createSkillsShProvider(
 
     async fetchSkill(ref: SkillRef): Promise<FetchedSkill> {
       const slug = ref.id;
-      const data = await getJson(
-        `${baseUrl}/api/agent/skills/${encodeURIComponent(slug)}/install`
-      );
+      const data = await getJson(`${baseUrl}/r/${registryItemPath(slug)}`);
       const record = asRecord(data);
       const skillMarkdown = extractSkillMarkdown(record);
       if (!skillMarkdown) {
         throw new Error(`skills_sh_missing_content:${slug}`);
       }
       const files = extractFiles(record);
+      const sha =
+        asString(record.sha) ??
+        asString(record.hash) ??
+        asString(record.contentSha);
       return {
-        name: skillNameFromSlug(asString(record.slug) ?? slug),
+        name: skillNameFromSlug(
+          asString(record.name) ?? asString(record.slug) ?? slug
+        ),
         skillMarkdown,
         ...(files.length > 0 ? { files } : {}),
-        ...((asString(record.sha) ?? asString(record.contentSha))
-          ? { sha: asString(record.sha) ?? asString(record.contentSha) }
-          : {}),
+        ...(sha ? { sha } : {}),
         ...(asString(record.version)
           ? { version: asString(record.version) }
           : {}),

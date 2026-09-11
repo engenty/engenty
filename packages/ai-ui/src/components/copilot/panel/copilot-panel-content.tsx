@@ -20,13 +20,14 @@ import {
 } from "./copilot-panel-hitl-section";
 import {
   COPILOT_TRANSCRIPT_TOP_FADE_CLASS,
+  resolveCopilotEmptyLandingAlign,
   resolveCopilotTranscriptBottomPaddingClass,
-  shouldCenterCopilotEmptyLanding,
 } from "./copilot-panel-scroll-utils";
 import { useChatNoResponseGuard } from "./use-chat-no-response-guard";
 import { useCopilotPanelTranscriptScroll } from "./use-copilot-panel-transcript-scroll";
 
 export type {
+  CopilotEmptyLandingAlign,
   CopilotHeaderChrome,
   CopilotPanelContentProps,
 } from "./copilot-panel-content-types";
@@ -35,6 +36,7 @@ export {
   COPILOT_DOCK_COMPOSER_CARD_CLASS,
   getCopilotTranscriptScrollTop,
   isCopilotScrollViewportNearBottom,
+  resolveCopilotEmptyLandingAlign,
   resolveCopilotTranscriptBottomPaddingClass,
   shouldCenterCopilotEmptyLanding,
 } from "./copilot-panel-scroll-utils";
@@ -50,8 +52,10 @@ export function CopilotPanelContent({
   error,
   messages,
   pendingUserInsertIndex,
+  pendingUserParts,
   pendingUserText,
   status,
+  streamActivityCount,
   threadId = null,
   subAgentFullViewLabel,
   subAgentSectionLabels,
@@ -75,6 +79,8 @@ export function CopilotPanelContent({
   applySelectedLabel,
   cancelLabel,
   centerEmptyLanding: centerEmptyLandingProp,
+  emptyLandingAlign: emptyLandingAlignProp,
+  emptyStateHeader,
   selectedCountLabel,
   suggestedUpdatesLabel,
   artifactLoadFailedLabel,
@@ -87,6 +93,7 @@ export function CopilotPanelContent({
   onStop,
   onPanelModeChange,
   onClose,
+  dismissInterrupt,
   onSandboxCommandApprove,
   onSandboxCommandReject,
   attachLabel,
@@ -98,6 +105,7 @@ export function CopilotPanelContent({
   compact = false,
   autoExpand = true,
   enableStatusFlap = true,
+  engentyKind,
   contentBodyGutter = "default",
   composerDockStyle = false,
   composerLeadingControl,
@@ -120,12 +128,19 @@ export function CopilotPanelContent({
   selectedContextId,
   debugPayload,
   positionMenu,
+  browserPanel,
+  browserPanelLabel,
+  browserPanelOpen = false,
+  onToggleBrowserPanel,
   agentSessionChooser,
   mentionAgentCandidates,
   mentionRefSearch,
   onComposerMentionAgent,
+  showAuthorLabels = false,
   slashCommands,
   transcriptContainerClassName,
+  transcriptFooter = null,
+  transcriptHeader = null,
   transcriptLoading = false,
   transcriptLoadingLabel = "Loading conversation",
   transcriptSurface = "default",
@@ -155,13 +170,15 @@ export function CopilotPanelContent({
     !transcriptLoading;
   const showTranscriptLoading =
     transcriptLoading && messages.length === 0 && !error;
-  const centerEmptyLanding =
-    centerEmptyLandingProp ??
-    shouldCenterCopilotEmptyLanding({
-      bodyOnly,
-      composerDockStyle,
-      showEmptyLanding,
-    });
+  const emptyLandingAlign = resolveCopilotEmptyLandingAlign({
+    bodyOnly,
+    composerDockStyle,
+    emptyLandingAlign: emptyLandingAlignProp,
+    preferCenter: centerEmptyLandingProp,
+    showEmptyLanding,
+  });
+  const centerEmptyLanding = emptyLandingAlign === "center";
+  const showEmptyLandingChrome = emptyLandingAlign != null;
 
   // The flap only auto-expands where the reply isn't already on screen — the
   // compact launcher/popover, which renders the composer shell directly (not
@@ -180,6 +197,7 @@ export function CopilotPanelContent({
       draft,
       messages,
       pendingUserText,
+      pendingUserParts,
       showTranscriptLoading,
       status,
     });
@@ -196,6 +214,7 @@ export function CopilotPanelContent({
     return null;
   })();
   const noResponseTimedOut = useChatNoResponseGuard({
+    activityKey: streamActivityCount ?? null,
     lastAssistantMessageId,
     status,
     threadId,
@@ -205,6 +224,8 @@ export function CopilotPanelContent({
     <CopilotPanelInlineHeader
       agentSessionChooser={agentSessionChooser}
       attachLabel={attachLabel}
+      browserPanelLabel={browserPanelLabel}
+      browserPanelOpen={browserPanelOpen}
       clearLabel={clearLabel}
       closeLabel={closeLabel}
       contextMenuLabel={contextMenuLabel}
@@ -216,6 +237,7 @@ export function CopilotPanelContent({
       onNewChat={onNewChat}
       onPanelModeChange={onPanelModeChange}
       onSelectContext={onSelectContext}
+      onToggleBrowserPanel={onToggleBrowserPanel}
       panelMode={panelMode}
       positionMenu={positionMenu}
       recentContextMenuLabel={recentContextMenuLabel}
@@ -227,7 +249,7 @@ export function CopilotPanelContent({
     />
   );
 
-  const transcriptScrollHidden = showEmptyLanding && centerEmptyLanding;
+  const transcriptScrollHidden = showEmptyLandingChrome;
   const transcriptScrollShellClassName = transcriptScrollHidden
     ? "hidden"
     : compact
@@ -246,6 +268,12 @@ export function CopilotPanelContent({
   const threadContextFloatPad = {
     paddingRight: `var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px)`,
   } as const;
+  const composerFloatPad = {
+    paddingRight:
+      contentBodyGutter === "flush"
+        ? `calc(0.75rem + var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px))`
+        : `var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px)`,
+  } as const;
 
   const body = (
     <div
@@ -256,7 +284,8 @@ export function CopilotPanelContent({
             ? cn(
                 "flex min-h-0 flex-1 flex-col gap-2 pb-3",
                 contentBodyGutter === "flush" ? "px-0 pt-0" : "px-3 pt-0",
-                centerEmptyLanding && "justify-center pb-[12vh]"
+                centerEmptyLanding && "justify-center pb-[12vh]",
+                emptyLandingAlign === "start" && "justify-start pt-0"
               )
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
       }
@@ -273,6 +302,9 @@ export function CopilotPanelContent({
             {routeStatusLabel}
           </p>
         )}
+      {browserPanelOpen && browserPanel ? (
+        <div className="shrink-0">{browserPanel}</div>
+      ) : null}
       <CopilotDebugDetails payload={debugPayload} title="Context payload" />
       <CopilotDebugDetails payload={agentDebugPayload} title="Agent info" />
       {error && (
@@ -336,6 +368,11 @@ export function CopilotPanelContent({
                   {reviewPromptLabel}
                 </p>
               )}
+            {transcriptHeader && !showTranscriptLoading ? (
+              <div className={cn(transcriptContainerClassName, "empty:hidden")}>
+                {transcriptHeader}
+              </div>
+            ) : null}
             {showTranscriptLoading ? (
               <CopilotTranscriptLoading
                 className={transcriptContainerClassName}
@@ -346,6 +383,7 @@ export function CopilotPanelContent({
               <ChatTranscriptErrorBoundary>
                 <CopilotToolCallActionsProvider
                   awaitingInterrupt={awaitingInterrupt}
+                  dismissInterrupt={dismissInterrupt}
                   onSandboxCommandApprove={onSandboxCommandApprove}
                   onSandboxCommandReject={onSandboxCommandReject}
                   openInterrupt={openInterrupt}
@@ -364,7 +402,9 @@ export function CopilotPanelContent({
                     messages={messages}
                     openInterrupt={openInterrupt}
                     pendingUserInsertIndex={pendingUserInsertIndex}
+                    pendingUserParts={pendingUserParts}
                     pendingUserText={pendingUserText}
+                    showAuthorLabels={showAuthorLabels}
                     status={status}
                     subAgentFullViewLabel={subAgentFullViewLabel}
                     subAgentSectionLabels={subAgentSectionLabels}
@@ -415,6 +455,14 @@ export function CopilotPanelContent({
                 {artifactLoadFailedLabel}: {artifactError}
               </p>
             )}
+            {transcriptFooter ? (
+              // `empty:hidden` because the slot is an ELEMENT that decides for
+              // itself whether it has anything to say — without it a component
+              // rendering null still leaves a gap under the last message.
+              <div className={cn(transcriptContainerClassName, "empty:hidden")}>
+                {transcriptFooter}
+              </div>
+            ) : null}
           </div>
         </ScrollArea>
       </div>
@@ -434,7 +482,16 @@ export function CopilotPanelContent({
           suggestedUpdatesLabel={suggestedUpdatesLabel}
         />
       ) : null}
-      <div style={threadContextFloatPad}>
+      <div
+        // A flush body draws no side gutter of its own — the transcript's
+        // scroll area carries it. Repeat it here, or the composer runs to
+        // both edges as soon as the lane is narrower than its measure. The
+        // float reserve rides ON TOP of that gutter: as a bare inline
+        // `padding-right` it would win over the class and leave the composer
+        // flush on the right only.
+        className={cn(contentBodyGutter === "flush" && "px-3")}
+        style={composerFloatPad}
+      >
         <CopilotPanelComposerBlock
           autoExpand={resolvedAutoExpand}
           centerEmptyLanding={centerEmptyLanding}
@@ -448,9 +505,12 @@ export function CopilotPanelContent({
           composerWrapperClassName={composerWrapperClassName}
           dockedSurface={dockedInterruptSurface}
           draft={draft}
+          emptyLandingAlign={emptyLandingAlign}
+          emptyStateHeader={emptyStateHeader}
           emptyStateSubtitle={emptyStateSubtitle}
           emptyStateTitle={emptyStateTitle}
           enableStatusFlap={enableStatusFlap && !dockedInterruptSurface}
+          engentyKind={engentyKind}
           error={error}
           mentionAgentCandidates={mentionAgentCandidates}
           mentionRefSearch={mentionRefSearch}

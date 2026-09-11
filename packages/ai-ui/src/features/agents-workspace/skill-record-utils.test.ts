@@ -12,13 +12,13 @@ describe("buildSkillRepoRelativePath", () => {
     ).toBe("modules/contacts/ai/skills/contacts-extract-email/SKILL.md");
   });
 
-  it("uses ai-core seed path for engenty-core", () => {
+  it("uses runtime skills path for engenty-core", () => {
     expect(
       buildSkillRepoRelativePath({
         logicalPath: "SKILL.md",
         moduleId: "engenty-core",
         skillName: "engenty-safe-automation",
       })
-    ).toBe("packages/ai-core/src/skills/seed/engenty-safe-automation/SKILL.md");
+    ).toBe("apps/ai/ai/skills/engenty-safe-automation/SKILL.md");
   });
 });

@@ -14,7 +14,6 @@ import {
   Label,
   Textarea,
 } from "@engenty/ui-core";
-import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createKbSource, uploadKbVaultFile } from "../api.js";
@@ -146,7 +145,6 @@ interface FileEntry {
 
 export function KbFileUploadSourceDialog({
   kbId,
-  kbSlug,
   onOpenChange,
   open,
   saving,
@@ -155,7 +153,6 @@ export function KbFileUploadSourceDialog({
   initialFiles,
 }: {
   kbId: string;
-  kbSlug: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   saving: boolean;
@@ -164,8 +161,6 @@ export function KbFileUploadSourceDialog({
   initialFiles?: File[];
 }) {
   const { t } = useTranslation("kb");
-  const { currentTenant } = useWorkspaceContext();
-  const tenantId = currentTenant?.id ?? null;
   const inputRef = useRef<HTMLInputElement>(null);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [busy, setBusy] = useState(false);
@@ -210,7 +205,7 @@ export function KbFileUploadSourceDialog({
 
   const handleUploadAll = async () => {
     const pending = entries.filter((e) => e.status === "pending");
-    if (!(pending.length && tenantId)) {
+    if (!pending.length) {
       return;
     }
     setBusy(true);
@@ -221,10 +216,7 @@ export function KbFileUploadSourceDialog({
         prev.map((e) => (e.id === entry.id ? { ...e, status: "uploading" } : e))
       );
       try {
-        const uploaded = await uploadKbVaultFile(entry.file, {
-          kbSlug,
-          tenantId,
-        });
+        const uploaded = await uploadKbVaultFile(entry.file, { kbId });
         const name =
           uploaded.filename.replace(/\.[^/.]+$/, "") || uploaded.filename;
         await createKbSource({

@@ -7,6 +7,9 @@
   "loadFailed": "Rechnungen konnten nicht geladen werden.",
   "loadFailedWithError": "Rechnungen konnten nicht geladen werden: {{error}}",
   "noInvoices": "Keine Rechnungen gefunden.",
+  "previous": "Zurück",
+  "next": "Weiter",
+  "pageOf": "Seite {{page}} von {{totalPages}}",
   "recipient": "Empfänger",
   "email": "E-Mail",
   "location": "Standort",
@@ -127,5 +130,27 @@
     "noRecent": "Noch keine Rechnungen.",
     "noSearchResults": "Keine passenden Rechnungen."
   },
-  "previewPdf": "PDF-Vorschau"
+  "previewPdf": "PDF-Vorschau",
+  "spaceData": {
+    "tab": "Rechnung",
+    "folder": {
+      "date": "Datum",
+      "due": "Fällig",
+      "empty": "Keine Rechnungen in diesem Status.",
+      "noResults": "Keine passenden Rechnungen",
+      "noResultsHint": "Versuch eine andere Suche.",
+      "clearSearch": "Suche löschen",
+      "searchPlaceholder": "Rechnungen suchen…",
+      "summary": "{{count}}",
+      "number": "Nummer",
+      "recipient": "Empfänger",
+      "tab": "Rechnungen",
+      "total": "Summe",
+      "truncated": "Nur die erste Seite wird angezeigt."
+    },
+    "root": {
+      "invoices": "Rechnungen",
+      "overdue": "{{count}} überfällig"
+    }
+  }
 }

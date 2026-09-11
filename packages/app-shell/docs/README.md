@@ -5,7 +5,7 @@ description: Product app shell — layout frame, primary/secondary navigation, c
 
 # @engenty/app-shell
 
-`@engenty/app-shell` is the **Engenty product shell** for authenticated apps: primary sidebar rail, module secondary column, topbar breadcrumbs, tenant switcher, copilot layout slots, and the React registry that collects **browser-owned Agent UI state** and **frontend tools** for AG-UI runs.
+`@engenty/app-shell` is the **Engenty product shell** for authenticated apps: primary sidebar rail, module secondary column, topbar breadcrumbs, copilot layout slots, and the React registry that collects **browser-owned Agent UI state** and **frontend tools** for AG-UI runs.
 
 Generic UI primitives (buttons, tables, breadcrumb trail components, sidebar row primitives) stay in `@engenty/ui-core`. Chat runtime, AG-UI transport, and copilot chrome stay in `@engenty/ai-ui`. Wire contracts stay in `@engenty/ag-ui-bridge`.
 
@@ -16,7 +16,7 @@ Source lives under `packages/app-shell/src/`:
 | Area | Path | Purpose |
 |------|------|---------|
 | **Layout frame** | `components/app-layout/` | `AppLayout`, secondary nav column, mobile sheet, hover/resize hooks |
-| **Layout components** | `components/` | `AppSidebar`, `AppTopbar`, tenant switcher, breadcrumb↔nav icon enrichment |
+| **Layout components** | `components/` | `AppSidebar`, `AppTopbar`, breadcrumb↔nav icon enrichment |
 | **Contexts** | `context/` | `CopilotShellProvider`, `AgentUiStateProvider`, secondary nav React context |
 | **Hooks** | `hooks/` | Persisted pane widths, secondary nav width (internal `use-media-query` for shell breakpoints) |
 | **Navigation** | `lib/navigation.ts` | Build sidebar sections from UI plugin contributions; path matching helpers |

@@ -124,7 +124,7 @@ operation and a new module-facing client:
 const client = createConnectionsModuleClient(supabase, { moduleId: "inbox" });
 await client.listConnections({ tenantId, connectorId? });        // active only
 await client.callAction({
-  connectionId, actionId, input,
+  connectionId, workflowId, input,
   principal: { type: "service", id },   // or a user principal
   isAutonomous: true,                    // background ⇒ autonomous clamps apply
 });

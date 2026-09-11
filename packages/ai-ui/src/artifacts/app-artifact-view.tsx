@@ -1,15 +1,18 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
-import { Badge, Button } from "@engenty/ui-core";
-import { useCallback, useMemo, useRef } from "react";
+import { useQuery } from "@engenty/query-client";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { appsAiRequestHeaders } from "../ag-ui/apps-ai/apps-ai-api.js";
+import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
 import {
   BridgedFrame,
   type BridgedFrameHandle,
 } from "../components/copilot/tool-call/bridged-frame.js";
+import { appFrontendQueryKey, useAppReviewQuery } from "./app-review-api.js";
+import { AppReviewBanner } from "./app-review-banner.js";
 import type { ArtifactViewProps } from "./artifact-renderers.js";
 import { resolveEngentyAiServiceBaseUrlSafe } from "./artifacts-api.js";
+import { subscribeDataTableChanges } from "./data-tables-api.js";
 
 /**
  * Renderer for artifacts of type `app` — a running engenty App.
@@ -58,7 +61,10 @@ export function parseAppHandle(
 
 interface AppFrontend {
   html: string;
-  manifest: { egress?: { connect?: string[] } };
+  manifest: {
+    egress?: { connect?: string[] };
+    engenty?: { tables?: string[] };
+  };
   version: number;
 }
 
@@ -112,172 +118,6 @@ async function callAppAction(params: {
   return payload?.result ?? {};
 }
 
-export function appFrontendQueryKey(appId: string, version?: number) {
-  return ["app-frontend", appId, version ?? "active"] as const;
-}
-
-interface AppReview {
-  can_approve: boolean;
-  review: {
-    actions: { id: string; requiresApproval?: boolean; risk: string }[];
-    egress: string[];
-    operations: string[];
-    status: string;
-    version: number;
-  } | null;
-}
-
-async function fetchAppReview(
-  appId: string,
-  version?: number
-): Promise<AppReview> {
-  const base = resolveEngentyAiServiceBaseUrlSafe();
-  const headers = await appsAiRequestHeaders();
-  const query = version === undefined ? "" : `?version=${version}`;
-  const res = await fetch(`${base}/ai/apps/${appId}/review${query}`, {
-    headers,
-  });
-  if (!res.ok) {
-    throw new Error(`Could not load app review (HTTP ${res.status})`);
-  }
-  return (await res.json()) as AppReview;
-}
-
-async function postAppReviewDecision(params: {
-  appId: string;
-  decision: "approve" | "reject";
-  version: number;
-}): Promise<void> {
-  const base = resolveEngentyAiServiceBaseUrlSafe();
-  const headers = await appsAiRequestHeaders();
-  const res = await fetch(`${base}/ai/apps/${params.appId}/review`, {
-    body: JSON.stringify({
-      decision: params.decision,
-      version: params.version,
-    }),
-    headers: { ...headers, "content-type": "application/json" },
-    method: "POST",
-  });
-  if (!res.ok) {
-    const payload = (await res.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(payload?.message ?? `Decision failed (HTTP ${res.status})`);
-  }
-}
-
-export function appReviewQueryKey(appId: string, version?: number) {
-  return ["app-review", appId, version ?? "proposed"] as const;
-}
-
-/**
- * The consent surface. A proposed version renders what it ASKS FOR — every
- * declared operation and action, high-risk ones marked — right above the
- * running preview, so the human reads the manifest at the moment they decide.
- * Holders of `apps.approve` get the decision buttons; everyone else sees that
- * the version is waiting. Core re-checks the capability on the decision call,
- * so this banner is honesty, not enforcement.
- */
-function AppReviewBanner({
-  appId,
-  version,
-}: {
-  appId: string;
-  version?: number;
-}) {
-  const queryClient = useQueryClient();
-  const reviewQuery = useQuery({
-    enabled: Boolean(appId),
-    queryFn: () => fetchAppReview(appId, version),
-    queryKey: appReviewQueryKey(appId, version),
-  });
-  const decide = useMutation({
-    mutationFn: (decision: "approve" | "reject") =>
-      postAppReviewDecision({
-        appId,
-        decision,
-        version: reviewQuery.data?.review?.version as number,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: appReviewQueryKey(appId, version),
-      });
-    },
-  });
-
-  const review = reviewQuery.data?.review;
-  if (review?.status !== "proposed") {
-    return null;
-  }
-  const highRiskActions = review.actions.filter(
-    (action) => action.risk === "high" || action.requiresApproval === true
-  );
-
-  return (
-    <div className="border-b bg-muted/50 px-4 py-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="min-w-0">
-          <span className="font-medium">
-            Version {review.version} awaits approval.
-          </span>{" "}
-          <span className="text-muted-foreground">This app asks for:</span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {review.operations.map((operationId) => (
-              <Badge key={operationId} variant="secondary">
-                {operationId}
-              </Badge>
-            ))}
-            {highRiskActions.map((action) => (
-              <Badge
-                className="border-destructive/50 text-destructive"
-                key={action.id}
-                variant="outline"
-              >
-                {action.id} · approval-gated
-              </Badge>
-            ))}
-            {review.operations.length === 0 && highRiskActions.length === 0 && (
-              <span className="text-muted-foreground">
-                nothing beyond its own frame
-              </span>
-            )}
-          </div>
-        </div>
-        {reviewQuery.data?.can_approve ? (
-          <div className="flex shrink-0 gap-2">
-            <Button
-              disabled={decide.isPending}
-              onClick={() => decide.mutate("approve")}
-              size="sm"
-            >
-              Approve
-            </Button>
-            <Button
-              disabled={decide.isPending}
-              onClick={() => decide.mutate("reject")}
-              size="sm"
-              variant="outline"
-            >
-              Reject
-            </Button>
-          </div>
-        ) : (
-          <span className="shrink-0 text-muted-foreground">
-            Waiting for an approver
-          </span>
-        )}
-      </div>
-      {decide.isError ? (
-        <div className="mt-2 text-destructive">
-          {decide.error instanceof Error
-            ? decide.error.message
-            : "The decision could not be recorded."}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function AppArtifactView({ artifact, content }: ArtifactViewProps) {
   const handle = useMemo(() => parseAppHandle(content), [content]);
   const frameHandle = useRef<BridgedFrameHandle | null>(null);
@@ -295,12 +135,45 @@ export function AppArtifactView({ artifact, content }: ArtifactViewProps) {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
+  // Shares the banner's query. A version that stops being `proposed` has just
+  // been activated, and the frame standing there was built under the old
+  // answer — it goes into the key so approving reloads the App in place.
+  const reviewQuery = useAppReviewQuery(appId, appVersion);
+  const releaseState = reviewQuery.data?.review?.status ?? "none";
+
   const sessionId = handle?.session_id ?? "";
   const callTool = useCallback(
     (name: string, args: Record<string, unknown>) =>
       callAppAction({ appId, args, name, sessionId }),
     [appId, sessionId]
   );
+
+  // Every Space table the manifest declares is followed for the frame's
+  // lifetime; a change is pushed as `ui/notifications/table-changed` and the
+  // App re-reads through the bridge (`onTableChange` in engenty:bridge).
+  const { threadsRealtimeClient } = useEngentyAIContext();
+  const declaredTablesKey = (
+    frontendQuery.data?.manifest?.engenty?.tables ?? []
+  ).join(",");
+  useEffect(() => {
+    const tableIds = declaredTablesKey ? declaredTablesKey.split(",") : [];
+    const unsubscribes = tableIds.map((tableId) =>
+      subscribeDataTableChanges({
+        client: threadsRealtimeClient ?? null,
+        onChange: () => {
+          frameHandle.current?.notify("ui/notifications/table-changed", {
+            table_id: tableId,
+          });
+        },
+        tableId,
+      })
+    );
+    return () => {
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe();
+      }
+    };
+  }, [declaredTablesKey, threadsRealtimeClient]);
 
   if (!handle) {
     return (
@@ -344,7 +217,7 @@ export function AppArtifactView({ artifact, content }: ArtifactViewProps) {
             : undefined
         }
         fit="fill"
-        frameKey={`${appId}:${frontendQuery.data.version}`}
+        frameKey={`${appId}:${frontendQuery.data.version}:${releaseState}`}
         handleRef={frameHandle}
         html={frontendQuery.data.html}
         initialData={{

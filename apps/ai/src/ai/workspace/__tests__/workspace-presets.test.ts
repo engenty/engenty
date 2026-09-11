@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEngentyMountSpecs,
   expandWorkspaceMounts,
+  resolveMountSpaceId,
   resolveScopeRelativePath,
   type WorkspaceScopeContext,
 } from "../workspace-presets.js";
@@ -28,10 +29,12 @@ describe("expandWorkspaceMounts", () => {
     expect(mounts.map((m) => m.path)).toEqual([
       "/home",
       "/shared",
+      "/space",
       "/skills",
       "/task",
-      "/goal",
+      "/routine",
       "/project",
+      "/data",
     ]);
     // The `/` read-only tenant asset mount was removed; AGENTS.md/SOUL.md reach
     // the agent via prompt injection, not a filesystem mount.
@@ -121,14 +124,7 @@ describe("resolveScopeRelativePath", () => {
     ).toBe("ai/workspace/tasks/ENG-142/");
   });
 
-  it("resolves goal/project mounts from the containment chain, null unbound", () => {
-    const goalMount = {
-      access: "rw",
-      path: "/goal",
-      requireBinding: true,
-      scope: "goal",
-      source: "goal",
-    } as const;
+  it("resolves the project mount from the containment chain, null unbound", () => {
     const projectMount = {
       access: "rw",
       path: "/project",
@@ -136,14 +132,10 @@ describe("resolveScopeRelativePath", () => {
       scope: "project",
       source: "project",
     } as const;
-    expect(resolveScopeRelativePath(goalMount, { ...ctx, goalId: "g-1" })).toBe(
-      "ai/workspace/goals/g-1/"
-    );
     expect(
       resolveScopeRelativePath(projectMount, { ...ctx, projectId: "p-1" })
     ).toBe("ai/workspace/projects/p-1/");
     // Unbound chat run: the containment mounts drop rather than mount empty.
-    expect(resolveScopeRelativePath(goalMount, ctx)).toBeNull();
     expect(resolveScopeRelativePath(projectMount, ctx)).toBeNull();
   });
 });
@@ -194,5 +186,173 @@ describe("buildEngentyMountSpecs", () => {
       agentId: "tasks.assist",
     });
     expect(withoutTask.find((s) => s.mountPath === "/task")).toBeUndefined();
+  });
+});
+
+describe("space rooting (PLAN-spaces.md Phase 2)", () => {
+  const SPACE = "99999999-9999-4999-8999-999999999999";
+  const runCtx: WorkspaceScopeContext = {
+    ...ctx,
+    runId: "run-1",
+    taskIdentifier: "ENG-1",
+    threadId: "thread-1",
+  };
+
+  function specsFor(overrides: Partial<WorkspaceScopeContext>) {
+    return buildEngentyMountSpecs(
+      expandWorkspaceMounts(config({ preset: "assistant" })),
+      { ...runCtx, ...overrides }
+    );
+  }
+
+  it("leaves a tenant-level run completely unchanged", () => {
+    const specs = specsFor({});
+    expect(specs.map((m) => m.mountPath)).toContain("/shared");
+    expect(specs.map((m) => m.mountPath)).not.toContain("/space");
+    expect(specs.every((m) => m.spaceId === undefined)).toBe(true);
+  });
+
+  it("roots the work mounts in the space while leaving skills and home tenant-level", () => {
+    const byPath = new Map(
+      specsFor({ spaceId: SPACE }).map((m) => [m.mountPath, m])
+    );
+    // Work containers: inside the space.
+    expect(byPath.get("/task")?.spaceId).toBe(SPACE);
+    // The tenant library and the personal desk: NOT inside the space.
+    expect(byPath.get("/skills")?.spaceId).toBeUndefined();
+    expect(byPath.get("/home")?.spaceId).toBeUndefined();
+    // A space alone does not confine — the tenant commons is still mounted,
+    // alongside (not instead of) the space's own.
+    expect(byPath.get("/shared")?.spaceId).toBeUndefined();
+    expect(byPath.get("/space")?.spaceId).toBe(SPACE);
+  });
+
+  it("drops /space entirely when the run has no space", () => {
+    // Additive, not a rename: with no space there is no second commons, and
+    // `/shared` is untouched.
+    const paths = specsFor({}).map((m) => m.mountPath);
+    expect(paths).toContain("/shared");
+    expect(paths).not.toContain("/space");
+  });
+
+  it("roots a routine fire's folder on the routine, inside the space", () => {
+    const byPath = new Map(
+      specsFor({ routineId: "routine-7", spaceId: SPACE }).map((m) => [
+        m.mountPath,
+        m,
+      ])
+    );
+    const routine = byPath.get("/routine");
+    // Successive fires of one routine share this folder — that is what lets a
+    // schedule keep notes between runs.
+    expect(routine?.fileStorageRelativePath).toBe(
+      "ai/workspace/routines/routine-7/"
+    );
+    expect(routine?.spaceId).toBe(SPACE);
+  });
+
+  it("drops /routine for a run that is not a routine fire", () => {
+    expect(
+      specsFor({ spaceId: SPACE }).find((m) => m.mountPath === "/routine")
+    ).toBeUndefined();
+  });
+
+  it("gives a CONFINED agent /space in place of /shared", () => {
+    const specs = specsFor({ spaceConfined: true, spaceId: SPACE });
+    const paths = specs.map((m) => m.mountPath);
+    expect(paths).toContain("/space");
+    expect(paths).not.toContain("/shared");
+
+    const space = specs.find((m) => m.mountPath === "/space");
+    // Same relative layout as the tenant commons — only the ROOT differs.
+    expect(space?.fileStorageRelativePath).toBe("ai/workspace/commons/");
+    expect(space?.spaceId).toBe(SPACE);
+  });
+
+  it("ignores the confinement flag without a space rather than dropping /shared", () => {
+    // Fail-open here is correct: confining to a space we cannot name would
+    // leave the agent with no shared folder at all.
+    const paths = specsFor({ spaceConfined: true }).map((m) => m.mountPath);
+    expect(paths).toContain("/shared");
+    expect(paths).not.toContain("/space");
+  });
+
+  it("roots the sandbox in the space too — a decision, not an oversight", () => {
+    // A sandbox holds whatever the run pulled out of its space; leaving it at
+    // the tenant root would be a hole in exactly this boundary.
+    const specs = buildEngentyMountSpecs(
+      expandWorkspaceMounts(config({ preset: "code_execution" })),
+      { ...runCtx, spaceId: SPACE }
+    );
+    expect(specs.find((m) => m.mountPath === "/sandbox")?.spaceId).toBe(SPACE);
+  });
+
+  it("resolveMountSpaceId splits work from tenant library by source", () => {
+    const c = { ...runCtx, spaceId: SPACE };
+    const at = (source: string, scope: string) =>
+      resolveMountSpaceId(
+        { access: "rw", path: "/x", scope, source } as never,
+        c
+      );
+    for (const source of ["checkout", "project", "sandbox"]) {
+      expect(at(source, "task")).toBe(SPACE);
+    }
+    expect(at("commons", "space")).toBe(SPACE);
+    expect(at("commons", "tenant")).toBeNull();
+    expect(at("skills", "tenant")).toBeNull();
+    expect(at("home", "user")).toBeNull();
+  });
+});
+
+describe("the /data mount (PLAN-space-data.md D4)", () => {
+  const base = {
+    agentId: "agent-1",
+    tenantId: "tenant-1",
+    userId: "user-1",
+  };
+
+  it("is dropped entirely when the run has no space — there is no tree to show", () => {
+    // An empty `/data` would read to the agent as "this space has no
+    // contacts", which is a lie it would act on. Dropping is the fail-closed
+    // answer the mount table already uses for unresolved bindings.
+    const specs = buildEngentyMountSpecs(
+      [{ access: "rw", path: "/data", scope: "space", source: "data" }],
+      base
+    );
+    expect(specs).toEqual([]);
+  });
+
+  it("drops /data for an unresolved Space the same way — not an empty tree", () => {
+    // Package 2 leaves spaceId unset when resolution is unresolved so this
+    // mount cannot look like "the Space has no records."
+    const specs = buildEngentyMountSpecs(
+      [{ access: "rw", path: "/data", scope: "space", source: "data" }],
+      { ...base, spaceId: undefined }
+    );
+    expect(specs).toEqual([]);
+    expect(specs.some((spec) => spec.mountPath === "/data")).toBe(false);
+  });
+
+  it("is space-rooted and marked as data, not as a storage prefix", () => {
+    const [spec] = buildEngentyMountSpecs(
+      [{ access: "rw", path: "/data", scope: "space", source: "data" }],
+      { ...base, spaceId: "space-9" }
+    );
+    expect(spec?.kind).toBe("data");
+    expect(spec?.spaceId).toBe("space-9");
+    // Writable on purpose: a file write IS the module's write operation, gate
+    // included. Read-only would leave agents editing through tools and reading
+    // through files — the two-representation split this design removes.
+    expect(spec?.readOnly).toBe(false);
+  });
+
+  it("rides in every preset, so no archetype is blind to the space's records", () => {
+    for (const preset of ["assistant", "staff", "code_execution"] as const) {
+      expect(
+        expandWorkspaceMounts(config({ preset })).some(
+          (mount) => mount.path === "/data"
+        )
+      ).toBe(true);
+    }
   });
 });

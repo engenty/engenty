@@ -2,7 +2,10 @@ import { formatZodErrorForApiError, isZodError } from "@engenty/api-contracts";
 import type { createApprovalService } from "@engenty/approvals-sdk";
 import type { PluginHttpRoute } from "@engenty/plugin-sdk";
 import { createRoute, type OpenAPIHono } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { AuthUnavailableError } from "../../../dal/core-users/auth.js";
+import { accessibleSpaceIds } from "../../../dal/space-membership.js";
+import { resolveSpaceResourceSurface } from "../../../dal/space-mounts.js";
 import type { TenantPluginOverridesDal } from "../../../dal/tenant-plugin-overrides.js";
 import { resolvePluginCapability } from "../../../plugins/capability-resolver.js";
 import type { PluginRegistry } from "../../../plugins/registry.js";
@@ -18,6 +21,7 @@ import { InProcessPolicyError } from "../../../security/in-process-gate.js";
 import {
   evaluatePolicy,
   evaluateResultPolicy,
+  type PolicyDeps,
 } from "../../../security/policy.js";
 import {
   isApprovedEdge,
@@ -37,6 +41,11 @@ import {
   normalizeRouteResponses,
   serializePluginRouteResult,
 } from "./plugin-http-response.js";
+import {
+  findForbiddenSpaceScope,
+  findUnmountedModuleSpace,
+  pluginSpaceScopeSubject,
+} from "./plugin-space-scope.js";
 
 interface RouteOperationMeta {
   audit?: "always" | "never";
@@ -73,6 +82,8 @@ function mountPluginRoute(
     auditLog: SecurityAuditLogAdapter;
     registry: PluginRegistry;
     resolveTenantPluginOverrides?: TenantPluginOverrideResolver;
+    getTenantDb?: ((auth: { tenantId: string }) => SupabaseClient) | null;
+    resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
   }
 ) {
   const { route } = params;
@@ -193,6 +204,13 @@ function mountPluginRoute(
       throw e;
     }
     // ── Public routes: skip policy, approval, audit — call handler directly ──
+    //
+    // No space check here, and not by oversight: a public route has no principal
+    // and no tenant, so there is no membership to test against and nothing for
+    // the gate to compare. A public route that took a `space_id` and returned a
+    // space's contents would be a hole this gate cannot close — the fix for that
+    // would be forbidding the combination at registration, not a check that
+    // cannot decide. None exists today.
     if (route.isPublic) {
       const scopeId =
         (c.req.header("x-scope-id") ?? c.req.header("X-Scope-Id"))?.trim() ||
@@ -277,7 +295,10 @@ function mountPluginRoute(
         },
       },
       params.registry,
-      { approvalService: params.approvalService }
+      {
+        approvalService: params.approvalService,
+        resolveAgentApproval: params.resolveAgentApproval,
+      }
     );
     if (policy.action === "deny") {
       recordModuleAuditEvent(
@@ -318,6 +339,8 @@ function mountPluginRoute(
           approvalRequestId: gate.approvalRequestId,
           expiresAt: gate.expiresAt,
           reason: gate.reason,
+          riskLevel: operation?.riskLevel ?? "medium",
+          requiresApproval: operation?.requiresApproval ?? false,
         },
       }) as never;
     }
@@ -355,6 +378,68 @@ function mountPluginRoute(
       );
     };
 
+    // Before the handler, and before any capability or approval logic that
+    // assumes the request is about the caller's own data: a `space_id` the caller
+    // may not enter is refused here for EVERY module route at once
+    // (PLAN-spaces.md Phase P4).
+    const forbiddenSpace = await findForbiddenSpaceScope({
+      auth,
+      getTenantDb: params.getTenantDb ?? null,
+      params: paramsParsed,
+      query: queryParsed,
+    });
+    if (forbiddenSpace) {
+      return jsonApiError(c, 404, { message: "Space not found" }) as never;
+    }
+    const routeModuleId = operation?.moduleId ?? params.pluginId;
+    const tenantDbFor = (tenantId: string) =>
+      params.getTenantDb ? params.getTenantDb({ tenantId }) : null;
+    // A write that names a space this module is not mounted in is refused for
+    // every space-placed module at once.
+    const unmountedSpace = await findUnmountedModuleSpace({
+      body,
+      method: route.method,
+      moduleId: routeModuleId,
+      placement:
+        params.registry.plugins.find((plugin) => plugin.id === routeModuleId)
+          ?.placement ?? null,
+      query: queryParsed,
+      resolveMountedModules: async (spaceId) => {
+        const client = auth ? tenantDbFor(auth.tenantId) : null;
+        if (!(client && auth)) {
+          return null;
+        }
+        const surface = await resolveSpaceResourceSurface(
+          client,
+          auth.tenantId,
+          spaceId
+        );
+        return new Set(surface.modules.map((entry) => entry.moduleId));
+      },
+    });
+    if (unmountedSpace) {
+      return jsonApiError(c, 400, {
+        code: "space_module_not_mounted",
+        message: `${routeModuleId} is not mounted in this space`,
+      }) as never;
+    }
+    // Space ids the caller may see, for a handler listing ACROSS spaces.
+    // Computed on demand — most routes never ask — and by the same subject
+    // rule as the gate above.
+    const accessibleSpaceIdsForCaller = async (): Promise<string[]> => {
+      const client = auth ? tenantDbFor(auth.tenantId) : null;
+      if (!(client && auth)) {
+        return [];
+      }
+      return [
+        ...(await accessibleSpaceIds(
+          client,
+          auth.tenantId,
+          pluginSpaceScopeSubject(auth)
+        )),
+      ];
+    };
+
     const scopeId =
       (c.req.header("x-scope-id") ?? c.req.header("X-Scope-Id"))?.trim() ||
       "default";
@@ -388,6 +473,7 @@ function mountPluginRoute(
         config: params.config,
         pluginConfig: params.pluginConfig,
         callGatewayMethod,
+        accessibleSpaceIds: accessibleSpaceIdsForCaller,
         dataDir: params.dataDir,
         resolvePath: params.resolvePath,
         logger,
@@ -554,10 +640,18 @@ export function registerPluginHttpRoutes(params: {
   approvalService: ReturnType<typeof createApprovalService>;
   auditLog: SecurityAuditLogAdapter;
   tenantPluginOverrides?: TenantPluginOverridesDal;
+  resolveAgentApproval?: PolicyDeps["resolveAgentApproval"];
 }) {
   const resolveTenantPluginOverrides = params.tenantPluginOverrides
     ? (tenantId: string) => params.tenantPluginOverrides!.getOverrides(tenantId)
     : undefined;
+
+  // Read off the registry rather than added to this function's signature: every
+  // caller already builds the registry, and a new required param would be one
+  // more place to forget the space gate.
+  const getTenantDb = (params.registry.getTenantDb ?? null) as
+    | ((auth: { tenantId: string }) => SupabaseClient)
+    | null;
 
   for (const entry of params.registry.httpRoutes) {
     mountPluginRoute(params.app, {
@@ -573,6 +667,10 @@ export function registerPluginHttpRoutes(params: {
       auditLog: params.auditLog,
       registry: params.registry,
       resolveTenantPluginOverrides,
+      getTenantDb,
+      ...(params.resolveAgentApproval
+        ? { resolveAgentApproval: params.resolveAgentApproval }
+        : {}),
     });
   }
 }

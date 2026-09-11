@@ -51,7 +51,11 @@ export async function bootstrapManualSourceWithInbox(
 export async function bootstrapFileUploadSourceWithInbox(
   repos: KbRepoFactory,
   source: KbSource,
-  settings: { original_filename?: string; storage_object_key?: string },
+  settings: {
+    body_markdown?: string;
+    original_filename?: string;
+    storage_object_key?: string;
+  },
   actorPrincipalId: string | null
 ): Promise<void> {
   const key = settings.storage_object_key?.trim();
@@ -60,6 +64,10 @@ export async function bootstrapFileUploadSourceWithInbox(
   }
   const title =
     settings.original_filename?.trim() || source.name.trim() || "File upload";
+  // The vault holds the bytes; only the extracted text is readable by ingest,
+  // analysis or search. A caller that skips conversion still gets a valid
+  // source — it just has nothing to say until the text arrives.
+  const md = settings.body_markdown?.trim() || "";
   const inbox = await repos.inbox.create(
     {
       kb_id: source.kb_id,
@@ -69,7 +77,7 @@ export async function bootstrapFileUploadSourceWithInbox(
         storage_object_key: key,
       },
       original_storage_path: key,
-      raw_markdown: null,
+      raw_markdown: md.length > 0 ? md : null,
       raw_text: null,
       source_type: "file",
       source_url: null,

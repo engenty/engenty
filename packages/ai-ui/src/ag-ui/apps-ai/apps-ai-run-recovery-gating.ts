@@ -312,6 +312,13 @@ export function transcriptMissingAssistantMessage(
  * Coalesces TEXT_MESSAGE_CONTENT deltas from run event records into a
  * map of messageId → accumulated text.  Only events whose payload carries
  * text-message event types are considered.
+ *
+ * Assistant messages ONLY: the run's event log also carries the user-turn
+ * echo (a role:"user" TEXT_MESSAGE_* trio for attached windows, see
+ * `isUserTurnEchoFor` server-side). Coalescing that trio re-surfaced the
+ * user's own prompt as a synthetic "interrupted assistant message" after a
+ * cancelled run — the sent prompt rendered twice (persisted user row + echo
+ * copy). Role rides TEXT_MESSAGE_START; absent role defaults to assistant.
  */
 export function coalesceRunEventText(
   events: ReadonlyArray<{
@@ -320,6 +327,7 @@ export function coalesceRunEventText(
   }>
 ): Map<string, string> {
   const textByMessageId = new Map<string, string>();
+  const nonAssistantMessageIds = new Set<string>();
   let activeMessageId: string | null = null;
 
   for (const record of events) {
@@ -331,6 +339,12 @@ export function coalesceRunEventText(
       const id =
         typeof payload?.messageId === "string" ? payload.messageId : null;
       if (id) {
+        const role = typeof payload?.role === "string" ? payload.role : null;
+        if (role && role !== "assistant") {
+          nonAssistantMessageIds.add(id);
+          activeMessageId = null;
+          continue;
+        }
         activeMessageId = id;
         if (!textByMessageId.has(id)) {
           textByMessageId.set(id, "");
@@ -341,7 +355,7 @@ export function coalesceRunEventText(
         (typeof payload?.messageId === "string" ? payload.messageId : null) ??
         activeMessageId;
       const delta = typeof payload?.delta === "string" ? payload.delta : "";
-      if (id && delta) {
+      if (id && delta && !nonAssistantMessageIds.has(id)) {
         textByMessageId.set(id, (textByMessageId.get(id) ?? "") + delta);
       }
     } else if (type === EventType.TEXT_MESSAGE_END) {

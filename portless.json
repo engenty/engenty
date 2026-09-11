@@ -7,6 +7,11 @@
       "script": "dev:app",
       "appPort": 3002
     },
+    "apps/www": {
+      "name": "www.engenty",
+      "script": "dev:app",
+      "appPort": 3003
+    },
     "apps/manage": {
       "name": "manage.engenty",
       "script": "dev:app",

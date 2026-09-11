@@ -4,7 +4,6 @@ export * from "./api/categories.js";
 export * from "./api/faqs.js";
 export * from "./api/graph.js";
 export * from "./api/inbox.js";
-export * from "./api/kb-sync.js";
 export * from "./api/knowledge-bases.js";
 export * from "./api/search.js";
 export * from "./api/settings.js";

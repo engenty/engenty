@@ -33,6 +33,7 @@
     "@engenty/auth-ui": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/i18n": "workspace:*",
+    "@engenty/notifications-ui": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",

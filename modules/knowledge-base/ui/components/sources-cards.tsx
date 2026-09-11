@@ -3,6 +3,7 @@ import {
   adminListCardsGridClassName,
   Badge,
   Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -18,7 +19,6 @@ type TableSize = "compact" | "normal";
 
 interface SourcesCardsProps {
   adapters: KbSourceAdapterDescriptor[];
-  kbSlug: string;
   onDelete: (source: KbSource) => void;
   onEdit: (source: KbSource) => void;
   onOpenItems: (source: KbSource) => void;
@@ -31,7 +31,6 @@ interface SourcesCardsProps {
 export function SourcesCards({
   sources,
   adapters,
-  kbSlug,
   tableSize,
   onEdit,
   onOpenItems,
@@ -53,9 +52,10 @@ export function SourcesCards({
     <div className={adminListCardsGridClassName(tableSize)}>
       {sources.map((source) => (
         <div
-          className={`relative rounded-lg border bg-card text-left ${
+          className={cn(
+            "ui-card-raised ui-card-interactive relative text-left",
             tableSize === "compact" ? "p-3" : "p-4"
-          }`}
+          )}
           key={source.id}
         >
           <DropdownMenu>
@@ -84,7 +84,7 @@ export function SourcesCards({
           </DropdownMenu>
           <button
             className="w-full pr-10 text-left"
-            onClick={() => navigate(kbSourcePath(kbSlug, source.id))}
+            onClick={() => navigate(kbSourcePath(source.id))}
             type="button"
           >
             <div className="flex items-start justify-between gap-3 pr-2">

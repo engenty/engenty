@@ -1,5 +1,7 @@
 import type { ConnectionsRepo } from "@engenty/connections-sdk";
+import { mountConnectionInSpace } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { LOCAL_FILES_ERROR } from "../protocol.js";
 import type { LocalFilesRepo } from "../repo.js";
@@ -10,6 +12,8 @@ const registerDirBody = z.object({
   device_label: z.string().max(120).nullish(),
   directory_name: z.string().min(1).max(200),
   installation_id: z.string().uuid(),
+  /** Mount the new account into this space (CN.4 Flow A). */
+  space_id: z.string().uuid().nullish(),
 });
 
 const heartbeatBody = z.object({
@@ -44,6 +48,7 @@ export function registerLocalFilesRoutes(
   server: PluginServerApi,
   deps: {
     getConnectionsRepo: (auth: { tenantId: string }) => ConnectionsRepo;
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
     getRepo: (auth: { tenantId: string }) => LocalFilesRepo;
   }
 ): void {
@@ -52,6 +57,7 @@ export function registerLocalFilesRoutes(
   const repoFor = (auth: { tenantId: string }) => deps.getRepo(auth);
   const connectionsRepoFor = (auth: { tenantId: string }) =>
     deps.getConnectionsRepo(auth);
+  const dbFor = (auth: { tenantId: string }) => deps.getDb(auth);
 
   // Register a browser-granted directory as a connection ("account").
   server.registerHttpRoute({
@@ -106,6 +112,13 @@ export function registerLocalFilesRoutes(
         installation_id: body.installation_id,
         tenant_id: ctx.auth.tenantId,
       });
+      if (body.space_id) {
+        await mountConnectionInSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
+          connectionId: connection.id,
+          spaceId: body.space_id,
+          tenantId: ctx.auth.tenantId,
+        });
+      }
       ctx.recordAuditEvent?.({
         detail: { connection_id: connection.id, connector: CONNECTOR_ID },
         type: "connection.connected",

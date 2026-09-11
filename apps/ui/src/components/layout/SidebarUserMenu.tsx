@@ -11,6 +11,7 @@ import {
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
 import { useTranslation } from "@engenty/i18n/ui";
+import type { QueryClient } from "@engenty/query-client";
 import { useQueryClient } from "@engenty/query-client";
 import {
   DropdownMenu,
@@ -26,7 +27,6 @@ import {
   Switch,
 } from "@engenty/ui-core";
 import { useCurrentUserProfile } from "@engenty/user-management-ui";
-import type { QueryClient } from "@tanstack/react-query";
 import {
   Check,
   ChevronsUpDown,

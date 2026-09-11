@@ -119,7 +119,6 @@ export function ContactsSettingsPage() {
     actions: pageActions,
     breadcrumbs,
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   if (loading) {

@@ -105,10 +105,22 @@ function toBlockInputs(
   }));
 }
 
-export function InvoiceEditPage() {
+/**
+ * The invoice draft editor, as a page or embedded in a host pane.
+ *
+ * `embedded` matches `InvoiceDetailPage`'s: ids as props, no module secondary
+ * nav, no `InvoiceDocumentHeader`, and no status redirect — the host chose this
+ * editor from the record's phase and owns the URL.
+ */
+export function InvoiceEditPage(props?: {
+  embedded?: boolean;
+  invoiceId?: string;
+}) {
+  const embedded = props?.embedded ?? false;
   const { t } = useTranslation("invoices");
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = props?.invoiceId ?? routeParams.id;
 
   const { data: pageData, isLoading } = useInvoiceEditPageQuery(id ?? null);
   const updateMutation = useUpdateInvoiceMutation();
@@ -177,12 +189,14 @@ export function InvoiceEditPage() {
     setBlocks(toCommercialBlocks(pageData.blocks));
   }, [pageData]);
 
-  // Only drafts are editable (immutability boundary).
+  // Only drafts are editable (immutability boundary). Embedded, the host
+  // already picked this view from the phase and owns the URL, so a status
+  // change must not navigate the reader out of the pane.
   useEffect(() => {
-    if (invoice && invoice.status !== "draft") {
+    if (!embedded && invoice && invoice.status !== "draft") {
       navigate(`/mdl/invoices/${invoice.id}`, { replace: true });
     }
-  }, [invoice, navigate]);
+  }, [embedded, invoice, navigate]);
 
   const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
     useInvoicesModuleSecondaryShellNav();
@@ -382,11 +396,16 @@ export function InvoiceEditPage() {
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
-    secondaryNavAfterItems,
-    secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
-    // Float the transparent topbar over the white DocumentHeader so they blend.
-    topbarOverlap: true,
+    // Embedded: the host owns the secondary column, and there is no
+    // InvoiceDocumentHeader for a transparent topbar to blend into or float over.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems,
+          secondaryNavHeaderSlot,
+          // Float the transparent topbar over the white DocumentHeader.
+          topbarOverlap: true,
+        }),
   });
   useInvoicesEditAgentUiSlice(invoice);
 
@@ -421,27 +440,31 @@ export function InvoiceEditPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <InvoiceDocumentHeader
-        clientId={contactsPlugin ? invoice.clientId : null}
-        clientName={clientName}
-        collapsed={headerCollapsed}
-        compactStatus={<InvoiceStatusBadge status={invoice.status} />}
-        compactTitle={
-          invoice.title ||
-          invoice.number ||
-          t("invoiceTitle", { defaultValue: "Invoice title" })
-        }
-        onChangeClient={openSettings}
-        onTitleBlur={() => patchInvoice({ title: invoice.title ?? "" })}
-        onTitleChange={(title) =>
-          setInvoice((cur) => (cur ? { ...cur, title } : cur))
-        }
-        showChangeClient={Boolean(contactsPlugin)}
-        showLinkToClient={Boolean(contactsPlugin)}
-        status={invoice.status}
-        title={invoice.title ?? ""}
-        titlePlaceholder={t("invoiceTitle", { defaultValue: "Invoice title" })}
-      />
+      {embedded ? null : (
+        <InvoiceDocumentHeader
+          clientId={contactsPlugin ? invoice.clientId : null}
+          clientName={clientName}
+          collapsed={headerCollapsed}
+          compactStatus={<InvoiceStatusBadge status={invoice.status} />}
+          compactTitle={
+            invoice.title ||
+            invoice.number ||
+            t("invoiceTitle", { defaultValue: "Invoice title" })
+          }
+          onChangeClient={openSettings}
+          onTitleBlur={() => patchInvoice({ title: invoice.title ?? "" })}
+          onTitleChange={(title) =>
+            setInvoice((cur) => (cur ? { ...cur, title } : cur))
+          }
+          showChangeClient={Boolean(contactsPlugin)}
+          showLinkToClient={Boolean(contactsPlugin)}
+          status={invoice.status}
+          title={invoice.title ?? ""}
+          titlePlaceholder={t("invoiceTitle", {
+            defaultValue: "Invoice title",
+          })}
+        />
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col bg-card/30">
         <div className="flex h-11 shrink-0 items-center">

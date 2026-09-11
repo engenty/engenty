@@ -8,6 +8,7 @@ import {
 } from "@engenty/ai-ui";
 import { queryOptions, useQuery, useQueryClient } from "@engenty/query-client";
 import { useCallback, useMemo, useRef } from "react";
+import { toast } from "sonner";
 import { getUserSetting, setUserSetting } from "@/lib/api/client";
 
 /** User-settings `copilot.layout`: auto-saved when you snap/drag the shell or use the ⋮ position menu (not Appearance settings). */
@@ -96,7 +97,17 @@ export function useCopilotLayoutPersistence(
         void setUserSetting(COPILOT_LAYOUT_USER_SETTING_NAME, {
           type: "json",
           value_jsonb: body,
-        });
+        })
+          .then(() => {
+            queryClient.setQueryData(copilotLayoutQueryKey, body);
+          })
+          .catch(() => {
+            void queryClient.invalidateQueries({
+              exact: true,
+              queryKey: copilotLayoutQueryKey,
+            });
+            toast.error("Could not save the copilot layout.");
+          });
       }, 300);
     },
     [options.enabled, queryClient]

@@ -1,3 +1,4 @@
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
@@ -68,7 +69,10 @@ function ContactNavRow({
  */
 export function ContactsSidebarPanel() {
   const { t, i18n } = useTranslation("contacts");
-  const { pathname, search: locationSearch } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
+  // matcher below is written against `/mdl/<module>/…`.
+  const { pathname: rawPathname, search: locationSearch } = useLocation();
+  const pathname = canonicalModulePathname(rawPathname);
 
   useEffect(() => {
     void i18n.loadNamespaces(["contacts"]);
@@ -252,7 +256,7 @@ export function ContactsSidebarPanel() {
               </nav>
             </SidebarGroup>
 
-            <div className="shrink-0 border-border/50 border-t" />
+            <div className="shrink-0 border-border-soft border-t" />
 
             <SidebarGroup className="min-h-0 flex-1 p-0 pt-3">
               <SidebarNavSectionLabel>

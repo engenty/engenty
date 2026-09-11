@@ -16,12 +16,13 @@
 // Returning the raw `EngentyToolContract` as `result.item` keeps schema
 // fidelity intact for the LLM tool wrapper.
 
-import type {
-  SearchIndexProvider,
-  SearchRequest,
-  SearchResponse,
+import {
+  type CatalogRankStrategy,
+  resolveSearchStrategy,
+  type SearchIndexProvider,
+  type SearchRequest,
+  type SearchResponse,
 } from "@engenty/search-index";
-import { resolveSearchStrategy } from "@engenty/search-index";
 import { resolveEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import {
   EngentyCoreClient,
@@ -29,7 +30,7 @@ import {
   type EngentyToolContract,
   getEngentyCoreBaseUrlFromEnv,
 } from "../../ai/core-http-client.js";
-import { type CatalogRankStrategy, rankContracts } from "./catalog-ranking.js";
+import { rankContracts } from "./catalog-ranking.js";
 
 export const CORE_API_CATALOG_PROVIDER_ID = "core_api_catalog";
 

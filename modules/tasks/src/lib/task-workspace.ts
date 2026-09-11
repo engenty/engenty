@@ -1,5 +1,5 @@
 import {
-  pathSegmentsAfterFileStorageTenantRoot,
+  pathSegmentsAfterFileStorageContainerRoot,
   workWorkspacePrefix,
 } from "@engenty/file-storage";
 import { z } from "zod";
@@ -7,8 +7,10 @@ import { isValidTaskIdentifier } from "../domain/task-lifecycle.js";
 
 const TASK_WORKSPACE_KEY_PREFIX = "task:";
 
+// Accepts both the space-rooted layout and the pre-space tenant-rooted one:
+// bytes written before PLAN-spaces.md Phase 6 re-roots them still have to parse.
 const TASK_WORKSPACE_STORAGE_PREFIX_PATTERN =
-  /^tenants\/[^/]+\/ai\/workspace\/tasks\/([^/]+)(?:\/|$)/;
+  /^tenants\/[^/]+\/(?:spaces\/[^/]+\/)?ai\/workspace\/tasks\/([^/]+)(?:\/|$)/;
 const TASK_WORKSPACE_STORAGE_PREFIX_RELATIVE_PATTERN =
   /^ai\/workspace\/tasks\/([^/]+)(?:\/|$)/;
 
@@ -28,6 +30,7 @@ export function taskWorkspaceKey(identifier: string): string {
 
 export function taskWorkspaceStoragePrefix(
   tenantId: string,
+  spaceId: string,
   identifier: string
 ): string {
   const trimmed = identifier.trim();
@@ -35,7 +38,10 @@ export function taskWorkspaceStoragePrefix(
     throw new Error("task_identifier_invalid");
   }
   // Historical callers expect no trailing slash — strip the convention's slash.
-  return workWorkspacePrefix(tenantId, "task", trimmed).replace(/\/$/, "");
+  return workWorkspacePrefix(tenantId, spaceId, "task", trimmed).replace(
+    /\/$/,
+    ""
+  );
 }
 
 export function parseTaskWorkspaceKey(
@@ -62,11 +68,16 @@ export function taskIdentifierFromStoragePrefix(prefix: string): string | null {
   return identifier;
 }
 
-export function taskWorkspaceTenantRelativeDisplayPath(
+/**
+ * Human-facing path for the task workspace — space-relative, so the space id
+ * (a routing detail) never reaches a breadcrumb.
+ */
+export function taskWorkspaceDisplayPath(
   tenantId: string,
+  spaceId: string,
   identifier: string
 ): string {
-  const prefix = taskWorkspaceStoragePrefix(tenantId, identifier);
-  const segments = pathSegmentsAfterFileStorageTenantRoot(prefix);
+  const prefix = taskWorkspaceStoragePrefix(tenantId, spaceId, identifier);
+  const segments = pathSegmentsAfterFileStorageContainerRoot(prefix);
   return `${segments.join("/")}/`;
 }

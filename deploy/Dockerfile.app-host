@@ -39,11 +39,12 @@ RUN sed -i 's/"version": *"[^"]*"/"version": "0.0.0-cache"/' ./package.json
 FROM base AS deps
 ENV ENGENTY_SKIP_INSTALL_BUILD=1
 COPY pnpm-lock.yaml ./
-# patches/ carries the @rivet-dev/agentos-apps fix without which deployApp()
-# cannot succeed at all — see SPIKE-agentos-apps.md §2. It must be copied BEFORE
-# `pnpm fetch`, not after: the lockfile records the patch, so fetch resolves it
-# and fails with ERR_PNPM_PATCH_NOT_FOUND if the file is not there yet. This
-# ordering broke every deploy image build from v0.1.75 onward.
+# patches/ carries the @rivet-dev/agentos-apps patch: the build-VM output
+# mount fix without which deployApp() cannot succeed, and the per-App VM
+# options (/data mount, guest identity). It must be copied BEFORE `pnpm fetch`,
+# not after: the lockfile records the patch, so fetch resolves it and fails
+# with ERR_PNPM_PATCH_NOT_FOUND if the file is not there yet. This ordering
+# broke every deploy image build from v0.1.75 onward.
 COPY patches ./patches
 RUN pnpm fetch
 # Manifests ONLY above the install — never source.
@@ -88,10 +89,13 @@ COPY modules ./modules
 RUN pnpm exec turbo run build --concurrency=$TURBO_BUILD_CONCURRENCY --filter=@engenty/app-host
 
 FROM node:24-bookworm-slim AS runtime
+# git: every App's source is a repository on the spaces tree, written and read
+# by this service.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    git \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -111,6 +115,7 @@ COPY --from=build /app/apps/app-host/dist ./apps/app-host/dist
 RUN PKG="$(readlink -f /app/apps/app-host/node_modules/@rivet-dev/agentos-apps)" \
   && test -n "$PKG" && test -d "$PKG" \
   && grep -rq 'engenty patch (2026-07-25)' "$PKG" \
+  && grep -rq 'engenty patch (2026-09-09)' "$PKG" \
   && echo "agentos-apps patch present: $PKG" \
   || (echo "agentos-apps patch missing — deployApp() would fail at runtime" && exit 1)
 RUN ENGINE="$(find /app/node_modules/.pnpm -type f -name rivet-engine | head -1)" \
@@ -138,7 +143,12 @@ ENV ENGENTY_APP_HOST_PORT=8795
 # RivetKit keeps its durable engine store under $HOME/.rivetkit. Point HOME at
 # the mounted volume, or every restart drops all deployed app releases.
 ENV HOME=/data
-RUN mkdir -p /data
+# uid 1000 is the space computer's `sandbox` user. Both containers write the
+# same App directories on /opt/engenty/spaces (source and /data), so they must
+# be the same uid — files one creates the other must edit. Existing volumes
+# created by an earlier, root-running image need a one-time chown (DEPLOY.md).
+RUN mkdir -p /data && chown 1000:1000 /data
+USER 1000:1000
 
 # Deliberately no EXPOSE: nothing outside the internal engenty network may
 # reach this service.

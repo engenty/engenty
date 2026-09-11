@@ -6,6 +6,7 @@
  */
 import { type Tool, tool } from "ai";
 import { z } from "zod";
+import { forwardSpaceOnGatewayCall } from "../context/forward-space.js";
 import type { ToolExecutionContext } from "../context/types.js";
 
 /** Host operation: index snapshot + health (used internally by this tool). */
@@ -116,7 +117,7 @@ async function runChatSessionSearchTool(
   ctx: ToolExecutionContext,
   input: unknown
 ): Promise<unknown> {
-  const call = ctx.callGatewayMethod;
+  const call = forwardSpaceOnGatewayCall(ctx) ?? ctx.callGatewayMethod;
   if (!call) {
     return { error: "Gateway not available" };
   }

@@ -1,4 +1,5 @@
 export {
+  AGENT_STARTER_MAX,
   type AgentConfig,
   type AgentFnDescriptor,
   type AgentGuardrailsConfig,
@@ -11,6 +12,7 @@ export {
   agentBackgroundConfigSchema,
   agentConfigSchema,
   agentGuardrailsConfigSchema,
+  agentStarterSchema,
   agentWorkspaceConfigSchema,
   type DynamicAiModuleCapability,
   type DynamicAiModuleCapabilityLoader,

@@ -168,6 +168,24 @@ export async function getServiceAccessToken(options?: {
   return session.accessToken;
 }
 
+/**
+ * The `refreshAccessToken` callback for a run acting as the service
+ * principal: re-mints through the durable secret so a core 401 mid-run
+ * (service tokens live 15 minutes; steps can run longer) retries on a live
+ * bearer. Undefined for every other credential — an interactive user token
+ * has no mint path, and its 401 must surface unchanged.
+ */
+export function serviceScopeTokenRefresher(scope: {
+  credential?: { kind?: string } | null;
+  tenantId?: string;
+}): (() => Promise<string | null>) | undefined {
+  if (scope.credential?.kind !== "service") {
+    return;
+  }
+  const tenantId = scope.tenantId;
+  return () => getServiceAccessToken(tenantId ? { tenantId } : undefined);
+}
+
 /** Test seam: drop the cached sessions so the next call re-mints. */
 export function resetServiceCredentialCache(): void {
   cachedSessions.clear();

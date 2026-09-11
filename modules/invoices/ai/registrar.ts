@@ -5,10 +5,8 @@ import type {
   DynamicAiModuleCapability,
 } from "@engenty/ai-core";
 import { defineModuleAi } from "@engenty/ai-core";
-import { createInvoicesManagerAgentDefinition } from "./invoices-manager.js";
 
 const moduleAi = defineModuleAi({
-  agentDefinitions: () => [createInvoicesManagerAgentDefinition()],
   dir: import.meta.url,
   moduleId: "invoices",
 });

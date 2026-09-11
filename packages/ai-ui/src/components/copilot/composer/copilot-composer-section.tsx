@@ -36,6 +36,10 @@ import {
   usePromptInputController,
 } from "../../ai-elements/prompt-input";
 import type { StarterPromptItem } from "./copilot-composer";
+import {
+  CopilotComposerMentionBackdrop,
+  draftMentionsRef,
+} from "./copilot-composer-mention-backdrop";
 import { CopilotComposerMentionPopover } from "./copilot-composer-mention-popover";
 import { CopilotComposerSlashPopover } from "./copilot-composer-slash-popover";
 import { CopilotComposerSpeechControl } from "./copilot-composer-speech-control";
@@ -58,6 +62,12 @@ export interface CopilotComposerSectionProps {
   compactLeadingControl?: ReactNode;
   composerOverride?: ReactNode;
   composerPlaceholder: string;
+  /**
+   * Tighter chrome for a composer that lives INSIDE something else — a card on
+   * the Space home, not the dock. Same controls, ~15% smaller round buttons and
+   * a shorter field, so the input reads as part of the card it sits in.
+   */
+  dense?: boolean;
   draft: string;
   /** When this key changes (after mount), focus the composer textarea. */
   focusComposerKey?: string | number | null;
@@ -88,6 +98,7 @@ export interface CopilotComposerSectionProps {
 /** Renders starter chips + PromptInput; must be used inside PromptInputProvider. */
 export function CopilotComposerSection({
   compact = false,
+  dense = false,
   compactContextControl,
   compactLeadingControl,
   composerOverride,
@@ -134,10 +145,17 @@ export function CopilotComposerSection({
     speechScopeRef.current = resolveCopilotSpeechScopeRoot(node);
   }, []);
 
-  // References picked from the typed @-mention menu — rendered as removable
-  // chips and submitted as `refs`. The chips are authoritative; the `@Label`
-  // text token is just prose.
+  // References picked from the typed @-mention menu — drawn as inline pills
+  // over their `@Label` token and submitted as `refs`. The token is the
+  // reference's presence: delete it from the draft and the reference is gone.
   const [pendingRefs, setPendingRefs] = useState<ChatReferenceItem[]>([]);
+  useEffect(() => {
+    setPendingRefs((prev) => {
+      const kept = prev.filter((ref) => draftMentionsRef(draft, ref));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [draft]);
+  const mentionBackdropRef = useRef<HTMLDivElement | null>(null);
   const handleComposerMentionRef = useCallback(
     (candidate: MentionRefCandidate) => {
       setPendingRefs((prev) =>
@@ -155,10 +173,6 @@ export function CopilotComposerSection({
     },
     []
   );
-  const removePendingRef = useCallback((ref: string) => {
-    setPendingRefs((prev) => prev.filter((r) => r.ref !== ref));
-  }, []);
-
   const mention = useCopilotComposerMention({
     compact,
     mentionAgentCandidates,
@@ -410,36 +424,10 @@ export function CopilotComposerSection({
     />
   );
 
-  // Removable chips for the references picked from the typed @-mention menu.
-  const refsPreview =
-    pendingRefs.length > 0 ? (
-      <div className="mx-1 mb-2 flex flex-wrap gap-1.5">
-        {pendingRefs.map((ref) => (
-          <span
-            className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 py-0.5 pr-1 pl-2 text-secondary-foreground text-xs"
-            key={ref.ref}
-          >
-            <span className="max-w-40 truncate">{ref.label}</span>
-            <Button
-              aria-label={t("copilot.references.remove")}
-              className="size-4 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-              onClick={() => removePendingRef(ref.ref)}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <XIcon className="size-3" />
-            </Button>
-          </span>
-        ))}
-      </div>
-    ) : null;
-
-  // Shared across both layouts: chips row + upload/error status line. Renders
-  // inside PromptInputProvider so it can read the live attachment state.
+  // Shared across both layouts: attachment chips + upload/error status line.
+  // Renders inside PromptInputProvider so it can read the live attachment state.
   const attachmentsPreview = (
     <>
-      {refsPreview}
       <PromptInputAttachments className="mx-1 mb-2" />
       {isUploadingAttachments || attachmentError ? (
         <div
@@ -484,7 +472,10 @@ export function CopilotComposerSection({
       <PromptInputActionMenu>
         <PromptInputActionMenuTrigger
           aria-label="Add context"
-          className="size-8 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80"
+          className={cn(
+            "rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            dense ? "size-7" : "size-8"
+          )}
           size="icon-sm"
         />
         <PromptInputActionMenuContent align="start" className="z-45 w-56">
@@ -517,7 +508,7 @@ export function CopilotComposerSection({
             : t("copilot.voiceInput.start")
         }
         aria-pressed={speech.isListening}
-        className="size-8 rounded-full shadow-none"
+        className={cn("rounded-full shadow-none", dense ? "size-7" : "size-8")}
         disabled={speech.isProcessing}
         onClick={speech.toggle}
         size="icon-sm"
@@ -525,15 +516,16 @@ export function CopilotComposerSection({
         variant="default"
       >
         {speech.isListening ? (
-          <MicOff className="size-4" />
+          <MicOff className={dense ? "size-3.5" : "size-4"} />
         ) : (
-          <Mic className="size-4" />
+          <Mic className={dense ? "size-3.5" : "size-4"} />
         )}
       </Button>
     ) : (
       <PromptInputSubmit
         className={cn(
-          "size-8 rounded-full shadow-none",
+          "rounded-full shadow-none",
+          dense ? "size-7" : "size-8",
           isGenerating && onStop && "hover:bg-destructive/10"
         )}
         onStop={onStop}
@@ -544,27 +536,55 @@ export function CopilotComposerSection({
         {isGenerating && onStop ? undefined : submitIcon}
       </PromptInputSubmit>
     );
+    // The backdrop paints the draft with mention pills; the textarea above it
+    // keeps input, caret and selection but draws its text transparent. Both
+    // share the typography classes so they line up glyph for glyph.
+    const textareaTypography = dense
+      ? "px-1 py-0.5 text-sm leading-5"
+      : "px-1 py-1.5 text-sm leading-5";
     const textarea = (
-      <PromptInputTextarea
-        className="max-h-32 min-h-8 resize-none px-1 py-1.5 text-sm leading-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        onChange={(e) => {
-          const value = e.currentTarget.value;
-          const caret = e.currentTarget.selectionStart ?? value.length;
-          mention.handleDraftControlledChange(value, caret);
-          slash.updateSlashUi(value, caret);
-        }}
-        onKeyDown={handleCompactKeyDown}
-        onSelect={(e) => {
-          const t = e.currentTarget;
-          const pos = t.selectionStart ?? t.value.length;
-          if (mention.mentionEnabled) {
-            mention.updateMentionUi(t.value, pos);
-          }
-          slash.updateSlashUi(t.value, pos);
-        }}
-        placeholder={composerPlaceholder}
-        rows={1}
-      />
+      <>
+        {pendingRefs.length > 0 ? (
+          <CopilotComposerMentionBackdrop
+            backdropRef={mentionBackdropRef}
+            className={textareaTypography}
+            refs={pendingRefs}
+            text={draft}
+          />
+        ) : null}
+        <PromptInputTextarea
+          className={cn(
+            "relative z-[1] max-h-32 resize-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            dense ? "min-h-7" : "min-h-8",
+            textareaTypography,
+            pendingRefs.length > 0 &&
+              "text-transparent caret-[var(--foreground)]"
+          )}
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            const caret = e.currentTarget.selectionStart ?? value.length;
+            mention.handleDraftControlledChange(value, caret);
+            slash.updateSlashUi(value, caret);
+          }}
+          onKeyDown={handleCompactKeyDown}
+          onScroll={(e) => {
+            const backdrop = mentionBackdropRef.current;
+            if (backdrop) {
+              backdrop.scrollTop = e.currentTarget.scrollTop;
+            }
+          }}
+          onSelect={(e) => {
+            const t = e.currentTarget;
+            const pos = t.selectionStart ?? t.value.length;
+            if (mention.mentionEnabled) {
+              mention.updateMentionUi(t.value, pos);
+            }
+            slash.updateSlashUi(t.value, pos);
+          }}
+          placeholder={composerPlaceholder}
+          rows={1}
+        />
+      </>
     );
     return (
       <div className="relative" ref={assignComposerRoot}>

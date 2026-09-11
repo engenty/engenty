@@ -19,7 +19,12 @@ function sourceFixture(settings: Record<string, unknown> = {}): KbSource {
     created_by: null,
     enabled: true,
     id: "source-1",
-    ingest_config: { agentic_instructions: "", template_mode: "inherit" },
+    ingest_config: {
+      agentic_active: false,
+      agentic_instructions: "",
+      authored_active: false,
+      template_mode: "inherit",
+    },
     kb_id: "kb-1",
     last_error: null,
     last_run_at: null,

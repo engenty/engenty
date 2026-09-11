@@ -3,8 +3,8 @@
 // A finished agent run leaves the task at `in_review` with its result as a
 // comment — but until now the only way to act on that was the generic status
 // dropdown, with feedback as a separate free-text comment nobody ties to the
-// decision. This card makes the two real outcomes first-class, mirroring what
-// the coordinator-workflow skill does for agent-side review:
+// decision. This card makes the two real outcomes first-class, matching what
+// Copilot does when asked to review work (durable-work skill):
 //   - Approve   → status `done`.
 //   - Send back → feedback comment (required) + status `todo`, which
 //                 re-dispatches the assigned agent with the feedback in thread.

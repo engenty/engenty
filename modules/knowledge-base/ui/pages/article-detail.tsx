@@ -14,7 +14,7 @@ import type { JSONContent } from "@engenty/tiptap-editor";
 import {
   Button,
   cn,
-  readerBlendTopbarActionButtonClassName,
+  readerBlendTopbarWorkflowButtonClassName,
   Skeleton,
   TopbarActionLabel,
   topbarIconButtonClassName,
@@ -63,7 +63,7 @@ import {
   isKbScopedReservedArticleId,
   kbArticleEditPath,
   kbArticlePath,
-  kbHubChatPath,
+  kbHubPath,
 } from "../kb-paths.js";
 import { takeKbSidebarPrintArticleIntent } from "../kb-sidebar-print-intent.js";
 import { articleToFrontmatter } from "../lib/article-frontmatter.js";
@@ -81,36 +81,49 @@ import {
   resolveArticleCategory,
 } from "../lib/category-display-paths.js";
 import { truncateKbBreadcrumbSegment } from "../lib/kb-breadcrumb-truncate.js";
+import { resolveKbInheritedCoverClient } from "../lib/kb-effective-cover.js";
 import { resolveKbEffectiveTemplateClient } from "../lib/kb-effective-template.js";
 import { createKbModuleRichEditorLinkHandler } from "../lib/kb-rich-editor-link-navigation.js";
 import {
   articleDetailQueryOptions,
   categoriesQueryOptions,
   invalidateKbGraphQueries,
-  kbsQueryOptions,
   kbTemplatesQueryOptions,
+  useArticleDetailQuery,
+  useKbsQuery,
 } from "../queries.js";
-import { kbIdFromSlug, slugFromKbId } from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 
-export function ArticleDetailPage() {
-  const { kbSlug: kbSlugParam, id } = useParams<{
-    kbSlug?: string;
-    id: string;
-  }>();
+/**
+ * @param embedded Rendered inside another page's pane — the space Data tree's,
+ *   today — rather than as the route at `/mdl/knowledge-base/:id`.
+ *
+ *   It is the SAME page either way: same reader, same header chrome, same
+ *   actions, because "the knowledge base viewer" should not mean two things
+ *   that drift. Three route-shaped behaviours are suppressed, and only those:
+ *   the URL canonicalisation (embedded, the URL belongs to the host and
+ *   rewriting it would throw the reader out of the pane), the module's own
+ *   secondary nav (the host's column is showing its tree), and the id
+ *   parameters, which arrive as props instead of from the path.
+ */
+export function ArticleDetailPage(props?: {
+  articleId?: string;
+  embedded?: boolean;
+}) {
+  const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  if (id && isKbScopedReservedArticleId(id) && kbSlugParam?.trim()) {
-    return (
-      <Navigate
-        replace
-        to={`${kbHubChatPath(kbSlugParam)}${location.search}`}
-      />
-    );
+  const embedded = Boolean(props?.embedded);
+  const articleId = props?.articleId ?? id ?? "";
+  // Static routes win in the router, so a reserved segment only reaches this
+  // page through a stale link; send it to the hub rather than 404 on an "article".
+  if (!embedded && id && isKbScopedReservedArticleId(id)) {
+    return <Navigate replace to={`${kbHubPath()}${location.search}`} />;
   }
-  return <ArticleDetailPageInner id={id ?? ""} kbSlugParam={kbSlugParam} />;
+  return <ArticleDetailPageInner embedded={embedded} id={articleId} />;
 }
 
-function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
-  const { id, kbSlugParam } = props;
+function ArticleDetailPageInner(props: { embedded: boolean; id: string }) {
+  const { embedded, id } = props;
   const { t } = useTranslation("kb");
   const { currentUserId } = useWorkspaceContext();
   const queryClient = useQueryClient();
@@ -130,14 +143,10 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
     return () => root.removeAttribute("data-kb-reading");
   }, [readingStyle]);
 
-  const {
-    data: article,
-    isLoading,
-    error,
-  } = useQuery(articleDetailQueryOptions(id ?? ""));
+  const { data: article, isLoading, error } = useArticleDetailQuery(id ?? "");
   useKbArticleDetailAgentUiSlice(article ?? null);
 
-  const { data: kbsRaw } = useQuery(kbsQueryOptions);
+  const { data: kbsRaw } = useKbsQuery();
   const kbs = Array.isArray(kbsRaw) ? kbsRaw : [];
 
   const kbIdForArticle = article?.kb_id ?? "";
@@ -206,37 +215,6 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
     },
   });
 
-  const canonicalSlug = useMemo(
-    () => (article ? slugFromKbId(kbs, article.kb_id) : undefined),
-    [article, kbs]
-  );
-
-  useEffect(() => {
-    if (!(article && canonicalSlug)) {
-      return;
-    }
-    if (kbSlugParam === canonicalSlug && id === article.slug) {
-      return;
-    }
-    navigate(
-      `${kbArticlePath(canonicalSlug, article.slug || article.id)}${location.search}`,
-      {
-        replace: true,
-        state: location.state,
-      }
-    );
-  }, [
-    article,
-    canonicalSlug,
-    kbSlugParam,
-    id,
-    navigate,
-    location.search,
-    location.state,
-  ]);
-
-  const kbSlug = canonicalSlug ?? kbSlugParam ?? "";
-
   const propertyDefinitions = useMemo(() => {
     if (!article) {
       return [];
@@ -257,11 +235,8 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
   }, [article?.id, isLoading, t]);
 
   const kbIdForShell = useMemo(
-    () =>
-      article?.kb_id ??
-      (kbSlugParam ? kbIdFromSlug(kbs, kbSlugParam) : "") ??
-      "",
-    [article?.kb_id, kbSlugParam, kbs]
+    () => article?.kb_id ?? spaceKbId(kbs) ?? "",
+    [article?.kb_id, kbs]
   );
 
   const markdownAsJson = useMemo(() => {
@@ -281,7 +256,12 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
     }
     setDownloadingOriginal(true);
     try {
-      const url = await getFileStorageSignedUrl(article.original_document_url);
+      // Ingested web entries attach the page URL itself; only vault object
+      // keys need signing, and signing an absolute URL just fails.
+      const stored = article.original_document_url;
+      const url = /^https?:\/\//i.test(stored)
+        ? stored
+        : await getFileStorageSignedUrl(stored);
       const a = document.createElement("a");
       a.href = url;
       a.download = article.original_document_name ?? "document";
@@ -300,7 +280,6 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
   const kbShellNav = useKbModuleSecondaryShellNav({
     activeArticleId: article?.id,
     kbId: kbIdForShell,
-    kbSlug,
   });
 
   const onRichTextLinkClick = useMemo(
@@ -309,7 +288,7 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
   );
 
   const pageActions = useMemo(() => {
-    if (!(article && kbSlug)) {
+    if (!article) {
       return null;
     }
     const baseName = safeArticleExportBasename(article);
@@ -320,16 +299,16 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
       <div className="flex items-center gap-1">
         <FavoriteStarButton
           buttonVariant="ghost"
-          className={readerBlendTopbarActionButtonClassName}
+          className={readerBlendTopbarWorkflowButtonClassName}
           subtitle={t("article.title")}
           title={article.title}
-          to={kbArticlePath(kbSlug, article.slug || article.id)}
+          to={kbArticlePath(article.slug || article.id)}
         />
         <Button
           className={topbarIconButtonClassName}
           disabled={Boolean(article.locked_at)}
           onClick={() =>
-            navigate(kbArticleEditPath(kbSlug, article.slug || article.id))
+            navigate(kbArticleEditPath(article.slug || article.id))
           }
           size="sm"
           title={article.locked_at ? t("article.locked_banner") : undefined}
@@ -345,13 +324,12 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
             bodyMd,
             markdownWithMeta,
           }}
-          kbSlug={kbSlug}
           navigate={navigate}
           onOpenVersions={() => setVersionsOpen(true)}
           onReadingStyleChange={setReadingStyle}
           readingStyle={readingStyle}
           showRegenerateMetadata={canRegenerateMetadata}
-          topbarTriggerClassName={readerBlendTopbarActionButtonClassName}
+          topbarTriggerClassName={readerBlendTopbarWorkflowButtonClassName}
           topbarTriggerVariant="ghost"
         />
       </div>
@@ -359,7 +337,6 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
   }, [
     article,
     canRegenerateMetadata,
-    kbSlug,
     navigate,
     propertyDefinitions,
     readingStyle,
@@ -385,15 +362,11 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
       categories,
       defaultCategoryId
     );
-    const categoryCrumbs =
-      articleCategory && kbSlug
-        ? buildCategoryTreeBreadcrumbCrumbs(
-            articleCategory,
-            categories,
-            kbSlug,
-            { linkCurrent: true }
-          )
-        : [];
+    const categoryCrumbs = articleCategory
+      ? buildCategoryTreeBreadcrumbCrumbs(articleCategory, categories, {
+          linkCurrent: true,
+        })
+      : [];
 
     return [
       ...(kbShellNav.kbRootCrumb ? [kbShellNav.kbRootCrumb] : []),
@@ -405,17 +378,14 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
         const parentSeg = truncateKbBreadcrumbSegment(p.title);
         return {
           compactKept: false,
-          label: kbSlug ? (
+          label: (
             <KbBreadcrumbSiblingPicker
               contextLabel={contextLabel}
               currentId={p.id}
               kbId={article.kb_id}
-              kbSlug={kbSlug}
               label={parentSeg.label}
               parentArticleId={parentArticleId}
             />
-          ) : (
-            parentSeg.label
           ),
           menuLabel: p.title,
           ...(parentSeg.tooltip ? { tooltip: parentSeg.tooltip } : {}),
@@ -427,37 +397,55 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
         ...(titleSeg.tooltip ? { tooltip: titleSeg.tooltip } : {}),
       },
     ];
-  }, [
-    article,
-    categories,
-    defaultCategoryId,
-    kbShellNav.kbRootCrumb,
-    kbs,
-    kbSlug,
-    t,
-  ]);
+  }, [article, categories, defaultCategoryId, kbShellNav.kbRootCrumb, kbs, t]);
 
-  const inheritedCover = article?.effective_cover ?? null;
+  const inheritedCover = useMemo(() => {
+    if (!article) {
+      return null;
+    }
+    // A cached list row carries no server-resolved cover. Resolving it from the
+    // categories already in cache keeps the band from dropping in a beat after
+    // the body — the same resolution, run on the same data.
+    return article.effective_cover === undefined
+      ? resolveKbInheritedCoverClient(categories, article.category_id)
+      : article.effective_cover;
+  }, [article, categories]);
   const articleHeaderOnCover = Boolean(
     inheritedCover && !kbCoverIsLight(inheritedCover)
   );
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     topbarOverlap: Boolean(inheritedCover),
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: articleBreadcrumbs,
-    secondaryNavAfterItems: kbShellNav.secondaryNavAfterItems,
-    secondaryNavHeaderSlot: kbShellNav.secondaryNavHeaderSlot,
+    // The module's own sidebar only when the module IS the page. Embedded, the
+    // host's column belongs to the host — publishing the KB's nav into it would
+    // replace the tree the reader used to get here.
+    ...(embedded
+      ? {}
+      : {
+          secondaryNavAfterItems: kbShellNav.secondaryNavAfterItems,
+          secondaryNavHeaderSlot: kbShellNav.secondaryNavHeaderSlot,
+        }),
   });
 
   if (isLoading) {
+    // Nothing cached to paint from — a deep link, or a cold tab. The shell above
+    // is already configured, so only the body waits, and it waits in the shape
+    // the article will take: title, meta line, prose.
     return (
-      <section className={cn(kbArticlePageShellSectionClassName, "gap-6")}>
-        <Skeleton className="h-10 w-72" />
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-64 w-full" />
+      <section className={kbArticlePageShellSectionClassName}>
+        <div className={kbArticlePageShellInnerBaseClassName}>
+          <Skeleton className="h-9 w-2/3 max-w-[28rem]" />
+          <Skeleton className="h-5 w-40" />
+          <div className="space-y-2 pt-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-4/5" />
+          </div>
+        </div>
       </section>
     );
   }
@@ -509,15 +497,11 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
               header={
                 <ArticleHeaderChrome
                   article={article}
-                  kbSlug={kbSlug}
                   surface={articleHeaderOnCover ? "on-cover" : "default"}
                   templateTopline={
-                    sourceProvenance && kbSlug ? (
+                    sourceProvenance ? (
                       <ArticleHeaderTopline>
-                        <ArticleSourceTopline
-                          kbSlug={kbSlug}
-                          provenance={sourceProvenance}
-                        />
+                        <ArticleSourceTopline provenance={sourceProvenance} />
                       </ArticleHeaderTopline>
                     ) : null
                   }
@@ -527,14 +511,10 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
           ) : (
             <ArticleHeaderChrome
               article={article}
-              kbSlug={kbSlug}
               templateTopline={
-                sourceProvenance && kbSlug ? (
+                sourceProvenance ? (
                   <ArticleHeaderTopline>
-                    <ArticleSourceTopline
-                      kbSlug={kbSlug}
-                      provenance={sourceProvenance}
-                    />
+                    <ArticleSourceTopline provenance={sourceProvenance} />
                   </ArticleHeaderTopline>
                 ) : null
               }
@@ -545,13 +525,11 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
             article={article}
             collapseUnpinnedMetadata
             disabled={Boolean(article.locked_at)}
-            kbSlug={kbSlug}
             onPatchArticle={(patch) => updateArticleMut.mutate(patch)}
             propertyDefinitions={propertyDefinitions}
           />
 
           <ArticleSourceReferencesBlock
-            kbSlug={kbSlug}
             refs={sourceReferences}
             variant="plain"
           />
@@ -565,7 +543,7 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
           {/* Questions Answered */}
           {article.questions_answered &&
             article.questions_answered.length > 0 && (
-              <div className="ui-canvas-panel rounded-lg border-0 bg-card p-4">
+              <div className="ui-card-panel p-4">
                 <p className="font-medium text-muted-foreground text-sm">
                   {t("article.fields.questions")}
                 </p>
@@ -634,7 +612,7 @@ function ArticleDetailPageInner(props: { id: string; kbSlugParam?: string }) {
             currentUserId={currentUserId}
           />
 
-          <ArticleSiblingNav article={article} kbSlug={kbSlug} />
+          <ArticleSiblingNav article={article} />
         </div>
       </section>
       <KbEntityVersionsDialog

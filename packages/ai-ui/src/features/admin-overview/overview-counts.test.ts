@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
+import type { WorkflowCatalogEntry } from "../workflow-canvas/workflow-flows-state";
 import {
-  countActions,
+  countArtifacts,
+  countFlows,
   countSkills,
   countTools,
   countWorkforce,
   previewNames,
 } from "./overview-counts";
+
+/** A catalog row in the given state; `null` = declared, never compiled. */
+function entry(
+  status: "active" | "draft" | "disabled" | null
+): WorkflowCatalogEntry {
+  return {
+    workflowId: null,
+    contextType: null,
+    description: null,
+    graph: status
+      ? {
+          context_type: null,
+          created_at: "2026-08-01T00:00:00.000Z",
+          current_version: 1,
+          description: null,
+          id: "g",
+          module_id: null,
+          name: "Flow",
+          status,
+          updated_at: "2026-08-01T00:00:00.000Z",
+        }
+      : null,
+    id: "g",
+    moduleId: null,
+    name: "Flow",
+    source: status ? "authored" : "module",
+  };
+}
 
 describe("countWorkforce", () => {
   it("buckets agents by catalog group", () => {
@@ -66,15 +96,52 @@ describe("countTools", () => {
   });
 });
 
-describe("countActions", () => {
-  it("splits shipped vs tenant-owned", () => {
+describe("countFlows", () => {
+  it("splits live vs draft", () => {
     expect(
-      countActions([
-        { name: "a", owner_kind: "module" },
-        { name: "b", owner_kind: "tenant" },
-        { name: "c", owner_kind: "core" },
+      countFlows([entry("active"), entry("draft"), entry("draft")])
+    ).toEqual({ declared: 0, draft: 2, live: 1, ready: 1, total: 3 });
+  });
+
+  it("counts a disabled flow in the total but as neither live nor draft", () => {
+    expect(countFlows([entry("disabled")])).toEqual({
+      declared: 0,
+      draft: 0,
+      live: 0,
+      ready: 0,
+      total: 1,
+    });
+  });
+
+  // An uncompiled module workflow is READY: it runs on first use, and the missing
+  // graph row is compile-on-use plumbing rather than a state anyone manages.
+  // The card counts readiness for exactly this reason.
+  it("counts an uncompiled module workflow as declared AND ready", () => {
+    expect(countFlows([entry(null)])).toEqual({
+      declared: 1,
+      draft: 0,
+      live: 0,
+      ready: 1,
+      total: 1,
+    });
+  });
+
+  it("counts compiled and never-compiled actions alike as ready", () => {
+    expect(countFlows([entry("active"), entry(null), entry("draft")])).toEqual(
+      expect.objectContaining({ draft: 1, ready: 2, total: 3 })
+    );
+  });
+});
+
+describe("countArtifacts", () => {
+  it("splits agent-authored from user-authored", () => {
+    expect(
+      countArtifacts([
+        { created_by_kind: "agent" },
+        { created_by_kind: "agent" },
+        { created_by_kind: "user" },
       ])
-    ).toEqual({ custom: 1, shipped: 2, total: 3 });
+    ).toEqual({ agent: 2, total: 3, user: 1 });
   });
 });
 

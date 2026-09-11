@@ -40,8 +40,8 @@ edit it by hand:
 | `supabase/config.toml` | `supabase/config.toml.example` | Local Supabase config (materialized once, or with `--refresh`) |
 | `supabase/migrations/*` (aggregate) | each enabled plugin's `supabase/migrations` | One ordered migration set for the enabled plugins |
 | exposed API schemas / storage buckets | enabled plugins | Composed into `config.toml` |
-| `apps/ui/src/plugins/generated-catalog.ts` + Tailwind sources | enabled UI plugins | UI route/widget catalog |
-| `@engenty/<slug>` deps in `apps/ui/package.json` | enabled UI plugins | So pnpm can resolve UI imports (synced, never manual) |
+| `apps/ui/src/plugins/generated-catalog.ts` + Tailwind sources | enabled **open** UI plugins | UI route/widget catalog (closed plugins go to the gitignored `pro/` overlay) |
+| `@engenty/<slug>` deps in `apps/ui/package.json` | enabled **open** UI plugins | So pnpm can resolve open UI imports (synced, never manual; closed modules stay out of this manifest) |
 
 What setup **does not** do (separate, explicit steps — they touch a running DB or
 secrets):

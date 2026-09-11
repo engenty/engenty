@@ -20,7 +20,8 @@ import { useThreadContextSummary } from "./use-thread-context-summary.js";
 /**
  * Topbar icon for the thread context box when it cannot show inline
  * (artifact pane open or narrow content stack). Opens the collapsed popover;
- * artefact rows inside still activate the full artifact pane.
+ * artefact, attachment, and sub-agent rows inside still activate the pane
+ * or full-run monitor.
  */
 export function ThreadContextToggle({
   className,

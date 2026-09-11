@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.1.137",
+  "version": "0.2.0",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -46,9 +46,6 @@
       "contacts": {
         "source": "workspace"
       },
-      "engenty-coordinator": {
-        "source": "workspace"
-      },
       "engenty-copilot": {
         "source": "workspace"
       },
@@ -61,13 +58,7 @@
       "invoices": {
         "source": "workspace"
       },
-      "kb-filesystem-sync": {
-        "source": "workspace"
-      },
       "knowledge-base": {
-        "source": "workspace"
-      },
-      "memory": {
         "source": "workspace"
       },
       "offers": {
@@ -106,21 +97,26 @@
     "dev:portless": "bash scripts/dev-portless.sh",
     "dev:portless:ready": "node scripts/dev-portless-ready.mjs --turbo-pane",
     "dev:docs": "pnpm --filter @engenty/docs dev:app",
+    "dev:www": "pnpm --filter @engenty/www dev:app",
     "typecheck": "turbo run typecheck --concurrency=4 --continue",
     "test": "NODE_OPTIONS=\"--localstorage-file=${TMPDIR:-/tmp}/engenty-vitest-localstorage\" VITEST_MAX_WORKERS=2 turbo run test test:scripts --concurrency=4",
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
     "test:smoke": "playwright test",
+    "test:smoke:mobile": "playwright test --project=mobile-safari --project=mobile-chrome",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "ultracite check",
     "check:test-wiring": "node scripts/check-test-wiring.mjs",
     "check:ui-core-imports": "node scripts/check-ui-core-imports.mjs",
+    "check:viewport-units": "node scripts/check-viewport-units.mjs",
+    "check:shell-chrome": "node scripts/check-shell-chrome.mjs",
     "check:supabase-imports": "node scripts/check-supabase-imports.mjs",
     "check:rls-coverage": "node scripts/check-rls-coverage.mjs",
     "check:server-lane-coverage": "node scripts/check-server-lane-coverage.mjs",
     "check:leak-harness": "node scripts/leak-harness.mjs",
     "check:foreign-schema-scope": "node scripts/check-foreign-schema-scope.mjs",
+    "check:space-storage-scope": "node scripts/check-space-storage-scope.mjs",
     "check:grants-coverage": "node scripts/check-grants-coverage.mjs",
     "ai:check": "node scripts/ai-check.mjs",
     "lint": "pnpm run check",
@@ -157,7 +153,8 @@
     "about:data": "node scripts/write-about-data.mjs",
     "release": "node scripts/release.mjs",
     "release:changelog": "node scripts/release.mjs --changelog",
-    "release:desktop": "node scripts/release-desktop.mjs"
+    "release:desktop": "node scripts/release-desktop.mjs",
+    "check:work-vocabulary": "node scripts/check-work-vocabulary.mjs"
   },
   "engines": {
     "node": ">=24.11.0"
@@ -188,6 +185,13 @@
             "optional": true
           }
         }
+      },
+      "@ag-ui/mastra": {
+        "peerDependenciesMeta": {
+          "@copilotkit/runtime": {
+            "optional": true
+          }
+        }
       }
     },
     "overrides": {
@@ -206,7 +210,9 @@
       "@engenty/a2ui-catalog>zod": "3.25.76",
       "@ag-ui/core>zod": "3.25.76",
       "@ag-ui/client>zod": "3.25.76",
-      "@executor-js/plugin-openapi": "1.5.29",
+      "@fast-csv/format>@types/node": "26.0.0",
+      "@fast-csv/parse>@types/node": "26.0.0",
+      "@executor-js/plugin-openapi": "1.6.7",
       "effect": "4.0.0-beta.59",
       "protobufjs": ">=7.5.8",
       "@protobufjs/utf8": ">=1.1.1",
@@ -220,8 +226,10 @@
       "mermaid": ">=11.15.0"
     },
     "patchedDependencies": {
-      "@mastra/core@1.57.0": "patches/@mastra__core@1.57.0.patch",
-      "@rivet-dev/agentos-apps@0.2.14": "patches/@rivet-dev__agentos-apps@0.2.14.patch"
+      "@mastra/core@1.61.0": "patches/@mastra__core@1.61.0.patch",
+      "@mastra/memory@1.27.0": "patches/@mastra__memory@1.27.0.patch",
+      "@mastra/schema-compat@1.3.7": "patches/@mastra__schema-compat@1.3.7.patch",
+      "@rivet-dev/agentos-apps@0.2.19": "patches/@rivet-dev__agentos-apps@0.2.19.patch"
     },
     "ignoredBuiltDependencies": [
       "cbor-extract",
@@ -237,7 +245,12 @@
       "better-sqlite3",
       "esbuild",
       "ssh2"
-    ]
+    ],
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@copilotkit/runtime"
+      ]
+    }
   },
   "workspaces": [
     "apps/*",

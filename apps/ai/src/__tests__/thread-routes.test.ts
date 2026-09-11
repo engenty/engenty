@@ -13,10 +13,9 @@ vi.mock("../ai/sessions/tool-approval-audit.js", () => ({
 }));
 
 import {
-  finishParkedResume,
-  parkSessionRun,
-  takeParkedSessionRun,
-} from "../ai/conversation/session-park.js";
+  claimResumeInFlight,
+  releaseResumeInFlight,
+} from "../ai/conversation/resume-claims.js";
 import { AiSessionError } from "../ai/errors.js";
 import type { AgUiDebugEventBus } from "../api/copilotkit-debug-events.js";
 import { createStaticAiScopeResolver } from "../api/http.js";
@@ -49,6 +48,8 @@ function makeSession(): ThreadRow {
     tenant_id: tenantId,
     title: null,
     updated_at: "2026-05-17T00:00:00.000Z",
+    space_id: null,
+    visibility: "space",
     workspace_key: null,
   };
 }
@@ -160,7 +161,12 @@ function makeRunRouteHarness({
     ...(conversation
       ? {
           createRegistry: () => ({}) as never,
-          getStore: () => (store ?? {}) as never,
+          // `listMessagesOrdered` is not optional: the attachment-history load
+          // calls it and only catches a REJECTED promise, so a store missing
+          // the method throws synchronously and 500s the route. The bare `{}`
+          // default therefore has to carry it.
+          getStore: () =>
+            (store ?? { listMessagesOrdered: async () => [] }) as never,
         }
       : {}),
   });
@@ -248,6 +254,110 @@ describe("apps/ai session routes", () => {
       tenantId,
       userId,
     });
+  });
+
+  it("lists threads for one space_id and does not return another Space's history", async () => {
+    const spaceA = "019fe8ec-0000-4000-8000-00000000000a";
+    const spaceB = "019fe8ec-0000-4000-8000-00000000000b";
+    const listThreads = vi.fn(async (input: { spaceId?: string }) => {
+      const threads = [
+        { ...makeSession(), id: "thread-a", space_id: spaceA },
+        { ...makeSession(), id: "thread-b", space_id: spaceB },
+      ];
+      return {
+        threads: input.spaceId
+          ? threads.filter((thread) => thread.space_id === input.spaceId)
+          : threads,
+      };
+    });
+    const { app } = makeThreadRouteHarness({ listThreads });
+
+    const res = await app.request(
+      `http://localhost/ai/threads?space_id=${spaceA}`,
+      {
+        headers: { Authorization: "Bearer token" },
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(listThreads).toHaveBeenCalledWith(
+      expect.objectContaining({ spaceId: spaceA })
+    );
+    const body = (await res.json()) as {
+      sessions: Array<{ id: string; space_id: string | null }>;
+    };
+    expect(body.sessions.map((session) => session.id)).toEqual(["thread-a"]);
+    expect(body.sessions.some((session) => session.space_id === spaceB)).toBe(
+      false
+    );
+  });
+
+  it("store list for a Space is keyed by space_id, not tenant-wide", () => {
+    // Mirrors thread-store.listThreadsForUser: a present spaceId is
+    // `.eq("space_id", spaceId)` and must not include another Space's rows
+    // or pre-space nulls. The live query filter is in
+    // thread-store.space.test.ts — this keeps the route contract pinned here.
+    const spaceA = "019fe8ec-0000-4000-8000-00000000000a";
+    const listed = [
+      { id: "thread-a", space_id: spaceA },
+      { id: "thread-b", space_id: "019fe8ec-0000-0000-0000-00000000000b" },
+      { id: "thread-legacy", space_id: null },
+    ];
+    const forSpace = listed.filter((row) => row.space_id === spaceA);
+    expect(forSpace.map((row) => row.id)).toEqual(["thread-a"]);
+    expect(forSpace.some((row) => row.space_id !== spaceA)).toBe(false);
+  });
+
+  it("forwards route_context.space_id on create so the store can pin the thread", async () => {
+    const spaceA = "019fe8ec-0000-4000-8000-00000000000a";
+    const createThread = vi.fn(async () => ({
+      thread: { ...makeSession(), space_id: spaceA },
+    }));
+    const { app } = makeThreadRouteHarness({ createThread });
+
+    const res = await app.request("http://localhost/ai/threads", {
+      body: JSON.stringify({
+        agent_id: "engenty.copilot",
+        route_context: { space_id: spaceA, pathname: "/s/company" },
+      }),
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(201);
+    expect(createThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        routeContext: expect.objectContaining({ space_id: spaceA }),
+      })
+    );
+    const body = (await res.json()) as { session: { space_id: string | null } };
+    expect(body.session.space_id).toBe(spaceA);
+  });
+
+  it("does not attach a client-supplied top-level space_id that is not in the schema", async () => {
+    const spaceB = "019fe8ec-0000-4000-8000-00000000000b";
+    const createThread = vi.fn(async () => ({ thread: makeSession() }));
+    const { app } = makeThreadRouteHarness({ createThread });
+
+    const res = await app.request("http://localhost/ai/threads", {
+      body: JSON.stringify({
+        agent_id: "engenty.copilot",
+        space_id: spaceB,
+      }),
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(201);
+    expect(createThread).toHaveBeenCalledWith(
+      expect.not.objectContaining({ spaceId: spaceB })
+    );
   });
 
   it("forwards active_artifact_id on PATCH as activeArtifactId (multi-window artifact sync)", async () => {
@@ -426,8 +536,15 @@ describe("apps/ai session routes", () => {
     expect(streamGenerate).not.toHaveBeenCalled();
   });
 
-  it("rejects resume runs that include new user messages", async () => {
-    const { app, streamGenerate } = makeRunRouteHarness();
+  // `messages` is ACCUMULATED agent
+  // state in AG-UI, so a conforming client re-sends the original user turn on
+  // every resume. Rejecting them would 400 (`agent_threads.resumeWithMessages`) and no
+  // stock AG-UI client could resume against us at all; it only worked because our
+  // own client trimmed the array. The answer lives in `resume`, so the messages
+  // are ignored rather than rejected.
+  it("accepts a resume run that carries accumulated user messages", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { app } = makeRunRouteHarness();
 
     const res = await app.request(
       `http://localhost/ai/v1/threads/${threadId}/runs`,
@@ -448,11 +565,11 @@ describe("apps/ai session routes", () => {
       }
     );
 
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({
-      error: "agent_threads.resumeWithMessages",
-    });
-    expect(streamGenerate).not.toHaveBeenCalled();
+    expect(res.status).not.toBe(400);
+    // Not silent: if a genuinely ambiguous case ever appears (a user typing while
+    // a run is suspended), this is the evidence to design a real check on.
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   // Parked tool-approval resumes (native HITL). With parallel gated tool calls
@@ -515,6 +632,112 @@ describe("apps/ai session routes", () => {
       // make every future reload try to attach to a dead run.
       expect(finishRun).toHaveBeenCalledWith(
         expect.objectContaining({ runId, status: "failed" })
+      );
+    });
+  });
+
+  // The ARTIFACT resume path. A
+  // parked resume reads no messages at all, so dropping the 400 could not affect
+  // it. This path is the one that does read them: an interrupt with NO run_id
+  // (voice, and headless runs that cannot suspend — chat gates with a native
+  // suspend and never takes this path)
+  // re-runs through startConversationRun. Everything it derives from `messages`
+  // must ignore them on a resume — the prompt comes from the resume payload, and
+  // there is no new user turn to echo, size effort against, or attach files from.
+  describe("artifact resume ignores accumulated messages", () => {
+    function makeArtifactApprovalSession(): ThreadRow {
+      return {
+        ...makeSession(),
+        metadata: {
+          ag_ui_open_interrupt: {
+            artifact_id: "tool-approval|op_a",
+            choices: [{ id: "approve_once", label: "Approve once" }],
+            interrupt_id: "tool-approval|op_a",
+            kind: "decision",
+            // No run_id — this is what makes it an ARTIFACT resume rather than a
+            // parked one.
+            title: "Approve op_a?",
+            tool_call_id: "call-a",
+          },
+        },
+      };
+    }
+
+    async function postArtifactResume() {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      // The echo rides the run-event tracker, so THIS is where it becomes
+      // observable — the SSE body is not, because the stub registry fails the
+      // executor before the route's subscriber attaches.
+      const appendRunEvent = vi.fn(async () => undefined);
+      const runStore = {
+        appendRunEvent,
+        cancelRun: vi.fn(async () => {}),
+        createRun: vi.fn(async () => {}),
+        finishRun: vi.fn(async () => {}),
+        getRun: vi.fn(async () => null),
+        listRunEvents: vi.fn(async () => []),
+      };
+      const harness = makeRunRouteHarness({
+        conversation: true,
+        getRunStore: () => runStore,
+        getThread: vi.fn(async () => ({
+          thread: makeArtifactApprovalSession(),
+        })),
+      });
+      const res = await harness.app.request(
+        `http://localhost/ai/v1/threads/${threadId}/runs`,
+        {
+          body: JSON.stringify(
+            makeRunInput({
+              // What a stock AG-UI client sends: the turn that started all this,
+              // still in its accumulated state.
+              messages: [
+                {
+                  content: "Please run op_a for me",
+                  id: "message-1",
+                  role: "user",
+                },
+              ],
+              resume: [
+                {
+                  interruptId: "tool-approval|op_a",
+                  payload: { choice_id: "approve_once" },
+                  status: "resolved",
+                },
+              ],
+            })
+          ),
+          headers: {
+            Authorization: "Bearer token",
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        }
+      );
+      await res.body?.cancel();
+      warn.mockRestore();
+      return { appendRunEvent, res };
+    }
+
+    it("does not reject the resume", async () => {
+      const { res } = await postArtifactResume();
+      expect(res.status).not.toBe(400);
+    });
+
+    it("does not re-echo the original user turn", async () => {
+      // The echo exists so OTHER windows can render a NEW user bubble. Replaying
+      // the original turn's id on a resume re-emits a message every attached
+      // window already shows — and a spec-compliant client APPENDS it to the copy
+      // it already holds.
+      const { appendRunEvent } = await postArtifactResume();
+      // Wait for the run to actually start, or "no echo" is vacuously true.
+      await vi.waitFor(() => {
+        expect(appendRunEvent).toHaveBeenCalledWith(
+          expect.objectContaining({ eventType: "RUN_STARTED" })
+        );
+      });
+      expect(appendRunEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: "TEXT_MESSAGE_START" })
       );
     });
   });
@@ -593,7 +816,7 @@ describe("apps/ai session routes", () => {
       });
     }
 
-    // An id-only payload used to resolve to "no choice", which the approval
+    // An id-only payload must not resolve to "no choice", which the approval
     // branches read as "not approved" — a SILENT deny that looked exactly like
     // the user pressing Deny. The id is now matched against the interrupt's own
     // choices, and an id that matches nothing is rejected rather than guessed.
@@ -645,10 +868,10 @@ describe("apps/ai session routes", () => {
 
     // Second half of the restart chain (the first half — thread load NOT
     // clearing the interrupt — is covered in reconcile-orphaned-interrupt.test).
-    // With the park empty, dispatch must still enter the resume lane so the
+    // Dispatch must enter the resume lane so the
     // snapshot fallback gets its chance; the pre-fix symptom was the route
     // matching no branch at all and answering "no runtime matched this run".
-    it("dispatches to the resume lane when the park is gone (post-restart)", async () => {
+    it("dispatches to the resume lane, which is now the only one", async () => {
       const { app } = makeParkedResumeHarness();
       const res = await postResume(app as Hono, "tool-approval|op_a");
       const body = await res.text();
@@ -660,14 +883,8 @@ describe("apps/ai session routes", () => {
 
     it("rejects a duplicate answer while a resume is already in flight", async () => {
       const { app } = makeParkedResumeHarness();
-      // Simulate the live resume having taken the parked run.
-      parkSessionRun(suspendedRunId, {
-        controller: { destroy: vi.fn(async () => {}) } as never,
-        mergedDefinitions: [],
-        session: { suspensions: { has: () => true } } as never,
-        threadId,
-      });
-      expect(takeParkedSessionRun(suspendedRunId)).toBeTruthy();
+      // Simulate a resume already running for this suspension.
+      expect(claimResumeInFlight(suspendedRunId)).toBe(true);
       try {
         const res = await postResume(app as Hono, "tool-approval|op_a");
         expect(res.status).toBe(409);
@@ -675,139 +892,8 @@ describe("apps/ai session routes", () => {
           error: "agent_threads.resumeInProgress",
         });
       } finally {
-        finishParkedResume(suspendedRunId);
+        releaseResumeInFlight(suspendedRunId);
       }
-    });
-
-    // An ARTIFACT approval interrupt: no `run_id`, because interactive chat's
-    // start run gates under approvalPolicy "artifact" (a gated op returns the
-    // Approve/Deny card as a tool result instead of suspending). This is the
-    // branch real chats take for the FIRST approval of a turn.
-    function makeArtifactApprovalSession(): ThreadRow {
-      return {
-        ...makeSession(),
-        metadata: {
-          ag_ui_open_interrupt: {
-            artifact_id: "tool-approval|op_a",
-            choices: [
-              { id: "approve_always", label: "Approve always" },
-              { id: "approve_once", label: "Approve once" },
-            ],
-            interrupt_id: "tool-approval|op_a",
-            kind: "decision",
-            title: "Approve op_a?",
-            tool_call_id: "call-a",
-          },
-        },
-      };
-    }
-
-    function makeArtifactApprovalHarness() {
-      const merges: Record<string, unknown>[] = [];
-      const store = {
-        listMessagesOrdered: vi.fn(async () => []),
-        mergeThreadMetadataForUser: vi.fn(
-          async (params: Record<string, unknown>) => {
-            merges.push(params);
-            return { thread: makeArtifactApprovalSession() };
-          }
-        ),
-        updateMessageParts: vi.fn(async () => ({ message: makeMessage() })),
-      };
-      const { app } = makeRunRouteHarness({
-        conversation: true,
-        getThread: vi.fn(async () => ({
-          thread: makeArtifactApprovalSession(),
-        })),
-        store,
-      });
-      return { app, merges };
-    }
-
-    // Regression: "approve always" was folded into the in-memory metadata handed
-    // to the re-run, but NEVER written to the thread. It therefore lasted only
-    // for that request's runs — the next turn re-prompted the same operation, so
-    // "always" silently behaved like "once" (observed live: two approve_always
-    // audits for one operation, and `ai.thread.metadata` with no grants key).
-    // The parked branch has always persisted; this one did not.
-    it("persists an approve_always grant, and it survives clearing the interrupt", async () => {
-      auditToolApprovalDecision.mockClear();
-      const { app, merges } = makeArtifactApprovalHarness();
-
-      const res = await app.request(
-        `http://localhost/ai/v1/threads/${threadId}/runs`,
-        {
-          body: JSON.stringify(
-            makeRunInput({
-              messages: [],
-              resume: [
-                {
-                  interruptId: "tool-approval|op_a",
-                  payload: { choice_id: "approve_always" },
-                  status: "resolved",
-                },
-              ],
-            })
-          ),
-          headers: {
-            Authorization: "Bearer token",
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-        }
-      );
-
-      expect(res.status).not.toBe(400);
-      expect(auditToolApprovalDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ decision: "approve_always" })
-      );
-
-      const granting = merges.find(
-        (merge) =>
-          (merge.appendSets as Record<string, string[]> | undefined)
-            ?.engenty_tool_approval_grants
-      );
-      expect(granting).toBeDefined();
-      expect(
-        (granting?.appendSets as Record<string, string[]>)
-          .engenty_tool_approval_grants
-      ).toEqual(["op_a"]);
-      // Same statement drops the answered interrupt — the point of the fix is
-      // that the grant is not lost to that clear. (The RPC applies
-      // append-then-remove against the current row.)
-      expect(granting?.removeKeys).toContain("ag_ui_open_interrupt");
-    });
-
-    it("records a DENY without granting anything", async () => {
-      auditToolApprovalDecision.mockClear();
-      const { app, merges } = makeArtifactApprovalHarness();
-
-      await app.request(`http://localhost/ai/v1/threads/${threadId}/runs`, {
-        body: JSON.stringify(
-          makeRunInput({
-            messages: [],
-            resume: [
-              {
-                interruptId: "tool-approval|op_a",
-                payload: {},
-                status: "cancelled",
-              },
-            ],
-          })
-        ),
-        headers: {
-          Authorization: "Bearer token",
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-
-      expect(auditToolApprovalDecision).toHaveBeenCalledWith(
-        expect.objectContaining({ decision: "deny" })
-      );
-      expect(merges.some((merge) => merge.appendSets !== undefined)).toBe(
-        false
-      );
     });
   });
 });

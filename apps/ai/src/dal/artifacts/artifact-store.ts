@@ -5,6 +5,7 @@ import {
   type DbSource,
   normalizeDbSource,
 } from "../../infra/tenant-db.js";
+import { assertArtifactParentAllowed } from "./artifact-parent.js";
 import {
   createArtifactSearchRetrieval,
   withArtifactIndexing,
@@ -22,6 +23,9 @@ const AI_SCHEMA = "ai";
 const indexingLogger = createLogger({ name: "ai-artifact-indexing" });
 
 /** Inline content ceiling (256KB). Larger content needs blob storage (later phase). */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const ARTIFACT_INLINE_CONTENT_MAX_BYTES = 262_144;
 
 export class ArtifactVersionConflictError extends Error {
@@ -54,6 +58,7 @@ export interface CreateArtifactInput {
   content: string;
   createdBy?: string | null;
   createdByKind: ArtifactCreatorKind;
+  parentId?: string | null;
   scopeId: string;
   scopeType: ArtifactScopeType;
   tenantId: string;
@@ -70,6 +75,16 @@ export interface AddArtifactVersionInput {
   expectedVersion: number;
   summary?: string | null;
   tenantId: string;
+  title?: string | null;
+}
+
+/** Version history row — no content (the listing can be long). */
+export interface ArtifactVersionListEntry {
+  created_at: string;
+  created_by: string | null;
+  created_by_kind: ArtifactCreatorKind;
+  summary: string | null;
+  version: number;
 }
 
 export function createArtifactStore(source: DbSource) {
@@ -116,6 +131,7 @@ export function createArtifactStore(source: DbSource) {
           created_by_kind: input.createdByKind,
           created_by: input.createdBy ?? null,
           current_version: 1,
+          parent_id: input.parentId ?? null,
           storage: "inline",
         })
         .select()
@@ -179,6 +195,13 @@ export function createArtifactStore(source: DbSource) {
       return { artifact, version: version as ArtifactVersionRow };
     },
 
+    /**
+     * The thread scope means "what this conversation produced": a row a
+     * specialist stored on its Space (the default write scope in a resolved
+     * Space) or the copilot pinned with store_to still carries the thread it
+     * was written in, and the desk / copilot pane of that thread lists it.
+     * Other scopes are exact.
+     */
     async listByScope(params: {
       tenantId: string;
       scopeType: ArtifactScopeType;
@@ -188,9 +211,16 @@ export function createArtifactStore(source: DbSource) {
       let query = dbFor(params.tenantId)
         .from("artifact")
         .select()
-        .eq("tenant_id", params.tenantId)
-        .eq("scope_type", params.scopeType)
-        .eq("scope_id", params.scopeId);
+        .eq("tenant_id", params.tenantId);
+      // The or-filter interpolates the id; only a uuid may reach it.
+      query =
+        params.scopeType === "thread" && UUID_RE.test(params.scopeId)
+          ? query.or(
+              `and(scope_type.eq.thread,scope_id.eq.${params.scopeId}),thread_id.eq.${params.scopeId}`
+            )
+          : query
+              .eq("scope_type", params.scopeType)
+              .eq("scope_id", params.scopeId);
       if (!params.includeArchived) {
         query = query.eq("status", "active");
       }
@@ -316,6 +346,7 @@ export function createArtifactStore(source: DbSource) {
         .update({
           current_version: nextVersion,
           updated_at: new Date().toISOString(),
+          ...(input.title ? { title: input.title } : {}),
         })
         .eq("tenant_id", input.tenantId)
         .eq("id", artifact.id)
@@ -334,6 +365,77 @@ export function createArtifactStore(source: DbSource) {
         artifact: artifactRow,
         version: version as ArtifactVersionRow,
       };
+    },
+
+    async listVersions(params: {
+      tenantId: string;
+      artifactId: string;
+    }): Promise<ArtifactVersionListEntry[] | null> {
+      const artifact = await getArtifactRow(params);
+      if (!artifact) {
+        return null;
+      }
+      const { data, error } = await dbFor(params.tenantId)
+        .from("artifact_version")
+        .select("version, created_at, created_by, created_by_kind, summary")
+        .eq("tenant_id", params.tenantId)
+        .eq("artifact_id", params.artifactId)
+        .order("version", { ascending: false });
+      if (error) {
+        throw new Error(`artifact_version list: ${error.message}`);
+      }
+      return (data ?? []) as ArtifactVersionListEntry[];
+    },
+
+    async updateParent(params: {
+      tenantId: string;
+      artifactId: string;
+      parentId: string | null;
+    }): Promise<ArtifactRow | null> {
+      const artifact = await getArtifactRow(params);
+      if (!artifact) {
+        return null;
+      }
+      const parent = params.parentId
+        ? await getArtifactRow({
+            tenantId: params.tenantId,
+            artifactId: params.parentId,
+          })
+        : null;
+      const parentCache = new Map<string, string | null>();
+      if (parent) {
+        parentCache.set(parent.id, parent.parent_id);
+        let cursor = parent.parent_id;
+        while (cursor && !parentCache.has(cursor)) {
+          const row = await getArtifactRow({
+            tenantId: params.tenantId,
+            artifactId: cursor,
+          });
+          const next = row?.parent_id ?? null;
+          parentCache.set(cursor, next);
+          cursor = next;
+        }
+      }
+      assertArtifactParentAllowed({
+        artifact,
+        parent,
+        parentId: params.parentId,
+        parentOf: (id) => parentCache.get(id) ?? null,
+      });
+      const { data, error } = await dbFor(params.tenantId)
+        .from("artifact")
+        .update({
+          parent_id: params.parentId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", params.tenantId)
+        .eq("id", params.artifactId)
+        .select()
+        .maybeSingle();
+      if (error) {
+        throw new Error(`artifact parent update: ${error.message}`);
+      }
+      return (data as ArtifactRow | null) ?? null;
     },
 
     async updateScope(params: {

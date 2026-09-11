@@ -5,9 +5,12 @@ import {
 import type { ToolExecutionContext } from "@mastra/core/tools";
 import { createTool } from "@mastra/core/tools";
 import { generateText } from "ai";
+import { catalogDiscoveryResult } from "./lib/catalog-result.js";
 import { getCurrentEngentyToolsClient } from "./lib/client.js";
 import { coreErrorToToolResult } from "./lib/errors.js";
 import { normalizeToolContract } from "./lib/format.js";
+import { getEngentyToolsRunContext } from "./lib/run-context.js";
+import { isToolVisibleInSpace } from "./lib/space-gate.js";
 import {
   type DiscoverEngentyToolInput,
   type DiscoverEngentyToolOptions,
@@ -47,8 +50,18 @@ export async function discoverEngentyTools(
   }
   try {
     const parsed = discoverInputSchema.parse(input);
+    const space = getEngentyToolsRunContext().space;
     const entries = (await client.client.listToolContracts())
       .map(normalizeToolContract)
+      .filter((entry) =>
+        isToolVisibleInSpace(
+          {
+            operationId: entry.id,
+            ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
+          },
+          space
+        )
+      )
       .filter((entry) => matchesDiscoveryFilters(entry, parsed));
     const selectedIds = await selectToolIds(parsed, entries);
     const selected = selectedIds
@@ -61,15 +74,14 @@ export async function discoverEngentyTools(
         : rankToolsLexically(parsed.request, entries).slice(0, parsed.limit);
     const matches = selected.length > 0 ? selected : fallbackSelected;
 
-    return {
-      ok: true,
+    return catalogDiscoveryResult(space, {
       matches: matches.map((entry) => ({
         name: entry.id,
         description: entry.description ?? entry.summary ?? "",
         inputSchema: entry.input.jsonSchema ?? {},
         outputSchema: entry.output.jsonSchema ?? {},
       })),
-    };
+    });
   } catch (err) {
     return coreErrorToToolResult(err);
   }

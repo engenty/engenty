@@ -129,6 +129,8 @@ function modelOptionFromRecord(
     input_per_mtok_micros: model.input_per_mtok_micros,
     price_tier: model.price_tier,
     provider: model.provider,
+    reasoning: model.tags.includes("reasoning"),
+    tool_use: model.tags.includes("tool-use"),
     use_cases: model.use_cases,
     vision: model.tags.includes("vision"),
     web_search:

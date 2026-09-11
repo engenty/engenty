@@ -13,6 +13,10 @@ import {
   type RegistryToolEntry,
   type ToolSourceCategory,
 } from "../tools-catalog/tools-catalog-state";
+import {
+  flowEntryStatus,
+  type WorkflowCatalogEntry,
+} from "../workflow-canvas/workflow-flows-state";
 
 interface AgentLike {
   id: string;
@@ -67,22 +71,66 @@ export function countTools(tools: readonly RegistryToolEntry[]): ToolCounts {
   return counts;
 }
 
-interface ActionLike {
-  name: string;
-  owner_kind?: "core" | "module" | "tenant";
-}
-
-export interface ActionCounts {
-  custom: number;
-  shipped: number;
+export interface FlowCounts {
+  declared: number;
+  draft: number;
+  live: number;
+  /** live + declared — everything that can run now. What the card shows. */
+  ready: number;
   total: number;
 }
 
-export function countActions(actions: readonly ActionLike[]): ActionCounts {
-  const custom = actions.filter(
-    (action) => action.owner_kind === "tenant"
+/**
+ * Live vs draft, because that is the governance question a flow raises: how
+ * many of these can actually run. Disabled flows count in the total but are
+ * neither, which is the honest reading — they exist and they do not run.
+ * `declared` is the third state the merged catalog added: a module workflow nobody
+ * has pressed yet, so it has no compiled version to be live or draft.
+ */
+export function countFlows(flows: readonly WorkflowCatalogEntry[]): FlowCounts {
+  let live = 0;
+  let draft = 0;
+  let declared = 0;
+  for (const flow of flows) {
+    const status = flowEntryStatus(flow);
+    if (status === "active") {
+      live += 1;
+    } else if (status === "draft") {
+      draft += 1;
+    } else if (status === "declared") {
+      declared += 1;
+    }
+  }
+  // What a person actually needs: can it run right now, or not? "Declared"
+  // (a module action with no compiled graph yet) and "active" (already
+  // compiled and published) are the SAME answer — yes — and the difference
+  // between them is compile-on-use plumbing, not a state anyone manages.
+  return {
+    declared,
+    draft,
+    live,
+    ready: live + declared,
+    total: flows.length,
+  };
+}
+
+interface ArtifactLike {
+  created_by_kind: "agent" | "user";
+}
+
+export interface ArtifactCounts {
+  agent: number;
+  total: number;
+  user: number;
+}
+
+export function countArtifacts(
+  artifacts: readonly ArtifactLike[]
+): ArtifactCounts {
+  const agent = artifacts.filter(
+    (artifact) => artifact.created_by_kind === "agent"
   ).length;
-  return { custom, shipped: actions.length - custom, total: actions.length };
+  return { agent, total: artifacts.length, user: artifacts.length - agent };
 }
 
 /** First N display names for a capability card preview line. */

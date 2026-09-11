@@ -58,7 +58,7 @@ export function ObjectFallbackCard({
         })}
       </ObjectRowList>
       {overflow > 0 ? (
-        <div className="border-border/50 border-t px-3 py-1.5 text-muted-foreground text-xs">
+        <div className="border-border-soft border-t px-3 py-1.5 text-muted-foreground text-xs">
           +{overflow} more
         </div>
       ) : null}

@@ -6,6 +6,7 @@ import {
   eventFullText,
   eventIdentifiers,
   eventSummary,
+  extractInitialPrompt,
   foldStreamedDeltas,
 } from "./ag-ui-inspector-model.js";
 
@@ -164,6 +165,30 @@ describe("foldStreamedDeltas", () => {
     expect(eventFullText(folded[0]?.event as AGUIEvent)).toBe("Hallo Welt");
   });
 
+  it("folds reasoning text chunks per message", () => {
+    const folded = foldStreamedDeltas([
+      { messageId: "r1", type: "REASONING_MESSAGE_START" },
+      { delta: "Let's", messageId: "r1", type: "REASONING_MESSAGE_CONTENT" },
+      { delta: " check", messageId: "r1", type: "REASONING_MESSAGE_CONTENT" },
+      {
+        delta: " options.",
+        messageId: "r1",
+        type: "REASONING_MESSAGE_CONTENT",
+      },
+      { messageId: "r1", type: "REASONING_MESSAGE_END" },
+    ] as unknown as AGUIEvent[]);
+
+    expect(folded.map((f) => f.event.type)).toEqual([
+      "REASONING_MESSAGE_START",
+      "REASONING_MESSAGE_CONTENT",
+      "REASONING_MESSAGE_END",
+    ]);
+    expect(folded[1]?.chunks).toBe(3);
+    expect(eventFullText(folded[1]?.event as AGUIEvent)).toBe(
+      "Let's check options."
+    );
+  });
+
   it("keeps two interleaved calls apart", () => {
     const folded = foldStreamedDeltas([
       { delta: "a", toolCallId: "c1", type: "TOOL_CALL_ARGS" },
@@ -309,5 +334,27 @@ describe("summaries lead with content, not UUIDs", () => {
     expect(
       eventIdentifiers({ type: "RUN_STARTED" } as unknown as AGUIEvent)
     ).toBeNull();
+  });
+});
+
+describe("extractInitialPrompt", () => {
+  it("reads systemInstructions and tool names from the CUSTOM event", () => {
+    expect(
+      extractInitialPrompt([
+        {
+          name: "engenty.debug.initial_prompt",
+          type: "CUSTOM",
+          value: {
+            runtimeContextInstructions: "Space: company",
+            systemInstructions: "You are the copilot.",
+            toolNames: ["navigate"],
+          },
+        } as unknown as AGUIEvent,
+      ])
+    ).toEqual({
+      runtimeContextInstructions: "Space: company",
+      systemInstructions: "You are the copilot.",
+      toolNames: ["navigate"],
+    });
   });
 });

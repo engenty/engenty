@@ -10,8 +10,30 @@ export type ThreadListAgeFilter =
   | "last-two-days"
   | "last-seven-days"
   | "last-thirty-days";
-export type ThreadListGroupBy = "none" | "date" | "status" | "agent" | "type";
+export type ThreadListGroupBy =
+  | "none"
+  | "date"
+  | "status"
+  | "agent"
+  | "type"
+  | "space";
 export type ThreadListSortBy = "updated_at" | "created_at" | "title" | "agent";
+
+/**
+ * Which spaces' chats the list shows (PLAN-spaces.md Phase C2).
+ *
+ * `all`     — every space, including pre-space threads that belong to none.
+ *             The default at tenant root, where Copilot's sidebar is the
+ *             product-wide history.
+ * `current` — the space the user is standing in. Inside a space the list is
+ *             locked to this, because mixing other spaces' chats into that
+ *             column is the thing drilling in exists to avoid.
+ *
+ * Unlike every other pref here this one is applied SERVER-side (it becomes
+ * `?space_id=`), because the list is capped at 50 rows: filtering after the cap
+ * would show a partial space rather than a full one.
+ */
+export type ThreadListSpaceScope = "current" | "all";
 
 export interface ThreadListOrganizationPrefs {
   age: ThreadListAgeFilter;
@@ -20,6 +42,7 @@ export interface ThreadListOrganizationPrefs {
   groupBy: ThreadListGroupBy;
   sortBy: ThreadListSortBy;
   sortOrder: "asc" | "desc";
+  spaceScope: ThreadListSpaceScope;
   status: AgentThreadStatus | "all";
 }
 
@@ -36,6 +59,7 @@ export interface ThreadListOrganizationLabels {
   datePreviousSevenDays: string;
   dateToday: string;
   dateYesterday: string;
+  spaceNone: string;
   status: Record<AgentThreadStatus, string>;
   typeFallback: string;
 }
@@ -47,6 +71,7 @@ export const DEFAULT_THREAD_LIST_PREFS: ThreadListOrganizationPrefs = {
   groupBy: "none",
   sortBy: "updated_at",
   sortOrder: "desc",
+  spaceScope: "all",
   status: "all",
 };
 
@@ -55,6 +80,8 @@ export function organizeThreadList(params: {
   labels: ThreadListOrganizationLabels;
   now?: Date;
   prefs: ThreadListOrganizationPrefs;
+  spaceLabel?: (spaceId: string | null) => string;
+  spaceOrder?: readonly string[];
   threads: readonly AgentThreadDto[];
 }): ThreadListGroup[] {
   const threads = params.threads
@@ -78,6 +105,11 @@ export function organizeThreadList(params: {
   const list = [...groups.values()];
   if (params.prefs.groupBy === "date") {
     return list;
+  }
+  if (params.prefs.groupBy === "space") {
+    return list.toSorted((a, b) =>
+      compareSpaceGroups(a, b, params.spaceOrder ?? [])
+    );
   }
   return list.toSorted((a, b) => compareText(a.label, b.label));
 }
@@ -149,6 +181,7 @@ function resolveGroup(
     labels: ThreadListOrganizationLabels;
     now?: Date;
     prefs: ThreadListOrganizationPrefs;
+    spaceLabel?: (spaceId: string | null) => string;
   }
 ): Omit<ThreadListGroup, "threads"> {
   if (params.prefs.groupBy === "agent") {
@@ -170,12 +203,50 @@ function resolveGroup(
       label: type.label,
     };
   }
+  if (params.prefs.groupBy === "space") {
+    const spaceId = thread.space_id;
+    return {
+      id: spaceId ? `space:${spaceId}` : "space:none",
+      label:
+        params.spaceLabel?.(spaceId) ??
+        (spaceId == null ? params.labels.spaceNone : spaceId),
+    };
+  }
   const dateGroup = resolveDateGroup(
     thread.updated_at,
     params.labels,
     params.now
   );
   return { id: `date:${dateGroup.key}`, label: dateGroup.label };
+}
+
+const SPACE_NONE_GROUP_ID = "space:none";
+
+function compareSpaceGroups(
+  a: ThreadListGroup,
+  b: ThreadListGroup,
+  spaceOrder: readonly string[]
+): number {
+  if (a.id === SPACE_NONE_GROUP_ID && b.id !== SPACE_NONE_GROUP_ID) {
+    return 1;
+  }
+  if (b.id === SPACE_NONE_GROUP_ID && a.id !== SPACE_NONE_GROUP_ID) {
+    return -1;
+  }
+  const aSpaceId = a.id.startsWith("space:") ? a.id.slice("space:".length) : "";
+  const bSpaceId = b.id.startsWith("space:") ? b.id.slice("space:".length) : "";
+  const aIndex = spaceOrder.indexOf(aSpaceId);
+  const bIndex = spaceOrder.indexOf(bSpaceId);
+  if (aIndex >= 0 && bIndex >= 0) {
+    return aIndex - bIndex;
+  }
+  if (aIndex >= 0) {
+    return -1;
+  }
+  if (bIndex >= 0) {
+    return 1;
+  }
+  return compareText(a.label, b.label);
 }
 
 export function resolveThreadType(

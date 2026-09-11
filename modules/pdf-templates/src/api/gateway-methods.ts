@@ -33,6 +33,7 @@ export function registerPdfTemplatesGatewayMethods(
     summary:
       "List PDF templates for a module (module_key: offers | invoices). Start here — pdf_templates_get needs an id.",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.read"],
     riskLevel: "low",
     idempotent: true,
@@ -53,6 +54,7 @@ export function registerPdfTemplatesGatewayMethods(
     operationId: "pdf_templates_get",
     summary: "Get a PDF template by id or default module key",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.read"],
     riskLevel: "low",
     idempotent: true,
@@ -93,6 +95,7 @@ export function registerPdfTemplatesGatewayMethods(
     summary:
       "Render markup against sample or record data WITHOUT saving. Returns rendered_xml, the template_data the markup can reference, and input_schema_json. Run this before every create/update.",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.read"],
     riskLevel: "low",
     idempotent: true,
@@ -116,6 +119,7 @@ export function registerPdfTemplatesGatewayMethods(
     summary:
       "Create a PDF template. document_template/stylesheet_template may be null to inherit the module default. Preview the markup first.",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.write"],
     riskLevel: "high",
     idempotent: false,
@@ -134,6 +138,7 @@ export function registerPdfTemplatesGatewayMethods(
     summary:
       "Patch a PDF template. Only the fields in `patch` change; omit document_template/stylesheet_template to leave the markup alone.",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.write"],
     riskLevel: "high",
     idempotent: true,
@@ -161,6 +166,7 @@ export function registerPdfTemplatesGatewayMethods(
     operationId: "pdf_templates_delete",
     summary: "Delete a PDF template. Irreversible — confirm with the user.",
     moduleId: "pdf-templates",
+    spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.pdf-templates.write"],
     riskLevel: "high",
     idempotent: false,

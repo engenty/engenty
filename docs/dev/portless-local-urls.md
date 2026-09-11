@@ -118,6 +118,7 @@ Single-origin via the dev gateway:
 | Main (UI + API gateway) | `https://engenty.localhost` | Vite `:5173` + core `:8787` |
 | AI / Copilot | `https://engenty.localhost/ai` | `:8790` |
 | Docs | `https://engenty.localhost/docs` | `:3002` |
+| Public landing (`apps/www`) | `https://www.engenty.localhost` | `:3003` |
 | Mastra Studio | `https://engenty.localhost/studio` | `:43111` (only with `--studio`) |
 | OpenAPI (Scalar) | `https://engenty.localhost/api/docs` | core `:8787` |
 
@@ -127,6 +128,7 @@ Direct upstream (bypass gateway, for debugging):
 |-----|-----|
 | AI | https://ai.engenty.localhost |
 | Docs | https://docs.engenty.localhost |
+| WWW | https://www.engenty.localhost |
 
 Worktree example (`tab-ui`):
 

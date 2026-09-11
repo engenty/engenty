@@ -136,6 +136,12 @@ export interface UseAppsAiActiveRunRecoveryOptions {
   invalidateQueries: (threadId: string) => void;
   isTransportReady: boolean;
   messagesRef: MutableRefObject<readonly EngentyAgUiMessage[]>;
+  /**
+   * The run this window is streaming that it did not start (null when none):
+   * the composer posts straight through for such a run — the server steers
+   * the words into it — instead of queueing behind it or cancelling it.
+   */
+  onAttachedRun?: (runId: string | null) => void;
   onOpenInterrupt?: (open: boolean) => void;
   /** When provided, subscribes to ai.thread realtime and calls resumeActiveRun on status → running. */
   realtimeClient?: PostgresChangeRealtimeClient | null;
@@ -146,6 +152,12 @@ export interface UseAppsAiActiveRunRecoveryOptions {
   submitInFlightRef: MutableRefObject<boolean>;
   submitStatus: string;
   threadId: string | null;
+  /** Run ids the user explicitly cancelled via Stop. Recovery must not attach
+   * to them: the server cancel can take seconds to land, and re-attaching in
+   * that window flips the lane back to "streaming" on a run the user just
+   * stopped (seen live: Stop settled locally, then the realtime "running"
+   * signal re-spun the spinner on the cancelling run). */
+  userCancelledRunIdsRef?: MutableRefObject<ReadonlySet<string>>;
 }
 
 export function useAppsAiActiveRunRecovery(
@@ -169,22 +181,57 @@ export function useAppsAiActiveRunRecovery(
     recoveryRunningRef.current = false;
   }, []);
 
+  /** Release a lane stuck on "streaming"/"submitted" with no stream feeding it
+   *  (restored lane snapshot, or a recovery pass that found nothing to attach).
+   *  Without this the spinner never settles and the no-response guard errors a
+   *  thread that is actually idle. */
+  const settleStatusIfNoLiveStream = useCallback(() => {
+    if (options.submitInFlightRef.current || recoveryRunningRef.current) {
+      return;
+    }
+    if (
+      submitStatusRef.current === "streaming" ||
+      submitStatusRef.current === "submitted"
+    ) {
+      logCopilotChatNew("run recovery settled wedged status", {
+        from: submitStatusRef.current,
+        threadId: options.threadId,
+      });
+      options.setSubmitStatus("ready");
+    }
+  }, [options]);
+
   const runRecoveryLoop = useCallback(
     async (threadId: string, signal: AbortSignal) => {
       const runsResult = await getAiSessionRuns(threadId, {
         limit: 20,
         signal,
       });
-      const activeRun = pickLatestInFlightAppsAiRun(runsResult.runs);
-      if (activeRun && activeRun.id === options.activeRunIdRef?.current) {
+      const inFlightRun = pickLatestInFlightAppsAiRun(runsResult.runs);
+      if (inFlightRun && inFlightRun.id === options.activeRunIdRef?.current) {
         // This window's own POST stream is delivering these events already
         // (seen live: an artifact auto-resume attached to itself and every
         // text delta rendered twice).
         logCopilotChatNew("run recovery skipped: locally streamed run", {
-          runId: activeRun.id,
+          runId: inFlightRun.id,
           threadId,
         });
         return false;
+      }
+      // A run the user Stop-ped stays "running" until the server cancel lands
+      // (seconds; a hung executor can take longer). Treat it as not attachable
+      // — fall through to the terminal transcript sync instead so one Stop
+      // settles the UI and the transcript heals when the cancel lands.
+      const activeRun =
+        inFlightRun &&
+        options.userCancelledRunIdsRef?.current.has(inFlightRun.id)
+          ? null
+          : inFlightRun;
+      if (inFlightRun && !activeRun) {
+        logCopilotChatNew("run recovery skipped: user-cancelled run", {
+          runId: inFlightRun.id,
+          threadId,
+        });
       }
       const thread = await getAppsAiThread({
         serviceBaseUrl: options.serviceBaseUrl,
@@ -251,6 +298,11 @@ export function useAppsAiActiveRunRecovery(
           options.onOpenInterrupt?.(
             readAgUiOpenInterrupt(thread.metadata ?? {}) != null
           );
+          // Nothing to attach: a lane restored (or wedged) on
+          // "streaming"/"submitted" would otherwise spin forever — the
+          // in-flight attach path settles status in its finally, this
+          // branch must settle it too.
+          settleStatusIfNoLiveStream();
         }
         return false;
       }
@@ -316,6 +368,7 @@ export function useAppsAiActiveRunRecovery(
       options.setSubmitStatus("streaming");
       options.submitInFlightRef.current = true;
       recoveryRunningRef.current = true;
+      options.onAttachedRun?.(activeRun?.id ?? null);
 
       // Messages the DB already carries must not double up from delta replay;
       // everything else (the in-flight turn) streams live into this window.
@@ -394,6 +447,7 @@ export function useAppsAiActiveRunRecovery(
           }
         }
       } finally {
+        options.onAttachedRun?.(null);
         options.submitInFlightRef.current = false;
         options.setSubmitStatus("ready");
         recoveryRunningRef.current = false;
@@ -404,7 +458,7 @@ export function useAppsAiActiveRunRecovery(
 
       return true;
     },
-    [options]
+    [options, settleStatusIfNoLiveStream]
   );
 
   const resumeActiveRun = useCallback(() => {
@@ -438,11 +492,12 @@ export function useAppsAiActiveRunRecovery(
           threadId,
           message: error instanceof Error ? error.message : String(error),
         });
+        settleStatusIfNoLiveStream();
       })
       .finally(() => {
         recoveryDispatchedRef.current = false;
       });
-  }, [options, runRecoveryLoop, stopRecovery]);
+  }, [options, runRecoveryLoop, settleStatusIfNoLiveStream, stopRecovery]);
 
   useEffect(() => {
     const threadId = options.threadId?.trim() ?? "";
@@ -498,6 +553,7 @@ export function useAppsAiActiveRunRecovery(
           threadId,
           message: error instanceof Error ? error.message : String(error),
         });
+        settleStatusIfNoLiveStream();
       } finally {
         recoveryDispatchedRef.current = false;
       }
@@ -513,6 +569,7 @@ export function useAppsAiActiveRunRecovery(
     options.submitStatus,
     options.threadId,
     runRecoveryLoop,
+    settleStatusIfNoLiveStream,
     stopRecovery,
   ]);
 

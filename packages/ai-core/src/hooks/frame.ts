@@ -114,7 +114,19 @@ export function renderAgentFn(
       frame.draft.model ??
       DEFAULT_AI_CHAT_MODEL_ID,
     name: descriptor.name,
-    source: frame.draft.source ?? "builtin",
+    // Ownership (`source`, `moduleId`, `kind`) is the owner's declaration on
+    // the descriptor — a module function agent is a module agent, never an
+    // assumed builtin.
+    ...(descriptor.kind ? { kind: descriptor.kind } : {}),
+    ...(descriptor.interfaceRole
+      ? { interfaceRole: descriptor.interfaceRole }
+      : {}),
+    ...(descriptor.moduleId === undefined
+      ? {}
+      : { moduleId: descriptor.moduleId }),
+    ...((frame.draft.source ?? descriptor.source)
+      ? { source: frame.draft.source ?? descriptor.source }
+      : {}),
   });
   if (Object.keys(frame.tools).length > 0) {
     (parsed as Record<symbol, unknown>)[RENDERED_TOOLS] = frame.tools;

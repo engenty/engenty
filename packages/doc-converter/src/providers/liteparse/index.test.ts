@@ -21,7 +21,10 @@ describe("LiteParseProvider", () => {
     constructConfigs.length = 0;
     mockParse.mockResolvedValue({
       text: "Hello world\n\nSecond line",
-      pages: [{ pageNum: 1 }, { pageNum: 2 }],
+      pages: [
+        { pageNum: 1, text: "Hello world" },
+        { pageNum: 2, text: "Second line" },
+      ],
     });
   });
 
@@ -30,12 +33,22 @@ describe("LiteParseProvider", () => {
     const p = new LiteParseProvider();
     const data = new Uint8Array([1, 2, 3]);
     const r = await p.convert(data, "doc.pdf", "application/pdf");
-    expect(r.markdown).toBe("Hello world\n\nSecond line");
+    expect(r.markdown).toBe(
+      [
+        '<page-break number="1" total="2"></page-break>',
+        "",
+        "Hello world",
+        "",
+        '<page-break number="2" total="2"></page-break>',
+        "",
+        "Second line",
+      ].join("\n")
+    );
     expect(r.metadata.page_count).toBe(2);
     expect(r.metadata.word_count).toBeGreaterThan(0);
     expect(r.source.filename).toBe("doc.pdf");
     expect(mockParse).toHaveBeenCalledWith(data);
-    expect(constructConfigs[0]).toMatchObject({ outputFormat: "text" });
+    expect(constructConfigs[0]).toMatchObject({ outputFormat: "markdown" });
   });
 
   it("passes max_pages into LiteParse config", async () => {
@@ -45,7 +58,7 @@ describe("LiteParseProvider", () => {
       max_pages: 5,
     });
     expect(constructConfigs[0]).toMatchObject({
-      outputFormat: "text",
+      outputFormat: "markdown",
       maxPages: 5,
     });
   });

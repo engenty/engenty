@@ -6,6 +6,7 @@ import {
   deployApp,
   setupApps,
 } from "@rivet-dev/agentos-apps";
+import type { AppPlacement, AppStore } from "./app-store.js";
 import type { AppHostConfig } from "./config.js";
 
 const logger = createLogger({ name: "apps/app-host:runtime" });
@@ -123,34 +124,70 @@ const WARM_TIMEOUT_CODE = "agentos_apps_replica_warm_timeout";
 
 export class AppRuntime {
   private readonly config: AppHostConfig;
+  private readonly store: AppStore;
 
   private started = false;
 
-  constructor(config: AppHostConfig) {
+  constructor(config: AppHostConfig, store: AppStore) {
     this.config = config;
+    this.store = store;
   }
 
   /**
    * Boots the embedded Rivet registry. This spawns two native child processes
    * (the Rivet Engine and the agentOS sidecar) and is the reason the container
-   * needs a durable `~/.rivetkit` volume — see SPIKE-agentos-apps.md §1.
+   * needs a durable `~/.rivetkit` volume: that is where deployed releases live.
    */
   start(): void {
     if (this.started) {
       return;
     }
-    const { appsActors } = setupApps();
+    const { appsActors } = setupApps({
+      // Resolved at every replica boot, not once at deploy, so the mount
+      // follows the App's directory wherever the last deploy placed it.
+      replicaOptions: ({ appId }) => ({
+        mounts: [this.dataMount(appId)],
+        // Root inside the isolate. The isolate is the boundary (the kernel,
+        // the read-only /app mount, egress); the guest uid only decides DAC
+        // on /data, and the sidecar's node:sqlite write-back checks it against
+        // the HOST file's uid — which is never 1000 — so the default user
+        // could not write its own database back.
+        user: { egid: 0, euid: 0, gid: 0, uid: 0 },
+      }),
+    });
     const registry = setup({ use: { ...appsActors } });
     registry.start();
     this.started = true;
     logger.info("agentOS Apps registry started");
   }
 
+  /**
+   * `/data` inside the isolate: the App's data directory projected in through
+   * agentOS's `host_dir` plugin, read-write. It is keyed by App, not by
+   * release — the replica actor's own filesystem dies with the release, this
+   * directory does not.
+   */
+  private dataMount(appId: string) {
+    return {
+      path: "/data",
+      plugin: {
+        id: "host_dir",
+        config: { hostPath: this.store.dataDir(appId), readOnly: false },
+      },
+      readOnly: false,
+    };
+  }
+
   async deploy(input: {
+    app: AppPlacement;
     appId: string;
     files: Record<string, string>;
   }): Promise<DeployResult> {
     assertAppId(input.appId);
+    // Place the App ahead of the build so the first replica boot finds its
+    // directory, and so a broken spaces volume fails here with a filesystem
+    // error instead of as an opaque replica warm failure.
+    await this.store.place(input.appId, input.app);
 
     const totalBytes = Object.values(input.files).reduce(
       (sum, content) => sum + Buffer.byteLength(content, "utf8"),
@@ -214,11 +251,13 @@ export class AppRuntime {
    * Take an app offline by activating a release that answers everything with
    * 410. agentOS Apps exposes no delete primitive, so a tombstone release is
    * the honest equivalent — the app id stays reserved and its stored state is
-   * untouched, which also makes this reversible by redeploying.
+   * untouched, which also makes this reversible by redeploying. The App's
+   * directory is left in place for the same reason.
    */
-  async destroy(appId: string): Promise<DeployResult> {
+  async destroy(appId: string, app: AppPlacement): Promise<DeployResult> {
     assertAppId(appId);
     return await this.deploy({
+      app,
       appId,
       files: {
         "index.js": [

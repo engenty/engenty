@@ -56,10 +56,24 @@ async function main() {
   // then fails loud with one actionable line (see mastra-storage-preflight.ts).
   await ensureMastraStorageReachable();
 
+  // Setup-UI overrides into process.env BEFORE app.js evaluates the Mastra
+  // instance, whose observability config reads the sink keys at that moment.
+  const { hydrateAiPlatformSettings } = await import(
+    "./platform-settings-hydrate.js"
+  );
+  await hydrateAiPlatformSettings(logger);
+
   const { createApp } = await import("./app.js");
+  const { mastra } = await import("../ai/index.js");
   const { sweepEngentySandboxes } = await import(
     "./ai/sandbox/sandbox-shutdown-sweep.js"
   );
+  const { startSandboxStagingReaper } = await import(
+    "./ai/sandbox/sandbox-staging-reaper.js"
+  );
+  // Containers are destroyed per run; their host staging dirs are not. Without
+  // this the sandbox root grows until the disk fills.
+  startSandboxStagingReaper();
   const { createNodeWebSocket } = await import("@hono/node-ws");
   // The cascade voice broker needs WS upgrades on this server. createApp
   // registers the route with the upgrade helper; injectWebSocket attaches
@@ -123,13 +137,18 @@ async function main() {
     }, shutdownTimeoutMs);
     deadline.unref();
 
-    void Promise.all([closeServer(), sweepEngentySandboxes(signal)]).then(
-      () => {
-        clearTimeout(deadline);
-        logger.info("apps/ai shutdown complete", { signal });
-        process.exit(0);
-      }
-    );
+    void Promise.all([
+      closeServer(),
+      sweepEngentySandboxes(signal),
+      // Exporters batch; an unflushed Langfuse queue is a lost trace.
+      mastra.observability.flush().catch((error: unknown) => {
+        logger.warn("observability flush failed", { error: String(error) });
+      }),
+    ]).then(() => {
+      clearTimeout(deadline);
+      logger.info("apps/ai shutdown complete", { signal });
+      process.exit(0);
+    });
   };
 
   // `once`, so a second Ctrl-C is handled by Node's default (immediate exit)

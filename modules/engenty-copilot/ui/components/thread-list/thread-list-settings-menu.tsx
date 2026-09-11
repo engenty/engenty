@@ -20,6 +20,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
   Bot,
+  Boxes,
   CalendarDays,
   CircleDot,
   Layers2,
@@ -35,6 +36,7 @@ import type {
   ThreadListAgeFilter,
   ThreadListArchivedFilter,
   ThreadListSortBy,
+  ThreadListSpaceScope,
 } from "./thread-list-organization.js";
 
 export function ThreadListSettingsMenu() {
@@ -122,6 +124,19 @@ export function ThreadListSettingsMenu() {
               }
               selected={list.prefs.groupBy === "type"}
             />
+            {list.spaceScopeLocked ? null : (
+              <GroupModeButton
+                icon={Boxes}
+                label={list.labels.groupSpace}
+                onClick={() =>
+                  list.onPrefsChange((prefs) => ({
+                    ...prefs,
+                    groupBy: "space",
+                  }))
+                }
+                selected={list.prefs.groupBy === "space"}
+              />
+            )}
           </div>
         </div>
         <Separator />
@@ -281,6 +296,17 @@ export function ThreadListSettingsMenu() {
               </SelectItem>
             </SelectContent>
           </CompactFilterSelect>
+          {list.spaceScopeLocked ? null : (
+            <SpaceScopeFilter
+              allLabel={list.labels.spaceScopeAll}
+              currentLabel={list.labels.spaceScopeCurrent}
+              label={list.labels.spaceScope}
+              onValueChange={(value) =>
+                list.onPrefsChange((prefs) => ({ ...prefs, spaceScope: value }))
+              }
+              value={list.prefs.spaceScope}
+            />
+          )}
           <VisibilityFilter
             activeLabel={list.labels.activeChats}
             allLabel={list.labels.allChats}
@@ -340,6 +366,46 @@ function CompactFilterSelect(props: {
         </SelectTrigger>
         {props.children}
       </Select>
+    </div>
+  );
+}
+
+/**
+ * This space / all spaces (PLAN-spaces.md Phase C2).
+ *
+ * Words rather than the icon pair its neighbours use: "which spaces am I
+ * looking at" has no glyph anyone reads correctly, and this is the one filter
+ * here that changes what the SERVER returns rather than how the same rows are
+ * arranged — so it is worth being unambiguous about.
+ */
+function SpaceScopeFilter(props: {
+  allLabel: string;
+  currentLabel: string;
+  label: string;
+  onValueChange: (value: ThreadListSpaceScope) => void;
+  value: ThreadListSpaceScope;
+}) {
+  return (
+    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
+      <div className="truncate font-medium text-muted-foreground text-xs">
+        {props.label}
+      </div>
+      <Tabs
+        className="justify-self-end"
+        onValueChange={(value) =>
+          props.onValueChange(value as ThreadListSpaceScope)
+        }
+        value={props.value}
+      >
+        <TabsList className="grid h-8 grid-cols-2 p-0.5">
+          <TabsTrigger className="h-7 px-2 text-xs" value="current">
+            {props.currentLabel}
+          </TabsTrigger>
+          <TabsTrigger className="h-7 px-2 text-xs" value="all">
+            {props.allLabel}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
     </div>
   );
 }

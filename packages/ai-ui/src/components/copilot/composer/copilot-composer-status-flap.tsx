@@ -339,7 +339,7 @@ export function CopilotComposerStatusFlap({
                 // row above, so skip the rule there.
                 showIdlePreview && expanded
                   ? "pt-0.5"
-                  : "mt-1.5 border-border/60 border-t pt-1.5",
+                  : "mt-1.5 border-border-soft border-t pt-1.5",
                 "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out",
                 expanded ? "opacity-100" : "opacity-0 motion-reduce:opacity-100"
               )}
@@ -354,7 +354,7 @@ export function CopilotComposerStatusFlap({
       ) : null}
       {interruptContent ? (
         <div
-          className="mt-1.5 max-h-80 cursor-auto touch-auto select-auto overflow-y-auto border-border/60 border-t pt-1.5"
+          className="mt-1.5 max-h-80 cursor-auto touch-auto select-auto overflow-y-auto border-border-soft border-t pt-1.5"
           // The flap root toggles expansion on pointer up — keep interactions
           // with the interrupt card (buttons, inputs) from triggering it.
           onPointerDown={(event) => event.stopPropagation()}

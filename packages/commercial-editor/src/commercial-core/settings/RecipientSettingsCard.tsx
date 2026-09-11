@@ -48,7 +48,7 @@ export const RecipientSettingsCard = ({
   const placeholderKey = `${documentType}s.settings.recipientCustomInfoPlaceholder`;
 
   return (
-    <div className="ui-canvas-raised overflow-hidden rounded-lg bg-card p-4">
+    <div className="ui-card-raised overflow-hidden p-4">
       <div className="space-y-2 text-sm">
         <div className="flex items-start gap-1">
           {(clientDetails.display_name ?? clientDetails.company_name) ? (

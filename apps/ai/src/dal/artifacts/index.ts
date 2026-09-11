@@ -1,4 +1,9 @@
 export {
+  ArtifactInvalidParentError,
+  assertArtifactParentAllowed,
+  parentWouldCycle,
+} from "./artifact-parent.js";
+export {
   AI_ARTIFACT_SOURCE_TYPE,
   type ArtifactSearchRetrieval,
   buildArtifactSearchText,
@@ -11,6 +16,7 @@ export {
   ArtifactContentTooLargeError,
   type ArtifactStore,
   ArtifactVersionConflictError,
+  type ArtifactVersionListEntry,
   type CreateArtifactInput,
   createArtifactStore,
   createArtifactStoreFromEnv,

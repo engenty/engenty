@@ -74,9 +74,17 @@ export function AboutDialog({
             <DialogDescription className="sr-only">
               {t("about.version", { version })}
             </DialogDescription>
-            <p className="text-muted-foreground text-sm">
-              {t("about.tagline")}
-            </p>
+            <div className="space-y-0.5">
+              <p className="text-muted-foreground text-sm">
+                {t("about.tagline")}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {t("about.taglineLead")}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {t("about.taglineAside")}
+              </p>
+            </div>
           </DialogHeader>
           <dl className="mx-auto grid max-w-[16rem] grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             {tenantName ? (

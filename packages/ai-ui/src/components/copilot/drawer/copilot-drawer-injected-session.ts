@@ -1,6 +1,9 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { Dispatch, SetStateAction } from "react";
-import type { SubmitMessage } from "../../../agent-provider/types.js";
+import type {
+  EngentyInterruptFeedback,
+  SubmitMessage,
+} from "../../../agent-provider/types.js";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card.js";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content.js";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
@@ -15,6 +18,8 @@ export interface CopilotDrawerInjectedSession {
   cancelRun: () => void;
   clearDrawerComposerState: () => void;
   contextPayload: CopilotRouteContext;
+  /** The interrupt card's ✕: hide it now and clear it on the server, without answering. */
+  dismissInterrupt?: (open: AgUiOpenInterruptMetadata) => void;
   draft: string;
   error: Error | null;
   handleNewChat: () => void;
@@ -31,7 +36,10 @@ export interface CopilotDrawerInjectedSession {
   /** Tool call ids the agent is suspended on (CopilotKit-shaped HITL status, from the stream). */
   pendingInterruptToolCallIds?: ReadonlySet<string>;
   pendingUserInsertIndex?: number | null;
+  pendingUserParts?: readonly unknown[] | null;
   pendingUserText?: string | null;
+  /** Tool call ids whose card this client already answered or dismissed. */
+  resolvedInterruptToolCallIds?: ReadonlySet<string>;
   /** Resolve an interactive decision/feedback tool call: optimistic write + resume. */
   respond?: (
     toolCallId: string,
@@ -43,22 +51,7 @@ export interface CopilotDrawerInjectedSession {
       payload?: Record<string, unknown>;
     }
   ) => void;
-  resumeInterrupt?: (
-    feedback:
-      | {
-          artifactId: string;
-          choiceId: string;
-          choiceLabel: string;
-          interruptId?: string;
-          payload?: Record<string, unknown>;
-        }
-      | {
-          approved: boolean;
-          interruptId: string;
-          output?: unknown;
-          toolName: string;
-        }
-  ) => void;
+  resumeInterrupt?: (feedback: EngentyInterruptFeedback) => void;
   resumeRun: () => void;
   selectedCandidateValues: Record<string, string | null>;
   selectedSuggestions: Record<string, boolean>;

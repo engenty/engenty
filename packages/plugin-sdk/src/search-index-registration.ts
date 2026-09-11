@@ -23,6 +23,7 @@ import type {
 import type { ZodType } from "zod";
 import type { PluginOperationRisk } from "./index.js";
 import type { PluginEventPayload } from "./plugin-events.js";
+import type { OperationSpacePolicy } from "./space-policy.js";
 
 // Re-export the contract surface so module authors can import it from one place.
 export type {
@@ -90,6 +91,10 @@ export interface PluginSearchIndexRegistrationOptions {
   // Skip auto-tool synthesis; useful for system providers (e.g. core api-catalog)
   // that should be operator-callable but not surfaced to agents.
   skipAutoTool?: boolean;
+  // Space membership for the synthesized search operation. Forwarded onto the
+  // PluginServerOperation so catalog `record_scope` is the declared kind —
+  // never guessed. Omit rather than defaulting to tenant_shared.
+  spacePolicy?: OperationSpacePolicy;
 }
 
 export interface PluginSearchIndexRegistration {

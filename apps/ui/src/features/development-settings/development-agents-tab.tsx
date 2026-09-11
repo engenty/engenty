@@ -60,7 +60,7 @@ export function DevelopmentAgentsTab() {
   const [lastClearResult, setLastClearResult] = useState<{
     deleted_count: number;
     runs_deleted_count: number;
-    remaining_sessions: number;
+    remaining_threads: number;
   } | null>(null);
 
   const summary = deriveSessionStatsSummary(statsQuery.data?.stats ?? null);
@@ -162,15 +162,15 @@ export function DevelopmentAgentsTab() {
       {lastClearResult && !clearAllMutation.isError ? (
         <p
           className={
-            lastClearResult.remaining_sessions > 0
+            lastClearResult.remaining_threads > 0
               ? "text-destructive text-sm"
               : "text-muted-foreground text-sm"
           }
         >
-          {lastClearResult.remaining_sessions > 0
+          {lastClearResult.remaining_threads > 0
             ? t("settings.development.sessions.clearedPartial", {
                 deleted: lastClearResult.deleted_count,
-                remaining: lastClearResult.remaining_sessions,
+                remaining: lastClearResult.remaining_threads,
               })
             : t("settings.development.sessions.clearedSummary", {
                 count: lastClearResult.deleted_count,

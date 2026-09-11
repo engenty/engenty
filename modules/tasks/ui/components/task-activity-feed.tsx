@@ -9,6 +9,7 @@ import {
   cn,
 } from "@engenty/ui-core";
 import { Bot, ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 import type {
   TaskActivity,
   TaskStatusDefinition,
@@ -240,7 +241,7 @@ export function TaskActivityRow({
     ) : null;
 
   return (
-    <li className="@container ui-canvas-raised rounded-md bg-card px-3 py-2.5">
+    <li className="@container ui-card-raised px-3 py-2.5">
       <div className={ACTIVITY_ROW_SHELL_CLASS}>
         <ActivityActorAvatar actor={actor} />
 
@@ -337,7 +338,18 @@ export function TaskActivityList({
 }: TaskActivityListProps) {
   const { t } = useTranslation("tasks");
 
-  if (activity.length === 0) {
+  // Oldest first, newest at the bottom — the same direction as the Comments
+  // tab beside it. The API answers newest-first (its index is
+  // `(task_id, created_at desc)`), which made switching tabs reverse the
+  // reading direction mid-thought. Sorted here rather than in the query so the
+  // two tabs cannot drift apart again.
+  const ordered = useMemo(
+    () =>
+      [...activity].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+    [activity]
+  );
+
+  if (ordered.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">{t("detail.noActivity")}</p>
     );
@@ -345,7 +357,7 @@ export function TaskActivityList({
 
   return (
     <ul className="space-y-2">
-      {activity.map((item) => (
+      {ordered.map((item) => (
         <TaskActivityRow
           assigneeProfiles={assigneeProfiles}
           item={item}

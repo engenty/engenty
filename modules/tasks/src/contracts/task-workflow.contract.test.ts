@@ -7,17 +7,10 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  assertGoalDepth,
-  canTransitionGoalStatus,
-  GOAL_TERMINAL_STATUSES,
-} from "../domain/goal-lifecycle.js";
-import {
-  assertAgentTaskGoal,
   canTransitionTaskStatus,
   formatTaskIdentifier,
   isValidTaskIdentifier,
   normalizeTaskAssignees,
-  resolveTaskGoalId,
 } from "../domain/task-lifecycle.js";
 
 describe("task identifier contract", () => {
@@ -138,52 +131,6 @@ describe("task lifecycle contract", () => {
         hasActiveCheckout: false,
       })
     ).toBe(true);
-  });
-});
-
-describe("goal linkage contract", () => {
-  it("inherits goal from parent when explicit is missing", () => {
-    expect(
-      resolveTaskGoalId({
-        explicit_goal_id: null,
-        parent_goal_id: "goal-parent",
-      })
-    ).toBe("goal-parent");
-  });
-
-  it("prefers explicit goal over parent", () => {
-    expect(
-      resolveTaskGoalId({
-        explicit_goal_id: "goal-explicit",
-        parent_goal_id: "goal-parent",
-      })
-    ).toBe("goal-explicit");
-  });
-
-  it("requires goal for agent-created tasks", () => {
-    expect(() =>
-      assertAgentTaskGoal({ actorKind: "agent_create", goal_id: null })
-    ).toThrow("agent_task_goal_required");
-    expect(() =>
-      assertAgentTaskGoal({
-        actorKind: "agent_create",
-        goal_id: "goal-1",
-      })
-    ).not.toThrow();
-  });
-});
-
-describe("goal lifecycle contract", () => {
-  it("blocks transitions from terminal goal statuses", () => {
-    for (const status of GOAL_TERMINAL_STATUSES) {
-      expect(canTransitionGoalStatus(status, "active")).toBe(false);
-    }
-  });
-
-  it("enforces max goal depth of 3 levels", () => {
-    expect(() => assertGoalDepth(0)).not.toThrow();
-    expect(() => assertGoalDepth(1)).not.toThrow();
-    expect(() => assertGoalDepth(2)).toThrow("goal_max_depth_exceeded");
   });
 });
 

@@ -227,7 +227,9 @@ function useDrawerInjectedSession(input: {
     openInterruptFromStream: host.openInterruptFromStream,
     pendingInterruptToolCallIds: host.pendingInterruptToolCallIds,
     optimisticInterruptResults: host.optimisticInterruptResults,
+    resolvedInterruptToolCallIds: host.resolvedInterruptToolCallIds,
     respond: host.respond,
+    dismissInterrupt: host.dismissInterrupt,
     cancelRun: host.cancel,
     clearDrawerComposerState: clearLocalSessionState,
     contextPayload: input.routeContext,
@@ -241,6 +243,7 @@ function useDrawerInjectedSession(input: {
     messages: host.copilotMessages,
     pauseRun: () => {},
     pendingUserInsertIndex: host.pendingUserInsertIndex,
+    pendingUserParts: host.pendingUserParts,
     pendingUserText: host.pendingUserText,
     resumeInterrupt: host.resumeInterrupt,
     resumeRun: host.resumeActiveRun,
@@ -395,9 +398,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         dragHandleLabel={t("copilot.dragHandle")}
         floatingChatRouteBinding
         getHeaders={defaultGetHeaders}
-        headerChrome={
-          topbarChrome === "contentBlend" ? "contentBlend" : "default"
-        }
+        headerChrome={topbarChrome === "band" ? "default" : "contentBlend"}
         injectedSession={{
           ...injectedSession,
           openInterruptFromSession,

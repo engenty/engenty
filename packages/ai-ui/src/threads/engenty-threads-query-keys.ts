@@ -6,6 +6,7 @@ export function engentyThreadsListQueryKey(params: {
   includeArchived?: boolean;
   serviceBaseUrl: string;
   agentId?: string | null;
+  spaceId?: string | null;
 }) {
   const profile = resolveEngentyThreadHostProfile(
     params.hostKey,
@@ -16,5 +17,6 @@ export function engentyThreadsListQueryKey(params: {
     hostKey: profile.hostKey,
     includeArchived: params.includeArchived,
     serviceBaseUrl: params.serviceBaseUrl,
+    spaceId: params.spaceId,
   });
 }

@@ -83,6 +83,16 @@ export interface FileSpaceOwner {
 export interface FileSourceContext {
   owner: FileSpaceOwner;
   principalId?: string;
+  /**
+   * The space this file space belongs to — what new bytes are rooted under
+   * (PLAN-spaces.md §1b). Redundant when `owner.type === "space"` (the owner id
+   * IS the space); required for every other owner.
+   *
+   * Resolved SERVER-side from the owner record, never taken from the request:
+   * a client-supplied space would let a caller write one space's bytes into
+   * another's prefix, which is precisely the containment the tier provides.
+   */
+  spaceId?: string;
   tenantId: string;
 }
 
@@ -110,6 +120,20 @@ export interface FileSourceUploadTicket {
   entryId: string;
   /** Tenant-scoped blob key the bytes must be written to. */
   storageKey: string;
+}
+
+/** New bytes for a file that already exists. */
+export interface FileSourceContentInput {
+  data: Uint8Array;
+  /**
+   * The `updatedAt` the editor read, and NOT optional.
+   *
+   * Editing a file is the one path where two people working on the same thing
+   * is ordinary rather than exotic, so a save that cannot be checked is a save
+   * that silently discards somebody's work. Without a token the only available
+   * behaviour is last-write-wins, which is why there is no way to omit it.
+   */
+  expectedUpdatedAt: string;
 }
 
 /**
@@ -163,6 +187,16 @@ export interface FileSource {
     newParentId: string | null
   ): Promise<FileSourceFolder>;
 
+  /**
+   * File bytes for a server-side reader.
+   *
+   * Distinct from {@link getDownloadUrl}: connector sources that proxy bytes
+   * (local-files, Drive) return a *relative* `/download` path from that
+   * method, which a browser can follow and Node `fetch` cannot. Space-data
+   * read goes through here so those files are readable without an HTTP hop.
+   */
+  readBytes(ctx: FileSourceContext, fileId: string): Promise<Uint8Array>;
+
   renameFile(
     ctx: FileSourceContext,
     fileId: string,
@@ -174,6 +208,21 @@ export interface FileSource {
     folderId: string,
     name: string
   ): Promise<FileSourceFolder>;
+
+  /**
+   * Replace a file's bytes in place — same id, name, folder and content type.
+   *
+   * Distinct from upload + finalize, which mints a NEW file: saving an edit has
+   * to leave every reference to the file intact, and it is the only operation
+   * that can make the row's `sizeBytes` disagree with the object it describes.
+   * Sources that cannot write throw {@link FileSourceReadOnlyError}; the method
+   * is required rather than optional so a new source has to decide.
+   */
+  replaceContent(
+    ctx: FileSourceContext,
+    fileId: string,
+    input: FileSourceContentInput
+  ): Promise<FileSourceFile>;
 }
 
 /* ── Native source dependency ports ──
@@ -291,4 +340,18 @@ export interface NativeBlobStore {
     key: string,
     options?: { expiresIn?: number; signed?: boolean }
   ): Promise<string>;
+  /**
+   * Write bytes at a key, replacing whatever is there.
+   *
+   * The only server-side write in this port — first uploads go straight from
+   * the browser to a signed URL and never pass through here. Replacing content
+   * cannot work that way: the row's `sizeBytes` has to move with the object,
+   * and a client that has already written the bytes can always fail to report
+   * back.
+   */
+  upload(
+    key: string,
+    data: Uint8Array,
+    options?: { contentType?: string }
+  ): Promise<void>;
 }

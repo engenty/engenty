@@ -9,11 +9,6 @@ import { TASK_AGENT_CHECKOUT_ENTRY_STATUSES } from "../domain/task-lifecycle.js"
 import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import { definitionsToSettingsSlice } from "../lib/task-status-settings.js";
 import type {
-  Goal,
-  GoalCreateInput,
-  GoalsPaginatedResponse,
-  GoalsQueryParams,
-  GoalUpdateInput,
   Task,
   TaskActivity,
   TaskCheckoutInput,
@@ -27,7 +22,14 @@ import type {
   TasksQueryParams,
   TaskUpdateInput,
 } from "../schema/types.js";
-import type { TasksRepo } from "./gateway-methods.js";
+import type { TasksRepo } from "./gateway-shared.js";
+
+/**
+ * Stands in for the tenant's default space. The real repo resolves this through
+ * resolveCreateSpaceId (explicit → inherit → tenant default); the fake keeps
+ * only the "explicit wins, else default" half, which is what its callers test.
+ */
+const DEFAULT_SPACE_ID = "00000000-0000-4000-8000-0000000space";
 
 const defaultSettings: TaskSettings = {
   identifier_prefix: "ENG",
@@ -39,7 +41,6 @@ const defaultSettings: TaskSettings = {
 
 export function makeMockTasksRepo(): TasksRepo {
   const tasks = new Map<string, Task>();
-  const goals = new Map<string, Goal>();
   const runs = new Map<string, TaskRun>();
   const activity = new Map<string, TaskActivity>();
   let settings = { ...defaultSettings };
@@ -67,16 +68,20 @@ export function makeMockTasksRepo(): TasksRepo {
       const page = params.page ?? 1;
       const pageSize = params.pageSize ?? 25;
       const data = [...tasks.values()].filter((t) => {
-        if (params.goal_id && t.goal_id !== params.goal_id) {
-          return false;
-        }
         if (params.project_id && t.project_id !== params.project_id) {
           return false;
         }
-        if (params.trigger_id && t.trigger_id !== params.trigger_id) {
+        if (params.space_id && t.space_id !== params.space_id) {
           return false;
         }
         if (params.status && t.status !== params.status) {
+          return false;
+        }
+        if (
+          params.primary_assignee_agent_type_key &&
+          t.primary_assignee_agent_type_key !==
+            params.primary_assignee_agent_type_key
+        ) {
           return false;
         }
         return true;
@@ -106,12 +111,12 @@ export function makeMockTasksRepo(): TasksRepo {
         id,
         tenant_id: "tenant",
         scope_id: "scope",
+        space_id: input.space_id ?? DEFAULT_SPACE_ID,
         identifier: `ENG-${sequence}`,
         title: input.title,
         description: input.description ?? null,
         status: input.status ?? "todo",
         priority: input.priority ?? "medium",
-        goal_id: input.goal_id ?? null,
         parent_id: input.parent_id ?? null,
         primary_assignee_kind: input.primary_assignee_kind ?? "none",
         primary_assignee_user_id: input.primary_assignee_user_id ?? null,
@@ -193,59 +198,6 @@ export function makeMockTasksRepo(): TasksRepo {
       }
       return null;
     },
-    async listGoalsPaginated(params: GoalsQueryParams) {
-      const page = params.page ?? 1;
-      const pageSize = params.pageSize ?? 25;
-      const data = [...goals.values()].filter((g) => {
-        if (params.project_id && g.project_id !== params.project_id) {
-          return false;
-        }
-        return true;
-      });
-      return {
-        data: data.slice((page - 1) * pageSize, page * pageSize),
-        total: data.length,
-        page,
-        pageSize,
-      } satisfies GoalsPaginatedResponse;
-    },
-    async getGoal(id: string) {
-      return goals.get(id) ?? null;
-    },
-    async createGoal(input: GoalCreateInput) {
-      const id = randomUUID();
-      const goal: Goal = {
-        id,
-        tenant_id: "tenant",
-        scope_id: "scope",
-        title: input.title,
-        description: input.description ?? null,
-        status: input.status ?? "planned",
-        parent_id: input.parent_id ?? null,
-        owner_user_id: input.owner_user_id ?? null,
-        owner_agent_type_key: input.owner_agent_type_key ?? null,
-        target_date: input.target_date ?? null,
-        level: input.level ?? "team",
-        owner_agent_id: null,
-        project_id: input.project_id ?? null,
-        created_at: now(),
-        updated_at: now(),
-      };
-      goals.set(id, goal);
-      return goal;
-    },
-    async updateGoal(id: string, input: GoalUpdateInput) {
-      const existing = goals.get(id);
-      if (!existing) {
-        return null;
-      }
-      const updated = { ...existing, ...input, updated_at: now() };
-      goals.set(id, updated);
-      return updated;
-    },
-    async deleteGoal(id: string) {
-      return goals.delete(id);
-    },
     async checkoutTask(taskId: string, input: TaskCheckoutInput) {
       const existing = tasks.get(taskId);
       if (!existing) {
@@ -286,16 +238,32 @@ export function makeMockTasksRepo(): TasksRepo {
         updated_at: now(),
       };
       tasks.set(taskId, checkedOut);
-      const run: TaskRun = {
-        id: randomUUID(),
-        tenant_id: existing.tenant_id,
-        scope_id: existing.scope_id,
-        task_id: taskId,
-        agent_session_run_id: runId,
-        role: "checkout",
-        created_at: now(),
-      };
-      runs.set(run.id, run);
+      // One row per run, like the real DAL: a resumed run re-enters checkout
+      // under the same run id, and a second row would list it twice.
+      const priorRun = [...runs.values()].find(
+        (candidate) =>
+          candidate.task_id === taskId &&
+          candidate.agent_session_run_id === runId &&
+          candidate.role === "checkout"
+      );
+      if (priorRun) {
+        runs.set(priorRun.id, {
+          ...priorRun,
+          finished_at: null,
+          outcome: null,
+        });
+      } else {
+        const run: TaskRun = {
+          id: randomUUID(),
+          tenant_id: existing.tenant_id,
+          scope_id: existing.scope_id,
+          task_id: taskId,
+          agent_session_run_id: runId,
+          role: "checkout",
+          created_at: now(),
+        };
+        runs.set(run.id, run);
+      }
       return checkedOut;
     },
     async releaseTask(taskId: string, input: TaskReleaseInput = {}) {
@@ -320,42 +288,6 @@ export function makeMockTasksRepo(): TasksRepo {
       };
       tasks.set(taskId, released);
       return released;
-    },
-    async listTriggerTasks(
-      triggerId: string,
-      opts?: { limit?: number; nonTerminalOnly?: boolean }
-    ) {
-      let rows = [...tasks.values()].filter((t) => t.trigger_id === triggerId);
-      if (opts?.nonTerminalOnly) {
-        rows = rows.filter(
-          (t) => t.status !== "done" && t.status !== "cancelled"
-        );
-      }
-      rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
-      if (opts?.limit !== undefined) {
-        rows = rows.slice(0, opts.limit);
-      }
-      return rows;
-    },
-    async listStandingTasksByTriggerIds(triggerIds: string[]) {
-      const result = new Map<string, Task>();
-      for (const id of triggerIds) {
-        const open = await this.listTriggerTasks(id, {
-          limit: 1,
-          nonTerminalOnly: true,
-        });
-        if (open[0]) {
-          result.set(id, open[0]);
-        }
-      }
-      return result;
-    },
-    async listOpenTriggerTasks(triggerId: string) {
-      return [...tasks.values()].filter(
-        (t) =>
-          t.trigger_id === triggerId &&
-          ["todo", "backlog", "in_progress", "blocked"].includes(t.status)
-      );
     },
     async listTaskRuns(taskId: string) {
       return [...runs.values()].filter((run) => run.task_id === taskId);

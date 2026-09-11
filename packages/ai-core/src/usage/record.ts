@@ -119,11 +119,17 @@ function normalizeTokens(usage: UsageTokenInput): {
 export interface RecordAiUsageInput {
   action_id?: string | null;
   agent_id?: string | null;
+  /**
+   * Sandbox host time to meter, for a compute lease. A model call leaves this
+   * unset; a lease leaves `usage` empty and sets only this.
+   */
+  compute_ms?: number | null;
   feature: UsageFeature;
   model_id: string;
   occurred_at?: string;
   request_id?: string | null;
   run_id?: string | null;
+  space_id?: string | null;
   store?: AiUsageStore | null;
   tenant_id: string | null;
   thread_id?: string | null;
@@ -155,11 +161,13 @@ export async function recordAiUsage(
   }
 
   const tokens = normalizeTokens(input.usage);
+  const computeMs = toNonNegativeInt(input.compute_ms);
   if (
     tokens.input === 0 &&
     tokens.output === 0 &&
     tokens.cached === 0 &&
-    tokens.reasoning === 0
+    tokens.reasoning === 0 &&
+    computeMs === 0
   ) {
     return null;
   }
@@ -181,8 +189,10 @@ export async function recordAiUsage(
       request_id: input.request_id ?? null,
       agent_id: input.agent_id ?? null,
       action_id: input.action_id ?? null,
+      space_id: input.space_id ?? null,
       feature: input.feature,
       model_id: input.model_id,
+      compute_ms: computeMs,
       input_tokens: tokens.input,
       output_tokens: tokens.output,
       cached_tokens: tokens.cached,
@@ -217,6 +227,7 @@ export async function recordAiUsage(
       output_tokens: tokens.output,
       cached_tokens: tokens.cached,
       reasoning_tokens: tokens.reasoning,
+      compute_ms: computeMs,
       cost_micros: cost.cost_micros,
       currency: cost.currency,
       occurred_at: occurredAt,

@@ -76,6 +76,7 @@ export function registerOffersApi(
   server: Pick<
     PluginServerApi,
     | "callGatewayMethod"
+    | "getTenantDb"
     | "hasOperation"
     | "registerHttpRoute"
     | "registerOperation"

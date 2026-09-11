@@ -25,7 +25,8 @@ The subpath re-exports `packages/app-shell/src/lib/navigation.ts` via `src/navig
 Called during app bootstrap (e.g. `apps/ui` authenticated bootstrap) with:
 
 - `UiContributions` from the UI plugin catalog (`adminMenuItems`, `copilotApps`, `settingsItems`)
-- `options.isSuperAdmin` for feature-flag settings link
+- `options.isSuperAdmin` / `options.isTenantAdmin` for Settings vs Setup
+- `options.canSwitchTenant` — superadmins with more than one tenant get Settings → Tenant
 - `t` — i18n translate function for `labelKey` entries
 
 Returns `NavigationSection[]` consumed by `AppLayout` / `AppSidebar`:
@@ -58,8 +59,7 @@ Exported from the main entry (`types/shell.ts`):
 
 - `NavigationItem` — `to`, `label`, `icon`, optional `children`, `external`
 - `NavigationSection` — optional `label`, `items[]`
-- `ShellSidebarConfig` — tenant switcher, brand, plan label
-- `ShellTenant`, `TenantSwitcherConfig`
+- `ShellSidebarConfig` — brand, search, user menu
 
 ## Related docs
 

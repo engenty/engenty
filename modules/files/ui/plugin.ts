@@ -9,6 +9,8 @@ import { FilesListPage } from "./pages/files-list.js";
  * when both modules happen to be installed). */
 const PROJECTS_DETAIL_SURFACE = "projects.detail";
 
+/** Host surface key from the space detail page (apps/ui), same convention. */
+
 export default function plugin(engenty: EngentyPluginContext) {
   // Realtime-only binding; files (@engenty/files-ui) has no `*-live-binding.ts`.
   // Root mirrors files query keys; tables exposed tenant-wide via migration.
@@ -65,4 +67,10 @@ export default function plugin(engenty: EngentyPluginContext) {
     icon: DockVaultIcon,
     order: 300,
   });
+
+  // NO space Files tab any more (P3.2 / decision 4). The space's own files are
+  // the `Files/` root of the Data tab, editable there through `/data/*` — the
+  // same endpoints an agent uses. This tab was the second editor over that one
+  // store, and two editors is exactly the split the Data design removes. The
+  // file manager stays for the PROJECT file space above, which has no Data tab.
 }

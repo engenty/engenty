@@ -56,32 +56,6 @@ export function mergeKbHybridSuggestHits(
   return out;
 }
 
-export async function suggestKbArticlesHybridMany(
-  kbIds: string[],
-  q: string,
-  opts?: { limit?: number; signal?: AbortSignal }
-): Promise<KbArticleSuggestHit[]> {
-  const limit = Math.min(Math.max(opts?.limit ?? 8, 1), 25);
-  const perKb = Math.max(Math.ceil(limit / kbIds.length), 3);
-  const results = await Promise.all(
-    kbIds.map((id) => suggestKbArticlesHybrid(id, q, { ...opts, limit: perKb }))
-  );
-  const seen = new Set<string>();
-  const out: KbArticleSuggestHit[] = [];
-  for (const hits of results) {
-    for (const hit of hits) {
-      if (!seen.has(hit.id)) {
-        seen.add(hit.id);
-        out.push(hit);
-        if (out.length >= limit) {
-          return out;
-        }
-      }
-    }
-  }
-  return out;
-}
-
 export async function suggestKbArticlesHybrid(
   kbId: string,
   q: string,

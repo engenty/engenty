@@ -81,7 +81,7 @@ Example patch: `{ "id": "<offer-id>", "patch": { "billing_plan": { "mode":
   (`page`/`pageSize` max 200/`sortBy` enum/`sortOrder`/`search`).
 - Billing types/intervals in the create skill match the enums.
 - [ai/commands/create-offer/COMMAND.md](ai/commands/create-offer/COMMAND.md) is
-  valid (`kind: action` + `action_id` expands to a prose instruction; the
+  valid (`kind: workflow` + `workflow_id` expands to a prose instruction; the
   `offers-create-and-edit` target is the skill the agent should follow).
 - `invoke_frontend_tool` in agent.json + `navigate` in the create skill's
   allowed-tools work via the copilot base frontend tools; the module registers

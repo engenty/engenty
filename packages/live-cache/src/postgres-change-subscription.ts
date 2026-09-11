@@ -84,6 +84,20 @@ export function toPostgresChangeSignal(
   };
 }
 
+/**
+ * Every subscription gets its own channel topic.
+ *
+ * `client.channel(topic)` RETURNS THE EXISTING channel when one with that
+ * topic is still registered on the socket, and `.on("postgres_changes", …)`
+ * THROWS on a channel that has already joined ("cannot add `postgres_changes`
+ * callbacks … after `subscribe()`"). Two subscribers of the same logical
+ * stream — a remount racing its own async `removeChannel`, or two components
+ * watching one thread — would adopt that joined channel and throw out of the
+ * effect, taking the component tree down with them. A per-subscription suffix
+ * makes the adoption impossible; the caller's name stays the readable prefix.
+ */
+let channelSequence = 0;
+
 export function subscribePostgresChanges(params: {
   changes: PostgresChangeSpec[];
   client: PostgresChangeRealtimeClient;
@@ -94,7 +108,10 @@ export function subscribePostgresChanges(params: {
     return () => undefined;
   }
 
-  let channel = params.client.channel(params.channelName);
+  channelSequence += 1;
+  let channel = params.client.channel(
+    `${params.channelName}#${channelSequence}`
+  );
   for (const change of params.changes) {
     channel = channel.on(
       "postgres_changes",

@@ -7,10 +7,13 @@
 
 export type UsageFeature =
   | "copilot"
-  | "action"
+  | "workflow"
   | "inbound"
   | "headless"
   | "agent_once"
+  // A sandbox lease: host time, no tokens, no model. Priced by `compute_ms`
+  // rather than by the token columns, which stay zero on these rows.
+  | "compute_lease"
   | "other";
 
 export type UsagePeriodMode = "calendar" | "rolling";
@@ -45,6 +48,8 @@ export interface UsageEventRecord {
   agent_id: string | null;
   cached_input_per_mtok_micros: number;
   cached_tokens: number;
+  /** Sandbox host time this event accounts for. Zero on a model call. */
+  compute_ms: number;
   cost_micros: number;
   created_at: string;
   currency: string;
@@ -61,6 +66,8 @@ export interface UsageEventRecord {
   reasoning_tokens: number;
   request_id: string | null;
   run_id: string | null;
+  /** Space the work belonged to, when it belonged to one. */
+  space_id: string | null;
   tenant_id: string | null;
   thread_id: string | null;
   user_id: string | null;
@@ -68,6 +75,7 @@ export interface UsageEventRecord {
 
 export interface UsagePeriodTotalRecord {
   cached_tokens: number;
+  compute_ms: number;
   cost_micros: number;
   currency: string;
   event_count: number;

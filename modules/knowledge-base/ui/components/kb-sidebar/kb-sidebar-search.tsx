@@ -17,7 +17,6 @@ import {
 import { KbSidebarArticleTreeMenu } from "./kb-sidebar-article-tree-menu.js";
 
 export interface KbSidebarSearchProps {
-  kbSlug: string;
   onAddArticle: () => void;
   onAddCategory: () => void;
   onAddFaq: () => void;
@@ -38,7 +37,6 @@ export interface KbSidebarSearchProps {
 }
 
 export function KbSidebarSearch({
-  kbSlug,
   onAddArticle,
   onAddCategory,
   onAddFaq,
@@ -94,10 +92,7 @@ export function KbSidebarSearch({
                 setPrefs={setPrefs}
               />
             ) : null}
-            <KbModuleAddMenuSidebarTrigger
-              handlers={addMenuHandlers}
-              kbSlug={kbSlug}
-            />
+            <KbModuleAddMenuSidebarTrigger handlers={addMenuHandlers} />
           </>
         )}
       </div>

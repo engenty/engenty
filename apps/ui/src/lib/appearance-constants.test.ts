@@ -6,7 +6,6 @@ import {
   applyCustomColors,
   applySidebarColor,
   COLOR_SETS_PRESETS,
-  DEFAULT_DARK_SIDEBAR,
   DEFAULT_LIGHT_SIDEBAR,
   resolveFontSizeScale,
 } from "./appearance-constants";
@@ -24,10 +23,14 @@ describe("resolveFontSizeScale", () => {
 });
 
 describe("COLOR_SETS_PRESETS", () => {
-  it("defines a non-empty dark.sidebar for every preset", () => {
+  it("never reuses the light rail hex in dark mode", () => {
     for (const preset of COLOR_SETS_PRESETS) {
-      expect(preset.dark.sidebar).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      // Empty means CSS `.dark --raw-sidebar` owns the seed (Ember); a branded
+      // preset carries its own dark hex. Either way, never the light default.
       expect(preset.dark.sidebar.toLowerCase()).not.toBe(DEFAULT_LIGHT_SIDEBAR);
+      if (preset.id !== "ember") {
+        expect(preset.dark.sidebar).not.toBe("");
+      }
     }
   });
 });
@@ -113,14 +116,16 @@ describe("applyCustomColors", () => {
     ).toBe("#121212");
   });
 
-  it("maps Ember dark sidebar without falling back to white", () => {
+  it("leaves the Ember dark rail to CSS instead of painting a hex", () => {
     document.documentElement.classList.add("dark");
     applyCustomColors("#e0531b", "#f1f3f5", "#faf8f5");
     applySidebarColor(DEFAULT_LIGHT_SIDEBAR);
 
+    // The default rail is one step below the canvas, derived in
+    // `ember-primitives.css` — an inline hex here would freeze it.
     expect(
       document.documentElement.style.getPropertyValue("--raw-sidebar")
-    ).toBe(DEFAULT_DARK_SIDEBAR);
+    ).toBe("");
   });
 
   it("maps Cobalt dark sidebar", () => {

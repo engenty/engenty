@@ -7,7 +7,7 @@ const detailPageHeaderVariants = cva("w-full shrink-0", {
     /**
      * `blended`: sticky card surface with hairline bottom border. Extends under a
      * transparent floating topbar — pair with
-     * `usePageConfig({ topbarChrome: "contentBlend", topbarOverlap: true })`.
+     * `usePageConfig({ topbarOverlap: true })`.
      * `framed`: static raised card band with soft bottom shadow.
      * `canvas`: no distinct surface — title sits on the page canvas (`paper` /
      * background) with more open whitespace. Prefer for calm list hubs.

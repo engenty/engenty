@@ -69,6 +69,12 @@ interface UnifiedAssigneeSelectorProps {
   catalog: TeamMemberCatalogRow[];
   onChange: (value: TaskAssigneeValue) => void;
   onSelect?: () => void;
+  /**
+   * Say that picking an agent dispatches. True on an EXISTING task, where the
+   * choice IS the dispatch; false in create dialogs, where "start now / plan
+   * only" decides and the wizard already carries that sentence.
+   */
+  showAgentDispatchHint?: boolean;
   teamMembersEnabled?: boolean;
   value: TaskAssigneeValue;
 }
@@ -79,8 +85,10 @@ export function UnifiedAssigneeSelector({
   value,
   onChange,
   teamMembersEnabled = false,
+  showAgentDispatchHint = false,
   onSelect,
 }: UnifiedAssigneeSelectorProps) {
+  const { t } = useTranslation("tasks");
   const memberOptions = useMemo(
     () => (teamMembersEnabled ? buildTaskAssigneeMemberOptions(catalog) : []),
     [catalog, teamMembersEnabled]
@@ -181,6 +189,11 @@ export function UnifiedAssigneeSelector({
           </CommandGroup>
         )}
       </CommandList>
+      {showAgentDispatchHint && agentOptions.length > 0 && (
+        <p className="border-t px-3 py-2 text-muted-foreground text-xs leading-snug">
+          {t("form.assigneeAgentDispatchHint")}
+        </p>
+      )}
     </Command>
   );
 }

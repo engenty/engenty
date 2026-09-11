@@ -33,11 +33,9 @@ export function sourceItemHeadingTitle(
 export function SourceItemDetailHeader({
   extraMetadata,
   item,
-  kbSlug,
 }: {
   extraMetadata: Record<string, unknown>;
   item: KbSourceItem;
-  kbSlug: string;
 }) {
   const { t } = useTranslation("kb");
   const [showMore, setShowMore] = useState(false);
@@ -73,19 +71,18 @@ export function SourceItemDetailHeader({
           ? {
               label: t("sources.inbox_entry_id"),
               tooltip: t("sources.inbox_entry_tooltip"),
-              value:
-                kbSlug && item.inbox_item_id ? (
-                  <Link
-                    className="break-all font-mono text-primary text-xs hover:underline"
-                    to={kbInboxDetailPath(kbSlug, item.inbox_item_id)}
-                  >
-                    {item.inbox_item_id}
-                  </Link>
-                ) : (
-                  <span className="break-all font-mono text-muted-foreground text-xs">
-                    {item.inbox_item_id}
-                  </span>
-                ),
+              value: item.inbox_item_id ? (
+                <Link
+                  className="break-all font-mono text-primary text-xs hover:underline"
+                  to={kbInboxDetailPath(item.inbox_item_id)}
+                >
+                  {item.inbox_item_id}
+                </Link>
+              ) : (
+                <span className="break-all font-mono text-muted-foreground text-xs">
+                  {item.inbox_item_id}
+                </span>
+              ),
             }
           : null,
         {
@@ -110,7 +107,7 @@ export function SourceItemDetailHeader({
           value: new Date(item.updated_at).toLocaleString(),
         },
       ]),
-    [item, kbSlug, t]
+    [item, t]
   );
 
   const technicalRows = useMemo(

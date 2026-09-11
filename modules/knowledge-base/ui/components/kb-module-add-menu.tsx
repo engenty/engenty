@@ -37,11 +37,9 @@ export interface KbModuleAddMenuHandlers {
 
 function KbModuleAddMenuItems({
   handlers,
-  kbSlug,
   withShellItemProps = false,
 }: {
   handlers: KbModuleAddMenuHandlers;
-  kbSlug: string;
   withShellItemProps?: boolean;
 }) {
   const { t } = useTranslation("kb");
@@ -69,16 +67,13 @@ function KbModuleAddMenuItems({
         <DropdownMenuItem
           {...itemProps}
           onSelect={() => {
-            navigate(kbHubChatPath(kbSlug));
+            navigate(kbHubChatPath());
           }}
         >
           <MessageSquare aria-hidden className="h-4 w-4" />
           {t("add_menu.chat", "New Chat")}
         </DropdownMenuItem>
-        <KbModuleAddSourceSubmenu
-          kbSlug={kbSlug}
-          withShellItemProps={withShellItemProps}
-        />
+        <KbModuleAddSourceSubmenu withShellItemProps={withShellItemProps} />
       </DropdownMenuGroup>
     </>
   );
@@ -87,23 +82,17 @@ function KbModuleAddMenuItems({
 export function KbModuleAddMenuDropdown({
   align = "start",
   handlers,
-  kbSlug,
   trigger,
 }: {
   align?: "end" | "start";
   handlers: KbModuleAddMenuHandlers;
-  kbSlug: string;
   trigger: ReactNode;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[12rem]">
-        <KbModuleAddMenuItems
-          handlers={handlers}
-          kbSlug={kbSlug}
-          withShellItemProps
-        />
+        <KbModuleAddMenuItems handlers={handlers} withShellItemProps />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -113,11 +102,9 @@ export function KbModuleAddMenuDropdown({
 export function KbModuleAddMenuTopbarTrigger({
   align = "start",
   handlers,
-  kbSlug,
 }: {
   align?: "end" | "start";
   handlers: KbModuleAddMenuHandlers;
-  kbSlug: string;
 }) {
   const { t } = useTranslation("kb");
 
@@ -125,7 +112,6 @@ export function KbModuleAddMenuTopbarTrigger({
     <KbModuleAddMenuDropdown
       align={align}
       handlers={handlers}
-      kbSlug={kbSlug}
       trigger={
         <Button className="h-6 gap-1 px-2 text-sm" size="sm" type="button">
           <Plus aria-hidden className="h-3.5 w-3.5" />
@@ -140,10 +126,8 @@ export function KbModuleAddMenuTopbarTrigger({
 /** Icon-only trigger for the KB secondary sidebar search row. */
 export function KbModuleAddMenuSidebarTrigger({
   handlers,
-  kbSlug,
 }: {
   handlers: KbModuleAddMenuHandlers;
-  kbSlug: string;
 }) {
   const { t } = useTranslation("kb");
 
@@ -151,7 +135,6 @@ export function KbModuleAddMenuSidebarTrigger({
     <KbModuleAddMenuDropdown
       align="end"
       handlers={handlers}
-      kbSlug={kbSlug}
       trigger={
         <Button
           aria-label={t("add_menu.trigger_aria")}

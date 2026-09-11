@@ -31,7 +31,17 @@ describe("MistralOcrProvider", () => {
     const data = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
     const r = await p.convert(data, "doc.pdf", "application/pdf");
 
-    expect(r.markdown).toBe("# Title\n\nSecond page.");
+    expect(r.markdown).toBe(
+      [
+        '<page-break number="1" total="2"></page-break>',
+        "",
+        "# Title",
+        "",
+        '<page-break number="2" total="2"></page-break>',
+        "",
+        "Second page.",
+      ].join("\n")
+    );
     expect(r.metadata.page_count).toBe(2);
     expect(r.metadata.word_count).toBeGreaterThan(0);
     expect(r.source.filename).toBe("doc.pdf");

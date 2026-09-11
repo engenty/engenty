@@ -21,6 +21,7 @@ function record(overrides: Partial<AgentRecord> = {}): AgentRecord {
     },
     created_by_agent: "engenty.coordinator",
     proposed_config: null,
+    proposed_space_id: null,
     status: "active",
     updated_at: "2026-07-21T10:00:00Z",
     ...overrides,
@@ -45,8 +46,28 @@ describe("selectPendingProposals", () => {
       agentId: "sales.researcher",
       kind: "new_agent",
       createdByAgent: "engenty.coordinator",
+      proposedSpaceId: null,
       toolIds: ["engenty_tools_search"],
     });
+  });
+
+  it("carries proposed_space_id on new agents only", () => {
+    const pending = selectPendingProposals([
+      record({
+        proposed_space_id: "00000000-0000-4000-8000-000000000010",
+        status: "proposed",
+      }),
+      record({
+        proposed_config: { name: "v2" },
+        proposed_space_id: "00000000-0000-4000-8000-000000000010",
+      }),
+    ]);
+    const created = pending.find((row) => row.kind === "new_agent");
+    const revision = pending.find((row) => row.kind === "revision");
+    expect(created?.proposedSpaceId).toBe(
+      "00000000-0000-4000-8000-000000000010"
+    );
+    expect(revision?.proposedSpaceId).toBeNull();
   });
 
   it("surfaces pending revisions with revision fields winning over live config", () => {

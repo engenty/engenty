@@ -148,3 +148,35 @@ export function isAgentUiStateSnapshotV1(
     ) <= AGENT_UI_STATE_SNAPSHOT_MAX_BYTES
   );
 }
+
+/**
+ * Where the UI state snapshot rides on the wire: `forwardedProps.engenty.ui_state`.
+ *
+ * NEVER `RunAgentInput.state`. AG-UI's `state` is the agent's SHARED, DURABLE
+ * state, and `@ag-ui/mastra` merges it into Mastra working memory before every
+ * run, unconditionally and with no opt-out (`syncInputStateToWorkingMemory`).
+ * This snapshot is the opposite: which route the user is on, what row is
+ * selected, whether the copilot is open — true for one instant. Putting it on
+ * `state` writes it into the agent's long-term memory on every turn and
+ * corrupts it.
+ *
+ * `forwardedProps` is the protocol's slot for per-run data the agent implementation
+ * interprets — which is exactly what this is — and we already namespace `effort` and
+ * `model_id` under `engenty` there.
+ */
+export function readAgentUiStateSnapshot(
+  forwardedProps: unknown
+): AgentUiStateSnapshotV1 | undefined {
+  if (!(isRecord(forwardedProps) && isRecord(forwardedProps.engenty))) {
+    return;
+  }
+  const candidate = forwardedProps.engenty.ui_state;
+  return isAgentUiStateSnapshotV1(candidate) ? candidate : undefined;
+}
+
+/** Namespaced carrier for the snapshot, to spread into `forwardedProps.engenty`. */
+export function agentUiStateForwardedProps(
+  snapshot: AgentUiStateSnapshotV1 | undefined
+): { ui_state?: AgentUiStateSnapshotV1 } {
+  return snapshot ? { ui_state: snapshot } : {};
+}

@@ -36,7 +36,7 @@ vi.mock("../../lib/runtime/runs-api.js", () => ({
         created_at: "2026-01-01T00:10:00.000Z",
         started_at: "2026-01-01T00:10:00.000Z",
         finished_at: null,
-        action_id: null,
+        workflow_id: null,
         error: null,
         request_id: null,
         summary: null,
@@ -260,7 +260,7 @@ describe("useAppsAiActiveRunRecovery", () => {
                 created_at: "2026-01-01T00:10:00.000Z",
                 started_at: "2026-01-01T00:10:00.000Z",
                 finished_at: null,
-                action_id: null,
+                workflow_id: null,
                 error: null,
                 request_id: null,
                 summary: null,
@@ -441,7 +441,7 @@ describe("useAppsAiActiveRunRecovery", () => {
           created_at: "2026-01-01T00:00:00.000Z",
           started_at: "2026-01-01T00:00:00.000Z",
           finished_at: "2026-01-01T00:00:05.000Z",
-          action_id: null,
+          workflow_id: null,
           error: null,
           request_id: null,
           summary: null,
@@ -596,5 +596,144 @@ describe("useAppsAiActiveRunRecovery", () => {
     );
 
     void cancelFn;
+  });
+
+  it("never re-attaches to the run the user just cancelled (server cancel still landing)", async () => {
+    let postedRunId: string | null = null;
+    vi.mocked(postAppsAiThreadRun).mockImplementation(
+      ({ input, signal }) =>
+        new Promise((_resolve, reject) => {
+          postedRunId = (input as { runId?: string }).runId ?? null;
+          signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError"))
+          );
+        })
+    );
+    // The cancel window: the DB still reports the Stop-ped run as running
+    // for a few seconds (a hung executor even longer).
+    vi.mocked(getAiSessionRuns).mockImplementation(async () => ({
+      runs: postedRunId
+        ? [
+            {
+              id: postedRunId,
+              status: "running",
+              agent_id: "engenty.copilot",
+              thread_id: "thread-a",
+              tenant_id: "tenant-1",
+              created_at: "2026-01-01T00:10:00.000Z",
+              started_at: "2026-01-01T00:10:00.000Z",
+              finished_at: null,
+              workflow_id: null,
+              error: null,
+              request_id: null,
+              summary: null,
+              trigger: "message",
+            } as never,
+          ]
+        : [],
+    }));
+
+    const probe: { resumeActiveRun: (() => void) | null } = {
+      resumeActiveRun: null,
+    };
+    const statuses: string[] = [];
+
+    function StopProbe() {
+      const session = useEngentyAgUiAppsAiSession({
+        agentId: "engenty.copilot",
+        executeFrontendTool: () => null,
+        formatRequestError: (v) => v,
+        formatTransportBlocker: (v) => v,
+        frontendTools: [],
+        isTransportReady: true,
+        modelId: "openai/gpt-5-mini",
+        pathname: "/chat",
+        routeContext,
+        serviceBaseUrl: "http://127.0.0.1:43110",
+        threadId: "thread-a",
+        transportBlocker: null,
+      });
+      probe.resumeActiveRun = session.resumeActiveRun;
+      statuses.push(session.status);
+      return (
+        <>
+          <button onClick={() => session.submitMessage("hello")} type="button">
+            send
+          </button>
+          <button onClick={() => session.cancel()} type="button">
+            cancel
+          </button>
+        </>
+      );
+    }
+
+    const view = render(<StopProbe />);
+    view.getByRole("button", { name: "send" }).click();
+    await waitFor(() => expect(statuses).toContain("streaming"));
+
+    view.getByRole("button", { name: "cancel" }).click();
+    await waitFor(() => expect(statuses.at(-1)).toBe("ready"));
+
+    // The realtime "running" signal fires while the cancel lands — it must
+    // not spin the lane back up on the cancelled run.
+    probe.resumeActiveRun?.();
+    await waitFor(() => {
+      expect(vi.mocked(getAiSessionRuns).mock.calls.length).toBeGreaterThan(0);
+    });
+    await waitFor(() => expect(statuses.at(-1)).toBe("ready"));
+    expect(vi.mocked(attachAppsAiRunStream)).not.toHaveBeenCalled();
+  });
+
+  it("re-attaches via GET run stream when the POST stream ends without a terminal event", async () => {
+    let postedRunId: string | null = null;
+    // The SSE connection dies silently mid-run: the POST resolves with no
+    // RUN_FINISHED/RUN_ERROR while the server keeps executing.
+    vi.mocked(postAppsAiThreadRun).mockImplementation(async ({ input }) => {
+      postedRunId = (input as { runId?: string }).runId ?? null;
+    });
+    vi.mocked(getAiSessionRuns).mockImplementation(async () => ({
+      runs: postedRunId
+        ? [
+            {
+              id: postedRunId,
+              status: "running",
+              agent_id: "engenty.copilot",
+              thread_id: "thread-a",
+              tenant_id: "tenant-1",
+              created_at: "2026-01-01T00:10:00.000Z",
+              started_at: "2026-01-01T00:10:00.000Z",
+              finished_at: null,
+              workflow_id: null,
+              error: null,
+              request_id: null,
+              summary: null,
+              trigger: "message",
+            } as never,
+          ]
+        : [],
+    }));
+
+    const view = render(
+      <SessionProbe
+        onMessages={() => {}}
+        onStatus={() => {}}
+        threadId="thread-a"
+      />
+    );
+    // Let the mount-time recovery pass settle before submitting, so the
+    // silent-end re-attach isn't gated by an in-flight loop.
+    await waitFor(() => {
+      expect(vi.mocked(listAppsAiThreadMessages)).toHaveBeenCalled();
+    });
+    view.getByRole("button", { name: "send" }).click();
+
+    await waitFor(
+      () => {
+        expect(vi.mocked(attachAppsAiRunStream)).toHaveBeenCalledWith(
+          expect.objectContaining({ runId: postedRunId, since: -1 })
+        );
+      },
+      { timeout: 5000 }
+    );
   });
 });

@@ -41,6 +41,8 @@ export const CORE_ROLE_PROFILES: RoleProfile[] = [
       "tenant-settings.write",
       "user-settings.read",
       "user-settings.write",
+      "notifications.read",
+      "notifications.write",
     ],
   },
   {

@@ -1,6 +1,6 @@
 /**
  * Stable shell / page DOM regions for agent browser tools.
- * Prefer these as `browser_dom_snapshot` `root_selector` values over `document.body`.
+ * Prefer these as `ui_dom_snapshot` `root_selector` values over `document.body`.
  */
 
 /** Values for `data-engenty-region` on shell chrome and page content roots. */

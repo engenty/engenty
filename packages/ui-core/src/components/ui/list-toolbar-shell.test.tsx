@@ -141,6 +141,35 @@ describe("ListToolbar", () => {
     expect(screen.getByText("chip-row")).toBeTruthy();
   });
 
+  it("does not take focus on mouse press, so the first click opens the filters", async () => {
+    // The toggle sits at the right edge of a search field that widens on
+    // focus-within. If pressing it moved focus there, the button would slide
+    // out from under the cursor mid-press and the browser would never
+    // synthesize a click — the first press would only expand the field.
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+
+    render(
+      <ListToolbar>
+        <ListToolbarMainArea>
+          <ListToolbarSearch>
+            <ListSearchInput aria-label="Search" placeholder="Search" />
+            <ListToolbarFilterToggle
+              aria-label="Filters"
+              onClick={onToggle}
+            />
+          </ListToolbarSearch>
+        </ListToolbarMainArea>
+      </ListToolbar>
+    );
+
+    const toggle = screen.getByRole("button", { name: "Filters" });
+    await user.click(toggle);
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(toggle);
+  });
+
   it("calls onClearSelection from bulk clear button", async () => {
     const user = userEvent.setup();
     const onClear = vi.fn();

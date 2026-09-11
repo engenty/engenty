@@ -11,8 +11,15 @@ The skill catalog UI lives at **`/admin/engenty/skills`** and is registered by `
 
 | Tier | Badge | Editable | Source |
 |------|-------|----------|--------|
-| `managed` | Managed | No | Builtin + module `ai/skills/` (synced from code) |
+| `managed` | Managed | No | Runtime (`apps/ai/ai/skills`), module `ai/skills/`, and `@engenty/ai-skills` library (synced from code) |
 | `custom` | Custom | Yes | Uploaded or registry-installed by operators |
+
+Admin `/admin/engenty/skills` lists the **full tenant catalog** (managed + custom).
+That is operator inventory, not the copilot prompt. Agents never see a dumped
+index: they `skill_search` then `skill`. Library skills (`source: library`) stay
+hidden on a run until the Space mounts the skill or its category pack.
+
+Three authoring roots and unique names: see [How to declare a module's AI surface](../../ai-core/docs/howto-define-module-ai.md#three-skill-authoring-roots).
 
 ## Routes
 
@@ -115,7 +122,8 @@ interface FileStorageSkillSummary {
   description: string;
   tier: "managed" | "custom";
   editable: boolean;
-  source: string;      // "builtin" | "module" | "upload" | registry provider id
+  source: string;      // "builtin" | "library" | module id | "upload" | registry provider id
+  category?: string;   // library folder (software-development, productivity, …)
   tags: string[];
   version?: string;
 }

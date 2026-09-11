@@ -108,20 +108,24 @@ describe("groupArtifacts", () => {
     row({ id: "p", scope_type: "project" }),
     row({ id: "t", scope_type: "thread" }),
     row({ id: "k", scope_type: "task" }),
+    row({ id: "s", scope_type: "space" }),
+    row({ id: "a", scope_type: "agent" }),
   ];
 
-  it("orders scope groups thread → task → project → goal", () => {
+  it("orders scope groups thread → task → project → space → agent", () => {
     expect(groupArtifacts(rows, "scope").map((g) => g.id)).toEqual([
       "thread",
       "task",
       "project",
+      "space",
+      "agent",
     ]);
   });
 
   it("returns a single group for 'none'", () => {
     const groups = groupArtifacts(rows, "none");
     expect(groups).toHaveLength(1);
-    expect(groups[0].rows).toHaveLength(3);
+    expect(groups[0].rows).toHaveLength(5);
   });
 
   it("returns no groups for an empty list", () => {

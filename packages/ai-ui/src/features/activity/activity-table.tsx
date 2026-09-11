@@ -45,7 +45,7 @@ const rowBodyBaseClass = cn(
 );
 
 const groupCardChromeClass = cn(
-  "ui-canvas-raised rounded-md",
+  "ui-card-raised",
   "[&>tr:first-child>td:first-child]:rounded-tl-md",
   "[&>tr:first-child>td:last-child]:rounded-tr-md",
   "[&>tr:last-child>td:first-child]:rounded-bl-md",
@@ -172,12 +172,21 @@ export function ActivityTable({
       case "user":
         return (
           <TableCell key={key}>
-            <span
-              className="font-mono text-muted-foreground text-xs"
-              title={entry.userId}
-            >
-              {shortActivityId(entry.userId)}
-            </span>
+            {entry.userId ? (
+              <span
+                className="font-mono text-muted-foreground text-xs"
+                title={entry.userId}
+              >
+                {shortActivityId(entry.userId)}
+              </span>
+            ) : (
+              // Unattended work — a routine fire or a task run. It has no
+              // owner by design, so there is no id to shorten; saying so beats
+              // an eight-character slice of nothing.
+              <span className="text-muted-foreground text-xs">
+                {t("activity.unattendedOwner")}
+              </span>
+            )}
           </TableCell>
         );
       case "binding":

@@ -14,6 +14,7 @@ export interface UsageEventInsert
 
 export interface PeriodTotalsBumpInput {
   cached_tokens: number;
+  compute_ms: number;
   cost_micros: number;
   currency: string;
   input_tokens: number;

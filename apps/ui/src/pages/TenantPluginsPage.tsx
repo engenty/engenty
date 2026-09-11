@@ -78,7 +78,6 @@ export function TenantPluginsPage() {
     actions: pageActions,
     contentStackBackground: "paper",
     secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const togglePlugin = useCallback(

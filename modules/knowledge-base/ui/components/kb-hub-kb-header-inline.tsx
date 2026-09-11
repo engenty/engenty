@@ -22,12 +22,15 @@ import {
   kbEmojiIconChooserLabels,
   kbEmojiPickerLocale,
 } from "../lib/kb-emoji-icon-chooser-labels.js";
-import { applyKnowledgeBaseToKbQueries, kbsQueryOptions } from "../queries.js";
+import {
+  applyKnowledgeBaseToKbQueries,
+  KB_LIST_KEY_PREFIX,
+} from "../queries.js";
 import { KbHubAddCoverButton } from "./kb-hub-cover.js";
 
 type HubHeaderEditField = "name" | "description";
 
-const KB_LIST_KEY = kbsQueryOptions.queryKey;
+const KB_LIST_KEY = KB_LIST_KEY_PREFIX;
 
 export function KbHubKbHeaderInline({
   kb,

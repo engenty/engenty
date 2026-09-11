@@ -38,9 +38,13 @@ services:
       ENGENTY_AI_BASE_URL: ${PUBLIC_APP_URL}
       ENGENTY_DOCS_BASE_URL: ${PUBLIC_APP_URL}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree, shared with app-host: a space's apps/ is bound into
+      # that space's computer at /sandbox/apps.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     networks:
       - runtime
 
@@ -49,6 +53,16 @@ services:
     pull_policy: always
     restart: unless-stopped
     stop_grace_period: 15s
+    # One Node process holds every tenant's runs, workspaces and sandbox
+    # providers, so this is the real ceiling long before the sandbox containers
+    # are. Raise both numbers together: a mem_limit without a matching heap
+    # bound turns a slow-GC problem into an OOM-kill, because Node grows past
+    # the cgroup ceiling rather than collecting. Heap ≈ 75% of the limit.
+    # Literal, never `${VAR:-default}`: Coolify's compose parser drops the
+    # fallback in non-env fields, and a silently-unset limit is the failure this
+    # line exists to prevent.
+    mem_limit: 4g
+    cpus: 2.0
     healthcheck:
       interval: 10s
       retries: 3
@@ -61,6 +75,7 @@ services:
       timeout: 8s
     environment:
       NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=${ENGENTY_AI_MAX_OLD_SPACE_MB:-3072}
       HOST: 0.0.0.0
       PORT: 8790
       ENGENTY_CORE_BASE_URL: ${PUBLIC_APP_URL}
@@ -69,6 +84,19 @@ services:
       ENGENTY_WORKSPACE_FS_PROVIDER: supabase
       ENGENTY_SANDBOX_PROVIDER: docker
       ENGENTY_SANDBOX_DOCKER_IMAGE: ghcr.io/engenty/engenty-sandbox:${ENGENTY_BACKEND_RELEASE_TAG}
+      # Where an `egress` sandbox is allowed to go — the proxy below. Both are
+      # required together: the network alone would give the sandbox the open
+      # internet, and the proxy alone would be unreachable.
+      ENGENTY_SANDBOX_EGRESS_NETWORK: engenty-egress
+      ENGENTY_SANDBOX_EGRESS_PROXY_URL: http://engenty-egress-proxy:8888
+      # User browsers: own sealed network, own (open, logged) proxy, and the
+      # view network apps/ai drives them over.
+      ENGENTY_BROWSER_EGRESS_NETWORK: engenty-browser-egress
+      ENGENTY_BROWSER_EGRESS_PROXY_URL: http://engenty-browser-proxy:8888
+      # Fully qualified: apps/ai hands this to the host daemon, which would
+      # otherwise look for a bare name on Docker Hub.
+      ENGENTY_BROWSER_DOCKER_IMAGE: ghcr.io/engenty/engenty-browser:${ENGENTY_BACKEND_RELEASE_TAG}
+      ENGENTY_BROWSER_VIEW_NETWORK: engenty-browser-view
       ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
@@ -81,17 +109,24 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENGENTY_AI_SERVICE_SECRET: ${ENGENTY_AI_SERVICE_SECRET:-}
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree, shared with app-host: a space's apps/ is bound into
+      # that space's computer at /sandbox/apps.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     volumes:
       - /opt/engenty/sandboxes:/opt/engenty/sandboxes
+      # The spaces tree, same rule: literal path, mirrored 1:1.
+      - /opt/engenty/spaces:/opt/engenty/spaces
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       runtime:
         aliases:
           - engenty-ai
+      browser-view: {}
 
   engenty-app-host:
     image: ghcr.io/engenty/engenty-app-host:${ENGENTY_BACKEND_RELEASE_TAG}
@@ -113,11 +148,15 @@ services:
       HOST: 0.0.0.0
       ENGENTY_APP_HOST_PORT: 8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
+      # The spaces tree: every App's source repository and /data directory.
+      ENGENTY_SPACES_DIR: /opt/engenty/spaces
     mem_limit: 3g
     cpus: 2.0
     pids_limit: 4096
     volumes:
       - /opt/engenty/app-host-data:/data
+      # The spaces tree (App repositories, App data); owned by uid 1000.
+      - /opt/engenty/spaces:/opt/engenty/spaces
     networks:
       runtime:
         aliases:
@@ -125,6 +164,15 @@ services:
 
   engenty-sandbox:
     image: ghcr.io/engenty/engenty-sandbox:${ENGENTY_BACKEND_RELEASE_TAG}
+    pull_policy: always
+    command: ["true"]
+    restart: "no"
+    networks:
+      - runtime
+
+  # Same stand-in trick for the per-user browser image.
+  engenty-browser:
+    image: ghcr.io/engenty/engenty-browser:${ENGENTY_BACKEND_RELEASE_TAG}
     pull_policy: always
     command: ["true"]
     restart: "no"
@@ -174,7 +222,71 @@ services:
         aliases:
           - engenty-studio
 
+  # Everything a sandbox is allowed to reach.
+  #
+  # A sandbox with `network: "egress"` joins `engenty-egress` INSTEAD of the
+  # runtime network and points its proxy env here, so model-generated code can
+  # install a package or call an API without also being able to reach core, the
+  # database, or anything else this stack runs. Sandboxes with `network:
+  # "none"` (the default) join nothing.
+  #
+  # The allowlist is `deploy/egress-proxy/filter` — one host regex per line,
+  # default-deny. It ships with the package registries an agent needs to install
+  # what its script imports; add the APIs your agents call.
+  engenty-egress-proxy:
+    image: monokal/tinyproxy:latest
+    pull_policy: always
+    restart: unless-stopped
+    # Run tinyproxy against OUR config rather than the image's generated one:
+    # the image's arguments configure which CLIENTS may connect, and what this
+    # proxy exists to control is which UPSTREAMS they may reach.
+    entrypoint: ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]
+    # Small by construction: it forwards bytes and holds no state.
+    mem_limit: 256m
+    cpus: 0.5
+    volumes:
+      # Literal paths, no `${VAR}` — Coolify's compose parser drops the
+      # fallback in volume definitions.
+      - ./egress-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./egress-proxy/filter:/etc/tinyproxy/filter:ro
+    # No published port. Also on `runtime` because `engenty-egress` is
+    # `internal` (no gateway) — the proxy needs the upstream route its
+    # clients do not have.
+    networks:
+      - egress
+      - runtime
+
+  # The user browsers' proxy — open with a blocklist, every host logged. See
+  # docker-compose.yaml for the full note.
+  engenty-browser-proxy:
+    image: monokal/tinyproxy:latest
+    pull_policy: always
+    restart: unless-stopped
+    entrypoint: ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]
+    mem_limit: 256m
+    cpus: 0.5
+    volumes:
+      - ./browser-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
+      - ./browser-proxy/filter:/etc/tinyproxy/filter:ro
+    networks:
+      - browser-egress
+      - runtime
+
 networks:
   runtime:
     external: true
     name: engenty-runtime
+  # Sandboxes only. Deliberately separate from `runtime`: a container on this
+  # network can reach the egress proxy and nothing else of ours. `internal`
+  # makes the allowlist enforceable — no NAT gateway to bypass the proxy with.
+  egress:
+    internal: true
+    name: engenty-egress
+  # User browsers and their proxy.
+  browser-egress:
+    internal: true
+    name: engenty-browser-egress
+  # Browsers ⇄ engenty-ai (CDP :9222). Attached post-start by apps/ai.
+  browser-view:
+    internal: true
+    name: engenty-browser-view

@@ -1,12 +1,10 @@
 import {
   cn,
-  Separator,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@engenty/ui-core";
-import { DockEngentyIcon } from "@engenty/ui-icons";
 import { Search } from "lucide-react";
 import { type CSSProperties, type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -18,7 +16,6 @@ import type {
   ShellSidebarConfig,
 } from "../types/shell";
 import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./app-layout/constants";
-import { SidebarTenantSwitcher } from "./sidebar-tenant-switcher";
 import { SortableModulesRail } from "./sortable-modules-rail";
 
 type AppSidebarSurface = "rail" | "panel";
@@ -56,9 +53,21 @@ interface AppSidebarProps {
   /** Persist a new modules-rail order (contribution ids). */
   onModulesReorder?: (orderedIds: string[]) => void;
   onNavigate?: () => void;
+  /**
+   * Rendered directly below Settings in the admin block — the notification
+   * bell. Passed in like `spacesZone`: the app owns the data.
+   */
+  railEndSlot?: ReactNode;
   sections: NavigationSection[];
   shell: ShellSidebarConfig;
   sidebarWidth?: number;
+  /**
+   * Zone ② — the spaces (PLAN-spaces.md Phase 5a). Rendered at the top of the
+   * compact rail (the old tenant tile is gone; that space is reserved for later
+   * use). The mobile panel lists spaces in its own body rather than as 36px
+   * tiles.
+   */
+  spacesZone?: ReactNode;
   style?: CSSProperties;
   /** Light navigation panel (mobile sheet) vs compact brand rail (desktop). */
   surface?: AppSidebarSurface;
@@ -72,7 +81,9 @@ export function AppSidebar({
   onItemHoverLeave,
   onModulesReorder,
   onNavigate,
+  railEndSlot,
   shell,
+  spacesZone,
   footer,
   surface = "rail",
   className,
@@ -81,7 +92,6 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { pathname, search } = useLocation();
   const { hasSecondaryNav } = useShellSecondaryNav();
-  const [switchingTenant, setSwitchingTenant] = useState(false);
   const [adminRailExpanded, setAdminRailExpanded] = useState(false);
   const isPanel = surface === "panel";
   const iconScale = sidebarWidth && sidebarWidth < 64 ? sidebarWidth / 64 : 1;
@@ -269,85 +279,19 @@ export function AppSidebar({
       <aside
         className={cn(
           "flex h-full flex-col",
+          // No line on the rail's edge: the rail is the canvas-family frame and
+          // the column beside it is the raised card — its shadow separates them.
           isPanel
             ? "bg-card text-foreground"
-            : "border-sidebar-border border-r bg-sidebar text-sidebar-foreground",
+            : "bg-sidebar text-sidebar-foreground",
           compact ? `${MOBILE_NAV_RAIL_WIDTH_CLASS} shrink-0` : "w-full",
           className
         )}
         data-engenty-region="app-bar"
         style={style}
       >
-        <div
-          className={cn(
-            "flex flex-col gap-2",
-            compact ? "px-1.5 py-3" : "px-3 py-2"
-          )}
-        >
-          {shell.tenantSwitcher ? (
-            <SidebarTenantSwitcher
-              aboutLabel={shell.tenantSwitcher.aboutLabel}
-              appVersion={shell.tenantSwitcher.appVersion}
-              availableTenants={shell.tenantSwitcher.availableTenants}
-              brandLabel={shell.tenantSwitcher.brandLabel}
-              canSwitchTenant={shell.tenantSwitcher.canSwitchTenant}
-              compact={compact}
-              currentTenant={shell.tenantSwitcher.currentTenant}
-              logoUrl={shell.tenantSwitcher.logoUrl}
-              noTenantLabel={shell.tenantSwitcher.noTenantLabel}
-              onAboutClick={shell.tenantSwitcher.onAboutClick}
-              onOpenSettings={shell.tenantSwitcher.onOpenSettings}
-              onSwitchTenant={async (tenantId) => {
-                setSwitchingTenant(true);
-                try {
-                  await shell.tenantSwitcher?.onSwitchTenant(tenantId);
-                } finally {
-                  setSwitchingTenant(false);
-                }
-              }}
-              planLabel={shell.tenantSwitcher.planLabel}
-              settingsLabel={shell.tenantSwitcher.settingsLabel}
-              sidebarWidth={sidebarWidth}
-              surface={surface}
-              switchingTenant={switchingTenant}
-              switchTenantAriaLabel={shell.tenantSwitcher.switchTenantAriaLabel}
-            />
-          ) : (
-            <div
-              className={cn(
-                "flex items-center",
-                compact ? "justify-center" : "gap-3 px-2 py-1"
-              )}
-            >
-              <div
-                className="flex size-7.5 shrink-0 items-center justify-center rounded-xl border border-sidebar-primary/30 bg-sidebar-primary/15 p-1"
-                style={{
-                  transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
-                }}
-              >
-                <DockEngentyIcon aria-hidden className="size-full" />
-              </div>
-              {!compact && (
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-sm">
-                    {shell.appTitle}
-                  </p>
-                  <p
-                    className={cn(
-                      "text-xs",
-                      isPanel
-                        ? "text-muted-foreground"
-                        : "text-sidebar-foreground/55"
-                    )}
-                  >
-                    {shell.appSubtitle}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {!compact && (
+        {compact ? null : (
+          <div className="flex flex-col gap-2 px-3 py-2">
             <button
               className={cn(
                 "flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm shadow-sm",
@@ -367,8 +311,17 @@ export function AppSidebar({
                 </kbd>
               ) : null}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {spacesZone && compact ? (
+          // Even margins around the tiles: the 36px tile has 10px to either
+          // side of the 56px rail, so it gets 10px above too (`pt-1.5` here plus
+          // the zone's own `py-1`). A tile hugging the top edge read as cramped.
+          // Spacing, not a rule, keeps the spaces apart from the apps below:
+          // filled tiles against line glyphs already say "different kind".
+          <div className="px-1.5 pt-1.5 pb-2">{spacesZone}</div>
+        ) : null}
 
         <nav
           className={cn(
@@ -385,7 +338,13 @@ export function AppSidebar({
               section.id === "modules" &&
               section.items.some((item) => item.id);
             return (
-              <div className="mb-2" key={sectionKey}>
+              <div
+                className={cn(
+                  // Sections are separated by a gap, never a short rule.
+                  index < mainSections.length - 1 ? "mb-4" : "mb-2"
+                )}
+                key={sectionKey}
+              >
                 {!compact && section.label && (
                   <p
                     className={cn(
@@ -411,14 +370,6 @@ export function AppSidebar({
                     {section.items.map((item) => renderItem(item, false))}
                   </div>
                 )}
-                {index < mainSections.length - 1 && (
-                  <Separator
-                    className={cn(
-                      "mx-auto mt-3 mb-1 w-8",
-                      isPanel ? "bg-border/80" : "bg-sidebar-border/80"
-                    )}
-                  />
-                )}
               </div>
             );
           })}
@@ -442,6 +393,8 @@ export function AppSidebar({
                 onMouseLeave={() => setAdminRailExpanded(false)}
                 role="group"
               >
+                {/* column-reverse: first in DOM sits lowest, under Settings. */}
+                {railEndSlot}
                 {settingsItem && renderItem(settingsItem, false)}
                 {engentyAdminItem && renderItem(engentyAdminItem, false)}
                 {otherAdminItems.length > 0 ? (
@@ -474,18 +427,17 @@ export function AppSidebar({
                   </p>
                 )}
                 {adminSection.items.map((item) => renderItem(item, false))}
+                {railEndSlot}
               </div>
             )}
           </div>
         )}
 
-        <div
-          className={cn(
-            "border-t p-2",
-            isPanel ? "border-border" : "border-sidebar-border"
-          )}
-        >
+        {/* One `--shell-footer` row, no rule above it: the column's Settings
+            footer is the same row, so the two sit on one baseline. */}
+        <div className="flex h-(--shell-footer) shrink-0 items-center px-2">
           <div
+            className="w-full"
             style={{
               transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
               transformOrigin: "center",

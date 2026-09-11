@@ -3,7 +3,9 @@
 // draft. The canonical command string is ASCII (localized labels participate in
 // the typeahead filter only, never as the persisted token).
 
-export type ChatSlashCommandKind = "prompt" | "action" | "skill" | "ui";
+import { rankRecordsLexically } from "@engenty/search-index";
+
+export type ChatSlashCommandKind = "prompt" | "workflow" | "skill" | "ui";
 
 export interface ChatSlashCommand {
   /** Hint rendered after the command in the menu, e.g. "<contact>". */
@@ -92,16 +94,15 @@ export function filterSlashCommands(
   commands: readonly ChatSlashCommand[],
   query: string
 ): ChatSlashCommand[] {
-  const q = query.trim().toLowerCase();
-  if (!q) {
+  const trimmed = query.trim();
+  if (!trimmed) {
     return [...commands];
   }
-  return commands.filter(
-    (c) =>
-      c.command.toLowerCase().includes(q) ||
-      (c.label ?? "").toLowerCase().includes(q) ||
-      (c.description ?? "").toLowerCase().includes(q)
-  );
+  return rankRecordsLexically(commands, trimmed, (command) => ({
+    description: command.description ?? "",
+    id: command.command,
+    name: command.label ?? command.command,
+  }));
 }
 
 /** Menu rows grouped for display, preserving catalog order within groups. */

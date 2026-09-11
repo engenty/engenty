@@ -1,17 +1,19 @@
 import {
   type AGUIEvent,
+  EventType,
   encodeAgUiSseEvent,
-  isAgentUiStateSnapshotV1,
   isFrontendToolDefinition,
   isFrontendToolOpenInterrupt,
   type RunAgentInput,
   RunAgentInputSchema,
+  readAgentUiStateSnapshot,
 } from "@engenty/ag-ui-bridge";
 import {
   AI_EFFORT_LEVELS,
   type AiEffort,
   type AiEffortChoice,
   type AiUsageStore,
+  agentDefaultEffort,
   bindingsFromList,
   checkUsageLimits,
   type DynamicAiModuleCapabilityLoader,
@@ -32,13 +34,15 @@ import {
 import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
+import { isResumeInFlight } from "../ai/conversation/resume-claims.js";
 import { resumeConversationRun } from "../ai/conversation/resume-conversation-run.js";
-import { isParkedResumeInFlight } from "../ai/conversation/session-park.js";
 import { getEngentyCoreBaseUrlFromEnv } from "../ai/core-http-client.js";
 import { filterAgentUiFrontendToolsForScope } from "../ai/frontend-tool-gating/filter-agent-ui-for-scope.js";
 import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
+import { noteHumanTurnInRoom } from "../ai/rooms/deliver.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
+import { steerActiveThreadRun } from "../ai/sessions/active-thread-runs.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
@@ -74,10 +78,12 @@ import { createSkillStorage } from "../ai/skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentRunStore, ThreadStore } from "../dal/threads/index.js";
+import { resolveThreadInterruptNotifications } from "../notifications/thread-interrupts.js";
 import {
   latestUserAttachmentParts,
   resolveTieredAttachments,
 } from "./attachments/tiered-attachments.js";
+import { invokeChatAction } from "./chat-action-invocation.js";
 import type { AgUiDebugEventBus } from "./copilotkit-debug-events.js";
 import {
   type AiScopeResolver,
@@ -118,10 +124,9 @@ function messageContentToText(content: unknown): string {
 /**
  * Reject an approval resume whose `choice_id` names nothing the server offered.
  *
- * The alternative — treating it as "not approved" — is how this used to fail:
- * silently, in the deny direction, indistinguishable from the user pressing
- * Deny. Approving instead would be far worse. So the only safe answer is to
- * refuse and say which value was not understood.
+ * Refuse and name the value. Do NOT fall back to "not approved": that denies
+ * silently and indistinguishably from the user pressing Deny. Falling back to
+ * approved would be far worse.
  */
 function unresolvedChoiceResponse(
   // Structural, matching `handleRouteError` — avoids pinning the helper to one
@@ -163,7 +168,19 @@ function toFrontendToolResumeData(
   ) {
     return { rejected: true };
   }
-  return { output: payload.output ?? { ok: true } };
+  if (payload.output !== undefined) {
+    return { output: payload.output as FrontendToolResumeData["output"] };
+  }
+  // AG-UI types `ResumeEntry.payload` as `any` — nesting the result under
+  // `output` is OUR convention, and one an external client cannot guess. Falling
+  // straight through to `{ok:true}` discarded their data SILENTLY: the tool
+  // reported success with nothing in it and the model confabulated around the
+  // hole ("location access returned successfully, but no latitude or longitude
+  // was provided"). A payload that carries no envelope key IS the output.
+  if (Object.keys(payload).length > 0) {
+    return { output: payload as FrontendToolResumeData["output"] };
+  }
+  return { output: { ok: true } };
 }
 
 /**
@@ -227,6 +244,38 @@ function latestUserMessageId(input: RunAgentInput): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Is this event the run echoing back the user turn the CALLER just sent?
+ *
+ * The run emits the user's message as a role:"user" TEXT_MESSAGE_* triple under
+ * the id the client assigned, so other windows on the same run can render the
+ * bubble before the end-of-turn coalescer flush. The client that SENT it must
+ * not receive it: AG-UI's TEXT_MESSAGE_START means "begin a new message", so a
+ * spec-compliant client that already holds the id appends instead of replacing
+ * and the user's own text is doubled. Verified against a stock @ag-ui/client
+ * HttpAgent.
+ *
+ * Only the ORIGINATING stream filters on this. The echo stays in the durable
+ * log so `?since=` replays still carry it.
+ */
+export function isUserTurnEchoFor(
+  event: AGUIEvent,
+  ownUserMessageId: string | null
+): boolean {
+  if (!ownUserMessageId) {
+    return false;
+  }
+  const candidate = event as { messageId?: unknown; type?: string };
+  if (candidate.messageId !== ownUserMessageId) {
+    return false;
+  }
+  return (
+    candidate.type === EventType.TEXT_MESSAGE_START ||
+    candidate.type === EventType.TEXT_MESSAGE_CONTENT ||
+    candidate.type === EventType.TEXT_MESSAGE_END
+  );
 }
 
 // Typed @-mention references on the latest user turn (the `engenty_refs`
@@ -360,9 +409,10 @@ function resolveModelIdOverride(input: RunAgentInput): string | null {
 
 function buildAppsAiRunContext(input: RunAgentInput) {
   const frontendTools = input.tools.filter(isFrontendToolDefinition);
-  const stateSnapshot = isAgentUiStateSnapshotV1(input.state)
-    ? input.state
-    : undefined;
+  // From `forwardedProps.engenty.ui_state`, not `RunAgentInput.state` — AG-UI's
+  // `state` is durable shared state, and our snapshot is transient UI context.
+  // See readAgentUiStateSnapshot in @engenty/ag-ui-bridge.
+  const stateSnapshot = readAgentUiStateSnapshot(input.forwardedProps);
   if (!stateSnapshot && frontendTools.length === 0) {
     return null;
   }
@@ -370,6 +420,60 @@ function buildAppsAiRunContext(input: RunAgentInput) {
     frontend_tools: frontendTools,
     ...(stateSnapshot ? { state_snapshot: stateSnapshot } : {}),
   };
+}
+
+/**
+ * The run a steered message "is": started and finished at once, carrying
+ * the id of the run the words went into. A stock AG-UI client renders
+ * nothing for it; the answer arrives on the run that was already streaming.
+ */
+function readSteerOnly(input: { forwardedProps?: unknown }): boolean {
+  const forwardedProps = isRecord(input.forwardedProps)
+    ? input.forwardedProps
+    : {};
+  return (
+    isRecord(forwardedProps.engenty) &&
+    forwardedProps.engenty.steer_only === true
+  );
+}
+
+function steeredRunResponse(input: {
+  intoRunId: string;
+  runId: string;
+  threadId: string;
+}): Response {
+  const encoder = new TextEncoder();
+  const events = [
+    {
+      runId: input.runId,
+      threadId: input.threadId,
+      type: EventType.RUN_STARTED,
+    },
+    {
+      name: "engenty.steered",
+      type: EventType.CUSTOM,
+      value: { run_id: input.intoRunId },
+    },
+    {
+      runId: input.runId,
+      threadId: input.threadId,
+      type: EventType.RUN_FINISHED,
+    },
+  ] as unknown as AGUIEvent[];
+  const stream = new ReadableStream({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(encoder.encode(encodeAgUiSseEvent(event)));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Cache-Control": "no-cache",
+      "Content-Type": "text/event-stream",
+    },
+  });
 }
 
 export function registerThreadRunRoutes(
@@ -416,8 +520,24 @@ export function registerThreadRunRoutes(
     }
     const resumeEntries = body.data.resume ?? [];
     const isResumeRun = resumeEntries.length > 0;
+    // A resume carries its answer in `resume`, never in `messages`. In AG-UI
+    // `messages` is ACCUMULATED agent state, so a conforming client re-sends the
+    // original user turn on every resume. Rejecting those messages would make us
+    // unresumable by any stock AG-UI client — it only appears to work when the
+    // client trims the array itself, as ours does. They are ignored instead: a
+    // resume skips the startConversationRun block entirely (see the
+    // `!isResumeRun || isArtifactResume` gate below) and reads no messages at
+    // all. The artifact-resume path does read them, in two places, and both now
+    // ignore them on a resume — a resume has no new turn to size or echo.
+    //
+    // Warn rather than reject: if a genuinely ambiguous case (a user typing a new
+    // turn WHILE a run is suspended) ever shows up, this is the evidence to
+    // design the real check on, instead of guessing at one now.
     if (isResumeRun && runInputHasNewUserMessages(body.data)) {
-      return c.json({ error: "agent_threads.resumeWithMessages" }, 400);
+      console.warn(
+        "resume run carries user messages; ignoring them (the resume payload is the answer)",
+        { runId: body.data.runId, threadId }
+      );
     }
 
     let session;
@@ -489,7 +609,6 @@ export function registerThreadRunRoutes(
 
     // Start executor as a detached async task — returns immediately.
     // D1: client disconnect does not abort; only POST /runs/:id/cancel does.
-    // Chat runs on the conversation substrate (Mastra Harness `Session`).
     const conversationStore = opts.getStore?.() ?? null;
     const canRunConversation =
       Boolean(opts.createRegistry) && Boolean(conversationStore);
@@ -530,6 +649,17 @@ export function registerThreadRunRoutes(
       !isParkedResume &&
       openInterrupt != null &&
       (openInterrupt.kind === "decision" || openInterrupt.kind === "feedback");
+    // The answer is the resolution: whoever answered this card closed the
+    // ask for everyone, whatever the run does next (finish, re-park on the
+    // next gate under the same interrupt id, fail). Resolved here, before any
+    // branch, so a resume that parks again never leaves the row open.
+    if (isResumeRun && openInterrupt?.interrupt_id) {
+      await resolveThreadInterruptNotifications({
+        interruptId: openInterrupt.interrupt_id,
+        outcome: "resumed",
+        tenantId: scope.scope.tenantId,
+      });
+    }
     // Interactive chat runs the approval gate under the "artifact" policy: a gated
     // op returns the Approve/Deny card as a decision artifact (no Mastra suspend →
     // no run_id → not a parked resume), and the resume RE-RUNS with the persisted
@@ -561,14 +691,10 @@ export function registerThreadRunRoutes(
           409
         );
       }
-      // A duplicate answer while the previous resume is still executing must
-      // not race it (the parked session was already taken; letting this run
-      // would surface a bogus "no longer in memory" error and abandon the
-      // suspended tools). The in-flight resume will re-park or finish.
-      if (
-        openInterrupt?.run_id &&
-        isParkedResumeInFlight(openInterrupt.run_id)
-      ) {
+      // A duplicate answer while the previous resume is still executing must not
+      // race it: both would resolve the same suspension and both would tear down
+      // the one session-scoped sandbox.
+      if (openInterrupt?.run_id && isResumeInFlight(openInterrupt.run_id)) {
         return c.json(
           {
             error: "agent_threads.resumeInProgress",
@@ -583,7 +709,16 @@ export function registerThreadRunRoutes(
         | FrontendToolResumeData
         | ToolApprovalResumeData
         | Record<string, unknown> = isParkedDecisionResume
-        ? toDecisionResumeData(resumeEntries[0])
+        ? {
+            ...toDecisionResumeData(resumeEntries[0]),
+            // The SERVER-persisted artifact id, not the client payload's: a
+            // suspended tool that acts on its answer (workflow_propose publishes
+            // the version its card named) must trust only what this route
+            // validated as the open interrupt.
+            ...(openInterrupt?.artifact_id
+              ? { artifact_id: openInterrupt.artifact_id }
+              : {}),
+          }
         : toFrontendToolResumeData(resumeEntries[0]);
       // Metadata the resume writes back when it clears the interrupt — must
       // include a grant persisted below, or the write-back would erase it.
@@ -693,12 +828,26 @@ export function registerThreadRunRoutes(
       // own, so without this the continuation can answer on a different model
       // than the first half of the same turn. Resolved here rather than in the
       // executor because only the route knows the request's effort/override.
+      // The tier the SUSPENDING run resolved to, carried on the interrupt.
+      // Resolving without it falls through to the `chat` purpose
+      // (`model.medium`), so a question asked at `low` came back answered by a
+      // different model. Re-derive from the tier rather than pinning the
+      // suspending run's model id: the id is stored bare, and pinning it would
+      // drop a non-default gateway and skip governance clamping.
+      //
+      // Auto-effort is deliberately NOT re-run here. It sizes a turn from the
+      // user's text, and a resume has none — the answer is the payload.
+      const resumeEffort = openInterrupt?.effort ?? null;
       let resumeModelConfig: Awaited<
         ReturnType<typeof opts.aiService.threads.resolveRunModelConfig>
       > | null = null;
       try {
         resumeModelConfig = await opts.aiService.threads.resolveRunModelConfig({
           agentId: session.agent_id,
+          effort: resumeEffort,
+          // The user may change the picker while the card is open; their pick
+          // outranks the tier, exactly as it does on a fresh turn.
+          modelIdOverride,
           scope: scope.scope,
         });
       } catch (err) {
@@ -709,26 +858,33 @@ export function registerThreadRunRoutes(
       }
       void resumeConversationRun({
         agentId: session.agent_id,
-        // Snapshot lane only: a re-assembled agent has no browser tools unless
-        // this resume re-declares them (the parked lane's Session still holds them).
+        // A reassembled agent has no browser tools unless this resume
+        // re-declares them.
         agentUi,
-        // Only used if the in-process park is gone: they let the resume
-        // re-assemble the agent and continue from the stored snapshot.
+        // Needed to reassemble the agent and continue from the stored snapshot.
         mastra: opts.aiService.mastra,
         modelConfig: resumeModelConfig?.modelConfig ?? null,
+        effort: resumeEffort,
         // Metering: an approval-gated turn runs its expensive half AFTER the
-        // gate, and this lane never billed any of it.
+        // gate, so this lane has to bill too or the turn is under-charged.
         modelId: resumeModelConfig?.modelId ?? null,
         newRunId: runId,
         ...(opts.createRegistry
           ? { registry: opts.createRegistry(scope.scope) }
           : {}),
         resolvedToolCallId: openInterrupt?.tool_call_id ?? "",
-        // Snapshot lane only, and called lazily: the parked lane's Session
-        // already carries the live Workspace, so resolving here unconditionally
-        // would build a second sandbox and syncIn over the same staging dir.
-        // Without it a post-restart continuation has no `ctx.workspace.sandbox`
-        // and Code Mode / file / skill tools vanish mid-conversation.
+        resolveChildWorkspace: (child) =>
+          opts.aiService.threads.resolveAgentWorkspaceForRun({
+            agentId: child.agentId,
+            runId: child.runId,
+            scope: scope.scope,
+            session,
+            threadId: child.threadId,
+          }),
+        // Called LAZILY on purpose: resolving unconditionally would build a
+        // second sandbox and syncIn over the same staging dir. Without it the
+        // continuation has no `ctx.workspace.sandbox` and Code Mode / file /
+        // skill tools vanish mid-conversation.
         resolveWorkspace: () =>
           opts.aiService.threads.resolveRunWorkspaces({
             runId,
@@ -758,12 +914,60 @@ export function registerThreadRunRoutes(
       opts.createRegistry &&
       (!isResumeRun || isArtifactResume)
     ) {
-      // Conversation run: drive the run on Mastra's Harness `Session`. AG-UI
-      // events flow to the same run-event-bus; the SSE block below is unchanged.
+      // Conversation run. AG-UI events flow to the run-event-bus; the SSE block
+      // below is unchanged.
       // A decision/feedback resume re-runs here with the selection nudged in.
       markRunLive(runId);
       let hsSessionMetadata = session.metadata;
-      let hsPrompt = latestUserText(body.data);
+      // On a resume the prompt comes from the resume payload, never from
+      // `messages` — both resume branches below assign it unconditionally. Start
+      // empty rather than relying on that coverage: a future resume kind reaching
+      // this block would otherwise silently re-send the ORIGINAL user turn as if
+      // it were new.
+      let hsPrompt = isResumeRun ? "" : latestUserText(body.data);
+      // A person's words while a run is already answering on this thread go
+      // INTO that run — a room turn, or another window's turn — instead of
+      // waiting behind it (PLAN-agent-rooms.md R3). Mastra takes the message
+      // as the loop's next input; this response is a finished run that says
+      // where the words went.
+      if (!isResumeRun && hsPrompt.trim()) {
+        const steered = await steerActiveThreadRun({
+          text: hsPrompt,
+          threadId,
+        });
+        if (steered.steered) {
+          // The loop has the words; the thread must too. A room turn persists
+          // no user rows of its own (its prompt is a wake line), so the
+          // steered turn is written here, under the id the client gave it.
+          const steeredMessageId = latestUserMessageId(body.data);
+          await conversationStore.appendMessage({
+            authorUserId: scope.scope.userId,
+            ...(steeredMessageId ? { id: steeredMessageId } : {}),
+            parts: [{ text: hsPrompt, type: "text" }],
+            role: "user",
+            tenantId: scope.scope.tenantId,
+            threadId,
+          });
+          await noteHumanTurnInRoom({
+            scope: scope.scope,
+            store: conversationStore,
+            threadId,
+          });
+          markRunDone(runId);
+          return steeredRunResponse({
+            intoRunId: steered.runId,
+            runId,
+            threadId,
+          });
+        }
+        // The client attached to a run and meant its words for that run
+        // only. It ended first: say so, and let the client send the ordinary
+        // way instead of this route starting a turn the client did not ask for.
+        if (readSteerOnly(body.data)) {
+          markRunDone(runId);
+          return c.json({ error: "agent_threads.notSteerable" }, 409);
+        }
+      }
       // Operation ids approved earlier in this chat — the execute-boundary gate
       // skips them. A fresh "Approve" on this resume is folded in below.
       let hsApprovalGrants = readToolApprovalGrants(session.metadata);
@@ -966,6 +1170,12 @@ export function registerThreadRunRoutes(
           } catch (err) {
             console.error("conversation fresh-turn reset failed", err);
           }
+          // The person typed past the card: nobody will answer it now.
+          await resolveThreadInterruptNotifications({
+            interruptId: openInterrupt?.interrupt_id,
+            outcome: "abandoned",
+            tenantId: scope.scope.tenantId,
+          });
         }
       }
       // Workspace prep and Auto effort sizing overlap: heuristics are instant,
@@ -1005,14 +1215,42 @@ export function registerThreadRunRoutes(
             getUsageStore: opts.getUsageStore,
             tenantId: scope.scope.tenantId,
           });
+          // An artifact resume re-runs the turn, so it lands here rather than
+          // in the parked branch — but it is still the same turn. Sizing it
+          // again would size it off no text at all (see `text` below), which
+          // reads as "short" and silently demotes a turn the user asked at a
+          // higher tier. The tier the interrupt was opened at wins; auto never
+          // gets a second, worse guess at the same turn.
+          const carriedEffort = isResumeRun
+            ? (openInterrupt?.effort ?? null)
+            : null;
+          if (carriedEffort) {
+            return { autoResolved: null, effort: carriedEffort };
+          }
+          // The agent's own default tier: what Auto answers for a coding
+          // agent before it reads a word of the turn.
+          const agentEffort = opts.createRegistry
+            ? agentDefaultEffort(
+                await Promise.resolve(
+                  opts
+                    .createRegistry(scope.scope)
+                    .getAgentConfig?.(session.agent_id)
+                ).catch(() => null)
+              )
+            : null;
           const resolved = await resolveEffortForRun({
+            agentEffort,
             agentId: session.agent_id,
             allowedEfforts: effortCtx.allowedEfforts,
             bindings: effortCtx.bindings,
             choice: effortChoice,
-            hasAttachments: latestUserAttachmentParts(body.data).length > 0,
+            hasAttachments: isResumeRun
+              ? false
+              : latestUserAttachmentParts(body.data).length > 0,
             modelIdOverride,
-            text: latestUserText(body.data),
+            // A resume has no new user turn; sizing effort off the original
+            // one re-reads text this thread already answered.
+            text: isResumeRun ? "" : latestUserText(body.data),
           });
           const autoResolved =
             resolved.autoResolved && resolved.effort
@@ -1091,15 +1329,31 @@ export function registerThreadRunRoutes(
       const hsConnectionGrants = await loadConnectionApprovalGrants({
         accessToken: scopeAccessToken(scope.scope),
       });
-      // Tiered attachments: images/PDFs → multimodal files; small text/CSV →
-      // run context (≤32KiB); larger/binary → manifest + agent-file_analyst.
+      // Tiered attachments: images → multimodal files; PDFs/office stay as
+      // extracted markdown (sidecar + 32 KiB inline). Never attach original
+      // PDF bytes — that blows the token limiter.
       // Artifact resume carries no new user message, so there is nothing to resolve.
+      const hsHistoryMessages = isArtifactResume
+        ? []
+        : await conversationStore
+            .listMessagesOrdered({
+              tenantId: scope.scope.tenantId,
+              threadId,
+            })
+            .then((rows) =>
+              rows.map((row) => ({ parts: row.parts, role: row.role }))
+            )
+            .catch((err) => {
+              console.error("thread attachment history load failed", err);
+              return [];
+            });
       const hsTieredAttachments = isArtifactResume
         ? { contextEntries: [], modelAttachments: [] }
         : await resolveTieredAttachments({
-            coreBaseUrl: opts.coreBaseUrl,
-            input: body.data,
             accessToken: scopeAccessToken(scope.scope),
+            coreBaseUrl: opts.coreBaseUrl,
+            historyMessages: hsHistoryMessages,
+            input: body.data,
           });
       // Durable transcript parts for this turn (persisted so attachments render
       // on reload); empty on an artifact resume (no new user message).
@@ -1126,6 +1380,19 @@ export function registerThreadRunRoutes(
           : [
               ...(await buildChatTurnContextEntries({
                 agentId: session.agent_id,
+                invokeWorkflowCommand: ({ argsText, command, refs }) =>
+                  invokeChatAction({
+                    argsText,
+                    command,
+                    idempotencyKey: `slash:${latestUserMessageId(body.data) ?? runId}:${command.id}`,
+                    mastra: opts.aiService.mastra,
+                    moduleLoader: opts.moduleLoader,
+                    refs,
+                    scope: scope.scope,
+                    spaceId:
+                      (session as { space_id?: string | null }).space_id ??
+                      null,
+                  }),
                 moduleLoader: opts.moduleLoader,
                 prompt: hsPrompt,
                 refs: latestUserReferenceItems(body.data),
@@ -1149,6 +1416,9 @@ export function registerThreadRunRoutes(
           hsConnectionGrants
         ),
         ...(autoEffortForRun ? { autoEffortResolved: autoEffortForRun } : {}),
+        // Persisted onto the interrupt if this turn suspends, so the resume
+        // resolves the same model instead of drifting to the `chat` default.
+        effort,
         mastra: opts.aiService.mastra,
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,
@@ -1175,7 +1445,10 @@ export function registerThreadRunRoutes(
         scope: scope.scope,
         sessionMetadata: hsSessionMetadata,
         store: conversationStore,
-        userMessageId: latestUserMessageId(body.data),
+        // Only a fresh turn has a user bubble to echo. On a resume the id would
+        // be the ORIGINAL turn's, re-emitting a message every attached window
+        // already shows.
+        userMessageId: isResumeRun ? null : latestUserMessageId(body.data),
         threadId,
         usageStore: opts.getUsageStore?.() ?? null,
         ...(hsWorkspaces.sandboxProvider
@@ -1201,19 +1474,33 @@ export function registerThreadRunRoutes(
     }
 
     // Respond with SSE stream attached to the bus (since=-1 = all events from start).
+    // The run echoes the user's turn as a role:"user" TEXT_MESSAGE_* triple under
+    // the id the CLIENT assigned, so other windows attached to the same run can
+    // render the bubble before the end-of-turn coalescer flush (see
+    // conversation-run.ts). THIS client is not one of those windows — it supplied
+    // the message and already holds it. AG-UI's TEXT_MESSAGE_START means "begin a
+    // new message", so a spec-compliant client receiving one for an id it already
+    // has APPENDS: the user's own text ends up doubled. Verified against a stock
+    // @ag-ui/client HttpAgent.
+    // So: keep the echo in the durable log for attachers, withhold it from the
+    // originating stream. Filtering here rather than at the emit site is what
+    // keeps the log complete — `?since=` replays still carry it.
+    const ownUserMessageId = latestUserMessageId(body.data);
+    const isOwnUserTurnEcho = (event: AGUIEvent): boolean =>
+      isUserTurnEchoFor(event, ownUserMessageId);
     const encoder = new TextEncoder();
     const clientSignal = c.req.raw.signal;
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         let closed = false;
-        const write = (event: AGUIEvent) => {
+        const write = (event: AGUIEvent, seq?: number) => {
           if (closed) {
             return;
           }
           opts.debugEvents?.publish(event);
           try {
-            controller.enqueue(encoder.encode(encodeAgUiSseEvent(event)));
+            controller.enqueue(encoder.encode(encodeAgUiSseEvent(event, seq)));
           } catch {
             closed = true;
           }
@@ -1246,7 +1533,12 @@ export function registerThreadRunRoutes(
               if (seq <= lastSeq) {
                 return;
               }
-              write(event);
+              // Advance `lastSeq` even when withheld: the echo still occupies a
+              // seq in the log, and skipping the bookkeeping would re-deliver it
+              // from the next source (buffer vs. persisted replay overlap).
+              if (!isOwnUserTurnEcho(event)) {
+                write(event, seq);
+              }
               lastSeq = seq;
               if (finishEvents.has((event as { type: string }).type)) {
                 sawFinish = true;

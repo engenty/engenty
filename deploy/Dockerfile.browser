@@ -1,0 +1,40 @@
+# The space browser: a headless Chromium a
+# space's runs drive over CDP. Its OWN image on purpose — the sandbox image
+# never grows a browser (PLAN-agent-compute §11); one service container per
+# space, broker-supervised, profile bind-mounted so logged-in sessions survive
+# both stops and Resets.
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    chromium \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    socat \
+  && rm -rf /var/lib/apt/lists/*
+
+# Same uid as the sandbox image so the host's bind-ownership staging
+# (`stageBindSource`) covers both. /profile exists in the image so the CMD
+# starts even before the supervisor's bind overlays it.
+RUN useradd --create-home --uid 1000 browser \
+  && mkdir -p /profile \
+  && chown browser:browser /profile
+USER browser
+
+# The profile IS the service's state: cookies, local storage, logged-in
+# sessions. Bound from the space's own prefix by the supervisor.
+ENV HOME=/profile
+
+EXPOSE 9222
+
+# --no-sandbox: the container runs with every capability dropped and
+# no-new-privileges, which is the isolation Chromium's own sandbox would try
+# to re-create and cannot under those restrictions.
+#
+# Chromium pins its DevTools socket to loopback no matter what
+# --remote-debugging-address says, so socat is the network face: it forwards
+# 0.0.0.0:9222 to the loopback port. Reachability control is the Docker
+# network, not the bind address.
+COPY deploy/browser-entrypoint.sh /usr/local/bin/browser-entrypoint.sh
+CMD ["/usr/local/bin/browser-entrypoint.sh"]

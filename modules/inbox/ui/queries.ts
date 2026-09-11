@@ -1,16 +1,18 @@
 import {
+  beginOptimisticUpdate,
   keepPreviousData,
   queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@engenty/query-client";
+import { toast } from "sonner";
 import {
   getInboxCategoriesConfig,
   type InboxCategoriesConfig,
   setInboxCategoriesConfig,
 } from "./api/inbox-categories-settings.js";
-import type { InboxMessageStatus, InboxThreadsListParams } from "./api.js";
+import type { InboxThreadsListParams } from "./api.js";
 import {
   classifyPendingInboxMessages,
   getInboxAttachment,
@@ -20,9 +22,11 @@ import {
   listInboxThreads,
   runInboxSyncNow,
   searchInboxMessages,
-  setInboxMessageStatus,
   updateInboxSyncSettings,
 } from "./api.js";
+
+// biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
+export { useSetMessageStatusMutation } from "./inbox-status-optimistic.js";
 
 export const inboxKeys = {
   all: ["inbox"] as const,
@@ -165,17 +169,6 @@ export function useInboxSearchQuery(query: string) {
   });
 }
 
-export function useSetMessageStatusMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { ids: string[]; status: InboxMessageStatus }) =>
-      setInboxMessageStatus(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
-    },
-  });
-}
-
 export function useUpdateSyncSettingsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -213,6 +206,20 @@ export function useSaveInboxCategoriesMutation() {
   return useMutation({
     mutationFn: (config: InboxCategoriesConfig) =>
       setInboxCategoriesConfig(config),
+    onMutate: async (config) => {
+      const transaction = await beginOptimisticUpdate<InboxCategoriesConfig>(
+        queryClient,
+        {
+          queryKey: inboxKeys.categories(),
+          update: () => config,
+        }
+      );
+      return { transaction };
+    },
+    onError: (_error, _config, context) => {
+      context?.transaction.rollback();
+      toast.error("Could not save inbox categories.");
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(inboxKeys.categories(), data);
     },

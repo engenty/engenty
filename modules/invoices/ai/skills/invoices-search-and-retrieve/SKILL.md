@@ -9,6 +9,8 @@ allowed-tools: engenty_tools_search engenty_tool_execute
 
 Use this skill to find and inspect invoices.
 
+Invoices are one tenant commercial library. A Space mount grants access to that shared book; there is no invoice `space_id` and you must not invent one.
+
 ## Operations
 
 | Goal | Operation | Input |

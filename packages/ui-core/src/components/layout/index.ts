@@ -55,7 +55,7 @@ export {
   type ShellBreadcrumbVariant,
 } from "./shell/shell-breadcrumb-trail";
 export {
-  readerBlendTopbarActionButtonClassName,
+  readerBlendTopbarWorkflowButtonClassName,
   TopbarActionLabel,
   topbarIconButtonClassName,
 } from "./shell/topbar-action-label";
@@ -93,6 +93,7 @@ export {
   SidebarRowLeadingIcon,
   type SidebarRowLeadingIconProps,
   type SidebarRowProps,
+  SidebarRowTitleMarquee,
   SidebarSectionLabel,
   type SidebarSectionLabelProps,
   SidebarTab,

@@ -83,7 +83,6 @@ export function ConnectionsWorkspacePage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     topbarOverlap: true,
   });
 
@@ -171,8 +170,21 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
                   {t(`sharing.${connection.sharing}`)}
                 </Badge>
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                {t(`settings.autonomous.${connection.autonomous_mode}`)}
+              <TableCell className="text-sm">
+                {connection.autonomous_mode === "off" ? (
+                  // OFF is not a neutral state: nothing syncs and no agent may
+                  // touch the connection unattended — say so where it's seen.
+                  <Badge
+                    className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    variant="outline"
+                  >
+                    {t("settings.autonomousOffBadge")}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {t(`settings.autonomous.${connection.autonomous_mode}`)}
+                  </span>
+                )}
               </TableCell>
               <TableCell>
                 <StatusBadge connection={connection} />

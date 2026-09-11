@@ -35,11 +35,8 @@ import { kbMergeArticlePropertyDefinitions } from "../../src/schema/knowledge-ba
 import type { Article, SourceReference, Tag } from "../../src/schema/types.js";
 import {
   createArticle,
-  createKb,
-  getKbSettings,
   refreshArticleMetadata,
   updateArticle,
-  updateKbSettings,
 } from "../api.js";
 import {
   appendMarkdownAtEnd,
@@ -52,13 +49,7 @@ import {
   type InsertMarkdownPreference,
   setInsertMarkdownPreference,
 } from "../insert-markdown-preference.js";
-import {
-  kbArticleEditPath,
-  kbArticlePath,
-  kbHubPath,
-  kbNewArticleEditPath,
-  kbNewArticleEditPathWithParent,
-} from "../kb-paths.js";
+import { kbArticlePath, kbHubPath } from "../kb-paths.js";
 import {
   kbArticlePageShellInnerBaseClassName,
   kbArticlePageShellSectionClassName,
@@ -78,24 +69,16 @@ import {
   categoriesQueryOptions,
   invalidateKbGraphQueries,
   kbSettingsQueryOptions,
-  kbsQueryOptions,
   kbTemplatesQueryOptions,
   tagsQueryOptions,
+  useKbsQuery,
 } from "../queries.js";
-import {
-  kbIdFromSlug,
-  resolveKbIdFromUrl,
-  slugFromKbId,
-  tenantDefaultKbId,
-} from "../resolve-kb-id.js";
+import { spaceKbId } from "../resolve-kb-id.js";
 import { useKbModuleSecondaryShellNav } from "./use-kb-module-secondary-shell-nav.js";
 
 export function useArticleEditState() {
   const { i18n, t } = useTranslation("kb");
-  const { kbSlug: kbSlugParam, id } = useParams<{
-    kbSlug?: string;
-    id?: string;
-  }>();
+  const { id } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -104,34 +87,9 @@ export function useArticleEditState() {
   const titleRef = useRef<HTMLInputElement>(null);
 
   // Get KB ID
-  const { data: kbs = [], isLoading: kbsLoading } = useQuery(kbsQueryOptions);
+  const { data: kbs = [], isLoading: kbsLoading } = useKbsQuery();
   const { data: kbSettings } = useQuery(kbSettingsQueryOptions);
-  const tenantDefault = tenantDefaultKbId(kbSettings);
   const noKbs = isNew && !kbsLoading && kbs.length === 0;
-
-  const createDefaultKbMutation = useMutation({
-    mutationFn: async () => {
-      const settings = await getKbSettings();
-      const kb = await createKb({
-        name: "Default",
-        slug: "default",
-        description: null,
-      });
-      await updateKbSettings({ ...settings, default_kb_id: kb.id });
-      return kb;
-    },
-    onSuccess: (kb) => {
-      queryClient.invalidateQueries({ queryKey: ["kb", "knowledge-bases"] });
-      queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
-      setSelectedKbId(kb.id);
-      toast.success("Knowledge base created");
-    },
-    onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to create knowledge base"
-      );
-    },
-  });
 
   // Form state
   const [selectedKbId, setSelectedKbId] = useState<string>("");
@@ -180,71 +138,11 @@ export function useArticleEditState() {
   const isLocked = !isNew && Boolean(article?.locked_at);
 
   /** URL / default KB for new articles — do not rely on Select state alone (sync races). */
-  const resolvedNewKbId = useMemo(() => {
-    if (kbSlugParam?.trim()) {
-      return kbIdFromSlug(kbs, kbSlugParam);
-    }
-    return resolveKbIdFromUrl(searchParams, kbs, tenantDefault);
-  }, [kbSlugParam, searchParams, kbs, tenantDefault]);
+  const resolvedNewKbId = useMemo(() => spaceKbId(kbs), [kbs]);
 
   const kbIdForForm = isNew
     ? selectedKbId || resolvedNewKbId
     : selectedKbId || article?.kb_id || "";
-
-  const kbSlugEffective = useMemo(
-    () => slugFromKbId(kbs, kbIdForForm) ?? "",
-    [kbs, kbIdForForm]
-  );
-
-  useEffect(() => {
-    if (kbsLoading || !kbs.length || !kbIdForForm) {
-      return;
-    }
-    const slug = slugFromKbId(kbs, kbIdForForm);
-    if (!slug) {
-      return;
-    }
-    if (isNew) {
-      if (!kbSlugParam && searchParams.get("kb_id")?.trim()) {
-        const keep = new URLSearchParams();
-        const parent = searchParams.get("parent")?.trim();
-        if (parent) {
-          keep.set("parent", parent);
-        }
-        const qs = keep.toString();
-        navigate(`${kbNewArticleEditPath(slug)}${qs ? `?${qs}` : ""}`, {
-          replace: true,
-        });
-      }
-      return;
-    }
-    if (!id || id === "new") {
-      return;
-    }
-    if (!article) {
-      return;
-    }
-    if (kbSlugParam === slug && id === article.slug) {
-      return;
-    }
-    navigate(
-      `${kbArticleEditPath(slug, article.slug || id)}${location.search}`,
-      {
-        replace: true,
-      }
-    );
-  }, [
-    kbsLoading,
-    kbs,
-    kbIdForForm,
-    kbSlugParam,
-    id,
-    isNew,
-    article,
-    navigate,
-    location.search,
-    searchParams,
-  ]);
 
   // Load tags
   const { data: candidateParentsPage } = useQuery(
@@ -489,46 +387,20 @@ export function useArticleEditState() {
     }
   }, [isNew]);
 
-  const onKbPickerChange = useCallback(
-    (next: string) => {
-      setSelectedKbId(next);
-      const slug = slugFromKbId(kbs, next);
-      if (!slug) {
-        return;
-      }
-      if (isNew) {
-        const parent = parentArticleId.trim();
-        navigate(
-          parent
-            ? kbNewArticleEditPathWithParent(slug, parent)
-            : kbNewArticleEditPath(slug)
-        );
-      } else if (id && id !== "new") {
-        navigate(kbArticleEditPath(slug, article?.slug || id));
-      }
-    },
-    [id, isNew, kbs, navigate, parentArticleId, article]
-  );
-
   const kbShellNav = useKbModuleSecondaryShellNav({
     activeArticleId: isNew ? undefined : id,
     kbId: kbIdForForm,
-    kbSlug: kbSlugEffective,
   });
 
   const handleCancelEdit = useCallback(() => {
-    if (!kbSlugEffective) {
-      navigate(-1);
-      return;
-    }
     if (isNew) {
-      navigate(kbHubPath(kbSlugEffective));
+      navigate(kbHubPath());
     } else if (id && id !== "new") {
-      navigate(kbArticlePath(kbSlugEffective, article?.slug || id));
+      navigate(kbArticlePath(article?.slug || id));
     } else {
       navigate(-1);
     }
-  }, [isNew, id, kbSlugEffective, navigate, article]);
+  }, [isNew, id, navigate, article]);
 
   const slugify = useCallback(
     (text: string) =>
@@ -597,7 +469,7 @@ export function useArticleEditState() {
       strike: t("article.bubble.strike"),
       code: t("article.bubble.code"),
     };
-    if (!(kbIdForForm && kbSlugEffective)) {
+    if (!kbIdForForm) {
       return { labels, linkSources: [] };
     }
     return {
@@ -605,14 +477,13 @@ export function useArticleEditState() {
       linkSources: createKbArticleLinkBubbleSources({
         kbs,
         currentKbId: kbIdForForm,
-        currentKbSlug: kbSlugEffective,
         labels: {
           thisKb: t("article.bubble.link_source_this_kb"),
           otherKbs: t("article.bubble.link_source_other_kbs"),
         },
       }),
     };
-  }, [kbIdForForm, kbSlugEffective, kbs, i18n.language]);
+  }, [kbIdForForm, kbs, i18n.language]);
 
   const onRichEditorLinkClick = useMemo(
     () => createKbModuleRichEditorLinkHandler(navigate),
@@ -802,12 +673,7 @@ export function useArticleEditState() {
       });
       void invalidateKbGraphQueries(queryClient, data.kb_id);
       toast.success(isNew ? "Article created" : "Article saved");
-      const slug = slugFromKbId(kbs, data.kb_id);
-      if (slug) {
-        navigate(kbArticlePath(slug, data.slug || data.id));
-      } else {
-        navigate(`/mdl/knowledge-base/${data.id}`);
-      }
+      navigate(kbArticlePath(data.slug || data.id));
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -857,11 +723,10 @@ export function useArticleEditState() {
             <TopbarActionLabel>{t("versions.action")}</TopbarActionLabel>
           </Button>
         ) : null}
-        {!isNew && article && kbSlugEffective ? (
+        {!isNew && article ? (
           <ArticlePageOverflowMenu
             article={article}
             hideReadingStyle
-            kbSlug={kbSlugEffective}
             navigate={navigate}
             showRegenerateMetadata={canRegenerateMetadata}
             topbarTriggerVariant="outline"
@@ -893,7 +758,6 @@ export function useArticleEditState() {
       isLocked,
       isNew,
       kbIdForForm,
-      kbSlugEffective,
       navigate,
       saveMutation,
       saveDisabledReason,
@@ -914,15 +778,11 @@ export function useArticleEditState() {
       kbCategories,
       defaultCategoryId
     );
-    const categoryCrumbs =
-      articleCategory && kbSlugEffective
-        ? buildCategoryTreeBreadcrumbCrumbs(
-            articleCategory,
-            kbCategories,
-            kbSlugEffective,
-            { linkCurrent: true }
-          )
-        : [];
+    const categoryCrumbs = articleCategory
+      ? buildCategoryTreeBreadcrumbCrumbs(articleCategory, kbCategories, {
+          linkCurrent: true,
+        })
+      : [];
     return [
       ...root,
       ...categoryCrumbs,
@@ -930,8 +790,8 @@ export function useArticleEditState() {
         label: titleSeg.label,
         menuLabel: displayTitle,
         ...(titleSeg.tooltip ? { tooltip: titleSeg.tooltip } : {}),
-        ...(kbSlugEffective && id && id !== "new"
-          ? { to: kbArticlePath(kbSlugEffective, article?.slug || id) }
+        ...(id && id !== "new"
+          ? { to: kbArticlePath(article?.slug || id) }
           : {}),
       },
       { label: t("article.edit") },
@@ -945,13 +805,11 @@ export function useArticleEditState() {
     isNew,
     kbCategories,
     kbShellNav.kbRootCrumb,
-    kbSlugEffective,
     t,
     title,
   ]);
 
   usePageConfig({
-    topbarChrome: "contentBlend",
     contentStackBackground: "paper",
     actions: pageActions,
     breadcrumbs: articleEditBreadcrumbs,
@@ -965,7 +823,6 @@ export function useArticleEditState() {
     canRegenerateMetadata,
     candidateParents,
     contentMarkdown,
-    createDefaultKbMutation,
     conversionSessionRef,
     defaultCategoryId,
     dialogOpenedForSessionRef,
@@ -987,7 +844,6 @@ export function useArticleEditState() {
     kbArticlePageShellSectionClassName,
     kbCategories,
     kbIdForForm,
-    kbSlugEffective,
     kbTags,
     kbTemplates,
     noKbs,

@@ -1,9 +1,12 @@
 import {
   assertSafeRelativePath,
+  LOCAL_FILES_ERROR,
+  type LocalDeleteResult,
   type LocalFileEntry,
   type LocalListResult,
   type LocalReadResult,
   type LocalSearchResult,
+  type LocalWriteResult,
   MAX_FILE_BYTES,
 } from "../../src/protocol.js";
 
@@ -23,13 +26,17 @@ export async function pickDirectory(): Promise<FileSystemDirectoryHandle> {
   if (!picker) {
     throw new Error("File System Access API is not available");
   }
-  return picker({ mode: "read" });
+  return picker({ mode: "readwrite" });
 }
 
 // queryPermission/requestPermission aren't in every lib.dom version yet.
 interface Permissioned {
-  queryPermission?: (d: { mode: "read" }) => Promise<PermissionState>;
-  requestPermission?: (d: { mode: "read" }) => Promise<PermissionState>;
+  queryPermission?: (d: {
+    mode: "read" | "readwrite";
+  }) => Promise<PermissionState>;
+  requestPermission?: (d: {
+    mode: "read" | "readwrite";
+  }) => Promise<PermissionState>;
 }
 
 export async function hasReadPermission(
@@ -123,7 +130,11 @@ export async function readFile(
     throw new Error("path is required");
   }
   const parent = await dirAt(root, segments.slice(0, -1));
-  const handle = await parent.getFileHandle(segments.at(-1));
+  const leaf = segments.at(-1);
+  if (!leaf) {
+    throw new Error("path is required");
+  }
+  const handle = await parent.getFileHandle(leaf);
   const file = await handle.getFile();
   const cap = Math.min(input.max_bytes ?? MAX_FILE_BYTES, MAX_FILE_BYTES);
   if (file.size > cap) {
@@ -150,6 +161,88 @@ export async function readFile(
   };
 }
 
+export async function queryWritePermission(
+  handle: FileSystemDirectoryHandle
+): Promise<boolean> {
+  const q = (handle as unknown as Permissioned).queryPermission;
+  if (!q) {
+    return true;
+  }
+  return (await q.call(handle, { mode: "readwrite" })) === "granted";
+}
+
+export async function requestWritePermission(
+  handle: FileSystemDirectoryHandle
+): Promise<boolean> {
+  if (await queryWritePermission(handle)) {
+    return true;
+  }
+  const r = (handle as unknown as Permissioned).requestPermission;
+  if (!r) {
+    return false;
+  }
+  return (await r.call(handle, { mode: "readwrite" })) === "granted";
+}
+
+export async function writeFile(
+  root: FileSystemDirectoryHandle,
+  input: { content_base64?: string; content_text?: string; path: string }
+): Promise<LocalWriteResult> {
+  if (!(await queryWritePermission(root))) {
+    throw new Error(
+      `${LOCAL_FILES_ERROR.permissionLost}: browser access to this folder is read-only — reconnect it to allow writes`
+    );
+  }
+  const segments = assertSafeRelativePath(input.path);
+  if (segments.length === 0) {
+    throw new Error("path is required");
+  }
+  const parent = await dirAt(root, segments.slice(0, -1));
+  const leaf = segments.at(-1);
+  if (!leaf) {
+    throw new Error("path is required");
+  }
+  const handle = await parent.getFileHandle(leaf, { create: true });
+  const bytes =
+    typeof input.content_base64 === "string"
+      ? Uint8Array.from(atob(input.content_base64), (c) => c.charCodeAt(0))
+      : new TextEncoder().encode(input.content_text ?? "");
+  const writable = await handle.createWritable();
+  await writable.write(bytes);
+  await writable.close();
+  const file = await handle.getFile();
+  return {
+    modified_at: file.lastModified
+      ? new Date(file.lastModified).toISOString()
+      : null,
+    name: leaf,
+    path: input.path,
+    size: file.size,
+  };
+}
+
+export async function deletePath(
+  root: FileSystemDirectoryHandle,
+  input: { path: string }
+): Promise<LocalDeleteResult> {
+  if (!(await queryWritePermission(root))) {
+    throw new Error(
+      `${LOCAL_FILES_ERROR.permissionLost}: browser access to this folder is read-only — reconnect it to allow writes`
+    );
+  }
+  const segments = assertSafeRelativePath(input.path);
+  if (segments.length === 0) {
+    throw new Error("path is required");
+  }
+  const parent = await dirAt(root, segments.slice(0, -1));
+  const leaf = segments.at(-1);
+  if (!leaf) {
+    throw new Error("path is required");
+  }
+  await parent.removeEntry(leaf);
+  return { deleted: true, path: input.path };
+}
+
 export async function statPath(
   root: FileSystemDirectoryHandle,
   input: { path: string }
@@ -166,6 +259,9 @@ export async function statPath(
   }
   const parent = await dirAt(root, segments.slice(0, -1));
   const leaf = segments.at(-1);
+  if (!leaf) {
+    throw new Error("path is required");
+  }
   try {
     const dir = await parent.getDirectoryHandle(leaf);
     return entryFor(dir, input.path);

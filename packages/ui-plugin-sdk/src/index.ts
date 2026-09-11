@@ -1,15 +1,32 @@
-import type { PluginCategory, PluginSourceInfo } from "@engenty/plugin-sdk";
+import type {
+  PluginCategory,
+  PluginPlacement,
+  PluginSourceInfo,
+} from "@engenty/plugin-sdk";
 import type { ComponentType } from "react";
 
 export type {
   PluginCategory,
   PluginDiagnostic,
+  PluginPlacement,
   PluginSourceInfo,
+  // Space setup (PLAN-spaces.md 3b): the browser gets the pure key helper and
+  // the types, but NOT `SPACE_BASELINE_MOUNTS` — the dialog reads the baseline
+  // from `GET /api/spaces/setup-catalog` so there is no third copy of a list
+  // that SQL and plugin-sdk are already pinned against.
+  SpaceMountDeclaration,
+  SpaceRecordScopeLevel,
+  SpaceResourceKind,
 } from "@engenty/plugin-sdk";
 export {
+  DEFAULT_PLUGIN_PLACEMENT,
   isPluginCategory,
+  isPluginPlacement,
   PLUGIN_CATEGORIES,
+  PLUGIN_PLACEMENTS,
   pluginCategoryRank,
+  SPACE_RESOURCE_KINDS,
+  spaceMountKey,
 } from "@engenty/plugin-sdk";
 
 export type UiPluginId = string;
@@ -92,6 +109,13 @@ export interface UiCopilotAppContribution {
   label: string;
   labelKey?: string;
   order?: number;
+  /**
+   * Shell placement, enriched at UI resolve time like the admin-menu row's.
+   * A copilot app does NOT travel through `adminMenuItems`, so without this the
+   * rail's placement filter cannot see it and a space-placed chat stays on the
+   * global rail regardless of its manifest (PLAN-spaces.md Phase C1).
+   */
+  placement?: PluginPlacement;
   pluginId: UiPluginId;
   sourceInfo?: PluginSourceInfo;
   to: string;
@@ -133,6 +157,13 @@ export interface UiAdminMenuItemContribution {
   /** Sort key within {@link category} only — not across categories. */
   order?: number;
   parentId?: string;
+  /**
+   * Shell placement (enriched at UI resolve time from the owning plugin).
+   * Decides whether this row belongs on the app rail at all — see
+   * {@link PluginPlacement}. Per PLUGIN, so a module registering a parent row
+   * plus children moves as a unit.
+   */
+  placement?: PluginPlacement;
   pluginId: UiPluginId;
   section: UiAdminMenuSection;
   sourceInfo?: PluginSourceInfo;
@@ -203,8 +234,7 @@ export interface UiDashboardWidgetContribution {
  * A component a module mounts once, invisibly, for the whole authenticated
  * session — it stays mounted across navigation (rendered next to the app's own
  * background workers, not on any route). Used for things that must keep running
- * whenever the app is open, e.g. the local-files bridge that answers file-read
- * requests from the browser tab that holds a granted directory handle.
+ * whenever the app is open.
  */
 export interface UiBackgroundComponentContribution {
   component: ComponentType;
@@ -245,6 +275,42 @@ export interface UiTabContribution {
   surface: string;
 }
 
+/**
+ * A module that promotes itself into the space's Work · Data · … tab strip.
+ *
+ * Work and Data are the space's own pages and stay host-owned. Everything after
+ * them is this contribution: the tab only exists while the plugin is enabled
+ * AND the module is mounted in that space, so a space without Tasks has no Plan
+ * tab rather than a hardcoded empty one.
+ *
+ * `id` is the section name (`"plan"`), not a URL segment — the tab still opens
+ * `/s/<key>/<moduleId>/…`. `"work"`, `"data"` and `"settings"` are reserved.
+ */
+export interface UiSpaceTabContribution {
+  /**
+   * Embed this module's landing page on the Space Home (below the Copilot
+   * composer). First mounted tab that opts in wins.
+   */
+  embedOnHome?: boolean;
+  icon?: UiIconComponent;
+  id: string;
+  label?: string;
+  labelKey?: string;
+  /**
+   * Module this tab opens. Defaults to `pluginId`. Separate only when the
+   * plugin id and the mounted module id are not the same string.
+   */
+  moduleId?: string;
+  order?: number;
+  /**
+   * Path under the module, without a leading slash (`"briefing"` →
+   * `/s/<key>/tasks/briefing`). Absent = the module root.
+   */
+  path?: string;
+  pluginId: UiPluginId;
+  sourceInfo?: PluginSourceInfo;
+}
+
 /** Argument declared by a chat slash command (rendered as a hint; `ref` args open the @-picker). */
 export interface UiChatCommandArg {
   labelKey?: string;
@@ -273,7 +339,7 @@ export interface UiChatCommandContribution {
   frontendTool?: string;
   icon?: UiIconComponent;
   id: string;
-  kind: "action" | "prompt" | "ui";
+  kind: "workflow" | "prompt" | "ui";
   label?: string;
   labelKey?: string;
   order?: number;
@@ -391,6 +457,11 @@ export interface UiContributions {
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
+  /**
+   * Plugin-contributed space sections (Plan, …). Optional so contribution
+   * snapshots that predate this kind still typecheck; consumers use `?? []`.
+   */
+  spaceTabs?: UiSpaceTabContribution[];
   tabs: UiTabContribution[];
 }
 
@@ -418,7 +489,17 @@ export interface UiPluginSummary {
   generationId?: number;
   id: string;
   loaded: boolean;
+  /** Where the plugin's engenty.plugin.json lives, for diagnostics. */
+  manifestPath?: string;
   optional?: string[];
+  /** The npm package the plugin ships in, for diagnostics. */
+  packageName?: string;
+  /** Shell placement from engenty.plugin.json — see PluginPlacement. */
+  placement?: PluginPlacement;
+  /** Repo-relative plugin root, for diagnostics. */
+  rootDir?: string;
+  /** Where the plugin lives in the workspace. */
+  sourceType?: PluginSourceInfo["sourceType"];
   ui?: {
     assetOrigins?: string[];
     enabled?: boolean;
@@ -457,6 +538,7 @@ export interface UiEventMap {
   "ui.pluginsLoaded": { pluginIds: string[] };
   "ui.routes": UiRouteContribution[];
   "ui.settingsItems": UiSettingsItemContribution[];
+  "ui.spaceTabs": UiSpaceTabContribution[];
   "ui.tabs": UiTabContribution[];
 }
 
@@ -489,6 +571,13 @@ export interface EngentyUiApi {
     icon?: UiIconComponent;
     parentId?: string;
     order?: number;
+    /**
+     * Overrides the plugin's manifest placement for this one row. A
+     * space-placed module uses it for a surface that spans spaces — Tasks'
+     * cross-space work overview sits on the app rail while Plan stays inside
+     * each space.
+     */
+    placement?: PluginPlacement;
     useBadgeCount?: () => number | undefined;
   }) => void;
   registerBackgroundComponent: (input: {
@@ -500,7 +589,7 @@ export interface EngentyUiApi {
   registerChatCommand: (input: {
     id: string;
     command: string;
-    kind: "action" | "prompt" | "ui";
+    kind: "workflow" | "prompt" | "ui";
     args?: UiChatCommandArg[];
     description?: string;
     descriptionKey?: string;
@@ -574,6 +663,16 @@ export interface EngentyUiApi {
     order?: number;
     requiresAdmin?: boolean;
   }) => void;
+  registerSpaceTab: (input: {
+    id: string;
+    embedOnHome?: boolean;
+    icon?: UiIconComponent;
+    label?: string;
+    labelKey?: string;
+    moduleId?: string;
+    order?: number;
+    path?: string;
+  }) => void;
   registerTab: (input: {
     id: string;
     surface: string;
@@ -587,7 +686,13 @@ export interface EngentyUiApi {
 
 export type PluginMethodsRecord = Record<string, unknown>;
 
-export interface EngentyPluginsApi {
+/**
+ * The named half of {@link EngentyPluginsApi}. Split out because the index
+ * signature swallows Omit/keyof: `Omit<EngentyPluginsApi, string>` is `{}`,
+ * so an implementation typed that way loses every method. Implement THIS,
+ * then widen to the indexed shape at the boundary.
+ */
+export interface EngentyPluginsApiCore {
   expose: (methods: PluginMethodsRecord) => void;
   get: <TMethods extends PluginMethodsRecord = PluginMethodsRecord>(
     pluginId: string
@@ -595,6 +700,9 @@ export interface EngentyPluginsApi {
   hasPluginApi: (pluginId: string) => boolean;
   isPluginEnabled: (pluginId: string) => boolean;
   register: (pluginId: string, methods: PluginMethodsRecord) => void;
+}
+
+export interface EngentyPluginsApi extends EngentyPluginsApiCore {
   [key: string]: unknown;
 }
 
@@ -642,7 +750,10 @@ export {
   useSecondaryNavSearchResultsOnly,
 } from "./page-config.js";
 export { useContributionRegistry } from "./use-contribution-registry.jsx";
-export type { WorkspaceTenant } from "./workspace-context.jsx";
+export type {
+  WorkspaceSpace,
+  WorkspaceTenant,
+} from "./workspace-context.jsx";
 export {
   useCanAdministerTenant,
   useWorkspaceContext,

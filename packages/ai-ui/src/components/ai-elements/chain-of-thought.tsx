@@ -430,7 +430,7 @@ export type ChainOfThoughtImageProps = ComponentProps<"div"> & {
 export const ChainOfThoughtImage = memo(
   ({ caption, children, className, ...props }: ChainOfThoughtImageProps) => (
     <div className={cn("mt-1.5 space-y-1", className)} {...props}>
-      <div className="overflow-hidden rounded-md border border-border/40 bg-muted/30">
+      <div className="overflow-hidden rounded-md border border-border-soft bg-muted/30">
         {children}
       </div>
       {caption ? (

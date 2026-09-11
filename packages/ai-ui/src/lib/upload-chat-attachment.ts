@@ -1,9 +1,15 @@
+import type { BrowserParseProvider } from "@engenty/ai-core/browser";
+import { resolveBrowserParse } from "@engenty/ai-core/browser";
 import { requestApiJson } from "@engenty/api-client";
 import type { FileUIPart } from "ai";
+import { getAiConfig } from "./admin/ai-settings-api.js";
+import { parseChatDocumentInBrowser } from "./browser-doc-parse/parse-chat-document.js";
 import {
   buildChatAttachmentPart,
+  type ChatAttachmentMeta,
   type ChatAttachmentPart,
 } from "./chat-attachment-part.js";
+import { extractedMarkdownSidecarKey } from "./extracted-markdown-sidecar.js";
 import { getFileStorageSignedUrl } from "./file-storage-signed-url.js";
 
 // Internal file-storage layout: `tenants/<tenant-id>/<module-folder>/…`.
@@ -130,6 +136,72 @@ export async function uploadChatAttachment(input: {
   };
 }
 
+async function putChatAttachmentObject(input: {
+  bytes: Blob;
+  contentType: string;
+  key: string;
+}): Promise<string> {
+  const signed = await requestApiJson<SignedUploadPayload>(
+    "/api/file-storage/files/signed-upload-url",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        key: input.key,
+        content_type: input.contentType,
+      }),
+    }
+  );
+  const headers = new Headers(signed.headers ?? {});
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", input.contentType);
+  }
+  const response = await fetch(signed.url, {
+    body: input.bytes,
+    headers,
+    method: "PUT",
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `chat_attachment_upload_failed_${response.status}`);
+  }
+  return signed.key ?? input.key;
+}
+
+async function resolveChatBrowserParse(): Promise<BrowserParseProvider> {
+  try {
+    const config = await getAiConfig();
+    return resolveBrowserParse(config.doc_converter);
+  } catch {
+    return "anydoc";
+  }
+}
+
+async function extractChatDocumentMarkdown(
+  file: File,
+  mode: BrowserParseProvider
+): Promise<{
+  extractedBy: string;
+  extractedMarkdown: string;
+} | null> {
+  if (mode === "off") {
+    return null;
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const parsed = await parseChatDocumentInBrowser({
+    bytes,
+    filename: file.name,
+    mimeType: file.type || guessMimeFromFilename(file.name),
+    mode,
+  });
+  if (!parsed) {
+    return null;
+  }
+  return {
+    extractedBy: parsed.provider,
+    extractedMarkdown: parsed.markdown,
+  };
+}
+
 async function filePartToFile(part: FileUIPart): Promise<File> {
   // The composer converts blob URLs to data URLs before submit; both are
   // fetchable back into bytes so we upload the real file, not base64 text.
@@ -152,21 +224,44 @@ export async function uploadChatAttachmentParts(input: {
   threadId?: string | null;
 }): Promise<ChatAttachmentPart[]> {
   const parts: ChatAttachmentPart[] = [];
+  const browserParse = await resolveChatBrowserParse();
   for (const filePart of input.files) {
     const file = await filePartToFile(filePart);
-    const meta = await uploadChatAttachment({
-      file,
-      tenantId: input.tenantId,
-      threadId: input.threadId,
-    });
+    const [meta, extracted] = await Promise.all([
+      uploadChatAttachment({
+        file,
+        tenantId: input.tenantId,
+        threadId: input.threadId,
+      }),
+      extractChatDocumentMarkdown(file, browserParse),
+    ]);
+    const attachmentMeta: ChatAttachmentMeta = { ...meta };
+    if (extracted) {
+      const sidecarKey = extractedMarkdownSidecarKey(meta.storageKey);
+      try {
+        attachmentMeta.extractedStorageKey = await putChatAttachmentObject({
+          bytes: new Blob([extracted.extractedMarkdown], {
+            type: "text/markdown",
+          }),
+          contentType: "text/markdown",
+          key: sidecarKey,
+        });
+        attachmentMeta.extractedBy = extracted.extractedBy;
+      } catch {
+        // Sidecar failed — keep a clipped copy on the part so the run can
+        // still inline text. Preview will miss the extract until retry.
+        attachmentMeta.extractedBy = extracted.extractedBy;
+        attachmentMeta.extractedMarkdown = extracted.extractedMarkdown;
+      }
+    }
     let url = "";
     try {
-      url = await getFileStorageSignedUrl(meta.storageKey);
+      url = await getFileStorageSignedUrl(attachmentMeta.storageKey);
     } catch {
       // Render re-derives a fresh signed URL from the storage key (Layer 3),
       // so an empty source URL is a safe fallback that keeps base64 out of the DB.
     }
-    parts.push(buildChatAttachmentPart({ meta, url }));
+    parts.push(buildChatAttachmentPart({ meta: attachmentMeta, url }));
   }
   return parts;
 }

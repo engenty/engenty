@@ -4,6 +4,7 @@
  * Embedded mode (KB sidebar favorites tab): full panel with empty state.
  */
 
+import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { matchesPath } from "@engenty/app-shell/navigation";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -34,7 +35,10 @@ export function KbFavoritesNavSection({
 }: KbFavoritesNavSectionProps = {}) {
   const { t } = useTranslation("kb");
   const { data: doc } = useKbFavoritesNavQuery();
-  const { pathname, search } = useLocation();
+  // Canonical, not raw: in a space this is `/s/<key>/kb/…`, and
+  // every matcher below is written against `/mdl/knowledge-base/…`.
+  const { pathname: rawPathname, search } = useLocation();
+  const pathname = canonicalModulePathname(rawPathname);
 
   const items = doc?.items ?? [];
   if (items.length === 0) {

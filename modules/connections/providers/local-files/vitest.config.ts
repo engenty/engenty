@@ -4,6 +4,6 @@ import { defineConfig } from "vitest/config";
 // resolves upward and runs the whole workspace.
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "ui/**/*.test.ts"],
   },
 });

@@ -56,7 +56,13 @@ describe("registerCommercialSettingsGatewayMethods", () => {
       idempotent: true,
       dryRunSupported: false,
       requiresApproval: false,
+      spacePolicy: { kind: "tenant_shared" },
     });
+    expect(
+      serverOperations.every(
+        (operation) => operation.spacePolicy?.kind === "tenant_shared"
+      )
+    ).toBe(true);
   });
 
   it("gates the money-bearing collections behind approval", () => {

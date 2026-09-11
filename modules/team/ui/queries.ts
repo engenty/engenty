@@ -1,24 +1,29 @@
 import type { UseQueryResult } from "@engenty/query-client";
 import {
+  beginOptimisticUpdate,
   keepPreviousData,
   queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@engenty/query-client";
+import { toast } from "sonner";
 import type {
-  TeamMemberCreateInput,
   TeamMemberListItem,
   TeamMembersQueryParams,
   TeamMemberUpdateInput,
 } from "./api.js";
+import { getTeamMember, getTeamMembers, updateTeamMember } from "./api.js";
 import {
-  createTeamMember,
-  deleteTeamMember,
-  getTeamMember,
-  getTeamMembers,
-  updateTeamMember,
-} from "./api.js";
+  patchTeamMember,
+  patchTeamMemberDetailPage,
+} from "./lib/team-member-optimistic-cache.js";
+
+// biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
+export {
+  useCreateTeamMemberMutation,
+  useDeleteTeamMemberMutation,
+} from "./lib/team-member-list-optimistic.js";
 
 export const teamMemberKeys = {
   all: ["team", "members"] as const,
@@ -78,45 +83,32 @@ export function useTeamMemberDetailPageQuery(
   });
 }
 
-export function useCreateTeamMemberMutation(
-  listParams: TeamMembersQueryParams
-) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: TeamMemberCreateInput) => createTeamMember(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: teamMemberKeys.list(listParams),
-      });
-    },
-  });
-}
-
 export function useUpdateTeamMemberMutation(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (patch: TeamMemberUpdateInput) => updateTeamMember(id, patch),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: teamMemberKeys.detail(id),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: teamMemberKeys.detailPage(id),
-      });
+    onMutate: async (patch) => ({
+      transactions: await Promise.all([
+        beginOptimisticUpdate<TeamMemberListItem>(queryClient, {
+          queryKey: teamMemberKeys.detail(id),
+          update: (current) => patchTeamMember(current, patch),
+        }),
+        beginOptimisticUpdate<TeamMemberDetailPageData>(queryClient, {
+          queryKey: teamMemberKeys.detailPage(id),
+          update: (current) => patchTeamMemberDetailPage(current, patch),
+        }),
+      ]),
+    }),
+    onError: (_error, _patch, context) => {
+      context?.transactions.forEach((transaction) => transaction.rollback());
+      toast.error("Could not save the team member.");
     },
-  });
-}
-
-export function useDeleteTeamMemberMutation(
-  listParams: TeamMembersQueryParams
-) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: deleteTeamMember,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: teamMemberKeys.list(listParams),
-      });
+    onSuccess: (saved) => {
+      queryClient.setQueryData(teamMemberKeys.detail(id), saved);
+      queryClient.setQueryData<TeamMemberDetailPageData>(
+        teamMemberKeys.detailPage(id),
+        (current) => (current ? { ...current, member: saved } : current)
+      );
     },
   });
 }

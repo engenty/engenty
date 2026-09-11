@@ -42,6 +42,8 @@ const SYSTEM_PROMPT = [
 ].join(" ");
 
 export interface ResolveAutoEffortParams {
+  /** The agent's own default tier (`agentDefaultEffort`); wins over the text. */
+  agentEffort?: AiEffort | null;
   agentId?: string | null;
   /** Plan grant; null/empty = unrestricted. */
   allowedEfforts?: readonly string[] | null;
@@ -89,6 +91,7 @@ export async function resolveAutoEffort(
   }
 
   const guess = guessEffortFromPrompt({
+    agentEffort: params.agentEffort,
     agentId: params.agentId,
     hasAttachments: params.hasAttachments,
     text: params.text,
@@ -142,6 +145,8 @@ export interface ResolveEffortForRunResult {
  * model resolution. Explicit picks pass through; `auto` / missing run Auto.
  */
 export async function resolveEffortForRun(input: {
+  /** The agent's own default tier; applies only when the pick is Auto. */
+  agentEffort?: AiEffort | null;
   agentId?: string | null;
   allowedEfforts?: readonly string[] | null;
   bindings?: ModelBindings;
@@ -173,6 +178,7 @@ export async function resolveEffortForRun(input: {
   }
   // `auto` or missing → size the turn.
   const resolved = await resolveAutoEffort({
+    agentEffort: input.agentEffort,
     agentId: input.agentId,
     allowedEfforts: input.allowedEfforts,
     bindings: input.bindings,

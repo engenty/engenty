@@ -1,60 +1,62 @@
 import { describe, expect, it } from "vitest";
+import { surfaceFixture } from "../__fixtures__/registry-v3.js";
+import { findSurfaceForSource, registrySurfaces } from "../registry-client.js";
 import { mapAuth } from "./map-auth.js";
 
-/** Trimmed real-world shape: integrations.sh /api/sentry.io/discover (v3) —
- *  machine-probed facts (auth, mcp, apiCatalog) nest under `detect`. */
-const sentryDiscover = {
-  detect: {
-    auth: {
-      oauth: {
-        authorizationEndpoint: "https://sentry.io/oauth/authorize/",
-        dcr: false,
-        grantTypes: ["authorization_code", "refresh_token"],
-        scopes: ["event:read", "org:read", "project:read"],
-        tokenEndpoint: "https://sentry.io/oauth/token/",
-      },
-    },
-    mcp: [
-      {
-        auth: "oauth2",
-        authorizationServer: "https://mcp.sentry.dev",
-        dcr: true,
-        url: "https://mcp.sentry.dev/mcp",
-      },
-    ],
-  },
-  domain: "sentry.io",
-  surfaces: [
-    { type: "http", url: "https://sentry.io/api/0/" },
-    { type: "mcp", url: "https://mcp.sentry.dev/mcp" },
-  ],
-  version: 3,
-} as never;
+const resendDiscover = surfaceFixture("resend");
+const stripeDiscover = surfaceFixture("stripe");
+const plaidDiscover = surfaceFixture("plaid");
+
+const surfaceOf = (payload: ReturnType<typeof surfaceFixture>, slug: string) =>
+  registrySurfaces(payload).find((surface) => surface.slug === slug) ?? null;
 
 describe("mapAuth", () => {
-  it("maps registry OAuth facts to oauth2", () => {
+  it("maps discovered OAuth facts to an authorization-code app", () => {
     const result = mapAuth({
-      discover: sentryDiscover,
-      sourceKind: "openapi",
+      discover: resendDiscover,
+      sourceKind: "mcp",
+      surface: surfaceOf(resendDiscover, "resend-mcp"),
     });
     expect(result).toEqual({
       auth: {
-        auth_url: "https://sentry.io/oauth/authorize/",
+        auth_url: "https://api.resend.com/oauth/authorize",
         kind: "oauth2",
-        scopes: ["event:read", "org:read", "project:read"],
-        token_url: "https://sentry.io/oauth/token/",
+        scopes: ["full_access", "emails:send"],
+        token_url: "https://api.resend.com/oauth/token",
       },
       ok: true,
     });
   });
 
+  it("maps a registry http header credential to an api key", () => {
+    const result = mapAuth({
+      discover: stripeDiscover,
+      sourceKind: "openapi",
+      surface: surfaceOf(stripeDiscover, "stripe-api"),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.auth).toMatchObject({
+      fields: [{ key: "stripe_api_key", label: "Stripe API key" }],
+      kind: "api_key",
+      placement: {
+        in: "header",
+        name: "Authorization",
+        value_template: "Bearer {{stripe_api_key}}",
+      },
+    });
+  });
+
   it("prefers the spec's securitySchemes over registry facts", () => {
     const result = mapAuth({
-      discover: sentryDiscover,
+      discover: stripeDiscover,
       securitySchemes: {
         keyAuth: { in: "header", name: "X-Api-Key", type: "apiKey" },
       },
       sourceKind: "openapi",
+      surface: surfaceOf(stripeDiscover, "stripe-api"),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) {
@@ -85,15 +87,54 @@ describe("mapAuth", () => {
     });
   });
 
-  it("allows auth-less MCP servers", () => {
-    expect(mapAuth({ sourceKind: "mcp" })).toEqual({
-      auth: { kind: "none" },
-      ok: true,
+  it("keeps a confirmed-public surface public", () => {
+    const result = mapAuth({
+      sourceKind: "mcp",
+      surface: {
+        auth: { entries: [], status: "none" },
+        connect_url: "https://mcp.deepwiki.com/mcp",
+        docs: null,
+        kind: "mcp",
+        name: "DeepWiki",
+        required_headers: [],
+        slug: "deepwiki-com",
+        spec: null,
+        spec_alternates: [],
+        spec_overrides: [],
+        transports: ["streamable-http"],
+        variables: [],
+      },
     });
+    expect(result).toEqual({ auth: { kind: "none" }, ok: true });
+  });
+
+  it("no longer treats an MCP server with unknown auth as anonymous", () => {
+    const result = mapAuth({ sourceKind: "mcp" });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.reason).toMatch(/cannot map authentication/u);
+  });
+
+  it("rejects a surface whose alternatives all need several credentials", () => {
+    const surface = findSurfaceForSource(
+      plaidDiscover,
+      "https://raw.githubusercontent.com/plaid/plaid-openapi/master/2020-09-14.yml"
+    );
+    const result = mapAuth({
+      discover: plaidDiscover,
+      sourceKind: "openapi",
+      surface,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.reason).toMatch(/plaid_client_creds via/u);
   });
 
   it("rejects openapi sources with no supportable auth", () => {
-    const result = mapAuth({ sourceKind: "openapi" });
-    expect(result.ok).toBe(false);
+    expect(mapAuth({ sourceKind: "openapi" }).ok).toBe(false);
   });
 });

@@ -112,7 +112,7 @@ export function ProjectPlanningTab({
           <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
             <div className="min-w-0">
               {teamMembersLoading ? (
-                <div className="rounded-lg border border-border/60 bg-card/50 p-3 text-muted-foreground text-sm">
+                <div className="rounded-lg border border-border-soft bg-card/50 p-3 text-muted-foreground text-sm">
                   {t("detail.members.loading")}
                 </div>
               ) : teamMembersError ? (

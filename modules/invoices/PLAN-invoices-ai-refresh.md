@@ -62,8 +62,8 @@ invoices has no `ai/commands/`. Add `ai/commands/create-invoice/COMMAND.md`
 ```markdown
 ---
 command: create-invoice
-kind: action
-action_id: invoices-create-and-edit
+kind: workflow
+workflow_id: invoices-create-and-edit
 label: Create invoice
 description: Draft a new invoice for a contact
 args:
@@ -74,7 +74,7 @@ args:
 ---
 ```
 
-(`action_id` expands into a prose instruction pointing the agent at the
+(`workflow_id` expands into a prose instruction pointing the agent at the
 `invoices-create-and-edit` skill — same soft-reference mechanism the offers
 command uses; see `expandChatCommand` in
 [../../packages/ai-core/src/chat-commands/contracts.ts](../../packages/ai-core/src/chat-commands/contracts.ts).)

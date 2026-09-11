@@ -82,6 +82,7 @@ function makeDal(overrides: Partial<CoreUsersDal> = {}): CoreUsersDal {
     }),
     isAuthUserAdmin: async () => true,
     isAuthUserSuperAdmin: async () => false,
+    listUserDirectory: async () => [],
     listUsers: async () => [],
     getUserById: async () => null,
     updateUser: async () => {
@@ -273,6 +274,89 @@ describe("user management routes", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: Array<{ id: string }> };
     expect(body.data[0]?.id).toBe("u1");
+  });
+
+  /**
+   * `GET /api/users` is open to every member of the tenant on purpose — the
+   * copilot mention picker and the team modals need it. The payload is what has
+   * to stay narrow, so this pins the wire shape for a plain member.
+   *
+   * The DAL double below returns a row *carrying* the private columns, which is
+   * the only way this file can test the boundary: the routes are exercised
+   * against a fake `CoreUsersDal`, so a `select("*")` in the real DAL is
+   * invisible here. The projection is pinned separately in
+   * `dal/core-users/crud.test.ts`; this covers the second wall.
+   */
+  it("omits private profile fields from GET /api/users for a non-admin member", async () => {
+    const app = createApp(
+      makeDal({
+        resolveAuthUser: async () =>
+          ({
+            id: "u-self",
+            app_metadata: {},
+            user_metadata: {},
+            aud: "authenticated",
+            created_at: new Date().toISOString(),
+          }) as never,
+        isAuthUserAdmin: async () => false,
+        listUsers: async () =>
+          [
+            {
+              id: "u1",
+              tenant_id: "tenant-1",
+              email: "u1@example.com",
+              display_name: "User One",
+              role: "member",
+              is_super_admin: false,
+              phone: "+43 1 234",
+              initials: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              private_phone: "+43 660 000000",
+              private_email: "u1@personal.example",
+              private_address: "Hauptstrasse 1, 1010 Wien",
+              emergency_contact: "Partner, +43 660 111111",
+              employee_number: "E-0001",
+            },
+          ] as never,
+      })
+    );
+
+    const response = await app.request("/api/users", {
+      headers: { authorization: "Bearer supabase-token" },
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      data: Record<string, unknown>[];
+    };
+
+    const user = body.data[0];
+    expect(user.id).toBe("u1");
+    // The work-contact fields a directory legitimately shows.
+    expect(user.display_name).toBe("User One");
+    expect(user.phone).toBe("+43 1 234");
+    for (const field of [
+      "private_phone",
+      "private_email",
+      "private_address",
+      "emergency_contact",
+      "employee_number",
+    ]) {
+      expect(user).not.toHaveProperty(field);
+    }
+    // Nothing beyond the declared contract, whatever the row happens to carry.
+    expect(Object.keys(user).sort()).toStrictEqual([
+      "created_at",
+      "display_name",
+      "email",
+      "id",
+      "initials",
+      "is_super_admin",
+      "phone",
+      "role",
+      "tenant_id",
+      "updated_at",
+    ]);
   });
 
   it("enforces admin-only role changes through PATCH /api/users/:id", async () => {

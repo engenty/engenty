@@ -28,6 +28,40 @@ export const FILES_COLUMN_TO_SORT: Partial<
   created_at: "created_at",
 };
 
+/**
+ * Sort a batch of files by the list's active column.
+ *
+ * Extracted because the tree renders more than one batch: the folder rows
+ * expanded in place each fetch their own children, and a child batch sorted by
+ * a different rule than its parent reads as a bug, not as a nested list.
+ */
+export function sortFilesBy(
+  files: FilesFileWithId[],
+  sortBy: FilesSortColumn,
+  sortOrder: "asc" | "desc"
+): FilesFileWithId[] {
+  const sorted = [...files];
+  sorted.sort((a, b) => {
+    let cmp = 0;
+    switch (sortBy) {
+      case "filename":
+        cmp = a.filename.localeCompare(b.filename);
+        break;
+      case "size":
+        cmp = a.size_bytes - b.size_bytes;
+        break;
+      case "mime_type":
+        cmp = a.mime_type.localeCompare(b.mime_type);
+        break;
+      case "created_at":
+        cmp = a.created_at.localeCompare(b.created_at);
+        break;
+    }
+    return sortOrder === "desc" ? -cmp : cmp;
+  });
+  return sorted;
+}
+
 /* ── Display defaults (persisted via useListDisplayState) ── */
 
 export const FILES_DISPLAY_DEFAULTS = {

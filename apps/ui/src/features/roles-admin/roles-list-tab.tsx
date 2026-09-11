@@ -74,7 +74,7 @@ function RoleRow({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-border/40 border-b py-2.5 last:border-0">
+    <div className="flex items-start justify-between gap-4 border-border-soft border-b py-2.5 last:border-0">
       <div className="flex min-w-0 items-center gap-2 pt-0.5">
         <code className="font-mono text-foreground text-sm">{id}</code>
         {badge}

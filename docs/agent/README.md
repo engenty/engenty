@@ -9,6 +9,13 @@
 | **Any agent** | [AGENTS.md](../../AGENTS.md) | [rules/](./rules/) — read the file that matches your task |
 | **Cursor** | AGENTS.md (project rule) | `.cursor/rules/*.mdc` — symlinks to `docs/agent/rules/` |
 
+## Architecture references
+
+- [Who drives what](./who-drives.md) — Copilot dock vs Engenties vs tasks
+- [Spaces runtime contract](./spaces-runtime.md) — canonical tenant, active
+  Space, catalog, execution-evidence, and record-scope semantics for agent runs
+- [Design system](./DESIGN.md) — canonical visual UI rules
+
 ## Rule index
 
 | Rule | When to load |

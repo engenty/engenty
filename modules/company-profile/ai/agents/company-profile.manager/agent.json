@@ -3,7 +3,9 @@
   "id": "company-profile.manager",
   "name": "Company Profile Manager",
   "description": "Reviews and maintains company profile settings, including the logo, from official website snippets and public research.",
+  "engenty": "sprout",
   "module_id": "company-profile",
+  "agent_scope": "shared",
   "skills": [],
   "tools": [
     "loadCompanyProfile",
@@ -12,9 +14,41 @@
     "uploadAsset",
     "companyWebsitePages",
     "convert_image",
-    "web_search",
-    "memory_save",
-    "memory_record_search",
-    "memory_record_archive"
+    "web_search"
+  ],
+  "starters": [
+    {
+      "id": "profile-review",
+      "label": "Review our profile",
+      "prompt": "Review the company profile and flag anything missing or inconsistent.",
+      "locales": {
+        "de": {
+          "label": "Profil pr\u00fcfen",
+          "prompt": "Pr\u00fcfe das Firmenprofil und markiere, was fehlt oder widerspr\u00fcchlich ist."
+        }
+      }
+    },
+    {
+      "id": "profile-logo",
+      "label": "Update the logo",
+      "prompt": "Help me set or refresh the company logo from our website or an uploaded file.",
+      "locales": {
+        "de": {
+          "label": "Logo aktualisieren",
+          "prompt": "Hilf mir, das Firmenlogo von unserer Website oder einer Datei zu setzen oder zu aktualisieren."
+        }
+      }
+    },
+    {
+      "id": "profile-website",
+      "label": "Research our website",
+      "prompt": "Read our official website and propose company-profile field updates I can review.",
+      "locales": {
+        "de": {
+          "label": "Website recherchieren",
+          "prompt": "Lies unsere offizielle Website und schlage Profil-Feld\u00e4nderungen vor, die ich pr\u00fcfen kann."
+        }
+      }
+    }
   ]
 }

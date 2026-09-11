@@ -1,0 +1,35 @@
+{
+  "name": "@engenty/notifications",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup index.ts --format esm --clean",
+    "dev": "tsup index.ts --format esm --watch",
+    "test": "vitest run -r ../.. packages/notifications",
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@supabase/supabase-js": "^2.108.2",
+    "web-push": "^3.6.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/web-push": "^3.6.4",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

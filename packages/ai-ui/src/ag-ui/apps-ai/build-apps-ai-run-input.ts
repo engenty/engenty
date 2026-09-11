@@ -4,7 +4,11 @@ import type {
   Message,
   RunAgentInput,
 } from "@engenty/ag-ui-bridge";
-import { isAgentUiStateSnapshotV1, toAgUiTool } from "@engenty/ag-ui-bridge";
+import {
+  agentUiStateForwardedProps,
+  isAgentUiStateSnapshotV1,
+  toAgUiTool,
+} from "@engenty/ag-ui-bridge";
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
 import type { EngentyAgUiRouteContext } from "../engenty-ag-ui-route-context.js";
 
@@ -54,6 +58,7 @@ function buildAppsAiRunInputBase(params: {
   routeContext: EngentyAgUiRouteContext;
   threadId: string;
   state: RunAgentInput["state"];
+  steerOnly?: boolean;
 }): RunAgentInput {
   const { routeContext } = params;
   const pathname = params.pathname;
@@ -92,11 +97,10 @@ function buildAppsAiRunInputBase(params: {
       { description: "Engenty route key", value: routeKey },
       { description: "Engenty route", value: pathname },
     ],
-    // Only what the server actually reads. `scope` used to ride along here and
-    // was never read on any code path — the route facts the agent uses come
-    // from `state` (the AgentUiStateSnapshot, which the prompt header declares
-    // authoritative) and `context` above. Re-adding a key here is only useful
-    // once something consumes it.
+    // Only what the server actually reads. Route facts reach the agent through
+    // `ui_state` (the AgentUiStateSnapshot, which the prompt header declares
+    // authoritative) and `context` above — add a key here only once something
+    // consumes it.
     forwardedProps: {
       engenty: {
         // Effort travels *alongside* model_id, never instead of it: a
@@ -104,11 +108,22 @@ function buildAppsAiRunInputBase(params: {
         // winning over the tier the composer suggests.
         ...(params.effort ? { effort: params.effort } : {}),
         ...(modelId ? { model_id: modelId } : {}),
+        // Only into the run already answering on this thread — never a run
+        // of its own. The server answers 409 when there is none to steer.
+        ...(params.steerOnly ? { steer_only: true } : {}),
+        // The UI snapshot rides here, NOT on `state` — see
+        // readAgentUiStateSnapshot in @engenty/ag-ui-bridge for why.
+        ...agentUiStateForwardedProps(
+          isAgentUiStateSnapshotV1(snapshot) ? snapshot : undefined
+        ),
       },
     },
     messages: [...params.messages],
     runId: createRunId(),
-    state: snapshot,
+    // AG-UI `state` is the agent's shared, DURABLE state. We have nothing that
+    // belongs there, and leaving our transient UI snapshot in it would be merged
+    // into working memory by any spec-following backend.
+    state: {},
     threadId: params.threadId,
     tools: tools.map(toAgUiTool),
   };
@@ -121,6 +136,8 @@ export function buildAppsAiRunInput(params: {
   modelId?: string | null;
   pathname: string;
   routeContext: EngentyAgUiRouteContext;
+  /** Steer the run in flight on this thread, or fail — start nothing. */
+  steerOnly?: boolean;
   threadId: string;
   state: RunAgentInput["state"];
 }): RunAgentInput {

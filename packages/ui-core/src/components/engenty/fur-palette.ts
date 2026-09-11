@@ -6,8 +6,7 @@
  * a browser accepts, so that is what this does, memoized per resolved string.
  */
 
-import type { EngentyKind } from "./colors";
-import { ENGENTY_FILL } from "./colors";
+import { ENGENTY_FILL, ENGENTY_KIND_FILL, type EngentyKind } from "./colors";
 
 export type Rgb = [number, number, number];
 
@@ -19,19 +18,6 @@ export interface FurPalette {
   /** Backlit tips — the halo around the silhouette. */
   tip: Rgb;
 }
-
-const FILL_BY_KIND: Record<EngentyKind, keyof typeof ENGENTY_FILL> = {
-  bean: "teal",
-  dome: "moss",
-  drop: "amber",
-  flame: "rose",
-  oval: "ember",
-  pebble: "slate",
-  round: "cobalt",
-  sprout: "citron",
-  tower: "violet",
-  wedge: "magenta",
-};
 
 const cache = new Map<string, Rgb>();
 let paint: CanvasRenderingContext2D | null = null;
@@ -106,7 +92,7 @@ const mix = (a: Rgb, b: Rgb, t: number): Rgb => [
  * gives the reference renders their violet fringe on a blue body.
  */
 export function furPalette(element: Element, kind: EngentyKind): FurPalette {
-  const body = resolveFill(element, ENGENTY_FILL[FILL_BY_KIND[kind]]);
+  const body = resolveFill(element, ENGENTY_FILL[ENGENTY_KIND_FILL[kind]]);
   const peak = Math.max(...body);
   const boosted: Rgb = [
     Math.min(1, body[0] + (body[0] / (peak || 1)) * 0.45),

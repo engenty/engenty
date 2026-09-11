@@ -6,25 +6,31 @@ import { z } from "zod";
 
 import { AiSessionError } from "../errors.js";
 import type { EngentyNativeMemoryAgent } from "./invocation-options.js";
+import { observationalMemoryLanguageModel } from "./observational-memory-model.js";
+import {
+  createSemanticRecallBindings,
+  semanticRecallEnabled,
+} from "./semantic-recall.js";
 
 const ENGENTY_MEMORY_STORE_ID = "engenty-session-memory";
+type EngentyMemoryOptions = NonNullable<
+  NonNullable<ConstructorParameters<typeof Memory>[0]>["options"]
+>;
 
-// The agent-maintained per-USER profile (resource-scoped working memory):
-// injected into the system prompt each turn and updated by the agent via the
-// auto-registered `updateWorkingMemory` tool. Deliberately small and bounded —
-// schema form MERGES updates (vs free-form template replacement) and the
-// settings UI renders it read-only ("what the assistant knows about you").
+export function observationalMemoryEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return env.ENGENTY_AI_OBSERVATIONAL_MEMORY !== "false";
+}
+
+// The Observer-maintained per-USER profile (resource-scoped working memory):
+// delivered as a state signal each turn so profile updates do not invalidate
+// the provider's system-prefix cache. The main agent has no update tool.
+// Deliberately small and bounded; Settings → Memory is read-only
+// ("what the assistant knows about you") with reset as the only edit.
 // Persistence: the adapter's resource methods, delegated to ai.mastra_resources
-// keyed `${tenantId}:${userId}`.
-//
-// BOUNDARY vs the memory module (memory_save): this profile is the tiny,
-// always-in-context *identity/context* snapshot only. Anything specific and
-// durable a user states — "always sign off with 'lg, Matthias'", "never batch
-// LinkedIn lookups" — belongs in memory_save, NOT here, so it is itemized,
-// cited, recallable, and governed. Mastra builds its auto-injected working-
-// memory instructions from these field descriptions, so the descriptions
-// actively delegate specifics to memory_save to stop the model from parking
-// durable preferences/facts in the profile where the memory UI can't see them.
+// keyed `${tenantId}:${resourceId}` — userId for Copilot, spaceId for shared
+// specialist rooms (threadId only when the thread has no Space).
 export const workingMemoryProfileSchema = z.object({
   preferred_language: z
     .string()
@@ -46,14 +52,14 @@ export const workingMemoryProfileSchema = z.object({
     .max(12)
     .optional()
     .describe(
-      "At most a couple of broad, always-relevant working defaults (e.g. 'writes in German'). A specific stated preference the user asks you to remember is NOT stored here — save it with memory_save (scope user) so it is tracked and recallable."
+      "At most a couple of broad, always-relevant working defaults (e.g. 'writes in German'). Keep this tiny — it is injected every turn."
     ),
   facts: z
     .array(z.string().max(200))
     .max(12)
     .optional()
     .describe(
-      "Only ambient context that must be in every prompt. Concrete facts about people, projects, or how the user works belong in memory_save (the memory module), not here."
+      "Only ambient context that must be in every prompt (name, timezone). Keep this tiny."
     ),
 });
 
@@ -67,48 +73,113 @@ const GENERATE_TITLE_INSTRUCTIONS = `
 - the entire text you return will be used as the title`;
 
 export interface EngentySessionMastraMemoryOptions {
+  /** Configured routing/chat model id; resolved via the AI Gateway. */
+  modelId?: string | null;
   storage: MemoryStorage;
 }
 
-// Recall window for Mastra MessageList on each agent step. History beyond this
-// window is not injected into the model prompt. We rely on Mastra's end-of-step
-// write to EngentySessionMemoryStorage (not savePerStep) unless mid-run reload
-// tests prove we need per-step persistence for suspended/resumed runs.
+/** Fallback recall when OM is off. Mastra default; unused once an OM record exists. */
+export const ENGENTY_MEMORY_LAST_MESSAGES = 10;
+
+/**
+ * Unobserved raw-message budget before thread OM may compact. Mastra's 30k
+ * default is tight for 128k+ chat models once tools and instructions sit on
+ * top; 80k delays prefix rewrites (better prompt cache) while leaving headroom
+ * for this turn's tool transcript.
+ */
+export const ENGENTY_OBSERVATION_MESSAGE_TOKENS = 80_000;
+
+/**
+ * Output budgets for the observer and reflector, and the observer's input cap.
+ *
+ * Both steps write a complete structured document and are all-or-nothing: a run
+ * that hits the provider default mid-document is discarded, so the work is paid
+ * for and nothing is stored — and the observation pile it was meant to shrink
+ * grows instead. Diagnosed 2026-08-28 on the resource-scoped engine
+ * (`shared-observational-memory.ts`); this thread-scoped one runs on the same
+ * conversation and needs the same guards.
+ */
+export const ENGENTY_OBSERVER_MAX_OUTPUT_TOKENS = 8000;
+export const ENGENTY_REFLECTOR_MAX_OUTPUT_TOKENS = 16_000;
+export const ENGENTY_PREVIOUS_OBSERVER_TOKENS = 8000;
+
+export function createEngentySessionMemoryOptions(
+  env: NodeJS.ProcessEnv = process.env,
+  modelId?: string | null
+): EngentyMemoryOptions {
+  return {
+    lastMessages: ENGENTY_MEMORY_LAST_MESSAGES,
+    generateTitle: {
+      instructions: GENERATE_TITLE_INSTRUCTIONS,
+    } as NonNullable<MemoryConfig["generateTitle"]>,
+    workingMemory: {
+      agentManaged: false,
+      enabled: true,
+      scope: "resource",
+      schema: workingMemoryProfileSchema,
+      useStateSignals: true,
+    },
+    observationalMemory: observationalMemoryEnabled(env)
+      ? {
+          activateAfterIdle: "auto",
+          activateOnProviderChange: true,
+          enabled: true,
+          model: observationalMemoryLanguageModel(modelId),
+          observation: {
+            // Was `bufferOnIdle: true`, which is "observe at the end of EVERY
+            // turn" — independent of `messageTokens`. Measured 2026-08-29: two
+            // observer calls per turn, 10.5k input tokens against the copilot
+            // step's 36.6k, i.e. ~22% of the turn spent re-reading the same
+            // conversation. Observation now follows the token schedule
+            // (`bufferTokens` defaults to 20% of `messageTokens`), and
+            // `activateAfterIdle: "auto"` still force-activates what was
+            // buffered, so nothing is lost — it lands a little later.
+            bufferOnIdle: false,
+            manageWorkingMemory: true,
+            messageTokens: ENGENTY_OBSERVATION_MESSAGE_TOKENS,
+            // The observer is handed "Previous Observations" in full unless
+            // capped, so its prompt grows with the pile it is meant to condense.
+            previousObserverTokens: ENGENTY_PREVIOUS_OBSERVER_TOKENS,
+            modelSettings: {
+              maxOutputTokens: ENGENTY_OBSERVER_MAX_OUTPUT_TOKENS,
+            },
+            observeAttachments: false,
+          },
+          reflection: {
+            modelSettings: {
+              maxOutputTokens: ENGENTY_REFLECTOR_MAX_OUTPUT_TOKENS,
+            },
+          },
+          scope: "thread",
+        }
+      : false,
+    ...(semanticRecallEnabled(env)
+      ? {
+          semanticRecall: {
+            messageRange: { after: 1, before: 1 },
+            scope: "thread" as const,
+            topK: 4,
+          },
+        }
+      : {}),
+  };
+}
+
+// Fallback recall window when OM is disabled/unavailable. Once a thread has an
+// OM record, Mastra loads all unobserved messages after its observation cursor.
 export function createEngentySessionMastraMemory(
   options: EngentySessionMastraMemoryOptions
 ): Memory {
+  const semantic = createSemanticRecallBindings();
   return new Memory({
-    options: {
-      lastMessages: 40,
-      // Title synthesis on the thread's FIRST exchange only (compiled gate:
-      // `!thread.title`); `model` omitted → the agent's own model. A failure
-      // logs and returns undefined — it never breaks the run.
-      // Mastra 1.55 types require `model` on the object form; runtime still
-      // falls back to the agent model when it is omitted.
-      generateTitle: {
-        instructions: GENERATE_TITLE_INSTRUCTIONS,
-      } as NonNullable<MemoryConfig["generateTitle"]>,
-      workingMemory: {
-        // READ-ONLY to the model: the stored profile is still injected every
-        // run (Mastra's `WorkingMemory` input processor is gated on `enabled`
-        // alone), but `agentManaged: false` drops the `updateWorkingMemory`
-        // tool — 419 tokens, 81% of them schema, on EVERY model call.
-        //
-        // The trade: nothing writes the profile from inside a chat any more.
-        // That is the intended split — durable facts belong in `memory_save`,
-        // which is scoped, searchable and reviewable, where working memory was
-        // an unreviewed side-channel the model wrote on a whim.
-        agentManaged: false,
-        enabled: true,
-        // Per-user across all their chats (Mastra resourceId = engenty userId).
-        scope: "resource",
-        schema: workingMemoryProfileSchema,
-      },
-    },
+    options: createEngentySessionMemoryOptions(process.env, options.modelId),
     storage: new MastraCompositeStore({
       domains: { memory: options.storage },
       id: ENGENTY_MEMORY_STORE_ID,
     }),
+    ...(semantic
+      ? { embedder: semantic.embedder, vector: semantic.vector }
+      : {}),
   });
 }
 

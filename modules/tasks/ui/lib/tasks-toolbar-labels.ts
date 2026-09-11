@@ -15,6 +15,7 @@ export function getTasksToolbarLabels(
     filterByAssigneeKind: t("list.filterByAssigneeKind"),
     assigneeHuman: t("list.assigneeHuman"),
     assigneeAgent: t("list.assigneeAgent"),
+    assigneeRuns: t("list.assigneeRuns"),
     compactView: t("list.compactView"),
     sortBy: t("list.sortBy"),
     ascending: t("list.ascending"),

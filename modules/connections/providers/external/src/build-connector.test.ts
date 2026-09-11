@@ -4,6 +4,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildImportedConnector } from "./build-connector.js";
 import type { ImportedConnectorRecord } from "./types.js";
 
+// Action handlers go through the SSRF guard, which resolves the host for real.
+// The example hosts here do not exist, so DNS is stubbed to a public address.
+vi.mock("node:dns/promises", () => ({
+  lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+}));
+
 beforeAll(() => {
   vi.stubEnv("CONNECTIONS_TOKEN_ENC_KEY", randomBytes(32).toString("base64"));
 });
@@ -59,9 +65,12 @@ function record(
     id: "ext-pets",
     imported_at: new Date().toISOString(),
     imported_by: "00000000-0000-0000-0000-000000000000",
+    mcp_transport: null,
     name: "Pets",
     refreshed_at: null,
     registry_snapshot: null,
+    registry_surface_slug: null,
+    required_headers: [],
     source_kind: "openapi",
     source_url: "https://pets.example/openapi.json",
     spec_hash: "h",
@@ -160,5 +169,38 @@ describe("buildImportedConnector", () => {
     const calledUrl = (fetchImpl as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as URL;
     expect(calledUrl.toString()).toContain("https://api2.pets.example");
+  });
+});
+
+describe("records imported before the registry-surface migration", () => {
+  it("boots and executes with the new fields absent", async () => {
+    const legacy = {
+      ...record(),
+      mcp_transport: undefined,
+      registry_surface_slug: undefined,
+      required_headers: undefined,
+    } as unknown as ImportedConnectorRecord;
+    const { connector, skippedActions } = buildImportedConnector(legacy);
+    expect(skippedActions).toEqual([]);
+
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify([{ id: 1 }]), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        })
+    ) as unknown as typeof fetch;
+    const list = connector.actions.find((action) => action.id === "list_pets");
+    await expect(
+      list?.handler(
+        {},
+        {
+          accessToken: "",
+          connection: {} as never,
+          fetchImpl,
+          log: () => undefined,
+        }
+      )
+    ).resolves.toBeDefined();
   });
 });

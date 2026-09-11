@@ -86,7 +86,11 @@ const registerTeamChatPlugin: EngentyPluginFactory = (engenty) => {
   server.registerRetrievalSource?.(createTeamChatRetrievalSource({ getDb }));
 
   const queue = server.getQueueService?.() ?? null;
-  registerTeamChatGatewayMethods(server, { queue, repoForAuth });
+  registerTeamChatGatewayMethods(server, {
+    notifications: server.notifications ?? null,
+    queue,
+    repoForAuth,
+  });
 
   // Project activity feed (Phase 4): task activity from the tasks module bus
   // becomes a system message in the bound project channel.

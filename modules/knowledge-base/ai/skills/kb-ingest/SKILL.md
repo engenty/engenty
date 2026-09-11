@@ -9,6 +9,10 @@ allowed-tools: engenty_tools_search engenty_tool_execute web_search
 
 Use this skill when capturing raw sources, triaging inbox rows, or preparing promotion to the compiled wiki.
 
+## Spaces
+
+- Ingest into a Knowledge Base in **current_space**. The Space has exactly one Knowledge Base; that is the target.
+
 ## Principles
 
 - **Inbox is immutable-ish capture**; compiled pages are articles/FAQs.

@@ -6,8 +6,10 @@ import {
 } from "@engenty/query-client";
 import { getAiServiceBaseUrl } from "../runtime/ai-service-client.js";
 import {
+  getFileStorageSkillFile,
   installSkillFromRegistry,
   listSkillRegistryProviders,
+  putFileStorageSkillFile,
   searchSkillRegistry,
 } from "../runtime/skills-api.js";
 import type { AiAgentOverridesPatch } from "./ai-runtime-api.js";
@@ -27,13 +29,13 @@ import {
   getAdminAiThreadMessages,
   getAdminAiThreadStats,
   getAdminAiThreads,
-  getAiActionDetail,
-  getAiActions,
   getAiAgents,
   getAiSkillCatalog,
   getAiSkillDetail,
   getAiSkills,
   getAiTriggers,
+  getAiWorkflowDetail,
+  getAiWorkflows,
   getCustomAgent,
   getCustomTool,
   getRegistryTools,
@@ -45,14 +47,16 @@ import {
 } from "./ai-runtime-api.js";
 
 export const aiRuntimeKeys = {
-  actionDetail: (actionId: string | null) =>
-    [...aiRuntimeKeys.all, "action-detail", actionId] as const,
+  workflowDetail: (workflowId: string | null) =>
+    [...aiRuntimeKeys.all, "workflow-detail", workflowId] as const,
   all: ["ai-runtime"] as const,
-  actions: () => [...aiRuntimeKeys.all, "actions"] as const,
+  workflows: () => [...aiRuntimeKeys.all, "workflows"] as const,
   agents: () => [...aiRuntimeKeys.all, "agents"] as const,
   skillCatalog: () => [...aiRuntimeKeys.all, "skill-catalog"] as const,
   skillDetail: (skillId: string | null) =>
     [...aiRuntimeKeys.all, "skill-detail", skillId] as const,
+  skillFile: (skillId: string | null, path: string | null) =>
+    [...aiRuntimeKeys.all, "skill-file", skillId, path] as const,
   skillRegistryProviders: () =>
     [...aiRuntimeKeys.all, "skill-registry-providers"] as const,
   skillRegistrySearch: (provider: string | null, query: string) =>
@@ -110,9 +114,9 @@ export function usePatchAiAgentOverridesMutation() {
   });
 }
 
-export const aiActionsOptions = queryOptions({
-  queryKey: aiRuntimeKeys.actions(),
-  queryFn: ({ signal }) => getAiActions(signal),
+export const aiWorkflowsOptions = queryOptions({
+  queryKey: aiRuntimeKeys.workflows(),
+  queryFn: ({ signal }) => getAiWorkflows(signal),
 });
 
 export const aiTriggersOptions = queryOptions({
@@ -162,11 +166,11 @@ export const aiSkillsOptions = queryOptions({
   queryFn: ({ signal }) => getAiSkills(signal),
 });
 
-export function aiActionDetailOptions(actionId: string | null) {
+export function aiWorkflowDetailOptions(workflowId: string | null) {
   return queryOptions({
-    enabled: Boolean(actionId),
-    queryFn: ({ signal }) => getAiActionDetail(actionId ?? "", signal),
-    queryKey: aiRuntimeKeys.actionDetail(actionId),
+    enabled: Boolean(workflowId),
+    queryFn: ({ signal }) => getAiWorkflowDetail(workflowId ?? "", signal),
+    queryKey: aiRuntimeKeys.workflowDetail(workflowId),
   });
 }
 
@@ -191,8 +195,8 @@ export function useAiAgentsQuery(enabled = true) {
   });
 }
 
-export function useAiActionsQuery() {
-  return useQuery(aiActionsOptions);
+export function useAiWorkflowsQuery() {
+  return useQuery(aiWorkflowsOptions);
 }
 
 export function useAiTriggersQuery() {
@@ -322,12 +326,27 @@ export function useAiSkillsQuery() {
   return useQuery(aiSkillsOptions);
 }
 
-export function useAiActionDetailQuery(actionId: string | null) {
-  return useQuery(aiActionDetailOptions(actionId));
+export function useAiWorkflowDetailQuery(workflowId: string | null) {
+  return useQuery(aiWorkflowDetailOptions(workflowId));
 }
 
 export function useAiSkillDetailQuery(skillId: string | null) {
   return useQuery(aiSkillDetailOptions(skillId));
+}
+
+export function useAiSkillFileQuery(
+  skillId: string | null,
+  relativePath: string | null,
+  enabled = true
+) {
+  const path = relativePath?.replace(/^\/+/, "") ?? "";
+  return useQuery({
+    enabled: enabled && Boolean(skillId && path && path !== "SKILL.md"),
+    queryFn: ({ signal }) =>
+      getFileStorageSkillFile(skillId ?? "", path, signal),
+    queryKey: aiRuntimeKeys.skillFile(skillId, path),
+    retry: false,
+  });
 }
 
 export function useCreateAiSkillMutation() {
@@ -362,7 +381,30 @@ export function useUpdateAiSkillMutation() {
           queryKey: aiRuntimeKeys.skillDetail(variables.skillId),
         }),
         queryClient.invalidateQueries({
+          queryKey: [...aiRuntimeKeys.all, "skill-file", variables.skillId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...aiRuntimeKeys.all, "skill-file", result.skill.name],
+        }),
+        queryClient.invalidateQueries({
           queryKey: aiRuntimeKeys.skillCatalog(),
+        }),
+      ]);
+    },
+  });
+}
+
+export function usePutAiSkillFileMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: putFileStorageSkillFile,
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: aiRuntimeKeys.skillDetail(variables.name),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: aiRuntimeKeys.skillFile(variables.name, variables.path),
         }),
       ]);
     },
@@ -412,8 +454,11 @@ export function useAiSkillRegistrySearchQuery(
 export function useInstallAiSkillMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { provider: string; ref: { id: string } }) =>
-      installSkillFromRegistry(input),
+    mutationFn: (input: {
+      attach?: { agentId?: string; spaceId?: string };
+      provider: string;
+      ref: { id: string };
+    }) => installSkillFromRegistry(input),
     onSuccess: async (result) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.skills() }),
@@ -423,6 +468,7 @@ export function useInstallAiSkillMutation() {
         queryClient.invalidateQueries({
           queryKey: aiRuntimeKeys.skillDetail(result.skill.name),
         }),
+        queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.agents() }),
       ]);
     },
   });
@@ -485,6 +531,7 @@ export function useCreateCustomAgentMutation() {
           queryKey: customRegistryKeys.agentDetail(result.agent.id),
         }),
         queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.agents() }),
+        queryClient.invalidateQueries({ queryKey: ["spaces"] }),
       ]);
     },
   });
@@ -509,6 +556,10 @@ export function useUpdateCustomAgentMutation() {
           queryKey: customRegistryKeys.agentDetail(result.agent.id),
         }),
         queryClient.invalidateQueries({ queryKey: aiRuntimeKeys.agents() }),
+        // The specialist desk (`agentDeskKeys` in features/agent-desk) renders
+        // name, mandate and engenty from its own feed query — refresh it so an
+        // edit made on the Manage tab shows up without a reload.
+        queryClient.invalidateQueries({ queryKey: ["agent-desk"] }),
       ]);
     },
   });
@@ -517,8 +568,9 @@ export function useUpdateCustomAgentMutation() {
 export function useDeleteCustomAgentMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deleteCustomAgent,
-    onSuccess: async (_result, agentId) => {
+    mutationFn: ({ agentId, force }: { agentId: string; force?: boolean }) =>
+      deleteCustomAgent(agentId, force),
+    onSuccess: async (_result, { agentId }) => {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: customRegistryKeys.agents(),

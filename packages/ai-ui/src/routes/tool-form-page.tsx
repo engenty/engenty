@@ -97,7 +97,6 @@ export function ToolFormPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   const patchDraft = useCallback((patch: Partial<CustomToolDraft>) => {

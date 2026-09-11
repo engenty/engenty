@@ -18,7 +18,6 @@ import {
   Textarea,
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
-import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Check, ImageIcon, Search, Sparkles, Upload } from "lucide-react";
 import {
   useCallback,
@@ -53,7 +52,6 @@ export function KbHubCoverDialog({
   open,
   onOpenChange,
   kbId,
-  kbSlug,
   currentCover,
   onApplyCover,
   pending,
@@ -61,14 +59,11 @@ export function KbHubCoverDialog({
   open: boolean;
   onOpenChange: (next: boolean) => void;
   kbId: string;
-  kbSlug: string;
   currentCover: KbCover | null | undefined;
   onApplyCover: (cover: KbCover) => void;
   pending: boolean;
 }) {
   const { t } = useTranslation("kb");
-  const { currentTenant } = useWorkspaceContext();
-  const tenantId = currentTenant?.id ?? null;
   const fileInputId = useId();
   const aiRefInputId = useId();
   const dropRef = useRef<HTMLDivElement>(null);
@@ -206,16 +201,11 @@ export function KbHubCoverDialog({
         toast.error(t("hub.cover_picker_upload_too_large"));
         return;
       }
-      if (!tenantId) {
-        toast.error(t("hub.cover_picker_upload_failed"));
-        return;
-      }
       setUploading(true);
       try {
         const uploaded = await uploadKbVaultFile(file, {
-          kbSlug,
+          kbId,
           subPath: "covers",
-          tenantId,
         });
         onApplyCover({ type: "image", value: uploaded.key });
         onOpenChange(false);
@@ -227,7 +217,7 @@ export function KbHubCoverDialog({
         setUploading(false);
       }
     },
-    [kbSlug, onApplyCover, onOpenChange, t, tenantId]
+    [kbId, onApplyCover, onOpenChange, t]
   );
 
   const onAiRefFile = useCallback(
@@ -243,16 +233,11 @@ export function KbHubCoverDialog({
         toast.error(t("hub.cover_picker_upload_too_large"));
         return;
       }
-      if (!tenantId) {
-        toast.error(t("hub.cover_picker_upload_failed"));
-        return;
-      }
       setAiRefUploading(true);
       try {
         const uploaded = await uploadKbVaultFile(file, {
-          kbSlug,
+          kbId,
           subPath: "covers",
-          tenantId,
         });
         setAiReferenceObjectKey(uploaded.key);
         setUseCurrentCoverAsRef(false);
@@ -265,7 +250,7 @@ export function KbHubCoverDialog({
         setAiRefUploading(false);
       }
     },
-    [kbSlug, t, tenantId]
+    [kbId, t]
   );
 
   const runUnsplashSearch = () => {
@@ -290,7 +275,7 @@ export function KbHubCoverDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="flex max-h-[min(90vh,720px)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader className="border-border/60 border-b px-4 py-3 text-left">
+        <DialogHeader className="border-border-soft border-b px-4 py-3 text-left">
           <DialogTitle className="text-base">
             {t("hub.cover_dialog_title")}
           </DialogTitle>
@@ -332,7 +317,7 @@ export function KbHubCoverDialog({
                             "relative size-8 rounded-md border transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             selected
                               ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background"
-                              : "border-border/40"
+                              : "border-border-soft"
                           )}
                           key={p.value}
                           onClick={() => {
@@ -372,7 +357,7 @@ export function KbHubCoverDialog({
                         "relative h-10 w-full rounded-md border transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         selected
                           ? "border-primary ring-2 ring-primary ring-offset-2 ring-offset-background"
-                          : "border-border/40"
+                          : "border-border-soft"
                       )}
                       key={p.value}
                       onClick={() => {
@@ -432,7 +417,7 @@ export function KbHubCoverDialog({
                       "flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-6 transition-colors",
                       highlightDrop
                         ? "border-primary bg-primary/5"
-                        : "border-border/60 bg-muted/20 hover:bg-muted/35"
+                        : "border-border-soft bg-muted/20 hover:bg-muted/35"
                     )}
                     onClick={() => fileRef.current?.click()}
                     onDragLeave={() => setHighlightDrop(false)}
@@ -559,7 +544,7 @@ export function KbHubCoverDialog({
                   <div className="grid max-h-56 grid-cols-3 gap-1.5 overflow-y-auto pr-0.5">
                     {(unsplashQuery.data?.photos ?? []).map((p) => (
                       <button
-                        className="group relative aspect-square overflow-hidden rounded-md border border-border/40 bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="group relative aspect-square overflow-hidden rounded-md border border-border-soft bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         disabled={importUnsplashMutation.isPending}
                         key={p.id}
                         onClick={() => importUnsplashMutation.mutate(p.id)}
@@ -618,7 +603,7 @@ export function KbHubCoverDialog({
                   </Tabs>
 
                   {aiMode === "edit" ? (
-                    <div className="space-y-2 rounded-md border border-border/50 bg-muted/15 p-2.5">
+                    <div className="space-y-2 rounded-md border border-border-soft bg-muted/15 p-2.5">
                       <div className="flex items-start gap-2">
                         <Checkbox
                           checked={useCurrentCoverAsRef}
@@ -726,7 +711,7 @@ export function KbHubCoverDialog({
 
         {currentCover?.type === "image" &&
         currentCover.source?.kind === "unsplash" ? (
-          <div className="border-border/60 border-t px-4 py-2 text-muted-foreground text-xxs">
+          <div className="border-border-soft border-t px-4 py-2 text-muted-foreground text-xxs">
             {t("hub.cover_attribution_photo_by")}{" "}
             <a
               className="text-foreground underline underline-offset-2"

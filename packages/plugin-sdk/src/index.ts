@@ -9,6 +9,19 @@ import type { PluginCategory } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
 export {
+  AGENT_APPROVAL_MODES,
+  type AgentApprovalMode,
+  effectiveApprovalMode,
+  parseAgentApprovalMode,
+  shouldAskHuman,
+} from "./agent-approval-mode.js";
+export {
+  type AgentKind,
+  canAgentOwnTrigger,
+  type RoutineSource,
+  type TriggerOwnerAgent,
+} from "./agent-role.js";
+export {
   AUTOMATION_HOOK_KB_INBOX_ITEM_CREATED,
   type AutomationHookListener,
   type AutomationHookPayload,
@@ -26,6 +39,11 @@ export {
   type ResolvePluginCapabilityParams,
   resolvePluginCapability,
 } from "./capability-resolver.js";
+export {
+  COMPUTER_NETWORK_TIERS,
+  type ComputerNetworkTier,
+  parseComputerNetworkTier,
+} from "./computer-network-tier.js";
 export type {
   ContextGraphEventBinding,
   ContextGraphHost,
@@ -41,18 +59,157 @@ export type {
   PluginContextGraphServerApi,
 } from "./context-graph-registration.js";
 export {
+  clearDefaultSpaceCache,
+  resolveDefaultSpaceId,
+} from "./default-space.js";
+export {
   type ForeignTableRef,
   foreignSelect,
   type TenantScope,
 } from "./foreign-schema.js";
+export {
+  createRecordLinker,
+  moduleRecordPath,
+  type RecordLinkAuth,
+  type RecordLinker,
+  withRecordLink,
+  withRecordLinks,
+} from "./record-link.js";
+export {
+  resolveSpaceAgentMount,
+  type SpaceAgentMountClient,
+  type SpaceAgentMountResolution,
+} from "./space-agent-mount.js";
+export {
+  assertSpaceDataMemberEditable,
+  assertSpaceDataVersion,
+  dataConflictError,
+  findSpaceDataMemberSpec,
+  isSpaceDataIndexFile,
+  isSpaceDataRefName,
+  joinSpaceDataPath,
+  matchSpaceDataNodeType,
+  normalizeSpaceDataPath,
+  notEditableError,
+  notSupportedError,
+  parseSpaceDataRef,
+  SPACE_DATA_INDEX_FILES,
+  SPACE_DATA_REF_EXTENSION,
+  type SpaceDataAdapter,
+  type SpaceDataContext,
+  type SpaceDataCreateInput,
+  type SpaceDataDeleteInput,
+  type SpaceDataDocument,
+  type SpaceDataEncoding,
+  type SpaceDataEntry,
+  type SpaceDataFolder,
+  type SpaceDataImportResult,
+  type SpaceDataListing,
+  type SpaceDataMember,
+  type SpaceDataMemberSpec,
+  type SpaceDataMoveInput,
+  type SpaceDataNodeKind,
+  type SpaceDataNodeType,
+  type SpaceDataRecordScope,
+  type SpaceDataRef,
+  type SpaceDataWriteInput,
+  serializeSpaceDataRef,
+  spaceDataFieldUnchanged,
+  spaceDataPathSegments,
+  spaceDataRefFileName,
+  spaceDataRefLabel,
+  spaceDataVersionOf,
+  spaceDataVersionsMatch,
+} from "./space-data.js";
+export {
+  archiveDocumentEntries,
+  archiveFolderEntry,
+  planSpaceDataImport,
+  type SpaceDataArchive,
+  type SpaceDataArchiveEntry,
+  type SpaceDataArchivePlan,
+} from "./space-data-archive.js";
+export {
+  type FrontmatterDocument,
+  parseCsv,
+  parseFrontmatter,
+  readFolderIndex,
+  SPACE_DATA_ID_SEPARATOR,
+  type SpaceDataFolderIndex,
+  serializeCsv,
+  serializeFolderIndexMarkdown,
+  serializeFrontmatter,
+  spaceDataNodeName,
+  spaceDataNodeRecordId,
+  spaceDataSegmentLabel,
+  spaceDataSlug,
+} from "./space-data-format.js";
+export {
+  AI_SERVICE_PLAN_CAPABILITIES,
+  capabilitiesForModuleAccess,
+  deriveSpaceAgentCapabilities,
+  MODULE_FACETS,
+  type SpaceAgentAccessLevel,
+  type SpaceGrantInput,
+  type SpaceModuleGrantInput,
+} from "./space-grants.js";
+export {
+  clearSpaceKeyCache,
+  resolveSpaceKey,
+  type SpaceKeyClient,
+} from "./space-key.js";
+export {
+  isOperationSpacePolicy,
+  isSpacePlacedPlugin,
+  MISSING_SPACE_POLICY_ALLOWLIST,
+  OPERATION_SPACE_POLICY_KINDS,
+  type OperationRecordScope,
+  type OperationSpacePolicy,
+  type OperationSpacePolicyKind,
+  operationSpacePolicySchema,
+  recordScopeFromSpacePolicy,
+  spacePlacedOperationsMissingPolicy,
+} from "./space-policy.js";
+export {
+  getSpaceTemplate,
+  hiredAgentMountKeys,
+  isBaselineSpaceMount,
+  type MissingMountDependency,
+  type ModuleMountRequires,
+  missingBaselineMounts,
+  missingMountDependencies,
+  moduleIdFromRequirement,
+  moduleMountDependents,
+  moduleMountRequiresFromPlugins,
+  SPACE_AGENT_LIMIT,
+  SPACE_BASELINE_MOUNTS,
+  SPACE_RESOURCE_KINDS,
+  SPACE_TEMPLATES,
+  type SpaceMountDeclaration,
+  type SpaceRecordScopeLevel,
+  type SpaceResourceKind,
+  type SpaceTemplate,
+  spaceMountKey,
+  spaceTemplateMounts,
+} from "./space-setup.js";
 
 import type { TenantScope } from "./foreign-schema.js";
+import type { OperationSpacePolicy } from "./space-policy.js";
 
-export { ownershipPolicy } from "./ownership-policy.js";
-export type { PluginCategory } from "./plugin-category.js";
 export {
+  forbiddenError,
+  isPluginOperationError,
+  notFoundError,
+  PluginOperationError,
+} from "./operation-error.js";
+export { ownershipPolicy } from "./ownership-policy.js";
+export type { PluginCategory, PluginPlacement } from "./plugin-category.js";
+export {
+  DEFAULT_PLUGIN_PLACEMENT,
   isPluginCategory,
+  isPluginPlacement,
   PLUGIN_CATEGORIES,
+  PLUGIN_PLACEMENTS,
   pluginCategoryRank,
 } from "./plugin-category.js";
 export {
@@ -140,6 +297,7 @@ import type {
 import type { PluginEventsApi } from "./plugin-events.js";
 import type { RoleProfile } from "./role-profiles.js";
 import type { PluginSearchIndexRegistrationOptions } from "./search-index-registration.js";
+import type { SpaceDataAdapter } from "./space-data.js";
 
 /** Context passed to CLI registrars when they add subcommands. */
 export interface CliContext {
@@ -229,7 +387,24 @@ export interface PluginAuthContext {
    */
   principalType?: "user" | "agent" | "service";
   scopeId: string;
+  /**
+   * The space this call happens in (x-engenty-space-id), when the caller named
+   * one — PLAN-spaces.md Phase CN.3.
+   *
+   * For handlers that LIST things a space contains, so a page inside a space
+   * shows that space's accounts rather than the tenant's. Narrowing only: a
+   * handler must filter what the principal may already see, never widen it on
+   * the strength of this value. Absent means "no narrowing".
+   */
+  spaceId?: string;
   tenantId: string;
+  /**
+   * The routine (trigger) a headless run executes for (x-engenty-trigger-id).
+   * An UNVERIFIED claim on its own: anything derived from it must be checked
+   * against the routine's stored bindings (tenant-scoped), the way
+   * `resolveVerifiedSpaceOwnerForRun` does.
+   */
+  triggerId?: string;
 }
 
 /**
@@ -254,6 +429,14 @@ export interface ModuleAuditEventInput {
 }
 
 export interface PluginHttpRouteContext {
+  /**
+   * Space ids the caller may see, for a handler that lists records ACROSS
+   * spaces — no `space_id` given. Narrowing
+   * only: a list must intersect with it, never widen on it. Resolved on
+   * demand; core supplies it on every authenticated route. Absent means the
+   * host made no statement (in-process callers, tests).
+   */
+  accessibleSpaceIds?: () => Promise<string[]>;
   /** Per-request auth from core; present when route is authenticated. */
   auth?: PluginAuthContext;
   body?: unknown;
@@ -358,6 +541,14 @@ export interface PluginOperationMeta {
    * Risk level used by policy/approval engines.
    */
   riskLevel?: PluginOperationRisk;
+  /**
+   * How this operation relates to the active Space. Core enforces it before
+   * dispatch: `space_owned` collection/create injects `auth.spaceId`;
+   * get/update/delete refuse a record that lives in another Space.
+   * `tenant_shared` never invents a `space_id`. Absent on a Space-placed
+   * operation is a validation defect, not an implied tenant-shared default.
+   */
+  spacePolicy?: OperationSpacePolicy;
 }
 
 export interface PluginServerOperation extends PluginOperationMeta {
@@ -460,8 +651,26 @@ export interface PluginPolicyAuthContext {
   roles: string[];
   scopes: string[];
   sessionId?: string;
+  /**
+   * The space this call happens in, when the caller named one
+   * (`x-engenty-space-id`) — PLAN-spaces.md Phase CN.3.
+   *
+   * Used ONLY to narrow: a policy intersects what the principal may already
+   * reach with what the space mounts. That is what makes it safe to take from a
+   * header without a membership check here — naming a space you are not in can
+   * only remove candidates, never add one, because the principal's own sharing
+   * and capability checks still run underneath. Absent means "no narrowing",
+   * which is the pre-spaces behaviour every non-chat caller still has.
+   */
+  spaceId?: string;
   tenantId: string;
   tokenType: "access" | "refresh" | "api_token" | "unknown";
+  /**
+   * Routine the headless run executes for (x-engenty-trigger-id) — subject for
+   * routine-scoped grants, and the verifiable link a policy may check against
+   * the routine's stored space binding. A claim, not a fact, until checked.
+   */
+  triggerId?: string;
 }
 
 export interface PluginPolicyInput {
@@ -513,6 +722,13 @@ export interface EngentyPluginManifest {
   description: string;
   id: string;
   kind: string;
+  /**
+   * Operation id run with `{ space_id }` whenever this module is mounted into
+   * a space, by every path that mounts it. Idempotent; creates whatever the
+   * module needs in that space (a knowledge base row) and answers
+   * `{ ready, needs? }`. Omit when a mount is usable as is.
+   */
+  mountOperation?: string;
   name: string;
   optional?: string[];
   provides?: string[];
@@ -587,12 +803,12 @@ export interface PluginCapabilitiesApi {
 }
 
 export interface PluginAiRegistration {
-  actions?: unknown[];
   agents?: unknown[];
   instruction_documents?: unknown[];
   module_id: string;
   skills?: unknown[];
   triggers?: unknown[];
+  workflows?: unknown[];
 }
 
 export interface PluginServerApi {
@@ -666,6 +882,14 @@ export interface PluginServerApi {
   getTenantDb?: (auth: TenantScope | { tenantId: string }) => unknown | null;
   /** Check whether a module operation is registered in the current backend registry. */
   hasOperation: (operationId: string) => boolean;
+  /**
+   * The platform notification host (@engenty/notifications), installed by
+   * the loader before any plugin loads. Modules emit signals — never work
+   * items — through it, register their own namespaced kinds, and register
+   * transport channels they own. Absent only when core runs without a
+   * database.
+   */
+  notifications?: NotificationsHostLike;
   /** Register orchestrator agents, actions, skills, and triggers for this module. */
   registerAiRegistration: (registration: PluginAiRegistration) => void;
   /** Register CLI commands owned by this module (host-owned Commander program). */
@@ -742,6 +966,17 @@ export interface PluginServerApi {
   ) => PluginRegistrationReceipt | undefined;
   /** Register a long-running plugin service (start/stop lifecycle). */
   registerService: (service: PluginService) => void;
+  /**
+   * Register this module's face in the space Data tree (PLAN-space-data.md D2).
+   *
+   * The adapter renders module rows as nodes and translates every read and
+   * write into the module's own registered operations — it is a PROJECTION, not
+   * a second data path. Core makes the root visible only where the module is
+   * mounted, so registering one grants nothing on its own.
+   */
+  registerSpaceDataAdapter?: (
+    adapter: SpaceDataAdapter
+  ) => PluginRegistrationReceipt | undefined;
   /** Register a plugin-owned test data type with registry provenance. */
   registerTestDataType: (
     registration: PluginTestDataRegistration
@@ -821,6 +1056,79 @@ export interface StorageService {
     buffer: Blob | ArrayBuffer | Uint8Array,
     options?: { contentType?: string; upsert?: boolean }
   ): Promise<undefined | unknown>;
+}
+
+/**
+ * Minimal notifications contract exposed to plugins. Structural on purpose —
+ * the package implements it; plugin-sdk carries no dependency on it.
+ * @see packages/notifications
+ */
+export interface NotificationsHostLike {
+  /**
+   * Write one record. Resolves the audience (place before person: a shared
+   * decision goes to its space, a person only when the subject is theirs),
+   * derives the class, dedupes. Owner and initiator of shared work are
+   * subscribers (pushed, mailed), never its audience.
+   */
+  emit(input: {
+    actor?: { id?: string | null; kind: "agent" | "user" | "system" } | null;
+    assigneeUserId?: string | null;
+    audience?:
+      | { kind: "tenant" }
+      | { kind: "user"; userId: string }
+      | { kind: "stream"; key: string }
+      | { kind: "space"; spaceId: string }
+      | null;
+    dedupeKey?: string | null;
+    initiatorUserId?: string | null;
+    kind: string;
+    metadata?: Record<string, unknown> | null;
+    ownerUserId?: string | null;
+    /** A private subject's people: one row each. */
+    participantUserIds?: readonly string[] | null;
+    payload?: Record<string, unknown> | null;
+    /** People already looking at it: their view starts seen. */
+    preSeenUserIds?: readonly string[] | null;
+    priority?: "low" | "medium" | "high" | "urgent";
+    source: string;
+    spaceId?: string | null;
+    subject?: { id: string; type: string } | null;
+    /** Extra people pushed/mailed about a shared row. */
+    subscribers?: readonly string[] | null;
+    summary: string;
+    tenantId: string;
+  }): Promise<unknown>;
+  /**
+   * Read-sync: a producing surface knows the person consumed its records
+   * there (a chat read cursor moved past the message) — flip them to seen.
+   */
+  markSeenWhere(input: {
+    accessibleSpaceIds?: readonly string[];
+    predicate: (record: unknown) => boolean;
+    tenantId: string;
+    userId: string;
+  }): Promise<number>;
+  /** Register a transport this plugin owns; returns the unregister. */
+  registerChannel(channel: {
+    accepts?(record: unknown, target: Record<string, unknown>): boolean;
+    deliver(
+      record: unknown,
+      target: Record<string, unknown>,
+      ctx: { tenantId: string }
+    ): Promise<void>;
+    id: string;
+  }): () => void;
+  /** Declare this plugin's kinds (`<module>.<kind>`) with their class. */
+  registerKinds(
+    entries: Record<string, "decision" | "alert" | "todo" | "update">
+  ): void;
+  /** The subject moved on: resolve every open record about it. */
+  resolve(input: {
+    outcome: "resumed" | "completed" | "failed";
+    subjectId: string;
+    subjectType: string;
+    tenantId: string;
+  }): Promise<number>;
 }
 
 /** Minimal queue contract exposed to plugins. @see packages/queue */

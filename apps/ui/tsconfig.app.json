@@ -16,10 +16,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* Linting.
+       noUnusedLocals/noUnusedParameters stay OFF here on purpose: this
+       project compiles dependency SOURCES (packages and modules resolve
+       types to src), and those flags would re-lint every dependency file
+       under rules its own gate does not enforce — two gates disagreeing
+       about the same line. Unused-code enforcement is biome's job. */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
@@ -30,5 +33,6 @@
       "@engenty/projects/ui/portal": ["../../modules/projects/ui/portal.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/plugins/pro"]
 }

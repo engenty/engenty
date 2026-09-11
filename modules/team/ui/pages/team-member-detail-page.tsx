@@ -19,6 +19,7 @@ import { useEffect, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteTeamMember, type TeamMemberListItem } from "../api.js";
 import { TeamMemberDetailHeader } from "../components/team-member-detail-header.js";
+import { TeamMemberSpacesSection } from "../components/team-member-spaces-section.js";
 import { useTeamMemberNameDetails } from "../components/team-member-view-base-info-section.js";
 import { useTeamMemberDetailAgentUiSlice } from "../hooks/use-team-agent-ui-slice.js";
 import {
@@ -192,7 +193,6 @@ export function TeamMemberDetailPage() {
     contentStackBackground: "paper",
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
     // Float the transparent topbar over the white header so the two blend.
     topbarOverlap: true,
   });
@@ -246,6 +246,10 @@ export function TeamMemberDetailPage() {
                 <Row label={t("position")} value={member.position} />
                 <Row label={t("department")} value={member.department} />
               </CardSection>
+              {/* Where this person works. Core owns spaces, so the section reads
+                  core's API and shows only spaces the VIEWER can also enter —
+                  a profile must not become a directory of private rooms. */}
+              <TeamMemberSpacesSection userId={member.user_id} />
             </TabsContent>
 
             {/* Extension tab content (work, time, …) from the registry. The

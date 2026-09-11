@@ -14,7 +14,12 @@ import type {
   UiPluginSummary,
   UiRouteContribution,
   UiSettingsItemContribution,
+  UiSpaceTabContribution,
   UiTabContribution,
+} from "@engenty/ui-plugin-sdk";
+import {
+  DEFAULT_PLUGIN_PLACEMENT,
+  PLUGIN_PLACEMENTS,
 } from "@engenty/ui-plugin-sdk";
 import type { UiPluginCatalogEntry } from "./catalog";
 import {
@@ -354,7 +359,7 @@ function normalizeRoutes(items: UiRouteContribution[]) {
       );
     })
     .map((item) => item);
-  const cleaned = dedupeByPath.deduped.map((item) => {
+  const cleaned = dedupeByPath.deduped.map((item): UiRouteContribution => {
     const scope = (item as { scope?: string }).scope;
     if (
       scope === undefined ||
@@ -538,6 +543,53 @@ function normalizeTabs(items: UiTabContribution[]) {
         sourceInfo: sourceInfoFor(item),
       })
     ),
+  };
+}
+
+/** Host-owned space sections — a plugin cannot claim these ids. */
+const RESERVED_SPACE_TAB_IDS = new Set(["work", "data", "settings"]);
+
+function normalizeSpaceTabs(items: UiSpaceTabContribution[]) {
+  const reserved: UiSpaceTabContribution[] = [];
+  const usable: UiSpaceTabContribution[] = [];
+  for (const item of items) {
+    if (RESERVED_SPACE_TAB_IDS.has(item.id.toLowerCase())) {
+      reserved.push(item);
+      continue;
+    }
+    usable.push(item);
+  }
+  const sorted = [...usable].sort(byOrderThenLabel);
+  const dedupe = dedupeByKey({
+    items: sorted,
+    key: (item) => item.id,
+  });
+
+  return {
+    items: dedupe.deduped,
+    diagnostics: [
+      ...reserved.map((item) =>
+        diagnostic({
+          code: "plugin.registration.reserved_space_tab",
+          level: "warn",
+          message: `space tab "${item.id}" from plugin "${item.pluginId}" was ignored — work, data and settings belong to the space.`,
+          pluginId: item.pluginId,
+          remediation:
+            'Pick a section id that is not work, data, or settings (for example "plan").',
+          sourceInfo: sourceInfoFor(item),
+        })
+      ),
+      ...dedupe.duplicates.map((item) =>
+        diagnostic({
+          code: "plugin.registration.duplicate_space_tab",
+          level: "warn",
+          message: `duplicate space tab "${item.id}" from plugin "${item.pluginId}" was ignored.`,
+          pluginId: item.pluginId,
+          remediation: "Use a unique space-tab id per plugin contribution.",
+          sourceInfo: sourceInfoFor(item),
+        })
+      ),
+    ],
   };
 }
 
@@ -776,6 +828,10 @@ export async function resolveUiPlugins(params: {
     ...cleanupParams,
     kind: "tab",
   });
+  const spaceTabs = removeStaleOwnedContributions(filtered.spaceTabs ?? [], {
+    ...cleanupParams,
+    kind: "space tab",
+  });
   const chatCommands = removeStaleOwnedContributions(
     filtered.chatCommands ?? [],
     {
@@ -822,11 +878,51 @@ export async function resolveUiPlugins(params: {
     ...item,
     category: item.category ?? pluginsById.get(item.pluginId)?.category,
   }));
-  const adminMenuItemsWithCategory = menuNormalized.items.map((item) => ({
+  // Placement (PLAN-spaces.md Phase 5a) rides alongside `category` and takes the
+  // identical route, but its ABSENT case is not a shrug: a module with no
+  // declared placement is treated as `space` and named in a diagnostic. The
+  // opposite default would let an unmigrated module reappear on the app rail
+  // silently, which is the wrong-and-invisible outcome.
+  const adminMenuItemsWithCategory = menuNormalized.items.map((item) => {
+    const plugin = pluginsById.get(item.pluginId);
+    const placement = item.placement ?? plugin?.placement;
+    // Only the `modules` section is placed: zone ④'s admin stack is untouched
+    // by Phase 5a, so demanding a placement from Files or Audit logs would be
+    // asking for a declaration that decides nothing.
+    if (!placement && item.section === "modules") {
+      diagnostics.push(
+        diagnostic({
+          code: "plugin.registration.missing_placement",
+          level: "warn",
+          message: `plugin "${item.pluginId}" declares no placement in engenty.plugin.json; menu item "${item.id}" is treated as "${DEFAULT_PLUGIN_PLACEMENT}".`,
+          pluginId: item.pluginId,
+          remediation: `Add "placement": one of ${PLUGIN_PLACEMENTS.join(", ")} to the plugin manifest.`,
+          sourceInfo: sourceInfoFor(item),
+        })
+      );
+    }
+    return {
+      ...item,
+      category: item.category ?? plugin?.category,
+      placement: placement ?? DEFAULT_PLUGIN_PLACEMENT,
+    };
+  });
+  // A copilot app carries placement too (PLAN-spaces.md Phase C1). It does NOT
+  // arrive through `adminMenuItems`, so the placement filter in navigation.ts
+  // could not see it: the copilot would have stayed on the global rail no
+  // matter what its manifest said. No diagnostic here — the copilot app is
+  // registered by the same plugin whose menu item (if it has one) already
+  // reports a missing placement, and a second warning naming the same manifest
+  // would only make the first one look like two problems.
+  const copilotAppsWithPlacement = copilotAppsNormalized.items.map((item) => ({
     ...item,
-    category: item.category ?? pluginsById.get(item.pluginId)?.category,
+    placement:
+      item.placement ??
+      pluginsById.get(item.pluginId)?.placement ??
+      DEFAULT_PLUGIN_PLACEMENT,
   }));
   const tabsNormalized = normalizeTabs(tabs);
+  const spaceTabsNormalized = normalizeSpaceTabs(spaceTabs);
   const chatCommandsNormalized = normalizeChatCommands(chatCommands);
 
   diagnostics.push(
@@ -839,6 +935,7 @@ export async function resolveUiPlugins(params: {
     ...navigationPrefetchNormalized.diagnostics,
     ...settingsNormalized.diagnostics,
     ...tabsNormalized.diagnostics,
+    ...spaceTabsNormalized.diagnostics,
     ...chatCommandsNormalized.diagnostics
   );
 
@@ -850,7 +947,7 @@ export async function resolveUiPlugins(params: {
       brandSource: filtered.brandSource,
       chatCommands: chatCommandsNormalized.items,
       copilotArticleHrefResolver: filtered.copilotArticleHrefResolver,
-      copilotApps: copilotAppsNormalized.items,
+      copilotApps: copilotAppsWithPlacement,
       copilotContributions,
       dashboardWidgets: dashboardWidgetsNormalized.items,
       developmentPanels: developmentPanelsNormalized.items,
@@ -858,6 +955,7 @@ export async function resolveUiPlugins(params: {
       liveBindings,
       navigationPrefetch: navigationPrefetchNormalized.items,
       settingsItems: settingsItemsWithCategory,
+      spaceTabs: spaceTabsNormalized.items,
       tabs: tabsNormalized.items,
     },
     diagnostics,

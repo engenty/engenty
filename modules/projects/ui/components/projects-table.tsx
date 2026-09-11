@@ -42,7 +42,7 @@ const rowBodyBaseClass = cn(
 
 /** Per-group card chrome — only when grouped (a flat list gets no card). */
 const groupCardChromeClass = cn(
-  "ui-canvas-raised rounded-md",
+  "ui-card-raised",
   "[&>tr:first-child>td:first-child]:rounded-tl-md",
   "[&>tr:first-child>td:last-child]:rounded-tr-md",
   "[&>tr:last-child>td:first-child]:rounded-bl-md",

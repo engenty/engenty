@@ -592,7 +592,7 @@ export function TeamTaxonomyManagerSection({
   const isCustom = !taxonomy.builtin;
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
+    <div className="ui-card-panel overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <button

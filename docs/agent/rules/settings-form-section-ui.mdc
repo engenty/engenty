@@ -27,6 +27,7 @@ Use for stacked detail/settings blocks: a **tight** stack of **title** (`h2`) + 
 | Variant | Use |
 |---|---|
 | `default` | Form/detail section title (`font-medium text-lg`) |
+| `compact` | Drawer / doc-sidebar (`font-semibold text-sm`, description `text-xs`) |
 | `meta` | Overview / quiet labels (muted uppercase) |
 | `display` | Hub / display sections (`font-heading`) |
 

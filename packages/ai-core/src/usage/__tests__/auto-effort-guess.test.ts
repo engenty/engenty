@@ -1,17 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { guessEffortFromPrompt } from "../auto-effort-guess.js";
+import {
+  agentDefaultEffort,
+  guessEffortFromPrompt,
+} from "../auto-effort-guess.js";
+
+describe("agentDefaultEffort", () => {
+  it("is the agent's declared tier", () => {
+    expect(agentDefaultEffort({ effort: "high" })).toBe("high");
+    expect(agentDefaultEffort({ effort: "low", toolIds: ["app_build"] })).toBe(
+      "low"
+    );
+  });
+
+  it("is high for whoever holds a coding tool, whatever the id", () => {
+    // A hired "apps.coder" is a registry row, not the module's agent id —
+    // the tool it holds is what says it writes software.
+    expect(
+      agentDefaultEffort({ toolIds: ["engenty_tools_search", "app_build"] })
+    ).toBe("high");
+    expect(agentDefaultEffort({ toolIds: ["contacts_list"] })).toBeNull();
+    expect(agentDefaultEffort(null)).toBeNull();
+  });
+});
 
 describe("guessEffortFromPrompt", () => {
-  it("forces high for coding / CLI specialist agents", () => {
-    expect(
-      guessEffortFromPrompt({ agentId: "engenty.cli", text: "hi" })
-    ).toMatchObject({ confidence: "certain", effort: "high" });
+  it("answers the agent's own tier before reading the turn", () => {
     expect(
       guessEffortFromPrompt({
-        agentId: "engenty.app-coder",
-        text: "hello",
+        agentEffort: "high",
+        agentId: "apps.coder",
+        text: "Und - kannst du das umsetzen",
       })
-    ).toMatchObject({ confidence: "certain", effort: "high" });
+    ).toMatchObject({
+      confidence: "certain",
+      effort: "high",
+      reason: "agent:apps.coder",
+    });
+    // Without one, the same short turn reads as cheap — which is exactly how
+    // a hired coder's "go ahead" ended up at medium.
+    expect(
+      guessEffortFromPrompt({
+        agentId: "apps.coder",
+        text: "Und - kannst du das umsetzen",
+      }).effort
+    ).not.toBe("high");
   });
 
   it("sizes coding / multi-edit prompts as high", () => {

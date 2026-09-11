@@ -63,7 +63,7 @@ describe("createPluginRegistry AI helpers", () => {
           build_tools: () => ({}),
         },
       ],
-      actions: [],
+      workflows: [],
       instruction_documents: [],
       skills: [],
       triggers: [

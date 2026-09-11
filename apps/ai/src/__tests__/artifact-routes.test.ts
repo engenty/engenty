@@ -8,6 +8,7 @@ import {
   type ArtifactStore,
   ArtifactVersionConflictError,
   type ArtifactVersionRow,
+  assertArtifactParentAllowed,
 } from "../dal/artifacts/index.js";
 
 const tenantA = "00000000-0000-4000-8000-00000000000a";
@@ -33,7 +34,7 @@ function makeFakeStore(): ArtifactStore {
     async create(input) {
       seq += 1;
       const artifact: ArtifactRow = {
-        id: `artifact-${seq}`,
+        id: `00000000-0000-4000-8000-${String(seq).padStart(12, "0")}`,
         tenant_id: input.tenantId,
         type: input.type,
         title: input.title,
@@ -43,6 +44,7 @@ function makeFakeStore(): ArtifactStore {
         created_by_kind: input.createdByKind,
         created_by: input.createdBy ?? null,
         current_version: 1,
+        parent_id: input.parentId ?? null,
         storage: "inline",
         storage_key: null,
         storage_connection_id: null,
@@ -137,6 +139,9 @@ function makeFakeStore(): ArtifactStore {
       };
       versions.push(version);
       artifact.current_version = nextVersion;
+      if (input.title) {
+        artifact.title = input.title;
+      }
       return { artifact, version };
     },
     async updateScope({ tenantId, artifactId, scopeType, scopeId }) {
@@ -154,6 +159,37 @@ function makeFakeStore(): ArtifactStore {
         return null;
       }
       artifact.status = status;
+      return artifact;
+    },
+    async listVersions({ tenantId, artifactId }) {
+      const artifact = scoped(tenantId, artifactId);
+      if (!artifact) {
+        return null;
+      }
+      return versions
+        .filter((v) => v.artifact_id === artifactId && v.tenant_id === tenantId)
+        .map((v) => ({
+          created_at: v.created_at,
+          created_by: v.created_by,
+          created_by_kind: v.created_by_kind,
+          summary: v.summary,
+          version: v.version,
+        }))
+        .sort((a, b) => b.version - a.version);
+    },
+    async updateParent({ tenantId, artifactId, parentId }) {
+      const artifact = scoped(tenantId, artifactId);
+      if (!artifact) {
+        return null;
+      }
+      const parent = parentId ? scoped(tenantId, parentId) : null;
+      assertArtifactParentAllowed({
+        artifact,
+        parent,
+        parentId,
+        parentOf: (id) => scoped(tenantId, id)?.parent_id ?? null,
+      });
+      artifact.parent_id = parentId;
       return artifact;
     },
     // Not exercised by any route test here. Throwing rather than returning a
@@ -275,6 +311,42 @@ describe("artifact routes", () => {
     expect(threadList.artifacts).toHaveLength(0);
   });
 
+  it("promotes an artifact to an Engenty (agent) scope", async () => {
+    const { app } = makeHarness();
+    const { artifact } = (await (
+      await createArtifact(app, "thread-1")
+    ).json()) as {
+      artifact: { id: string };
+    };
+
+    const stored = await app.request(`/ai/artifacts/${artifact.id}/store`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({
+        scope_type: "agent",
+        scope_id: "contacts.manager",
+      }),
+    });
+    expect(stored.status).toBe(200);
+
+    const withAgent = await app.request(
+      "/ai/artifacts?scope_type=agent&scope_id=contacts.manager",
+      { headers: { authorization: "Bearer t" } }
+    );
+    const agentList = (await withAgent.json()) as { artifacts: unknown[] };
+    expect(agentList.artifacts).toHaveLength(1);
+
+    const inThread = await app.request(
+      "/ai/artifacts?scope_type=thread&scope_id=thread-1",
+      { headers: { authorization: "Bearer t" } }
+    );
+    const threadList = (await inThread.json()) as { artifacts: unknown[] };
+    expect(threadList.artifacts).toHaveLength(0);
+  });
+
   it("lists every artifact across scopes for the tenant via /all", async () => {
     const { app } = makeHarness();
     await createArtifact(app, "thread-1", "A");
@@ -340,5 +412,104 @@ describe("artifact routes", () => {
       headers: { authorization: "Bearer t" },
     });
     expect(res.status).toBe(404);
+  });
+
+  it("creates a space-scoped markdown page with empty content", async () => {
+    const { app } = makeHarness();
+    const spaceId = "019fe8ec-0000-4000-8000-00000000000a";
+    const res = await app.request("/ai/artifacts", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({
+        type: "markdown",
+        title: "New page",
+        scope_id: spaceId,
+        scope_type: "space",
+        content: "",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as {
+      artifact: { scope_id: string; scope_type: string; type: string };
+      version: { content: string };
+    };
+    expect(body.artifact.scope_type).toBe("space");
+    expect(body.artifact.scope_id).toBe(spaceId);
+    expect(body.artifact.type).toBe("markdown");
+    expect(body.version.content).toBe("");
+  });
+
+  it("lists versions newest first", async () => {
+    const { app } = makeHarness();
+    const { artifact } = (await (
+      await createArtifact(app, "thread-1")
+    ).json()) as { artifact: { id: string } };
+    await app.request(`/ai/artifacts/${artifact.id}/versions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({ content: "# Two", expected_version: 1 }),
+    });
+    const listed = await app.request(`/ai/artifacts/${artifact.id}/versions`, {
+      headers: { authorization: "Bearer t" },
+    });
+    expect(listed.status).toBe(200);
+    const body = (await listed.json()) as {
+      versions: { version: number }[];
+    };
+    expect(body.versions.map((row) => row.version)).toEqual([2, 1]);
+  });
+
+  it("moves a page under a folder in the same space", async () => {
+    const { app } = makeHarness();
+    const spaceId = "019fe8ec-0000-4000-8000-00000000000a";
+    const folderRes = await app.request("/ai/artifacts", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({
+        type: "folder",
+        title: "Notes",
+        scope_id: spaceId,
+        scope_type: "space",
+        content: "",
+      }),
+    });
+    const pageRes = await app.request("/ai/artifacts", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({
+        type: "markdown",
+        title: "Page",
+        scope_id: spaceId,
+        scope_type: "space",
+        content: "",
+      }),
+    });
+    const folder = (await folderRes.json()) as { artifact: { id: string } };
+    const page = (await pageRes.json()) as { artifact: { id: string } };
+    const moved = await app.request(`/ai/artifacts/${page.artifact.id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer t",
+      },
+      body: JSON.stringify({ parent_id: folder.artifact.id }),
+    });
+    expect(moved.status).toBe(200);
+    const body = (await moved.json()) as {
+      artifact: { parent_id: string | null };
+    };
+    expect(body.artifact.parent_id).toBe(folder.artifact.id);
   });
 });

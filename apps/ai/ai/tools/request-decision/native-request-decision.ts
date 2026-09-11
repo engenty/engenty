@@ -34,7 +34,7 @@ import {
 import { getEngentyToolsRunContext } from "../engenty-tools/lib/run-context.js";
 
 /** What the client sends back when the user answers the card. */
-const decisionResumeSchema = z.object({
+export const requestDecisionResumeSchema = z.object({
   cancelled: z.boolean().optional(),
   choice_id: z.string().optional(),
   choice_label: z.string().optional(),
@@ -49,7 +49,7 @@ const decisionResumeSchema = z.object({
 });
 
 export type NativeRequestDecisionResumeData = z.infer<
-  typeof decisionResumeSchema
+  typeof requestDecisionResumeSchema
 >;
 
 function suspendLockKey(): string {
@@ -107,9 +107,9 @@ export function createNativeRequestDecisionTool() {
   return createTool({
     id: "requestDecision",
     description:
-      "Render an interactive chooser widget for the user and WAIT for their answer, which is returned to you as this tool's result. Use this instead of plain numbered or bulleted text when the user asks to choose, approve/decline, or select from up to 6 options (set multiSelect for checkboxes; choices may carry a short description). If the user asks for a chooser with a count but omits exact options, infer reasonable low-risk choices when safe; ask for clarification only when the choices depend on private app data, business rules, or a risky action.",
+      "Render an interactive chooser widget for the user and WAIT for their answer, which is returned to you as this tool's result. Use this instead of plain numbered or bulleted text when the user asks to choose, approve/decline, or select from up to 6 options (set multiSelect for checkboxes; choices may carry a short description). If the user asks for a chooser with a count but omits exact options, infer reasonable low-risk choices when safe; ask for clarification only when the choices depend on private app data, business rules, or a risky action. The result IS the user's final answer to this exact question: act on it and continue the task. Never call this tool again for a question the user has already answered in this conversation — a repeated request in the transcript is the original one, not a new one.",
     inputSchema: requestDecisionInputSchema,
-    resumeSchema: decisionResumeSchema,
+    resumeSchema: requestDecisionResumeSchema,
     execute: async (inputData, ctx) => {
       const resume = ctx.agent?.resumeData as
         | NativeRequestDecisionResumeData

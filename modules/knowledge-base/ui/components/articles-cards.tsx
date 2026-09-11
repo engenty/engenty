@@ -1,6 +1,8 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn, focusVisibleRingOffset } from "@engenty/ui-core";
+import { Link } from "react-router-dom";
 import type { Article } from "../../src/schema/types.js";
+import { kbArticlePath } from "../kb-paths.js";
 import { articleCardsGridWrapperClassName } from "../lib/article-cards-grid.js";
 import { articleStatusPillClassName } from "../lib/article-status-pill.js";
 
@@ -16,29 +18,23 @@ function formatDate(iso: string) {
 
 interface ArticlesCardsProps {
   articles: Article[];
-  onCardClick: (article: Article) => void;
   tableSize: TableSize;
 }
 
-export function ArticlesCards({
-  articles,
-  tableSize,
-  onCardClick,
-}: ArticlesCardsProps) {
+export function ArticlesCards({ articles, tableSize }: ArticlesCardsProps) {
   const { t } = useTranslation("kb");
 
   return (
     <div className={articleCardsGridWrapperClassName(tableSize)}>
       {articles.map((article) => (
-        <button
+        <Link
           className={cn(
-            "ui-canvas-panel flex h-full min-h-0 flex-col items-stretch justify-start rounded-lg border-0 bg-card text-left outline-none transition-colors hover:bg-accent/30",
+            "ui-card-raised flex h-full min-h-0 flex-col items-stretch justify-start text-left outline-none",
             focusVisibleRingOffset,
             tableSize === "compact" ? "gap-1.5 p-3" : "gap-2 p-4"
           )}
           key={article.id}
-          onClick={() => onCardClick(article)}
-          type="button"
+          to={kbArticlePath(article.slug || article.id)}
         >
           <div className="flex w-full min-w-0 items-start justify-between gap-3">
             <p className="min-w-0 flex-1 font-medium leading-snug">
@@ -51,7 +47,7 @@ export function ArticlesCards({
           <p className="text-muted-foreground text-sm">
             {t("columns.updated_at")}: {formatDate(article.updated_at)}
           </p>
-        </button>
+        </Link>
       ))}
     </div>
   );

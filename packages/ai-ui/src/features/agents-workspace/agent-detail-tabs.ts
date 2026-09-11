@@ -60,10 +60,7 @@ export function getAgentDetailAffordances(
 ): AgentDetailAffordances {
   const isExternal = agent?.role === "external";
   const chatActiveLocked =
-    agent?.role === "copilot" ||
-    agent?.role === "coordinator" ||
-    agent?.id === "engenty.copilot" ||
-    agent?.id === "engenty.coordinator";
+    agent?.role === "copilot" || agent?.id === "engenty.copilot";
   return {
     canEditAgent: !isExternal && agent?.agent_origin === "custom",
     chatActiveLocked: Boolean(chatActiveLocked),

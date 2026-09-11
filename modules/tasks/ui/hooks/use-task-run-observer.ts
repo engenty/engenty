@@ -31,6 +31,7 @@ import {
 } from "../lib/task-run-live.js";
 import {
   cancelTaskAgentRun,
+  deliverCommentToLiveRun,
   fetchTaskAgentRunDetail,
   isTaskRunObserverPollingStatus,
   readRunInitialPrompt,
@@ -39,6 +40,11 @@ import {
   buildTaskRunObserverRouteContext,
   TASK_RUN_OBSERVER_AGENT_TYPE_KEY,
 } from "../lib/task-run-observer-binding.js";
+import {
+  filterMessagesToRunWindow,
+  type RunTranscriptWindow,
+  resolveRunTranscriptWindow,
+} from "../lib/task-run-transcript-window.js";
 
 export type TaskRunObserverStatus =
   | "idle"
@@ -47,11 +53,19 @@ export type TaskRunObserverStatus =
   | "observing"
   | "error";
 
+const TASK_DISPATCH_START_TIMEOUT_MS = 15_000;
+
 export interface TaskRunObserverView {
   parentRunId?: string | null;
   runId: string;
   source: "live" | "historical";
   threadId: string | null;
+  /**
+   * The slice of the thread this run wrote. The thread is the agent's standing
+   * one for the task (shared by every dispatch), so a run card without this
+   * would replay the whole working history instead of the run it names.
+   */
+  window?: RunTranscriptWindow | null;
 }
 
 function buildTaskThreadContinuationPrompt(content: string): string {
@@ -131,6 +145,19 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
 
   const abortRef = useRef<AbortController | null>(null);
   const streamOwnedRef = useRef(false);
+
+  useEffect(() => {
+    if (status !== "starting") {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => {
+      setError(
+        "The task was queued, but no agent run started. Check the AI service and try again."
+      );
+      setStatus("error");
+    }, TASK_DISPATCH_START_TIMEOUT_MS);
+    return () => globalThis.clearTimeout(timeout);
+  }, [status]);
   const threadIdRef = useRef<string | null>(null);
 
   const routeContext = useMemo(
@@ -171,12 +198,17 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
     if (hydrated.length === 0) {
       return;
     }
+    // Narrow the task's thread to the run this card names.
+    const scoped = filterMessagesToRunWindow(hydrated, view?.window ?? null);
+    if (scoped.length === 0) {
+      return;
+    }
     resetConversationRef.current();
     applyEventRef.current({
       type: EventType.MESSAGES_SNAPSHOT,
-      messages: sortAgUiMessagesForTranscript(hydrated),
+      messages: sortAgUiMessagesForTranscript(scoped),
     } as never);
-  }, [historicalMessagesQuery.agUiMessages, view?.source]);
+  }, [historicalMessagesQuery.agUiMessages, view?.source, view?.window]);
 
   useEffect(() => {
     if (!(view?.threadId && serviceBaseUrl) || streamOwnedRef.current) {
@@ -335,7 +367,8 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
   );
 
   // Press "work on this task" → queue the task on the DURABLE dispatch path,
-  // the same workflow-backed engine a routine or the coordinator uses.
+  // the same run engine a routine fire or the coordinator uses. The task is
+  // the run's SUBJECT; finishing the run does not finish the task.
   //
   // This used to open a client-side stream with a browser-minted run id, so the
   // server never knew the run existed: no workflow snapshot, no ai.agent_run,
@@ -370,11 +403,20 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
 
     try {
       const result = await runTaskNowApi(task.id);
-      if (!result.dispatched) {
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (result.outcome === "already_running") {
         // A live checkout already owns it — the page attaches to that run.
         setStatus("observing");
+        return;
       }
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (!result.dispatched) {
+        setError(
+          result.outcome === "blocked"
+            ? "This task is blocked by unfinished dependencies."
+            : "This task could not be queued for its assigned agent."
+        );
+        setStatus("error");
+      }
     } catch (startError) {
       if (isAbortError(startError)) {
         setStatus("idle");
@@ -386,7 +428,10 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
   }, [queryClient, task]);
 
   const viewRun = useCallback(
-    async (run: TaskRun, input?: { parentRunId?: string | null }) => {
+    async (
+      run: TaskRun,
+      input?: { parentRunId?: string | null; runs?: readonly TaskRun[] }
+    ) => {
       if (!serviceBaseUrl) {
         setError("AI service is not configured.");
         setStatus("error");
@@ -407,6 +452,10 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
         runId: run.agent_session_run_id,
         threadId: run.agent_thread_id ?? null,
         source: "historical",
+        window: resolveRunTranscriptWindow(
+          input?.runs ?? [run],
+          run.agent_session_run_id
+        ),
       });
 
       try {
@@ -468,7 +517,8 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
       const linkedRun = resolveCheckoutLinkedRun(runs, checkoutRunId);
       let threadId =
         linkedRun?.agent_thread_id ??
-        // @ts-expect-error TASKS-routine: thread_id on run detail lands in routine plan
+        // @ts-expect-error run detail does not declare thread_id yet — the run
+        // index owns that field
         runDetail.thread_id ??
         threadIdRef.current ??
         view?.threadId ??
@@ -553,6 +603,15 @@ export function useTaskRunObserver(options: UseTaskRunObserverOptions) {
         runDetail.status !== "waiting_for_input" &&
         runDetail.status !== "waiting_for_approval"
       ) {
+        // The run is EXECUTING. This used to stop here: the comment was saved
+        // on the task and the loop never heard it, so a correction typed while
+        // the agent worked only took effect if someone rejected the result and
+        // dispatched again. Hand it to the live run instead.
+        //
+        // A `false` answer (no live run here, another replica) leaves the
+        // behaviour exactly as it was — the comment waits on the task for the
+        // next dispatch, which is what the brief replays.
+        await deliverCommentToLiveRun(task.id, trimmed);
         return;
       }
 

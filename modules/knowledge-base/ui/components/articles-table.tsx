@@ -24,8 +24,10 @@ import {
 } from "@engenty/ui-core";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Article } from "../../src/schema/types.js";
 import { deleteArticle } from "../api.js";
+import { kbArticlePath } from "../kb-paths.js";
 import { articleStatusPillClassName } from "../lib/article-status-pill.js";
 import { invalidateKbGraphQueries } from "../queries.js";
 import type {
@@ -213,6 +215,16 @@ export function ArticlesTable({
                       >
                         {t(`article.status.${article.status}`)}
                       </span>
+                    ) : key === "title" ? (
+                      // The row stays clickable; the title is a real link so the
+                      // shell can prefetch the article on hover and the reader
+                      // can open it in a new tab.
+                      <Link
+                        onClick={(e) => e.stopPropagation()}
+                        to={kbArticlePath(article.slug || article.id)}
+                      >
+                        {value}
+                      </Link>
                     ) : (
                       value
                     )}

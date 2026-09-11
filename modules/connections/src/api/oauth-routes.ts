@@ -4,10 +4,12 @@ import {
   buildAuthorizationUrl,
   exchangeAuthorizationCode,
   getConnectorDefinition,
+  mountConnectionInSpace,
   scopesForGroups,
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
 
 const logger = createLogger({ name: "connections-oauth" });
@@ -55,6 +57,13 @@ function uiRedirect(target: string | null): string {
 export function registerConnectionsOAuthRoutes(
   api: PluginServerApi,
   repos: {
+    /**
+     * Tenant-locked Supabase handle, for the one write that is not a
+     * connections table: auto-mounting the new account into the space the
+     * connect started from (CN.4 Flow A). The repo cannot do it — mounts live
+     * in `core`.
+     */
+    getDb: (tenantId: string) => SupabaseClient;
     /** Tenant-locked repo factory — every tenant-shaped read/write. */
     getRepo: (auth: { tenantId: string }) => ConnectionsRepo;
     /** Service-client repo for the callback's tenant-RESOLUTION read only: an
@@ -65,7 +74,7 @@ export function registerConnectionsOAuthRoutes(
   settings: ConnectionsSettingsResolver,
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
-  const { getRepo, serviceRepo } = repos;
+  const { getDb, getRepo, serviceRepo } = repos;
   // GET /api/connections/:connectorId/connect?sharing=personal|org&redirect_to=/settings/connections
   api.registerHttpRoute({
     method: "get",
@@ -89,8 +98,17 @@ export function registerConnectionsOAuthRoutes(
           400
         );
       }
-      const query = ctx.query as { redirect_to?: string; sharing?: string };
+      const query = ctx.query as {
+        redirect_to?: string;
+        sharing?: string;
+        space_id?: string;
+      };
       const sharing = query?.sharing === "org" ? "org" : "personal";
+      // CN.4 Flow A — the space the user pressed "Add account" in, so the
+      // callback can mount what it just connected. Carried on the flow row
+      // rather than the redirect URL: the redirect is attacker-visible and the
+      // flow row is not, and a mount is a grant.
+      const spaceId = query?.space_id?.trim() || null;
       // Request the full scope union up front; the per-action policy matrix
       // governs actual use. (Per-group incremental auth = reconnect flow.)
       const scopes = scopesForGroups(
@@ -105,6 +123,7 @@ export function registerConnectionsOAuthRoutes(
         redirect_to: query?.redirect_to ?? null,
         requested_scopes: scopes,
         sharing,
+        space_id: spaceId,
         tenant_id: ctx.auth.tenantId,
         user_id: ctx.auth.principalId,
       });
@@ -199,7 +218,9 @@ export function registerConnectionsOAuthRoutes(
             });
           }
         }
-        await getRepo({ tenantId: flow.tenant_id }).upsertConnectionWithTokens({
+        const connection = await getRepo({
+          tenantId: flow.tenant_id,
+        }).upsertConnectionWithTokens({
           accessToken: tokens.accessToken,
           connectorId: connector.id,
           expiresAt: tokens.expiresAt,
@@ -217,6 +238,25 @@ export function registerConnectionsOAuthRoutes(
           detail: { connector: connector.id, sharing: flow.sharing },
           type: "connection.connected",
         });
+        // CN.4 Flow A — land back in the space with the account already
+        // usable. Best-effort: the connection exists either way, and failing
+        // the callback here would report a connect failure that did not happen.
+        if (flow.space_id) {
+          try {
+            await mountConnectionInSpace(getDb(flow.tenant_id), {
+              connectionId: connection.id,
+              spaceId: flow.space_id,
+              tenantId: flow.tenant_id,
+            });
+          } catch (error) {
+            logger.warn("space auto-mount failed after connect", {
+              connection: connection.id,
+              connector: connector.id,
+              error: error instanceof Error ? error.message : String(error),
+              space: flow.space_id,
+            });
+          }
+        }
         try {
           await options.onConnected?.({
             connectorId: connector.id,

@@ -28,10 +28,10 @@ export const topbarIconButtonClassName =
   "max-md:size-8 max-md:gap-0 max-md:px-0 max-md:[&_svg]:m-0";
 
 /**
- * Compact topbar controls for reader pages (`topbarChrome: "contentBlend"`): same density as
+ * Compact topbar controls for reader pages (the default transparent topbar): same density as
  * settings header actions (`size="sm"` + `text-xs` + 3.5 icons) — pairs with `variant="ghost"`.
  */
-export const readerBlendTopbarActionButtonClassName = cn(
+export const readerBlendTopbarWorkflowButtonClassName = cn(
   topbarIconButtonClassName,
   "h-7 min-h-7 gap-1 px-2 font-normal text-xs shadow-none",
   "[&_svg]:size-3.5 [&_svg]:shrink-0",

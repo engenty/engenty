@@ -33,16 +33,40 @@ export function isConnectorNodeId(id: string): boolean {
   return id.startsWith(PREFIX);
 }
 
+/**
+ * `parentRef` rides along because WRITES need it and a provider entry does not
+ * carry it (PLAN-space-data-agent-crud P2.2).
+ *
+ * `ConnectorFileEntry` has `ref`, `name`, `kind` — and no parent. But the
+ * storage capability addresses a write by `folder_ref` + `name` and a rename by
+ * `to_folder_ref` + `new_name`, so an id that only knew the file could rename
+ * nothing. The listing DOES know the parent at the moment it mints the id, so
+ * the id is where that knowledge is kept.
+ *
+ * Appended rather than inserted, so every id minted before this still decodes —
+ * it simply reports `parentRef: null`, which reads as "position unknown" and
+ * makes the write paths refuse rather than guess.
+ *
+ * The connection (or mount) ROOT is not unknown: listing encodes it as `""`
+ * so a file sitting at the granted folder can still be saved. `folder_ref: null`
+ * is what the storage capability uses for that root.
+ */
 export function encodeConnectorNodeId(
   connectionId: string,
-  ref: string
+  ref: string,
+  parentRef?: string | null
 ): string {
-  return `${PREFIX}${connectionId}:${toBase64Url(ref)}`;
+  const base = `${PREFIX}${connectionId}:${toBase64Url(ref)}`;
+  return parentRef === undefined || parentRef === null
+    ? base
+    : `${base}:${toBase64Url(parentRef)}`;
 }
 
-export function decodeConnectorNodeId(
-  id: string
-): { connectionId: string; ref: string } | null {
+export function decodeConnectorNodeId(id: string): {
+  connectionId: string;
+  parentRef: string | null;
+  ref: string;
+} | null {
   if (!isConnectorNodeId(id)) {
     return null;
   }
@@ -52,8 +76,16 @@ export function decodeConnectorNodeId(
     return null;
   }
   const connectionId = rest.slice(0, sep);
+  const tail = rest.slice(sep + 1);
+  const parentSep = tail.indexOf(":");
   try {
-    return { connectionId, ref: fromBase64Url(rest.slice(sep + 1)) };
+    return parentSep === -1
+      ? { connectionId, parentRef: null, ref: fromBase64Url(tail) }
+      : {
+          connectionId,
+          parentRef: fromBase64Url(tail.slice(parentSep + 1)),
+          ref: fromBase64Url(tail.slice(0, parentSep)),
+        };
   } catch {
     return null;
   }

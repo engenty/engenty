@@ -38,7 +38,7 @@ import { useCallback, useMemo, useState } from "react";
 const BATCH = 100;
 const KB_PROVIDER_ID = "kb.article";
 
-interface KbSearchIndexStatus {
+export interface KbSearchIndexStatus {
   current_count: number;
   indexed_count: number;
   last_indexed_at: string | null;
@@ -56,7 +56,7 @@ interface KbBackfillResponse {
   };
 }
 
-async function fetchKbSearchIndexStatus(): Promise<KbSearchIndexStatus> {
+export async function fetchKbSearchIndexStatus(): Promise<KbSearchIndexStatus> {
   const res = await requestApiJson<any>(
     `/api/search-index/providers/${KB_PROVIDER_ID}/status`,
     { method: "GET" }

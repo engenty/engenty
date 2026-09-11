@@ -1,46 +1,17 @@
-import type { QueueServiceLike } from "@engenty/plugin-sdk";
 import type { ConversationMember, MentionRecord } from "../schema/types.js";
 
 /**
- * User notification fan-out (N1). One queue dispatch per posted message with
- * the notification targets precomputed here (the module has the members with
- * prefs and read state; the apps/ai consumer only writes inbox records), plus
- * a read-sync dispatch when a member advances their read cursor so pending
- * inbox records for messages they've now seen flip to `seen`.
- * Queue name is inlined on the consumer side (apps/ai keeps no build-time
- * dependency on @engenty/team-chat, same contract style as agent mentions).
+ * User notification targets for a posted message: the module has the members
+ * with their prefs and read state, so it decides WHO is notified and why; the
+ * records themselves are written through the platform notification host
+ * (gateway-methods.ts), and a member advancing their read cursor flips the
+ * ones they have now seen.
  */
-export const TEAM_CHAT_NOTIFICATION_QUEUE = "team_chat_notification";
-
 /** Why a user is notified; `mention` wins over `dm`/`thread`/`activity`. */
 export type NotificationReason = "activity" | "dm" | "mention" | "thread";
 
 export interface NotificationTarget {
   reason: NotificationReason;
-  user_id: string;
-}
-
-export interface MessageNotificationDispatch {
-  author_agent_key: string | null;
-  author_user_id: string | null;
-  conversation_id: string;
-  conversation_name: string | null;
-  conversation_type: string;
-  kind: "message";
-  message_ts: string;
-  targets: NotificationTarget[];
-  tenant_id: string;
-  /** Mention tokens folded to readable placeholders, whitespace collapsed. */
-  text_preview: string;
-  thread_ts: string | null;
-}
-
-export interface ReadSyncDispatch {
-  conversation_id: string;
-  kind: "read";
-  tenant_id: string;
-  /** Read cursor: records for messages with ts <= this flip to seen. */
-  up_to_ts: string;
   user_id: string;
 }
 
@@ -113,20 +84,4 @@ export function computeMessageNotificationTargets(input: {
     }
   }
   return targets;
-}
-
-export async function enqueueNotificationDispatch(
-  queue: QueueServiceLike | null,
-  dispatch: MessageNotificationDispatch | ReadSyncDispatch
-): Promise<void> {
-  if (
-    !queue ||
-    (dispatch.kind === "message" && dispatch.targets.length === 0)
-  ) {
-    return;
-  }
-  // Spread, not the value itself: `send` takes `Record<string, unknown>`, and
-  // an interface gets no implicit index signature, so passing the dispatch
-  // directly does not typecheck. The spread's anonymous object type does.
-  await queue.send(TEAM_CHAT_NOTIFICATION_QUEUE, { ...dispatch });
 }

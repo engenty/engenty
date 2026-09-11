@@ -1,167 +1,93 @@
-import type {
-  PluginAuthContext,
-  PluginHttpRouteContext,
-  PluginServerApi,
-  QueueServiceLike,
-} from "@engenty/plugin-sdk";
-import { actorUserIdFromAuth } from "@engenty/plugin-sdk";
-import { z } from "@hono/zod-openapi";
-import type { createTasksRepoSupabase } from "../dal/supabase.js";
-import type { TriggersRepo } from "../dal/triggers.js";
-import { validateBlockedBy } from "../domain/task-blockers.js";
-import { performTaskCheckout } from "../lib/perform-task-checkout.js";
-import { TaskCheckoutConflictError } from "../lib/task-checkout-errors.js";
 import {
-  goalCreateInputSchema,
-  goalHandoffResponseSchema,
-  goalIdParamsSchema,
-  goalSchema,
-  goalsListQuerySchema,
-  goalsPaginatedResponseSchema,
-  goalUpdateInputSchema,
-  taskActivityListSchema,
-  taskAddCommentOperationInputSchema,
-  taskCheckoutInputRawSchema,
-  taskCheckoutInputSchema,
-  taskClearOnceApprovalsInputSchema,
-  taskCommentSchema,
+  actorUserIdFromAuth,
+  createRecordLinker,
+  type PluginServerApi,
+  type RecordLinkAuth,
+  withRecordLink,
+  withRecordLinks,
+} from "@engenty/plugin-sdk";
+import { z } from "@hono/zod-openapi";
+import { validateBlockedBy } from "../domain/task-blockers.js";
+import { startsOnCreate } from "../domain/task-lifecycle.js";
+import {
   taskCreateInputSchema,
   taskDetailSchema,
   taskIdParamsSchema,
-  taskReleaseInputRawSchema,
-  taskReleaseInputSchema,
-  taskRunNowResponseSchema,
-  taskRunsListSchema,
   taskSchema,
   taskSettingsSchema,
   taskSettingsUpdateSchema,
   tasksListQuerySchema,
   tasksPaginatedResponseSchema,
-  taskToolApprovalInputSchema,
   taskUpdateInputSchema,
 } from "../schema/zod.js";
-import { fetchRegisteredAgentIds } from "./agent-key-validator.js";
-import { handoffGoalToCoordinator } from "./goal-handoff-service.js";
 import {
-  type CoreGrantsWriter,
-  resolveTaskToolApproval,
-} from "./task-approval-service.js";
+  getRepo,
+  type RepoOrFactory,
+  resolveAssignmentFallbackSpace,
+  type TasksGatewayOptions,
+  taskAssignmentValidator,
+  tasksDestructiveOp,
+  tasksReadOp,
+  tasksWriteOp,
+  validateAgentAssignment,
+} from "./gateway-shared.js";
+import { registerTasksWorkflowGatewayMethods } from "./gateway-task-workflow-methods.js";
+import {
+  TASKS_COLLECTION_SPACE_POLICY,
+  TASKS_SETTINGS_SPACE_POLICY,
+  tasksRecordSpacePolicy,
+} from "./operation-space-policy.js";
 import {
   dispatchTaskIfReady,
   wakeBlockedDependents,
 } from "./task-dispatch-service.js";
-import { reapStaleCheckouts } from "./task-reaper-service.js";
-import { runTaskNow } from "./task-run-now-service.js";
 
-export type TasksRepo = ReturnType<typeof createTasksRepoSupabase>;
-
-export type RepoOrFactory =
-  | TasksRepo
-  | ((
-      auth: PluginAuthContext,
-      recordAuditEvent?: PluginHttpRouteContext["recordAuditEvent"]
-    ) => TasksRepo);
-
-export function getRepo(
-  repoOrFactory: RepoOrFactory,
-  auth?: PluginAuthContext,
-  recordAuditEvent?: PluginHttpRouteContext["recordAuditEvent"]
-): TasksRepo {
-  if (typeof repoOrFactory === "function") {
-    if (!auth) {
-      throw new Error("Auth context required");
-    }
-    return repoOrFactory(auth, recordAuditEvent);
-  }
-  return repoOrFactory;
-}
-
-const readOp = (moduleCaps: string[]) => ({
-  moduleId: "tasks",
-  requiredCapabilities: moduleCaps,
-  riskLevel: "low" as const,
-  idempotent: true,
-  dryRunSupported: false,
-  requiresApproval: false,
-});
-
-const writeOp = (moduleCaps: string[]) => ({
-  moduleId: "tasks",
-  requiredCapabilities: moduleCaps,
-  riskLevel: "high" as const,
-  idempotent: false,
-  dryRunSupported: false,
-  requiresApproval: true,
-});
+const taskRecordPolicy = tasksRecordSpacePolicy("id");
 
 const taskUpdateOperationInputSchema = taskUpdateInputSchema.extend({
   id: z.string().uuid(),
   actor_agent_type_key: z.string().optional(),
 });
 
-export interface TasksGatewayOptions {
-  /** Base URL of apps/ai (e.g. http://localhost:3100). When absent, agent key validation is skipped. */
-  aiBaseUrl?: string | null;
-  /** Service JWT for apps/ai registry calls. When absent, agent key validation is skipped. */
-  aiServiceJwt?: string | null;
-  /** Core approval-grant writer (D2): the durable half of a tool approval,
-   * spent by core-side gates via the run's forwarded task id. */
-  coreGrantsFactory?: (auth: PluginAuthContext) => CoreGrantsWriter;
-  /** Queue service for dispatching agent tasks. When absent, auto-dispatch is skipped. */
-  queue?: QueueServiceLike | null;
-  /** Reaps goal-scoped capability elevation when a goal reaches a terminal
-   * state. Elevation is scoped to the pursuit of the goal, so it must not
-   * outlive it (core.agent_goal_grants — see approvals-sdk TRK-03 note). */
-  reapGoalGrants?: (auth: PluginAuthContext, goalId: string) => Promise<void>;
-  /** Scoped triggers repo, for routine-scoped approval grants. */
-  triggersRepoFactory?: (auth: PluginAuthContext) => TriggersRepo;
-}
-
-async function validateAgentKey(
-  agentTypeKey: string | null | undefined,
-  options: TasksGatewayOptions | undefined
-): Promise<void> {
-  if (!agentTypeKey) {
-    return;
-  }
-  const { aiBaseUrl, aiServiceJwt } = options ?? {};
-  if (!(aiBaseUrl && aiServiceJwt)) {
-    return;
-  }
-  const known = await fetchRegisteredAgentIds(aiBaseUrl, aiServiceJwt);
-  if (!known.has(agentTypeKey)) {
-    const err = new Error("unknown_agent_type_key") as Error & {
-      details: unknown;
-    };
-    err.details = { agent_type_key: agentTypeKey, known: [...known] };
-    throw err;
-  }
-}
-
 export function registerTasksGatewayMethods(
   api: PluginServerApi,
   repoOrFactory: RepoOrFactory,
   options?: TasksGatewayOptions
 ) {
+  // A task lives in its own space; the link follows the record, not the run.
+  const link = createRecordLinker(api);
+  const taskLink = (
+    auth: RecordLinkAuth | undefined,
+    task: { id: string; space_id?: string | null }
+  ) => link(auth, "tasks", [task.id], task.space_id);
+
   api.registerOperation({
     operationId: "tasks_list",
     summary: "List tasks",
-    ...readOp(["module.tasks.read"]),
+    ...tasksReadOp(["module.tasks.read"]),
+    spacePolicy: TASKS_COLLECTION_SPACE_POLICY,
     inputSchema: tasksListQuerySchema.partial(),
     outputSchema: tasksPaginatedResponseSchema,
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      return repo.listTasksPaginated(
+      const result = await repo.listTasksPaginated(
         tasksListQuerySchema.parse(input ?? {}),
         ctx.auth?.principalId
       );
+      return {
+        ...result,
+        data: await withRecordLinks(result.data, (task) =>
+          taskLink(ctx.auth, task)
+        ),
+      };
     },
   });
 
   api.registerOperation({
     operationId: "tasks_get",
     summary: "Get task by ID",
-    ...readOp(["module.tasks.read"]),
+    ...tasksReadOp(["module.tasks.read"]),
+    spacePolicy: taskRecordPolicy,
     inputSchema: taskIdParamsSchema,
     outputSchema: taskDetailSchema,
     handler: async (input, ctx) => {
@@ -171,21 +97,36 @@ export function registerTasksGatewayMethods(
       if (!task) {
         throw new Error("task_not_found");
       }
-      return task;
+      return withRecordLink(task, (row) => taskLink(ctx.auth, row));
     },
   });
 
   api.registerOperation({
     operationId: "tasks_create",
     summary: "Create task",
-    ...writeOp(["module.tasks.write"]),
+    ...tasksWriteOp(["module.tasks.write"]),
+    spacePolicy: TASKS_COLLECTION_SPACE_POLICY,
     inputSchema: taskCreateInputSchema,
     outputSchema: taskSchema,
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const parsed = taskCreateInputSchema.parse(input);
       if (parsed.primary_assignee_kind === "agent") {
-        await validateAgentKey(parsed.primary_assignee_agent_type_key, options);
+        const inheritedSpace = (
+          parsed.parent_id ? await repo.getTask(parsed.parent_id) : null
+        )?.space_id;
+        const fallbackSpace =
+          !(parsed.space_id || inheritedSpace) && ctx.auth
+            ? await resolveAssignmentFallbackSpace(ctx.auth, options)
+            : null;
+        await validateAgentAssignment(
+          {
+            agentTypeKey: parsed.primary_assignee_agent_type_key,
+            spaceId: parsed.space_id ?? inheritedSpace ?? fallbackSpace,
+            tenantId: ctx.auth?.tenantId,
+          },
+          options
+        );
       }
       if (parsed.blocked_by_task_ids?.length) {
         parsed.blocked_by_task_ids = await validateBlockedBy(
@@ -198,32 +139,59 @@ export function registerTasksGatewayMethods(
         createdByUserId: actorUserIdFromAuth(ctx.auth),
         actorKind: parsed.created_by_agent_type_key ? "agent" : "user",
       });
-      if (options?.queue && ctx.auth?.tenantId) {
+      // Creating straight into a resting status means "plan it, don't run it".
+      // `isDispatchableTask` alone would still admit `backlog`, which stays
+      // checkout-eligible so an existing task can be re-dispatched from there.
+      if (options?.queue && ctx.auth?.tenantId && startsOnCreate(task.status)) {
         await dispatchTaskIfReady(
-          { queue: options.queue, repo, tenantId: ctx.auth.tenantId },
+          {
+            queue: options.queue,
+            repo,
+            tenantId: ctx.auth.tenantId,
+            validateAgentAssignment: taskAssignmentValidator(options),
+          },
           task
         );
       }
-      return task;
+      return withRecordLink(task, (row) => taskLink(ctx.auth, row));
     },
   });
 
   api.registerOperation({
     operationId: "tasks_update",
     summary: "Update task",
-    ...writeOp(["module.tasks.write"]),
+    ...tasksWriteOp(["module.tasks.write"]),
+    spacePolicy: taskRecordPolicy,
     inputSchema: taskUpdateOperationInputSchema,
     outputSchema: taskSchema,
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
       const raw = input as z.infer<typeof taskUpdateOperationInputSchema>;
       const { id, actor_agent_type_key, ...patch } = raw;
-      if (patch.primary_assignee_kind === "agent") {
-        await validateAgentKey(patch.primary_assignee_agent_type_key, options);
-      }
       const existing = await repo.getTask(id);
       if (!existing) {
         throw new Error("task_not_found");
+      }
+      const nextAssigneeKind =
+        patch.primary_assignee_kind ?? existing.primary_assignee_kind;
+      const nextAgentTypeKey =
+        patch.primary_assignee_agent_type_key === undefined
+          ? existing.primary_assignee_agent_type_key
+          : patch.primary_assignee_agent_type_key;
+      if (
+        nextAssigneeKind === "agent" &&
+        (patch.primary_assignee_kind !== undefined ||
+          patch.primary_assignee_agent_type_key !== undefined ||
+          patch.space_id !== undefined)
+      ) {
+        await validateAgentAssignment(
+          {
+            agentTypeKey: nextAgentTypeKey,
+            spaceId: patch.space_id ?? existing.space_id,
+            tenantId: ctx.auth?.tenantId ?? existing.tenant_id,
+          },
+          options
+        );
       }
       if (patch.blocked_by_task_ids !== undefined) {
         patch.blocked_by_task_ids = await validateBlockedBy(
@@ -247,6 +215,7 @@ export function registerTasksGatewayMethods(
           queue: options.queue,
           repo,
           tenantId: ctx.auth.tenantId,
+          validateAgentAssignment: taskAssignmentValidator(options),
         };
         await dispatchTaskIfReady(deps, updated);
         // A task reaching 'done' can unblock dependents and complete a parent.
@@ -254,14 +223,15 @@ export function registerTasksGatewayMethods(
           await wakeBlockedDependents(deps, updated);
         }
       }
-      return updated;
+      return withRecordLink(updated, (row) => taskLink(ctx.auth, row));
     },
   });
 
   api.registerOperation({
     operationId: "tasks_delete",
     summary: "Delete task",
-    ...writeOp(["module.tasks.write"]),
+    ...tasksDestructiveOp(["module.tasks.write"]),
+    spacePolicy: taskRecordPolicy,
     inputSchema: taskIdParamsSchema,
     outputSchema: z.object({ ok: z.boolean() }),
     handler: async (input, ctx) => {
@@ -276,323 +246,10 @@ export function registerTasksGatewayMethods(
   });
 
   api.registerOperation({
-    operationId: "tasks_resolve_tool_approval",
-    summary: "Approve or deny a pending tool approval on a task",
-    // This op IS the human approval act; it must not itself require approval.
-    ...writeOp(["module.tasks.write"]),
-    requiresApproval: false,
-    inputSchema: taskToolApprovalInputSchema,
-    outputSchema: taskSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const parsed = taskToolApprovalInputSchema.parse(input);
-      const triggersRepo =
-        options?.triggersRepoFactory && ctx.auth
-          ? options.triggersRepoFactory(ctx.auth)
-          : null;
-      return resolveTaskToolApproval(
-        {
-          actorUserId: actorUserIdFromAuth(ctx.auth),
-          coreGrants:
-            options?.coreGrantsFactory && ctx.auth
-              ? options.coreGrantsFactory(ctx.auth)
-              : null,
-          queue: options?.queue ?? null,
-          tasksRepo: repo,
-          tenantId: ctx.auth?.tenantId ?? null,
-          triggersRepo,
-        },
-        {
-          decision: parsed.decision,
-          operationId: parsed.operation_id,
-          scope: parsed.scope,
-          taskId: parsed.id,
-        }
-      );
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_approval_grants_effective",
-    summary: "Effective tool-approval grant set for a task's next run",
-    ...readOp(["module.tasks.read"]),
-    inputSchema: taskClearOnceApprovalsInputSchema,
-    outputSchema: z.object({ approval_grants: z.array(z.string()) }),
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const parsed = taskClearOnceApprovalsInputSchema.parse(input);
-      const task = await repo.getTask(parsed.id);
-      if (!task) {
-        throw new Error("task_not_found");
-      }
-      // The core store is where approvals land (2c dual-write + backfill);
-      // the trigger's approval_grants column is routine CONFIG — part of the
-      // trigger's definition, not an approval artifact — so it stays a source
-      // in its own right. The legacy task columns are deliberately NOT read:
-      // everything they held was backfilled, and new approvals dual-write.
-      const coreGrants =
-        options?.coreGrantsFactory && ctx.auth
-          ? options.coreGrantsFactory(ctx.auth)
-          : null;
-      const subjectIds = [
-        parsed.id,
-        ...(task.trigger_id ? [task.trigger_id] : []),
-      ];
-      const fromCore =
-        (await coreGrants?.listOperationIds({ subjectIds })) ?? [];
-      let fromTriggerConfig: string[] = [];
-      if (task.trigger_id && options?.triggersRepoFactory && ctx.auth) {
-        const trigger = await options
-          .triggersRepoFactory(ctx.auth)
-          .getTrigger(task.trigger_id)
-          .catch(() => null);
-        fromTriggerConfig = trigger?.approval_grants ?? [];
-      }
-      return {
-        approval_grants: [...new Set([...fromCore, ...fromTriggerConfig])],
-      };
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_clear_once_approvals",
-    summary: "Clear a task's one-shot tool-approval grants",
-    ...writeOp(["module.tasks.write"]),
-    requiresApproval: false,
-    inputSchema: taskClearOnceApprovalsInputSchema,
-    outputSchema: z.object({ ok: z.boolean() }),
-    handler: async (input, ctx) => {
-      const parsed = taskClearOnceApprovalsInputSchema.parse(input);
-      // The core once-rows outlive dispatch on purpose (a core-side gate
-      // spends them DURING the run); this call, after the run, is what ends
-      // the ones nobody spent.
-      if (options?.coreGrantsFactory && ctx.auth) {
-        await options.coreGrantsFactory(ctx.auth).revokeOnce({
-          subjectId: parsed.id,
-        });
-      }
-      return { ok: true };
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_reap_stale_checkouts",
-    summary: "Release checkouts whose backing run is dead",
-    // Maintenance/liveness op run by the coordinator heartbeat: it only ever
-    // releases checkouts of dead runs (live runs are never touched), so it is
-    // safe, idempotent, and must run headless without an approval pause.
-    ...writeOp(["module.tasks.write"]),
-    riskLevel: "low" as const,
-    requiresApproval: false,
-    inputSchema: z.object({}),
-    outputSchema: z.object({
-      checked: z.number().int(),
-      reaped: z.array(
-        z.object({
-          id: z.string(),
-          identifier: z.string().nullable(),
-          run_id: z.string(),
-        })
-      ),
-    }),
-    handler: async (_input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      return reapStaleCheckouts({
-        queue: options?.queue ?? null,
-        repo,
-        tenantId: ctx.auth?.tenantId ?? null,
-      });
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_run_now",
-    summary: "Queue an agent run for this task now",
-    // The human pressing "work on this task" IS the authorization; gating it
-    // behind a second approval would ask them to approve their own click.
-    ...writeOp(["module.tasks.write"]),
-    riskLevel: "low" as const,
-    requiresApproval: false,
-    inputSchema: taskIdParamsSchema,
-    outputSchema: taskRunNowResponseSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const parsed = taskIdParamsSchema.parse(input);
-      return runTaskNow(
-        {
-          actorUserId: actorUserIdFromAuth(ctx.auth),
-          queue: options?.queue ?? null,
-          repo,
-          tenantId: ctx.auth?.tenantId ?? null,
-        },
-        { taskId: parsed.id }
-      );
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_add_comment",
-    summary: "Add task comment",
-    // Commenting is how an agent reports progress and asks for input; it is
-    // additive, reversible and low-risk, so it must never sit behind approval.
-    ...writeOp(["module.tasks.write"]),
-    riskLevel: "low" as const,
-    requiresApproval: false,
-    inputSchema: taskAddCommentOperationInputSchema,
-    outputSchema: taskCommentSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const raw = input as z.infer<typeof taskAddCommentOperationInputSchema>;
-      const { id, content, created_by_agent_type_key } = raw;
-      const existing = await repo.getTask(id);
-      if (!existing) {
-        throw new Error("task_not_found");
-      }
-      return repo.addComment(id, content, {
-        ...(created_by_agent_type_key
-          ? {
-              createdByAgentTypeKey: created_by_agent_type_key,
-              createdByUserId: null,
-            }
-          : { createdByUserId: actorUserIdFromAuth(ctx.auth) }),
-      });
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_checkout",
-    summary: "Checkout task for agent work",
-    ...writeOp(["module.tasks.write"]),
-    inputSchema: taskCheckoutInputRawSchema.extend({ id: z.string().uuid() }),
-    outputSchema: taskSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const parsed = taskCheckoutInputSchema.parse(input);
-      const id = (input as { id: string }).id;
-      try {
-        return await performTaskCheckout(
-          {
-            repo,
-            storage: api.getStorageService?.("files") ?? null,
-            tenantId: ctx.auth?.tenantId ?? "",
-          },
-          id,
-          parsed,
-          {
-            actorUserId: actorUserIdFromAuth(ctx.auth),
-          }
-        );
-      } catch (err) {
-        if (err instanceof TaskCheckoutConflictError) {
-          const conflict = new Error(err.code);
-          (conflict as Error & { details: unknown }).details = err.conflict;
-          throw conflict;
-        }
-        throw err;
-      }
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_release",
-    summary: "Release agent checkout on task",
-    ...writeOp(["module.tasks.write"]),
-    inputSchema: taskReleaseInputRawSchema.extend({ id: z.string().uuid() }),
-    outputSchema: taskSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const parsed = taskReleaseInputSchema.parse(input);
-      const raw = {
-        id: (input as { id: string }).id,
-        ...parsed,
-        actor_agent_type_key: (input as { actor_agent_type_key?: string })
-          .actor_agent_type_key,
-      };
-      const { id, actor_agent_type_key, ...releaseInput } = raw;
-      const released = await repo.releaseTask(id, releaseInput, {
-        actorKind: actor_agent_type_key ? "agent" : "user",
-        actorUserId: actorUserIdFromAuth(ctx.auth),
-        actorAgentTypeKey: actor_agent_type_key ?? null,
-      });
-      if (!released) {
-        throw new Error("task_not_found");
-      }
-      return released;
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_list_runs",
-    summary: "List task runs",
-    ...readOp(["module.tasks.read"]),
-    inputSchema: taskIdParamsSchema,
-    outputSchema: taskRunsListSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = taskIdParamsSchema.parse(input);
-      const existing = await repo.getTask(params.id);
-      if (!existing) {
-        throw new Error("task_not_found");
-      }
-      const data = await repo.listTaskRuns(params.id);
-      return { data };
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_standing_by_triggers",
-    summary: "Newest non-terminal task per trigger (routine standing tasks)",
-    ...readOp(["module.tasks.read"]),
-    inputSchema: z.object({
-      trigger_ids: z.array(z.string().uuid()).max(200),
-    }),
-    outputSchema: z.object({
-      data: z.array(
-        z.object({
-          identifier: z.string(),
-          task_id: z.string().uuid(),
-          trigger_id: z.string().uuid(),
-        })
-      ),
-    }),
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const { trigger_ids } = z
-        .object({ trigger_ids: z.array(z.string().uuid()).max(200) })
-        .parse(input);
-      const map = await repo.listStandingTasksByTriggerIds(trigger_ids);
-      return {
-        data: [...map.entries()].map(([triggerId, task]) => ({
-          identifier: task.identifier,
-          task_id: task.id,
-          trigger_id: triggerId,
-        })),
-      };
-    },
-  });
-
-  api.registerOperation({
-    operationId: "tasks_list_activity",
-    summary: "List task activity",
-    ...readOp(["module.tasks.read"]),
-    inputSchema: taskIdParamsSchema,
-    outputSchema: taskActivityListSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = taskIdParamsSchema.parse(input);
-      const existing = await repo.getTask(params.id);
-      if (!existing) {
-        throw new Error("task_not_found");
-      }
-      const data = await repo.listTaskActivity(params.id);
-      return { data };
-    },
-  });
-
-  api.registerOperation({
     operationId: "tasks_settings_get",
     summary: "Get task module settings",
-    ...readOp(["module.tasks.read"]),
+    ...tasksReadOp(["module.tasks.read"]),
+    spacePolicy: TASKS_SETTINGS_SPACE_POLICY,
     inputSchema: z.object({}),
     outputSchema: taskSettingsSchema,
     handler: async (_input, ctx) => {
@@ -604,7 +261,8 @@ export function registerTasksGatewayMethods(
   api.registerOperation({
     operationId: "tasks_settings_update",
     summary: "Update task module settings",
-    ...writeOp(["module.tasks.write"]),
+    ...tasksWriteOp(["module.tasks.write"]),
+    spacePolicy: TASKS_SETTINGS_SPACE_POLICY,
     inputSchema: taskSettingsUpdateSchema,
     outputSchema: taskSettingsSchema,
     handler: async (input, ctx) => {
@@ -613,121 +271,5 @@ export function registerTasksGatewayMethods(
     },
   });
 
-  api.registerOperation({
-    operationId: "goals_list",
-    summary: "List goals",
-    ...readOp(["module.goals.read"]),
-    inputSchema: goalsListQuerySchema.partial(),
-    outputSchema: goalsPaginatedResponseSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      return repo.listGoalsPaginated(goalsListQuerySchema.parse(input ?? {}));
-    },
-  });
-
-  api.registerOperation({
-    operationId: "goals_get",
-    summary: "Get goal by ID",
-    ...readOp(["module.goals.read"]),
-    inputSchema: goalIdParamsSchema,
-    outputSchema: goalSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = goalIdParamsSchema.parse(input);
-      const goal = await repo.getGoal(params.id);
-      if (!goal) {
-        throw new Error("goal_not_found");
-      }
-      return goal;
-    },
-  });
-
-  api.registerOperation({
-    operationId: "goals_create",
-    summary: "Create goal",
-    ...writeOp(["module.goals.write"]),
-    inputSchema: goalCreateInputSchema,
-    outputSchema: goalSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      return repo.createGoal(goalCreateInputSchema.parse(input));
-    },
-  });
-
-  api.registerOperation({
-    operationId: "goals_update",
-    summary: "Update goal",
-    ...writeOp(["module.goals.write"]),
-    inputSchema: goalUpdateInputSchema.extend({ id: z.string().uuid() }),
-    outputSchema: goalSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const raw = input as { id: string } & z.infer<
-        typeof goalUpdateInputSchema
-      >;
-      const { id, ...patch } = raw;
-      const updated = await repo.updateGoal(id, patch);
-      if (!updated) {
-        throw new Error("goal_not_found");
-      }
-      // A finished goal must not keep handing out the capabilities a human
-      // elevated for it. Best-effort: the grants also carry a TTL, so a failed
-      // reap shortens to that rather than leaving them live forever.
-      if (
-        (updated.status === "achieved" || updated.status === "cancelled") &&
-        options?.reapGoalGrants &&
-        ctx.auth
-      ) {
-        await options.reapGoalGrants(ctx.auth, id).catch(() => {
-          // swallowed: the goal update itself succeeded and must stand
-        });
-      }
-      return updated;
-    },
-  });
-
-  api.registerOperation({
-    operationId: "goals_handoff",
-    summary: "Hand a goal to the coordinator (assign + plan)",
-    ...writeOp(["module.goals.write"]),
-    inputSchema: goalIdParamsSchema,
-    outputSchema: goalHandoffResponseSchema,
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = goalIdParamsSchema.parse(input);
-      return handoffGoalToCoordinator(
-        {
-          queue: options?.queue ?? null,
-          repo,
-          tenantId: ctx.auth?.tenantId ?? null,
-        },
-        params.id,
-        actorUserIdFromAuth(ctx.auth)
-      );
-    },
-  });
-
-  api.registerOperation({
-    operationId: "goals_delete",
-    summary: "Delete goal",
-    ...writeOp(["module.goals.write"]),
-    inputSchema: goalIdParamsSchema,
-    outputSchema: z.object({ ok: z.boolean() }),
-    handler: async (input, ctx) => {
-      const repo = getRepo(repoOrFactory, ctx.auth, ctx.recordAuditEvent);
-      const params = goalIdParamsSchema.parse(input);
-      const ok = await repo.deleteGoal(params.id);
-      if (!ok) {
-        throw new Error("goal_not_found");
-      }
-      // The goal row is gone; its capability elevation would otherwise be
-      // unreachable rows that still answer a grant lookup by goal id.
-      if (options?.reapGoalGrants && ctx.auth) {
-        await options.reapGoalGrants(ctx.auth, params.id).catch(() => {
-          // swallowed: the delete succeeded and must stand
-        });
-      }
-      return { ok: true };
-    },
-  });
+  registerTasksWorkflowGatewayMethods(api, repoOrFactory, options);
 }

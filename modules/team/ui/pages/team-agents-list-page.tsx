@@ -32,7 +32,6 @@ export function TeamAgentsListPage() {
     ],
     secondaryNavAfterItems: shellNav.secondaryNavAfterItems,
     secondaryNavHeaderSlot: shellNav.secondaryNavHeaderSlot,
-    topbarChrome: "contentBlend",
   });
 
   return (
@@ -64,7 +63,7 @@ export function TeamAgentsListPage() {
         <div className={adminListCardsGridClassName()}>
           {agents.map((agent) => (
             <button
-              className="rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/30"
+              className="ui-card-raised p-4 text-left"
               key={agent.id}
               onClick={() => navigate(teamAgentDetailPath(agent.id))}
               type="button"

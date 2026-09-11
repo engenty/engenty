@@ -66,7 +66,7 @@ function ProjectsTasksKanbanCard({
 
   return (
     <div
-      className="group relative block min-w-0 cursor-pointer rounded-lg border bg-card p-4 shadow-sm transition-all hover:shadow-md"
+      className="ui-card-raised group relative block min-w-0 cursor-pointer p-4"
       onClick={() => onTaskClick?.(task)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {

@@ -12,6 +12,7 @@ const MODEL_FIELDS = [
   "research_model_id",
   "planning_coding_model_id",
   "safeguard_model_id",
+  "memory_model_id",
 ] as const;
 
 /** Everything inherits: the "reset to defaults" target now clears pins. */
@@ -21,10 +22,14 @@ const INHERIT_CONFIG: AiConfig = {
   research_model_id: null,
   planning_coding_model_id: null,
   safeguard_model_id: null,
+  memory_model_id: null,
   classifier_model_id: null,
   doc_converter: null,
   realtime_voice: null,
   caps: null,
+  agent_approval: null,
+  generated_starters: null,
+  timezone: null,
 };
 
 const EMPTY_CONFIG: AiConfig = { ...INHERIT_CONFIG };
@@ -36,19 +41,30 @@ function normalizeDocConverter(
     provider:
       dc?.provider === "llamaparse" ||
       dc?.provider === "gemini" ||
-      dc?.provider === "liteparse"
+      dc?.provider === "liteparse" ||
+      dc?.provider === "mistral"
         ? dc.provider
         : "local",
+    browser_parse:
+      dc?.browser_parse === "off" ||
+      dc?.browser_parse === "anydoc" ||
+      dc?.browser_parse === "liteparse"
+        ? dc.browser_parse
+        : "anydoc",
     gemini_model:
       typeof dc?.gemini_model === "string" && dc.gemini_model.trim()
         ? dc.gemini_model.trim()
+        : null,
+    mistral_model:
+      typeof dc?.mistral_model === "string" && dc.mistral_model.trim()
+        ? dc.mistral_model.trim()
         : null,
   };
 }
 
 function docConverterSignature(dc: AiConfig["doc_converter"]): string {
   const n = normalizeDocConverter(dc);
-  return `${n.provider}|${n.gemini_model ?? ""}`;
+  return `${n.provider}|${n.browser_parse}|${n.gemini_model ?? ""}|${n.mistral_model ?? ""}`;
 }
 
 function capsSignature(caps: AiConfig["caps"]): string {
@@ -78,12 +94,25 @@ function modelField(config: AiConfig, key: (typeof MODEL_FIELDS)[number]) {
   return config[key]?.trim() || null;
 }
 
-/** Normalize a server config: trim model ids to null, keep doc/caps/voice as stored. */
+function agentApprovalSignature(prefs: AiConfig["agent_approval"]): string {
+  const mode = prefs?.mode ?? "";
+  const agents = prefs?.agents
+    ? Object.entries(prefs.agents)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, value]) => `${key}:${value}`)
+        .join(",")
+    : "";
+  return `${mode}|${agents}`;
+}
+
 function normalizeConfig(config: AiConfig): AiConfig {
   const out: AiConfig = {
     doc_converter: config.doc_converter ?? null,
     realtime_voice: config.realtime_voice ?? null,
     caps: config.caps ?? null,
+    agent_approval: config.agent_approval ?? null,
+    generated_starters: config.generated_starters === true ? true : null,
+    timezone: config.timezone?.trim() || null,
   };
   for (const key of MODEL_FIELDS) {
     out[key] = modelField(config, key);
@@ -93,7 +122,7 @@ function normalizeConfig(config: AiConfig): AiConfig {
 
 function configSignature(config: AiConfig): string {
   const models = MODEL_FIELDS.map((k) => modelField(config, k) ?? "").join("|");
-  return `${models}::${docConverterSignature(config.doc_converter)}::${capsSignature(config.caps)}::${realtimeVoiceSignature(config.realtime_voice)}`;
+  return `${models}::${docConverterSignature(config.doc_converter)}::${capsSignature(config.caps)}::${realtimeVoiceSignature(config.realtime_voice)}::${agentApprovalSignature(config.agent_approval)}::${config.generated_starters === true ? "1" : "0"}::${config.timezone?.trim() || ""}`;
 }
 
 export function useAiSettings() {

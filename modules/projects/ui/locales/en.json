@@ -420,5 +420,13 @@
     "noSearchResults": "No projects match your search",
     "projectsSection": "Projects"
   },
-  "artifactsTab": "Artifacts"
+  "artifactsTab": "Artifacts",
+  "work": {
+    "columns": {
+      "title": "Title",
+      "client": "Client",
+      "start": "Start",
+      "end": "End"
+    }
+  }
 }

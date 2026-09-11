@@ -19,6 +19,8 @@ describe("capabilitiesForUser", () => {
       "tenant-settings.write",
       "user-settings.read",
       "user-settings.write",
+      "notifications.read",
+      "notifications.write",
     ]);
     // A user who is not a member of the tenant gets nothing (matches
     // resolveGrants' base === null → empty).

@@ -1,16 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildSessionLifecycleSandboxId } from "../destroy-session-sandbox.js";
 import type { EngentySandboxProvider } from "../sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox-run-teardown.js";
-
-describe("buildSessionLifecycleSandboxId", () => {
-  it("keys session sandboxes by parent thread id", () => {
-    expect(buildSessionLifecycleSandboxId("thread-abc")).toBe(
-      "engenty-session-thread-abc"
-    );
-  });
-});
 
 describe("destroyRunSandboxes", () => {
   function makeProvider(id: string): EngentySandboxProvider {

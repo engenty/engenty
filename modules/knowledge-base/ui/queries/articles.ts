@@ -4,10 +4,13 @@
 
 import {
   keepPreviousData,
+  type QueryClient,
   queryOptions,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@engenty/query-client";
+import type { Article } from "../../src/schema/types.js";
 import {
   type ArticlesQuery,
   createArticleComment,
@@ -40,6 +43,70 @@ export function articleDetailQueryOptions(id: string) {
     queryFn: ({ signal }) => getArticle(id, signal),
     enabled: !!id,
     staleTime: 15_000,
+  });
+}
+
+function isCachedArticleRow(value: unknown): value is Article {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const row = value as Partial<Article>;
+  return (
+    typeof row.id === "string" &&
+    typeof row.kb_id === "string" &&
+    typeof row.title === "string"
+  );
+}
+
+function cachedArticleRows(value: unknown): Article[] {
+  const page = value as { data?: unknown } | null;
+  if (page && typeof page === "object" && Array.isArray(page.data)) {
+    return page.data.filter(isCachedArticleRow);
+  }
+  return isCachedArticleRow(value) ? [value] : [];
+}
+
+/**
+ * An article already sitting in the query cache, addressed by id or by slug.
+ *
+ * The list endpoint returns whole rows — title, summary, body, properties — so
+ * once the sidebar tree has loaded, everything the reader paints first is in
+ * cache before the detail request is even sent. The detail payload only adds
+ * the navigation context, attachments, source references and the `effective_*`
+ * resolutions, which is why it can arrive a beat later without a skeleton.
+ */
+export function findCachedArticle(
+  queryClient: QueryClient,
+  idOrSlug: string
+): Article | undefined {
+  if (!idOrSlug) {
+    return;
+  }
+  let listRow: Article | undefined;
+  for (const [key, value] of queryClient.getQueriesData({
+    queryKey: kbArticleKeys.all,
+  })) {
+    for (const row of cachedArticleRows(value)) {
+      if (row.id !== idOrSlug && row.slug !== idOrSlug) {
+        continue;
+      }
+      // A detail payload carries the resolutions a list row cannot; it is
+      // reachable here when the article was opened under its other address.
+      if (key[2] === "detail") {
+        return row;
+      }
+      listRow ??= row;
+    }
+  }
+  return listRow;
+}
+
+/** Article detail, painted from the cached list row until the request lands. */
+export function useArticleDetailQuery(idOrSlug: string) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    ...articleDetailQueryOptions(idOrSlug),
+    placeholderData: () => findCachedArticle(queryClient, idOrSlug),
   });
 }
 

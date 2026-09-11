@@ -1,4 +1,9 @@
-import { createConnectionsRepo } from "@engenty/connections-sdk";
+import {
+  createConnectionsRepo,
+  listMountedConnectionAccess,
+  mountConnectionInSpace,
+  resolveVerifiedSpaceOwnerForRun,
+} from "@engenty/connections-sdk";
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerConnectionsCredentialsRoutes } from "./api/credentials-routes.js";
@@ -69,12 +74,36 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
       { tenantId: event.tenantId }
     );
   };
-  registerConnectionsOAuthRoutes(server, { getRepo, serviceRepo }, settings, {
-    onConnected,
-  });
+  registerConnectionsOAuthRoutes(
+    server,
+    { getDb: (tenantId) => getDb({ tenantId }), getRepo, serviceRepo },
+    settings,
+    { onConnected }
+  );
   registerConnectionsCredentialsRoutes(server, getRepo, { onConnected });
 
   registerConnectionsOperations(server, getRepo, {
+    // `core.agents.name` holds the agent key, which is the only identifier an
+    // agent can see. Read on the service handle and filtered by tenant: the
+    // table is platform data with no scope_id, so foreignSelect does not apply.
+    resolveAgentPrincipalId: async ({ agentKey, tenantId }) => {
+      const { data } = await serviceDb
+        .schema("core")
+        .from("agents")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("name", agentKey)
+        .limit(1)
+        .maybeSingle();
+      return (data as { id?: string } | null)?.id ?? null;
+    },
+    mountConnectionInSpace: async ({ connectionId, spaceId, tenantId }) => {
+      await mountConnectionInSpace(getDb({ tenantId }), {
+        connectionId,
+        spaceId,
+        tenantId,
+      });
+    },
     settings,
     // task_id/operation_id ride along so the tasks module can resume the
     // blocked run the approval was really about (subscriber pattern — no
@@ -104,7 +133,26 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // the deduped request in core.approval_requests + emits `approval.requested`.
   // The onAutonomousAsk hook that wrote module_connections.approval_requests
   // here is gone with the second ledger it fed.
-  server.registerProfilePolicy(createConnectionsProfilePolicy(getRepo));
+  // The space narrows WHICH ACCOUNT (CN.3) and says how far its engentys may
+  // go with it (PLAN-connections-ux.md B1); the repo decides everything else.
+  // Same tenant-locked handle, so the mount read is confined exactly as the
+  // connection read is.
+  server.registerProfilePolicy(
+    createConnectionsProfilePolicy(
+      getRepo,
+      ({ spaceId, tenantId }) =>
+        listMountedConnectionAccess(getDb({ tenantId }), tenantId, spaceId),
+      // §2.1 — personal-space owner reach, verified against the routine's
+      // stored space binding on the same tenant-locked handle.
+      ({ principalType, spaceId, tenantId, triggerId }) =>
+        resolveVerifiedSpaceOwnerForRun(getDb({ tenantId }), {
+          principalType,
+          spaceId,
+          tenantId,
+          triggerId,
+        })
+    )
+  );
 };
 
 export default registerConnectionsPlugin;

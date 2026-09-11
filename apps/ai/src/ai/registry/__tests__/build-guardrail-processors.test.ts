@@ -46,6 +46,14 @@ vi.mock("@mastra/core/processors", () => {
 vi.mock("ai", () => ({
   // Wrap the model id so we can distinguish "did we go through gateway?"
   gateway: (modelId: string) => ({ __gateway: true, modelId }),
+  // The safeguard model now shares the one `resolveLanguageModel` factory with
+  // the agent path, so it also picks up the gateway file-data middleware. That
+  // is a no-op for the text-only prompts a guardrail classifies, and it removes
+  // the third private copy of "is this a gateway id?".
+  wrapLanguageModel: ({ model }: { model: unknown }) => ({
+    __wrapped: true,
+    model,
+  }),
 }));
 
 import { buildGuardrailProcessors } from "../build-guardrail-processors.js";
@@ -188,8 +196,8 @@ describe("buildGuardrailProcessors", () => {
       inputProcessors[0] as unknown as { options: Record<string, unknown> }
     ).options;
     expect(opts.model).toEqual({
-      __gateway: true,
-      modelId: SAFEGUARD_MODEL,
+      __wrapped: true,
+      model: { __gateway: true, modelId: SAFEGUARD_MODEL },
     });
     expect(opts.lastMessageOnly).toBe(true);
     expect(opts.strategy).toBe("redact");

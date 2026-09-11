@@ -63,7 +63,8 @@ export function createInvoiceRepo(dataDir: string) {
         sumBrutto REAL NOT NULL,
         clientId TEXT,
         recipientSnapshot TEXT,
-        createdAt TEXT NOT NULL
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
       )
     `);
     // Lightweight migration path for existing databases created before recipient fields.
@@ -74,6 +75,11 @@ export function createInvoiceRepo(dataDir: string) {
     }
     try {
       db.run("ALTER TABLE invoices ADD COLUMN recipientSnapshot TEXT");
+    } catch {
+      /* ignore */
+    }
+    try {
+      db.run("ALTER TABLE invoices ADD COLUMN updatedAt TEXT");
     } catch {
       /* ignore */
     }
@@ -126,6 +132,9 @@ export function createInvoiceRepo(dataDir: string) {
           : undefined,
       recipientSnapshot,
       createdAt: String(o.createdAt),
+      // Falls back on rows written before the column existed; every write since
+      // sets it, so the version token still advances on edit.
+      updatedAt: String(o.updatedAt ?? o.createdAt),
       // Local SQL.js fallback predates the commercial columns: treat all as draft.
       status: "draft",
     };
@@ -191,8 +200,8 @@ export function createInvoiceRepo(dataDir: string) {
       const invoice = parsed;
       d.run(
         `INSERT OR IGNORE INTO invoices
-          (id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           invoice.id,
           invoice.number,
@@ -207,6 +216,7 @@ export function createInvoiceRepo(dataDir: string) {
             ? JSON.stringify(invoice.recipientSnapshot)
             : null,
           invoice.createdAt,
+          invoice.updatedAt ?? invoice.createdAt,
         ]
       );
       inserted += 1;
@@ -224,6 +234,7 @@ export function createInvoiceRepo(dataDir: string) {
         ...input,
         id,
         createdAt,
+        updatedAt: createdAt,
         status: input.status ?? "draft",
       };
 
@@ -234,8 +245,8 @@ export function createInvoiceRepo(dataDir: string) {
 
       const d = await getDb();
       d.run(
-        `INSERT INTO invoices (id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO invoices (id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           input.number,
@@ -250,6 +261,7 @@ export function createInvoiceRepo(dataDir: string) {
             ? JSON.stringify(input.recipientSnapshot)
             : null,
           createdAt,
+          createdAt,
         ]
       );
       await saveDb();
@@ -261,7 +273,7 @@ export function createInvoiceRepo(dataDir: string) {
       const d = await getDb();
       await rebuildIndexFromFilesIfEmpty(d);
       const result = d.exec(
-        `SELECT id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt
+        `SELECT id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt, updatedAt
          FROM invoices ORDER BY date DESC`
       );
       if (!result.length) {
@@ -330,6 +342,10 @@ export function createInvoiceRepo(dataDir: string) {
             : (input.recipientSnapshot ?? existing.recipientSnapshot),
         id: existing.id,
         createdAt: existing.createdAt,
+        // Moves on every write — this is the token a concurrent editor's save
+        // is checked against, so leaving it at the old value would turn a
+        // conflict into a silent overwrite.
+        updatedAt: new Date().toISOString(),
       };
 
       const year = yearFromDate(merged.date);
@@ -349,7 +365,7 @@ export function createInvoiceRepo(dataDir: string) {
       const d = await getDb();
       d.run(
         `UPDATE invoices
-         SET number=?, date=?, dueDate=?, content=?, sumNetto=?, tax=?, sumBrutto=?, clientId=?, recipientSnapshot=?
+         SET number=?, date=?, dueDate=?, content=?, sumNetto=?, tax=?, sumBrutto=?, clientId=?, recipientSnapshot=?, updatedAt=?
          WHERE id=?`,
         [
           merged.number,
@@ -363,6 +379,7 @@ export function createInvoiceRepo(dataDir: string) {
           merged.recipientSnapshot
             ? JSON.stringify(merged.recipientSnapshot)
             : null,
+          merged.updatedAt,
           id,
         ]
       );
@@ -394,7 +411,7 @@ export function createInvoiceRepo(dataDir: string) {
       const d = await getDb();
       await rebuildIndexFromFilesIfEmpty(d);
       const result = d.exec(
-        `SELECT id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt
+        `SELECT id, number, date, dueDate, content, sumNetto, tax, sumBrutto, clientId, recipientSnapshot, createdAt, updatedAt
          FROM invoices
          WHERE clientId = ?
          ORDER BY date DESC`,
