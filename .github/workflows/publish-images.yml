@@ -1,0 +1,92 @@
+name: Publish images
+
+# Builds the public deploy images on GitHub runners and pushes them to GHCR as
+# `ghcr.io/engenty/engenty-*`, so someone installing engenty on a VPS pulls
+# rather than builds. Two app images on a 4-core box is not an install
+# experience.
+#
+# INSTALL THIS ON THE MIRROR BY HAND. publish-open-snapshot.sh deliberately
+# keeps the mirror's own .github/workflows and drops pro's, so this file is not
+# synced — engenty-pro holds it as the reviewable source, and engenty/engenty
+# needs its own copy committed directly. Re-copy it when it changes here.
+#
+# Runs ONLY on engenty/engenty. The guard matters because pro's tree still
+# holds the closed modules: a run here would build them into the public
+# packages. Pro builds its own private `engenty-pro-*` from build-images.yml.
+#
+# Release-gated, like pro: publish-open.yml pushes the `v*` tag alongside the
+# snapshot commit, and that tag is what triggers this. Users get a moving
+# `:latest` plus an immutable `:vX.Y.Z` to pin.
+#
+# One-time setup: GHCR packages are created private. After the first successful
+# run, set each `engenty-<service>` package to Public in the org's package
+# settings — otherwise every `docker compose pull` asks for a login that OSS
+# users do not have.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    if: github.repository == 'engenty/engenty'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # edge is the heaviest image (core + UI + every package/module); a cold
+        # DTS build OOMs the runner above 2. The others stay at 4.
+        include:
+          - service: edge
+            concurrency: 2
+          - service: ai
+            concurrency: 4
+          - service: sandbox
+            concurrency: 4
+          - service: app-host
+            concurrency: 4
+          - service: migrate
+            concurrency: 4
+          - service: docs
+            concurrency: 4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        timeout-minutes: 45
+        with:
+          context: .
+          file: deploy/Dockerfile.${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/engenty/engenty-${{ matrix.service }}:latest
+            ghcr.io/engenty/engenty-${{ matrix.service }}:${{ github.ref_name }}
+            ghcr.io/engenty/engenty-${{ matrix.service }}:${{ github.sha }}
+          # No VITE_* build args, deliberately. A public image has no install to
+          # bake in: the gateway writes the Supabase URL, anon key and AI base
+          # URL into each served page from the deployment's own environment
+          # (apps/core/src/api/prod-gateway-runtime-env.ts). The Dockerfile's
+          # placeholder defaults are what the bundle falls back to, and they are
+          # never correct for anyone — which is the point.
+          build-args: |
+            TURBO_BUILD_CONCURRENCY=${{ matrix.concurrency }}
+          cache-from: type=registry,ref=ghcr.io/engenty/engenty-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/engenty/engenty-${{ matrix.service }}:buildcache,mode=max
