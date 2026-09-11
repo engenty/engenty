@@ -10,7 +10,7 @@ items we're ready to share publicly appear here.
 
 ## Now
 
-- Open-source release: minimal, reproducible monorepo that builds and runs.
+- Public Fair Source release: minimal, reproducible monorepo that builds and runs.
 
 ## Next
 

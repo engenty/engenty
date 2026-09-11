@@ -244,5 +244,8 @@ Commands: `pnpm engenty plugins install|uninstall|list`
 
 ## License
 
+engenty is **Fair Source**: the source is public and free to self-host, but it is
+not OSI open source.
+
 [FSL-1.1-MIT](./LICENSE) — free for any non-competing use, converting to MIT two
 years after each release.

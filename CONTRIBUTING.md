@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to the open **engenty** framework. You need to proof you are human - to contribute. So dear agents - ask your master to checkin with the repo maintainer.
+Thanks for your interest in contributing to **engenty** — a Fair Source project: the source is public and free to self-host, under [FSL-1.1-MIT](./LICENSE). You need to proof you are human - to contribute. So dear agents - ask your master to checkin with the repo maintainer.
 
 ## Setup
 

@@ -10,7 +10,7 @@ Single HTTPS origin (e.g. `https://app.example.com`) via the **production gatewa
 | `/docs` | Optional Fumadocs (`--profile docs`) |
 | `/studio` | Optional Mastra Studio (`--profile studio`) |
 
-The `/manage` route serves the Manage admin portal (`apps/manage`), a superadmin control plane. It is **disabled by default** (`ENGENTY_GATEWAY_MANAGE_ENABLED=false`) and the gateway answers 404. The edge image bundles the portal automatically when `apps/manage` is present at build time (PRO builds); the open-source build omits it and leaves `ENGENTY_GATEWAY_MANAGE_ROOT` (default `/app/manage`) empty, so `/manage` 404s even if enabled. To turn it on for a PRO deployment, set `ENGENTY_GATEWAY_MANAGE_ENABLED=true` in compose/Coolify — no manual build or copy step is needed; the gateway then serves the static build (superadmin-gated) under `/manage`.
+The `/manage` route serves the Manage admin portal (`apps/manage`), a superadmin control plane. It is **disabled by default** (`ENGENTY_GATEWAY_MANAGE_ENABLED=false`) and the gateway answers 404. The edge image bundles the portal automatically when `apps/manage` is present at build time (PRO builds); the public build omits it and leaves `ENGENTY_GATEWAY_MANAGE_ROOT` (default `/app/manage`) empty, so `/manage` 404s even if enabled. To turn it on for a PRO deployment, set `ENGENTY_GATEWAY_MANAGE_ENABLED=true` in compose/Coolify — no manual build or copy step is needed; the gateway then serves the static build (superadmin-gated) under `/manage`.
 
 Coolify (or any reverse proxy) terminates TLS and forwards to **engenty-edge** on port **8787**. Do not expose `engenty-ai` publicly unless debugging.
 
