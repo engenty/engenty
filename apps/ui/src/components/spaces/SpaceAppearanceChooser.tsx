@@ -55,7 +55,7 @@ export function SpaceAppearanceChooser({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="max-h-[min(36rem,calc(100vh-2rem))] w-80 overflow-y-auto p-3"
+        className="max-h-[min(36rem,calc(100dvh-2rem))] w-80 overflow-y-auto p-3"
         collisionPadding={12}
         sideOffset={4}
       >
