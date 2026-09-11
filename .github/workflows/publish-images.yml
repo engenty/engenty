@@ -53,6 +53,11 @@ jobs:
             concurrency: 4
           - service: sandbox
             concurrency: 4
+          # The per-user browser. Its own image on purpose: the sandbox image
+          # never grows a browser. Nothing else publishes it, and apps/ai
+          # launches it by name — unbuilt, starting a browser just fails.
+          - service: browser
+            concurrency: 4
           - service: app-host
             concurrency: 4
           - service: migrate
