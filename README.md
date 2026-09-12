@@ -157,7 +157,7 @@ pnpm db:up --logs            # + Logflare/Vector (Studio's Logs tab)
 Stop the stack first (`pnpm supabase:stop`) if it is already running — the flags are
 written into `supabase/config.toml`, which is read at start.
 
-**Before you commit** (this is exactly what CI checks — see [Release & ship](#release--ship)):
+**Before you commit** — this is exactly what CI checks:
 
 ```bash
 pnpm check       # lint + format   (pnpm fix auto-fixes)
@@ -288,21 +288,6 @@ itself, not just at install time.
 
 Walkthrough: [docs/content/setup/coolify.md](docs/content/setup/coolify.md).
 Operator reference: [deploy/DEPLOY.md](deploy/DEPLOY.md).
-
-## Release & ship
-
-Two steps: cut the release, then push it. **Pushing the `v*` tag is what builds and deploys** — a plain push to `main` never does.
-
-```bash
-pnpm release                        # interactive: bump + changelog + commit + annotated tag vX.Y.Z (local only)
-git push origin main --follow-tags  # push the commit AND the tag → triggers build + deploy
-```
-
-- **`pnpm release`** (git-cliff over [Conventional Commits](https://www.conventionalcommits.org)) is the **single source of truth** — it writes `CHANGELOG.md` + `changelog.json`, bumps `package.json`, commits `chore(release): vX.Y.Z`, and creates the tag. Never hand-edit those files or tags. Use `pnpm release:changelog` to draft the changelog only.
-- **Pushing the tag** builds the deploy images (`edge`, `ai`, `migrate`, `app-host`, `sandbox`, `docs`) and pushes them to GHCR under that version, `latest`, and the commit SHA — which is what `docker-compose.prebuilt.yaml` pulls.
-- **Pushing `main` (no tag)** runs CI only — lint, typecheck, test (`ci.yml`). No build, no deploy.
-
-Full details: [docs/content/dev/releases-and-versioning.md](docs/content/dev/releases-and-versioning.md).
 
 ## Modules: in repo, wired (installed) and activation
 

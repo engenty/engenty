@@ -71,8 +71,9 @@ git push origin main --follow-tags
 just made. That tag push triggers
 [`.github/workflows/build-images.yml`](https://github.com/engenty/engenty-pro/blob/main/.github/workflows/build-images.yml):
 
-1. Builds the `edge`, `ai`, and `sandbox` images on GitHub runners and pushes
-   them to GHCR — tagged `:latest`, `:vX.Y.Z`, and `:<sha>`.
+1. Builds the seven deploy images — `edge`, `ai`, `migrate`, `docs`, `sandbox`,
+   `browser` and `app-host` — on GitHub runners and pushes them to GHCR, tagged
+   `:latest`, `:vX.Y.Z`, and `:<sha>`.
 2. Triggers a Coolify redeploy over SSH, which pulls `:latest` and recreates the
    containers on the VPS.
 

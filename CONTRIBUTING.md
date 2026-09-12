@@ -40,8 +40,7 @@ or `release` for infrastructure. The changelog is built from these commits.
 ## Releasing (maintainers)
 
 Releases are cut with `pnpm release` and shipped by pushing the `v*` tag — see
-[Release & ship](./README.md#release--ship) in the README and the full
-[releases & versioning](./docs/content/dev/releases-and-versioning.md) doc.
+[releases & versioning](./docs/content/dev/releases-and-versioning.md).
 
 ## Issues
 
