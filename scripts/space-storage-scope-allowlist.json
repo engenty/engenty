@@ -43,11 +43,6 @@
       "reason": "Document templates are tenant-wide branding, used by every space; the module has no space-scoped rows."
     },
     {
-      "file": "modules/expenses/src/api/upload-routes.ts",
-      "kind": "tenant-level",
-      "reason": "Expense receipts belong to the tenant's bookkeeping, not to a space: module_expenses scopes its rows by (tenant_id, scope_id) and has no space_id column, and every expenses operation is tenant_shared. If the module gains a space column this entry becomes an error, which is the point."
-    },
-    {
       "file": "modules/engenty-copilot/src/lib/copilot-workspace.ts",
       "kind": "tenant-level",
       "reason": "The copilot's per-user home. \u00a71b keeps the personal home at the tenant root on purpose \u2014 it follows the person across spaces, not the space."
