@@ -15,15 +15,11 @@
 > downgrade. Back the database up first and read the release's upgrade notes —
 > for 0.1.x, [deploy/UPGRADE-0.1-to-0.2.md](deploy/UPGRADE-0.1-to-0.2.md).
 
-# Your Work Horse Harness
+# Teams & Agents working together
 
-Teams & Agents working together
+Hire your specialist agents and work with them as a team, in dedicated spaces.
 
-Engenty provides a platform, so your team can work with a team of agents
-on your own infrastructure - side by side with your apps.
-
-Create multiple spaces to scope your work, knowledge and apps.
-Knowledge bases, projects and tasks let your organize
+Give each space the agents, apps, and knowledge for the job — including compute and data on your own infrastructure. Connect the LLM of your choice.
 
 
 ## Run it locally
