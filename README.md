@@ -33,18 +33,11 @@ git clone https://github.com/engenty/engenty.git
 cd engenty
 ```
 
-**Prerequisites** — skip any step you already have:
-
-```bash
-# Node 24 (.nvmrc pins v24.14.0)
-nvm install
-nvm use
-corepack enable          # once per machine — pnpm 10.23 from package.json
-
-# Docker-compatible daemon so `docker info` succeeds
-# macOS: Docker Desktop, OrbStack, or Dory (pnpm can auto-start these)
-# Linux: Docker Engine — if the daemon is already running, you are done
-```
+**Prerequisites:** Node 24 — the line the deploy images run, pinned to 24.14.0 by
+`.nvmrc` — with `corepack enable` once per machine, so pnpm 10.23 comes from
+`package.json`. Plus a Docker-compatible daemon that answers `docker info`:
+Docker Desktop, OrbStack or [Dory](https://augani.github.io/dory) on macOS,
+Docker Engine on Linux. `pnpm dev` offers to start the macOS ones for you.
 
 The Supabase CLI ships as a workspace dependency. `pnpm install` is enough; do not install it globally.
 
@@ -77,16 +70,29 @@ engenty ships with a basic set of modules out of the box — each one is an inst
 
 engenty is strictly modular. So you can add your own modules using the PluginsSDK.
 
+<!-- modules:start -->
 | Module | What it does |
 |--------|--------------|
+| Browser Bridge | Agent-controlled browser window via the engenty browser extension: navigate, observe, and (with approval) act on external web apps |
+| Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines |
 | Company Profile | Legal entity profile and business identity settings |
+| Connections | Central external-service connections: OAuth, per-action permissions, approvals |
 | Contacts | Contacts and organisations module |
-| Copilot | Full-page AI chat, backed by `apps/ai` |
-| Knowledge Base | Articles, tags, FAQs, and AI-powered assistants |
+| Engenty Copilot | Core Engenty copilot full-page chat and apps/ai UI consumer |
+| Files | Tenant file storage and previews |
+| Inbox | Synced email inbox over connected mail accounts (connections framework) |
+| Invoices | Invoice CRUD with SQLite and PDF export |
+| Knowledge Base | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
+| Offers | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
+| PDF Templates | Shared PDF template storage, preview, and editor integration |
 | Projects | Project management with phases, tasks, and client portal |
-| Tasks | Canonical goals and tasks for human and agent collaboration |
+| Secrets Vault | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
+| Tasks | Canonical tasks for human and agent collaboration |
 | Team | Team directory, org structure, groups, and taxonomies |
-| Time Tracking | Weekly time tracking for project, phase, and task work |
+| Team Chat | Slack-compatible team messaging: channels, DMs, threads, with agents as first-class participants |
+
+**Connections** providers: External (imported), GitHub, Google, HubSpot, Local Files, Microsoft, S3, Slack.
+<!-- modules:end -->
 
 ## Repo Layout
 
