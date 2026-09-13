@@ -1,6 +1,7 @@
 {
   "id": "offers",
   "name": "Offers",
+  "emoji": "📝",
   "description": "Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings",
   "version": "0.0.1",
   "kind": "module",

@@ -5,7 +5,7 @@
  */
 
 import type { FeatureFlagDefinition as _FeatureFlagDefinition } from "@engenty/feature-flags";
-import type { PluginCategory } from "./plugin-category.js";
+import type { PluginCategory, PluginStability } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
 export {
@@ -203,13 +203,19 @@ export {
   PluginOperationError,
 } from "./operation-error.js";
 export { ownershipPolicy } from "./ownership-policy.js";
-export type { PluginCategory, PluginPlacement } from "./plugin-category.js";
+export type {
+  PluginCategory,
+  PluginPlacement,
+  PluginStability,
+} from "./plugin-category.js";
 export {
   DEFAULT_PLUGIN_PLACEMENT,
   isPluginCategory,
   isPluginPlacement,
+  isPluginStability,
   PLUGIN_CATEGORIES,
   PLUGIN_PLACEMENTS,
+  PLUGIN_STABILITIES,
   pluginCategoryRank,
 } from "./plugin-category.js";
 export {
@@ -720,6 +726,8 @@ export interface EngentyPluginManifest {
    */
   category?: PluginCategory;
   description: string;
+  /** One emoji for catalogs and the README module table. */
+  emoji?: string;
   id: string;
   kind: string;
   /**
@@ -736,6 +744,8 @@ export interface EngentyPluginManifest {
   server: {
     entry: string;
   };
+  /** See {@link PluginStability}. Absent ⇒ stable. */
+  stability?: PluginStability;
   /**
    * Capability tier. "module" (default) is deeply-integrated and unrestricted;
    * "plugin" is catalog-installed and capability-restricted.

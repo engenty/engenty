@@ -1,6 +1,7 @@
 {
   "id": "connections",
   "name": "Connections",
+  "emoji": "🔌",
   "description": "Central external-service connections: OAuth, per-action permissions, approvals",
   "version": "0.0.1",
   "kind": "module",

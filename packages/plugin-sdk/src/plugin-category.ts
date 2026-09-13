@@ -50,6 +50,22 @@ export function isPluginPlacement(value: unknown): value is PluginPlacement {
   );
 }
 
+/**
+ * How finished a module is. `experimental` modules ship in the tree and load
+ * like any other, but the README and catalogs leave them out until they are
+ * ready for someone who did not build them. Absent means `stable`.
+ */
+export const PLUGIN_STABILITIES = ["stable", "experimental"] as const;
+
+export type PluginStability = (typeof PLUGIN_STABILITIES)[number];
+
+export function isPluginStability(value: unknown): value is PluginStability {
+  return (
+    typeof value === "string" &&
+    (PLUGIN_STABILITIES as readonly string[]).includes(value)
+  );
+}
+
 /** Sort key for category display; unknown / missing sorts last. */
 export function pluginCategoryRank(category: string | undefined): number {
   if (!category) {

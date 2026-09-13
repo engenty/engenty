@@ -18,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAgentById } from "../dal/role-assignments.js";
 import { resolveSpaceResourceSurface } from "../dal/space-mounts.js";
 import { getSpaceById } from "../dal/spaces.js";
-import { getTenantAiConfig } from "../dal/tenant-ai-config.js";
+import { readTenantAiConfig } from "../dal/tenant-ai-config.js";
 import type { PolicyInput } from "./policy.js";
 
 export interface ResolvedAgentApproval {
@@ -43,15 +43,22 @@ export function createSpaceCapabilityLoader(deps: {
   };
 }
 
+/**
+ * Every layer is read through `getDb` and nothing else: an app built without
+ * a database (the offline unit tests inject a grants service and get no
+ * client) resolves to the manual default instead of opening its own
+ * connection from the environment.
+ */
 export function createApprovalModeResolver(deps: {
-  config: Record<string, unknown>;
   getDb?: (auth: { tenantId: string }) => SupabaseClient | null;
 }): (input: PolicyInput) => Promise<ResolvedAgentApproval> {
   return async (input) => {
     const tenantId = input.auth.tenantId;
-    const tenant = await getTenantAiConfig(deps.config, tenantId, "default");
-    const tenantMode = tenant.agent_approval?.mode ?? "manual";
     const client = deps.getDb?.({ tenantId }) ?? null;
+    const tenant = client
+      ? await readTenantAiConfig(client, tenantId, "default")
+      : {};
+    const tenantMode = tenant.agent_approval?.mode ?? "manual";
 
     let spaceMode: AgentApprovalMode | null = null;
     let spaceCaps: string[] = [];

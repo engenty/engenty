@@ -30,6 +30,10 @@
 export const CLOSED_PATHS = [
   { path: "apps/manage", note: "Superadmin control plane." },
   {
+    path: "apps/www",
+    note: "Marketing site, still in work. Local dev does not need it.",
+  },
+  {
     path: "apps/ui/src/plugins/pro",
     note: "Generated pro-only UI plugin catalog (closed module import()s).",
   },

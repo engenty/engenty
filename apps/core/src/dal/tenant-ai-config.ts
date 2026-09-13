@@ -4,6 +4,7 @@
  */
 import { parseTenantAiSettings, type TenantAiSettings } from "@engenty/ai-core";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createDatabaseAdapter } from "../infra/index.js";
 
 export const AI_CONFIG_KEY = "ai.config";
@@ -30,7 +31,16 @@ export async function getTenantAiConfig(
   if (!adapter) {
     return {};
   }
-  const repo = createTenantSettingsRepoSupabase(adapter, tenantId, scopeId);
+  return await readTenantAiConfig(adapter, tenantId, scopeId);
+}
+
+/** Same read through a client the caller already holds. */
+export async function readTenantAiConfig(
+  client: SupabaseClient,
+  tenantId: string,
+  scopeId: string
+): Promise<TenantAiConfig> {
+  const repo = createTenantSettingsRepoSupabase(client, tenantId, scopeId);
   const result = await repo.get(AI_CONFIG_KEY);
   if (!result?.value || typeof result.value !== "object") {
     return {};

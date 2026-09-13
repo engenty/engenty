@@ -348,7 +348,6 @@ export function createApiApp(params: CreateApiAppParams) {
     ...(getDbForPolicy ? { getDb: getDbForPolicy } : {}),
   });
   const resolveAgentApproval = createApprovalModeResolver({
-    config,
     ...(getDbForPolicy ? { getDb: getDbForPolicy } : {}),
   });
   const escalationPolicy = createAgentEscalationPolicy({

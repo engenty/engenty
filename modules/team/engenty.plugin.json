@@ -1,6 +1,7 @@
 {
   "id": "team",
   "name": "Team",
+  "emoji": "👥",
   "description": "Team directory, org structure, groups, and taxonomies",
   "version": "0.0.1",
   "kind": "module",

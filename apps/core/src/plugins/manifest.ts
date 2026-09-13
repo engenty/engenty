@@ -3,15 +3,26 @@ import path from "node:path";
 import {
   isPluginCategory,
   isPluginPlacement,
+  isPluginStability,
   PLUGIN_CATEGORIES,
   PLUGIN_PLACEMENTS,
+  PLUGIN_STABILITIES,
   type PluginCategory,
   type PluginPlacement,
+  type PluginStability,
 } from "@engenty/plugin-sdk";
 import { collectManifestDiagnostics } from "./manifest-diagnostics.js";
 
-export type { PluginCategory, PluginPlacement } from "@engenty/plugin-sdk";
-export { PLUGIN_CATEGORIES, PLUGIN_PLACEMENTS } from "@engenty/plugin-sdk";
+export type {
+  PluginCategory,
+  PluginPlacement,
+  PluginStability,
+} from "@engenty/plugin-sdk";
+export {
+  PLUGIN_CATEGORIES,
+  PLUGIN_PLACEMENTS,
+  PLUGIN_STABILITIES,
+} from "@engenty/plugin-sdk";
 
 export const ENGENTY_PLUGIN_MANIFEST_FILENAME = "engenty.plugin.json";
 
@@ -70,6 +81,26 @@ export function resolvePluginPlacement(
     };
   }
   return { ok: true, placement: value };
+}
+
+/**
+ * Parse optional `stability`. Absent → undefined, read as stable. Unknown →
+ * error, like `category`: a typo must not quietly promote a half-built module
+ * into the README.
+ */
+export function resolvePluginStability(
+  value: unknown
+): { ok: true; stability?: PluginStability } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true };
+  }
+  if (!isPluginStability(value)) {
+    return {
+      ok: false,
+      error: `engenty.plugin.json stability must be one of: ${PLUGIN_STABILITIES.join(", ")}`,
+    };
+  }
+  return { ok: true, stability: value };
 }
 
 const CONNECTION_NEED_CAPABILITIES = new Set(["files", "storage", "stream"]);
@@ -154,6 +185,8 @@ export interface PluginManifest {
   /** External accounts this module needs — see {@link PluginManifestConnectionNeed}. */
   connections?: PluginManifestConnectionNeed[];
   description?: string;
+  /** One emoji for catalogs and the README module table. */
+  emoji?: string;
   id: string;
   kind?: string;
   /**
@@ -177,6 +210,8 @@ export interface PluginManifest {
   server?: {
     entry: string;
   };
+  /** See {@link PluginStability}. Absent ⇒ stable. */
+  stability?: PluginStability;
   tier?: PluginTier;
   ui?: {
     assetOrigins?: string[];
@@ -606,6 +641,15 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
       manifestPath,
     };
   }
+  const stabilityResult = resolvePluginStability(merged.stability);
+  if (!stabilityResult.ok) {
+    return {
+      ok: false,
+      code: "plugin.manifest.invalid",
+      error: stabilityResult.error,
+      manifestPath,
+    };
+  }
   const manifest: PluginManifest = {
     id,
     name: typeof merged.name === "string" ? merged.name.trim() : undefined,
@@ -618,6 +662,10 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
     kind: typeof merged.kind === "string" ? merged.kind.trim() : undefined,
     category: categoryResult.category,
     placement: placementResult.placement,
+    stability: stabilityResult.stability,
+    ...(typeof merged.emoji === "string" && merged.emoji.trim()
+      ? { emoji: merged.emoji.trim() }
+      : {}),
     tier: resolvePluginTier(merged.tier),
     server,
     ui,

@@ -1,6 +1,7 @@
 {
   "id": "files",
   "name": "Files",
+  "emoji": "🗂️",
   "description": "Tenant file storage and previews",
   "version": "0.0.1",
   "kind": "module",

@@ -1,6 +1,7 @@
 {
   "id": "tasks",
   "name": "Tasks",
+  "emoji": "✅",
   "description": "Canonical tasks for human and agent collaboration",
   "version": "0.0.1",
   "kind": "module",

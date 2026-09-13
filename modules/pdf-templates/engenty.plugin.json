@@ -1,6 +1,7 @@
 {
   "id": "pdf-templates",
   "name": "PDF Templates",
+  "emoji": "📄",
   "description": "Shared PDF template storage, preview, and editor integration",
   "version": "0.0.1",
   "kind": "module",

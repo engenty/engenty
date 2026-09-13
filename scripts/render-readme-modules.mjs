@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 /**
- * Render README.md's module table from `engenty.plugins` + each module's
+ * Render README.md's module tables from `engenty.plugins` + each module's
  * `engenty.plugin.json`.
  *
  * The table used to be hand-written, and said what was true when someone last
  * looked: it listed Time Tracking, which the open tree does not ship, and left
  * out nine modules that it does. A reader takes that table for the feature
  * list, so it has to come from the same place the product does.
+ *
+ * What is rendered, and from which manifest field:
+ * - two groups, **Core** and **Commercial**, by `category`;
+ * - inside a group, a module that exists for other modules — `placement:
+ *   "settings"` and it `requires` a listed module, or a listed space module
+ *   `requires` it — is a sub-module row under the same table, naming what it
+ *   extends or serves;
+ * - `emoji` leads the row; `stability: "experimental"` leaves the module out.
  *
  * `--root` renders another workspace's README — the open-source snapshot
  * publishes a tree with fewer modules, and pro's table would advertise the
@@ -37,7 +45,7 @@ const modules = [];
 const providersByParent = new Map();
 for await (const rel of glob("modules/*/engenty.plugin.json", { cwd: root })) {
   const manifest = JSON.parse(readFileSync(join(root, rel), "utf8"));
-  if (active.has(manifest.id)) {
+  if (active.has(manifest.id) && manifest.stability !== "experimental") {
     modules.push(manifest);
   }
 }
@@ -55,16 +63,78 @@ for await (const rel of glob("modules/*/providers/*/engenty.plugin.json", {
   ]);
 }
 
+const byId = new Map(modules.map((m) => [m.id, m]));
 const byName = (a, b) => a.name.localeCompare(b.name);
-const lines = ["| Module | What it does |", "|--------|--------------|"];
-for (const manifest of [...modules].sort(byName)) {
-  lines.push(`| ${manifest.name} | ${manifest.description} |`);
+// Hard dependencies only: `optional` is a hint the module can use another
+// when present (Team can link people to Projects), not what it is for.
+const dependencyIds = (manifest) =>
+  (manifest.requires ?? [])
+    .filter((cap) => cap.startsWith("module.") && cap.split(".").length === 2)
+    .map((cap) => cap.slice("module.".length))
+    .filter((id) => byId.has(id));
+
+/** What a settings module is for: the modules it extends, or those that need it. */
+function subModuleRelation(manifest) {
+  if (manifest.placement !== "settings") {
+    return null;
+  }
+  const extendsIds = dependencyIds(manifest);
+  if (extendsIds.length > 0) {
+    return { ids: extendsIds, verb: "extends" };
+  }
+  const usedBy = modules
+    .filter(
+      (other) =>
+        other.placement !== "settings" &&
+        dependencyIds(other).includes(manifest.id)
+    )
+    .map((other) => other.id);
+  return usedBy.length > 0 ? { ids: usedBy, verb: "used by" } : null;
 }
 
+const GROUPS = [
+  {
+    title: "Core",
+    matches: (manifest) => manifest.category !== "commercial",
+  },
+  {
+    title: "Commercial",
+    matches: (manifest) => manifest.category === "commercial",
+  },
+];
+
+const lines = [];
+for (const group of GROUPS) {
+  const members = modules.filter(group.matches).sort(byName);
+  if (members.length === 0) {
+    continue;
+  }
+  const main = members.filter((m) => !subModuleRelation(m));
+  const subs = members.filter((m) => subModuleRelation(m));
+  lines.push(
+    "",
+    `### ${group.title}`,
+    "",
+    "| | Module | What it does |",
+    "|---|--------|--------------|"
+  );
+  for (const manifest of main) {
+    lines.push(
+      `| ${manifest.emoji ?? ""} | **${manifest.name}** | ${manifest.description} |`
+    );
+  }
+  for (const manifest of subs) {
+    const relation = subModuleRelation(manifest);
+    const names = relation.ids.map((id) => byId.get(id).name).join(", ");
+    lines.push(
+      `| ${manifest.emoji ?? ""} | ↳ ${manifest.name} | ${manifest.description} — ${relation.verb} ${names} |`
+    );
+  }
+}
 // A provider's name carries its parent as a prefix ("Connections — GitHub");
 // under the parent's own heading that prefix is noise.
 for (const [parent, providers] of [...providersByParent].sort()) {
-  const parentManifest = modules.find((m) => m.id === parent);
+  const parentManifest = byId.get(parent);
   if (!parentManifest) {
     continue;
   }
@@ -82,8 +152,7 @@ if (before === -1 || after === -1) {
   console.error(`README.md is missing the ${START} / ${END} markers.`);
   process.exit(1);
 }
-
-const rendered = `${readme.slice(0, before + START.length)}\n${lines.join("\n")}\n${readme.slice(after)}`;
+const rendered = `${readme.slice(0, before + START.length)}${lines.join("\n")}\n${readme.slice(after)}`;
 if (rendered === readme) {
   if (!check) {
     console.log("README module table matches engenty.plugins.");

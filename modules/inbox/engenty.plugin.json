@@ -1,6 +1,7 @@
 {
   "id": "inbox",
   "name": "Inbox",
+  "emoji": "📬",
   "description": "Synced email inbox over connected mail accounts (connections framework)",
   "version": "0.0.1",
   "kind": "module",
@@ -18,7 +19,10 @@
   },
   "requires": ["module.connections"],
   "connections": [
-    { "capability": "stream", "bindOperation": "inbox_account_bind" }
+    {
+      "capability": "stream",
+      "bindOperation": "inbox_account_bind"
+    }
   ],
   "mountOperation": "inbox_space_mount",
   "placement": "space"

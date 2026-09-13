@@ -1,6 +1,7 @@
 {
   "id": "contacts",
   "name": "Contacts",
+  "emoji": "📇",
   "description": "Contacts and organisations module",
   "version": "0.0.1",
   "kind": "module",

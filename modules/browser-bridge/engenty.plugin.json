@@ -1,9 +1,11 @@
 {
   "id": "browser-bridge",
   "name": "Browser Bridge",
+  "emoji": "🌐",
   "description": "Agent-controlled browser window via the engenty browser extension: navigate, observe, and (with approval) act on external web apps",
   "version": "0.0.1",
   "kind": "module",
+  "category": "integrations",
   "provides": ["module.browser-bridge"],
   "capabilities": {
     "operations": true,
@@ -12,5 +14,6 @@
     "ui": true
   },
   "requires": ["module.connections"],
-  "placement": "settings"
+  "placement": "settings",
+  "stability": "experimental"
 }

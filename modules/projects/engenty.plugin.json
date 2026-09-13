@@ -1,6 +1,7 @@
 {
   "id": "projects",
   "name": "Projects",
+  "emoji": "📁",
   "description": "Project management with phases, tasks, and client portal",
   "version": "0.0.1",
   "kind": "module",

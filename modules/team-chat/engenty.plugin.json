@@ -1,6 +1,7 @@
 {
   "id": "team-chat",
   "name": "Team Chat",
+  "emoji": "💬",
   "description": "Slack-compatible team messaging: channels, DMs, threads, with agents as first-class participants",
   "version": "0.0.1",
   "kind": "module",
@@ -23,5 +24,6 @@
     "ai": true,
     "frontendTools": false
   },
-  "placement": "space"
+  "placement": "space",
+  "stability": "experimental"
 }

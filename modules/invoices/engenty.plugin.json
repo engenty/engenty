@@ -1,6 +1,7 @@
 {
   "id": "invoices",
   "name": "Invoices",
+  "emoji": "🧾",
   "description": "Invoice CRUD with SQLite and PDF export",
   "version": "0.0.1",
   "kind": "module",

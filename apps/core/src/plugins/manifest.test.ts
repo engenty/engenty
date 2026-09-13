@@ -197,6 +197,24 @@ describe("loadPluginManifest", () => {
     }
   });
 
+  it("rejects unknown stability values", () => {
+    tmpDir = makeTempDir();
+    fs.writeFileSync(path.join(tmpDir, "plugin-entry.ts"), "export {};");
+    fs.writeFileSync(
+      path.join(tmpDir, ENGENTY_PLUGIN_MANIFEST_FILENAME),
+      JSON.stringify({
+        id: "bad-stability",
+        stability: "beta",
+        server: { entry: "./plugin-entry.ts" },
+      })
+    );
+    const result = loadPluginManifest(tmpDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("stability must be one of");
+    }
+  });
+
   it("rejects unknown placement values", () => {
     // Same hard failure as `category`, and for a sharper reason: a typo'd
     // placement would fall back to a default that decides whether the module

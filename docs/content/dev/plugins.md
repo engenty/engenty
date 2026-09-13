@@ -112,6 +112,8 @@ Every plugin declares itself with an `engenty.plugin.json` at its root:
   "version": "0.0.1",
   "kind": "module",               // "module" (modules/*) or "package" (packages/*)
   "category": "work",             // optional catalog group (see below)
+  "emoji": "👋",                  // optional; catalogs + the README module table
+  "stability": "experimental",    // optional; hides it from the README until ready
   "provides": ["module.hello-world", "ui.route.module.hello-world"],
   "requires": [],                 // capabilities this plugin needs from others
   "capabilities": { "ui": true, "ai": false, "operations": true },
@@ -130,6 +132,10 @@ Every plugin declares itself with an `engenty.plugin.json` at its root:
   `agents`, `integrations`, `platform`. Use `engenty` for first-party Engenty
   product modules. Distinct from `kind` (source location) and `tier` (trust
   ceiling).
+- **`stability`** (optional) — `stable` (default) or `experimental`. An
+  experimental module loads like any other; the README module table and
+  catalogs leave it out until it is ready for someone who did not build it.
+- **`emoji`** (optional) — one emoji for catalogs and the README module table.
 - **`server.entry`** is the backend factory; **`ui.entry`** is the UI plugin.
 - **`env`** contributes feature gates and env vars to the `env` wizard
   (`recommended: true` on a feature pre-checks it on a fresh setup).

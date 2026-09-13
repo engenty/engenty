@@ -45,19 +45,28 @@ which the env wizard asks for; everything else comes up without one. `engenty
 install` is safe to re-run, and `pnpm engenty doctor` tells you what state the
 checkout is in.
 
-### HTTPS URLs, optionally
+### Run locally with HTTPS via Portless
 
 Plain `pnpm dev` is complete — Vite on `localhost:5173`, with `/api`, `/ai` and
 `/docs` proxied to the other apps. For production-like URLs on a single HTTPS
-origin, and for running several checkouts at once, add
-[Portless](https://github.com/vercel-labs/portless):
+origin, add [Portless](https://github.com/vercel-labs/portless):
 
 ```bash
 pnpm portless:setup      # once — trust the CA, sync HTTPS URLs to .env.local
 pnpm dev:portless        # https://engenty.localhost
 ```
 
-Deeper: [Local development](docs/content/dev/local-development/index.md).
+Several checkouts at once — git worktrees, one per branch — each get their own
+hostname and port slot from `--domain`, and share the one local Supabase:
+
+```bash
+git worktree add ../engenty-tab-ui -b feat/tab-ui main
+cd ../engenty-tab-ui && pnpm install && pnpm engenty setup
+pnpm dev:portless --domain=tab-ui     # https://tab-ui.engenty.localhost
+```
+
+Deeper: [Local development](docs/content/dev/local-development/index.md) and
+[Portless local URLs](docs/dev/portless-local-urls.md).
 
 ## What it is built on
 
@@ -72,28 +81,35 @@ Deeper: [Local development](docs/content/dev/local-development/index.md).
 ## Modules
 
 engenty ships a basic set of modules, each an installable plugin. Use them as
-building blocks, as reference, or as they are.
+building blocks, as reference, or as they are. Modules still under heavy
+development are in the tree but not listed here (`"stability": "experimental"`
+in their manifest).
 
 <!-- modules:start -->
-| Module | What it does |
-|--------|--------------|
-| Browser Bridge | Agent-controlled browser window via the engenty browser extension: navigate, observe, and (with approval) act on external web apps |
-| Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines |
-| Company Profile | Legal entity profile and business identity settings |
-| Connections | Central external-service connections: OAuth, per-action permissions, approvals |
-| Contacts | Contacts and organisations module |
-| Engenty Copilot | Core Engenty copilot full-page chat and apps/ai UI consumer |
-| Files | Tenant file storage and previews |
-| Inbox | Synced email inbox over connected mail accounts (connections framework) |
-| Invoices | Invoice CRUD with SQLite and PDF export |
-| Knowledge Base | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
-| Offers | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
-| PDF Templates | Shared PDF template storage, preview, and editor integration |
-| Projects | Project management with phases, tasks, and client portal |
-| Secrets Vault | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
-| Tasks | Canonical tasks for human and agent collaboration |
-| Team | Team directory, org structure, groups, and taxonomies |
-| Team Chat | Slack-compatible team messaging: channels, DMs, threads, with agents as first-class participants |
+### Core
+
+| | Module | What it does |
+|---|--------|--------------|
+| 🔌 | **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
+| 📇 | **Contacts** | Contacts and organisations module |
+| 🤖 | **Engenty Copilot** | Core Engenty copilot full-page chat and apps/ai UI consumer |
+| 🗂️ | **Files** | Tenant file storage and previews |
+| 📬 | **Inbox** | Synced email inbox over connected mail accounts (connections framework) |
+| 📚 | **Knowledge Base** | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
+| 📁 | **Projects** | Project management with phases, tasks, and client portal |
+| 🔐 | **Secrets Vault** | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
+| ✅ | **Tasks** | Canonical tasks for human and agent collaboration |
+| 👥 | **Team** | Team directory, org structure, groups, and taxonomies |
+
+### Commercial
+
+| | Module | What it does |
+|---|--------|--------------|
+| 🧾 | **Invoices** | Invoice CRUD with SQLite and PDF export |
+| 📝 | **Offers** | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
+| ⚙️ | ↳ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers, Invoices |
+| 🏢 | ↳ Company Profile | Legal entity profile and business identity settings — used by Offers |
+| 📄 | ↳ PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers, Invoices |
 
 **Connections** providers: External (imported), GitHub, Google, HubSpot, Local Files, Microsoft, S3, Slack.
 <!-- modules:end -->
