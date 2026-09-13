@@ -4,7 +4,7 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
-## [0.3.0] - 2026-09-13
+## [0.2.3] - 2026-09-13
 - ADDED **[www]** Landing built from colour bands, app groups and standing engenties
 - ADDED **[engenty]** Jelly coat for the large engenties, decal extras on both coats, styleguide row
 - ADDED **[ai]** Opper, OpenAI and Anthropic as model gateways
