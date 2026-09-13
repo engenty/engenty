@@ -1,31 +1,43 @@
 import path from "node:path";
+import {
+  BANNER,
+  cliVersion,
+  registerDbCommands,
+  registerDeployCommands,
+  registerDevCommands,
+  registerDoctorCommands,
+  registerEnvCommands,
+  registerModulesCommands,
+  registerResetCommands,
+  registerSetupCommands,
+  setCliErrorHint,
+} from "@engenty/cli";
 import { loadCoreRuntimeEnvFromCallerSrcDir } from "@engenty/environment/env";
 import { Command } from "commander";
-import { BANNER } from "./cli/banner.js";
+import { hintForError } from "./cli/cli-error-hint.js";
 import {
   registerAuthCommands,
   registerModuleOperationCommands,
 } from "./cli/commands.js";
-import { registerDbCommands } from "./cli/db/db-commands.js";
-import { registerDeployCommands } from "./cli/deploy/deploy-commands.js";
-import { registerDevCommands } from "./cli/dev/dev-commands.js";
-import { registerDoctorCommands } from "./cli/doctor/doctor-commands.js";
-import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
-import { registerModulesCommands } from "./cli/module-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
-import { registerResetCommands } from "./cli/reset/reset-commands.js";
 import { registerServiceCredentialCommands } from "./cli/service-credential-commands.js";
-import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerSkillsCommands } from "./cli/tools/skills-commands.js";
 import { registerToolsCommands } from "./cli/tools/tools-commands.js";
-import { cliVersion } from "./cli/workspace.js";
 import { createBootApiLogger, initEvlog, log } from "./observability/evlog.js";
 import { resolveModulesDir } from "./plugins/discovery.js";
 
 loadCoreRuntimeEnvFromCallerSrcDir(import.meta.url);
 
+/**
+ * The checkout's full CLI: the commands `@engenty/cli` implements (and the
+ * `engenty` npm package runs from anywhere), plus those that need the core
+ * runtime — auth, tools, skills, service credentials, module operations and
+ * the commands installed plugins register.
+ */
 export async function createCli(): Promise<Command> {
+  setCliErrorHint(hintForError);
+
   const program = new Command("engenty")
     .description("Modular agent-friendly business app")
     .version(cliVersion());

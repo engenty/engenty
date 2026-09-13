@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CliApiError } from "../auth-sdk.js";
-import { hintForError } from "../cli-errors.js";
+import { hintForError } from "../cli-error-hint.js";
 import { readToolInput } from "./tools-input.js";
 
 describe("readToolInput", () => {

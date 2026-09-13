@@ -1,7 +1,6 @@
+import { dim, runCliAction } from "@engenty/cli";
 import type { Command } from "commander";
-import { runCliAction } from "../cli-errors.js";
 import { callCoreApi, defaultApiUrl } from "../core-api.js";
-import { dim } from "../env-setup/env-style.js";
 
 interface SkillListItem {
   description?: string;

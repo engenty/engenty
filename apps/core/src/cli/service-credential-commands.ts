@@ -1,6 +1,6 @@
+import { runCliAction } from "@engenty/cli";
 import { AI_SERVICE_PLAN_CAPABILITIES } from "@engenty/plugin-sdk";
 import type { Command } from "commander";
-import { runCliAction } from "./cli-errors.js";
 import { callCoreApi, defaultApiUrl } from "./core-api.js";
 
 interface CommonOpts {

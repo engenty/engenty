@@ -79,7 +79,12 @@ just made. That tag push triggers
 
 These are the **pro** images, `ghcr.io/engenty/engenty-pro-<service>`, and they
 are private. The same tag also publishes the open tree and a second, public set
-of images — see [Pro / public](#pro--public).
+of images — see [Pro / public](#pro--public) — and the `engenty` npm package
+(`publish-cli.yml`: `packages/cli` staged with the release's open schemas,
+migrations and public compose templates baked in, so `npx engenty create`,
+`npx engenty deploy` and `npx engenty doctor --remote` exist at the release's
+version; gated on the `PUBLISH_CLI_ENABLED` variable and the `NPM_TOKEN` secret,
+dry-run otherwise).
 
 Every push to `main` (tagged or not) also runs `ci.yml` (lint, typecheck, test) —
 that's the gate for code quality, independent of shipping.

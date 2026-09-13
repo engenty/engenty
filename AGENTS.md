@@ -40,6 +40,7 @@ Core apps and packages must not depend on optional modules — use plugin hooks,
 ## Core commands
 
 ```bash
+npx engenty create <dir> # no checkout yet: prerequisites → clone at this release → pnpm install → its engenty setup
 pnpm install
 pnpm engenty setup     # first run (repeatable): pick plugins + generate + Supabase + migrations + .env.local
 pnpm dev                 # = engenty dev: preflight + build + full stack (UI :5173, core :8787, AI :8790)
@@ -51,7 +52,7 @@ pnpm check               # lint + format check
 pnpm fix                 # auto-fix
 ```
 
-CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`).
+CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`). The command implementations live in `packages/cli` (`@engenty/cli`, published to npm as `engenty` on each release tag); `apps/core/src/cli.ts` registers them plus the runtime-bound commands (auth, tools, skills, service-token, plugin-registered). `npx engenty …` inside a checkout delegates to `pnpm engenty …`; outside it offers `create`, `deploy`, `deploy migrate`, `doctor` — see [setup-process.md](./docs/content/dev/setup-process.md#npx-engenty).
 
 **Commit messages:** use `type(scope): subject`, with the scope naming the mainly affected module, package, or app (for example `fix(time-tracking): …`, `feat(ai-core): …`, or `docs(ui): …`). Use `global` for genuinely repository-wide changes. Infrastructure scopes such as `ci`, `deploy`, and `release` are also valid. Do not omit the scope.
 
@@ -64,7 +65,7 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 - **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` (`pnpm engenty install <slug>` is the shorthand) — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
 - **Local DB:** `pnpm engenty db up|down|status|restart|migrate|reset|snapshot|restore`. `up` is lean by default; `--studio` adds Supabase Studio, `--logs` adds the Logflare/Vector pipeline. Both cost far more idle CPU than Postgres itself, and several stacks at once saturate the host — which surfaces as bogus `Unauthorized` from auth, not as slowness. Stop the stack before changing the flags (they are written into `supabase/config.toml`). `migrate` and `reset` include Mastra's schema
 - **Local env:** `pnpm engenty env` (menu), `pnpm engenty env init`, `pnpm engenty env check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
-- **Deploy:** `pnpm engenty deploy` (wizard, `--dry-run`), `pnpm engenty deploy migrate` (push aggregated migrations to the linked project). Deploy env: copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
+- **Deploy:** `pnpm engenty deploy` (wizard, `--dry-run`; works in `deploy/`), `pnpm engenty deploy migrate` (push aggregated migrations to the linked project). From anywhere: `npx engenty deploy` works in `./engenty-deploy/` and `npx engenty deploy migrate` uses `SUPABASE_DB_URL` + the release's baked migrations. Deploy env: copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`. The Supabase CLI pin lives in `packages/cli/src/supabase-cli-version.ts` (`pnpm check:supabase-pin`)
 - **Portless (required for agent preview):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
 - **Starting a dev server as Claude Code** (worktree or main, `preview_start`/`launch.json`, first-run `pnpm engenty setup`, the `.localhost` URL): see the [`dev-server` skill](./.claude/skills/dev-server/SKILL.md) — a new worktree needs `install` run once before `dev:portless` works (config.toml + generated UI catalog are gitignored)
 - **Manifest / CI:** `pnpm env:example:write`, `pnpm env:example:check` — regenerate committed `.env.example` files

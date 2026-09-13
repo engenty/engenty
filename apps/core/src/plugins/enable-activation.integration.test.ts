@@ -1,11 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { disablePluginsInProduct, enablePluginsInProduct } from "@engenty/cli";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  disablePluginsInProduct,
-  enablePluginsInProduct,
-} from "../cli/plugins/plugins-manifest-ops.js";
 import { loadPlugins } from "./loader.js";
 
 // End-to-end proof of in-repo plugin activation: enabling a module in the root

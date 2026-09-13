@@ -1,5 +1,5 @@
+import { runCliAction } from "@engenty/cli";
 import type { Command } from "commander";
-import { runCliAction } from "./cli-errors.js";
 import { callCoreApi, defaultApiUrl } from "./core-api.js";
 
 interface CommonOpts {

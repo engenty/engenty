@@ -1,4 +1,5 @@
 import os from "node:os";
+import { runCliAction } from "@engenty/cli";
 import type { Command } from "commander";
 import {
   loginWithDevCredentials,
@@ -14,7 +15,6 @@ import {
   storeSession,
 } from "./auth-sdk.js";
 import { registerAuthTokensCommands } from "./auth-tokens-commands.js";
-import { runCliAction } from "./cli-errors.js";
 import { callCoreApi, defaultApiUrl, resolveApiUrl } from "./core-api.js";
 import { openInBrowser } from "./open-browser.js";
 

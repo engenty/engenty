@@ -15,7 +15,7 @@ import {
   text,
 } from "@clack/prompts";
 import { resolveSupabaseCliBin } from "../db/supabase-cli-bin.js";
-import { countAttention, renderScopeReport } from "./env-check.js";
+import { needsAttention, renderScopeReport } from "./env-check.js";
 import { diffScope, generatableGaps, type ScopeReport } from "./env-diff.js";
 import { renderExampleFile } from "./env-example-render.js";
 import {
@@ -529,15 +529,36 @@ async function promptProviderVars(
   return;
 }
 
-function finalReport(state: WizardState): { gaps: number; text: string } {
+/**
+ * The rows that still need the person, split by where they can be filled:
+ * `blocking` only here (secrets, stack URLs), `browser` also in the product —
+ * platform-configurable keys the first-run wizard asks for (the AI provider
+ * key, step 3) and Setup → Platform settings holds. The exit code follows
+ * `blocking`: a key the browser will ask for is not a failed environment.
+ */
+function finalReport(state: WizardState): {
+  blocking: number;
+  browser: string[];
+  text: string;
+} {
   const sections: string[] = [];
-  let gaps = 0;
+  let blocking = 0;
+  const browser: string[] = [];
   for (const scope of state.scopes) {
     const report = scopeReportFromState(state, scope);
-    gaps += countAttention(report);
+    for (const entry of report.vars) {
+      if (!needsAttention(entry)) {
+        continue;
+      }
+      if (entry.spec.configurable === "platform") {
+        browser.push(entry.spec.key);
+      } else {
+        blocking++;
+      }
+    }
     sections.push(renderScopeReport(state.workspaceRoot, report));
   }
-  return { gaps, text: sections.join("\n\n") };
+  return { blocking, browser, text: sections.join("\n\n") };
 }
 
 function featureLabel(_state: WizardState, featureId: string): string {
@@ -589,13 +610,19 @@ export async function runEnvInitWizard(
     }
   }
 
-  const { gaps, text: reportText } = finalReport(state);
+  const { blocking, browser, text: reportText } = finalReport(state);
   console.log(`\n${reportText}\n`);
-  if (gaps > 0) {
+  if (browser.length > 0) {
+    note(
+      `${browser.join(", ")}: set in the browser — the first-run wizard asks for the AI provider key (step 3), and Setup → Platform settings holds every platform key. Or here: pnpm engenty env edit <KEY>.`,
+      "Later"
+    );
+  }
+  if (blocking > 0) {
     // "need attention" above and "ready" below cannot both be true — the
     // summary and the verdict count the same rows.
     outro(
-      `${gaps} value(s) need attention (listed above). Rerun pnpm engenty env init anytime, or set single keys via pnpm engenty env edit <KEY>.`
+      `${blocking} value(s) need attention (listed above). Rerun pnpm engenty env init anytime, or set single keys via pnpm engenty env edit <KEY>.`
     );
     return 1;
   }

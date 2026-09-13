@@ -1,5 +1,5 @@
+import { getMandatoryPluginDeclaration } from "@engenty/environment";
 import type { PluginDiagnostic } from "@engenty/plugin-sdk";
-import { getMandatoryPluginDeclaration } from "./mandatory-plugins.js";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
 
 export type PluginCapabilityBlockedReason =

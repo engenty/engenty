@@ -16,7 +16,9 @@ Coolify (or any reverse proxy) terminates TLS and forwards to **engenty-edge** o
 
 Step-by-step walkthrough: [docs/content/setup/coolify.md](../docs/content/setup/coolify.md)
 
-**Guided setup:** `pnpm engenty deploy` (`--dry-run` to walk it without writing) — an interactive
+**Guided setup:** `npx engenty deploy` from anywhere — on the server it writes `./engenty-deploy/`
+(the `.env` and the compose files) so no clone is needed; inside a checkout the same wizard is
+`pnpm engenty deploy` and works in `deploy/`. `--dry-run` walks it without writing. An interactive
 stepper. It first asks where Supabase runs (Cloud, or self-hosted on Coolify /
 Dokploy / your own compose) and how engenty runs (Coolify, or Docker Compose on
 a VPS), and the rest of the flow follows from those two answers:
@@ -81,6 +83,10 @@ existing installs) — apply the schema manually instead:
 supabase link --project-ref <your-ref>   # or self-hosted equivalent
 pnpm engenty deploy migrate              # aggregate module SQL + supabase db push
 ```
+
+Without a checkout: `npx engenty deploy migrate` pushes the release's own
+migrations with `SUPABASE_DB_URL` from `./engenty-deploy/.env` or the environment
+(it fetches the pinned Supabase CLI for the run).
 
 Two settings live in **project config, not migrations**, so the migrate step cannot set them — do them once or they bite at runtime:
 

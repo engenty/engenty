@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ENGENTY_HOST_MANDATORY_PLUGINS } from "@engenty/environment";
 import { describe, expect, it } from "vitest";
-import { ENGENTY_HOST_MANDATORY_PLUGINS } from "./mandatory-plugins.js";
 import { loadPluginManifest } from "./manifest.js";
 
 function resolveModulesDir() {

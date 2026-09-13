@@ -1,4 +1,4 @@
-import { isMandatoryPlugin } from "../../plugins/mandatory-plugins.js";
+import { isMandatoryPlugin } from "@engenty/environment";
 import { isInteractiveTerminal, runMultiSelectLoop } from "../select-loop.js";
 import {
   enablePluginsInProduct,

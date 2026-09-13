@@ -7,7 +7,9 @@ description: Clone, install, and run the Engenty stack locally.
 
 ## Prerequisites
 
-Skip any step you already have.
+Skip any step you already have. `npx engenty create <dir>` does the clone,
+`pnpm install` and the first `engenty setup` in one go, and checks the
+prerequisites below first; the manual path:
 
 ```bash
 git clone https://github.com/engenty/engenty.git

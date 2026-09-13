@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -12,19 +11,14 @@ import {
   describeStackPortMismatch,
   readLocalStackApiPort,
 } from "../env-setup/local-stack-port.js";
+import { checkDocker, type LocalCheck } from "./host-checks.js";
 
 /**
  * Read-only. Every probe answers "would `engenty dev` get past this?" and
  * names the command that fixes it. Nothing here starts, restarts or migrates
  * anything — that is what the preflight inside `engenty dev` does.
  */
-export interface LocalCheck {
-  detail?: string;
-  fix?: string;
-  label: string;
-  /** `warn` is informational and never fails the run. */
-  status: "ok" | "fail" | "warn";
-}
+export type { LocalCheck } from "./host-checks.js";
 
 const HTTP_TIMEOUT_MS = 3000;
 
@@ -52,22 +46,6 @@ function isPortInUse(port: number): Promise<boolean> {
     socket.once("error", () => settle(false));
     socket.connect(port, "127.0.0.1");
   });
-}
-
-function checkDocker(): LocalCheck {
-  const ok = spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0;
-  return ok
-    ? {
-        label: "Container runtime",
-        status: "ok",
-        detail: "docker info answers",
-      }
-    : {
-        label: "Container runtime",
-        status: "fail",
-        detail: "docker info fails",
-        fix: "start Docker Desktop / OrbStack / Dory (macOS) or the Docker daemon (Linux); `engenty dev` can auto-start a saved macOS app",
-      };
 }
 
 function checkGeneratedFiles(root: string): LocalCheck[] {
@@ -220,6 +198,12 @@ async function checkPorts(root: string): Promise<LocalCheck> {
   };
   const inUse: string[] = [];
   for (const [name, port] of Object.entries(ports)) {
+    // The config lists every app the monorepo can have; a tree without one
+    // (the open mirror ships no www) must not be told its port is taken.
+    const appDir = name === "appHost" ? "app-host" : name;
+    if (!fs.existsSync(path.join(root, "apps", appDir))) {
+      continue;
+    }
     if (await isPortInUse(port)) {
       inUse.push(`${name}:${port}`);
     }

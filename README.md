@@ -29,7 +29,12 @@ Give each space the agents, apps, and knowledge for the job — including comput
 
 ## Run it locally
 
-Clone from [GitHub](https://github.com/engenty/engenty)
+```bash
+npx engenty create my-engenty   # clone this release, pnpm install, run its setup
+cd my-engenty && pnpm dev       # core + ui + ai + docs
+```
+
+Or from a clone of [GitHub](https://github.com/engenty/engenty):
 
 ```bash
 pnpm install
@@ -44,7 +49,9 @@ model provider, your first space and your personal space.
 Copilot chat needs a [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) or
 OpenRouter key; the wizard asks for one and tests it, and everything else comes
 up without it. `engenty setup` is safe to re-run, and `pnpm engenty doctor`
-tells you what state the checkout is in.
+tells you what state the checkout is in. Outside a checkout, `npx engenty
+doctor` checks the machine and `npx engenty deploy` is the self-host wizard —
+see [Setup process](docs/content/dev/setup-process.md#npx-engenty).
 
 ### Run locally with HTTPS via Portless
 

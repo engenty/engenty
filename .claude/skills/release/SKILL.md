@@ -16,7 +16,7 @@ pnpm release:desktop                # builds the macOS .dmg locally + attaches i
 ```
 
 - `pnpm release` is the **single source of truth**. NEVER hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. (`pnpm release:changelog` drafts the changelog only.)
-- Pushing the **`v*` tag** triggers `build-images.yml` (build → GHCR → Coolify deploy) **and** `publish-open.yml` (sync the public `engenty/engenty` repo).
+- Pushing the **`v*` tag** triggers `build-images.yml` (build → GHCR → Coolify deploy), `publish-open.yml` (sync the public `engenty/engenty` repo), `publish-packages.yml` (module packages) and `publish-cli.yml` (the `engenty` npm package — dry-run until `PUBLISH_CLI_ENABLED` + `NPM_TOKEN` are set).
 - Pushing `main` **without a tag** runs CI only (lint / typecheck / test) — no build, no deploy.
 - Commits use [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, …) — they drive the changelog groups and the suggested version bump.
 

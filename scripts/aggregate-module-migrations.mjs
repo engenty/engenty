@@ -54,7 +54,7 @@ function validateCoreBasename(basename, ownerName) {
   }
 }
 
-function collectMigrations(owners) {
+export function collectMigrations(owners) {
   const byBasename = new Map();
   const list = [];
   for (const owner of owners) {
@@ -89,7 +89,12 @@ function sha256(content) {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function buildOutputContent(sourceContent, ownerKind, ownerName, basename) {
+export function buildOutputContent(
+  sourceContent,
+  ownerKind,
+  ownerName,
+  basename
+) {
   const contentHash = sha256(sourceContent);
   const sourceLabel = ownerKind === "core" ? "core" : "module";
   const header = [
@@ -180,4 +185,8 @@ function main() {
   }
 }
 
-main();
+// scripts/publish-cli.mjs imports the collectors to bake a release's open
+// migrations into the `engenty` package; only a direct run aggregates.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

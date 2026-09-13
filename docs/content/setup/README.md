@@ -10,10 +10,16 @@ when you are ready to self-host.
 
 ## Try it locally
 
-Clone, install, and run on your laptop. This is the shortest path.
+One command gets a checkout at the current release, installs it and runs its
+first setup; the second starts it:
 
-See **[Developer → Local development](/dev/local-development)** for the
-exact commands. The README at the repo root is the same first-run flow:
+```bash
+npx engenty create my-engenty
+cd my-engenty && pnpm dev
+```
+
+From a clone it is the same flow by hand — see
+**[Developer → Local development](/dev/local-development)**:
 
 ```bash
 git clone https://github.com/engenty/engenty.git

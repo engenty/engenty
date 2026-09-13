@@ -1,4 +1,4 @@
-import { dim, green, red, yellow } from "../env-setup/env-style.js";
+import { dim, green, red, yellow } from "@engenty/cli";
 
 /** Contract fields the CLI renders (subset of OperationContract). */
 export interface ToolContractView {

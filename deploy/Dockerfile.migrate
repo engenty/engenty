@@ -20,7 +20,9 @@ RUN node scripts/aggregate-module-migrations.mjs
 # --- Stage 2: runtime — Supabase CLI + the aggregated migrations ---
 FROM node:24-bookworm-slim AS runtime
 # The `supabase` npm package's postinstall downloads the platform CLI binary.
-RUN npm install -g supabase@2.109.1
+# The version is the one pin — packages/cli/src/supabase-cli-version.ts —
+# checked against this file by `pnpm check:supabase-pin`.
+RUN npm install -g supabase@2.113.0
 WORKDIR /app
 COPY --from=aggregate /app/supabase/migrations ./supabase/migrations
 # `supabase db push` locates the project by supabase/config.toml; a minimal

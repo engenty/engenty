@@ -13,6 +13,7 @@ regenerated from it, so a fresh clone always materializes the same product.
 ## The commands
 
 ```bash
+npx engenty create my-engenty   # no checkout yet: prerequisites → clone this release → pnpm install → its engenty setup
 pnpm install            # deps + warm the workspace build (postinstall)
 pnpm engenty setup      # first run: plugins → generate → Docker/Supabase → migrations → .env.local
 pnpm dev                # = engenty dev: preflight → build → core + ui + ai + docs
@@ -20,15 +21,16 @@ pnpm dev                # = engenty dev: preflight → build → core + ui + ai 
 
 | Command | What it does | Touches |
 |---------|--------------|---------|
+| `engenty create [dir]` | Only outside a checkout: this machine's prerequisites (Node, pnpm, git, Docker) → `git clone` of the release the package is (`--ref`, `--repo` override) → `pnpm install` → the checkout's own `engenty setup` (`--no-setup` stops before). | a new directory |
 | `engenty setup` | The first run of a checkout, repeatable. Interactive plugin pick (fresh workspace only) → `generate` → start the container runtime and local Supabase → the `env init` wizard when `.env.local` is missing → apply migrations (`db reset` on an empty database, asked first; Mastra's schema needs the env file, hence the order). Non-interactive shells take safe defaults and never `db reset` without `--yes-reset-db`. Exits 1 when `.env.local` still has values that need attention, unless `--allow-gaps`. **No dev-stack preflight.** | files, Docker, DB, env |
 | `engenty generate` | Regenerates the derived files from `engenty.plugins` (table below). A pure function of the manifest — what CI runs. `--refresh` recreates `supabase/config.toml` from the example. | files only |
 | `engenty dev` | The daily start. Preflight (`scripts/predev-check.sh`: Docker, Supabase up and healthy, pending migrations applied, generated files present, stale dev ports freed) → `turbo run build` for packages and modules → the dev servers. `pnpm dev` is an alias. `--portless`, `--domain=<name>`, `--studio`, `--no-preflight`. | Docker, DB |
-| `engenty doctor` | Read-only. One line per check with the command that fixes it. `--remote` (or `--url`) checks a Supabase deployment instead: exposed schemas and the access-token hook. | nothing |
+| `engenty doctor` | Read-only. One line per check with the command that fixes it. Outside a checkout: the machine's prerequisites. `--remote` (or `--url`) checks a Supabase deployment instead: exposed schemas and the access-token hook. | nothing |
 | `engenty db …` | `up` (lean by default; `--studio`, `--logs`), `down`, `status`, `restart`, `migrate`, `reset`, `snapshot`, `restore`. `migrate` and `reset` include Mastra's own schema. | Docker, DB |
 | `engenty install <slug>` | Shorthand for `engenty plugins install <slug>`: add a module to `engenty.plugins` and regenerate. | files |
 | `engenty env …` | `init` (wizard), `check`, `edit`, `generate` (secrets), `example`. | env |
 | `engenty reset` | Back to a fresh checkout: generated files, local env, runtime dirs, build caches, `node_modules` (`--light` keeps them). `--db` also wipes the local database, and runs first because it needs the generated files. | files, DB with `--db` |
-| `engenty deploy` | The self-host wizard (`--dry-run`); `deploy migrate` pushes the aggregated migrations to the linked Supabase project. | remote |
+| `engenty deploy` | The self-host wizard (`--dry-run`). In a checkout it works in `deploy/`; outside — `npx engenty deploy` on the server — in `./engenty-deploy/`, writing the `.env` and the compose files, so the server needs no clone. `deploy migrate` pushes the migrations: via `supabase link` + `deploy/scripts/migrate.sh` in a checkout, via `SUPABASE_DB_URL` and the release's baked migrations outside. | remote |
 
 ## What `engenty generate` regenerates
 
@@ -71,31 +73,49 @@ build-time-vs-runtime (`install` vs `activate`) distinction.
 `pnpm engenty …` runs through `scripts/engenty-cli.mjs`, which builds the CLI's
 workspace dependencies on demand (fresh installs only have source). `postinstall`
 warms this so the first command is instant; if it was skipped, the wrapper builds
-the needed packages before running. Plugins themselves are loaded from source via
-`jiti` and never need a `dist` build.
+the needed packages before running. After a `git pull` the commit no longer
+matches the stamp in `.engenty/*.sha`, so the wrapper refreshes the builds
+through turbo (cache hits for packages that did not change) — a `dist` that
+exists is not assumed to be current. Plugins themselves are loaded from source
+via `jiti` and never need a `dist` build.
 
 The CLI's version is the root `package.json` version. Commands that act on a
 checkout (`setup`, `generate`, `dev`, `reset`, `db …`) refuse to run outside
 one with a single line; a missing helper script is an error, never a silent
 skip.
 
-### Towards `npx engenty`
+The command implementations live in **`packages/cli`** (`@engenty/cli`):
+everything that needs only the checkout's files and scripts — `setup`,
+`generate`, `dev`, `doctor`, `db`, `reset`, `env`, `deploy`, `create`, the
+plugin-manifest operations. `apps/core` registers them and adds what needs the
+core runtime: `auth`, `tools`, `skills`, `service-token`, module operations,
+and the commands installed plugins contribute.
 
-Three things still tie the CLI to a checkout, in the order they would be
-removed:
+### `npx engenty`
 
-1. It runs from source (`tsx apps/core/src/index.ts`) and no package declares a
-   `bin`. `npx` needs a published package — `engenty` or `@engenty/cli` — with
-   `bin: { engenty }` and a built entry.
-2. The scripts it drives (`scripts/generate.mjs`, `predev-check.sh`, `db-up.mjs`,
-   `db-snapshot.mjs`, `deploy/scripts/*`) live in the checkout. Those that act on
-   the checkout's own modules (`generate`) belong there; the rest would ship
-   inside the package.
-3. The Supabase CLI is a workspace devDependency. The package would carry its
-   own.
+The same package is published to npm as **`engenty`** on every release tag
+(`publish-cli.yml`, `scripts/publish-cli.mjs`), versioned with the release. It
+is a door, not a second CLI — what it does depends on where it runs:
 
-With those in place, `npx engenty deploy` and `npx engenty doctor --remote` work
-from any directory; `setup`, `dev`, `generate` and `reset` still want a clone.
+| where | `npx engenty …` |
+|---|---|
+| inside a checkout (a `pnpm-workspace.yaml` up the tree) | hands the whole command line to that checkout's `pnpm engenty …` — the checkout's version of the code, plugin commands included. Says so when the two versions differ. |
+| anywhere else | `create`, `deploy`, `deploy migrate`, `doctor` (host prerequisites, `--remote`). The checkout-only commands answer with the one line that points at `create`. |
+
+Outside a checkout the release's facts come from a `release-manifest.json`
+the publish bakes in: the schemas the release exposes (`doctor --remote`,
+the wizard), its aggregated migrations (`deploy migrate`), and the Supabase
+CLI pin (`packages/cli/src/supabase-cli-version.ts`, the one pin — the root
+devDependency and `deploy/Dockerfile.migrate` must match it, `pnpm
+check:supabase-pin`). The compose files ship as `templates/` with the public
+image names. Only the open set is baked: closed modules contribute neither
+schemas nor SQL, as on the public mirror. The Supabase CLI itself is not a
+dependency — `deploy migrate` fetches the pinned version through `npx` for
+the run, so `npx engenty deploy` starts in a second.
+
+`pnpm publish:cli --dry-run` stages the package under `.engenty/publish-cli/`
+(the workspace package is `@engenty/cli` at a placeholder version; the stage
+renames it) and `npm pack`s it — the way to inspect what a release would ship.
 
 ## Container runtime & Supabase, on demand
 
@@ -135,7 +155,9 @@ just `pnpm dev`, but `engenty db …`, snapshots, and a bare `docker` too.
   block the UI is built with; `engenty dev` warns when the block and the start
   mode disagree, and `pnpm dev:urls:localhost` / `pnpm dev:urls:portless` switch it.
 - Provider keys (Vercel AI Gateway, OpenAI) show a clickable URL to grab them.
-  A skipped key is named with what stays off and where to set it later.
+  A skipped key is named with what stays off and where to set it later. Keys
+  the browser can set (`configurable: "platform"`, the AI provider key above
+  all) never fail `env init` or `setup`: the first-run wizard asks for them.
 
 Check status any time:
 

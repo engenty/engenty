@@ -39,6 +39,7 @@
     "@engenty/ai-skills": "workspace:*",
     "@engenty/api-contracts": "workspace:*",
     "@engenty/approvals-sdk": "workspace:*",
+    "@engenty/cli": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
     "@engenty/environment": "workspace:*",

@@ -17,6 +17,7 @@ export function shouldDeferPluginBoot(
 
   const command = args[0];
   if (
+    command === "create" ||
     command === "env" ||
     command === "setup" ||
     command === "install" ||

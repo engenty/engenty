@@ -52,7 +52,11 @@ You'll need:
 
 ## Step 1 — Get the code
 
-Clone the repository onto the machine you'll run migrations from:
+You do not need a clone: `npx engenty deploy` runs the wizard from anywhere
+(on the server itself, or a laptop) and writes `./engenty-deploy/` — the `.env`
+plus the compose files — and `npx engenty deploy migrate` applies the release's
+migrations from `SUPABASE_DB_URL`. The manual walkthrough below assumes a
+clone, because it also covers the paths the wizard automates:
 
 ```bash
 git clone <your-fork-or-repo-url> engenty

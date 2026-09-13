@@ -46,6 +46,12 @@ export {
   writeEngentyPluginsObject,
 } from "./engenty-modules.js";
 export {
+  ENGENTY_HOST_MANDATORY_PLUGINS,
+  getMandatoryPluginDeclaration,
+  isMandatoryPlugin,
+  type MandatoryPluginDeclaration,
+} from "./mandatory-plugins.js";
+export {
   MASTRA_STUDIO_CONFIG_STORAGE_KEY,
   type MastraStudioStoredConfig,
   seedMastraStudioDevConfig,

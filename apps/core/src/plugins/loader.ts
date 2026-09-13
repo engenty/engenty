@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   enabledModuleSlugSetFromDir,
+  isMandatoryPlugin,
   readEngentyPluginsManifest,
   resolveEnabledModules,
   resolveModuleDir,
@@ -53,7 +54,6 @@ import {
   resolveModulesDir,
   resolvePackagesDir,
 } from "./discovery.js";
-import { isMandatoryPlugin } from "./mandatory-plugins.js";
 import {
   loadPluginManifest,
   type PluginManifest,

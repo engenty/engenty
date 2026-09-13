@@ -1,5 +1,5 @@
+import { NON_CONFIGURABLE_ENV_KEYS } from "@engenty/cli";
 import { describe, expect, it } from "vitest";
-import { NON_CONFIGURABLE_ENV_KEYS } from "../cli/env-setup/env-manifest-types.js";
 import { getConfigurableSettings } from "./configurable-settings.js";
 
 describe("getConfigurableSettings", () => {

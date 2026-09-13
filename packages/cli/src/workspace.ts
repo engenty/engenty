@@ -7,8 +7,8 @@ import { findWorkspaceRootFrom } from "@engenty/environment/env";
 /**
  * The checkout a command acts on, resolved from the current directory, or
  * null when the CLI runs outside one. Dev-only commands (`setup`, `dev`,
- * `generate`, `reset`, `db …`) need a checkout; `deploy` and `doctor --remote`
- * do not.
+ * `generate`, `reset`, `db …`) need a checkout; `create`, `deploy` and
+ * `doctor --remote` do not.
  */
 export function currentWorkspaceRoot(startDir = process.cwd()): string | null {
   const root = findWorkspaceRootFrom(startDir);
@@ -19,27 +19,46 @@ export function requireWorkspaceRoot(command: string): string {
   const root = currentWorkspaceRoot();
   if (!root) {
     throw new Error(
-      `engenty ${command} runs inside an engenty checkout (a directory tree with pnpm-workspace.yaml). Clone the repository first — or, for a server, run \`engenty deploy\`.`
+      `engenty ${command} runs inside an engenty checkout (a directory tree with pnpm-workspace.yaml). Get one with \`npx engenty create <dir>\` — or, for a server, run \`engenty deploy\`.`
     );
   }
   return root;
 }
 
-/** The root of the tree the CLI itself was loaded from. */
-export function cliHomeRoot(): string {
-  return findWorkspaceRootFrom(path.dirname(fileURLToPath(import.meta.url)));
+/**
+ * The directory of the `engenty` package the CLI was loaded from: the
+ * published tarball's root, or `packages/cli` inside a checkout. Both builds
+ * (`dist/*.js`) and the sources (`src/*.ts`) sit one level below it.
+ */
+export function cliPackageRoot(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
-export function cliVersion(): string {
-  const pkgPath = path.join(cliHomeRoot(), "package.json");
+function readPackageJson(dir: string): { name?: string; version?: string } {
   try {
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
-      version?: string;
-    };
-    return pkg.version ?? "0.0.0";
+    return JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   } catch {
-    return "0.0.0";
+    return {};
   }
+}
+
+/**
+ * The published package is named `engenty` and carries the release version.
+ * Inside a checkout the package is `@engenty/cli` at a placeholder version,
+ * and the release version is the root `package.json`'s.
+ */
+export function cliVersion(): string {
+  const own = readPackageJson(cliPackageRoot());
+  if (own.name === "engenty" && own.version) {
+    return own.version;
+  }
+  const root = findWorkspaceRootFrom(cliPackageRoot());
+  return readPackageJson(root).version ?? "0.0.0";
+}
+
+/** The release version a checkout is at, from its root `package.json`. */
+export function workspaceVersion(root: string): string | undefined {
+  return readPackageJson(root).version;
 }
 
 /**

@@ -253,7 +253,7 @@ Run: pnpm engenty env init
 
   if (envExitCode !== 0 && !params.allowGaps) {
     throw new Error(
-      "Setup finished, but .env.local still has values that need attention (listed above). What depends on them stays off — the copilot cannot answer without an AI provider key. Set them with pnpm engenty env edit <KEY>, or pass --allow-gaps to accept this for now."
+      "Setup finished, but .env.local still has values that need attention (listed above). Set them with pnpm engenty env edit <KEY> and rerun, or pass --allow-gaps to accept this for now. (Keys the browser asks for, like the AI provider key, do not count.)"
     );
   }
 

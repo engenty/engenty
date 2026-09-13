@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { printBanner } from "@engenty/cli";
 import type { Command } from "commander";
 import { resolveModulesDir } from "../plugins/discovery.js";
-import { printBanner } from "./banner.js";
 import {
   collectPluginScaffoldFiles,
   writePluginScaffold,

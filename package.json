@@ -136,7 +136,9 @@
     "release": "node scripts/release.mjs",
     "release:changelog": "node scripts/release.mjs --changelog",
     "release:desktop": "node scripts/release-desktop.mjs",
-    "check:work-vocabulary": "node scripts/check-work-vocabulary.mjs"
+    "check:work-vocabulary": "node scripts/check-work-vocabulary.mjs",
+    "check:supabase-pin": "node scripts/check-supabase-pin.mjs",
+    "publish:cli": "node scripts/publish-cli.mjs"
   },
   "engines": {
     "node": ">=22.18.0"

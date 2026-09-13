@@ -1,11 +1,13 @@
 import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { cyan, dim, green, red, yellow } from "../env-setup/env-style.js";
-import { requireWorkspaceRoot } from "../workspace.js";
+import { currentWorkspaceRoot } from "../workspace.js";
+import { type LocalCheck, runHostChecks } from "./host-checks.js";
 import { runLocalChecks } from "./local-checks.js";
 import {
-  loadProbes,
   loadRequiredSchemas,
+  probeDeploymentSelfCheck,
+  probeExposedSchemas,
   type SchemaProbe,
   type SelfCheckProbe,
 } from "./supabase-checks.js";
@@ -81,13 +83,23 @@ function reportSelfCheck(probe: SelfCheckProbe): boolean {
   return false;
 }
 
+/**
+ * Inside a checkout: its local dev setup. Outside: the machine itself — the
+ * prerequisites `engenty create` needs before there is a checkout.
+ */
 async function runLocalDoctor(json: boolean): Promise<void> {
-  const root = requireWorkspaceRoot("doctor");
-  const checks = await runLocalChecks(root);
+  const root = currentWorkspaceRoot();
+  const checks: LocalCheck[] = root
+    ? await runLocalChecks(root)
+    : runHostChecks();
   if (json) {
     console.log(JSON.stringify({ checks, root }, null, 2));
   } else {
-    console.log(`Checkout: ${cyan(root)}\n`);
+    console.log(
+      root
+        ? `Checkout: ${cyan(root)}\n`
+        : `No checkout here — checking this machine. ${dim("Get one with `npx engenty create <dir>`.")}\n`
+    );
     for (const check of checks) {
       const mark =
         check.status === "ok"
@@ -112,7 +124,7 @@ export function registerDoctorCommands(program: Command): void {
   program
     .command("doctor")
     .description(
-      "Read-only health check. Default: this checkout's local dev setup (Docker, Supabase, migrations, generated files, env, ports). --remote: a Supabase deployment's exposed schemas and access-token hook"
+      "Read-only health check. Inside a checkout: its local dev setup (Docker, Supabase, migrations, generated files, env, ports); elsewhere: this machine's prerequisites. --remote: a Supabase deployment's exposed schemas and access-token hook"
     )
     .option(
       "--remote",
@@ -151,13 +163,12 @@ export function registerDoctorCommands(program: Command): void {
           }
 
           const required = await loadRequiredSchemas();
-          const probes = await loadProbes();
 
           const schemaProbe = anonKey
-            ? await probes.probeExposedSchemas({ url, anonKey, required })
+            ? await probeExposedSchemas({ url, anonKey, required })
             : { ok: false, error: "No anon key — pass --anon-key." };
           const selfCheck = serviceKey
-            ? await probes.probeDeploymentSelfCheck({
+            ? await probeDeploymentSelfCheck({
                 url,
                 serviceRoleKey: serviceKey,
               })

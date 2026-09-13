@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getMandatoryPluginDeclaration } from "@engenty/environment";
 import type { PluginDiagnostic } from "@engenty/plugin-sdk";
-import { getMandatoryPluginDeclaration } from "./mandatory-plugins.js";
 import { loadPluginManifest, type PluginManifest } from "./manifest.js";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
 

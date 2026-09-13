@@ -1,6 +1,6 @@
 /**
  * Resolve the workspace-vendored Supabase CLI (`devDependency: supabase`).
- * Keep in sync with `apps/core/src/cli/db/run-supabase-cli.ts`.
+ * Keep in sync with `packages/cli/src/db/supabase-cli-bin.ts`.
  */
 import fs from "node:fs";
 import path from "node:path";

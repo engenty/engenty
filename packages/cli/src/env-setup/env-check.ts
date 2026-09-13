@@ -100,7 +100,7 @@ function statusCell(entry: ScopeReport["vars"][number]): Cell {
 }
 
 /** A row the report paints ✗: required (or feature-required) and not ok. */
-function needsAttention(entry: ScopeReport["vars"][number]): boolean {
+export function needsAttention(entry: ScopeReport["vars"][number]): boolean {
   return (
     entry.status !== "ok" &&
     !(entry.requirement === "optional" && entry.status !== "invalid")

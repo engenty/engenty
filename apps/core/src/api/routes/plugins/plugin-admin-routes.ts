@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { unregisterAiRegistration } from "@engenty/ai-core";
+import { getMandatoryPluginDeclaration } from "@engenty/environment";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { createPackagesDal } from "../../../dal/packages.js";
@@ -15,7 +16,6 @@ import {
   validatePluginUninstall,
 } from "../../../plugins/install-validation.js";
 import type { LoadPluginsParams } from "../../../plugins/loader.js";
-import { getMandatoryPluginDeclaration } from "../../../plugins/mandatory-plugins.js";
 import {
   executePluginPackageLifecycle,
   type PackageLifecycleOperation,

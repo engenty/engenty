@@ -1,10 +1,10 @@
-import type { SettingSpec, SettingValueType } from "@engenty/platform-settings";
-import { getEnvManifest } from "../cli/env-setup/env-manifest.js";
 import {
   type EnvVarSpec,
+  getEnvManifest,
   NON_CONFIGURABLE_ENV_KEYS,
   type ObtainStrategy,
-} from "../cli/env-setup/env-manifest-types.js";
+} from "@engenty/cli";
+import type { SettingSpec, SettingValueType } from "@engenty/platform-settings";
 
 /**
  * A configurable env var, projected for the settings store + Setup UI. Extends

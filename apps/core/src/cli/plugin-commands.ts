@@ -1,32 +1,30 @@
+import {
+  applyLocalDbMigrations,
+  DB_MIGRATE_NEXT_STEP,
+  disablePluginsInProduct,
+  enablePluginsInProduct,
+  isInteractiveTerminal,
+  isLocalDbReachable,
+  listPluginManifestEntries,
+  type PluginManifestEntry,
+  pickWorkspaceSlugs,
+  resolveRepoRoot,
+  restartLocalDb,
+  runCliAction,
+} from "@engenty/cli";
 import { listWorkspaceModuleSlugsOnDisk } from "@engenty/environment";
 import type { Command } from "commander";
 import { CliApiError } from "./auth-sdk.js";
-import { runCliAction } from "./cli-errors.js";
 import {
   callCoreApi,
   callCoreApiWithAcceptedStatuses,
   defaultApiUrl,
 } from "./core-api.js";
-import {
-  applyLocalDbMigrations,
-  DB_MIGRATE_NEXT_STEP,
-  isLocalDbReachable,
-  restartLocalDb,
-} from "./db/local-db.js";
 import { registerPluginCreateCommand } from "./plugin-create-command.js";
 import {
   type PluginListItem,
   resolvePluginIdsFromArgsOrPrompt,
 } from "./plugin-id-prompt.js";
-import { pickWorkspaceSlugs } from "./plugins/pick-workspace-plugins.js";
-import {
-  disablePluginsInProduct,
-  enablePluginsInProduct,
-  listPluginManifestEntries,
-  type PluginManifestEntry,
-  resolveRepoRoot,
-} from "./plugins/plugins-manifest-ops.js";
-import { isInteractiveTerminal } from "./select-loop.js";
 
 interface PluginCommandOpts {
   apiUrl?: string;

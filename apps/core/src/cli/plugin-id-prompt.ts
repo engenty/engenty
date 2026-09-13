@@ -1,5 +1,5 @@
+import { runMultiSelectLoop } from "@engenty/cli";
 import { callCoreApi } from "./core-api.js";
-import { runMultiSelectLoop } from "./select-loop.js";
 
 export interface PluginListItem {
   dbHealth?: string;
