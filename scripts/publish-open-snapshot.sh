@@ -175,7 +175,31 @@ if git cat-file -e "$SOURCE:$allowlist_file" 2>/dev/null; then
   GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "$mode,$blob,$allowlist_file"
 fi
 
+# The lockfile is the last file that still describes pro's tree: it carries an
+# importer for every closed workspace package plus the packages only they
+# pulled in. pnpm notices on the very first `pnpm install` in a clone and
+# rewrites the file, so every cloner got a modified pnpm-lock.yaml before they
+# had typed anything — and `--frozen-lockfile` on the mirror's CI could never
+# pass. Prune it against the materialised tree; `--lockfile-only` touches no
+# node_modules and resolves from the lockfile it was handed, so this is a few
+# seconds and no registry round trip for packages that did not change.
+if git cat-file -e "$SOURCE:pnpm-lock.yaml" 2>/dev/null; then
+  (cd "$snapshot_dir" && pnpm install --lockfile-only --ignore-scripts --prefer-offline >/dev/null)
+  mode="$(git ls-tree "$SOURCE" -- pnpm-lock.yaml | awk '{print $1}')"
+  blob="$(git hash-object -w -- "$snapshot_dir/pnpm-lock.yaml")"
+  GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "$mode,$blob,pnpm-lock.yaml"
+fi
+
 tree="$(GIT_INDEX_FILE="$tmp_index" git write-tree)"
+
+# The lockfile must describe exactly this tree, or the first `pnpm install` in
+# a clone rewrites it. Same check the mirror's CI runs.
+lock_leak="$(git show "$tree:pnpm-lock.yaml" 2>/dev/null \
+  | grep -E "^  ($(IFS='|'; echo "${EXCLUDES[*]}")):$" || true)"
+if [[ -n "$lock_leak" ]]; then
+  printf 'REFUSING to publish — pnpm-lock.yaml still lists closed importers:\n%s\n' "$lock_leak" >&2
+  exit 1
+fi
 
 # Safety: refuse if any excluded path survived into the tree.
 leak="$(git ls-tree -r --name-only "$tree" \
