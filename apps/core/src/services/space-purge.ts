@@ -132,11 +132,19 @@ export function startSpacePurgeLoop(params: {
     void purgeDueSpaces({
       client: params.client,
       ...(params.storage ? { storage: params.storage } : {}),
-    }).then((result) => {
-      if (result.purged > 0 || result.failed > 0) {
-        logger.info("space purge sweep", result);
-      }
-    });
+    })
+      .then((result) => {
+        if (result.purged > 0 || result.failed > 0) {
+          logger.info("space purge sweep", result);
+        }
+      })
+      // A database that is not answering must not become an unhandled
+      // rejection out of a timer; the next tick tries again.
+      .catch((error: unknown) => {
+        logger.warn("space purge sweep skipped", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   };
   tick();
   const timer = setInterval(tick, intervalMs);

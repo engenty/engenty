@@ -8,6 +8,10 @@ import { runSupabaseCli } from "../db/run-supabase-cli.js";
 import { buildScopeReport } from "../env-setup/env-check.js";
 import { requiredGaps } from "../env-setup/env-diff.js";
 import { envFilePath } from "../env-setup/env-files.js";
+import {
+  describeStackPortMismatch,
+  readLocalStackApiPort,
+} from "../env-setup/local-stack-port.js";
 
 /**
  * Read-only. Every probe answers "would `engenty dev` get past this?" and
@@ -178,7 +182,21 @@ function checkEnv(root: string): LocalCheck {
       fix: "pnpm engenty env init",
     };
   }
-  const gaps = requiredGaps(buildScopeReport(root, "root"));
+  const report = buildScopeReport(root, "root");
+  const mismatch = describeStackPortMismatch({
+    configPort: readLocalStackApiPort(root),
+    envUrl: report.vars.find((entry) => entry.spec.key === "SUPABASE_URL")
+      ?.value,
+  });
+  if (mismatch) {
+    return {
+      label,
+      status: "fail",
+      detail: mismatch.split(" Fix:")[0],
+      fix: "pnpm engenty env init (rewrites the Supabase block from supabase status)",
+    };
+  }
+  const gaps = requiredGaps(report);
   return gaps.length === 0
     ? { label, status: "ok", detail: path.relative(root, envPath) }
     : {

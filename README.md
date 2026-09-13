@@ -88,28 +88,28 @@ in their manifest).
 <!-- modules:start -->
 ### Core
 
-| | Module | What it does |
-|---|--------|--------------|
-| 🔌 | **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
-| 📇 | **Contacts** | Contacts and organisations module |
-| 🤖 | **Engenty Copilot** | Core Engenty copilot full-page chat and apps/ai UI consumer |
-| 🗂️ | **Files** | Tenant file storage and previews |
-| 📬 | **Inbox** | Synced email inbox over connected mail accounts (connections framework) |
-| 📚 | **Knowledge Base** | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
-| 📁 | **Projects** | Project management with phases, tasks, and client portal |
-| 🔐 | **Secrets Vault** | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
-| ✅ | **Tasks** | Canonical tasks for human and agent collaboration |
-| 👥 | **Team** | Team directory, org structure, groups, and taxonomies |
+| Module | What it does |
+|--------|--------------|
+| 🔌 **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
+| 📇 **Contacts** | Contacts and organisations module |
+| 🤖 **Engenty Copilot** | Core Engenty copilot full-page chat and apps/ai UI consumer |
+| 🗂️ **Files** | Tenant file storage and previews |
+| 📬 **Inbox** | Synced email inbox over connected mail accounts (connections framework) |
+| 📚 **Knowledge Base** | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
+| 📁 **Projects** | Project management with phases, tasks, and client portal |
+| 🔐 **Secrets Vault** | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
+| ✅ **Tasks** | Canonical tasks for human and agent collaboration |
+| 👥 **Team** | Team directory, org structure, groups, and taxonomies |
 
 ### Commercial
 
-| | Module | What it does |
-|---|--------|--------------|
-| 🧾 | **Invoices** | Invoice CRUD with SQLite and PDF export |
-| 📝 | **Offers** | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
-| ⚙️ | ↳ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers, Invoices |
-| 🏢 | ↳ Company Profile | Legal entity profile and business identity settings — used by Offers |
-| 📄 | ↳ PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers, Invoices |
+| Module | What it does |
+|--------|--------------|
+| 🧾 **Invoices** | Invoice CRUD with SQLite and PDF export |
+| 📝 **Offers** | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
+| ↳ ⚙️ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers, Invoices |
+| ↳ 🏢 Company Profile | Legal entity profile and business identity settings — used by Offers |
+| ↳ 📄 PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers, Invoices |
 
 **Connections** providers: External (imported), GitHub, Google, HubSpot, Local Files, Microsoft, S3, Slack.
 <!-- modules:end -->

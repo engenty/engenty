@@ -10,17 +10,13 @@ import {
   note,
   outro,
   password,
+  select,
   spinner,
   text,
 } from "@clack/prompts";
 import { resolveSupabaseCliBin } from "../db/supabase-cli-bin.js";
-import { renderScopeReport } from "./env-check.js";
-import {
-  diffScope,
-  generatableGaps,
-  requiredGaps,
-  type ScopeReport,
-} from "./env-diff.js";
+import { countAttention, renderScopeReport } from "./env-check.js";
+import { diffScope, generatableGaps, type ScopeReport } from "./env-diff.js";
 import { renderExampleFile } from "./env-example-render.js";
 import {
   type EnvDocument,
@@ -47,6 +43,10 @@ import {
   harvestSupabaseStatus,
   resolveSupabaseValue,
 } from "./env-supabase.js";
+import {
+  describeStackPortMismatch,
+  readLocalStackApiPort,
+} from "./local-stack-port.js";
 
 const CANCELLED = Symbol("cancelled");
 
@@ -223,14 +223,27 @@ async function generateSecrets(
 async function harvestSupabase(
   state: WizardState
 ): Promise<typeof CANCELLED | undefined> {
+  // A file that already names a Supabase port other than this checkout's
+  // stack is the wrong-database install: every supabase-sourced key is
+  // re-read, not only the empty ones, so a rerun of env init repairs it.
+  const staleStack = describeStackPortMismatch({
+    configPort: readLocalStackApiPort(state.workspaceRoot),
+    envUrl: currentValue(state, "root", "SUPABASE_URL"),
+  });
   const targets = specsFor(state).filter(
     ({ scope, spec }) =>
       spec.obtain.kind === "supabase" &&
       isActive(state, spec) &&
-      needsValue(state, scope, spec)
+      (staleStack !== null || needsValue(state, scope, spec))
   );
   if (targets.length === 0) {
     return;
+  }
+  if (staleStack) {
+    note(
+      `${staleStack.split(" Fix:")[0]}\nRewriting the Supabase block.`,
+      "Supabase"
+    );
   }
 
   const spin = spinner();
@@ -257,6 +270,23 @@ async function harvestSupabase(
     spin.stop("Supabase stack not reachable.");
     note(
       `${harvest.error ?? "supabase status failed."}\nStart it with: pnpm engenty db up — then rerun pnpm engenty env init`,
+      "Supabase"
+    );
+    return;
+  }
+  // The stack that answered must be this checkout's: `supabase status` reads
+  // config.toml from the cwd, but a stale CLI state or a stack started from
+  // elsewhere answers with another port band — and every local stack shares
+  // the same demo keys, so nothing later would notice.
+  const mismatch = describeStackPortMismatch({
+    configPort: readLocalStackApiPort(state.workspaceRoot),
+    envUrl: harvest.values.API_URL,
+    key: "supabase status API_URL",
+  });
+  if (mismatch) {
+    spin.stop("Supabase stack mismatch.");
+    note(
+      `${mismatch}\nNothing was written. Stop the other stack or run pnpm engenty db up here, then rerun pnpm engenty env init.`,
       "Supabase"
     );
     return;
@@ -343,7 +373,14 @@ async function applyManifestDefaultsStep(
   applyManifestDefaults(state);
 }
 
-async function syncPortless(
+/**
+ * How the app is opened decides which URLs the UI is built with, so it is a
+ * question, not an optional extra: `pnpm dev` on http://localhost:5173, or
+ * `pnpm dev:portless` on https://engenty.localhost. Writing the Portless block
+ * into a checkout that is then started with plain `pnpm dev` sends the
+ * browser's AI calls to a host that is not serving this install.
+ */
+async function chooseDevUrls(
   state: WizardState
 ): Promise<typeof CANCELLED | undefined> {
   if (!state.scopes.includes("root")) {
@@ -353,14 +390,31 @@ async function syncPortless(
   if (!rootDoc || hasPortlessBlock(rootDoc)) {
     return;
   }
-  const go = await confirm({
-    initialValue: false,
-    message:
-      "Optional: run pnpm portless:setup (HTTPS *.localhost URLs + .env.local sync)?",
+  const portlessInstalled = fs.existsSync(
+    path.join(state.workspaceRoot, "node_modules", ".bin", "portless")
+  );
+  const choice = await select({
+    initialValue: "localhost",
+    message: "How will you open engenty?",
+    options: [
+      {
+        hint: "pnpm dev · the default; nothing else to install",
+        label: "http://localhost:5173",
+        value: "localhost",
+      },
+      {
+        hint: portlessInstalled
+          ? "pnpm dev:portless · HTTPS via the Portless proxy, several checkouts side by side"
+          : "not available — the portless CLI is not installed in this checkout",
+        label: "https://engenty.localhost (Portless)",
+        value: "portless",
+      },
+    ],
   });
-  if (isCancel(go)) {
+  if (isCancel(choice)) {
     return CANCELLED;
   }
+  const go = choice === "portless" && portlessInstalled;
   if (!go) {
     saveDocs(state);
     const localhost = spawnSync(
@@ -450,6 +504,12 @@ async function promptProviderVars(
     }
     const value = (answer ?? "").trim();
     if (value === "") {
+      // Skipping is fine; pretending it changes nothing is not. Name what
+      // stays off and where the value can be set later.
+      note(
+        `${spec.key} skipped — ${spec.feature ? `"${featureLabel(state, spec.feature)}"` : "what depends on it"} stays off until it is set.\nLater: pnpm engenty env edit ${spec.key}${spec.configurable === "platform" ? ", or in the app under Setup → Platform settings" : ""}.`,
+        "Skipped"
+      );
       continue;
     }
     const error = spec.validate?.(value);
@@ -474,10 +534,17 @@ function finalReport(state: WizardState): { gaps: number; text: string } {
   let gaps = 0;
   for (const scope of state.scopes) {
     const report = scopeReportFromState(state, scope);
-    gaps += requiredGaps(report).length;
+    gaps += countAttention(report);
     sections.push(renderScopeReport(state.workspaceRoot, report));
   }
   return { gaps, text: sections.join("\n\n") };
+}
+
+function featureLabel(_state: WizardState, featureId: string): string {
+  return (
+    getEnvFeatures().find((feature) => feature.id === featureId)?.label ??
+    featureId
+  );
 }
 
 export async function runEnvInitWizard(
@@ -512,7 +579,7 @@ export async function runEnvInitWizard(
     applyManifestDefaultsStep,
     generateSecrets,
     harvestSupabase,
-    syncPortless,
+    chooseDevUrls,
     promptProviderVars,
   ];
   for (const step of steps) {
@@ -525,14 +592,16 @@ export async function runEnvInitWizard(
   const { gaps, text: reportText } = finalReport(state);
   console.log(`\n${reportText}\n`);
   if (gaps > 0) {
+    // "need attention" above and "ready" below cannot both be true — the
+    // summary and the verdict count the same rows.
     outro(
-      `${gaps} required value(s) still missing — rerun pnpm engenty env init anytime, or set single keys via engenty env edit <KEY>.`
+      `${gaps} value(s) need attention (listed above). Rerun pnpm engenty env init anytime, or set single keys via pnpm engenty env edit <KEY>.`
     );
-  } else {
-    outro(
-      "Environment ready. Next: pnpm engenty db up (if not running), pnpm dev — open http://localhost:5173 (or pnpm portless:setup for https://engenty.localhost)"
-    );
+    return 1;
   }
+  outro(
+    "Environment ready. Next: pnpm dev — then open the URL you chose above."
+  );
   return 0;
 }
 

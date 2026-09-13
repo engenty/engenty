@@ -142,11 +142,14 @@ export function firstSpaceKey(name: string, taken: readonly string[]): string {
 }
 
 /**
- * Name the tenant's default space and key it off that name.
+ * Give the tenant its first space, named and keyed off the team's name.
  *
- * The trigger that creates it has only the tenant id to go on, so it uses the
- * placeholder key `company` — and the key is what `/s/<key>/…` routes on. This
- * is the one moment re-keying is free: nobody has a link to the space yet.
+ * Usually the trigger has already created a default space with the
+ * placeholder key `company` — the key is what `/s/<key>/…` routes on, and
+ * this is the one moment re-keying is free: nobody has a link to it yet. A
+ * tenant with no default space (a trigger that did not fire, a database
+ * migrated by hand) gets one created instead of an error the admin can only
+ * skip past.
  */
 export async function nameFirstSpace(params: {
   accessToken: string;
@@ -160,7 +163,22 @@ export async function nameFirstSpace(params: {
   );
   const target = spaces.find((space) => space.isDefault);
   if (!target) {
-    throw new Error("This tenant has no default space.");
+    await setupFetch(
+      "/api/spaces",
+      params.accessToken,
+      {
+        body: {
+          key: firstSpaceKey(
+            params.name,
+            spaces.map((space) => space.key)
+          ),
+          name: params.name,
+        },
+        method: "POST",
+      },
+      "Could not create the first space."
+    );
+    return;
   }
   const mounts = await setupFetch<SetupSpaceMount[]>(
     `/api/spaces/${encodeURIComponent(target.id)}/mounts`,

@@ -14,7 +14,7 @@
  *   "settings"` and it `requires` a listed module, or a listed space module
  *   `requires` it — is a sub-module row under the same table, naming what it
  *   extends or serves;
- * - `emoji` leads the row; `stability: "experimental"` leaves the module out.
+ * - `emoji` sits before the name; `stability: "experimental"` leaves the module out.
  *
  * `--root` renders another workspace's README — the open-source snapshot
  * publishes a tree with fewer modules, and pro's table would advertise the
@@ -92,6 +92,9 @@ function subModuleRelation(manifest) {
   return usedBy.length > 0 ? { ids: usedBy, verb: "used by" } : null;
 }
 
+const withEmoji = (manifest, label) =>
+  manifest.emoji ? `${manifest.emoji} ${label}` : label;
+
 const GROUPS = [
   {
     title: "Core",
@@ -115,19 +118,19 @@ for (const group of GROUPS) {
     "",
     `### ${group.title}`,
     "",
-    "| | Module | What it does |",
-    "|---|--------|--------------|"
+    "| Module | What it does |",
+    "|--------|--------------|"
   );
   for (const manifest of main) {
     lines.push(
-      `| ${manifest.emoji ?? ""} | **${manifest.name}** | ${manifest.description} |`
+      `| ${withEmoji(manifest, `**${manifest.name}**`)} | ${manifest.description} |`
     );
   }
   for (const manifest of subs) {
     const relation = subModuleRelation(manifest);
     const names = relation.ids.map((id) => byId.get(id).name).join(", ");
     lines.push(
-      `| ${manifest.emoji ?? ""} | ↳ ${manifest.name} | ${manifest.description} — ${relation.verb} ${names} |`
+      `| ↳ ${withEmoji(manifest, manifest.name)} | ${manifest.description} — ${relation.verb} ${names} |`
     );
   }
 }

@@ -17,6 +17,7 @@ import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js
 import type { PluginRecord, PluginRegistry } from "../plugins/registry.js";
 import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
+import { createStaticGrantsService } from "../security/grants-service.js";
 import type { ApiLogger } from "./routes/types.js";
 import {
   createApiApp,
@@ -32,6 +33,14 @@ const noopApiLogger: ApiLogger = {
   info: () => {},
   warn: () => {},
 };
+
+// Every app here is offline: an injected grants service is the signal that
+// createApiApp must not open a database client, so a policy evaluation never
+// reaches for Supabase (it did, and timed out on the CI runner).
+const offlineGrants = createStaticGrantsService({
+  capabilities: ["*"],
+  roleProfiles: ["agent.assistant"],
+});
 
 function makePluginRecord(id: string): PluginRecord {
   return {
@@ -207,6 +216,7 @@ describe("createApiApp", () => {
   it("reports readiness without generating the OpenAPI document", async () => {
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: makeRegistry(),
       config: { securityJwtSecret: "test-security-secret" },
       dataDir: "/tmp",
@@ -232,6 +242,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: makeRegistry(),
       config: { securityJwtSecret },
       dataDir: "/tmp",
@@ -261,6 +272,7 @@ describe("createApiApp", () => {
     };
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry,
       config: { securityJwtSecret },
       dataDir: "/tmp",
@@ -308,6 +320,7 @@ describe("createApiApp", () => {
     };
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry,
       config: { securityJwtSecret },
       dataDir: "/tmp",
@@ -337,6 +350,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: {
         ...makeEmptyRegistry(),
         plugins: [
@@ -494,6 +508,7 @@ describe("createApiApp", () => {
     const token = await createUserApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: {
         ...makeEmptyRegistry(),
         plugins: [makePluginRecord("invoices")],
@@ -561,6 +576,7 @@ describe("createApiApp", () => {
     const app = createApiApp({
       approvalService: createApprovalService(createFakeApprovalDb().client),
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: {
         ...makeEmptyRegistry(),
         plugins: [
@@ -651,6 +667,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: makeRegistry(),
       config: { securityJwtSecret },
       dataDir: "/tmp",
@@ -677,6 +694,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: makeRegistry(),
       config: { securityJwtSecret },
       dataDir: "/tmp",
@@ -701,6 +719,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: {
         ...makeEmptyRegistry(),
         plugins: [
@@ -845,6 +864,7 @@ describe("createApiApp", () => {
     const token = await createApiToken(securityJwtSecret);
     const app = createApiApp({
       logger: noopApiLogger,
+      grantsService: offlineGrants,
       registry: {
         ...makeEmptyRegistry(),
         plugins: [makePluginRecord("test-plugin")],

@@ -130,10 +130,14 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
 
   // ── Supabase ──
+  // The three local Supabase addresses carry NO default: a second stack on
+  // another port band (project id ≠ engenty-local) would otherwise keep the
+  // default band, pass `env check`, and point core at a different database
+  // while every local stack answers with the same demo keys (2026-09-13).
+  // `engenty env init` writes them from `supabase status`.
   {
-    defaultValue: { root: "http://127.0.0.1:54321" },
     description:
-      "Supabase API endpoint. Local: http://127.0.0.1:54321 (pnpm engenty db up). Production: project URL reachable from the Docker network.",
+      "Supabase API endpoint. Local: written by `engenty env init` from `supabase status`. Production: project URL reachable from the Docker network.",
     exampleValue: undefined,
     group: "Supabase",
     key: "SUPABASE_URL",
@@ -168,11 +172,8 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: false,
   },
   {
-    defaultValue: {
-      root: "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
-    },
     description:
-      "Direct Postgres connection string. Two uses: (1) apps/ai Mastra framework storage (workflow/run snapshots, native suspend/resume — without it Mastra falls back to in-memory); (2) the deploy migrate init-service applies pending migrations to it on each deploy. The service-role key can't run DDL, so this is REQUIRED for automatic migrations (unset ⇒ the migrate step is skipped and you apply migrations manually). Local default matches the Supabase CLI stack.",
+      "Direct Postgres connection string. Two uses: (1) apps/ai Mastra framework storage (workflow/run snapshots, native suspend/resume — without it Mastra falls back to in-memory); (2) the deploy migrate init-service applies pending migrations to it on each deploy. The service-role key can't run DDL, so this is REQUIRED for automatic migrations (unset ⇒ the migrate step is skipped and you apply migrations manually). Local: written by `engenty env init` from `supabase status`.",
     group: "Supabase",
     key: "SUPABASE_DB_URL",
     obtain: { kind: "supabase", statusKeys: ["DB_URL"] },
@@ -181,7 +182,6 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: true,
   },
   {
-    defaultValue: { root: "http://127.0.0.1:54321" },
     description:
       "Supabase API endpoint for the UI. Required locally, where Vite serves the SPA and reads this from the workspace root. In a deployment the gateway writes it into the served page and falls back to SUPABASE_URL — set it there only when the browser-facing address differs, e.g. SUPABASE_URL is container-internal Docker DNS.",
     group: "Supabase",

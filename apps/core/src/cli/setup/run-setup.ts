@@ -11,9 +11,25 @@ import {
 import { runSupabaseCliStreaming } from "../db/run-supabase-cli.js";
 import { envFilePath } from "../env-setup/env-files.js";
 import { runEnvInitWizard } from "../env-setup/env-wizard.js";
+import {
+  describeStackPortMismatch,
+  readLocalStackApiPort,
+} from "../env-setup/local-stack-port.js";
 import { isInteractiveTerminal } from "../select-loop.js";
 import { promptLocalStackIdentity } from "./local-stack-prompt.js";
 import { generateDerivedArtifacts } from "./run-generate-script.js";
+
+/** One key out of a dotenv file, unquoted; undefined when absent. */
+function readEnvValue(filePath: string, key: string): string | undefined {
+  const line = fs
+    .readFileSync(filePath, "utf8")
+    .split("\n")
+    .find((entry) => entry.startsWith(`${key}=`));
+  return line
+    ?.slice(key.length + 1)
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
 
 function runSupabaseOrThrow(args: readonly string[]): void {
   // Stream live — these are the long ones (start, db reset, migration up);
@@ -125,6 +141,8 @@ export async function runSetup(params: {
   refresh?: boolean;
   repoRoot: string;
   allowDbReset?: boolean;
+  /** Finish with exit 0 even when .env.local has values that need attention. */
+  allowGaps?: boolean;
 }): Promise<void> {
   const stackEnv = await promptLocalStackIdentity({
     refresh: params.refresh === true,
@@ -164,6 +182,40 @@ finishes the database and .env.local steps.`);
     runSupabaseOrThrow(["start"]);
   }
 
+  // .env.local BEFORE migrations: the Mastra schema step reads
+  // SUPABASE_DB_URL from it, and skipped silently when the file did not exist
+  // yet. The harvest needs the stack up, which it is by now.
+  const envPath = envFilePath(params.repoRoot, "root");
+  if (!fs.existsSync(envPath)) {
+    // env init harvests `supabase status` for keys — make sure the stack the
+    // db step just (re)started is actually answering first.
+    await waitForSupabaseReady();
+  }
+  let envExitCode = 0;
+  if (fs.existsSync(envPath)) {
+    console.log(`Using existing ${envPath}.`);
+    const mismatch = describeStackPortMismatch({
+      configPort: readLocalStackApiPort(params.repoRoot),
+      envUrl: readEnvValue(envPath, "SUPABASE_URL"),
+    });
+    if (mismatch) {
+      throw new Error(mismatch);
+    }
+  } else if (
+    // The env wizard is interactive — only run it on a real TTY; otherwise
+    // print the hint so a non-interactive `engenty setup` never hangs.
+    isInteractiveTerminal() &&
+    (await confirmStep("Initialize .env.local now (env init wizard)?", true))
+  ) {
+    envExitCode = await runEnvInitWizard(["root"]);
+  } else {
+    console.log(`
+Missing ${envPath}
+Run: pnpm engenty env init
+`);
+    envExitCode = 1;
+  }
+
   if (localDatabaseIsEmpty()) {
     // `db reset` wipes data — it must never run unattended. Non-interactive
     // shells (Claude Code's Bash tool, CI, etc.) have no TTY, so the confirm
@@ -199,26 +251,10 @@ finishes the database and .env.local steps.`);
     applyLocalDbMigrations();
   }
 
-  const envPath = envFilePath(params.repoRoot, "root");
-  if (!fs.existsSync(envPath)) {
-    // env --init harvests `supabase status` for keys — make sure the stack the
-    // db step just (re)started is actually answering first.
-    await waitForSupabaseReady();
-  }
-  if (fs.existsSync(envPath)) {
-    console.log(`Using existing ${envPath}.`);
-  } else if (
-    // The env wizard is interactive — only run it on a real TTY; otherwise
-    // print the hint so a non-interactive `engenty setup` never hangs.
-    isInteractiveTerminal() &&
-    (await confirmStep("Initialize .env.local now (env init wizard)?", true))
-  ) {
-    await runEnvInitWizard(["root"]);
-  } else {
-    console.log(`
-Missing ${envPath}
-Run: pnpm engenty env init
-`);
+  if (envExitCode !== 0 && !params.allowGaps) {
+    throw new Error(
+      "Setup finished, but .env.local still has values that need attention (listed above). What depends on them stays off — the copilot cannot answer without an AI provider key. Set them with pnpm engenty env edit <KEY>, or pass --allow-gaps to accept this for now."
+    );
   }
 
   console.log(`

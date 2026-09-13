@@ -20,12 +20,17 @@ export function registerSetupCommands(program: Command): void {
       "Skip the interactive plugin install prompt on a fresh workspace"
     )
     .option(
+      "--allow-gaps",
+      "Finish with exit 0 even when .env.local still has values that need attention (for example no AI provider key yet)"
+    )
+    .option(
       "--yes-reset-db",
       "Allow a non-interactive run to destructively `supabase db reset` when the local DB needs init (never implied — must be explicit)"
     )
     .action(
       runCliAction(
         async (options: {
+          allowGaps?: boolean;
           plugins?: boolean;
           refresh?: boolean;
           yesResetDb?: boolean;
@@ -41,6 +46,7 @@ export function registerSetupCommands(program: Command): void {
             repoRoot,
             refresh: options.refresh === true,
             allowDbReset: options.yesResetDb === true,
+            allowGaps: options.allowGaps === true,
           });
         }
       )

@@ -99,6 +99,19 @@ function statusCell(entry: ScopeReport["vars"][number]): Cell {
   return { paint, text: `${symbol} ${entry.status}` };
 }
 
+/** A row the report paints ✗: required (or feature-required) and not ok. */
+function needsAttention(entry: ScopeReport["vars"][number]): boolean {
+  return (
+    entry.status !== "ok" &&
+    !(entry.requirement === "optional" && entry.status !== "invalid")
+  );
+}
+
+/** The number the summary prints as "need attention" — one definition. */
+export function countAttention(report: ScopeReport): number {
+  return report.vars.filter(needsAttention).length;
+}
+
 function summaryLine(report: ScopeReport): string {
   let ok = 0;
   let problems = 0;
@@ -106,10 +119,10 @@ function summaryLine(report: ScopeReport): string {
   for (const entry of report.vars) {
     if (entry.status === "ok") {
       ok++;
-    } else if (entry.requirement === "optional" && entry.status !== "invalid") {
-      optionalUnset++;
-    } else {
+    } else if (needsAttention(entry)) {
       problems++;
+    } else {
+      optionalUnset++;
     }
   }
   const parts = [green(`✓ ${ok} ok`)];

@@ -6,7 +6,7 @@ describe("renderExampleFile", () => {
   it("renders the root template with required keys uncommented", () => {
     const text = renderExampleFile("root");
     expect(text).toContain("ENGENTY_SECURITY_JWT_SECRET=");
-    expect(text).toContain("SUPABASE_URL=http://127.0.0.1:54321");
+    expect(text).toContain("SUPABASE_URL=\n");
     expect(text).toContain("SUPABASE_SERVICE_ROLE_KEY=sb_secret_...");
     // Optional vars render commented out.
     expect(text).toContain("# LANGFUSE_SECRET_KEY=");
@@ -34,7 +34,7 @@ describe("renderExampleFile", () => {
 
   it("renders Vite vars in the root template (Vite envDir is the workspace root)", () => {
     const text = renderExampleFile("root");
-    expect(text).toContain("VITE_SUPABASE_URL=http://127.0.0.1:54321");
+    expect(text).toContain("VITE_SUPABASE_URL=\n");
     expect(text).toContain("VITE_SUPABASE_ANON_KEY=sb_publishable_...");
     expect(text).not.toContain("PUBLIC_APP_URL");
     // Retired integrations stay out.

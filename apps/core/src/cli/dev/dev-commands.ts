@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import {
@@ -12,6 +14,35 @@ import {
  * `scripts/predev-check.sh` and runs here and only here — `engenty setup`
  * deliberately does none of it.
  */
+/**
+ * `.env.local` carries one generated dev-URL block, and the UI is built with
+ * the AI URL from it. A Portless block under plain `pnpm dev` (or the
+ * reverse) sends the browser to a host that is not serving this checkout —
+ * the copilot then reports "could not reach the AI service".
+ */
+function warnOnDevUrlShape(root: string, portless: boolean): void {
+  const envPath = path.join(root, ".env.local");
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+  const line = fs
+    .readFileSync(envPath, "utf8")
+    .split("\n")
+    .find((entry) => entry.startsWith("VITE_ENGENTY_AI_BASE_URL="));
+  const value = line?.slice("VITE_ENGENTY_AI_BASE_URL=".length).trim() ?? "";
+  if (!value) {
+    return;
+  }
+  const isPortless = value.startsWith("https://");
+  if (isPortless === portless) {
+    return;
+  }
+  const fix = portless ? "pnpm dev:urls:portless" : "pnpm dev:urls:localhost";
+  console.warn(
+    `\n.env.local has ${isPortless ? "Portless (https://*.localhost)" : "localhost"} dev URLs, but you are starting ${portless ? "pnpm dev:portless" : "pnpm dev"}. The UI would call the AI service at ${value}. Fix: ${fix}\n`
+  );
+}
+
 export function registerDevCommands(program: Command): void {
   program
     .command("dev")
@@ -40,6 +71,7 @@ export function registerDevCommands(program: Command): void {
           studio?: boolean;
         }) => {
           const root = requireWorkspaceRoot("dev");
+          warnOnDevUrlShape(root, Boolean(options.portless || options.domain));
 
           if (options.preflight !== false) {
             const check = runWorkspaceScript({

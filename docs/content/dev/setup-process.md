@@ -20,7 +20,7 @@ pnpm dev                # = engenty dev: preflight → build → core + ui + ai 
 
 | Command | What it does | Touches |
 |---------|--------------|---------|
-| `engenty setup` | The first run of a checkout, repeatable. Interactive plugin pick (fresh workspace only) → `generate` → start the container runtime and local Supabase → apply migrations (`db reset` on an empty database, asked first) → the `env init` wizard when `.env.local` is missing. Every step is skippable; non-interactive shells take safe defaults and never `db reset` without `--yes-reset-db`. **No dev-stack preflight.** | files, Docker, DB, env |
+| `engenty setup` | The first run of a checkout, repeatable. Interactive plugin pick (fresh workspace only) → `generate` → start the container runtime and local Supabase → the `env init` wizard when `.env.local` is missing → apply migrations (`db reset` on an empty database, asked first; Mastra's schema needs the env file, hence the order). Non-interactive shells take safe defaults and never `db reset` without `--yes-reset-db`. Exits 1 when `.env.local` still has values that need attention, unless `--allow-gaps`. **No dev-stack preflight.** | files, Docker, DB, env |
 | `engenty generate` | Regenerates the derived files from `engenty.plugins` (table below). A pure function of the manifest — what CI runs. `--refresh` recreates `supabase/config.toml` from the example. | files only |
 | `engenty dev` | The daily start. Preflight (`scripts/predev-check.sh`: Docker, Supabase up and healthy, pending migrations applied, generated files present, stale dev ports freed) → `turbo run build` for packages and modules → the dev servers. `pnpm dev` is an alias. `--portless`, `--domain=<name>`, `--studio`, `--no-preflight`. | Docker, DB |
 | `engenty doctor` | Read-only. One line per check with the command that fixes it. `--remote` (or `--url`) checks a Supabase deployment instead: exposed schemas and the access-token hook. | nothing |
@@ -125,8 +125,17 @@ just `pnpm dev`, but `engenty db …`, snapshots, and a bare `docker` too.
 
 - Pick optional features (the **AI copilot** is recommended/checked by default).
 - Secrets like `ENGENTY_SECURITY_JWT_SECRET` are generated locally.
-- Supabase keys are harvested from `supabase status`.
+- The Supabase URLs and keys are read from `supabase status` — always, never
+  from a template default. The wizard refuses to write them when the stack
+  that answered is not the one in `supabase/config.toml`, and a rerun of
+  `env init` rewrites the block when `.env.local` names another stack's port.
+- **How will you open engenty?** — `http://localhost:5173` (`pnpm dev`, the
+  default) or `https://engenty.localhost` through Portless (`pnpm dev:portless`,
+  offered only when the portless CLI is installed). This writes the dev-URL
+  block the UI is built with; `engenty dev` warns when the block and the start
+  mode disagree, and `pnpm dev:urls:localhost` / `pnpm dev:urls:portless` switch it.
 - Provider keys (Vercel AI Gateway, OpenAI) show a clickable URL to grab them.
+  A skipped key is named with what stays off and where to set it later.
 
 Check status any time:
 
@@ -159,7 +168,9 @@ command behind. `--yes` skips the prompt for scripted runs.
 
 ## Troubleshooting
 
-Run `pnpm engenty doctor` first — most rows below are one of its checks.
+Run `pnpm engenty doctor` first — most rows below are one of its checks,
+including the one that bit a test install: `.env.local` naming a Supabase port
+that is not this checkout's stack (a second stack on another port band).
 
 | Symptom | Cause / fix |
 |---------|-------------|
