@@ -6,8 +6,6 @@
     "connections",
     "connected-services",
     "secrets",
-    "apps",
-    "remote-channels",
     "browser"
   ]
 }

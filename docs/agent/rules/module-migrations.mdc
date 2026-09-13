@@ -23,12 +23,12 @@ Enabled modules are declared in root **`package.json` → `engenty.plugins`**. C
 | `modules/*/supabase/migrations/*.sql` | ✅ | Module |
 | root `package.json` → `engenty.plugins` | ✅ | Product manifest |
 | `supabase/config.toml.example` | ✅ module-agnostic base | Repo |
-| `supabase/migrations/*.sql` | ❌ gitignored | `engenty setup` |
-| `supabase/config.toml` | ❌ gitignored | `engenty setup` |
-| `apps/ui/src/plugins/generated-catalog.ts` | ❌ gitignored | `engenty setup` |
-| `apps/ui/src/plugins/generated-tailwind-sources.css` | ❌ gitignored | `engenty setup` |
+| `supabase/migrations/*.sql` | ❌ gitignored | `engenty generate` |
+| `supabase/config.toml` | ❌ gitignored | `engenty generate` |
+| `apps/ui/src/plugins/generated-catalog.ts` | ❌ gitignored | `engenty generate` |
+| `apps/ui/src/plugins/generated-tailwind-sources.css` | ❌ gitignored | `engenty generate` |
 
-After clone: **`pnpm engenty setup --local`**. When changing the module set or module SQL: **`pnpm engenty setup`** then **`pnpm db:migrate`** (or **`pnpm db:init`** on a fresh DB).
+After clone: **`pnpm engenty setup`**. When changing the module set or module SQL: **`pnpm engenty generate`** then **`pnpm engenty db migrate`** (or **`pnpm engenty db reset`** on a fresh DB).
 
 ## Tenant isolation (server lane) — REQUIRED for every new table
 
@@ -71,9 +71,9 @@ Rules that go with it:
 
 ## Commands
 
-- **First-run / module set changed**: `pnpm engenty setup --local` (first clone) or `pnpm engenty setup`
-- **Add module to manifest**: `pnpm engenty plugins enable <slug>`
-- **Compose Supabase only**: `engenty db sync`
-- **Apply or push**: `pnpm db:migrate` or `pnpm db:init` on a fresh DB
+- **First run**: `pnpm engenty setup`; **module set changed**: `pnpm engenty generate`
+- **Add module to manifest**: `pnpm engenty plugins install <slug>`
+- **Apply locally**: `pnpm engenty db migrate`, or `pnpm engenty db reset` on a fresh DB
+- **Push to a deployment**: `pnpm engenty deploy migrate`
 
 Full details: [plugins.md](../../../docs/content/dev/plugins.md).

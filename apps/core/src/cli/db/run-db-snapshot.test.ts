@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { canRunDbSnapshot, runDbSnapshotScript } from "./run-db-snapshot.js";
+import { runDbSnapshotScript } from "./run-db-snapshot.js";
 
 describe("runDbSnapshotScript", () => {
   const tempDirs: string[] = [];
@@ -13,7 +13,8 @@ describe("runDbSnapshotScript", () => {
     }
   });
 
-  it("no-ops when db-snapshot script is absent", () => {
+  // A missing script is a broken checkout, never a silent skip.
+  it("throws when the db-snapshot script is absent", () => {
     const dir = fs.mkdtempSync(
       path.join(os.tmpdir(), "engenty-no-db-snapshot-")
     );
@@ -24,11 +25,8 @@ describe("runDbSnapshotScript", () => {
       "utf8"
     );
 
-    expect(canRunDbSnapshot(dir)).toBe(false);
-    expect(runDbSnapshotScript({ action: "snapshot", cwd: dir })).toEqual({
-      ok: true,
-      output: "",
-      ran: false,
-    });
+    expect(() => runDbSnapshotScript({ action: "snapshot", cwd: dir })).toThrow(
+      "scripts/db-snapshot.mjs is missing"
+    );
   });
 });

@@ -61,6 +61,8 @@ import { registerAgentRunRoutes } from "./api/agent-run-routes.js";
 import { registerAppProxyRoutes } from "./api/app-proxy-routes.js";
 import { registerArtifactRoutes } from "./api/artifact-routes.js";
 import { registerAudioTranscriptionRoutes } from "./api/audio-transcription-routes.js";
+import { generateBrowserTicketSecret } from "./api/browser/browser-tickets.js";
+import { registerBrowserStreamWs } from "./api/browser-stream-ws.js";
 import { generateCascadeTicketSecret } from "./api/cascade/cascade-tickets.js";
 import { createElevenLabsTtsLeg } from "./api/cascade/elevenlabs-tts.js";
 import { createSessionAgentTurn } from "./api/cascade/session-agent-turn.js";
@@ -104,8 +106,6 @@ import {
 } from "./api/remote-channels.js";
 import { registerRoomRoutes } from "./api/room-routes.js";
 import { registerRoutineRoutes } from "./api/routine-routes.js";
-import { generateBrowserTicketSecret } from "./api/browser/browser-tickets.js";
-import { registerBrowserStreamWs } from "./api/browser-stream-ws.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
 import { registerAiSettingsRoutes } from "./api/settings-routes.js";

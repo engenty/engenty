@@ -19,9 +19,13 @@ export function shouldDeferPluginBoot(
   if (
     command === "env" ||
     command === "setup" ||
-    command === "init" ||
+    command === "install" ||
+    command === "generate" ||
+    command === "dev" ||
+    command === "reset" ||
     command === "db" ||
     command === "doctor" ||
+    command === "deploy" ||
     command === "plugins"
   ) {
     return true;

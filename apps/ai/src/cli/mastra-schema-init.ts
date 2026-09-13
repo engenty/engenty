@@ -1,6 +1,6 @@
 // Applies Mastra's own DDL. The ONLY place `disableInit` is lifted.
 //
-// Run by `engenty db migrate` (and directly via `engenty db mastra-init`).
+// Run by `engenty db migrate` and `engenty db reset` (via apps/ai `db:mastra-init`).
 // Kept out of the runtime because Mastra's init issues ~34 idempotent DDL
 // statements, and Postgres fires `ddl_command_end` for those even when they
 // change nothing — which makes Supabase reload PostgREST's schema cache and

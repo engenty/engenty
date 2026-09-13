@@ -7,15 +7,19 @@ import {
   registerModuleOperationCommands,
 } from "./cli/commands.js";
 import { registerDbCommands } from "./cli/db/db-commands.js";
+import { registerDeployCommands } from "./cli/deploy/deploy-commands.js";
+import { registerDevCommands } from "./cli/dev/dev-commands.js";
 import { registerDoctorCommands } from "./cli/doctor/doctor-commands.js";
 import { registerEnvCommands } from "./cli/env-setup/env-commands.js";
 import { registerModulesCommands } from "./cli/module-commands.js";
 import { registerPluginCommands } from "./cli/plugin-commands.js";
 import { shouldDeferPluginBoot } from "./cli/plugin-create/plugin-create-cli-path.js";
+import { registerResetCommands } from "./cli/reset/reset-commands.js";
 import { registerServiceCredentialCommands } from "./cli/service-credential-commands.js";
 import { registerSetupCommands } from "./cli/setup/setup-commands.js";
 import { registerSkillsCommands } from "./cli/tools/skills-commands.js";
 import { registerToolsCommands } from "./cli/tools/tools-commands.js";
+import { cliVersion } from "./cli/workspace.js";
 import { createBootApiLogger, initEvlog, log } from "./observability/evlog.js";
 import { resolveModulesDir } from "./plugins/discovery.js";
 
@@ -24,7 +28,7 @@ loadCoreRuntimeEnvFromCallerSrcDir(import.meta.url);
 export async function createCli(): Promise<Command> {
   const program = new Command("engenty")
     .description("Modular agent-friendly business app")
-    .version("0.0.1");
+    .version(cliVersion());
 
   program.addHelpText("before", (context) => {
     if (context.command === program) {
@@ -39,12 +43,15 @@ export async function createCli(): Promise<Command> {
   initEvlog();
 
   const existingCommands = new Set(program.commands.map((c) => c.name()));
-  registerAuthCommands(program);
-  registerServiceCredentialCommands(program);
-  registerEnvCommands(program);
   registerSetupCommands(program);
+  registerDevCommands(program);
   registerDoctorCommands(program);
   registerDbCommands(program);
+  registerResetCommands(program);
+  registerDeployCommands(program);
+  registerEnvCommands(program);
+  registerAuthCommands(program);
+  registerServiceCredentialCommands(program);
   registerPluginCommands(program);
   registerModulesCommands(program);
   registerToolsCommands(program);

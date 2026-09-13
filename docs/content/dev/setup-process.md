@@ -1,36 +1,36 @@
 ---
 title: Setup process
-description: How `pnpm install` and `engenty setup` turn the manifest into a running stack.
+description: What `engenty setup`, `generate`, `dev`, `doctor` and `reset` do, and how they turn the manifest into a running stack.
 ---
 
 # Setup process
 
 Engenty's local setup is **declarative and regenerable**. You declare which
-plugins the product ships in one place (`engenty.plugins`), and `engenty setup`
-rebuilds everything derived from that — config, migrations, UI catalog,
-workspace deps — so a fresh clone always materializes the same product.
+plugins the product ships in one place (`engenty.plugins`), and everything
+derived from that — config, migrations, UI catalog, workspace deps — is
+regenerated from it, so a fresh clone always materializes the same product.
 
-## One command
+## The commands
 
 ```bash
-pnpm install                 # deps + warm the workspace build (postinstall)
-pnpm engenty setup --local   # plugins (interactive) → Docker/Supabase → migrations → .env.local
-pnpm dev                     # core + ui + ai + docs
+pnpm install            # deps + warm the workspace build (postinstall)
+pnpm engenty setup      # first run: plugins → generate → Docker/Supabase → migrations → .env.local
+pnpm dev                # = engenty dev: preflight → build → core + ui + ai + docs
 ```
 
-`setup --local` is the turnkey first-run command. Re-run it any time — it's
-idempotent and only prompts for plugins on a fresh workspace.
+| Command | What it does | Touches |
+|---------|--------------|---------|
+| `engenty setup` | The first run of a checkout, repeatable. Interactive plugin pick (fresh workspace only) → `generate` → start the container runtime and local Supabase → apply migrations (`db reset` on an empty database, asked first) → the `env init` wizard when `.env.local` is missing. Every step is skippable; non-interactive shells take safe defaults and never `db reset` without `--yes-reset-db`. **No dev-stack preflight.** | files, Docker, DB, env |
+| `engenty generate` | Regenerates the derived files from `engenty.plugins` (table below). A pure function of the manifest — what CI runs. `--refresh` recreates `supabase/config.toml` from the example. | files only |
+| `engenty dev` | The daily start. Preflight (`scripts/predev-check.sh`: Docker, Supabase up and healthy, pending migrations applied, generated files present, stale dev ports freed) → `turbo run build` for packages and modules → the dev servers. `pnpm dev` is an alias. `--portless`, `--domain=<name>`, `--studio`, `--no-preflight`. | Docker, DB |
+| `engenty doctor` | Read-only. One line per check with the command that fixes it. `--remote` (or `--url`) checks a Supabase deployment instead: exposed schemas and the access-token hook. | nothing |
+| `engenty db …` | `up` (lean by default; `--studio`, `--logs`), `down`, `status`, `restart`, `migrate`, `reset`, `snapshot`, `restore`. `migrate` and `reset` include Mastra's own schema. | Docker, DB |
+| `engenty install <slug>` | Shorthand for `engenty plugins install <slug>`: add a module to `engenty.plugins` and regenerate. | files |
+| `engenty env …` | `init` (wizard), `check`, `edit`, `generate` (secrets), `example`. | env |
+| `engenty reset` | Back to a fresh checkout: generated files, local env, runtime dirs, build caches, `node_modules` (`--light` keeps them). `--db` also wipes the local database, and runs first because it needs the generated files. | files, DB with `--db` |
+| `engenty deploy` | The self-host wizard (`--dry-run`); `deploy migrate` pushes the aggregated migrations to the linked Supabase project. | remote |
 
-## The pipeline
-
-| Step | What runs | Notes |
-|------|-----------|-------|
-| `pnpm install` | Installs deps, then **`postinstall`** warms the build | `postinstall` is best-effort and marker-gated — it never fails the install; the CLI rebuilds on demand if skipped. Skip with `ENGENTY_SKIP_INSTALL_BUILD=1`. |
-| `engenty setup` | **Regenerates derived artifacts** from `engenty.plugins` | Pure function of the manifest — see below. |
-| `engenty setup --local` | `setup` **plus** orchestration | Interactive plugin install (fresh only) → start the container runtime → start Supabase → apply migrations → init `.env.local`. Each step is skippable; non-interactive shells take safe defaults. |
-| `pnpm dev` | `dev:check` + `predev` + the stack | Auto-starts the [container runtime](#container-runtime--supabase-on-demand) if needed, then Supabase, builds packages/modules, regenerates UI artifacts, then runs core/ui/ai/docs. |
-
-## What `engenty setup` regenerates
+## What `engenty generate` regenerates
 
 Everything below is **derived from `engenty.plugins`** and **gitignored** — never
 edit it by hand:
@@ -43,11 +43,11 @@ edit it by hand:
 | `apps/ui/src/plugins/generated-catalog.ts` + Tailwind sources | enabled **open** UI plugins | UI route/widget catalog (closed plugins go to the gitignored `pro/` overlay) |
 | `@engenty/<slug>` deps in `apps/ui/package.json` | enabled **open** UI plugins | So pnpm can resolve open UI imports (synced, never manual; closed modules stay out of this manifest) |
 
-What setup **does not** do (separate, explicit steps — they touch a running DB or
-secrets):
+What `generate` **does not** do — separate, explicit steps, because they touch a
+running database or secrets:
 
-- **Apply DB migrations** — `pnpm db:migrate` (or `setup --local` runs `supabase db reset` on a fresh DB).
-- **Write `.env.local`** — the `env --init` wizard (run by `setup --local`).
+- **Apply DB migrations** — `pnpm engenty db migrate` (`setup` runs `db reset` on a fresh database).
+- **Write `.env.local`** — `pnpm engenty env init` (run by `setup`).
 
 ## Source of truth
 
@@ -74,13 +74,36 @@ warms this so the first command is instant; if it was skipped, the wrapper build
 the needed packages before running. Plugins themselves are loaded from source via
 `jiti` and never need a `dist` build.
 
+The CLI's version is the root `package.json` version. Commands that act on a
+checkout (`setup`, `generate`, `dev`, `reset`, `db …`) refuse to run outside
+one with a single line; a missing helper script is an error, never a silent
+skip.
+
+### Towards `npx engenty`
+
+Three things still tie the CLI to a checkout, in the order they would be
+removed:
+
+1. It runs from source (`tsx apps/core/src/index.ts`) and no package declares a
+   `bin`. `npx` needs a published package — `engenty` or `@engenty/cli` — with
+   `bin: { engenty }` and a built entry.
+2. The scripts it drives (`scripts/generate.mjs`, `predev-check.sh`, `db-up.mjs`,
+   `db-snapshot.mjs`, `deploy/scripts/*`) live in the checkout. Those that act on
+   the checkout's own modules (`generate`) belong there; the rest would ship
+   inside the package.
+3. The Supabase CLI is a workspace devDependency. The package would carry its
+   own.
+
+With those in place, `npx engenty deploy` and `npx engenty doctor --remote` work
+from any directory; `setup`, `dev`, `generate` and `reset` still want a clone.
+
 ## Container runtime & Supabase, on demand
 
 If `docker info` already succeeds — Linux Docker Engine, CI, a Mac app you
-started yourself — that is enough. `pnpm dev` (`predev-check.sh`) and
-`setup --local` will then start local Supabase if it isn't up.
+started yourself — that is enough. `engenty setup` and the preflight in
+`engenty dev` will then start local Supabase if it isn't up.
 
-On **macOS**, if the daemon is down, `predev-check.sh` can auto-start Docker
+On **macOS**, if the daemon is down, the preflight can auto-start Docker
 Desktop, [OrbStack](https://orbstack.dev), or [Dory](https://augani.github.io/dory)
 and wait. The choice is saved to gitignored **`.engenty/container-runtime`**
 (values: `docker-desktop`, `orbstack`, `dory`) — never `package.json`. Delete
@@ -90,16 +113,15 @@ On **Linux**, there is no app to `open`. If the CLI is installed but the daemon
 is down, you get a clear instruction to start it (`systemctl start docker` or
 your distro equivalent) and a clean exit.
 
-If a named macOS runtime is saved, `predev-check.sh` also pins the matching
+If a named macOS runtime is saved, the preflight also pins the matching
 **Docker CLI context** (`desktop-linux`, `orbstack`, or `dory`) via
 `docker context use`. Because that writes the global `~/.docker/config.json`,
 the choice is authoritative for every tool that follows Docker context — not
-just `pnpm dev`, but `pnpm supabase`, `db:*`, snapshots, and a bare `docker`
-too.
+just `pnpm dev`, but `engenty db …`, snapshots, and a bare `docker` too.
 
 ## Environment
 
-`setup --local` runs the `env --init` wizard when `.env.local` is missing:
+`engenty setup` runs the `env init` wizard when `.env.local` is missing:
 
 - Pick optional features (the **AI copilot** is recommended/checked by default).
 - Secrets like `ENGENTY_SECURITY_JWT_SECRET` are generated locally.
@@ -109,49 +131,41 @@ too.
 Check status any time:
 
 ```bash
-pnpm dev:env:check   # ✓ ok · ✗ need attention · · optional unset
-pnpm dev:env         # interactive menu
+pnpm engenty env check   # ✓ ok · ✗ need attention · · optional unset
+pnpm engenty env         # interactive menu
 ```
 
 Most `unset` values are `optional` features with code defaults — only entries
 marked **need attention** require action.
 
-## Commands
-
-```bash
-pnpm engenty setup            # regenerate derived artifacts from the manifest
-pnpm engenty setup --refresh  # also recreate supabase/config.toml from the example
-pnpm engenty setup --local    # turnkey first-run orchestration
-pnpm db:migrate               # apply pending migrations
-pnpm db:reset                 # reset local DB + reapply all migrations (wipes data)
-pnpm purge                    # reset the tree to a fresh-clone state (see below)
-```
-
 ## Resetting
 
 ```bash
-pnpm purge          # remove node_modules, build caches, generated artifacts, local env
-pnpm purge:light    # same but keep node_modules (faster)
+pnpm engenty reset            # node_modules, build caches, generated files, local env
+pnpm engenty reset --light    # same but keep node_modules (faster)
+pnpm engenty reset --db       # also wipe the local database
 ```
 
-After a purge, run the first-run flow again:
+After a reset, run the first-run flow again:
 
 ```bash
 pnpm install
-pnpm engenty setup --local
+pnpm engenty setup
 pnpm dev
 ```
 
-`purge` exits cleanly if you decline the confirmation — it never leaves a failed
-command behind.
+`reset` exits cleanly if you decline the confirmation — it never leaves a failed
+command behind. `--yes` skips the prompt for scripted runs.
 
 ## Troubleshooting
 
+Run `pnpm engenty doctor` first — most rows below are one of its checks.
+
 | Symptom | Cause / fix |
 |---------|-------------|
-| `Could not query the database for the schema cache` (queue/AI logs) | Supabase stack not fully up. `pnpm supabase:stop && pnpm db:up`, confirm `pnpm supabase:status` is healthy, then `pnpm dev`. |
-| `Cannot connect to the Docker daemon` | Docker not running. Start the daemon so `docker info` succeeds and re-run (`setup --local` can auto-start Docker Desktop / OrbStack / Dory on macOS). |
+| `Could not query the database for the schema cache` (queue/AI logs) | Supabase stack not fully up. `pnpm engenty db restart`, confirm `pnpm engenty db status` is healthy, then `pnpm dev`. |
+| `Cannot connect to the Docker daemon` | Docker not running. Start the daemon so `docker info` succeeds and re-run (`engenty setup` and `engenty dev` can auto-start Docker Desktop / OrbStack / Dory on macOS). |
 | CI `frozen-lockfile` fails after adding a module | The new workspace package isn't committed, or the lockfile is stale — commit it and run `pnpm install`. |
-| `2 need attention` in `env check` after setup | Supabase keys are still placeholders — re-run `pnpm dev:env:init` once Supabase is up. |
-| App returns `Unauthorized` for a valid login; PostgREST 504s; `docker stats` hangs | Not an auth bug — the container runtime is saturated, and auth is simply not answering in time. Usually several Supabase stacks running at once. Stop the ones you are not using (`pnpm supabase:stop` in that checkout — data is preserved) and start the rest with `pnpm db:up` so Studio and the log pipeline stay off. Confirm with `docker stats`: if Postgres is idle in `pg_stat_activity` while everything times out, it is the host, not the app. |
+| `2 need attention` in `env check` after setup | Supabase keys are still placeholders — re-run `pnpm engenty env init` once Supabase is up. |
+| App returns `Unauthorized` for a valid login; PostgREST 504s; `docker stats` hangs | Not an auth bug — the container runtime is saturated, and auth is simply not answering in time. Usually several Supabase stacks running at once. Stop the ones you are not using (`pnpm engenty db down` in that checkout — data is preserved) and start the rest with `pnpm engenty db up` so Studio and the log pipeline stay off. Confirm with `docker stats`: if Postgres is idle in `pg_stat_activity` while everything times out, it is the host, not the app. |
 | Every request 500s with `current transaction is aborted` (`25P02`) | PostgREST's connection pool is poisoned and stays that way. `docker restart supabase_rest_<project_id>`. |

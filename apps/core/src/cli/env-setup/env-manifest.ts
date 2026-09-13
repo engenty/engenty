@@ -133,7 +133,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   {
     defaultValue: { root: "http://127.0.0.1:54321" },
     description:
-      "Supabase API endpoint. Local: http://127.0.0.1:54321 (pnpm supabase:start). Production: project URL reachable from the Docker network.",
+      "Supabase API endpoint. Local: http://127.0.0.1:54321 (pnpm engenty db up). Production: project URL reachable from the Docker network.",
     exampleValue: undefined,
     group: "Supabase",
     key: "SUPABASE_URL",
@@ -267,8 +267,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   // ── Mastra Studio (dev) ──
   {
-    description:
-      "Set by `pnpm dev:studio` / `pnpm dev:portless --studio`. Ignored in production.",
+    description: "Set by `pnpm engenty dev --studio`. Ignored in production.",
     exampleValue: "1",
     group: "Mastra Studio",
     key: "ENGENTY_MASTRA_STUDIO_API",
@@ -695,8 +694,8 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
  * `engenty.plugin.json`). Assembled fresh on each call so a minimal build only
  * documents the env of the modules it ships.
  */
-export function getEnvManifest(): EnvVarSpec[] {
-  return [...CORE_ENV_MANIFEST, ...loadEnvContributions().vars];
+export function getEnvManifest(workspaceRoot?: string): EnvVarSpec[] {
+  return [...CORE_ENV_MANIFEST, ...loadEnvContributions(workspaceRoot).vars];
 }
 
 /** Core feature gates first, then features contributed by present modules. */
@@ -704,8 +703,13 @@ export function getEnvFeatures(): EnvFeatureInfo[] {
   return [...CORE_ENV_FEATURES, ...loadEnvContributions().features];
 }
 
-export function manifestForScope(scope: EnvScope): EnvVarSpec[] {
-  return getEnvManifest().filter((spec) => spec.scopes.includes(scope));
+export function manifestForScope(
+  scope: EnvScope,
+  workspaceRoot?: string
+): EnvVarSpec[] {
+  return getEnvManifest(workspaceRoot).filter((spec) =>
+    spec.scopes.includes(scope)
+  );
 }
 
 export function findSpec(key: string): EnvVarSpec | undefined {

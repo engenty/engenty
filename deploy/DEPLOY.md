@@ -16,7 +16,7 @@ Coolify (or any reverse proxy) terminates TLS and forwards to **engenty-edge** o
 
 Step-by-step walkthrough: [docs/content/setup/coolify.md](../docs/content/setup/coolify.md)
 
-**Guided setup:** `node deploy/scripts/deploy-wizard.mjs` — an interactive
+**Guided setup:** `pnpm engenty deploy` (`--dry-run` to walk it without writing) — an interactive
 stepper. It first asks where Supabase runs (Cloud, or self-hosted on Coolify /
 Dokploy / your own compose) and how engenty runs (Coolify, or Docker Compose on
 a VPS), and the rest of the flow follows from those two answers:
@@ -79,7 +79,7 @@ existing installs) — apply the schema manually instead:
 
 ```bash
 supabase link --project-ref <your-ref>   # or self-hosted equivalent
-bash deploy/scripts/migrate.sh           # aggregate module SQL + supabase db push
+pnpm engenty deploy migrate              # aggregate module SQL + supabase db push
 ```
 
 Two settings live in **project config, not migrations**, so the migrate step cannot set them — do them once or they bite at runtime:
@@ -90,18 +90,18 @@ Two settings live in **project config, not migrations**, so the migrate step can
 Both fail quietly, so check them rather than trusting the click:
 
 ```bash
-pnpm engenty doctor --url https://<ref>.supabase.co \
+pnpm engenty doctor --remote --url https://<ref>.supabase.co \
   --anon-key <anon> --service-key <service_role>
 ```
 
-It exits non-zero on a problem, and with no flags reads `SUPABASE_URL`,
+It exits non-zero on a problem, and with `--remote` alone reads `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from the environment. It
 runs from a checkout, not from inside a container — so against a deployment,
 load the same env the stack uses:
 
 ```bash
 set -a; . deploy/.env; set +a
-pnpm engenty doctor
+pnpm engenty doctor --remote
 ```
 
 ```text
@@ -317,8 +317,8 @@ docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up --build
 | Logs (ai) | `docker logs -f engenty-ai` |
 | Restart stack | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env restart` |
 | Rebuild after code change | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d --build` |
-| New module migrations | `bash deploy/scripts/migrate.sh` |
-| Check Supabase wiring | `pnpm engenty doctor` |
+| New module migrations | `pnpm engenty deploy migrate` |
+| Check Supabase wiring | `pnpm engenty doctor --remote` |
 
 ### Space computer & browser
 
@@ -457,7 +457,7 @@ together after rotating it — `engenty-ai` presents it on every call.
 | `Dockerfile.studio` | Mastra Studio (profile) |
 | `Dockerfile.docs` | Fumadocs Next (profile) |
 | `.env.example` | Env template (generated — `pnpm env:example:write`) |
-| `scripts/migrate.sh` | Aggregate + push migrations |
+| `scripts/migrate.sh` | Aggregate + push migrations (`pnpm engenty deploy migrate`) |
 | `scripts/coolify-deploy.sh` | Forced-command SSH deploy trigger used by the CI `deploy` job |
 
 The PRO image build + auto-deploy pipeline lives at

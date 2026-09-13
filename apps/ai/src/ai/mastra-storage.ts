@@ -5,7 +5,7 @@
 import { PostgresStore } from "@mastra/pg";
 
 /** How an operator applies Mastra's own DDL. Named in the boot error. */
-export const MASTRA_SCHEMA_INIT_COMMAND = "pnpm engenty db mastra-init";
+export const MASTRA_SCHEMA_INIT_COMMAND = "pnpm engenty db migrate";
 
 export function resolveRunSnapshotConnectionString(): string | undefined {
   return (
@@ -59,8 +59,8 @@ export function createEngentyMastraStorage(
     // `disableInit` is for:
     // https://mastra.ai/reference/storage/postgresql
     //
-    // Apply the DDL with `pnpm engenty db mastra-init` (folded into
-    // `engenty db migrate`). The boot preflight fails loud when it is missing,
+    // Apply the DDL with `pnpm engenty db migrate`, which runs apps/ai's
+    // `db:mastra-init`. The boot preflight fails loud when it is missing,
     // so a skipped migration is a clear error, never a silent half-schema.
     disableInit: !options.allowInit,
     id: "engenty-ai-runs",

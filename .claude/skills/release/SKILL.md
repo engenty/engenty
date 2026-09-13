@@ -58,7 +58,7 @@ git push origin main
 ```bash
 git worktree add ../engenty-pro-x -b feat/x main
 cd ../engenty-pro-x && pnpm install
-pnpm engenty setup --local                   # REQUIRED once — config.toml + generated UI catalog are gitignored
+pnpm engenty setup                         # REQUIRED once — config.toml + generated UI catalog are gitignored
 pnpm dev:portless --domain=x                 # → https://x.engenty.localhost (own port slot)
 # land it: merge feat/x back to main from any checkout, then push origin main
 ```
@@ -73,7 +73,7 @@ cd ../engenty-pro-x && pnpm install
 # Give this worktree its OWN Supabase so it can't touch shared dev data:
 #   edit supabase/config.toml → set a unique project_id (e.g. "engenty-x")
 #   and shift the [api]/[db]/[studio]/… ports off the shared 54321 range.
-pnpm engenty setup --local                   # boots the isolated Supabase + migrations + .env.local
+pnpm engenty setup                         # boots the isolated Supabase + migrations + .env.local
 pnpm dev:portless --domain=x
 # land it: merge to main; the migration travels with the code. Never point a
 # worktree's dedicated DB migrations at the shared instance.
@@ -98,4 +98,4 @@ pnpm dev:portless --domain=x
 - The prebuilt compose uses `pull_policy: always`, so the VPS pulls the new `:latest` each deploy — don't remove it or releases stop going live.
 - Public mirror auto-syncs on tag via `publish-open.yml` (needs the `PUBLIC_REPO_PUSH_TOKEN` secret). Don't hand-sync; if you must, `pnpm push:snapshot` (`DRY_RUN=1` to preview).
 - Run `pnpm fix` before committing; CI lints changed files and will fail the push otherwise.
-- After changing installed modules or SQL: `pnpm engenty setup && pnpm db:migrate`.
+- After changing installed modules or SQL: `pnpm engenty generate && pnpm engenty db migrate`.

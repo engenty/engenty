@@ -3,14 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import {
-  runSupabaseCli,
-  runSupabaseCliStreaming,
-} from "../db/run-supabase-cli.js";
-import { runSupabaseSyncScript } from "../db/run-supabase-sync.js";
+  applyLocalDbMigrations,
+  isLocalStackRunning,
+  localDatabaseIsEmpty,
+  resetLocalDb,
+} from "../db/local-db.js";
+import { runSupabaseCliStreaming } from "../db/run-supabase-cli.js";
 import { envFilePath } from "../env-setup/env-files.js";
 import { runEnvInitWizard } from "../env-setup/env-wizard.js";
 import { isInteractiveTerminal } from "../select-loop.js";
-import { runSetupScript } from "./run-setup-script.js";
+import { promptLocalStackIdentity } from "./local-stack-prompt.js";
+import { generateDerivedArtifacts } from "./run-generate-script.js";
 
 function runSupabaseOrThrow(args: readonly string[]): void {
   // Stream live — these are the long ones (start, db reset, migration up);
@@ -23,7 +26,7 @@ function runSupabaseOrThrow(args: readonly string[]): void {
 
 /**
  * Confirm a step. Non-interactive shells (CI) take the default without
- * prompting, so scripted `setup --local` keeps working unattended.
+ * prompting, so a scripted `engenty setup` keeps working unattended.
  */
 async function confirmStep(
   message: string,
@@ -37,11 +40,6 @@ async function confirmStep(
     return false;
   }
   return answer === true;
-}
-
-export function isSupabaseRunning(): boolean {
-  const result = runSupabaseCli(["status"]);
-  return result.ok && result.output.includes("API URL");
 }
 
 function sleep(ms: number): Promise<void> {
@@ -106,7 +104,7 @@ async function waitForSupabaseReady(
   delayMs = 2000
 ): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
-    if (isSupabaseRunning()) {
+    if (isLocalStackRunning()) {
       return true;
     }
     if (i === 0) {
@@ -114,34 +112,31 @@ async function waitForSupabaseReady(
     }
     await sleep(delayMs);
   }
-  return isSupabaseRunning();
+  return isLocalStackRunning();
 }
 
-export function localDatabaseNeedsInit(): boolean {
-  const result = runSupabaseCli(["migration", "list", "--local"]);
-  if (!result.ok) {
-    return true;
-  }
-  return !result.output.split("\n").some((line) => line.includes("Applied"));
-}
-
-export async function runLocalSetup(params: {
+/**
+ * The first run of a checkout, and safe to run again: every step checks what
+ * is already there. Generated files → container runtime → local Supabase →
+ * migrations → `.env.local`. No preflight of the dev stack happens here; that
+ * is `engenty dev`'s job.
+ */
+export async function runSetup(params: {
   refresh?: boolean;
   repoRoot: string;
   allowDbReset?: boolean;
 }): Promise<void> {
-  const setup = runSetupScript({
+  const stackEnv = await promptLocalStackIdentity({
+    refresh: params.refresh === true,
+    repoRoot: params.repoRoot,
+  });
+  generateDerivedArtifacts({
     cwd: params.repoRoot,
+    env: stackEnv,
     refresh: params.refresh === true,
   });
-  if (setup.output.length > 0) {
-    console.log(setup.output);
-  }
-  if (setup.ran && !setup.ok) {
-    throw new Error("setup failed.");
-  }
 
-  if (isSupabaseRunning()) {
+  if (isLocalStackRunning()) {
     console.log("Local Supabase is already running.");
   } else {
     if (!(await ensureDockerReady(params.repoRoot))) {
@@ -151,14 +146,14 @@ export async function runLocalSetup(params: {
 Docker isn't running, so local Supabase can't start.
 
   1. Start Docker Desktop, OrbStack, or Dory
-  2. Re-run: pnpm engenty setup --local
+  2. Re-run: pnpm engenty setup
 `
           : `
 Docker isn't running, so local Supabase can't start.
 
   1. Start your container engine so \`docker info\` succeeds
      (Docker Engine, or any Docker-compatible daemon).
-  2. Re-run: pnpm engenty setup --local
+  2. Re-run: pnpm engenty setup
 `;
       console.log(`${dockerHint}
 Plugin selection and generated artifacts above are already done — this just
@@ -169,7 +164,7 @@ finishes the database and .env.local steps.`);
     runSupabaseOrThrow(["start"]);
   }
 
-  if (localDatabaseNeedsInit()) {
+  if (localDatabaseIsEmpty()) {
     // `db reset` wipes data — it must never run unattended. Non-interactive
     // shells (Claude Code's Bash tool, CI, etc.) have no TTY, so the confirm
     // prompt below can't render; silently defaulting to "yes" here is exactly
@@ -181,11 +176,10 @@ finishes the database and .env.local steps.`);
         true
       );
       if (reset) {
-        console.log("Applying migrations with supabase db reset…");
-        runSupabaseOrThrow(["db", "reset"]);
+        resetLocalDb();
       } else {
         console.log(
-          "Skipped — run `pnpm db:reset` (or `pnpm db:migrate`) later."
+          "Skipped — run `pnpm engenty db reset` (or `pnpm engenty db migrate`) later."
         );
       }
     } else {
@@ -193,25 +187,16 @@ finishes the database and .env.local steps.`);
         throw new Error(
           "Local database has no applied migrations, but this isn't an interactive " +
             "terminal, so the destructive `supabase db reset` won't run unattended. " +
-            "Re-run `pnpm engenty setup --local` in an interactive terminal to confirm " +
+            "Re-run `pnpm engenty setup` in an interactive terminal to confirm " +
             "the reset, or pass --yes-reset-db if wiping local data is known to be safe."
         );
       }
-      console.log(
-        "Applying migrations with supabase db reset (--yes-reset-db)…"
-      );
-      runSupabaseOrThrow(["db", "reset"]);
+      console.log("Resetting the local database (--yes-reset-db)…");
+      resetLocalDb();
     }
   } else {
     console.log("Applying pending migrations…");
-    const sync = runSupabaseSyncScript();
-    if (sync.output.length > 0) {
-      console.log(sync.output);
-    }
-    if (sync.ran && !sync.ok) {
-      throw new Error("db sync failed.");
-    }
-    runSupabaseOrThrow(["migration", "up", "--include-all"]);
+    applyLocalDbMigrations();
   }
 
   const envPath = envFilePath(params.repoRoot, "root");
@@ -224,20 +209,20 @@ finishes the database and .env.local steps.`);
     console.log(`Using existing ${envPath}.`);
   } else if (
     // The env wizard is interactive — only run it on a real TTY; otherwise
-    // print the hint so non-interactive `setup --local` never hangs.
+    // print the hint so a non-interactive `engenty setup` never hangs.
     isInteractiveTerminal() &&
-    (await confirmStep("Initialize .env.local now (env --init wizard)?", true))
+    (await confirmStep("Initialize .env.local now (env init wizard)?", true))
   ) {
     await runEnvInitWizard(["root"]);
   } else {
     console.log(`
 Missing ${envPath}
-Run: pnpm engenty env --init
+Run: pnpm engenty env init
 `);
   }
 
   console.log(`
-Local setup complete. Start the stack with:
+Setup complete. Start the stack with:
 
   pnpm dev
 `);

@@ -134,7 +134,7 @@ export async function runEnvEdit(key?: string): Promise<number> {
   const doc = loadScopeDocument(workspaceRoot, scope);
   if (!doc) {
     cancel(
-      `${ENV_SCOPES[scope].envFile} does not exist yet. Run: pnpm dev:env:init`
+      `${ENV_SCOPES[scope].envFile} does not exist yet. Run: pnpm engenty env init`
     );
     return 1;
   }

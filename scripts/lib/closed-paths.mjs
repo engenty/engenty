@@ -34,6 +34,25 @@ export const CLOSED_PATHS = [
     note: "Generated pro-only UI plugin catalog (closed module import()s).",
   },
   { path: "docs/internal" },
+  // Pages whose whole subject is a closed module. They shipped to the mirror
+  // until 2026-09-12, so the public docs site advertised Time tracking, Apps,
+  // remote channels and the Slack bridge to readers whose install has none of
+  // them. `scripts/strip-closed-doc-nav.mjs` drops the nav entries and list
+  // items that point here, and refuses the publish if any other link survives.
+  { path: "docs/content/dev/remote-channels.md", note: "engenty-remote." },
+  { path: "docs/content/user/agent-operations/apps.md", note: "engenty-apps." },
+  {
+    path: "docs/content/user/agent-operations/remote-channels.md",
+    note: "engenty-remote.",
+  },
+  {
+    path: "docs/content/user/connect-slack.md",
+    note: "The Slack bridge provider is pro-only.",
+  },
+  {
+    path: "docs/content/user/modules/time-tracking.md",
+    note: "time-tracking.",
+  },
   { path: "modules/banking", slug: "banking" },
   {
     path: "modules/engenty-apps",

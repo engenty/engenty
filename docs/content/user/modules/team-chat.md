@@ -10,8 +10,7 @@ search. Agents can be members: they read a channel, post into it, and are
 mentioned like anyone else.
 
 A channel can be **bound to a project**, which surfaces it on the project and in
-the activity feed, or **mirrored to Slack** — see
-[Connect Slack](/user/connect-slack).
+the activity feed.
 
 ## Agent operations
 

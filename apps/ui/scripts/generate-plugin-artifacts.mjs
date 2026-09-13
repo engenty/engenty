@@ -165,7 +165,7 @@ function checkGeneratedArtifacts(artifacts) {
     .map((filePath) => `- ${path.relative(repoRootDir, filePath)}`)
     .join("\n");
   throw new Error(
-    `Generated plugin artifacts are out of date:\n${changedPaths}\nRun pnpm engenty setup (or pnpm --filter @engenty/ui generate:plugins).`
+    `Generated plugin artifacts are out of date:\n${changedPaths}\nRun pnpm engenty generate (or pnpm --filter @engenty/ui generate:plugins).`
   );
 }
 

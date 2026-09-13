@@ -25,7 +25,6 @@ than guessing, which is why you rarely need to know these names.
 
 - **[Projects](/user/modules/projects)** — projects, phases, and what the client portal shows.
 - **[Tasks and routines](/user/modules/tasks)** — work agents can pick up, and the jobs that keep running.
-- **[Time tracking](/user/modules/time-tracking)** — timesheets, reports and snapshots.
 - **[Contacts](/user/modules/contacts)** — people, organizations, roles and relations.
 - **[Team](/user/modules/team)** — the people in your workspace.
 

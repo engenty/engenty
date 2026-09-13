@@ -43,7 +43,7 @@ You'll need:
   LLM provider.
 
 > **Fast path — the guided wizard.** Once you've cloned the repo (Step 1), you
-> can run `node deploy/scripts/deploy-wizard.mjs` instead of the manual steps
+> can run `pnpm engenty deploy` instead of the manual steps
 > below. It's an interactive stepper that collects your Supabase + Coolify
 > credentials, sets the exposed schemas and auth hook, writes `deploy/.env`, and
 > creates + deploys the Coolify app — pausing for confirmation before each
@@ -73,10 +73,10 @@ it at your app:
 
    ```bash
    supabase link --project-ref <your-project-ref>
-   bash deploy/scripts/migrate.sh
+   pnpm engenty deploy migrate
    ```
 
-   `migrate.sh` gathers all module SQL into `supabase/migrations/` and runs
+   It gathers all module SQL into `supabase/migrations/` and runs
    `supabase db push` for you.
 
 3. **Expose the Engenty schemas through the API.** Migrations create the
@@ -241,7 +241,7 @@ You can run these from the server (or trigger a redeploy in Coolify):
 | View edge logs | `docker logs -f engenty-edge` |
 | View AI logs | `docker logs -f engenty-ai` |
 | Rebuild after a code or `VITE_*` change | `docker compose -f deploy/docker-compose.yaml --env-file deploy/.env up -d --build` |
-| Apply new module migrations | `bash deploy/scripts/migrate.sh` |
+| Apply new module migrations | `pnpm engenty deploy migrate` |
 
 ## Troubleshooting
 

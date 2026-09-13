@@ -13,10 +13,10 @@
  *
  * So both are opt-in:
  *
- *   pnpm db:up                  # 9 containers — no Studio, no log pipeline
- *   pnpm db:up --studio         # + Supabase Studio
- *   pnpm db:up --logs           # + analytics (Logflare) and vector
- *   pnpm db:up --studio --logs  # what `supabase start` did before
+ *   pnpm engenty db up                  # 9 containers — no Studio, no log pipeline
+ *   pnpm engenty db up --studio         # + Supabase Studio
+ *   pnpm engenty db up --logs           # + analytics (Logflare) and vector
+ *   pnpm engenty db up --studio --logs  # what `supabase start` did before
  *
  * The flags are not passed to the CLI — `supabase start` has no such switches.
  * They patch the `enabled` line under `[studio]` / `[analytics]` in the local
@@ -37,13 +37,13 @@ import { resolveSupabaseCliBin } from "./lib/supabase-cli.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG_PATH = join(ROOT, "supabase", "config.toml");
 
-const USAGE = `Usage: pnpm db:up [--studio] [--logs]
+const USAGE = `Usage: pnpm engenty db up [--studio] [--logs]
 
   --studio   also start Supabase Studio (the DB browser UI)
   --logs     also start the Logflare/Vector log pipeline (Studio's Logs tab)
 
 Both are off by default because they cost more CPU than the database.
-Already running? Stop it first: pnpm supabase:stop`;
+Already running? Stop it first: pnpm engenty db down`;
 
 /**
  * Set `enabled` on a top-level TOML section, in place.
@@ -94,7 +94,7 @@ function main() {
 
   if (!existsSync(CONFIG_PATH)) {
     process.stderr.write(
-      "supabase/config.toml not found — run `pnpm setup` first.\n"
+      "supabase/config.toml not found — run `pnpm engenty generate` first.\n"
     );
     process.exit(1);
   }

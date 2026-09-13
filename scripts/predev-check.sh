@@ -28,7 +28,7 @@ export PATH="${ROOT}/node_modules/.bin:${PATH}"
 # nothing and the symptoms surface much later as 401s and 502s.
 #
 # Values are read, never guessed: a missing config.toml is a hard error, because
-# `pnpm engenty setup --local` generates it and its absence means first-run setup
+# `pnpm engenty setup` generates it and its absence means first-run setup
 # was skipped (see .claude/skills/dev-server).
 SUPABASE_CONFIG="${ROOT}/supabase/config.toml"
 
@@ -60,7 +60,7 @@ supabase_config_value() {
 
 if [[ ! -f "$SUPABASE_CONFIG" ]]; then
   echo "Missing ${SUPABASE_CONFIG}." >&2
-  echo "Run: pnpm engenty setup --local" >&2
+  echo "Run: pnpm engenty setup" >&2
   exit 1
 fi
 
@@ -407,8 +407,8 @@ ensure_supabase() {
     fi
     echo "" >&2
     echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
-    echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
-    echo "Or: pnpm supabase:stop && pnpm supabase:start -- --debug" >&2
+    echo "Try: pnpm engenty db restart" >&2
+    echo "Or: pnpm engenty db down && pnpm exec supabase start --debug" >&2
     exit 1
   fi
 
@@ -460,8 +460,8 @@ ensure_supabase() {
 
   echo "" >&2
   echo "Supabase did not become ready within ${SUPABASE_READY_WAIT_SECS}s." >&2
-  echo "Try: pnpm supabase:stop && pnpm supabase:start" >&2
-  echo "Or: pnpm supabase:stop && pnpm supabase:start -- --debug" >&2
+  echo "Try: pnpm engenty db restart" >&2
+  echo "Or: pnpm engenty db down && pnpm exec supabase start --debug" >&2
   exit 1
 }
 
@@ -470,7 +470,7 @@ ensure_migrations() {
   if ! pnpm engenty db migrate; then
     echo "" >&2
     echo "DB migrate failed. Fix migration errors, then retry." >&2
-    echo "  pnpm db:migrate" >&2
+    echo "  pnpm engenty db migrate" >&2
     exit 1
   fi
   echo "✓ Migrations up to date." >&2
@@ -479,15 +479,14 @@ ensure_migrations() {
 ensure_generated_artifacts() {
   if [[ ! -f "${ROOT}/supabase/config.toml" ]]; then
     echo "" >&2
-    echo "Missing generated supabase/config.toml. Run: pnpm engenty setup (or pnpm setup)" >&2
+    echo "Missing generated supabase/config.toml. Run: pnpm engenty generate" >&2
     exit 1
   fi
 
   if [[ ! -f "${ROOT}/apps/ui/src/plugins/generated-catalog.ts" ]]; then
     echo "" >&2
     echo "Missing generated UI plugin catalog." >&2
-    echo "  Run: pnpm run setup" >&2
-    echo "  (not bare \`pnpm setup\` — that is pnpm's own CLI installer)" >&2
+    echo "  Run: pnpm engenty generate" >&2
     echo "  Or:  pnpm --filter @engenty/ui generate:plugins" >&2
     exit 1
   fi

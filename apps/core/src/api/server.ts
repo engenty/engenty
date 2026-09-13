@@ -848,7 +848,7 @@ export async function startApiServer(
       supabaseReachable = true;
     } else {
       logger.warn(
-        `Supabase is not reachable at ${supabaseUrl}. ${reach.message ?? "Unknown error"}. If using local dev, start Docker and run: pnpm supabase:start`
+        `Supabase is not reachable at ${supabaseUrl}. ${reach.message ?? "Unknown error"}. If using local dev, start Docker and run: pnpm engenty db up`
       );
     }
   }

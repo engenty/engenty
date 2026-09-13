@@ -35,12 +35,18 @@ function parseScopes(
   return scopes as EnvScope[];
 }
 
-function runExample(options: { check?: boolean; write?: boolean }): number {
-  const workspaceRoot = resolveWorkspaceRoot();
+function runExample(options: {
+  check?: boolean;
+  root?: string;
+  write?: boolean;
+}): number {
+  const workspaceRoot = options.root
+    ? path.resolve(options.root)
+    : resolveWorkspaceRoot();
   let drifted = 0;
   for (const scope of ALL_SCOPES) {
     const filePath = exampleFilePath(workspaceRoot, scope);
-    const rendered = renderExampleFile(scope);
+    const rendered = renderExampleFile(scope, workspaceRoot);
     if (options.write) {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, rendered, "utf8");
@@ -131,7 +137,7 @@ export function registerEnvCommands(program: Command): void {
         );
         if (result.hasRequiredGaps) {
           console.error(
-            "\nRequired values missing — run pnpm dev:env:init to fill the gaps."
+            "\nRequired values missing — run pnpm engenty env init to fill the gaps."
           );
         }
       }
@@ -162,7 +168,12 @@ export function registerEnvCommands(program: Command): void {
     .description("Regenerate .env.example files from the manifest")
     .option("--write", "Write the templates")
     .option("--check", "Exit 1 when templates drift from the manifest (CI)")
-    .action((options: { check?: boolean; write?: boolean }) => {
+    // The manifest is assembled from the `engenty.plugin.json` files present
+    // on disk, so a tree with fewer modules documents fewer variables. The
+    // open-source snapshot renders the mirror's templates from the filtered
+    // tree it is about to publish, which is not the tree this CLI runs in.
+    .option("--root <dir>", "Render for this workspace instead of the cwd's")
+    .action((options: { check?: boolean; root?: string; write?: boolean }) => {
       process.exitCode = runExample(options);
     });
 }

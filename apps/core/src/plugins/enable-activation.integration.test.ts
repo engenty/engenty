@@ -27,8 +27,12 @@ describe("in-repo plugin activation", () => {
     fs.mkdirSync(path.join(root, "modules"), { recursive: true });
     fs.mkdirSync(path.join(root, "packages"), { recursive: true });
     fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-    // setup.mjs stub so enable's setup step is a no-op success.
-    fs.writeFileSync(path.join(root, "scripts/setup.mjs"), "// stub\n", "utf8");
+    // generate.mjs stub so enable's generate step is a no-op success.
+    fs.writeFileSync(
+      path.join(root, "scripts/generate.mjs"),
+      "// stub\n",
+      "utf8"
+    );
     fs.writeFileSync(
       path.join(root, "package.json"),
       `${JSON.stringify(

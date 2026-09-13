@@ -2,7 +2,7 @@
 /**
  * Run the engenty CLI via tsx after ensuring workspace packages are built.
  * `postinstall` normally warms this build, but we re-check here so the CLI also
- * works after a `pnpm purge`, a skipped postinstall, or churned dist.
+ * works after a `pnpm engenty reset`, a skipped postinstall, or churned dist.
  */
 import { spawnSync } from "node:child_process";
 import {

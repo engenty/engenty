@@ -75,7 +75,7 @@ describe("ensureMastraStorageReachable", () => {
     }
     expect(caught).toBeInstanceOf(DatabaseNotReadyError);
     expect((caught as DatabaseNotReadyError).message).toContain(
-      "pnpm supabase:start"
+      "pnpm engenty db up"
     );
   });
 });

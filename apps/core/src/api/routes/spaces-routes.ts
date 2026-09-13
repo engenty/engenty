@@ -211,6 +211,12 @@ const spaceSetupBodySchema = z.object({
   /** One line about what this space is for; shown on its home. */
   description: z.string().max(500).nullable().optional(),
   icon: z.string().max(24_000).nullable().optional(),
+  /**
+   * Re-key the space. Breaks its `/s/<key>/…` links, so the setup dialog never
+   * sends it — the initial-setup wizard does, keying the default space off the
+   * team's name while it is still the placeholder `company`.
+   */
+  key: z.string().min(1).max(63).optional(),
   mounts: z.array(setupMountSchema).max(400),
   name: z.string().min(1).max(200).optional(),
   visibility: z.enum(["open", "private"]).optional(),
@@ -1421,6 +1427,7 @@ export function registerSpacesRoutes(params: {
       });
       const updated = await updateSpace(client, tenantId, spaceId, {
         ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
+        ...(parsed.data.key === undefined ? {} : { key: parsed.data.key }),
         ...(parsed.data.description === undefined
           ? {}
           : { description: parsed.data.description }),

@@ -5,7 +5,7 @@
  * - `[storage.buckets.*]` from engenty.plugin.json → supabase.storageBuckets (empty in git)
  * - SQL migrations aggregated into supabase/migrations (gitignored)
  *
- * Local supabase/config.toml is gitignored — materialize from config.toml.example via pnpm engenty setup.
+ * Local supabase/config.toml is gitignored — materialize from config.toml.example via pnpm engenty generate.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -28,7 +28,7 @@ function ensureLocalSupabaseConfig(root) {
   const examplePath = path.join(root, "supabase", "config.toml.example");
   if (!fs.existsSync(examplePath)) {
     throw new Error(
-      `Missing ${configPath}. Run pnpm engenty setup or copy supabase/config.toml.example.`
+      `Missing ${configPath}. Run pnpm engenty generate or copy supabase/config.toml.example.`
     );
   }
   fs.copyFileSync(examplePath, configPath);

@@ -12,8 +12,6 @@ here: the capabilities it has everywhere, regardless of which screen you are on.
 - **[Connections](/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, and setting what agents may do with them.
 - **[Connected services](/user/agent-operations/connected-services)** — what agents can actually do inside those accounts.
 - **[Secrets](/user/agent-operations/secrets)** — credentials agents can use without you pasting them into chat.
-- **[Apps](/user/agent-operations/apps)** — small tools an agent can build, release and run.
-- **[Remote channels](/user/agent-operations/remote-channels)** — reaching your agents from a messenger.
 - **[Browser](/user/agent-operations/browser)** — driving a real browser for things with no API.
 
 ## Reads, writes and approvals

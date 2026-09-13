@@ -77,6 +77,10 @@ just made. That tag push triggers
 2. Triggers a Coolify redeploy over SSH, which pulls `:latest` and recreates the
    containers on the VPS.
 
+These are the **pro** images, `ghcr.io/engenty/engenty-pro-<service>`, and they
+are private. The same tag also publishes the open tree and a second, public set
+of images — see [Pro / public](#pro--public).
+
 Every push to `main` (tagged or not) also runs `ci.yml` (lint, typecheck, test) —
 that's the gate for code quality, independent of shipping.
 
@@ -162,6 +166,38 @@ banking, brand-assets, licensed fonts, the deploy workflow, …).
   (`DRY_RUN=1 pnpm push:snapshot` to preview).
 - `scripts/publish-open.sh` (`pnpm push`) still exists for publishing a **single**
   open commit mid-development; the snapshot is the release-time / catch-up path.
+
+### Public images
+
+The snapshot pushes the release tag to the mirror as well, and that tag triggers
+the mirror's **own** `publish-images.yml`: the same seven services, built from
+the open tree, pushed as `ghcr.io/engenty/engenty-<service>` and tagged
+`:latest`, `:vX.Y.Z` and `:<sha>`. So one tag produces two image sets — private
+`engenty-pro-*` from this repo, public `engenty-*` from the mirror — and someone
+installing on a VPS pulls rather than builds.
+
+Nothing has to be configured to point a compose file at the right set. The
+snapshot rewrites the prebuilt deploy files as it publishes them, dropping
+`-pro` from every image name: the pro tree says `engenty-pro-edge` and
+the mirror says `engenty-edge`, same file, no variable to remember on either
+side.
+
+Two things about that workflow are easy to get wrong:
+
+- **It is installed on the mirror by hand.** The snapshot deliberately keeps the
+  mirror's `.github/workflows` and drops this repo's, because
+  `PUBLIC_REPO_PUSH_TOKEN` is Contents-scoped and GitHub rejects any push that
+  touches a workflow file. This repo's copy at `.github/workflows/publish-images.yml`
+  is the reviewable source, not the thing that runs — **re-copy it to the mirror
+  whenever it changes here.** It has already drifted once: the per-user `browser`
+  image was added here and the mirror kept building six services while the
+  public compose pulled seven.
+- **A new GHCR package is created private, and belongs to the repo that pushed
+  it.** There is no API for package visibility — making the set public is a
+  manual step in each package's settings, and it only takes effect when the org
+  allows public packages and the source repo is itself public. A package another
+  repo created cannot be pushed to at all: the build fails with
+  `denied: permission_denied: read_package`, which does not name the real cause.
 
 ## Package versions (separate track)
 

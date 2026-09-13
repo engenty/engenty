@@ -23,13 +23,13 @@ export function isDeadRefreshTokenError(
   return /refresh token/i.test(error.message ?? "");
 }
 
-type SessionAuth = {
+interface SessionAuth {
   getSession: () => Promise<{
     data: { session: Session | null };
     error: Pick<AuthError, "code" | "message"> | null;
   }>;
   signOut: (options: { scope: "local" }) => Promise<unknown>;
-};
+}
 
 /**
  * The initial session as the shell should see it: a burnt refresh token is

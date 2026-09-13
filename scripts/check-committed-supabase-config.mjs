@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * CI guard: committed supabase/config.toml.example must stay module-agnostic.
- * Local supabase/config.toml is gitignored and composed by engenty setup / engenty db sync.
+ * Local supabase/config.toml is gitignored and composed by engenty generate.
  */
 import fs from "node:fs";
 import path from "node:path";

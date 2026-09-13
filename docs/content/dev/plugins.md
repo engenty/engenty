@@ -15,7 +15,7 @@ We ship several base plugins as basic building blocks - so engenty isn't empty. 
 
 The core is **plugin-free**: it never imports a module directly; Instead we use plugin manifests and hooks to load and integrate them at runtime via the Plugin-SDK. This page covers the model, the lifecycle commands, the manifest, and how plugins can extend the core and each other.
 
-For how `engenty setup` turns the manifest into a running stack, see
+For how `engenty setup` and `engenty generate` turn the manifest into a running stack, see
 [Setup process](./setup-process).
 
 ## What is a plugin
@@ -36,7 +36,7 @@ A plugin moves through three states:
    until the plugin is installed.
 2. **Installed** — the plugin is listed in the root **`engenty.plugins`**
    manifest. This is the product declaration: the set of plugins this build
-   ships. Installing runs `engenty setup`, which regenerates the **derived
+   ships. Installing runs `engenty generate`, which regenerates the **derived
    wiring** from the manifest — aggregated migrations, Supabase config, the UI
    catalog, and the `@engenty/<slug>` dependency in `apps/ui/package.json` for UI
    plugins. These artifacts are generated; never edit them by hand.
@@ -51,9 +51,9 @@ for the whole instance or a single tenant, with no redeploy — use it for
 per-tenant feature gating. A plugin must be installed before it can be activated.
 
 ```bash
-# Install a module that's already in modules/ (writes engenty.plugins + runs setup):
-pnpm engenty plugins install <slug>
-pnpm db:migrate && pnpm dev
+# Install a module that's already in modules/ (writes engenty.plugins + runs generate):
+pnpm engenty install <slug>          # shorthand for: pnpm engenty plugins install <slug>
+pnpm engenty db migrate && pnpm dev
 
 # List plugins (works with the API down; adds live runtime state when it's up):
 pnpm engenty plugins list
@@ -133,7 +133,7 @@ Every plugin declares itself with an `engenty.plugin.json` at its root:
 - **`server.entry`** is the backend factory; **`ui.entry`** is the UI plugin.
 - **`env`** contributes feature gates and env vars to the `env` wizard
   (`recommended: true` on a feature pre-checks it on a fresh setup).
-- **`supabase/migrations/`** in the plugin are aggregated by `engenty setup`.
+- **`supabase/migrations/`** in the plugin are aggregated by `engenty generate`.
 
 ## Discovery
 

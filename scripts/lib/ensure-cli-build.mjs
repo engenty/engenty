@@ -1,6 +1,6 @@
 /**
  * Shared build warm-up used by both the postinstall hook and the engenty CLI
- * wrapper. Fresh installs (or `pnpm purge`) only have source — `dist/` is
+ * wrapper. Fresh installs (or `pnpm engenty reset`) only have source — `dist/` is
  * produced from it. Keeping this in one place stops the two entry points from
  * drifting.
  */

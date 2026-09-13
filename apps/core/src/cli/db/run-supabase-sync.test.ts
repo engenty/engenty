@@ -2,10 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  canRunSupabaseSync,
-  runSupabaseSyncScript,
-} from "./run-supabase-sync.js";
+import { runSupabaseSyncScript } from "./run-supabase-sync.js";
 
 describe("runSupabaseSyncScript", () => {
   const tempDirs: string[] = [];
@@ -16,7 +13,8 @@ describe("runSupabaseSyncScript", () => {
     }
   });
 
-  it("no-ops when supabase scaffold is absent", () => {
+  // A missing scaffold is a broken checkout, never a silent skip.
+  it("throws when the supabase scaffold is absent", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "engenty-no-supabase-"));
     tempDirs.push(dir);
     fs.writeFileSync(
@@ -25,11 +23,8 @@ describe("runSupabaseSyncScript", () => {
       "utf8"
     );
 
-    expect(canRunSupabaseSync(dir)).toBe(false);
-    expect(runSupabaseSyncScript({ cwd: dir })).toEqual({
-      ok: true,
-      output: "",
-      ran: false,
-    });
+    expect(() => runSupabaseSyncScript({ cwd: dir })).toThrow(
+      "scripts/supabase-sync.mjs or supabase/config.toml.example is missing"
+    );
   });
 });

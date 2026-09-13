@@ -26,7 +26,7 @@ describe("ensureMastraSchemaApplied", () => {
       "mastra_threads",
     ]);
     expect((error as Error).message).toContain("mastra_threads");
-    expect((error as Error).message).toContain("engenty db mastra-init");
+    expect((error as Error).message).toContain("engenty db migrate");
   });
 
   // Reachability is the previous gate's job. Reporting a connection blip as an

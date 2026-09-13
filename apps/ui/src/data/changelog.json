@@ -1,7 +1,127 @@
 [
   {
+    "version": "v0.2.1",
+    "timestamp": 1789286455,
+    "commits": [
+      {
+        "id": "7d0d49c",
+        "message": "rename install to setup, add `engenty install <slug>` shorthand",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "14530e1",
+        "message": "install / generate / dev / doctor / reset / deploy replace setup --local",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9595324",
+        "message": "name the tenant the wizard actually signs you in to",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e61834d",
+        "message": "let a database be built from scratch again",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f5a78f8",
+        "message": "state the real prerequisites, and lower the Node floor to what is tested",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9d62ce7",
+        "message": "stop publishing pages for modules the open tree does not ship",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f41c663",
+        "message": "cut the README to the path a new reader takes",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "8024335",
+        "message": "materialize the open snapshot locally with OUT_DIR",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cab35ad",
+        "message": "stop asserting pro's agent count in the starter catalogue",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2ae2ad3",
+        "message": "lead the README with what a space is for",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "2f468d4",
+        "message": "ask which local Supabase stack a workspace owns",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4f0c241",
+        "message": "document the public image pipeline",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "e04f09b",
+        "message": "move Release & ship out of the README, and name all seven images",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "e2afd8b",
+        "message": "generate the module table from engenty.plugins",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e749b56",
+        "message": "keep the allowlist's escaping when filtering it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a4c4256",
+        "message": "drop allowlist entries the public tree cannot contain",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bfe1e3f",
+        "message": "render the mirror's env templates from the tree being published",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1068e6a",
+        "message": "give the typecheck enough heap, and drop a static 100vh",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9da5c0c",
+        "message": "correct the upgrade runbook against the real 0.2.0 deploy",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.0",
-    "timestamp": 1789146617,
+    "timestamp": 1789146619,
     "commits": [
       {
         "id": "09c81ab",

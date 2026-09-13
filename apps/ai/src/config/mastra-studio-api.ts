@@ -15,7 +15,7 @@
  * Nothing in this product calls that API — no `@mastra/client-js` anywhere in
  * the repo, and the remote-channel webhooks mount their own routes (see
  * api/remote-channels.ts). Its only consumer is Mastra Studio, which is opt-in
- * dev tooling (`pnpm dev:studio`, `pnpm dev:portless --studio`). So the surface
+ * dev tooling (`pnpm engenty dev --studio`). So the surface
  * is not guarded, it is simply not mounted: off unless a developer opts in, and
  * un-optable in production, where no Studio runs.
  */

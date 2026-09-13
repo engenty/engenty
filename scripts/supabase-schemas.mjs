@@ -4,7 +4,7 @@
  *
  * Read from the committed migration sources, so it answers correctly on a bare
  * `git clone` — before `pnpm install`, before a database exists, and without
- * the gitignored supabase/config.toml. `engenty db sync` writes the same list
+ * the gitignored supabase/config.toml. `engenty generate` writes the same list
  * into config.toml for local development; the deploy wizard and DEPLOY.md use
  * this one for the hosted database, which has no config.toml at all.
  *

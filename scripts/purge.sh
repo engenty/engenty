@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Reset the workspace to a fresh-checkout-like state (local env, generated artifacts, caches).
-# Usage: pnpm purge [-- --yes] [-- --light] [-- --quiet]
+# Runs as `pnpm engenty reset [--light] [--yes] [--quiet]`; `--db` there resets the database first.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,19 +26,18 @@ for arg in "$@"; do
       ;;
     --help | -h)
       cat <<'EOF'
-Usage: pnpm purge [-- --yes] [-- --light] [-- --quiet]
+Usage: pnpm engenty reset [--yes] [--light] [--quiet] [--db]
 
 Removes local dependencies, build caches, generated setup files, and dev env files
-so the tree matches a fresh clone before `pnpm install` + `pnpm engenty setup --local`.
+so the tree matches a fresh clone before `pnpm install` + `pnpm engenty setup`.
 
 Options:
   --yes, -y     Skip confirmation prompt
   --light       Skip node_modules (faster — env + generated setup + build caches only)
   --quiet, -q   Minimal output (summary only, no path listing)
 
-Also: pnpm purge:light  (= purge --light)
 
-Does not stop or reset the local Supabase Docker stack — run `pnpm db:reset` after
+Does not stop or reset the local Supabase Docker stack — pass `--db` to `engenty reset`, or run `pnpm engenty db reset` after
 setup if you also want a clean database.
 EOF
       exit 0
@@ -154,7 +153,7 @@ if [[ "$would_purge" != true ]]; then
   exit 0
 fi
 
-log "pnpm purge will permanently delete:"
+log "engenty reset will permanently delete:"
 log ""
 
 if [[ "$QUIET" == true ]]; then
@@ -178,7 +177,7 @@ fi
 
 log ""
 log "Committed templates (.env.example, supabase/config.toml.example) are kept."
-log "Local Supabase Docker data is not removed — run pnpm db:reset after setup if you need a clean database."
+log "Local Supabase Docker data is not removed — engenty reset --db, or pnpm engenty db reset after setup, if you need a clean database."
 log ""
 
 if [[ "$AUTO_YES" != true ]]; then
@@ -236,7 +235,7 @@ if [[ "$LIGHT" == true ]]; then
 Purge complete (light — node_modules kept).
 
 Next:
-  pnpm engenty setup --local   # plugins (interactive) + Supabase + migrations + .env.local
+  pnpm engenty setup   # plugins (interactive) + Supabase + migrations + .env.local
   pnpm dev
 EOF
 else
@@ -246,7 +245,7 @@ Purge complete.
 
 Next (same as a new checkout):
   pnpm install
-  pnpm engenty setup --local   # plugins (interactive) + Supabase + migrations + .env.local
+  pnpm engenty setup   # plugins (interactive) + Supabase + migrations + .env.local
   pnpm dev
 EOF
 fi

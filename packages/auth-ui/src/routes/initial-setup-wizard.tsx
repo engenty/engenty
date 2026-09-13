@@ -1,5 +1,10 @@
-// Initial setup wizard – split-screen two-step flow.
-// Step 1: super-admin credentials; Step 2: first tenant details.
+// Initial setup wizard – split-screen three-step flow.
+// Step 1: administrator credentials; Step 2: the team this installation is
+// for; Step 3: the space its work starts in.
+//
+// Steps 2 and 3 RENAME what step 1 already created: creating the first admin
+// calls `ensureDefaultTenant` ("Default Tenant") and a trigger gives that
+// tenant its default "Company" space. See initial-setup-workspace.ts.
 // Only shown when `initial_setup_required` is true (gate check in parent).
 
 import {
@@ -14,62 +19,27 @@ import {
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { Eye, EyeOff } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
-import { getApiBaseUrl } from "../lib/api-client";
+import { useMemo, useState } from "react";
 import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
 import { createInitialAdmin } from "../lib/initial-setup";
-import { getSupabaseAuthClient } from "../lib/supabase-auth-client";
+import {
+  nameFirstSpace,
+  nameTenant,
+  readCurrentTenant,
+} from "../lib/initial-setup-workspace";
+import {
+  createDetachedSupabaseAuthClient,
+  getSupabaseAuthClient,
+} from "../lib/supabase-auth-client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Step = 1 | 2;
+type Step = 1 | 2 | 3;
 
 interface AdminValues {
   email: string;
   name: string;
   password: string;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Derive a URL-safe slug from a company name. */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 48);
-}
-
-/** POST to the superadmin tenant-creation endpoint (requires bearer token). */
-async function createFirstTenant(
-  name: string,
-  slug: string,
-  accessToken: string
-): Promise<void> {
-  const response = await fetch(`${getApiBaseUrl()}/api/superadmin/tenants`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ name, slug }),
-  });
-  if (!response.ok) {
-    let message = `Tenant creation failed (${response.status}).`;
-    try {
-      const body = (await response.json()) as {
-        error?: { message?: string };
-        message?: string;
-      };
-      message =
-        body?.error?.message ??
-        (typeof body?.message === "string" ? body.message : message);
-    } catch {
-      // swallow parse errors
-    }
-    throw new Error(message);
-  }
 }
 
 // ─── Left Panel ───────────────────────────────────────────────────────────────
@@ -82,6 +52,7 @@ const BRAND_SOFT = "oklch(100% 0 0 / 0.55)";
 const PANEL_STEP_COLORS = [
   { bg: BRAND_CREAM },
   { bg: "oklch(78% 0.12 264)" }, // soft cobalt on ember
+  { bg: "oklch(82% 0.13 150)" }, // moss on ember
 ] as const;
 
 function SetupLeftPanel({ step }: { step: Step }) {
@@ -142,7 +113,7 @@ function SetupLeftPanel({ step }: { step: Step }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <StepIndicator
             accent={PANEL_STEP_COLORS[0].bg}
             active={step === 1}
@@ -154,10 +125,18 @@ function SetupLeftPanel({ step }: { step: Step }) {
           <StepIndicator
             accent={PANEL_STEP_COLORS[1].bg}
             active={step === 2}
-            done={false}
+            done={step > 2}
             label={t.setup.step2Label}
             num={2}
             sublabel={t.setup.step2Sublabel}
+          />
+          <StepIndicator
+            accent={PANEL_STEP_COLORS[2].bg}
+            active={step === 3}
+            done={false}
+            label={t.setup.step3Label}
+            num={3}
+            sublabel={t.setup.step3Sublabel}
           />
         </div>
       </div>
@@ -388,60 +367,37 @@ function Step1AdminForm({
   );
 }
 
-// ─── Step 2 – First Tenant ────────────────────────────────────────────────────
-// Receives admin credentials from Step 1. Signs in HERE (after tenant creation)
-// so the auth state flip happens only once — at the very end of the wizard.
+// ─── Step 2 – The team ────────────────────────────────────────────────────────
+// Renames the tenant the administrator is already in. Creating a second one
+// here — what the `engenty.app/<slug>` step did — left the admin signed in to
+// "Default Tenant" and the named tenant empty.
+//
+// Signs in on a DETACHED client: the shared one would flip the app to
+// authenticated and the router would leave the wizard before step 3.
 
-function Step2TenantForm({
+function Step2TeamForm({
   adminCredentials,
   onComplete,
 }: {
   adminCredentials: AdminValues;
-  onComplete: () => void;
+  onComplete: (values: { accessToken: string; teamName: string }) => void;
 }) {
-  const [company, setCompany] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugEdited, setSlugEdited] = useState(false);
+  const [teamName, setTeamName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const slugRef = useRef<HTMLInputElement>(null);
-
-  const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setCompany(val);
-    if (!slugEdited) {
-      setSlug(slugify(val));
-    }
-  };
-
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-{2,}/g, "-")
-      .slice(0, 48);
-    setSlug(raw);
-    setSlugEdited(true);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!company.trim()) {
-      setError("Company name is required.");
-      return;
-    }
-    const finalSlug = slug.replace(/^-|-$/g, "");
-    if (!finalSlug || finalSlug.length < 2) {
-      setError("URL slug must be at least 2 characters.");
+    const name = teamName.trim();
+    if (!name) {
+      setError("A team or organization name is required.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // Sign in now to get a token for the superadmin tenant endpoint.
-      const supabase = getSupabaseAuthClient();
+      const supabase = createDetachedSupabaseAuthClient();
       const { error: signInError, data } =
         await supabase.auth.signInWithPassword({
           email: adminCredentials.email.trim(),
@@ -451,13 +407,14 @@ function Step2TenantForm({
         throw signInError;
       }
       const accessToken = data.session?.access_token ?? "";
-      // Create the first tenant, then let onComplete() trigger navigation.
-      await createFirstTenant(company.trim(), finalSlug, accessToken);
-      onComplete();
+      const tenant = await readCurrentTenant(accessToken);
+      if (!tenant) {
+        throw new Error("No tenant to name — the administrator has none.");
+      }
+      await nameTenant({ accessToken, name, tenantId: tenant.id });
+      onComplete({ accessToken, teamName: name });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create workspace."
-      );
+      setError(err instanceof Error ? err.message : "Failed to name the team.");
     } finally {
       setSubmitting(false);
     }
@@ -465,47 +422,22 @@ function Step2TenantForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-      {/* Company */}
       <div className="flex flex-col gap-1.5">
-        <Label className="font-medium text-sm" htmlFor="setup-company">
-          Company name
+        <Label className="font-medium text-sm" htmlFor="setup-team">
+          Team or organization
         </Label>
         <Input
           autoFocus
           className="h-9 rounded-[4px]"
           disabled={submitting}
-          id="setup-company"
-          onChange={handleCompanyChange}
+          id="setup-team"
+          onChange={(e) => setTeamName(e.target.value)}
           placeholder="Acme Inc."
           required
-          value={company}
+          value={teamName}
         />
-      </div>
-
-      {/* Slug / URL */}
-      <div className="flex flex-col gap-1.5">
-        <Label className="font-medium text-sm" htmlFor="setup-slug">
-          Workspace URL
-        </Label>
-        <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex select-none items-center text-muted-foreground text-sm">
-            engenty.app/
-          </span>
-          <Input
-            autoComplete="off"
-            className="h-9 rounded-[4px] pl-[6.5rem] font-mono text-sm"
-            disabled={submitting}
-            id="setup-slug"
-            maxLength={48}
-            onChange={handleSlugChange}
-            placeholder="acme"
-            ref={slugRef}
-            required
-            value={slug}
-          />
-        </div>
         <p className="text-muted-foreground text-xs">
-          Lowercase letters, numbers, and hyphens only.
+          Shown across the app. You can change it later in settings.
         </p>
       </div>
 
@@ -519,33 +451,172 @@ function Step2TenantForm({
         {submitting && (
           <AnimatedLoaderIcon className="mr-2" play="always" size="sm" />
         )}
-        {submitting ? "Creating workspace…" : "Create workspace & continue"}
+        {submitting ? "Saving…" : "Continue"}
       </Button>
+    </form>
+  );
+}
+
+// ─── Step 3 – The first space ─────────────────────────────────────────────────
+// Names the tenant's default space, which the `tenants_ensure_default_space`
+// trigger already created with its baseline mounts. The shared Supabase client
+// signs in HERE, at the very end, so the auth flip happens once.
+
+function Step3SpaceForm({
+  adminCredentials,
+  accessToken,
+  onComplete,
+  teamName,
+}: {
+  accessToken: string;
+  adminCredentials: AdminValues;
+  onComplete: () => void;
+  teamName: string;
+}) {
+  const [spaceName, setSpaceName] = useState(teamName);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const finish = async () => {
+    const supabase = getSupabaseAuthClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: adminCredentials.email.trim(),
+      password: adminCredentials.password,
+    });
+    if (signInError) {
+      throw signInError;
+    }
+    onComplete();
+  };
+
+  const run = async (rename: boolean) => {
+    setError(null);
+    const name = spaceName.trim();
+    if (rename && !name) {
+      setError("A space name is required.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (rename) {
+        await nameFirstSpace({ accessToken, name });
+      }
+      await finish();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to set up the space."
+      );
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form
+      className="flex flex-col gap-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run(true);
+      }}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label className="font-medium text-sm" htmlFor="setup-space">
+          Space name
+        </Label>
+        <Input
+          autoFocus
+          className="h-9 rounded-[4px]"
+          disabled={submitting}
+          id="setup-space"
+          onChange={(e) => setSpaceName(e.target.value)}
+          placeholder="Acme Inc."
+          required
+          value={spaceName}
+        />
+        <p className="text-muted-foreground text-xs">
+          Add more spaces any time — one per client, team, or subject.
+        </p>
+      </div>
+
+      {error && (
+        <p className="rounded-[4px] bg-destructive/8 px-3 py-2 text-destructive text-sm">
+          {error}
+        </p>
+      )}
+
+      <Button className="mt-1 h-9 w-full" disabled={submitting} type="submit">
+        {submitting && (
+          <AnimatedLoaderIcon className="mr-2" play="always" size="sm" />
+        )}
+        {submitting ? "Opening your space…" : "Open my space"}
+      </Button>
+      <button
+        className="text-muted-foreground text-xs underline-offset-2 hover:underline disabled:opacity-50"
+        disabled={submitting}
+        onClick={() => void run(false)}
+        type="button"
+      >
+        Skip — keep the default name
+      </button>
     </form>
   );
 }
 
 // ─── Wizard Shell ─────────────────────────────────────────────────────────────
 
+/**
+ * Card numeral, blob and glow, one per step. The glow is an inline style, not a
+ * `shadow-[…]` class: Tailwind scans source text, so a class built from a
+ * variable is never generated.
+ */
+const STEP_CHROME = {
+  1: {
+    blob: "round",
+    glow: "0 8px 40px -8px oklch(50% 0.18 264 / 0.18)",
+    numeral: "oklch(64% 0.195 35)",
+  },
+  2: {
+    blob: "drop",
+    glow: "0 8px 40px -8px oklch(72% 0.16 68 / 0.22)",
+    numeral: "#3358d4",
+  },
+  3: {
+    blob: "flame",
+    glow: "0 8px 40px -8px oklch(72% 0.13 150 / 0.22)",
+    numeral: "oklch(58% 0.13 150)",
+  },
+} as const;
+
 interface InitialSetupWizardProps {
-  /** Called when both steps complete and the app can navigate to `/`. */
+  /** Called when every step completes and the app can navigate to `/`. */
   onComplete: () => void;
 }
 
 export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
   const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()], []);
   const [step, setStep] = useState<Step>(1);
-  // Admin credentials are carried from Step 1 to Step 2 (no sign-in yet).
+  // Admin credentials are carried through every step: step 2 signs in with
+  // them on a detached client, step 3 signs the shared client in at the end.
   const [adminCredentials, setAdminCredentials] = useState<AdminValues>({
     name: "",
     email: "",
     password: "",
   });
+  const [accessToken, setAccessToken] = useState("");
+  const [teamName, setTeamName] = useState("");
 
-  const handleAdminComplete = (values: AdminValues) => {
-    setAdminCredentials(values);
-    setStep(2);
-  };
+  const chrome = STEP_CHROME[step];
+  const cardTitle =
+    step === 1
+      ? t.setup.step1CardTitle
+      : step === 2
+        ? t.setup.step2CardTitle
+        : t.setup.step3CardTitle;
+  const cardDesc =
+    step === 1
+      ? t.setup.step1CardDesc
+      : step === 2
+        ? t.setup.step2CardDesc
+        : t.setup.step3CardDesc;
 
   return (
     <div
@@ -563,84 +634,67 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
         {/* Right: form panel — blob sits on top of each card */}
         <div className="flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-[420px]">
-            {step === 1 ? (
-              // Heading + description outside the card (Engenty convention).
-              <div className="space-y-4">
-                <div className="space-y-2 px-1">
-                  <p
-                    style={{
-                      fontFamily: "ui-monospace, 'Cascadia Code', monospace",
-                      fontSize: 48,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                      letterSpacing: "-0.04em",
-                      color: "oklch(64% 0.195 35)",
-                    }}
-                  >
-                    01
-                  </p>
-                  <h2 className="font-heading font-semibold text-2xl tracking-tight">
-                    {t.setup.step1CardTitle}
-                  </h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {t.setup.step1CardDesc}
-                  </p>
-                </div>
-                <div className="relative">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -top-10 right-4 z-10"
-                  >
-                    <Engenty kind="round" size={88} />
-                  </div>
-                  <Card className="w-full shadow-[0_8px_40px_-8px_oklch(50%_0.18_264_/_0.18)]">
-                    <CardContent className="pt-12">
-                      <Step1AdminForm onComplete={handleAdminComplete} />
-                    </CardContent>
-                  </Card>
-                </div>
+            {/* Heading + description outside the card (Engenty convention). */}
+            <div className="space-y-4">
+              <div className="space-y-2 px-1">
+                <p
+                  style={{
+                    fontFamily: "ui-monospace, 'Cascadia Code', monospace",
+                    fontSize: 48,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    letterSpacing: "-0.04em",
+                    color: chrome.numeral,
+                  }}
+                >
+                  {String(step).padStart(2, "0")}
+                </p>
+                <h2 className="font-heading font-semibold text-2xl tracking-tight">
+                  {cardTitle}
+                </h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {cardDesc}
+                </p>
               </div>
-            ) : (
-              // Iris blob in panel (step 2), citrus on card — always different.
-              <div className="space-y-4">
-                <div className="space-y-2 px-1">
-                  <p
-                    style={{
-                      fontFamily: "ui-monospace, 'Cascadia Code', monospace",
-                      fontSize: 48,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                      letterSpacing: "-0.04em",
-                      color: "#3358d4",
-                    }}
-                  >
-                    02
-                  </p>
-                  <h2 className="font-heading font-semibold text-2xl tracking-tight">
-                    {t.setup.step2CardTitle}
-                  </h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {t.setup.step2CardDesc}
-                  </p>
+              <div className="relative">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -top-10 right-4 z-10"
+                >
+                  <Engenty kind={chrome.blob} size={88} />
                 </div>
-                <div className="relative">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -top-10 right-4 z-10"
-                  >
-                    <Engenty kind="drop" size={88} />
-                  </div>
-                  <Card className="w-full shadow-[0_8px_40px_-8px_oklch(72%_0.16_68_/_0.22)]">
-                    <CardContent className="pt-12">
-                      <Step2TenantForm
+                <Card className="w-full" style={{ boxShadow: chrome.glow }}>
+                  <CardContent className="pt-12">
+                    {step === 1 ? (
+                      <Step1AdminForm
+                        onComplete={(values) => {
+                          setAdminCredentials(values);
+                          setStep(2);
+                        }}
+                      />
+                    ) : null}
+                    {step === 2 ? (
+                      <Step2TeamForm
+                        adminCredentials={adminCredentials}
+                        onComplete={(result) => {
+                          setAccessToken(result.accessToken);
+                          setTeamName(result.teamName);
+                          setStep(3);
+                        }}
+                      />
+                    ) : null}
+                    {step === 3 ? (
+                      <Step3SpaceForm
+                        accessToken={accessToken}
                         adminCredentials={adminCredentials}
                         onComplete={onComplete}
+                        teamName={teamName}
                       />
-                    </CardContent>
-                  </Card>
-                </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

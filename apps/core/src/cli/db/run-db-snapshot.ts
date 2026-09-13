@@ -5,25 +5,18 @@ import { findWorkspaceRootFrom } from "@engenty/environment/env";
 
 export type DbSnapshotAction = "snapshot" | "restore";
 
-export function resolveDbSnapshotScriptPath(startDir = process.cwd()): string {
-  const repoRoot = findWorkspaceRootFrom(startDir);
-  return path.join(repoRoot, "scripts", "db-snapshot.mjs");
-}
-
-export function canRunDbSnapshot(startDir = process.cwd()): boolean {
-  return fs.existsSync(resolveDbSnapshotScriptPath(startDir));
-}
-
 export function runDbSnapshotScript(params: {
   action: DbSnapshotAction;
   cwd?: string;
   file?: string;
-}): { ok: boolean; output: string; ran: boolean } {
+}): { ok: boolean; output: string } {
   const cwd = params.cwd ?? findWorkspaceRootFrom(process.cwd());
   const scriptPath = path.join(cwd, "scripts", "db-snapshot.mjs");
 
   if (!fs.existsSync(scriptPath)) {
-    return { ok: true, output: "", ran: false };
+    throw new Error(
+      `scripts/db-snapshot.mjs is missing from ${cwd} — is this an engenty checkout?`
+    );
   }
 
   const args = [scriptPath, params.action];
@@ -38,9 +31,5 @@ export function runDbSnapshotScript(params: {
   });
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
 
-  return {
-    ok: result.status === 0,
-    output,
-    ran: true,
-  };
+  return { ok: result.status === 0, output };
 }

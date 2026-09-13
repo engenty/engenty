@@ -41,8 +41,9 @@ Core apps and packages must not depend on optional modules — use plugin hooks,
 
 ```bash
 pnpm install
-pnpm engenty setup --local   # first run: pick plugins + Supabase + migrations + .env.local
-pnpm dev                     # dev:check + predev + full stack (UI :5173, core :8787, AI :8790)
+pnpm engenty setup     # first run (repeatable): pick plugins + generate + Supabase + migrations + .env.local
+pnpm dev                 # = engenty dev: preflight + build + full stack (UI :5173, core :8787, AI :8790)
+pnpm engenty doctor      # read-only: what state is this checkout in
 pnpm build
 pnpm typecheck
 pnpm test
@@ -56,18 +57,20 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 
 **Developing & releasing:** pick a work mode (main / branch / worktree / worktree + dedicated DB) and ship the one correct way — see the [`release` skill](./.claude/skills/release/SKILL.md) (`/release`). TL;DR: land on `main`, then `pnpm release` + `git push origin main --follow-tags` (the `v*` tag builds, deploys, and syncs the public repo; a plain `main` push runs CI only). Never hand-edit `CHANGELOG.md` / `changelog.json` / the version / tags.
 
-- **Local setup:** `pnpm engenty setup` — compose config.toml, migrations aggregate, UI catalog from **`engenty.plugins`**
-- **First clone:** `pnpm engenty setup --local` — prompts for plugins, composes artifacts, starts Supabase, applies migrations, initializes `.env.local` (each step skippable; non-interactive takes the default)
-- **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
-- **Local DB:** `pnpm db:init` (fresh), `pnpm db:migrate`, `pnpm db:reset`, `pnpm db:snapshot`, `pnpm db:restore` — thin aliases for `engenty db *`
-- **Starting the Supabase stack:** `pnpm db:up` — lean by default; `--studio` adds Supabase Studio, `--logs` adds the Logflare/Vector pipeline. Both cost far more idle CPU than Postgres itself, and several stacks at once saturate the host — which surfaces as bogus `Unauthorized` from auth, not as slowness. Stop the stack before changing the flags (they are written into `supabase/config.toml`)
-- **Local env:** `pnpm dev:env` (menu), `pnpm dev:env:init`, `pnpm dev:env:check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
-- **Deploy env:** copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
+- **First run:** `pnpm engenty setup` — prompts for plugins, generates derived files, starts Supabase, applies migrations, initializes `.env.local` (each step skippable; non-interactive takes the default; `--yes-reset-db` is the only way a non-TTY run may `db reset`). No dev-stack preflight — that lives in `engenty dev`
+- **Generate:** `pnpm engenty generate` — regenerate config.toml, the migrations aggregate, the UI catalog and UI deps from **`engenty.plugins`**. Never touches Docker, the DB or env
+- **Dev:** `pnpm dev` (= `pnpm engenty dev`) — preflight (`scripts/predev-check.sh`: Docker, Supabase, migrations, generated files, stale ports) → build packages/modules → core + ui + ai + docs. `--portless`, `--domain=<name>`, `--studio`, `--no-preflight`
+- **Doctor:** `pnpm engenty doctor` — read-only local checks with the fix for each; `--remote` (or `--url`) checks a Supabase deployment's exposed schemas + access-token hook
+- **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` (`pnpm engenty install <slug>` is the shorthand) — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
+- **Local DB:** `pnpm engenty db up|down|status|restart|migrate|reset|snapshot|restore`. `up` is lean by default; `--studio` adds Supabase Studio, `--logs` adds the Logflare/Vector pipeline. Both cost far more idle CPU than Postgres itself, and several stacks at once saturate the host — which surfaces as bogus `Unauthorized` from auth, not as slowness. Stop the stack before changing the flags (they are written into `supabase/config.toml`). `migrate` and `reset` include Mastra's schema
+- **Local env:** `pnpm engenty env` (menu), `pnpm engenty env init`, `pnpm engenty env check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
+- **Deploy:** `pnpm engenty deploy` (wizard, `--dry-run`), `pnpm engenty deploy migrate` (push aggregated migrations to the linked project). Deploy env: copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`
 - **Portless (required for agent preview):** `pnpm portless:setup`, `pnpm portless:trust`, `pnpm portless` (sudo proxy), `pnpm dev:portless`, `pnpm dev:portless --domain=<name>`, `pnpm dev:urls:portless` — see [portless-local-urls.md](./docs/dev/portless-local-urls.md)
-- **Starting a dev server as Claude Code** (worktree or main, `preview_start`/`launch.json`, first-run `pnpm engenty setup --local`, the `.localhost` URL): see the [`dev-server` skill](./.claude/skills/dev-server/SKILL.md) — a new worktree needs setup run once before `dev:portless` works (config.toml + generated UI catalog are gitignored)
+- **Starting a dev server as Claude Code** (worktree or main, `preview_start`/`launch.json`, first-run `pnpm engenty setup`, the `.localhost` URL): see the [`dev-server` skill](./.claude/skills/dev-server/SKILL.md) — a new worktree needs `install` run once before `dev:portless` works (config.toml + generated UI catalog are gitignored)
 - **Manifest / CI:** `pnpm env:example:write`, `pnpm env:example:check` — regenerate committed `.env.example` files
 - **Clean caches:** `pnpm clean` — remove `node_modules`, `dist`, Turbo/Next caches (then `pnpm install`)
-- **Full local reset:** `pnpm purge` — or `pnpm purge:light` (env + generated setup + caches, keeps `node_modules`); `pnpm purge -- --yes --quiet` for scripted full purge
+- **Full local reset:** `pnpm engenty reset` — or `--light` (keeps `node_modules`), `--db` (also wipes the local database), `--yes --quiet` for scripted runs
+- **Gone (do not use):** `setup --local`, `engenty init`, the old file-only `engenty setup` (now `generate`), `db init`, `db sync`, `db mastra-init`, and the `pnpm db:*`, `supabase:*`, `dev:env*`, `dev:check`, `purge*`, `setup` package.json aliases
 - **Scoped:** `pnpm --filter @engenty/<name> build|test|dev`
 
 Human/CLI Vite URL: `http://localhost:5173` (proxies `/api` and `/ai`). **Agent preview:** Portless HTTPS only — main `https://engenty.localhost`, worktree `https://<name>.engenty.localhost`.
@@ -83,14 +86,14 @@ Human/CLI Vite URL: `http://localhost:5173` (proxies `/api` and `/ai`). **Agent 
 
 ## Module contract
 
-**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install <slug>`** is the only sanctioned way to activate a module: it adds the `engenty.plugins` entry **and** runs `engenty setup` (supabase compose → `config.toml` exposed schemas + buckets, migration aggregation, UI catalog gen, `apps/ui` dep sync) + `pnpm install`. Add `--db-migrate --db-restart` to also apply migrations locally. Do **not** hand-edit the `engenty.plugins` map, `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules. **Gotcha:** if the slug is already in `engenty.plugins`, `install` early-returns and **skips setup** — so a hand-added entry leaves setup un-run; back the entry out and re-run `install` to repair. (Modules with UI are loaded via the generated catalog's dynamic `import()` through pnpm root symlinks — they are correctly **absent** from `apps/ui/package.json` deps.)
+**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install <slug>`** is the only sanctioned way to activate a module: it adds the `engenty.plugins` entry **and** runs `engenty generate` (supabase compose → `config.toml` exposed schemas + buckets, migration aggregation, UI catalog gen, `apps/ui` dep sync) + `pnpm install`. Add `--db-migrate --db-restart` to also apply migrations locally. Do **not** hand-edit the `engenty.plugins` map, `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules. **Gotcha:** if the slug is already in `engenty.plugins`, `install` early-returns and **skips generate** — so a hand-added entry leaves the derived files stale; back the entry out and re-run `install` to repair, or run `pnpm engenty generate`. (Modules with UI are loaded via the generated catalog's dynamic `import()` through pnpm root symlinks — they are correctly **absent** from `apps/ui/package.json` deps.)
 
 | Layer | Committed? | Who sets it |
 |-------|------------|-------------|
 | `engenty.plugins` | yes | you / `engenty plugins install` |
 | `modules/<slug>/` source | yes | git |
-| `apps/ui` `@engenty/*` module deps | setup sync only | `engenty setup` — never manual |
-| Supabase + UI generated artifacts | no (gitignored) | `engenty setup` |
+| `apps/ui` `@engenty/*` module deps | generate sync only | `engenty generate` — never manual |
+| Supabase + UI generated artifacts | no (gitignored) | `engenty generate` |
 
 Each `modules/<name>` follows:
 
@@ -183,7 +186,7 @@ pnpm build && pnpm typecheck && pnpm check && pnpm test
 - Module wiring: `engenty.plugin.json` + UI plugin in catalog
 - ui-core changes: `pnpm check:ui-core-imports` + `pnpm --filter @engenty/ui-core build`
 - Locale changes: both `en.json` and `de.json`
-- DB schema: module migration + `pnpm engenty setup` (or `engenty db sync`)
+- DB schema: module migration + `pnpm engenty generate` + `pnpm engenty db migrate`
 - AI manifests: `pnpm ai:check`
 
 ## On-demand rules

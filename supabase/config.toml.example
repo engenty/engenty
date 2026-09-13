@@ -1,5 +1,5 @@
 # Committed module-agnostic Supabase template for local development.
-# Copy to supabase/config.toml (gitignored) via `pnpm engenty setup`, then engenty db sync composes modules on disk.
+# Copy to supabase/config.toml (gitignored) via `pnpm engenty generate`, which also composes the modules on disk.
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
@@ -12,7 +12,7 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-# >>> engenty:api-schemas (managed by `engenty db sync` — base only in git; run sync locally)
+# >>> engenty:api-schemas (managed by `engenty generate` — base only in git; run generate locally)
 schemas = ["public","graphql_public","ai","context_graph","core"]
 # <<< engenty:api-schemas
 # Extra schemas to add to the search_path of every request.
@@ -86,7 +86,7 @@ enabled = true
 [studio]
 # OFF by default: Studio plus the Kong traffic it generates measured ~137% CPU on an
 # idle stack, more than the database itself. Start it when you want it:
-#   pnpm db:up --studio
+#   pnpm engenty db up --studio
 enabled = false
 # Port to use for Supabase Studio.
 port = 54323
@@ -118,9 +118,9 @@ file_size_limit = "50MiB"
 # enabled = true
 
 # Module-owned storage buckets are declared in each module's engenty.plugin.json
-# under `supabase.storageBuckets` and composed here by `engenty db sync`.
+# under `supabase.storageBuckets` and composed here by `engenty generate`.
 # Committed block stays empty — run sync locally; do not commit module bucket output.
-# >>> engenty:storage-buckets (managed by `engenty db sync` — base only in git; run sync locally)
+# >>> engenty:storage-buckets (managed by `engenty generate` — base only in git; run generate locally)
 # <<< engenty:storage-buckets
 
 # Uncomment to configure local storage buckets
@@ -351,7 +351,7 @@ deno_version = 2
 # OFF by default: this is the Logflare log pipeline, and enabling it also starts the
 # `vector` container, which tails EVERY container's logs through the Docker API.
 # Together ~85% CPU on an idle stack, to power Studio's Logs tab. Turn on with:
-#   pnpm db:up --logs
+#   pnpm engenty db up --logs
 enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.

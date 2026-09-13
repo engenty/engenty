@@ -256,7 +256,7 @@ async function harvestSupabase(
   if (!harvest.ok) {
     spin.stop("Supabase stack not reachable.");
     note(
-      `${harvest.error ?? "supabase status failed."}\nStart it with: pnpm supabase:start — then rerun pnpm dev:env:init`,
+      `${harvest.error ?? "supabase status failed."}\nStart it with: pnpm engenty db up — then rerun pnpm engenty env init`,
       "Supabase"
     );
     return;
@@ -526,11 +526,11 @@ export async function runEnvInitWizard(
   console.log(`\n${reportText}\n`);
   if (gaps > 0) {
     outro(
-      `${gaps} required value(s) still missing — rerun pnpm dev:env:init anytime, or set single keys via engenty env edit <KEY>.`
+      `${gaps} required value(s) still missing — rerun pnpm engenty env init anytime, or set single keys via engenty env edit <KEY>.`
     );
   } else {
     outro(
-      "Environment ready. Next: pnpm supabase:start (if not running), pnpm dev — open http://localhost:5173 (or pnpm portless:setup for https://engenty.localhost)"
+      "Environment ready. Next: pnpm engenty db up (if not running), pnpm dev — open http://localhost:5173 (or pnpm portless:setup for https://engenty.localhost)"
     );
   }
   return 0;
@@ -543,7 +543,7 @@ export async function runEnvGenerate(force: boolean): Promise<number> {
     (scope) => loadScopeDocument(workspaceRoot, scope) !== null
   );
   if (scopes.length === 0) {
-    console.error("No env files found. Run: pnpm dev:env:init");
+    console.error("No env files found. Run: pnpm engenty env init");
     return 1;
   }
 

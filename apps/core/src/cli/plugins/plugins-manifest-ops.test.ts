@@ -23,7 +23,11 @@ describe("plugins-manifest-ops", () => {
     tempDirs.push(root);
     fs.mkdirSync(path.join(root, "modules"), { recursive: true });
     fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-    fs.writeFileSync(path.join(root, "scripts/setup.mjs"), "// stub\n", "utf8");
+    fs.writeFileSync(
+      path.join(root, "scripts/generate.mjs"),
+      "// stub\n",
+      "utf8"
+    );
     fs.writeFileSync(
       path.join(root, "package.json"),
       `${JSON.stringify(

@@ -160,10 +160,10 @@ export interface EnvContributions {
  * order (apps → packages → modules, alphabetical within each), so contributed
  * groups render after core groups in a stable order.
  */
-export function loadEnvContributions(
-  workspaceRoot: string = resolveWorkspaceRoot()
-): EnvContributions {
-  const discovered = discoverContributions(workspaceRoot);
+export function loadEnvContributions(workspaceRoot?: string): EnvContributions {
+  const discovered = discoverContributions(
+    workspaceRoot ?? resolveWorkspaceRoot()
+  );
   const vars: EnvVarSpec[] = [];
   const features: EnvFeatureInfo[] = [];
   const seenFeatures = new Set<string>();

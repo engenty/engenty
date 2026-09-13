@@ -9,7 +9,7 @@ vi.mock("./run-supabase-cli.js", () => ({
     runSupabaseCliStreaming(args),
 }));
 
-const { restartLocalDb } = await import("./db-commands.js");
+const { restartLocalDb } = await import("./local-db.js");
 
 describe("restartLocalDb", () => {
   afterEach(() => {

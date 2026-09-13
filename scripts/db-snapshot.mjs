@@ -56,7 +56,7 @@ function runSnapshot() {
     console.error(
       `Error: Supabase container "${containerName}" is not running.`
     );
-    console.error("Please start it first using 'pnpm supabase:start'.");
+    console.error("Please start it first using 'pnpm engenty db up'.");
     process.exit(1);
   }
 
@@ -191,7 +191,7 @@ function runRestore() {
     console.error(
       `Error: Supabase container "${containerName}" is not running.`
     );
-    console.error("Please start it first using 'pnpm supabase:start'.");
+    console.error("Please start it first using 'pnpm engenty db up'.");
     process.exit(1);
   }
 

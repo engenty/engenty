@@ -4,6 +4,27 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.1] - 2026-09-13
+- ADDED **[cli]** Rename install to setup, add `engenty install <slug>` shorthand
+- ADDED **[cli]** Install / generate / dev / doctor / reset / deploy replace setup --local
+- ADDED **[scripts]** Materialize the open snapshot locally with OUT_DIR
+- ADDED **[cli]** Ask which local Supabase stack a workspace owns
+- ADDED **[readme]** Generate the module table from engenty.plugins
+- DOCS State the real prerequisites, and lower the Node floor to what is tested
+- DOCS Cut the README to the path a new reader takes
+- DOCS Lead the README with what a space is for
+- DOCS Document the public image pipeline
+- DOCS Move Release & ship out of the README, and name all seven images
+- DOCS **[deploy]** Correct the upgrade runbook against the real 0.2.0 deploy
+- FIXED **[setup]** Name the tenant the wizard actually signs you in to
+- FIXED **[db]** Let a database be built from scratch again
+- FIXED **[docs]** Stop publishing pages for modules the open tree does not ship
+- FIXED **[test]** Stop asserting pro's agent count in the starter catalogue
+- FIXED **[publish]** Keep the allowlist's escaping when filtering it
+- FIXED **[publish]** Drop allowlist entries the public tree cannot contain
+- FIXED **[publish]** Render the mirror's env templates from the tree being published
+- FIXED **[ui]** Give the typecheck enough heap, and drop a static 100vh
+
 ## [0.2.0] - 2026-09-11
 - ADDED **[deploy]** A wizard for the database you already run, wherever it runs
 - ADDED **[deploy]** Ask for what only the operator knows, derive the rest

@@ -16,7 +16,7 @@ import { ensureMastraSchemaApplied } from "./mastra-schema-readiness.js";
 import { resolveRunSnapshotConnectionString } from "./mastra-storage.js";
 
 const SUPABASE_HINT =
-  "is local Supabase running? Start it with `pnpm supabase:start`, then retry (widen the boot wait via ENGENTY_AI_DB_READY_TIMEOUT_MS). apps/ai needs the Mastra Postgres store (SUPABASE_DB_URL) for native suspend/resume";
+  "is local Supabase running? Start it with `pnpm engenty db up`, then retry (widen the boot wait via ENGENTY_AI_DB_READY_TIMEOUT_MS). apps/ai needs the Mastra Postgres store (SUPABASE_DB_URL) for native suspend/resume";
 
 export interface EnsureMastraStorageReachableOptions {
   intervalMs?: number;

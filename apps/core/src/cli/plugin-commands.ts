@@ -12,7 +12,7 @@ import {
   DB_MIGRATE_NEXT_STEP,
   isLocalDbReachable,
   restartLocalDb,
-} from "./db/db-commands.js";
+} from "./db/local-db.js";
 import { registerPluginCreateCommand } from "./plugin-create-command.js";
 import {
   type PluginListItem,
@@ -454,118 +454,8 @@ export function registerPluginCommands(program: Command): void {
       printJson({ plugins: resolved, results });
     });
 
-  plugins
-    .command("install")
-    .description(
-      "Install plugin(s) into the product — in-repo workspace modules by slug (manifest + setup), or external packages by spec (via the core API)"
-    )
-    .argument(
-      "[target...]",
-      "Workspace module slug(s) and/or external package spec(s)"
-    )
-    .option("--all", "Install every workspace module on disk (in-repo)")
-    .option(
-      "--db-migrate",
-      "After installing in-repo modules, apply their migrations to the local database (opt-in; local + reachable only)"
-    )
-    .option(
-      "--db-restart",
-      "After installing in-repo modules, restart the local Supabase stack so the API serves their newly exposed schemas (opt-in; local + reachable only; pair with --db-migrate)"
-    )
-    .option(
-      "--api-url <url>",
-      "API base URL (external packages)",
-      defaultApiUrl
-    )
-    .option("--token <token>", "Bearer JWT (external packages)")
-    .option(
-      "--confirm-package-mutation",
-      "Allow the API to run pnpm mutation (external packages)"
-    )
-    .option("--json", "Print raw JSON response")
-    .action(
-      runCliAction(
-        async (
-          targets: string[],
-          opts: PackageLifecycleCommandOpts & {
-            all?: boolean;
-            dbMigrate?: boolean;
-            dbRestart?: boolean;
-          }
-        ) => {
-          const repoRoot = resolveRepoRoot();
-          const workspaceSlugs = new Set(
-            listWorkspaceModuleSlugsOnDisk(repoRoot)
-          );
-
-          // No targets and no --all → interactively pick installable workspace
-          // modules (on disk, not yet installed).
-          if (targets.length === 0 && opts.all !== true) {
-            if (opts.json) {
-              throw new Error(
-                "Provide a target (slug or package spec) or --all with --json."
-              );
-            }
-            if (!isInteractiveTerminal()) {
-              throw new Error(
-                "Provide a workspace module slug, an external package spec, or pass --all."
-              );
-            }
-            const installable = listPluginManifestEntries(repoRoot).filter(
-              (e) => e.onDisk && !e.enabled
-            );
-            if (installable.length === 0) {
-              console.log("All workspace plugins are already installed.");
-              return;
-            }
-            const picked = await pickWorkspaceSlugs({
-              entries: installable,
-              verb: "install",
-            });
-            if (picked === "cancelled") {
-              return;
-            }
-            const result = enablePluginsInProduct({ repoRoot, slugs: picked });
-            for (const message of result.messages) {
-              console.log(message);
-            }
-            finishInRepoInstall(opts);
-            return;
-          }
-
-          const inRepo =
-            opts.all === true
-              ? [...workspaceSlugs]
-              : targets.filter((t) => workspaceSlugs.has(t));
-          const external =
-            opts.all === true
-              ? []
-              : targets.filter((t) => !workspaceSlugs.has(t));
-
-          if (inRepo.length === 0 && external.length === 0) {
-            throw new Error("Nothing to install.");
-          }
-
-          if (inRepo.length > 0) {
-            const result = enablePluginsInProduct({ repoRoot, slugs: inRepo });
-            for (const message of result.messages) {
-              console.log(message);
-            }
-            finishInRepoInstall(opts);
-          }
-          for (const spec of external) {
-            await runPackageLifecycleCommand({
-              body: {
-                confirm_package_mutation: opts.confirmPackageMutation === true,
-                package_spec: spec,
-              },
-              endpoint: `/api/plugins/${encodeURIComponent(spec)}/install`,
-              opts,
-            });
-          }
-        }
-      )
-    );
+  registerPluginInstallCommand(plugins);
+  registerPluginInstallCommand(program, { shorthand: true });
 
   plugins
     .command("update")
@@ -684,6 +574,130 @@ export function registerPluginCommands(program: Command): void {
                 confirm_package_mutation: opts.confirmPackageMutation === true,
               },
               endpoint: `/api/plugins/${encodeURIComponent(id)}/uninstall`,
+              opts,
+            });
+          }
+        }
+      )
+    );
+}
+
+/**
+ * Registered twice: under `plugins`, and at the root as `engenty setup <slug>`
+ * — the short form mirrors `pnpm install <pkg>`.
+ */
+function registerPluginInstallCommand(
+  parent: Command,
+  params: { shorthand?: boolean } = {}
+): void {
+  parent
+    .command("install")
+    .description(
+      params.shorthand
+        ? "Install plugin(s) — shorthand for `engenty plugins install`"
+        : "Install plugin(s) into the product — in-repo workspace modules by slug (manifest + generate), or external packages by spec (via the core API)"
+    )
+    .argument(
+      "[target...]",
+      "Workspace module slug(s) and/or external package spec(s)"
+    )
+    .option("--all", "Install every workspace module on disk (in-repo)")
+    .option(
+      "--db-migrate",
+      "After installing in-repo modules, apply their migrations to the local database (opt-in; local + reachable only)"
+    )
+    .option(
+      "--db-restart",
+      "After installing in-repo modules, restart the local Supabase stack so the API serves their newly exposed schemas (opt-in; local + reachable only; pair with --db-migrate)"
+    )
+    .option(
+      "--api-url <url>",
+      "API base URL (external packages)",
+      defaultApiUrl
+    )
+    .option("--token <token>", "Bearer JWT (external packages)")
+    .option(
+      "--confirm-package-mutation",
+      "Allow the API to run pnpm mutation (external packages)"
+    )
+    .option("--json", "Print raw JSON response")
+    .action(
+      runCliAction(
+        async (
+          targets: string[],
+          opts: PackageLifecycleCommandOpts & {
+            all?: boolean;
+            dbMigrate?: boolean;
+            dbRestart?: boolean;
+          }
+        ) => {
+          const repoRoot = resolveRepoRoot();
+          const workspaceSlugs = new Set(
+            listWorkspaceModuleSlugsOnDisk(repoRoot)
+          );
+
+          // No targets and no --all → interactively pick installable workspace
+          // modules (on disk, not yet installed).
+          if (targets.length === 0 && opts.all !== true) {
+            if (opts.json) {
+              throw new Error(
+                "Provide a target (slug or package spec) or --all with --json."
+              );
+            }
+            if (!isInteractiveTerminal()) {
+              throw new Error(
+                "Provide a workspace module slug, an external package spec, or pass --all."
+              );
+            }
+            const installable = listPluginManifestEntries(repoRoot).filter(
+              (e) => e.onDisk && !e.enabled
+            );
+            if (installable.length === 0) {
+              console.log("All workspace plugins are already installed.");
+              return;
+            }
+            const picked = await pickWorkspaceSlugs({
+              entries: installable,
+              verb: "install",
+            });
+            if (picked === "cancelled") {
+              return;
+            }
+            const result = enablePluginsInProduct({ repoRoot, slugs: picked });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+            finishInRepoInstall(opts);
+            return;
+          }
+
+          const inRepo =
+            opts.all === true
+              ? [...workspaceSlugs]
+              : targets.filter((t) => workspaceSlugs.has(t));
+          const external =
+            opts.all === true
+              ? []
+              : targets.filter((t) => !workspaceSlugs.has(t));
+
+          if (inRepo.length === 0 && external.length === 0) {
+            throw new Error("Nothing to install.");
+          }
+
+          if (inRepo.length > 0) {
+            const result = enablePluginsInProduct({ repoRoot, slugs: inRepo });
+            for (const message of result.messages) {
+              console.log(message);
+            }
+            finishInRepoInstall(opts);
+          }
+          for (const spec of external) {
+            await runPackageLifecycleCommand({
+              body: {
+                confirm_package_mutation: opts.confirmPackageMutation === true,
+                package_spec: spec,
+              },
+              endpoint: `/api/plugins/${encodeURIComponent(spec)}/install`,
               opts,
             });
           }

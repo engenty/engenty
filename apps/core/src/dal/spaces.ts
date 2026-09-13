@@ -81,6 +81,12 @@ export interface UpdateSpaceInput {
   /** Empty string clears it; undefined leaves it alone. */
   description?: string | null;
   icon?: string | null;
+  /**
+   * Re-key a space. `/s/<key>/…` routes on this, so every existing link to the
+   * space breaks — only the initial-setup wizard sends it, giving the tenant's
+   * default space a key from the team's name before anyone has such a link.
+   */
+  key?: string;
   name?: string;
   /**
    * Making a space private hides it from everyone without a member row — it does
@@ -350,6 +356,13 @@ export async function updateSpace(
     }
     patch.name = name;
   }
+  if (input.key !== undefined) {
+    const key = input.key.trim().toLowerCase();
+    if (!SPACE_KEY_PATTERN.test(key)) {
+      throw new Error("space_key_invalid");
+    }
+    patch.key = key;
+  }
   if (input.description !== undefined) {
     const description = input.description?.trim() ?? "";
     patch.description = description || null;
@@ -386,6 +399,11 @@ export async function updateSpace(
     .select(SPACE_COLUMNS)
     .single();
   if (result.error) {
+    // `spaces_tenant_key_uniq`. Raised as a name the caller can react to
+    // rather than a raw Postgres message on a form field.
+    if ((result.error as { code?: string }).code === "23505") {
+      throw new Error("space_key_taken");
+    }
     throw result.error;
   }
   return mapSpace(result.data as SpaceRow);

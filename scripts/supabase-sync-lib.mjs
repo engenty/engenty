@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const STORAGE_BUCKET_MARKER_BEGIN =
-  "# >>> engenty:storage-buckets (managed by `engenty db sync` — base only in git; run sync locally)";
+  "# >>> engenty:storage-buckets (managed by `engenty generate` — base only in git; run generate locally)";
 export const STORAGE_BUCKET_MARKER_END = "# <<< engenty:storage-buckets";
 
 export const API_SCHEMA_MARKER_BEGIN =
-  "# >>> engenty:api-schemas (managed by `engenty db sync` — base only in git; run sync locally)";
+  "# >>> engenty:api-schemas (managed by `engenty generate` — base only in git; run generate locally)";
 export const API_SCHEMA_MARKER_END = "# <<< engenty:api-schemas";
 
 /** Always exposed — order is stable for diffs and docs. */
@@ -132,7 +132,7 @@ export function parseApiSchemasFromConfigToml(content) {
 
 /**
  * Guardrail: committed supabase/config.toml.example must not encode installed modules.
- * Local supabase/config.toml is gitignored and composed by engenty setup / engenty db sync.
+ * Local supabase/config.toml is gitignored and composed by engenty generate.
  */
 export function findCommittedSupabaseConfigModuleLeaks(content) {
   const issues = [];
@@ -186,13 +186,29 @@ export function renderApiSchemasBlock(schemas) {
   return `${API_SCHEMA_MARKER_BEGIN}\n${renderApiSchemasLine(schemas)}\n${API_SCHEMA_MARKER_END}`;
 }
 
+/**
+ * A begin marker is matched by its `# >>> engenty:<block>` prefix only: the
+ * parenthetical after it is documentation, and it has changed wording over
+ * time while every gitignored config.toml on disk keeps whatever was written
+ * when it was generated. Returns the marker line's [start, end) or null.
+ */
+function findBeginMarkerLine(original, beginMarker) {
+  const prefix = beginMarker.split(" (")[0];
+  const start = original.indexOf(prefix);
+  if (start === -1) {
+    return null;
+  }
+  const lineEnd = original.indexOf("\n", start);
+  return { end: lineEnd === -1 ? original.length : lineEnd, start };
+}
+
 export function syncManagedBlock(params) {
   const { beginMarker, content, endMarker, original } = params;
-  const beginIdx = original.indexOf(beginMarker);
+  const begin = findBeginMarkerLine(original, beginMarker);
   const endIdx = original.indexOf(endMarker);
 
-  if (beginIdx !== -1 && endIdx !== -1 && endIdx > beginIdx) {
-    const before = original.slice(0, beginIdx);
+  if (begin && endIdx !== -1 && endIdx > begin.start) {
+    const before = original.slice(0, begin.start);
     const after = original.slice(endIdx + endMarker.length);
     return `${before}${content}${after}`;
   }
@@ -223,18 +239,15 @@ export function syncApiSchemasInConfigToml(original, schemas) {
 }
 
 export function syncStorageBucketsInConfigToml(original, bucketBlocks) {
-  const beginIdx = original.indexOf(STORAGE_BUCKET_MARKER_BEGIN);
+  const begin = findBeginMarkerLine(original, STORAGE_BUCKET_MARKER_BEGIN);
   const endIdx = original.indexOf(STORAGE_BUCKET_MARKER_END);
-  if (beginIdx === -1 || endIdx === -1 || endIdx < beginIdx) {
+  if (!begin || endIdx === -1 || endIdx < begin.start) {
     throw new Error(
       `Managed storage-bucket markers not found in supabase/config.toml. Expected:\n${STORAGE_BUCKET_MARKER_BEGIN}\n${STORAGE_BUCKET_MARKER_END}`
     );
   }
 
-  const before = original.slice(
-    0,
-    beginIdx + STORAGE_BUCKET_MARKER_BEGIN.length
-  );
+  const before = `${original.slice(0, begin.start)}${STORAGE_BUCKET_MARKER_BEGIN}`;
   const after = original.slice(endIdx);
   const middle =
     bucketBlocks.length > 0 ? `\n${bucketBlocks.join("\n\n")}\n` : "\n";

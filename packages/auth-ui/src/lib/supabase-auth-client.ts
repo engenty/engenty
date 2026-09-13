@@ -50,3 +50,24 @@ export function getOptionalSupabaseAuthClient(): SupabaseClient | null {
 export function getSupabaseAuthClient(): SupabaseClient {
   return createSupabaseAuthClient();
 }
+
+/**
+ * A second client whose sign-in leaves the stored session alone.
+ *
+ * The initial-setup wizard needs a bearer token for its tenant and space calls
+ * while it is still on `/initial_setup`. Signing the shared client in there
+ * flips the app to authenticated, and the authenticated router sends
+ * `/initial_setup` straight to the copilot chat — the remaining steps would
+ * never render. The shared client signs in once, at the end.
+ */
+export function createDetachedSupabaseAuthClient(): SupabaseClient {
+  const { anonKey, url } = readSupabaseAuthEnv();
+  if (!(url && anonKey)) {
+    throw new Error(
+      "Missing Supabase environment: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required."
+    );
+  }
+  return createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}

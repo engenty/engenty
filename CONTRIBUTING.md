@@ -7,10 +7,10 @@ Thanks for your interest in contributing to **engenty** — a Fair Source projec
 Follow [README.md](./README.md) to install, configure, and run the stack locally.
 
 For module and plugin work, start with [docs/content/dev/plugins.md](./docs/content/dev/plugins.md).
-After changing which modules are installed, regenerate local artifacts:
+After changing which modules are installed, regenerate the derived files:
 
 ```bash
-pnpm engenty setup
+pnpm engenty generate
 ```
 
 ## Pull requests

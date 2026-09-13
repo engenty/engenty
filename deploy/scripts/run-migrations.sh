@@ -16,7 +16,7 @@ set -eu
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
   echo "[engenty-migrate] SUPABASE_DB_URL not set — skipping automatic migrations."
-  echo "[engenty-migrate] Set it to enable auto-migrate, or apply manually with deploy/scripts/migrate.sh."
+  echo "[engenty-migrate] Set it to enable auto-migrate, or apply manually with `pnpm engenty deploy migrate`."
   exit 0
 fi
 

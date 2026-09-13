@@ -75,7 +75,7 @@ const registerExternalConnectorsPlugin: EngentyPluginFactory = async (
         error instanceof Error ? error.message : String(error)
       }`,
       remediation:
-        "Apply the module_external_connectors migration (pnpm db:migrate), then restart.",
+        "Apply the module_external_connectors migration (pnpm engenty db migrate), then restart.",
     });
     return;
   }

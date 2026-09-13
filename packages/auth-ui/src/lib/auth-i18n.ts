@@ -26,17 +26,22 @@ export const AUTH_TRANSLATIONS = {
     ],
     setup: {
       heading: "Let's get you set up.",
-      desc: "Create your administrator account and first workspace — takes less than a minute.",
-      step1Label: "Create super admin",
-      step1Sublabel: "Administrator account",
-      step2Label: "First workspace",
-      step2Sublabel: "Company & URL",
-      step1CardTitle: "Create super admin",
+      desc: "An administrator account, the team it belongs to, and the space the work starts in.",
+      step1Label: "Administrator",
+      step1Sublabel: "Your account",
+      step2Label: "Your team",
+      step2Sublabel: "Team or organization",
+      step3Label: "First space",
+      step3Sublabel: "Where work happens",
+      step1CardTitle: "Create the administrator",
       step1CardDesc:
         "This account will have full system access. Choose a strong password.",
-      step2CardTitle: "Set up your workspace",
+      step2CardTitle: "Name your team",
       step2CardDesc:
-        "Create your first tenant workspace. You can add more later from the admin panel.",
+        "A team, a department, or a whole organization — whatever this installation is for.",
+      step3CardTitle: "Your first space",
+      step3CardDesc:
+        "A space holds the agents, apps and knowledge for one piece of work. You pick its modules and hire its first engenty right after this.",
     },
     login: {
       welcomeBack: "Welcome back",
@@ -75,17 +80,22 @@ export const AUTH_TRANSLATIONS = {
     ],
     setup: {
       heading: "Gleich startklar.",
-      desc: "Erstelle dein Administratorkonto und deinen ersten Workspace — dauert weniger als eine Minute.",
-      step1Label: "Super-Admin anlegen",
-      step1Sublabel: "Administratorkonto",
-      step2Label: "Erster Workspace",
-      step2Sublabel: "Firma & URL",
-      step1CardTitle: "Super-Admin anlegen",
+      desc: "Ein Administratorkonto, das Team dahinter und der Space, in dem die Arbeit beginnt.",
+      step1Label: "Administrator",
+      step1Sublabel: "Dein Konto",
+      step2Label: "Dein Team",
+      step2Sublabel: "Team oder Organisation",
+      step3Label: "Erster Space",
+      step3Sublabel: "Hier läuft die Arbeit",
+      step1CardTitle: "Administrator anlegen",
       step1CardDesc:
         "Dieses Konto hat vollen Systemzugriff. Wähle ein sicheres Passwort.",
-      step2CardTitle: "Workspace einrichten",
+      step2CardTitle: "Team benennen",
       step2CardDesc:
-        "Erstelle deinen ersten Mandanten-Workspace. Weitere lassen sich später hinzufügen.",
+        "Ein Team, eine Abteilung oder eine ganze Organisation — wofür diese Installation da ist.",
+      step3CardTitle: "Dein erster Space",
+      step3CardDesc:
+        "Ein Space bündelt Agenten, Apps und Wissen für eine Aufgabe. Module und die erste Engenty wählst du direkt danach.",
     },
     login: {
       welcomeBack: "Willkommen zurück",

@@ -58,7 +58,7 @@ cross-worktree lock (`$TMPDIR/engenty-local-supabase.predev.lock`). Concurrent s
 **wait** for the shared stack instead of racing `supabase stop`. Transient REST 500s
 get a grace wait + PostgREST soft-restart before any full stack restart.
 
-Shared DB history may include migrations from another worktree’s plugin set. `pnpm db:migrate`
+Shared DB history may include migrations from another worktree’s plugin set. `pnpm engenty db migrate`
 writes no-op placeholders for those remote-only versions so migrate does not fail with
 “Remote migration versions not found in local migrations directory.”
 
@@ -75,7 +75,7 @@ pnpm install
 # :54322) and `dev:portless` fails later with "Missing generated UI plugin
 # catalog". Plugin selection is already committed, so this runs
 # non-interactively.
-pnpm engenty setup --local
+pnpm engenty setup
 
 # explicit domain (recommended)
 pnpm dev:portless --domain=tab-ui

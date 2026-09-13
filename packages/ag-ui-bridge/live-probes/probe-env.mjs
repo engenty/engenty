@@ -35,7 +35,7 @@ export function env() {
   const path = join(repoRoot(), ".env.local");
   if (!existsSync(path)) {
     throw new Error(
-      `${path} not found — run \`pnpm engenty setup --local\` in this worktree first`
+      `${path} not found — run \`pnpm engenty setup\` in this worktree first`
     );
   }
   const out = {};

@@ -1,6 +1,8 @@
 import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
 import { cyan, dim, green, red, yellow } from "../env-setup/env-style.js";
+import { requireWorkspaceRoot } from "../workspace.js";
+import { runLocalChecks } from "./local-checks.js";
 import {
   loadProbes,
   loadRequiredSchemas,
@@ -79,11 +81,42 @@ function reportSelfCheck(probe: SelfCheckProbe): boolean {
   return false;
 }
 
+async function runLocalDoctor(json: boolean): Promise<void> {
+  const root = requireWorkspaceRoot("doctor");
+  const checks = await runLocalChecks(root);
+  if (json) {
+    console.log(JSON.stringify({ checks, root }, null, 2));
+  } else {
+    console.log(`Checkout: ${cyan(root)}\n`);
+    for (const check of checks) {
+      const mark =
+        check.status === "ok"
+          ? OK()
+          : check.status === "warn"
+            ? yellow("!")
+            : BAD();
+      console.log(
+        `${mark} ${check.label}${check.detail ? ` — ${check.detail}` : ""}`
+      );
+      if (check.fix) {
+        console.log(dim(`    fix: ${check.fix}`));
+      }
+    }
+  }
+  if (checks.some((check) => check.status === "fail")) {
+    throw new Error("engenty doctor found problems (see above).");
+  }
+}
+
 export function registerDoctorCommands(program: Command): void {
   program
     .command("doctor")
     .description(
-      "Check a Supabase deployment for the two settings migrations cannot make: exposed schemas and the access-token hook"
+      "Read-only health check. Default: this checkout's local dev setup (Docker, Supabase, migrations, generated files, env, ports). --remote: a Supabase deployment's exposed schemas and access-token hook"
+    )
+    .option(
+      "--remote",
+      "Check a Supabase deployment instead of the local checkout (implied by --url)"
     )
     .option("--url <url>", "Supabase URL (default: SUPABASE_URL)")
     .option("--anon-key <key>", "Anon key (default: SUPABASE_ANON_KEY)")
@@ -97,9 +130,14 @@ export function registerDoctorCommands(program: Command): void {
         async (options: {
           url?: string;
           anonKey?: string;
+          remote?: boolean;
           serviceKey?: string;
           json?: boolean;
         }) => {
+          if (!(options.remote || options.url)) {
+            await runLocalDoctor(options.json === true);
+            return;
+          }
           const url = options.url ?? process.env.SUPABASE_URL ?? "";
           const anonKey =
             options.anonKey ?? process.env.SUPABASE_ANON_KEY ?? "";

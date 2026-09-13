@@ -78,7 +78,7 @@
     "commands": [
       "git clone https://github.com/engenty/engenty.git",
       "cd engenty && pnpm install",
-      "pnpm engenty setup --local && pnpm dev"
+      "pnpm engenty setup && pnpm dev"
     ]
   },
   "footer": "Menschen & Agenten. Als ein Team.",

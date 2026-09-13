@@ -27,7 +27,7 @@ source of the 30–40 minute debugging loops this skill exists to prevent.
 two specific failures later, not immediately:
 
 ```bash
-pnpm engenty setup --local
+pnpm engenty setup
 ```
 
 - If skipped: `supabase start` derives a `project_id` from the worktree's
@@ -37,7 +37,7 @@ pnpm engenty setup --local
   won't share data with the rest of your worktrees and you won't notice
   until data looks empty).
 - If skipped: the build later fails with `Missing generated UI plugin
-  catalog. Run: pnpm run setup` — a full turbo build (~1-2 min) has to
+  catalog. Run: pnpm engenty generate` — a full turbo build (~1-2 min) has to
   rerun after fixing it.
 - Plugin selection is already committed to the repo, so this command is
   **non-interactive** on a worktree — safe to run unattended.

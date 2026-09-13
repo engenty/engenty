@@ -38,9 +38,9 @@ describe("shouldDeferPluginBoot", () => {
   });
 
   it("returns true for bootstrap commands that must run before full plugin build", () => {
-    expect(shouldDeferPluginBoot(["node", "engenty", "setup", "--local"])).toBe(
-      true
-    );
+    expect(
+      shouldDeferPluginBoot(["node", "engenty", "setup", "--refresh"])
+    ).toBe(true);
     expect(shouldDeferPluginBoot(["node", "engenty", "db", "migrate"])).toBe(
       true
     );

@@ -17,7 +17,6 @@
     "ci-pipeline",
     "module-packaging",
     "service-identity",
-    "notifications",
-    "remote-channels"
+    "notifications"
   ]
 }

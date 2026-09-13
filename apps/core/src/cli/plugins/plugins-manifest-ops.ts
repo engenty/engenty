@@ -11,7 +11,7 @@ import {
   resolveModuleDir,
 } from "@engenty/environment";
 import { runPnpmCommand } from "../run-pnpm-command.js";
-import { runSetupScript } from "../setup/run-setup-script.js";
+import { runGenerateScript } from "../setup/run-generate-script.js";
 
 export interface PluginManifestEntry {
   enabled: boolean;
@@ -79,19 +79,17 @@ function runSetupAfterManifestChange(
     messages.push("Ran pnpm install.");
   }
 
-  const setup = runSetupScript({ cwd: repoRoot });
-  ranSetup = setup.ran;
-  if (setup.ran) {
-    if (setup.output.length > 0) {
-      messages.push(setup.output);
-    }
-    if (!setup.ok) {
-      throw new Error("engenty setup failed.");
-    }
-    messages.push(
-      "Ran engenty setup (supabase config, migrations, UI artifacts, UI deps)."
-    );
+  const generate = runGenerateScript({ cwd: repoRoot });
+  ranSetup = true;
+  if (generate.output.length > 0) {
+    messages.push(generate.output);
   }
+  if (!generate.ok) {
+    throw new Error("engenty generate failed.");
+  }
+  messages.push(
+    "Ran engenty generate (supabase config, migrations, UI artifacts, UI deps)."
+  );
 
   return { messages, ranInstall, ranSetup };
 }

@@ -24,9 +24,9 @@ function isSpecialistAgentId(id: string): boolean {
   return true;
 }
 
-function listAgentManifestPaths(): string[] {
+function listAgentDirs(): string[] {
   const modulesRoot = join(process.cwd(), "modules");
-  const paths: string[] = [];
+  const dirs: string[] = [];
   for (const moduleEntry of readdirSync(modulesRoot, { withFileTypes: true })) {
     if (!moduleEntry.isDirectory()) {
       continue;
@@ -39,17 +39,19 @@ function listAgentManifestPaths(): string[] {
         if (!agentEntry.isDirectory()) {
           continue;
         }
-        paths.push(join(agentsDir, agentEntry.name, "agent.json"));
+        dirs.push(join(agentsDir, agentEntry.name));
       }
     } catch {
       // Module has no ai/agents directory.
     }
   }
-  return paths.toSorted();
+  return dirs.toSorted();
 }
 
 describe("shipped agent starter catalogue", () => {
-  const manifests = listAgentManifestPaths().map((path) => {
+  const agentDirs = listAgentDirs();
+  const manifests = agentDirs.map((dir) => {
+    const path = join(dir, "agent.json");
     const raw = JSON.parse(readFileSync(path, "utf8")) as Record<
       string,
       unknown
@@ -57,8 +59,15 @@ describe("shipped agent starter catalogue", () => {
     return { path, manifest: aiAgentManifestSchema.parse(raw) };
   });
 
-  it("finds the shipped agent.json files", () => {
-    expect(manifests.length).toBeGreaterThanOrEqual(13);
+  // What this guards: the walk resolves `modules/` from the cwd and swallows a
+  // missing ai/agents directory, so a wrong cwd yields an empty list and the
+  // two tests below then pass over nothing. It is not an inventory — the
+  // installed module set differs per tree (the open snapshot ships four agents
+  // fewer, its closed modules filtered out), and the count this used to assert
+  // described only the tree it was written in, so the mirror failed here on
+  // every release.
+  it("finds the agent directories shipped by the installed modules", () => {
+    expect(agentDirs).not.toEqual([]);
   });
 
   it("requires specialists to declare at least two starters", () => {

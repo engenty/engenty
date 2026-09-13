@@ -115,7 +115,7 @@ export async function harvestSupabaseStatus(
     return {
       error:
         result.stderr.trim() ||
-        "supabase status returned no values — is the local stack running? (pnpm supabase:start)",
+        "supabase status returned no values — is the local stack running? (pnpm engenty db up)",
       ok: false,
       values: {},
     };

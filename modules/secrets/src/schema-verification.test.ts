@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 /**
  * Verifies that the module_secrets schema is properly configured.
  * Prevents "Invalid schema: module_secrets" errors caused by:
- * - Missing migration (run pnpm migrations:aggregate / engenty db sync before db reset)
+ * - Missing migration (run pnpm engenty generate before db reset)
  * - config.toml not exposing the schema (PostgREST won't see it)
  *
  * Note: a live `authenticator.pgrst.db_schemas` role setting can still shadow

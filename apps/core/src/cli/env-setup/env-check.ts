@@ -25,7 +25,7 @@ function hintFor(spec: EnvVarSpec): string {
     case "generate":
       return "engenty env generate";
     case "supabase":
-      return "pnpm supabase:start, then engenty env init";
+      return "pnpm engenty db up, then pnpm engenty env init";
     case "portless":
       return "pnpm portless:setup";
     case "provider":
@@ -140,7 +140,7 @@ export function renderScopeReport(
 ): string {
   const header = `${bold(underline(ENV_SCOPES[report.scope].label))}  ${dim(envFilePath(workspaceRoot, report.scope))}`;
   if (!report.fileExists) {
-    return `${header}\n  ${red("✗ File missing.")} Run: ${cyan("pnpm dev:env:init")}`;
+    return `${header}\n  ${red("✗ File missing.")} Run: ${cyan("pnpm engenty env init")}`;
   }
 
   const rows: Row[] = [

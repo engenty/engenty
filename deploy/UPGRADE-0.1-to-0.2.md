@@ -83,7 +83,7 @@ nothing else on the machine notices:
 ```bash
 git worktree add --detach ../engenty-upgrade-test v0.1.137
 cd ../engenty-upgrade-test && pnpm install
-pnpm engenty setup                       # writes supabase/config.toml
+pnpm engenty generate                    # writes supabase/config.toml
 #   edit it: project_id = "engenty-upgrade", ports 55321/55322/...
 pnpm exec supabase start                 # applies the 0.1.x chain — a schema identical to production
 ```
@@ -120,12 +120,37 @@ one migration that touches them is guarded with `to_regclass`, so their absence
 is a clean no-op. Duplicate-key errors on the model catalog are the local seed
 meeting the same rows from production — harmless.
 
+**Restore the migration ledger too, or the rehearsal cannot see the one failure
+that stops the real deploy.** The dump above names data schemas only, so the
+copy starts with an empty `supabase_migrations.schema_migrations` and
+`db push --include-all` happily applies all 253 migrations from scratch.
+Production's ledger is not empty: it carries rows for migrations whose files no
+longer exist in 0.2.0 — the retired `memory` and `engenty-coordinator` modules —
+and `supabase db push` refuses to run at all while they are there:
+
+```
+Remote migration versions not found in local migrations directory.
+supabase migration repair --status reverted 20260616000700 20260721000000 \
+  20260722000000 20260804120000
+```
+
+Add the ledger to the dump to reproduce it:
+
+```bash
+--schema=supabase_migrations
+```
+
+Then run the repair the CLI prints, on the copy first and on production during
+§7. It rewrites four rows in the tracking table and touches no schema and no
+data; `--status applied` puts them back. The retired modules' own objects are
+dropped by 0.2.0's migrations, so nothing is left expecting them.
+
 Then count what you are about to lose, switch the worktree to the release, and
 count again:
 
 ```bash
 git checkout --detach origin/main          # or the release tag
-pnpm install && pnpm engenty setup
+pnpm install && pnpm engenty generate
 pnpm engenty db migrate
 pnpm exec supabase stop && pnpm exec supabase start   # PostgREST picks up the new schemas
 pnpm engenty doctor --url http://127.0.0.1:55321 --anon-key … --service-key …
@@ -153,13 +178,31 @@ restored copy: production keeps writing while you dump.
 
 ---
 
-## 1. Add the two new exposed schemas (before the deploy)
+## 1. Fix the exposed schemas (before the deploy)
 
-0.2.0 enables the **banking** and **expenses** modules, which create
-`module_banking` and `module_expenses`. Exposed schemas are Supabase project
-configuration, so no migration can add them — and PostgREST does not fail
-loudly when one is missing. `engenty-ai` crash-loops on `Could not query the
-database for the schema cache` instead.
+Exposed schemas are Supabase **project configuration**, so no migration can
+touch them — and 0.2.0 changes the list in both directions:
+
+- **Added:** `module_banking` and `module_expenses`. 0.2.0 enables the banking
+  and expenses modules, whose migrations create those schemas.
+- **Removed:** `module_memory`. 0.2.0 retires the Memory module and its
+  migrations **drop** that schema.
+
+The removal is the one that bites. A schema in the list that does not exist
+does **not** fail quietly and it is **not** a no-op — PostgREST refuses to build
+its schema cache at all:
+
+```
+Failed to load the schema cache using db-schemas=…,module_memory,…
+{"code":"3F000","message":"schema \"module_memory\" does not exist"}
+Attempting to reconnect to the database in 4 seconds…
+```
+
+Every request then answers `PGRST002 Could not query the database for the schema
+cache. Retrying.`, `engenty-edge` refuses to start on its server-lane preflight,
+and the whole site serves 503. The list is configuration, not state, so this
+survives restarting PostgREST and restarting the project — it clears only when
+the stale entry is removed.
 
 Print the list this release needs, from a 0.2.0 checkout:
 
@@ -167,24 +210,56 @@ Print the list this release needs, from a 0.2.0 checkout:
 node scripts/supabase-schemas.mjs
 ```
 
+**Replace the whole field with that list.** Do not append to what is there —
+appending leaves `module_memory` in place, which is exactly the failure above.
+
 - **Supabase Cloud:** Settings → API → Exposed schemas, or let the deploy
-  wizard do it (`node deploy/scripts/deploy-wizard.mjs`, Supabase step).
+  wizard do it (`pnpm engenty deploy`, Supabase step).
 - **Self-hosted:** `PGRST_DB_SCHEMAS` on the rest/postgrest service, then
   restart it.
 
-Doing this before the deploy is safe: exposing a schema that does not exist yet
-is a no-op, and it means PostgREST is ready the moment the migrations create
-them.
+### Doing it before the deploy, with no window
 
-**Do it before, not after.** The exposed-schema list reaches PostgREST as
-process configuration, so adding a schema needs PostgREST **restarted**, not
-just its cache reloaded — `NOTIFY pgrst, 'reload schema'` will not do it. The
-Supabase dashboard restarts it for you when you save; a self-hosted stack needs
-the rest service recreated so it picks up the new `PGRST_DB_SCHEMAS`. Getting
-this out of the way first is what keeps the deploy itself from being the moment
-you discover it. A rehearsal confirmed the failure mode: migrations applied
-cleanly, and `engenty doctor` still answered `Could not query the database for
-the schema cache` until the rest container was recreated.
+The list names two schemas the migrations have not created yet, so saving it
+first would break PostgREST for the same reason — unless you create them
+empty. Both module migrations are `create schema if not exists`, so this is
+compatible with what runs later:
+
+```bash
+psql "$SUPABASE_DB_URL" -c 'create schema if not exists module_banking;
+                            create schema if not exists module_expenses;'
+```
+
+Then save the new list. Dropping `module_memory` from it while 0.1.x is still
+running takes the Memory module's API offline for the minutes until you deploy;
+that module is being retired by this upgrade, so accept it rather than trying
+to sequence around it.
+
+**It has to be a restart, not a reload.** The list reaches PostgREST as process
+configuration, so `NOTIFY pgrst, 'reload schema'` will not do it. The Supabase
+dashboard restarts it for you when you save; a self-hosted stack needs the rest
+service recreated.
+
+### If you discover this mid-deploy
+
+The site is already down and the migrations have run, so:
+
+1. Get `engenty-migrate` to exit 0. The database work is independent of
+   PostgREST and completes fine once the ledger is repaired (§7) — check that
+   first, because the two failures look alike from the outside: both leave the
+   site at 503 with no containers serving.
+2. Replace the exposed-schema list and save.
+3. Confirm PostgREST is serving before redeploying — one request answers the
+   whole question, because a bogus profile makes it enumerate the list:
+
+   ```bash
+   curl -s -H "apikey: $SUPABASE_ANON_KEY" -H "Accept-Profile: __nope__" \
+     "$SUPABASE_URL/rest/v1/whatever"
+   ```
+
+   `PGRST106` with the schemas listed in the hint means it is healthy.
+   `PGRST002` means it is still looping.
+4. Redeploy, so `engenty-edge` and `engenty-ai` start against a working API.
 
 Confirm:
 
@@ -216,6 +291,40 @@ install -d -m 700 -o 1000 -g 1000 /opt/engenty/spaces
 ```
 
 This is tenant data with no other copy. Add it to your backups.
+
+### The proxy config files (new in 0.2.0)
+
+`engenty-egress-proxy` and `engenty-browser-proxy` bind four files from the
+application directory, beside the compose file:
+
+```
+browser-proxy/tinyproxy.conf   browser-proxy/filter
+egress-proxy/tinyproxy.conf    egress-proxy/filter
+```
+
+Nothing delivers them. If your deployment gets its compose from the control
+panel rather than a git checkout — Coolify's compose buildpack does — those
+paths do not exist on the host, and Docker creates them as **directories** on
+first `up`. The container then fails to start with
+
+```
+error mounting ".../browser-proxy/tinyproxy.conf" to rootfs at
+"/etc/tinyproxy/tinyproxy.conf": not a directory: Are you trying to mount a
+directory onto a file (or vice-versa)?
+```
+
+and the deploy aborts *after* the old containers are gone. Copy them up first,
+from a 0.2.0 checkout:
+
+```bash
+APP_DIR=/data/coolify/applications/<app-uuid>   # wherever the compose file lives
+ssh root@<host> "rm -rf $APP_DIR/browser-proxy $APP_DIR/egress-proxy"
+scp -r deploy/browser-proxy deploy/egress-proxy root@<host>:$APP_DIR/
+```
+
+`rm -rf` rather than `rmdir` because a failed deploy leaves the auto-created
+directories behind. They are always empty — Docker only ever creates the mount
+point — so there is nothing in them to lose.
 
 ### The egress network, if one already exists
 
@@ -260,6 +369,11 @@ Two consequences:
 - Anything of your own that pins `ghcr.io/engenty/engenty-edge` (a script, a
   Watchtower config, a second environment) now points at the **public** image,
   which carries none of the closed modules. Update those pins.
+- A **pre-pull script is the one that fails quietly**: it keeps pulling the old
+  names successfully, so nothing errors, and the real images then download
+  inside the deploy's own window — which is the window with no containers
+  serving. On this install that turned a recreate into gigabytes of transfer
+  mid-outage. Grep your host for `engenty-` image references before deploying.
 
 ---
 
@@ -330,6 +444,30 @@ diff <(git show v0.1.137:deploy/.env.example) deploy/.env.example
 107 migrations run before any container serves traffic, provided
 `SUPABASE_DB_URL` is set. Check that it is — without it the migrate step
 **skips silently** and the new images meet a 0.1.x schema.
+
+### Repair the migration ledger first
+
+`supabase db push` refuses to run while the tracking table names migrations
+whose files 0.2.0 no longer ships — the retired `memory` and
+`engenty-coordinator` modules leave four such rows on every 0.1.x install:
+
+```
+Remote migration versions not found in local migrations directory.
+supabase migration repair --status reverted 20260616000700 20260721000000 \
+  20260722000000 20260804120000
+```
+
+Run exactly that, against the same `SUPABASE_DB_URL` the deploy uses:
+
+```bash
+docker run --rm --entrypoint supabase ghcr.io/engenty/engenty-pro-migrate:latest \
+  migration repair --db-url "$SUPABASE_DB_URL" --status reverted \
+  20260616000700 20260721000000 20260722000000 20260804120000
+```
+
+Four rows in `supabase_migrations.schema_migrations`; no schema, no data.
+`--status applied` puts them back. Doing it before the deploy costs nothing —
+`engenty-migrate` exits 1 otherwise, and by then the old containers are gone.
 
 ### Blue-green
 
