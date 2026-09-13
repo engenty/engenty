@@ -159,6 +159,9 @@ async function checkAiService(deps: SetupChecksDeps): Promise<SetupCheck> {
     };
   }
   const url = `${deps.aiBaseUrl.replace(/\/+$/, "")}/ai/health`;
+  // A Portless name under plain `pnpm dev` is the shape the first test
+  // install hit; the URL block is what to change, not the process.
+  const portless = /^https:\/\/[^/]*\.localhost/i.test(deps.aiBaseUrl);
   try {
     const response = await (deps.fetchImpl ?? fetch)(url, {
       signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
@@ -170,7 +173,9 @@ async function checkAiService(deps: SetupChecksDeps): Promise<SetupCheck> {
   } catch (error) {
     return {
       detail: `${url} — ${errorText(error)}`,
-      fix: "pnpm dev  (apps/ai must be running; ENGENTY_AI_BASE_URL names it)",
+      fix: portless
+        ? "pnpm dev:urls:localhost && restart pnpm dev  (Portless URLs in .env.local, but the app runs on localhost — or start with pnpm dev:portless)"
+        : "pnpm dev  (apps/ai must be running; ENGENTY_AI_BASE_URL names it)",
       id: "ai_service",
       label,
       status: "fail",

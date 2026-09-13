@@ -59,6 +59,6 @@ describe("probeAiServiceFromBrowser", () => {
       throw new TypeError("Failed to fetch");
     }) as typeof fetch);
     expect(check.status).toBe("fail");
-    expect(check.fix).toContain("pnpm");
+    expect(check.fix).toContain("pnpm dev:urls:localhost");
   });
 });

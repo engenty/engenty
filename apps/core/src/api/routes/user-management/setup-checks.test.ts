@@ -71,6 +71,7 @@ describe("runSetupChecks", () => {
     const ai = checks.find((c) => c.id === "ai_service");
     expect(ai?.status).toBe("fail");
     expect(ai?.detail).toContain("https://engenty.localhost/ai/health");
+    expect(ai?.fix).toContain("pnpm dev:urls:localhost");
     expect(checks.some((c) => c.id === "baseline_modules")).toBe(false);
   });
 

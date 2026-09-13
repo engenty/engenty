@@ -331,7 +331,7 @@ function CheckRow({ check }: { check: SetupCheck }) {
         </span>
       </div>
       {check.fix ? (
-        <pre className="ml-6 overflow-x-auto rounded-[4px] bg-muted px-2 py-1 text-xs">
+        <pre className="ml-6 whitespace-pre-wrap break-words rounded-[4px] bg-muted px-2 py-1 text-xs">
           {check.fix}
         </pre>
       ) : null}

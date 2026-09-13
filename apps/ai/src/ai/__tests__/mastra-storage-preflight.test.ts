@@ -48,10 +48,14 @@ describe("ensureMastraStorageReachable", () => {
     process.env.SUPABASE_DB_URL =
       "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
     const probe = vi.fn().mockResolvedValue(undefined);
+    // Both probes stubbed: without the schema one this test reached a real
+    // Postgres — green on a dev machine with the stack up, ECONNREFUSED in CI.
+    const schemaProbe = vi.fn().mockResolvedValue([]);
     await expect(
-      ensureMastraStorageReachable({ logger: silentLogger, probe })
+      ensureMastraStorageReachable({ logger: silentLogger, probe, schemaProbe })
     ).resolves.toBeUndefined();
     expect(probe).toHaveBeenCalledWith(process.env.SUPABASE_DB_URL);
+    expect(schemaProbe).toHaveBeenCalledWith(process.env.SUPABASE_DB_URL);
   });
 
   it("fails loud with a Supabase-start hint when the DB stays unreachable", async () => {

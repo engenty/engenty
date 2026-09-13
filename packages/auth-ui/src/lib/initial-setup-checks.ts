@@ -129,7 +129,7 @@ export async function probeAiServiceFromBrowser(
     return {
       detail: `${url} — ${error instanceof Error ? error.message : String(error)}`,
       fix: isPortless
-        ? 'pnpm engenty env init  → answer "http://localhost:5173" when asked how you open engenty, or start with pnpm dev:portless'
+        ? "pnpm dev:urls:localhost && restart pnpm dev  (Portless URLs in .env.local, but the app runs on localhost — or start with pnpm dev:portless)"
         : "pnpm dev  (apps/ai must be running); check VITE_ENGENTY_AI_BASE_URL in .env.local",
       id: "ai_service_browser",
       label,
