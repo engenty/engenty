@@ -149,15 +149,6 @@ describe("ensureFirstSpace", () => {
     });
   });
 
-  it("keeps the default untouched when no name is given", async () => {
-    const calls = stubApi({ "/api/spaces": [company] });
-    expect(await ensureFirstSpace({ accessToken: "t", name: null })).toEqual({
-      key: "company",
-      name: "Company",
-    });
-    expect(calls.every((c) => c.method === "GET")).toBe(true);
-  });
-
   it("creates the space when the tenant has no default", async () => {
     const calls = stubApi({
       "/api/spaces": [personal],

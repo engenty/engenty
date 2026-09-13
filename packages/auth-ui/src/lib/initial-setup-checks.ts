@@ -59,7 +59,12 @@ async function setupJson<T>(
     throw dbErr;
   }
   if (!response.ok) {
-    throw new Error(readSetupApiErrorMessage(payload, fallbackMessage));
+    throw new Error(
+      readSetupApiErrorMessage(
+        payload,
+        `${fallbackMessage} (HTTP ${response.status} — is the core API running?)`
+      )
+    );
   }
   const body = payload as { data?: T };
   return (body?.data ?? payload) as T;

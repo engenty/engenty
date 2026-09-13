@@ -72,7 +72,14 @@ async function setupFetch<T>(
     throw dbErr;
   }
   if (!response.ok) {
-    throw new Error(readSetupApiErrorMessage(payload, fallbackMessage));
+    // The status is the only clue when the body carries no message — a dev
+    // proxy answering for a core that is restarting says nothing else.
+    throw new Error(
+      readSetupApiErrorMessage(
+        payload,
+        `${fallbackMessage} (HTTP ${response.status} — is the core API running?)`
+      )
+    );
   }
   const body = payload as { data?: T };
   return (body?.data ?? payload) as T;
@@ -162,11 +169,12 @@ export function firstSpaceKey(name: string, taken: readonly string[]): string {
  * this is the one moment re-keying is free: nobody has a link to it yet. A
  * tenant with no default space (a trigger that did not fire, a database
  * migrated by hand) gets one created instead of an error the admin can only
- * skip past. `name: null` keeps the default's name and key.
+ * skip past. The name is required: the trigger's "Company" is a placeholder,
+ * not a default anyone should keep.
  */
 export async function ensureFirstSpace(params: {
   accessToken: string;
-  name: string | null;
+  name: string;
 }): Promise<{ key: string; name: string }> {
   const spaces = await setupFetch<SpaceRow[]>(
     "/api/spaces",
@@ -176,7 +184,7 @@ export async function ensureFirstSpace(params: {
   );
   const target = spaces.find((space) => space.isDefault);
   if (!target) {
-    const name = params.name ?? "Company";
+    const name = params.name;
     const created = await setupFetch<SpaceRow>(
       "/api/spaces",
       params.accessToken,
@@ -193,9 +201,6 @@ export async function ensureFirstSpace(params: {
       "Could not create the first space."
     );
     return { key: created.key, name: created.name };
-  }
-  if (params.name === null) {
-    return { key: target.key, name: target.name };
   }
   const mounts = await setupFetch<SetupSpaceMount[]>(
     `/api/spaces/${encodeURIComponent(target.id)}/mounts`,

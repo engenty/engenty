@@ -896,18 +896,16 @@ function Step4SpaceForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (rename: boolean) => {
+  const run = async () => {
     setError(null);
     const name = spaceName.trim();
-    if (rename && !name) {
+    if (!name) {
       setError("A space name is required.");
       return;
     }
     setSubmitting(true);
     try {
-      onComplete(
-        await ensureFirstSpace({ accessToken, name: rename ? name : null })
-      );
+      onComplete(await ensureFirstSpace({ accessToken, name }));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to set up the space."
@@ -921,7 +919,7 @@ function Step4SpaceForm({
       className="flex flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
-        void run(true);
+        void run();
       }}
     >
       <div className="flex flex-col gap-1.5">
@@ -969,9 +967,6 @@ function Step4SpaceForm({
         )}
         {submitting ? "Saving…" : "Create space"}
       </Button>
-      <SkipLink disabled={submitting} onClick={() => void run(false)}>
-        Keep the default "Company"
-      </SkipLink>
     </form>
   );
 }
