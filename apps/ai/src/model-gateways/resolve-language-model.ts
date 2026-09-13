@@ -13,10 +13,8 @@
 
 import {
   DEFAULT_MODEL_GATEWAY_ID,
-  OPENROUTER_GATEWAY_ID,
-  openRouterLanguageModel,
+  gatewayLanguageModel,
   parseModelRef,
-  UnconfiguredModelGatewayError,
   withLlmTrace,
 } from "@engenty/ai-core";
 import { gateway, type LanguageModel, wrapLanguageModel } from "ai";
@@ -40,14 +38,6 @@ export function resolveLanguageModel(modelRef: string): LanguageModel | string {
     return modelId;
   }
 
-  if (gatewayId === OPENROUTER_GATEWAY_ID) {
-    // No file middleware here: it exists to work around the Vercel gateway
-    // rewriting inline bytes into a `fileUri` that Vertex rejects. OpenRouter
-    // takes standard OpenAI file parts, so running it would re-encode parts
-    // that were already correct.
-    return openRouterLanguageModel(modelId);
-  }
-
   if (gatewayId === DEFAULT_MODEL_GATEWAY_ID) {
     return withLlmTrace(
       wrapLanguageModel({
@@ -57,9 +47,13 @@ export function resolveLanguageModel(modelRef: string): LanguageModel | string {
     );
   }
 
-  // A gateway with a catalog adapter but no runtime binding yet. Better to say
-  // so than to route it somewhere it was never meant to go.
-  throw new UnconfiguredModelGatewayError(gatewayId, "a gateway credential");
+  // No file middleware here: it exists to work around the Vercel gateway
+  // rewriting inline bytes into a `fileUri` that Vertex rejects. The other
+  // gateways and the direct vendors take standard file parts, so running it
+  // would re-encode parts that were already correct. A gateway with no key
+  // throws `UnconfiguredModelGatewayError` naming its env var rather than
+  // falling back — see `gatewayLanguageModel`.
+  return gatewayLanguageModel(gatewayId, modelId);
 }
 
 /**

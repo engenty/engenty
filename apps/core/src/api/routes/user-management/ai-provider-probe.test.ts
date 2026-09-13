@@ -63,4 +63,41 @@ describe("probeAiProviderKey", () => {
       "Bearer secret"
     );
   });
+
+  // Anthropic ignores a bearer: the key goes in `x-api-key` with a version
+  // header, or every key — live or dead — comes back 401.
+  it("uses Anthropic's own header pair for a direct Anthropic key", async () => {
+    let seen: { headers?: HeadersInit; url?: string } = {};
+    await probeAiProviderKey({
+      apiKey: "sk-ant-secret",
+      fetchImpl: (async (url: string | URL | Request, init?: RequestInit) => {
+        seen = { headers: init?.headers, url: String(url) };
+        return new Response("{}", { status: 200 });
+      }) as typeof fetch,
+      gateway: "anthropic",
+    });
+    expect(seen.url).toBe("https://api.anthropic.com/v1/models?limit=1");
+    const headers = seen.headers as Record<string, string>;
+    expect(headers["x-api-key"]).toBe("sk-ant-secret");
+    expect(headers["anthropic-version"]).toBe("2023-06-01");
+    expect(headers.authorization).toBeUndefined();
+  });
+
+  it("probes the keyed catalogs for Opper and OpenAI", async () => {
+    const urls: string[] = [];
+    for (const gateway of ["opper", "openai"] as const) {
+      await probeAiProviderKey({
+        apiKey: "k",
+        fetchImpl: (async (url: string | URL | Request) => {
+          urls.push(String(url));
+          return new Response("{}", { status: 200 });
+        }) as typeof fetch,
+        gateway,
+      });
+    }
+    expect(urls).toEqual([
+      "https://api.opper.ai/v3/compat/models",
+      "https://api.openai.com/v1/models",
+    ]);
+  });
 });

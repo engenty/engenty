@@ -1,22 +1,63 @@
 /**
  * "Test key" for the first-run wizard and the Platform settings page.
  *
- * Neither gateway needs a credential to list its catalog, so the catalog says
- * nothing about a key. Each has one cheap authenticated endpoint that spends
- * no tokens: it answers 200 for a live key and 401 for a dead one.
+ * Each gateway has one cheap authenticated endpoint that spends no tokens: it
+ * answers 200 for a live key and 401 for a dead one. For the two hosted
+ * gateways that is an account endpoint (their catalogs are public and would
+ * say nothing about a key); for the direct vendors and Opper it is the model
+ * list itself, which is keyed.
  */
-export type AiProviderGateway = "vercel" | "openrouter";
+export type AiProviderGateway =
+  | "vercel"
+  | "openrouter"
+  | "opper"
+  | "openai"
+  | "anthropic";
+
+export interface AiProviderGatewaySpec {
+  envKey: string;
+  headers: (apiKey: string) => Record<string, string>;
+  label: string;
+  probeUrl: string;
+}
+
+const bearer = (apiKey: string): Record<string, string> => ({
+  authorization: `Bearer ${apiKey}`,
+});
 
 export const AI_PROVIDER_GATEWAYS: Readonly<
-  Record<AiProviderGateway, { envKey: string; label: string; probeUrl: string }>
+  Record<AiProviderGateway, AiProviderGatewaySpec>
 > = {
+  anthropic: {
+    envKey: "ANTHROPIC_API_KEY",
+    headers: (apiKey) => ({
+      "anthropic-version": "2023-06-01",
+      "x-api-key": apiKey,
+    }),
+    label: "Anthropic",
+    probeUrl: "https://api.anthropic.com/v1/models?limit=1",
+  },
+  openai: {
+    envKey: "OPENAI_API_KEY",
+    headers: bearer,
+    label: "OpenAI",
+    probeUrl: "https://api.openai.com/v1/models",
+  },
   openrouter: {
     envKey: "OPENROUTER_API_KEY",
+    headers: bearer,
     label: "OpenRouter",
     probeUrl: "https://openrouter.ai/api/v1/key",
   },
+  opper: {
+    envKey: "OPPER_API_KEY",
+    headers: bearer,
+    label: "Opper",
+    probeUrl: "https://api.opper.ai/v3/compat/models",
+  },
   vercel: {
     envKey: "AI_GATEWAY_API_KEY",
+    headers: bearer,
     label: "Vercel AI Gateway",
     probeUrl: "https://ai-gateway.vercel.sh/v1/credits",
   },
@@ -25,7 +66,7 @@ export const AI_PROVIDER_GATEWAYS: Readonly<
 export function isAiProviderGateway(
   value: unknown
 ): value is AiProviderGateway {
-  return value === "vercel" || value === "openrouter";
+  return typeof value === "string" && value in AI_PROVIDER_GATEWAYS;
 }
 
 export interface AiProviderProbeResult {
@@ -44,7 +85,7 @@ export async function probeAiProviderKey(params: {
   const gateway = AI_PROVIDER_GATEWAYS[params.gateway];
   try {
     const response = await (params.fetchImpl ?? fetch)(gateway.probeUrl, {
-      headers: { authorization: `Bearer ${params.apiKey}` },
+      headers: gateway.headers(params.apiKey),
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
     if (response.ok) {

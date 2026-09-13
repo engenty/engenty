@@ -44,6 +44,9 @@ const HTTP_TIMEOUT_MS = 3000;
 export const AI_PROVIDER_ENV_KEYS = [
   "AI_GATEWAY_API_KEY",
   "OPENROUTER_API_KEY",
+  "OPPER_API_KEY",
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
 ] as const;
 
 function hostOf(url: string | null): string {

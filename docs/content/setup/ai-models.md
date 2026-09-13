@@ -40,25 +40,33 @@ the **provider** that made them — Anthropic is a provider, and the gateway is
 whoever you reach it through. The catalog stores both, so the same model served
 by two gateways is two rows with their own pricing and availability.
 
-Two gateways ship built in:
+Five gateways ship built in:
 
 | Gateway | Key | Serves |
 | --- | --- | --- |
 | **Vercel AI Gateway** | `AI_GATEWAY_API_KEY` | Chat, embeddings, images, transcription. The default. |
 | **OpenRouter** | `OPENROUTER_API_KEY` | Chat models only. |
+| **Opper** | `OPPER_API_KEY` | Chat models only. EU-hosted, OpenAI-compatible. |
+| **OpenAI** (direct) | `OPENAI_API_KEY` | OpenAI chat models on your own account. Also powers realtime voice. |
+| **Anthropic** (direct) | `ANTHROPIC_API_KEY` | Claude models on your own account. |
 
-Set both keys if you want both catalogs. They are independent — a role bound to
-OpenRouter and a role bound to Vercel run side by side, and leaving
-`OPENROUTER_API_KEY` unset simply means every role stays on Vercel.
+Set as many keys as you want catalogs. They are independent — a role bound to
+OpenRouter and a role bound to Vercel run side by side, and leaving a key unset
+simply means no role can be bound to that gateway.
 
-OpenRouter serves no embedding, reranking, or transcription models, so search
-indexing, retrieval, and voice always go through Vercel regardless of how chat
-roles are bound.
+Only the Vercel gateway serves embedding, reranking, and transcription models,
+so search indexing, retrieval, and voice always go through Vercel regardless of
+how chat roles are bound.
 
-The OpenRouter catalog is listed without a key, so you can browse and compare
-prices before deciding to sign up. A role bound to a gateway with no key fails
+The Vercel and OpenRouter catalogs are listed without a key, so you can browse
+and compare prices before deciding to sign up. Opper and the two direct vendors
+list their models only with a key: their rows appear after the key is saved
+(the settings page triggers a sync for that gateway). The direct vendors
+publish no prices; a direct row shows the price of the same model id from the
+Vercel or OpenRouter catalog when one exists (`openai/gpt-4o` is the same id on
+all three), and no price otherwise. A role bound to a gateway with no key fails
 with a message naming the missing variable, rather than quietly falling back to
-the other gateway and billing you somewhere you did not expect.
+another gateway and billing you somewhere you did not expect.
 
 Further gateways are added by registering an adapter; see the developer guide.
 

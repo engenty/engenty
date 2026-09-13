@@ -116,6 +116,7 @@ export {
   type ResolvedModel,
 } from "./config/model-purposes.js";
 export {
+  ANTHROPIC_GATEWAY_ID,
   DEFAULT_MODEL_GATEWAY_ID,
   formatModelRef,
   gatewayOfRef,
@@ -123,8 +124,11 @@ export {
   MODEL_GATEWAY_IDS,
   type ModelRef,
   modelIdOfRef,
+  OPENAI_GATEWAY_ID,
   OPENROUTER_GATEWAY_ID,
+  OPPER_GATEWAY_ID,
   parseModelRef,
+  vendorModelId,
 } from "./config/model-ref.js";
 export {
   AI_EFFORT_LEVELS,

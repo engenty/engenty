@@ -102,7 +102,25 @@
         "secret": false
       },
       {
-        "description": "OpenAI API key (optional fallback model provider / realtime voice).",
+        "description": "Opper API key — a third model gateway (OpenAI-compatible, EU-hosted). Chat models only; its catalog is listed once the key is set.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "OPPER_API_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "1. Open https://platform.opper.ai → API keys",
+            "2. Create a key and copy it"
+          ],
+          "url": "https://docs.opper.ai"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "OpenAI API key — reaches OpenAI directly as a model gateway (chat models) and powers realtime voice.",
         "feature": "ai",
         "group": "AI",
         "key": "OPENAI_API_KEY",
@@ -113,6 +131,23 @@
             "Create a key under API keys in the OpenAI platform."
           ],
           "url": "https://platform.openai.com/api-keys"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "Anthropic API key — reaches Anthropic directly as a model gateway (chat models).",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ANTHROPIC_API_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "Create a key under API keys in the Anthropic console."
+          ],
+          "url": "https://console.anthropic.com/settings/keys"
         },
         "required": "optional",
         "scopes": ["root", "deploy"],

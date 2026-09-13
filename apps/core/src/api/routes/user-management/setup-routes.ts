@@ -143,12 +143,12 @@ export function registerUserManagementSetupRoutes(
     let modelCount: number | null = null;
     const client = params.setupChecks?.getServiceClient() ?? null;
     if (client) {
-      const gatewayId = body.gateway === "vercel" ? "vercel" : "openrouter";
+      // The gateway id is the `ai.model.gateway` value (model-ref.ts).
       const counted = await client
         .schema("ai")
         .from("model")
         .select("model_id", { count: "exact", head: true })
-        .eq("gateway", gatewayId);
+        .eq("gateway", body.gateway);
       modelCount = counted.error ? null : (counted.count ?? 0);
     }
     return jsonApiSuccess(c, {

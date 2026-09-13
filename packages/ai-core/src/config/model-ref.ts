@@ -33,6 +33,19 @@ export const DEFAULT_MODEL_GATEWAY_ID = "vercel";
 export const OPENROUTER_GATEWAY_ID = "openrouter";
 
 /**
+ * The vendors reached directly, without a gateway in between. Their catalog
+ * rows keep the `provider/model` id shape (`openai/gpt-4o`,
+ * `anthropic/claude-sonnet-4-5`) so that provider grants, pricing rows and the
+ * `/` shape check treat them exactly like the same model on a gateway; the
+ * vendor prefix is dropped again at the wire (see `vendorModelId`).
+ */
+export const OPENAI_GATEWAY_ID = "openai";
+export const ANTHROPIC_GATEWAY_ID = "anthropic";
+
+/** Opper: an OpenAI-compatible gateway with an EU footprint. */
+export const OPPER_GATEWAY_ID = "opper";
+
+/**
  * Gateways the platform ships. Registration in `apps/ai/src/model-gateways` is
  * the runtime source of truth; this is the vocabulary shared with the browser,
  * which has no registry. Adding a built-in gateway means adding it here too, or
@@ -41,7 +54,25 @@ export const OPENROUTER_GATEWAY_ID = "openrouter";
 export const MODEL_GATEWAY_IDS: readonly string[] = [
   DEFAULT_MODEL_GATEWAY_ID,
   OPENROUTER_GATEWAY_ID,
+  OPENAI_GATEWAY_ID,
+  ANTHROPIC_GATEWAY_ID,
+  OPPER_GATEWAY_ID,
 ];
+
+/**
+ * The id a direct vendor expects on the wire. The catalog says
+ * `openai/gpt-4o`; OpenAI's API wants `gpt-4o`. Only the vendor's own prefix
+ * is stripped, and only for the two direct gateways — a gateway's ids
+ * (`openrouter`, `opper`) already carry the vendor and go through untouched.
+ */
+export function vendorModelId(gateway: string, modelId: string): string {
+  const head = gateway.trim().toLowerCase();
+  if (head !== OPENAI_GATEWAY_ID && head !== ANTHROPIC_GATEWAY_ID) {
+    return modelId;
+  }
+  const prefix = `${head}/`;
+  return modelId.startsWith(prefix) ? modelId.slice(prefix.length) : modelId;
+}
 
 export interface ModelRef {
   gateway: string;

@@ -18,6 +18,8 @@ import { OBSERVABILITY_SETTING_KEYS } from "../ai/observability.js";
 
 export const AI_PLATFORM_SETTING_KEYS: readonly string[] = [
   "AI_GATEWAY_API_KEY",
+  // Direct Anthropic: a model gateway of its own (model-gateways/).
+  "ANTHROPIC_API_KEY",
   "ELEVENLABS_API_KEY",
   // The remote-channel master switch is platform-configurable, so the Setup UI
   // offers it — without hydration that toggle would silently do nothing here,
@@ -29,6 +31,7 @@ export const AI_PLATFORM_SETTING_KEYS: readonly string[] = [
   // instead of it: a role bound to OpenRouter and a role bound to Vercel run
   // in the same process.
   "OPENROUTER_API_KEY",
+  "OPPER_API_KEY",
   "SLACK_BOT_TOKEN",
   "SLACK_SIGNING_SECRET",
   "TELEGRAM_BOT_TOKEN",

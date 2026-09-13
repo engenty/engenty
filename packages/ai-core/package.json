@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@11ty/gray-matter": "^2.1.0",
+    "@ai-sdk/anthropic": "4.0.40",
     "@ai-sdk/openai": "^4.0.36",
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/telemetry": "workspace:*",

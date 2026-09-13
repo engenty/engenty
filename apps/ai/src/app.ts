@@ -2,7 +2,11 @@ import type {
   AiUsageStore,
   DynamicAiModuleCapabilityLoader,
 } from "@engenty/ai-core";
-import { installGatewayAwareDefaultProvider } from "@engenty/ai-core";
+import {
+  gatewayApiKeyEnvName,
+  installGatewayAwareDefaultProvider,
+  MODEL_GATEWAY_IDS,
+} from "@engenty/ai-core";
 import { isEngentyCorsOriginAllowed } from "@engenty/environment";
 import {
   createPluginEventsRuntime,
@@ -137,7 +141,9 @@ import {
   bootstrapGatewayModelsIfEmpty,
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
+import { syncGatewayModels } from "./gateway-models.js";
 import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
+import { getModelGateway } from "./model-gateways/index.js";
 import { startNotificationDelivery } from "./notifications/inbox.js";
 import { resolveRunNotifications } from "./notifications/run-notifications.js";
 import {
@@ -912,7 +918,37 @@ export async function createApp(options: CreateAppOptions = {}) {
   registerAiSettingsRoutes(app, { scopeResolver });
   registerSettingsReloadRoutes(app, {
     bootOnlyKeys: () => bootOnlyAiSettingKeys(),
-    reload: () => hydrateAiPlatformSettings(logger, { reload: true }),
+    reload: async () => {
+      const result = await hydrateAiPlatformSettings(logger, { reload: true });
+      // A gateway that lists its models only with a key (Opper, the direct
+      // vendors) has an empty half of the catalog until one exists. Saving
+      // the key in the browser is that moment: sync just those gateways, in
+      // the background, so the picker fills without a restart or a manual
+      // POST /ai/v1/gateway/models/sync.
+      const keyed = MODEL_GATEWAY_IDS.filter((id) => {
+        const envKey = gatewayApiKeyEnvName(id);
+        return envKey !== null && result.hydrated.includes(envKey);
+      })
+        .map((id) => getModelGateway(id))
+        .filter((gateway) => gateway !== null);
+      if (isGatewayModelStore(aiUsageStore) && keyed.length > 0) {
+        void syncGatewayModels(aiUsageStore, {
+          gateways: keyed,
+          trigger: "manual",
+        })
+          .then((sync) => {
+            logger.info("gateway catalog synced after settings reload", {
+              byGateway: sync.by_gateway,
+            });
+          })
+          .catch((err) => {
+            logger.warn("gateway catalog sync after settings reload failed", {
+              error: String(err),
+            });
+          });
+      }
+      return result;
+    },
     scopeResolver,
   });
   // External channel ingress (registerExternalChannelRoutes) ran inbound channel

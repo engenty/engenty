@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  gatewayLanguageModel,
   installGatewayAwareDefaultProvider,
   openRouterLanguageModel,
   resetGatewayAwareDefaultProviderForTests,
@@ -27,6 +28,9 @@ function defaultProvider() {
 beforeEach(() => {
   process.env.AI_GATEWAY_API_KEY = "vercel-test-key";
   delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPPER_API_KEY;
   resetGatewayAwareDefaultProviderForTests();
 });
 
@@ -64,6 +68,53 @@ describe("openRouterLanguageModel", () => {
   });
 });
 
+describe("gatewayLanguageModel", () => {
+  // The catalog says `openai/gpt-4o` so pricing and grants line up with the
+  // gateways' rows; OpenAI's own API only knows `gpt-4o`.
+  it("strips the vendor prefix for a direct OpenAI call", () => {
+    process.env.OPENAI_API_KEY = "sk-test";
+    expect(modelIdOf(gatewayLanguageModel("openai", "openai/gpt-4o"))).toBe(
+      "gpt-4o"
+    );
+  });
+
+  it("strips the vendor prefix for a direct Anthropic call", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    expect(
+      modelIdOf(
+        gatewayLanguageModel("anthropic", "anthropic/claude-sonnet-4-5")
+      )
+    ).toBe("claude-sonnet-4-5");
+  });
+
+  it("sends an Opper id through untouched — Opper ids already carry the vendor", () => {
+    process.env.OPPER_API_KEY = "op-test";
+    expect(
+      modelIdOf(gatewayLanguageModel("opper", "anthropic/claude-sonnet-4.5"))
+    ).toBe("anthropic/claude-sonnet-4.5");
+  });
+
+  it("names each gateway's own env var when the key is missing", () => {
+    expect(() => gatewayLanguageModel("openai", "openai/gpt-4o")).toThrow(
+      /OPENAI_API_KEY/
+    );
+    expect(() =>
+      gatewayLanguageModel("anthropic", "anthropic/claude-sonnet-4-5")
+    ).toThrow(/ANTHROPIC_API_KEY/);
+    expect(() => gatewayLanguageModel("opper", "openai/gpt-4o")).toThrow(
+      /OPPER_API_KEY/
+    );
+  });
+
+  it("rebuilds the client when the key rotates", () => {
+    process.env.OPENAI_API_KEY = "sk-one";
+    const first = gatewayLanguageModel("openai", "openai/gpt-4o");
+    process.env.OPENAI_API_KEY = "sk-two";
+    const second = gatewayLanguageModel("openai", "openai/gpt-4o");
+    expect(second).not.toBe(first);
+  });
+});
+
 describe("installGatewayAwareDefaultProvider", () => {
   it("installs a provider on globalThis", () => {
     expect(defaultProvider()).toBeUndefined();
@@ -85,6 +136,15 @@ describe("installGatewayAwareDefaultProvider", () => {
       "openrouter:openai/gpt-4o"
     ) as { modelId?: string };
     expect(model.modelId).toBe("openai/gpt-4o");
+  });
+
+  it("routes a direct-vendor ref to the vendor with the wire id", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    installGatewayAwareDefaultProvider();
+    const model = defaultProvider()?.languageModel(
+      "anthropic:anthropic/claude-sonnet-4-5"
+    ) as { modelId?: string };
+    expect(model.modelId).toBe("claude-sonnet-4-5");
   });
 
   it("leaves a bare id on the default gateway, exactly as before", () => {

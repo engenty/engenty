@@ -140,7 +140,12 @@ export async function probeAiServiceFromBrowser(
 
 // ─── AI provider step ────────────────────────────────────────────────────────
 
-export type AiProviderGateway = "vercel" | "openrouter";
+export type AiProviderGateway =
+  | "vercel"
+  | "openrouter"
+  | "opper"
+  | "openai"
+  | "anthropic";
 
 export interface AiProviderOption {
   blurb: string;
@@ -151,6 +156,11 @@ export interface AiProviderOption {
   placeholder: string;
 }
 
+/**
+ * The order is the recommendation: the two gateways that serve every kind of
+ * model first, then the direct vendors, whose keys cover chat only (search
+ * indexing and voice still go through the Vercel gateway).
+ */
 export const AI_PROVIDER_OPTIONS: readonly AiProviderOption[] = [
   {
     blurb:
@@ -168,6 +178,31 @@ export const AI_PROVIDER_OPTIONS: readonly AiProviderOption[] = [
     keyUrl: "https://openrouter.ai/settings/keys",
     label: "OpenRouter",
     placeholder: "sk-or-…",
+  },
+  {
+    blurb:
+      "EU-hosted gateway, chat models only; the catalog appears once the key is saved.",
+    envKey: "OPPER_API_KEY",
+    gateway: "opper",
+    keyUrl: "https://platform.opper.ai",
+    label: "Opper",
+    placeholder: "op-…",
+  },
+  {
+    blurb: "Direct: OpenAI chat models on your own OpenAI account.",
+    envKey: "OPENAI_API_KEY",
+    gateway: "openai",
+    keyUrl: "https://platform.openai.com/api-keys",
+    label: "OpenAI",
+    placeholder: "sk-…",
+  },
+  {
+    blurb: "Direct: Claude models on your own Anthropic account.",
+    envKey: "ANTHROPIC_API_KEY",
+    gateway: "anthropic",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    label: "Anthropic",
+    placeholder: "sk-ant-…",
   },
 ];
 

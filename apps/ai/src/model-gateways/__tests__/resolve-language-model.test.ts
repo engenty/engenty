@@ -7,6 +7,9 @@ const ORIGINAL = { ...process.env };
 beforeEach(() => {
   process.env.AI_GATEWAY_API_KEY = "vercel-test-key";
   delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPPER_API_KEY;
 });
 
 afterEach(() => {
@@ -61,5 +64,27 @@ describe("resolveLanguageModel", () => {
       expect(err).toBeInstanceOf(UnconfiguredModelGatewayError);
       expect((err as UnconfiguredModelGatewayError).gateway).toBe("openrouter");
     }
+  });
+
+  it("builds a direct-vendor model with the vendor's own wire id", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const model = resolveLanguageModel(
+      "anthropic:anthropic/claude-sonnet-4-5"
+    ) as { modelId?: string };
+    expect(model.modelId).toBe("claude-sonnet-4-5");
+  });
+
+  it("builds an Opper model with the catalog id verbatim", () => {
+    process.env.OPPER_API_KEY = "op-test";
+    const model = resolveLanguageModel("opper:openai/gpt-4o") as {
+      modelId?: string;
+    };
+    expect(model.modelId).toBe("openai/gpt-4o");
+  });
+
+  it("names the direct vendor's env var when its key is missing", () => {
+    expect(() => resolveLanguageModel("openai:openai/gpt-4o")).toThrow(
+      /OPENAI_API_KEY/
+    );
   });
 });

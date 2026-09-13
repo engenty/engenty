@@ -1,11 +1,17 @@
 import { env } from "@engenty/telemetry";
 import {
+  ANTHROPIC_GATEWAY_ID,
   DEFAULT_MODEL_GATEWAY_ID,
+  OPENAI_GATEWAY_ID,
   OPENROUTER_GATEWAY_ID,
+  OPPER_GATEWAY_ID,
 } from "./model-ref.js";
 
 const AI_GATEWAY_API_KEY_ENV = "AI_GATEWAY_API_KEY";
 const OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY";
+const OPENAI_API_KEY_ENV = "OPENAI_API_KEY";
+const ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY";
+const OPPER_API_KEY_ENV = "OPPER_API_KEY";
 
 /**
  * Which env var holds each gateway's credential.
@@ -18,6 +24,11 @@ const OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY";
 const GATEWAY_API_KEY_ENV: Readonly<Record<string, string>> = {
   [DEFAULT_MODEL_GATEWAY_ID]: AI_GATEWAY_API_KEY_ENV,
   [OPENROUTER_GATEWAY_ID]: OPENROUTER_API_KEY_ENV,
+  // `OPENAI_API_KEY` predates the gateway: realtime voice reads it directly.
+  // Listing it here is what makes a voice-only key also serve chat models.
+  [OPENAI_GATEWAY_ID]: OPENAI_API_KEY_ENV,
+  [ANTHROPIC_GATEWAY_ID]: ANTHROPIC_API_KEY_ENV,
+  [OPPER_GATEWAY_ID]: OPPER_API_KEY_ENV,
 };
 
 function read(envKey: string): string | null {

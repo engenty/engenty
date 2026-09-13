@@ -7,6 +7,7 @@ import {
   modelIdOfRef,
   OPENROUTER_GATEWAY_ID,
   parseModelRef,
+  vendorModelId,
 } from "../model-ref.js";
 
 describe("parseModelRef", () => {
@@ -115,5 +116,33 @@ describe("accessors", () => {
   it("isNonDefaultGatewayRef distinguishes the two", () => {
     expect(isNonDefaultGatewayRef("openai/gpt-4o")).toBe(false);
     expect(isNonDefaultGatewayRef("openrouter:openai/gpt-4o")).toBe(true);
+  });
+});
+
+describe("vendorModelId", () => {
+  it("drops the vendor's own prefix for the direct gateways", () => {
+    expect(vendorModelId("openai", "openai/gpt-4o")).toBe("gpt-4o");
+    expect(vendorModelId("anthropic", "anthropic/claude-sonnet-4-5")).toBe(
+      "claude-sonnet-4-5"
+    );
+  });
+
+  it("leaves gateway ids alone — they carry the vendor on purpose", () => {
+    expect(vendorModelId("opper", "anthropic/claude-sonnet-4.5")).toBe(
+      "anthropic/claude-sonnet-4.5"
+    );
+    expect(vendorModelId("openrouter", "openai/gpt-4o")).toBe("openai/gpt-4o");
+    expect(vendorModelId("vercel", "openai/gpt-4o")).toBe("openai/gpt-4o");
+  });
+
+  it("parses the direct gateways as ref heads", () => {
+    expect(parseModelRef("anthropic:anthropic/claude-sonnet-4-5")).toEqual({
+      gateway: "anthropic",
+      modelId: "anthropic/claude-sonnet-4-5",
+    });
+    expect(parseModelRef("opper:openai/gpt-4o")).toEqual({
+      gateway: "opper",
+      modelId: "openai/gpt-4o",
+    });
   });
 });
