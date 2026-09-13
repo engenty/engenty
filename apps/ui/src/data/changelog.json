@@ -1,7 +1,121 @@
 [
   {
+    "version": "v0.3.0",
+    "timestamp": 1789324671,
+    "commits": [
+      {
+        "id": "77d689f",
+        "message": "phone layout — Apps in the nav, smaller crew, 16px gutters",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bcf4722",
+        "message": "landing built from colour bands, app groups and standing engenties",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b87352b",
+        "message": "routine-event bridge takes its service client from the auth-stores adapter",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "dad3be2",
+        "message": "jelly coat for the large engenties, decal extras on both coats, styleguide row",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9419414",
+        "message": "write SUPABASE_JWT_SECRET from supabase status; gate row for the tenant lane",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "afaccc7",
+        "message": "first space always gets a name; env examples carry the new gateway keys",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ee39147",
+        "message": "parse the opper/openai/anthropic gateway heads in the local model-ref copy",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2c1f133",
+        "message": "Opper, OpenAI and Anthropic as model gateways",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c7466e2",
+        "message": "prune pnpm-lock.yaml to the open tree in the snapshot",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "16fe665",
+        "message": "Mastra init sees the env file setup just wrote; browser-settable keys never fail setup; rebuild after pull",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "aea2537",
+        "message": "move the command implementations to packages/cli and publish them as the `engenty` npm package",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4fcb156",
+        "message": "gate names `pnpm dev:urls:localhost` for a Portless URL block, wraps the fix text",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b77a4b2",
+        "message": "first-run wizard with a readiness gate, AI provider, personal space and Ready screen",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "634eeec",
+        "message": "never install against another checkout's database; ask how the app is opened",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0812793",
+        "message": "emoji before the module name, not in a column",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "c5f5194",
+        "message": "keep offline API tests off the database, catch the purge sweep's rejection",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a0552f0",
+        "message": "group modules, add emoji, hide experimental ones; Portless section names worktrees",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "b4bdb2b",
+        "message": "resolve the agent approval mode through the injected client only",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.2",
-    "timestamp": 1789288427,
+    "timestamp": 1789288428,
     "commits": [
       {
         "id": "84080b1",

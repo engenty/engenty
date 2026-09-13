@@ -14,7 +14,7 @@ import {
 import { envBoolean, envNumber, envString } from "@engenty/environment/env";
 import { serve } from "@hono/node-server";
 import { extendZodWithOpenApi, OpenAPIHono } from "@hono/zod-openapi";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cors } from "hono/cors";
 import { uuidv7 } from "uuidv7";
 import { z as zod } from "zod";
@@ -927,12 +927,17 @@ export async function startApiServer(
   const routineEventsAiBaseUrl =
     process.env.ENGENTY_AI_BASE_URL ?? process.env.VITE_ENGENTY_AI_BASE_URL;
   const routineEventsSecret = getSecuritySecret(effectiveConfig);
+  // The same service-role adapter the auth stores use — the only sanctioned
+  // client constructor outside dal/infra (check-supabase-imports).
+  const routineEventsDb =
+    supabaseUrl && supabaseServiceRoleKey
+      ? createSupabaseClientFromConfig(effectiveConfig)
+      : null;
   if (
     backgroundServicesEnabled &&
     routineEventsAiBaseUrl &&
     routineEventsSecret &&
-    supabaseUrl &&
-    supabaseServiceRoleKey &&
+    routineEventsDb &&
     registry.eventsRuntime
   ) {
     startRoutineEventBridge({
@@ -961,9 +966,7 @@ export async function startApiServer(
           tokenType: "access",
         }),
       logger,
-      serviceDb: createClient(supabaseUrl, supabaseServiceRoleKey, {
-        auth: { persistSession: false },
-      }),
+      serviceDb: routineEventsDb,
     });
   } else if (backgroundServicesEnabled && !routineEventsAiBaseUrl) {
     logger.warn(

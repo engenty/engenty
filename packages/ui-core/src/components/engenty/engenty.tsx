@@ -443,7 +443,15 @@ const EYE_BY_KIND: Record<
   wedge: { ex: 60, ey: 70, max: 3.2 },
 };
 
-const SHADOW: Record<EngentyKind, { cy: number; rx: number; dur: string }> = {
+/**
+ * Ground contact per kind: `cy` is the line the body stands on in the shared
+ * 0..120 space, so callers that sit a mark on something (the landing's
+ * `HeadlinePerch`) can line the feet up with it.
+ */
+export const ENGENTY_SHADOW: Record<
+  EngentyKind,
+  { cy: number; rx: number; dur: string }
+> = {
   round: { cy: 108, rx: 26, dur: "3.6s" },
   drop: { cy: 106, rx: 24, dur: "4.4s" },
   dome: { cy: 104, rx: 27, dur: "3s" },
@@ -490,7 +498,7 @@ export function Engenty({
 }: EngentyProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const eye = EYE_BY_KIND[kind];
-  const shadow = SHADOW[kind];
+  const shadow = ENGENTY_SHADOW[kind];
   useEngentyGaze(svgRef, eye, animated);
 
   // SMIL is not CSS — pause/unpause the SVG timeline when the row is idle.

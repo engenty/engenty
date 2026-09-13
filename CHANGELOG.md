@@ -4,6 +4,26 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.3.0] - 2026-09-13
+- ADDED **[www]** Landing built from colour bands, app groups and standing engenties
+- ADDED **[engenty]** Jelly coat for the large engenties, decal extras on both coats, styleguide row
+- ADDED **[ai]** Opper, OpenAI and Anthropic as model gateways
+- ADDED **[cli]** Move the command implementations to packages/cli and publish them as the `engenty` npm package
+- ADDED **[setup]** First-run wizard with a readiness gate, AI provider, personal space and Ready screen
+- DOCS **[readme]** Emoji before the module name, not in a column
+- DOCS **[readme]** Group modules, add emoji, hide experimental ones; Portless section names worktrees
+- FIXED **[www]** Phone layout — Apps in the nav, smaller crew, 16px gutters
+- FIXED **[core]** Routine-event bridge takes its service client from the auth-stores adapter
+- FIXED **[setup]** Write SUPABASE_JWT_SECRET from supabase status; gate row for the tenant lane
+- FIXED **[setup]** First space always gets a name; env examples carry the new gateway keys
+- FIXED **[manage]** Parse the opper/openai/anthropic gateway heads in the local model-ref copy
+- FIXED **[publish]** Prune pnpm-lock.yaml to the open tree in the snapshot
+- FIXED **[cli]** Mastra init sees the env file setup just wrote; browser-settable keys never fail setup; rebuild after pull
+- FIXED **[setup]** Gate names `pnpm dev:urls:localhost` for a Portless URL block, wraps the fix text
+- FIXED **[setup]** Never install against another checkout's database; ask how the app is opened
+- FIXED **[core]** Keep offline API tests off the database, catch the purge sweep's rejection
+- FIXED **[core]** Resolve the agent approval mode through the injected client only
+
 ## [0.2.2] - 2026-09-13
 - DOCS **[internal]** Add frontmatter to the Mastra CDP issue draft
 - FIXED **[expenses]** Keep 20260616000800 as a no-op so db push accepts existing histories

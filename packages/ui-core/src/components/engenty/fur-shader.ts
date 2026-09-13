@@ -20,7 +20,7 @@
  * Everything is procedural — no textures, no geometry, no library.
  */
 
-import { MAX_FORM_BLOBS } from "./forms";
+import { MAX_FORM_BLOBS, MAX_FORM_EXTRAS } from "./forms";
 
 /** Padding around the 0..120 form space so fur can overhang the silhouette. */
 export const FUR_VIEW = 152;
@@ -34,10 +34,15 @@ in vec2 aPos;
 void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 `;
 
-export const FUR_FRAGMENT_SHADER = `#version 300 es
+/**
+ * Everything both coats share: uniforms, the metaball field, the inflated
+ * normal, the eye anchor and the hash. A coat shader appends its own main.
+ */
+export const FUR_COMMON_GLSL = `#version 300 es
 precision highp float;
 
 #define BLOBS ${MAX_FORM_BLOBS}
+#define EXTRAS ${MAX_FORM_EXTRAS}
 #define SHELL_MAX ${FUR_SHELL_MAX}
 #define VIEW ${FUR_VIEW.toFixed(1)}
 #define ORIGIN ${FUR_ORIGIN.toFixed(1)}
@@ -64,6 +69,9 @@ uniform vec3  uTip;            // backlit rim color
 uniform vec3  uEye;            // x, y, radius — fur parts around it
 uniform float uWind;
 uniform vec2  uGaze;            // -1..1 pointer direction for the pupil
+uniform vec4  uExtras[EXTRAS];     // decal geometry (x, y, a, b)
+uniform vec4  uExtraMeta[EXTRAS];  // decal meta (kind, alpha, width, flag)
+uniform vec2  uWobble;             // spring overshoot past the lean (jelly)
 
 // ─── field ───────────────────────────────────────────────────────────────────
 
@@ -173,22 +181,94 @@ vec2 eyeCentre() {
   return uEye.xy + drift + blobLean(uEye.y);
 }
 
+// ─── extras: the flat mark's mouth, bubbles, legs, stripes ──────────────────
+
+/** Arc centred at the origin, opening upward (−y), spanning ±half from up. */
+float sdArc(vec2 q, float r, float span) {
+  float ang = clamp(atan(q.x, -q.y), -span, span);
+  return length(q - vec2(sin(ang), -cos(ang)) * r);
+}
+
+/** Vertical stroke of half-length h through the origin. */
+float sdBar(vec2 q, float h) {
+  return length(vec2(q.x, max(abs(q.y) - h, 0.0)));
+}
+
+/** One up-then-down wave from the origin to (len, 0). */
+float sdWave(vec2 q, float len, float amp) {
+  float x = clamp(q.x, 0.0, len);
+  float y = -amp * sin(TAU * x / len);
+  return length(q - vec2(x, y));
+}
+
+/**
+ * Premultiplied colour of every decal at \`p\`. Decals ride the same drift and
+ * lean as the body, so the mouth stays under the eye while the body rolls.
+ * Ink decals darken; body-coloured ones (bubbles, halo, antenna) are lit
+ * discs and strokes in the coat colour that may sit outside the silhouette.
+ */
+vec4 extrasOver(vec2 p, vec3 ink, vec3 bodyCol, float aa) {
+  vec4 acc = vec4(0.0);
+  float w = TAU * uTime / uPeriod;
+  vec2 drift = eyeCentre() - uEye.xy - blobLean(uEye.y);
+  for (int i = 0; i < EXTRAS; i++) {
+    vec4 m = uExtraMeta[i];
+    int kind = int(m.x + 0.5);
+    if (kind == 0) { continue; }
+    vec4 g = uExtras[i];
+    vec2 c = g.xy + drift + blobLean(g.y);
+    vec2 q = p - c;
+    float cov = 0.0;
+    vec3 col = ink;
+    float hw = m.z * 0.5;
+    if (kind == 1) {
+      cov = 1.0 - smoothstep(-aa, aa, length(q) - g.z);
+    } else if (kind == 2) {
+      q.y += sin(w + g.x * 0.1) * g.w;
+      float d = length(q) - g.z;
+      cov = 1.0 - smoothstep(-aa, aa, d);
+      // A small lit sphere: brighter toward the light, a rim at the edge.
+      float lit = 0.75 + 0.35 * clamp(-(q.x + q.y) / max(g.z, 1e-3), -1.0, 1.0) * 0.5;
+      col = mix(bodyCol * lit, vec3(1.0), 0.18 * smoothstep(-2.0, 0.0, d));
+    } else if (kind == 3) {
+      cov = 1.0 - smoothstep(hw - aa, hw + aa, sdArc(q, g.z, g.w));
+      if (m.w > 0.5) { col = bodyCol; }
+    } else if (kind == 4) {
+      cov = 1.0 - smoothstep(hw - aa, hw + aa, sdBar(q, g.z));
+    } else if (kind == 5) {
+      cov = 1.0 - smoothstep(hw - aa, hw + aa, sdWave(q, g.z, g.w));
+    }
+    float a = cov * m.y;
+    acc.rgb = acc.rgb * (1.0 - a) + col * a;
+    acc.a = acc.a * (1.0 - a) + a;
+  }
+  return acc;
+}
+
 vec2 hash2(vec2 c) {
   vec3 p3 = fract(vec3(c.xyx) * vec3(0.1031, 0.1030, 0.0973));
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.xx + p3.yz) * p3.zy);
 }
 
+`;
+
+/** Shell fur. */
+export const FUR_FRAGMENT_SHADER = `${FUR_COMMON_GLSL}
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   vec2 p = vec2(uv.x, 1.0 - uv.y) * VIEW + ORIGIN;
 
   float d0 = sdBody(p);
+  float aaPx = fwidth(p.x) * 0.75;
+  vec3 ink = mix(uDeep, vec3(0.0), 0.45);
+  vec4 extras = extrasOver(p, ink, uBody, aaPx);
 
   // Nothing reaches further out than one strand plus the gravity bend; bail
-  // early so most of the canvas costs a single field evaluation.
+  // early so most of the canvas costs a single field evaluation. A decal
+  // outside the coat (bubble, halo, antenna) still paints.
   if (d0 > uFur * 1.6 + 2.0) {
-    outColor = vec4(0.0);
+    outColor = extras;
     return;
   }
 
@@ -320,7 +400,9 @@ void main() {
 
   float lens = smoothstep(er + aa, er - aa, length(ep));
   if (lens > 0.0) {
-    vec2 pupilAt = uGaze * er * 0.3;
+    // Almost half the lens radius: at 0.3 the look was lost under the coat's
+    // own motion; the pupil still stays inside the white at full gaze.
+    vec2 pupilAt = uGaze * er * 0.45;
     vec3 eyeCol = mix(
       vec3(0.94, 0.95, 0.98),
       vec3(0.10, 0.08, 0.18),
@@ -338,6 +420,9 @@ void main() {
     acc.rgb = acc.rgb * (1.0 - lens) + eyeCol * lens;
     acc.a = acc.a * (1.0 - lens) + lens;
   }
+
+  acc.rgb = acc.rgb * (1.0 - extras.a) + extras.rgb;
+  acc.a = acc.a * (1.0 - extras.a) + extras.a;
 
   outColor = acc;
 }

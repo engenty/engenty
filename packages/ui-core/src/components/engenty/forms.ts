@@ -27,9 +27,59 @@ export interface FormBlob {
   y: number;
 }
 
+/**
+ * The small marks the flat SVG draws besides body and eye — the drop's mouth,
+ * the round's bubbles, the dome's legs and antenna, the oval's stripes. The
+ * shaders draw them as decals so the 3D coats stay the same characters.
+ * Coordinates are the SVG's, in the shared 0..120 space.
+ */
+export type EngentyExtra =
+  | { type: "ink-dot"; x: number; y: number; r: number; alpha?: number }
+  | {
+      type: "body-dot";
+      x: number;
+      y: number;
+      r: number;
+      alpha?: number;
+      /** Vertical bob amplitude, like the SVG's animated bubbles. */
+      bob?: number;
+    }
+  | {
+      type: "arc";
+      cx: number;
+      cy: number;
+      r: number;
+      /** Half-span in degrees, measured from straight up. */
+      half: number;
+      width: number;
+      alpha?: number;
+      /** Stroke in the body colour (halo) instead of ink (stripes). */
+      body?: boolean;
+    }
+  | {
+      type: "bar";
+      x: number;
+      y: number;
+      /** Half-length of a vertical stroke. */
+      half: number;
+      width: number;
+      alpha?: number;
+    }
+  | {
+      type: "wave";
+      x: number;
+      y: number;
+      len: number;
+      amp: number;
+      width: number;
+      alpha?: number;
+    };
+
 export interface EngentyForm {
   /** Metaballs unioned with a smooth minimum. */
   blobs: FormBlob[];
+  /** Decals besides body and eye; see `EngentyExtra`. */
+  extras?: EngentyExtra[];
   /** Eye anchor, shared with the flat renderer's `EYE_BY_KIND`. */
   eye: { x: number; y: number; r: number };
   /**
@@ -49,6 +99,10 @@ export interface EngentyForm {
 export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
   round: {
     blobs: [{ x: 60, y: 61, r: 36, rx: 1, ry: 1.06 }],
+    extras: [
+      { type: "body-dot", x: 97, y: 34, r: 6, alpha: 0.5, bob: 3 },
+      { type: "body-dot", x: 106, y: 24, r: 3.5, alpha: 0.35, bob: 3.5 },
+    ],
     falloff: 2.2,
     fur: 9,
     period: 3.6,
@@ -61,6 +115,7 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
       { x: 60, y: 40, r: 20, rx: 0.85, ry: 1.15 },
       { x: 60, y: 22, r: 9, rx: 0.7, ry: 1 },
     ],
+    extras: [{ type: "wave", x: 48, y: 76, len: 24, amp: 2, width: 2.6 }],
     falloff: 1.7,
     fur: 8.5,
     period: 4.4,
@@ -71,6 +126,12 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
     blobs: [
       { x: 60, y: 72, r: 32, rx: 1.02, ry: 0.82 },
       { x: 60, y: 46, r: 28, rx: 1, ry: 1 },
+    ],
+    extras: [
+      { type: "bar", x: 46, y: 85, half: 5, width: 2.4, alpha: 0.5 },
+      { type: "bar", x: 60, y: 87, half: 5, width: 2.4, alpha: 0.5 },
+      { type: "bar", x: 74, y: 85, half: 5, width: 2.4, alpha: 0.5 },
+      { type: "body-dot", x: 60, y: 6, r: 3, bob: 2.5 },
     ],
     falloff: 1.7,
     fur: 9,
@@ -85,6 +146,19 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
       { x: 60, y: 30, r: 12, rx: 0.72, ry: 1.25 },
       { x: 60, y: 16, r: 5, rx: 0.6, ry: 1.1 },
     ],
+    extras: [
+      {
+        type: "arc",
+        cx: 60,
+        cy: 45,
+        r: 32,
+        half: 39,
+        width: 3,
+        alpha: 0.55,
+        body: true,
+      },
+      { type: "ink-dot", x: 60, y: 82, r: 2.6 },
+    ],
     falloff: 1.6,
     fur: 7.5,
     period: 2.6,
@@ -93,6 +167,26 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
   },
   oval: {
     blobs: [{ x: 60, y: 64, r: 40, rx: 1.06, ry: 0.76 }],
+    extras: [
+      {
+        type: "arc",
+        cx: 60,
+        cy: 223,
+        r: 172,
+        half: 10.7,
+        width: 2.2,
+        alpha: 0.45,
+      },
+      {
+        type: "arc",
+        cx: 60,
+        cy: 261,
+        r: 191,
+        half: 10.3,
+        width: 2.2,
+        alpha: 0.45,
+      },
+    ],
     falloff: 2.2,
     fur: 10,
     period: 4,
@@ -106,6 +200,7 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
       { x: 46, y: 76, r: 24 },
       { x: 74, y: 54, r: 22 },
     ],
+    extras: [{ type: "body-dot", x: 32, y: 94, r: 4, alpha: 0.4 }],
     falloff: 1.7,
     fur: 9,
     period: 3.8,
@@ -116,6 +211,11 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
     blobs: [
       { x: 56, y: 76, r: 32, rx: 1.3, ry: 0.66 },
       { x: 86, y: 74, r: 18, rx: 1, ry: 0.7 },
+    ],
+    extras: [
+      { type: "ink-dot", x: 42, y: 76, r: 3, alpha: 0.32 },
+      { type: "ink-dot", x: 56, y: 86, r: 2.2, alpha: 0.32 },
+      { type: "ink-dot", x: 86, y: 80, r: 2.6, alpha: 0.32 },
     ],
     falloff: 1.8,
     fur: 9.5,
@@ -143,6 +243,18 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
       { x: 60, y: 60, r: 17 },
       { x: 60, y: 36, r: 14 },
     ],
+    extras: [
+      { type: "arc", cx: 60, cy: 154, r: 80, half: 13, width: 2.2, alpha: 0.4 },
+      {
+        type: "arc",
+        cx: 60,
+        cy: 187,
+        r: 99,
+        half: 11.7,
+        width: 2.2,
+        alpha: 0.4,
+      },
+    ],
     falloff: 1.6,
     fur: 8,
     period: 4,
@@ -154,6 +266,18 @@ export const ENGENTY_FORMS: Record<EngentyKind, EngentyForm> = {
       { x: 44, y: 84, r: 20 },
       { x: 76, y: 84, r: 20 },
       { x: 60, y: 48, r: 14 },
+    ],
+    extras: [
+      {
+        type: "arc",
+        cx: 60,
+        cy: 28,
+        r: 10,
+        half: 53,
+        width: 3,
+        alpha: 0.5,
+        body: true,
+      },
     ],
     falloff: 1.7,
     fur: 8.5,
@@ -202,4 +326,62 @@ export function packFormBlobs(form: EngentyForm): Float32Array {
     packed[i * 4 + 3] = blob.r * (blob.ry ?? 1);
   }
   return packed;
+}
+
+/** Longest extras list across all kinds — the shader's fixed loop bound. */
+export const MAX_FORM_EXTRAS = Math.max(
+  ...Object.values(ENGENTY_FORMS).map((f) => f.extras?.length ?? 0)
+);
+
+const EXTRA_KIND = {
+  "ink-dot": 1,
+  "body-dot": 2,
+  arc: 3,
+  bar: 4,
+  wave: 5,
+} as const;
+
+/**
+ * Flattens a form's extras to two `vec4[]` uniforms: geometry
+ * `(x, y, a, b)` and meta `(kind, alpha, width, flag)`. Unused slots carry
+ * kind 0, which the shader skips.
+ */
+export function packFormExtras(form: EngentyForm): {
+  geometry: Float32Array;
+  meta: Float32Array;
+} {
+  const geometry = new Float32Array(MAX_FORM_EXTRAS * 4);
+  const meta = new Float32Array(MAX_FORM_EXTRAS * 4);
+  form.extras?.forEach((extra, i) => {
+    const g = i * 4;
+    meta[g] = EXTRA_KIND[extra.type];
+    meta[g + 1] = extra.alpha ?? 1;
+    switch (extra.type) {
+      case "ink-dot":
+        geometry.set([extra.x, extra.y, extra.r, 0], g);
+        break;
+      case "body-dot":
+        geometry.set([extra.x, extra.y, extra.r, extra.bob ?? 0], g);
+        break;
+      case "arc":
+        geometry.set(
+          [extra.cx, extra.cy, extra.r, (extra.half * Math.PI) / 180],
+          g
+        );
+        meta[g + 2] = extra.width;
+        meta[g + 3] = extra.body ? 1 : 0;
+        break;
+      case "bar":
+        geometry.set([extra.x, extra.y, extra.half, 0], g);
+        meta[g + 2] = extra.width;
+        break;
+      case "wave":
+        geometry.set([extra.x, extra.y, extra.len, extra.amp], g);
+        meta[g + 2] = extra.width;
+        break;
+      default:
+        break;
+    }
+  });
+  return { geometry, meta };
 }

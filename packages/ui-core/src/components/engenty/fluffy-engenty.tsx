@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EngentyKind } from "./colors";
 import { Engenty } from "./engenty";
-import { ENGENTY_FORMS, formScale, packFormBlobs } from "./forms";
+import {
+  ENGENTY_FORMS,
+  formScale,
+  packFormBlobs,
+  packFormExtras,
+} from "./forms";
 import { furPalette } from "./fur-palette";
 import { FUR_ORIGIN, FUR_SHELL_MAX, FUR_VIEW } from "./fur-shader";
-import { acquireFurStage } from "./fur-stage";
+import { acquireFurStage, type EngentyCoat } from "./fur-stage";
 import { pointerPosition, subscribePointer } from "./pointer";
 
 export type FurQuality = "low" | "medium" | "high";
@@ -55,6 +60,9 @@ const PHASE_STEP = 2.399_963;
 
 /** Key light direction, in the shader's (x, y-down, toward-camera) space. */
 const KEY_LIGHT: [number, number, number] = [-0.42, -0.72, 0.75];
+/** Jelly wobble spring: stiffness and damping, per second. */
+const SPRING_K = 260;
+const SPRING_C = 7;
 
 /** How far the silhouette bulges toward the camera, in form units. */
 const DEFAULT_INFLATE = 30;
@@ -71,6 +79,8 @@ export interface FluffyEngentyOverrides {
 
 export interface FluffyEngentyProps {
   className?: string;
+  /** Shell fur (default) or a translucent jelly over the same body. */
+  coat?: EngentyCoat;
   /** Pointer-driven lean and gaze. Off for purely decorative instances. */
   interactive?: boolean;
   kind?: EngentyKind;
@@ -96,6 +106,7 @@ const viewPercent = (value: number) => ((value - FUR_ORIGIN) / FUR_VIEW) * 100;
  */
 export function FluffyEngenty({
   className,
+  coat = "fur",
   interactive = true,
   kind = "round",
   overrides,
@@ -113,11 +124,13 @@ export function FluffyEngenty({
 
   const form = ENGENTY_FORMS[kind];
   const blobs = useMemo(() => packFormBlobs(form), [form]);
+  const extras = useMemo(() => packFormExtras(form), [form]);
   const scale = useMemo(() => formScale(form), [form]);
   // The render loop reads props through a ref so playground sliders retune the
   // running frame instead of tearing down the GL context on every keystroke.
   const live = useRef({
     blobs,
+    extras,
     form,
     interactive,
     kind,
@@ -128,6 +141,7 @@ export function FluffyEngenty({
   });
   live.current = {
     blobs,
+    extras,
     form,
     interactive,
     kind,
@@ -145,7 +159,7 @@ export function FluffyEngenty({
     }
 
     const context = canvas.getContext("2d");
-    const stage = context ? acquireFurStage() : null;
+    const stage = context ? acquireFurStage(coat) : null;
     if (!(context && stage)) {
       setSupported(false);
       return;
@@ -155,6 +169,9 @@ export function FluffyEngenty({
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const lean = { x: 0, y: 0 };
     const gaze = { x: 0, y: 0 };
+    // A soft body chasing the lean on an under-damped spring. The lean itself
+    // is what the fur uses; the jelly reads the overshoot past it as wobble.
+    const gel = { vx: 0, vy: 0, x: 0, y: 0 };
     let frame = 0;
     let visible = true;
     // Clock is accumulated rather than read from `now`, so pausing off-screen
@@ -168,7 +185,8 @@ export function FluffyEngenty({
       const preset = QUALITY[current.quality];
       const still = reduced.matches;
 
-      clock += still ? 0 : Math.min((now - (last || now)) / 1000, 0.1);
+      const dt = still ? 0 : Math.min((now - (last || now)) / 1000, 0.1);
+      clock += dt;
       last = now;
 
       const dpr = Math.min(window.devicePixelRatio || 1, preset.dprCap);
@@ -207,6 +225,15 @@ export function FluffyEngenty({
         gaze.x += ((dx / dist) * look - gaze.x) * 0.24;
         gaze.y += ((dy / dist) * 0.9 * look - gaze.y) * 0.24;
       }
+      // Semi-implicit Euler in two half-steps keeps the spring stable across a
+      // dropped frame. ω ≈ 2.6 Hz, ζ ≈ 0.2: a few visible bounces, then still.
+      for (let step = 0; step < 2; step++) {
+        const h = Math.min(dt * 0.5, 0.05);
+        gel.vx += ((lean.x - gel.x) * SPRING_K - gel.vx * SPRING_C) * h;
+        gel.vy += ((lean.y - gel.y) * SPRING_K - gel.vy * SPRING_C) * h;
+        gel.x += gel.vx * h;
+        gel.y += gel.vy * h;
+      }
 
       const palette = furPalette(wrap, current.kind);
       stage.drawInto(context, px, {
@@ -217,6 +244,8 @@ export function FluffyEngenty({
           current.overrides?.density ?? preset.density,
           maxDensity
         ),
+        extraMeta: current.extras.meta,
+        extras: current.extras.geometry,
         eye: [current.form.eye.x, current.form.eye.y, current.form.eye.r],
         gaze: [gaze.x, gaze.y],
         fur,
@@ -231,6 +260,7 @@ export function FluffyEngenty({
         time: clock + phaseOffset,
         tip: palette.tip,
         wind: current.overrides?.wind ?? DEFAULT_WIND,
+        wobble: [gel.x - lean.x, gel.y - lean.y],
       });
 
       if (visible && !still) {
@@ -274,7 +304,7 @@ export function FluffyEngenty({
       }
       stage.release();
     };
-  }, []);
+  }, [coat]);
 
   if (!supported) {
     return <Engenty className={className} kind={kind} size={size} />;

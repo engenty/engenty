@@ -16,6 +16,9 @@ export interface FurUniforms {
   body: [number, number, number];
   deep: [number, number, number];
   density: number;
+  extraMeta: Float32Array;
+  /** Decal geometry and meta, from `packFormExtras`. */
+  extras: Float32Array;
   eye: [number, number, number];
   falloff: number;
   fur: number;
@@ -30,6 +33,8 @@ export interface FurUniforms {
   time: number;
   tip: [number, number, number];
   wind: number;
+  /** Spring overshoot past the lean, form units; the jelly coat's jiggle. */
+  wobble: [number, number];
 }
 
 export interface FurRenderer {
@@ -59,6 +64,9 @@ const UNIFORM_NAMES = [
   "uEye",
   "uWind",
   "uGaze",
+  "uExtras",
+  "uExtraMeta",
+  "uWobble",
 ] as const;
 
 type UniformName = (typeof UNIFORM_NAMES)[number];
@@ -87,7 +95,8 @@ function compile(
  * headless test runners) so callers can fall back to the flat engenty.
  */
 export function createFurRenderer(
-  canvas: HTMLCanvasElement
+  canvas: HTMLCanvasElement,
+  fragment: string = FUR_FRAGMENT_SHADER
 ): FurRenderer | null {
   const gl = canvas.getContext("webgl2", {
     alpha: true,
@@ -107,7 +116,7 @@ export function createFurRenderer(
   let buffer: WebGLBuffer | null = null;
   try {
     const vert = compile(gl, gl.VERTEX_SHADER, FUR_VERTEX_SHADER);
-    const frag = compile(gl, gl.FRAGMENT_SHADER, FUR_FRAGMENT_SHADER);
+    const frag = compile(gl, gl.FRAGMENT_SHADER, fragment);
     program = gl.createProgram();
     if (!program) {
       throw new Error("engenty fur: could not create program");
@@ -196,6 +205,9 @@ export function createFurRenderer(
         gl.uniform3fv(loc.uEye, u.eye);
         gl.uniform1f(loc.uWind, u.wind);
         gl.uniform2fv(loc.uGaze, u.gaze);
+        gl.uniform4fv(loc.uExtras, u.extras);
+        gl.uniform4fv(loc.uExtraMeta, u.extraMeta);
+        gl.uniform2fv(loc.uWobble, u.wobble);
         gl.enable(gl.SCISSOR_TEST);
         gl.scissor(0, 0, viewportPx, viewportPx);
         gl.clearColor(0, 0, 0, 0);

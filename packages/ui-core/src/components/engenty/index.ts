@@ -5,7 +5,11 @@ export {
   ENGENTY_KINDS,
   type EngentyKind,
 } from "./colors";
-export { Engenty, type EngentyProps } from "./engenty";
+export {
+  ENGENTY_SHADOW,
+  Engenty,
+  type EngentyProps,
+} from "./engenty";
 export {
   FluffyEngenty,
   type FluffyEngentyOverrides,
@@ -14,10 +18,13 @@ export {
 } from "./fluffy-engenty";
 export {
   ENGENTY_FORMS,
+  type EngentyExtra,
   type EngentyForm,
   type FormBlob,
   MAX_FORM_BLOBS,
+  MAX_FORM_EXTRAS,
   packFormBlobs,
+  packFormExtras,
 } from "./forms";
 export { type FurPalette, furPalette, type Rgb } from "./fur-palette";
 export {
@@ -25,6 +32,11 @@ export {
   type FurRenderer,
   type FurUniforms,
 } from "./fur-renderer";
-export { acquireFurStage, type FurStage } from "./fur-stage";
+export {
+  acquireFurStage,
+  type EngentyCoat,
+  type FurStage,
+} from "./fur-stage";
+export { JELLY_FRAGMENT_SHADER } from "./jelly-shader";
 export { EngentyLogoMark, EngentyWordmark } from "./logo";
 export { useEngentyGaze } from "./use-engenty-gaze";

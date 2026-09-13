@@ -94,6 +94,7 @@ export {
   ENGENTY_KIND_FILL,
   ENGENTY_KINDS,
   Engenty,
+  type EngentyCoat,
   type EngentyForm,
   type EngentyKind,
   EngentyLogoMark,
