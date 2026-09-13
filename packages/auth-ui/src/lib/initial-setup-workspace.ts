@@ -78,20 +78,30 @@ async function setupFetch<T>(
   return (body?.data ?? payload) as T;
 }
 
-interface WorkspaceContext {
+export interface SetupWorkspaceContext {
   currentTenant: { id: string; name: string; slug: string } | null;
+  userId: string;
 }
 
-export async function readCurrentTenant(
+export async function readWorkspaceContext(
   accessToken: string
-): Promise<{ id: string; name: string; slug: string } | null> {
-  const context = await setupFetch<WorkspaceContext>(
+): Promise<SetupWorkspaceContext> {
+  const context = await setupFetch<SetupWorkspaceContext>(
     "/api/users/setup/context",
     accessToken,
     { method: "GET" },
     "Could not read the workspace context."
   );
-  return context.currentTenant ?? null;
+  return {
+    currentTenant: context.currentTenant ?? null,
+    userId: context.userId,
+  };
+}
+
+export async function readCurrentTenant(
+  accessToken: string
+): Promise<{ id: string; name: string; slug: string } | null> {
+  return (await readWorkspaceContext(accessToken)).currentTenant;
 }
 
 /**
@@ -119,6 +129,8 @@ interface SpaceRow {
   isDefault: boolean;
   key: string;
   name: string;
+  /** Set on a personal space: the one person it belongs to. */
+  ownerUserId: string | null;
 }
 
 /**
@@ -142,19 +154,20 @@ export function firstSpaceKey(name: string, taken: readonly string[]): string {
 }
 
 /**
- * Give the tenant its first space, named and keyed off the team's name.
+ * Give the tenant its first space, named and keyed off the team's name, and
+ * answer with the key `/s/<key>` routes on.
  *
  * Usually the trigger has already created a default space with the
  * placeholder key `company` — the key is what `/s/<key>/…` routes on, and
  * this is the one moment re-keying is free: nobody has a link to it yet. A
  * tenant with no default space (a trigger that did not fire, a database
  * migrated by hand) gets one created instead of an error the admin can only
- * skip past.
+ * skip past. `name: null` keeps the default's name and key.
  */
-export async function nameFirstSpace(params: {
+export async function ensureFirstSpace(params: {
   accessToken: string;
-  name: string;
-}): Promise<void> {
+  name: string | null;
+}): Promise<{ key: string; name: string }> {
   const spaces = await setupFetch<SpaceRow[]>(
     "/api/spaces",
     params.accessToken,
@@ -163,22 +176,26 @@ export async function nameFirstSpace(params: {
   );
   const target = spaces.find((space) => space.isDefault);
   if (!target) {
-    await setupFetch(
+    const name = params.name ?? "Company";
+    const created = await setupFetch<SpaceRow>(
       "/api/spaces",
       params.accessToken,
       {
         body: {
           key: firstSpaceKey(
-            params.name,
+            name,
             spaces.map((space) => space.key)
           ),
-          name: params.name,
+          name,
         },
         method: "POST",
       },
       "Could not create the first space."
     );
-    return;
+    return { key: created.key, name: created.name };
+  }
+  if (params.name === null) {
+    return { key: target.key, name: target.name };
   }
   const mounts = await setupFetch<SetupSpaceMount[]>(
     `/api/spaces/${encodeURIComponent(target.id)}/mounts`,
@@ -189,15 +206,63 @@ export async function nameFirstSpace(params: {
   const taken = spaces
     .filter((space) => space.id !== target.id)
     .map((space) => space.key);
+  const key = firstSpaceKey(params.name, taken);
   await setupFetch(
     `/api/spaces/${encodeURIComponent(target.id)}/setup`,
     params.accessToken,
     {
       body: {
-        key: firstSpaceKey(params.name, taken),
+        key,
         mounts: mountsToSetupPayload(mounts),
         name: params.name,
       },
+      method: "PUT",
+    },
+    "Could not save the space name."
+  );
+  return { key, name: params.name };
+}
+
+/**
+ * The administrator's personal space — created by the database the moment
+ * they joined the tenant (`core.ensure_personal_space`), private, no
+ * members. Null only when that trigger did not fire.
+ */
+export async function readPersonalSpace(params: {
+  accessToken: string;
+  userId: string;
+}): Promise<{ id: string; key: string; name: string } | null> {
+  const spaces = await setupFetch<SpaceRow[]>(
+    "/api/spaces",
+    params.accessToken,
+    { method: "GET" },
+    "Could not read the spaces."
+  );
+  const own = spaces.find((space) => space.ownerUserId === params.userId);
+  return own ? { id: own.id, key: own.key, name: own.name } : null;
+}
+
+/**
+ * Rename the personal space. The key stays: `/s/me` resolves it for its
+ * owner, so nothing routes by the name. Same echo-the-mounts rule as the
+ * first space — `PUT /setup` reconciles the complete set.
+ */
+export async function namePersonalSpace(params: {
+  accessToken: string;
+  name: string;
+  spaceId: string;
+}): Promise<void> {
+  const mounts = await setupFetch<SetupSpaceMount[]>(
+    `/api/spaces/${encodeURIComponent(params.spaceId)}/mounts`,
+    params.accessToken,
+    { method: "GET" },
+    "Could not read the space setup."
+  );
+  await setupFetch(
+    `/api/spaces/${encodeURIComponent(params.spaceId)}/setup`,
+    params.accessToken,
+    {
+      body: { mounts: mountsToSetupPayload(mounts), name: params.name },
       method: "PUT",
     },
     "Could not save the space name."

@@ -17,7 +17,11 @@ export {
   type PlatformSettingsRepoOptions,
   type SettingsLogger,
 } from "./dal.js";
-export { hydratePlatformSettingsIntoEnv } from "./hydrate.js";
+export {
+  applyPlatformSettingToEnv,
+  type HydratePlatformSettingsResult,
+  hydratePlatformSettingsIntoEnv,
+} from "./hydrate.js";
 export {
   createSettingsResolver,
   type ResolvedSetting,

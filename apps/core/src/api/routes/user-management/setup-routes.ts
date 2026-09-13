@@ -4,7 +4,14 @@ import {
   getSecuritySecret,
   verifyAccessToken,
 } from "../../../security/auth.js";
-import { jsonApiError } from "../api-response.js";
+import { jsonApiError, jsonApiSuccess } from "../api-response.js";
+import { requirePlatformSuperAdmin } from "../authz.js";
+import {
+  AI_PROVIDER_GATEWAYS,
+  isAiProviderGateway,
+  probeAiProviderKey,
+} from "./ai-provider-probe.js";
+import { runSetupChecks } from "./setup-checks.js";
 import {
   connectivityFailureResponse,
   jsonApiSuccessCreateInitialAdmin,
@@ -18,6 +25,15 @@ import {
   type UserManagementRouteParams,
   WorkspaceContextSchema,
 } from "./shared.js";
+
+/** apps/ai as core reaches it; the browser has its own VITE_ copy. */
+function aiBaseUrlFromEnv(): string | null {
+  const raw =
+    process.env.ENGENTY_AI_BASE_URL?.trim() ||
+    process.env.VITE_ENGENTY_AI_BASE_URL?.trim() ||
+    "";
+  return raw ? raw.replace(/\/+$/, "") : null;
+}
 
 export function registerUserManagementSetupRoutes(
   params: UserManagementRouteParams
@@ -57,6 +73,90 @@ export function registerUserManagementSetupRoutes(
     return jsonApiSuccessOrDatabaseDown(c, params.config, () =>
       dal.getSetupStatus()
     );
+  });
+
+  /**
+   * The readiness gate: what `engenty setup` should have left behind, checked
+   * from the running process. Unauthenticated because it runs before the
+   * first admin exists, and answered only while that is still the case — a
+   * finished install does not describe its internals to strangers.
+   */
+  params.app.get("/api/users/setup/checks", async (c) => {
+    let dal;
+    try {
+      dal = params.getDal();
+    } catch (error) {
+      return jsonApiError(c, 500, {
+        message:
+          error instanceof Error ? error.message : "Configuration error.",
+      });
+    }
+    let status;
+    try {
+      status = await dal.getSetupStatus();
+    } catch (error) {
+      const down = connectivityFailureResponse(c, params.config, error);
+      if (down) {
+        return down;
+      }
+      throw error;
+    }
+    if (!status.initialSetupRequired) {
+      return jsonApiError(c, 409, {
+        message: "Initial setup already completed.",
+      });
+    }
+    const checks = await runSetupChecks({
+      aiBaseUrl: aiBaseUrlFromEnv(),
+      client: params.setupChecks?.getServiceClient() ?? null,
+      installedModuleIds: params.setupChecks?.installedModuleIds() ?? null,
+      supabaseUrl:
+        String(params.config.supabaseUrl ?? process.env.SUPABASE_URL ?? "") ||
+        null,
+    });
+    return jsonApiSuccess(c, { checks });
+  });
+
+  /**
+   * "Test key" for the AI-provider step. Superadmin only: it carries a
+   * credential to a third party, and the wizard's admin is one by then.
+   */
+  params.app.post("/api/users/setup/ai-provider/test", async (c) => {
+    const authResult = await requirePlatformSuperAdmin(c, params.config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const body = (await c.req.json().catch(() => null)) as {
+      apiKey?: unknown;
+      gateway?: unknown;
+    } | null;
+    if (!isAiProviderGateway(body?.gateway)) {
+      return jsonApiError(c, 400, {
+        message: `gateway must be one of ${Object.keys(AI_PROVIDER_GATEWAYS).join(", ")}`,
+      });
+    }
+    const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
+    if (!apiKey) {
+      return jsonApiError(c, 400, { message: "apiKey is required." });
+    }
+    const probe = await probeAiProviderKey({ apiKey, gateway: body.gateway });
+    let modelCount: number | null = null;
+    const client = params.setupChecks?.getServiceClient() ?? null;
+    if (client) {
+      const gatewayId = body.gateway === "vercel" ? "vercel" : "openrouter";
+      const counted = await client
+        .schema("ai")
+        .from("model")
+        .select("model_id", { count: "exact", head: true })
+        .eq("gateway", gatewayId);
+      modelCount = counted.error ? null : (counted.count ?? 0);
+    }
+    return jsonApiSuccess(c, {
+      detail: probe.detail,
+      envKey: AI_PROVIDER_GATEWAYS[body.gateway].envKey,
+      modelCount,
+      status: probe.status,
+    });
   });
 
   const createInitialAdminRoute = createRoute({

@@ -108,6 +108,7 @@ import { registerRoomRoutes } from "./api/room-routes.js";
 import { registerRoutineRoutes } from "./api/routine-routes.js";
 import { registerSandboxRoutes } from "./api/sandbox-routes.js";
 import { registerAppsAiSearchIndexRoutes } from "./api/search-index-routes.js";
+import { registerSettingsReloadRoutes } from "./api/settings-reload-routes.js";
 import { registerAiSettingsRoutes } from "./api/settings-routes.js";
 import { registerSkillsRoutes } from "./api/skills-routes.js";
 import { registerSpaceHomeRoutes } from "./api/space-home-routes.js";
@@ -139,6 +140,10 @@ import {
 import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
 import { startNotificationDelivery } from "./notifications/inbox.js";
 import { resolveRunNotifications } from "./notifications/run-notifications.js";
+import {
+  bootOnlyAiSettingKeys,
+  hydrateAiPlatformSettings,
+} from "./platform-settings-hydrate.js";
 import { setAiSearchIndexRegistry } from "./runtime/ai-search-runtime.js";
 
 const logger = createLogger({ name: "apps/ai" });
@@ -905,6 +910,11 @@ export async function createApp(options: CreateAppOptions = {}) {
     scopeResolver,
   });
   registerAiSettingsRoutes(app, { scopeResolver });
+  registerSettingsReloadRoutes(app, {
+    bootOnlyKeys: () => bootOnlyAiSettingKeys(),
+    reload: () => hydrateAiPlatformSettings(logger, { reload: true }),
+    scopeResolver,
+  });
   // External channel ingress (registerExternalChannelRoutes) ran inbound channel
   // messages through the legacy detached-run executor — routes removed in the
   // 2026-06-20 cutover, its stranded config/outbound helpers (ai/channels.ts and

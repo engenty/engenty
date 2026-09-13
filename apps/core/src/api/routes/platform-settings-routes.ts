@@ -1,4 +1,5 @@
 import {
+  applyPlatformSettingToEnv,
   createPlatformSettingsRepoSupabase,
   createSettingsResolver,
   type PlatformSettingInput,
@@ -13,9 +14,15 @@ import {
   getConfigurableSettings,
   getSettingSpecs,
 } from "../../lib/configurable-settings.js";
+import { getSecuritySecret } from "../../security/auth.js";
 import { createSupabaseClientFromConfig } from "../../security/auth-stores/supabase.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requirePlatformSuperAdmin, requireSuperAdmin } from "./authz.js";
+import {
+  type AiSettingsReloadOutcome,
+  aiBaseUrlFromEnv,
+  notifyAiSettingsReload,
+} from "./platform-settings-reload.js";
 
 /** Path the connections module serves the OAuth callback on. */
 const OAUTH_CALLBACK_PATH = "/api/connections/oauth/callback";
@@ -316,6 +323,36 @@ export function registerPlatformSettingsRoutes(params: {
 
   const specByKey = new Map(getConfigurableSettings().map((s) => [s.key, s]));
 
+  /**
+   * Make a platform-scope write live without a restart: this process's env
+   * first, then apps/ai. Both read these keys from `process.env` at call
+   * time; only the observability sinks are boot-only, and apps/ai says so
+   * in its answer. The outcome rides on the response so the UI can tell
+   * "saved and live" from "saved, apps/ai did not answer".
+   */
+  async function propagatePlatformValue(
+    spec: ConfigurableSetting,
+    value: string | null,
+    tenantId: string | null
+  ): Promise<AiSettingsReloadOutcome> {
+    if (spec.configurable !== "platform") {
+      return { status: "skipped" };
+    }
+    applyPlatformSettingToEnv({ key: spec.key, value });
+    const outcome = await notifyAiSettingsReload({
+      aiBaseUrl: aiBaseUrlFromEnv(),
+      secret: getSecuritySecret(config),
+      tenantId: tenantId ?? "",
+    });
+    if (outcome.status === "unreachable") {
+      logger.warn("platform setting saved, apps/ai reload failed", {
+        detail: outcome.detail,
+        key: spec.key,
+      });
+    }
+    return outcome;
+  }
+
   async function settingsContext(
     tenantId?: string | null
   ): Promise<SettingsContext> {
@@ -380,9 +417,15 @@ export function registerPlatformSettingsRoutes(params: {
     }
     await repo.setPlatform(built.input);
     resolver.invalidate(key);
+    const reload = await propagatePlatformValue(
+      spec,
+      value,
+      authResult.auth.tenantId
+    );
     const meta = await resolver.resolveSettingMeta(key);
     const row = await repo.getPlatform(key);
     return jsonApiSuccess(c, {
+      reload,
       setting: toView(spec, meta.source, meta.value, row),
     });
   });
@@ -399,8 +442,14 @@ export function registerPlatformSettingsRoutes(params: {
     }
     await repo.deletePlatform(key);
     resolver.invalidate(key);
+    const reload = await propagatePlatformValue(
+      spec,
+      null,
+      authResult.auth.tenantId
+    );
     const meta = await resolver.resolveSettingMeta(key);
     return jsonApiSuccess(c, {
+      reload,
       setting: toView(spec, meta.source, meta.value, null),
     });
   });

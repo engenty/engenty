@@ -6,9 +6,10 @@
 // read lazily and would have tolerated a later hydration; the tracing sinks
 // do not.
 //
-// Platform scope only — a change made in the Setup UI takes effect on the
-// next restart. SERVICE lane on purpose: platform settings have no tenant
-// dimension, so there is no tenant to mint a handle for at boot.
+// Platform scope only. SERVICE lane on purpose: platform settings have no
+// tenant dimension, so there is no tenant to mint a handle for at boot. A
+// write through core's settings API reaches this process through
+// `POST /ai/internal/settings/reload` (settings-reload-routes.ts).
 //
 // The key list is hand-kept: apps/ai has no access to the env manifest core
 // builds from the module contributions.
@@ -34,10 +35,25 @@ export const AI_PLATFORM_SETTING_KEYS: readonly string[] = [
   ...OBSERVABILITY_SETTING_KEYS,
 ];
 
-/** Best-effort: a missing settings DB must not stop the process from booting. */
+export interface AiPlatformSettingsHydration {
+  cleared: string[];
+  hydrated: string[];
+}
+
+/**
+ * Best-effort at boot: a missing settings DB must not stop the process.
+ *
+ * `reload` is the settings API's path (`POST /ai/internal/settings/reload`):
+ * every key that is read at call time is re-read, and a key whose row is gone
+ * goes back to what the environment held at boot. The observability sinks
+ * are left out — Mastra read them at construction, so a reload cannot move
+ * them; the route names them as boot-only.
+ */
 export async function hydrateAiPlatformSettings(
-  logger: RuntimeLogger
-): Promise<void> {
+  logger: RuntimeLogger,
+  options: { reload?: boolean } = {}
+): Promise<AiPlatformSettingsHydration> {
+  const empty: AiPlatformSettingsHydration = { cleared: [], hydrated: [] };
   try {
     const [{ createAiDatabaseAdapter }, { hydratePlatformSettingsIntoEnv }] =
       await Promise.all([
@@ -46,19 +62,38 @@ export async function hydrateAiPlatformSettings(
       ]);
     const settingsDb = createAiDatabaseAdapter();
     if (!settingsDb) {
-      return;
+      return empty;
     }
-    const hydrated = await hydratePlatformSettingsIntoEnv({
-      supabase: settingsDb,
-      keys: AI_PLATFORM_SETTING_KEYS,
+    const keys = options.reload
+      ? AI_PLATFORM_SETTING_KEYS.filter(
+          (key) =>
+            !(OBSERVABILITY_SETTING_KEYS as readonly string[]).includes(key)
+        )
+      : AI_PLATFORM_SETTING_KEYS;
+    const result = await hydratePlatformSettingsIntoEnv({
+      clearMissing: options.reload === true,
+      keys,
       logger: (msg, err) => logger.warn(msg, { error: String(err) }),
+      supabase: settingsDb,
     });
-    if (hydrated.length > 0) {
-      logger.info("hydrated platform settings from DB", { keys: hydrated });
+    if (result.hydrated.length > 0 || result.cleared.length > 0) {
+      logger.info(
+        options.reload
+          ? "reloaded platform settings from DB"
+          : "hydrated platform settings from DB",
+        { cleared: result.cleared, keys: result.hydrated }
+      );
     }
+    return result;
   } catch (err) {
     logger.warn("platform settings hydration failed (non-fatal)", {
       error: String(err),
     });
+    return empty;
   }
+}
+
+/** Keys a reload cannot move: Mastra read them when it was constructed. */
+export function bootOnlyAiSettingKeys(): readonly string[] {
+  return OBSERVABILITY_SETTING_KEYS;
 }

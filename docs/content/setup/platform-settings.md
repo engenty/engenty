@@ -60,6 +60,14 @@ fill it in:
 After changing a deployment-environment key, restart the services — they are
 read at boot.
 
+A platform-wide setting saved on this page is live at once: core applies it to
+its own environment and asks apps/ai to re-read its platform keys
+(`POST /ai/internal/settings/reload`, called with a service token core signs
+itself). The save response says whether apps/ai confirmed. The observability
+sinks (Langfuse, OTLP, the trace store) are the exception — Mastra reads them
+when it is constructed, so those still need a restart; the reload answer lists
+them as boot-only.
+
 ## Secrets are write-only
 
 Settings marked as secrets (API keys, client secrets, bot tokens) are stored

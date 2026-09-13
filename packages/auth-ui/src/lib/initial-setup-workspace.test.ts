@@ -1,9 +1,56 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ensureFirstSpace,
   firstSpaceKey,
   mountsToSetupPayload,
+  namePersonalSpace,
+  readPersonalSpace,
   slugifyName,
 } from "./initial-setup-workspace";
+
+interface Call {
+  body: unknown;
+  method: string;
+  path: string;
+}
+
+/** A fake core: answers by path, records every write. */
+function stubApi(answers: Record<string, unknown>) {
+  const calls: Call[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url, "http://core").pathname;
+      calls.push({
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        method: init?.method ?? "GET",
+        path,
+      });
+      const key = `${init?.method ?? "GET"} ${path}`;
+      const answer = answers[key] ?? answers[path] ?? {};
+      return new Response(JSON.stringify({ data: answer }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      });
+    })
+  );
+  return calls;
+}
+
+const company = {
+  id: "s1",
+  isDefault: true,
+  key: "company",
+  name: "Company",
+  ownerUserId: null,
+};
+const personal = {
+  id: "s2",
+  isDefault: false,
+  key: "u-jane",
+  name: "Jane",
+  ownerUserId: "u1",
+};
 
 describe("slugifyName", () => {
   it("lowercases and hyphenates", () => {
@@ -72,5 +119,92 @@ describe("firstSpaceKey", () => {
   // `spaces_key_format_check` caps the key at 63 characters.
   it("stays inside the key length limit", () => {
     expect(firstSpaceKey("a".repeat(80), []).length).toBeLessThanOrEqual(60);
+  });
+});
+
+describe("ensureFirstSpace", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("renames and re-keys the trigger-made default, echoing its mounts", async () => {
+    const calls = stubApi({
+      "/api/spaces": [company, personal],
+      "/api/spaces/s1/mounts": [
+        { resourceKey: "engenty-copilot", resourceType: "module" },
+      ],
+    });
+    const result = await ensureFirstSpace({
+      accessToken: "t",
+      name: "Nordlicht Studio",
+    });
+    expect(result).toEqual({
+      key: "nordlicht-studio",
+      name: "Nordlicht Studio",
+    });
+    const put = calls.find((c) => c.method === "PUT");
+    expect(put?.path).toBe("/api/spaces/s1/setup");
+    expect(put?.body).toEqual({
+      key: "nordlicht-studio",
+      mounts: [{ resource_key: "engenty-copilot", resource_type: "module" }],
+      name: "Nordlicht Studio",
+    });
+  });
+
+  it("keeps the default untouched when no name is given", async () => {
+    const calls = stubApi({ "/api/spaces": [company] });
+    expect(await ensureFirstSpace({ accessToken: "t", name: null })).toEqual({
+      key: "company",
+      name: "Company",
+    });
+    expect(calls.every((c) => c.method === "GET")).toBe(true);
+  });
+
+  it("creates the space when the tenant has no default", async () => {
+    const calls = stubApi({
+      "/api/spaces": [personal],
+      "POST /api/spaces": { ...company, key: "acme", name: "Acme" },
+    });
+    const result = await ensureFirstSpace({ accessToken: "t", name: "Acme" });
+    expect(result).toEqual({ key: "acme", name: "Acme" });
+    const post = calls.find((c) => c.method === "POST");
+    expect(post?.body).toEqual({ key: "acme", name: "Acme" });
+  });
+});
+
+describe("personal space", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("finds the space the admin owns", async () => {
+    stubApi({ "/api/spaces": [company, personal] });
+    expect(await readPersonalSpace({ accessToken: "t", userId: "u1" })).toEqual(
+      { id: "s2", key: "u-jane", name: "Jane" }
+    );
+    expect(
+      await readPersonalSpace({ accessToken: "t", userId: "nobody" })
+    ).toBeNull();
+  });
+
+  it("renames without touching the key", async () => {
+    const calls = stubApi({
+      "/api/spaces/s2/mounts": [
+        { resourceKey: "files", resourceType: "module", agentAccess: "write" },
+      ],
+    });
+    await namePersonalSpace({
+      accessToken: "t",
+      name: "Jane's desk",
+      spaceId: "s2",
+    });
+    const put = calls.find((c) => c.method === "PUT");
+    expect(put?.path).toBe("/api/spaces/s2/setup");
+    expect(put?.body).toEqual({
+      mounts: [
+        {
+          agent_access: "write",
+          resource_key: "files",
+          resource_type: "module",
+        },
+      ],
+      name: "Jane's desk",
+    });
   });
 });

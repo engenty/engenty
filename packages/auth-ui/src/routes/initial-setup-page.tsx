@@ -13,5 +13,5 @@ export function InitialSetupPage() {
     return <AuthScreenLayout message="Checking..." />;
   }
 
-  return <InitialSetupWizard onComplete={() => navigate("/")} />;
+  return <InitialSetupWizard onComplete={(path) => navigate(path)} />;
 }

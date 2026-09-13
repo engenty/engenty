@@ -1,6 +1,7 @@
 import { apiErrorResponseSchema } from "@engenty/api-contracts";
 import { capabilityCovers } from "@engenty/plugin-sdk";
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CoreUser } from "../../../dal/core-users/types.js";
 import type { CoreUsersDal } from "../../../dal/core-users.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
@@ -14,6 +15,17 @@ export interface UserManagementRouteParams {
   auditLog?: SecurityAuditLogAdapter;
   config: Record<string, unknown>;
   getDal: () => CoreUsersDal;
+  /**
+   * What the first-run readiness gate needs beyond the users DAL: the
+   * installed module ids (null without a registry) and a service-role client
+   * for the schema probes. Optional so the CRUD tests keep their small setup.
+   */
+  setupChecks?: SetupChecksContext;
+}
+
+export interface SetupChecksContext {
+  getServiceClient: () => SupabaseClient | null;
+  installedModuleIds: () => readonly string[] | null;
 }
 
 interface CoreAuthLike {

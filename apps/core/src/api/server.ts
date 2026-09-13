@@ -523,6 +523,11 @@ export function createApiApp(params: CreateApiAppParams) {
     app,
     auditLog: securityAuditLog,
     config,
+    installedModuleIds: () =>
+      params.registry.plugins
+        .filter((plugin) => (plugin.kind ?? "module") === "module")
+        .filter((plugin) => plugin.enabled !== false)
+        .map((plugin) => plugin.id),
   });
   const onApprovalDecided = emitApprovalDecided(params.registry);
   registerSuperadminRoutes({
@@ -854,8 +859,9 @@ export async function startApiServer(
 
   // Hydrate PLATFORM-scoped settings from core.platform_settings into
   // process.env before loading plugins, so modules that read provider/ingest
-  // keys synchronously pick up any Setup-UI override. Platform scope only; a
-  // change made in the UI takes effect on the next restart.
+  // keys synchronously pick up any Setup-UI override. Platform scope only. A
+  // later write through the settings API is applied in place
+  // (platform-settings-routes.ts) and relayed to apps/ai.
   if (supabaseReachable) {
     const settingsDb = createSupabaseClientFromConfig(effectiveConfig);
     if (settingsDb) {
@@ -870,7 +876,7 @@ export async function startApiServer(
         const platformKeys = getConfigurableSettings()
           .filter((s) => s.configurable === "platform")
           .map((s) => s.key);
-        const hydrated = await hydratePlatformSettingsIntoEnv({
+        const { hydrated } = await hydratePlatformSettingsIntoEnv({
           supabase: settingsDb,
           keys: platformKeys,
           logger: (msg, err) => logger.warn(`${msg} ${err ?? ""}`),

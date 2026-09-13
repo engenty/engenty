@@ -92,8 +92,10 @@ The env pin is ignored in production.
 the UI with hot reload. `/api`, `/ai`, and `/docs` are proxied to the other apps on
 the same origin.
 
-On first visit you are redirected to `/initial_setup` to create the admin user and
-tenant.
+On first visit you are redirected to `/initial_setup`: a readiness gate (what
+`engenty setup` should have left behind, checked from the running services),
+then the admin user, the team, a model provider, the first space and your
+personal space — see [Setup process](../setup-process#first-run-in-the-browser).
 
 ### Optional: HTTPS via Portless
 
