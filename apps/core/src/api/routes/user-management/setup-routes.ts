@@ -110,6 +110,7 @@ export function registerUserManagementSetupRoutes(
       aiBaseUrl: aiBaseUrlFromEnv(),
       client: params.setupChecks?.getServiceClient() ?? null,
       installedModuleIds: params.setupChecks?.installedModuleIds() ?? null,
+      serverLanePreflight: params.setupChecks?.serverLanePreflight?.() ?? null,
       supabaseUrl:
         String(params.config.supabaseUrl ?? process.env.SUPABASE_URL ?? "") ||
         null,

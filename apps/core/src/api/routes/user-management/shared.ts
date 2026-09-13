@@ -26,6 +26,8 @@ export interface UserManagementRouteParams {
 export interface SetupChecksContext {
   getServiceClient: () => SupabaseClient | null;
   installedModuleIds: () => readonly string[] | null;
+  /** The server lane's boot probe, or null when the lane is not configured. */
+  serverLanePreflight?: () => (() => Promise<void>) | null;
 }
 
 interface CoreAuthLike {

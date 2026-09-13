@@ -13,6 +13,8 @@ export function registerUserManagementRoutes(params: {
   dalFactory?: (config: Record<string, unknown>) => CoreUsersDal;
   /** Module ids the loaded registry ships; null when there is no registry. */
   installedModuleIds?: () => readonly string[] | null;
+  /** The registry's server-lane boot probe; null when the lane is unconfigured. */
+  serverLanePreflight?: () => (() => Promise<void>) | null;
 }) {
   const getDal = () => (params.dalFactory ?? createCoreUsersDal)(params.config);
 
@@ -23,6 +25,7 @@ export function registerUserManagementRoutes(params: {
     setupChecks: {
       getServiceClient: () => createSupabaseClientFromConfig(params.config),
       installedModuleIds: () => params.installedModuleIds?.() ?? null,
+      serverLanePreflight: () => params.serverLanePreflight?.() ?? null,
     },
   });
   registerUserManagementCrudRoutes({

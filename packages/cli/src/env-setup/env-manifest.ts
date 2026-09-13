@@ -183,6 +183,16 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
+      'JWT secret the Supabase stack verifies HS256 tokens with. The tenant-locked server lane (core and apps/ai) signs its engenty_server tokens with it; without it the lane falls back to ENGENTY_SECURITY_JWT_SECRET, which the stack does not know, and every tenant-lane query fails with "No suitable key or wrong key type". Local: written by `engenty env init` from `supabase status` (JWT_SECRET). Self-hosted: the stack\'s JWT_SECRET. Supabase Cloud with asymmetric signing keys: leave unset and use ENGENTY_SERVER_LANE_PRIVATE_KEY instead.',
+    group: "Supabase",
+    key: "SUPABASE_JWT_SECRET",
+    obtain: { kind: "supabase", statusKeys: ["JWT_SECRET"] },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    description:
       "Supabase API endpoint for the UI. Required locally, where Vite serves the SPA and reads this from the workspace root. In a deployment the gateway writes it into the served page and falls back to SUPABASE_URL — set it there only when the browser-facing address differs, e.g. SUPABASE_URL is container-internal Docker DNS.",
     group: "Supabase",
     key: "VITE_SUPABASE_URL",

@@ -528,6 +528,8 @@ export function createApiApp(params: CreateApiAppParams) {
         .filter((plugin) => (plugin.kind ?? "module") === "module")
         .filter((plugin) => plugin.enabled !== false)
         .map((plugin) => plugin.id),
+    serverLanePreflight: () =>
+      params.registry.assertServerLanePreflight ?? null,
   });
   const onApprovalDecided = emitApprovalDecided(params.registry);
   registerSuperadminRoutes({

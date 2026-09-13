@@ -16,6 +16,7 @@ export interface SetupCheck {
   fix?: string;
   id:
     | "database"
+    | "server_lane"
     | "mastra_schema"
     | "ai_service"
     | "ai_provider"
@@ -35,6 +36,14 @@ export interface SetupChecksDeps {
   fetchImpl?: typeof fetch;
   /** Module ids this build ships, or null when no registry is loaded. */
   installedModuleIds: readonly string[] | null;
+  /**
+   * The tenant-locked server lane's boot probe (mints an `engenty_server`
+   * token and asks PostgREST to accept it), or null when the lane is not
+   * configured. Core only LOGS a failed probe outside production, so without
+   * this row a wrong `SUPABASE_JWT_SECRET` surfaces as every tenant-scoped
+   * query failing later, one at a time.
+   */
+  serverLanePreflight?: (() => Promise<void>) | null;
   supabaseUrl: string | null;
 }
 
@@ -206,6 +215,32 @@ function checkAiProvider(env: Record<string, string | undefined>): SetupCheck {
       };
 }
 
+async function checkServerLane(
+  deps: SetupChecksDeps
+): Promise<SetupCheck | null> {
+  if (!deps.serverLanePreflight) {
+    return null;
+  }
+  const label = "Tenant lane accepted by the database";
+  try {
+    await deps.serverLanePreflight();
+    return {
+      detail: "minted engenty_server tokens verify",
+      id: "server_lane",
+      label,
+      status: "ok",
+    };
+  } catch (error) {
+    return {
+      detail: errorText(error),
+      fix: "pnpm engenty env init  (writes SUPABASE_JWT_SECRET from `supabase status`; on a self-hosted stack set it to the stack's JWT_SECRET), then restart pnpm dev",
+      id: "server_lane",
+      label,
+      status: "fail",
+    };
+  }
+}
+
 /**
  * Every space the database creates carries the baseline mounts. A build that
  * does not ship one of those modules cannot save any space's setup — the
@@ -244,12 +279,17 @@ export async function runSetupChecks(
   deps: SetupChecksDeps
 ): Promise<SetupCheck[]> {
   const env = deps.env ?? process.env;
-  const [database, mastra, aiService] = await Promise.all([
+  const [database, serverLane, mastra, aiService] = await Promise.all([
     checkDatabase(deps),
+    checkServerLane(deps),
     checkMastraSchema(deps),
     checkAiService(deps),
   ]);
-  const checks: SetupCheck[] = [database, mastra, aiService];
+  const checks: SetupCheck[] = [database];
+  if (serverLane) {
+    checks.push(serverLane);
+  }
+  checks.push(mastra, aiService);
   const baseline = checkBaselineModules(deps.installedModuleIds);
   if (baseline) {
     checks.push(baseline);

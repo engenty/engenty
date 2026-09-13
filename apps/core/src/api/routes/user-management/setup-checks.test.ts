@@ -101,4 +101,55 @@ describe("runSetupChecks", () => {
     expect(baseline?.status).toBe("fail");
     expect(baseline?.fix).toBe("pnpm engenty install files connections");
   });
+
+  // Core only logs a failed preflight outside production; the gate is where
+  // a wrong SUPABASE_JWT_SECRET has to stop the person with the fix in hand.
+  it("blocks with the env-init command when the server lane is rejected", async () => {
+    const checks = await runSetupChecks({
+      aiBaseUrl: "http://127.0.0.1:8790",
+      client: fakeClient(),
+      env: { AI_GATEWAY_API_KEY: "vck" },
+      fetchImpl: healthy,
+      installedModuleIds: ["engenty-copilot", "files", "connections"],
+      serverLanePreflight: async () => {
+        throw new Error(
+          "Server-lane preflight failed: minted engenty_server tokens signed with HS256 (shared secret) are not accepted by PostgREST (No suitable key or wrong key type)."
+        );
+      },
+      supabaseUrl: "http://127.0.0.1:56321",
+    });
+    const lane = checks.find((c) => c.id === "server_lane");
+    expect(lane).toMatchObject({ status: "fail" });
+    expect(lane?.detail).toContain("No suitable key");
+    expect(lane?.fix).toContain("SUPABASE_JWT_SECRET");
+    expect(checks.map((c) => c.id)).toEqual([
+      "database",
+      "server_lane",
+      "mastra_schema",
+      "ai_service",
+      "baseline_modules",
+      "ai_provider",
+    ]);
+  });
+
+  it("passes the lane row, and omits it when the lane is not configured", async () => {
+    const base = {
+      aiBaseUrl: "http://127.0.0.1:8790",
+      client: fakeClient(),
+      env: { AI_GATEWAY_API_KEY: "vck" },
+      fetchImpl: healthy,
+      installedModuleIds: ["engenty-copilot", "files", "connections"],
+      supabaseUrl: "http://127.0.0.1:56321",
+    };
+    const withLane = await runSetupChecks({
+      ...base,
+      serverLanePreflight: async () => undefined,
+    });
+    expect(withLane.find((c) => c.id === "server_lane")?.status).toBe("ok");
+    const without = await runSetupChecks({
+      ...base,
+      serverLanePreflight: null,
+    });
+    expect(without.some((c) => c.id === "server_lane")).toBe(false);
+  });
 });
