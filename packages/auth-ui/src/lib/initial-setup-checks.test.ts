@@ -1,3 +1,4 @@
+import { setRuntimeEnvOverrides } from "@engenty/environment";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   attentionCount,
@@ -59,6 +60,21 @@ describe("probeAiServiceFromBrowser", () => {
       throw new TypeError("Failed to fetch");
     }) as typeof fetch);
     expect(check.status).toBe("fail");
-    expect(check.fix).toContain("pnpm dev:urls:localhost");
+    expect(check.fix).toContain("pnpm dev");
+  });
+
+  it("names the URL-block switch when the built-in URL is a Portless name", async () => {
+    setRuntimeEnvOverrides({
+      VITE_ENGENTY_AI_BASE_URL: "https://engenty.localhost",
+    });
+    try {
+      const check = await probeAiServiceFromBrowser((async () => {
+        throw new TypeError("Failed to fetch");
+      }) as typeof fetch);
+      expect(check.detail).toContain("https://engenty.localhost/ai/health");
+      expect(check.fix).toContain("pnpm dev:urls:localhost");
+    } finally {
+      setRuntimeEnvOverrides({ VITE_ENGENTY_AI_BASE_URL: undefined });
+    }
   });
 });
