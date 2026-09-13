@@ -104,7 +104,7 @@ export function SpaceHomeJobRow({
     <div
       className={cn(
         "flex items-start gap-3 py-2.5",
-        first ? null : "border-border/60 border-t"
+        first ? null : "border-border-soft border-t"
       )}
       data-testid={`space-home-job-${job.state}`}
     >

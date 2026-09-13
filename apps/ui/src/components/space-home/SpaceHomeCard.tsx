@@ -273,7 +273,7 @@ export function SpaceHomeCard({
               />
             ))}
             {card.hiddenJobs > 0 ? (
-              <p className="border-border/60 border-t py-2.5 text-[12.5px] text-muted-foreground">
+              <p className="border-border-soft border-t py-2.5 text-[12.5px] text-muted-foreground">
                 {t("spaces.home.cards.moreJobs", {
                   count: card.hiddenJobs,
                   defaultValue: "{{count}} more running here",
@@ -287,7 +287,7 @@ export function SpaceHomeCard({
                 className={cn(
                   "py-2.5 text-[12.5px] text-muted-foreground",
                   card.jobs.length > 0 || card.hiddenJobs > 0
-                    ? "border-border/60 border-t"
+                    ? "border-border-soft border-t"
                     : null
                 )}
               >

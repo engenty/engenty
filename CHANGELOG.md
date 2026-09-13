@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.2] - 2026-09-13
+- DOCS **[internal]** Add frontmatter to the Mastra CDP issue draft
+- FIXED **[expenses]** Keep 20260616000800 as a no-op so db push accepts existing histories
+
 ## [0.2.1] - 2026-09-13
 - ADDED **[cli]** Rename install to setup, add `engenty install <slug>` shorthand
 - ADDED **[cli]** Install / generate / dev / doctor / reset / deploy replace setup --local

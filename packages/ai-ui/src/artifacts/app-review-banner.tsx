@@ -160,7 +160,7 @@ export function AppReviewBanner({
         </p>
 
         {groups.length === 0 ? null : (
-          <div className="mt-1.5 divide-y divide-border/60">
+          <div className="mt-1.5 divide-y divide-border-soft">
             {groups.map((group) => (
               <ScopeGroup
                 count={group.count}

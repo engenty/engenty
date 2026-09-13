@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.2.2",
+    "timestamp": 1789288427,
+    "commits": [
+      {
+        "id": "84080b1",
+        "message": "keep 20260616000800 as a no-op so db push accepts existing histories",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6106886",
+        "message": "add frontmatter to the Mastra CDP issue draft",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.1",
-    "timestamp": 1789286455,
+    "timestamp": 1789286456,
     "commits": [
       {
         "id": "7d0d49c",
