@@ -171,8 +171,8 @@ async function checkAiService(deps: SetupChecksDeps): Promise<SetupCheck> {
     };
   }
   const url = `${deps.aiBaseUrl.replace(/\/+$/, "")}/ai/health`;
-  // A Portless name under plain `pnpm dev` is the shape the first test
-  // install hit; the URL block is what to change, not the process.
+  // Core talks to AI over loopback. A Portless hostname here means the URL
+  // block is stale — Node cannot fetch `*.localhost` HTTPS (CA + nested SAN).
   const portless = /^https:\/\/[^/]*\.localhost/i.test(deps.aiBaseUrl);
   try {
     const response = await (deps.fetchImpl ?? fetch)(url, {
@@ -186,7 +186,7 @@ async function checkAiService(deps: SetupChecksDeps): Promise<SetupCheck> {
     return {
       detail: `${url} — ${errorText(error)}`,
       fix: portless
-        ? "pnpm dev:urls:localhost && restart pnpm dev  (Portless URLs in .env.local, but the app runs on localhost — or start with pnpm dev:portless)"
+        ? "pnpm dev:urls:portless && restart  (ENGENTY_AI_BASE_URL must be http://127.0.0.1:<AI port>, not a Portless hostname)"
         : "pnpm dev  (apps/ai must be running; ENGENTY_AI_BASE_URL names it)",
       id: "ai_service",
       label,

@@ -53,10 +53,20 @@ function main() {
     workspaceRoot: resolveWorkspaceRoot(),
     persist: false,
   });
-  const headerComments = buildPortlessAppUrlComments({ ...names, domain });
+  const headerComments = buildPortlessAppUrlComments({
+    ...names,
+    domain,
+    corePort: slotPorts.core,
+    aiPort: slotPorts.ai,
+  });
   const entries = writeDevUrlBlock(
     envLocalPath,
-    buildPortlessEntries({ ...names, domain, corePort: slotPorts.core }),
+    buildPortlessEntries({
+      ...names,
+      domain,
+      corePort: slotPorts.core,
+      aiPort: slotPorts.ai,
+    }),
     { headerComments }
   );
 

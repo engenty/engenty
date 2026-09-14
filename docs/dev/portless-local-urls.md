@@ -154,14 +154,17 @@ With `ENGENTY_DEV_GATEWAY=1`, core reverse-proxies paths on the gateway host:
 Portless sync writes **browser/gateway** URLs (`https://engenty.localhost`, …) for the UI,
 CORS, and `VITE_ENGENTY_AI_BASE_URL`.
 
-**Server-side AI → core** uses loopback HTTP — not the Portless HTTPS hostname (Node does not
-trust the Portless CA for outbound fetch):
+**Server-side** core ↔ AI uses loopback HTTP — not the Portless HTTPS hostname (Node does not
+trust the Portless CA for outbound fetch, and a worktree AI host like
+`https://tab-ui.ai.engenty.localhost` is also one DNS label too deep for `*.engenty.localhost`):
 
 | Variable | Typical Portless value | Used by |
 |----------|------------------------|---------|
 | `ENGENTY_UI_BASE_URL` | `https://engenty.localhost` | Browser, redirects |
 | `ENGENTY_CORE_BASE_URL` | `http://127.0.0.1:8787` | `apps/ai` scope resolution, core tools |
+| `ENGENTY_AI_BASE_URL` | `http://127.0.0.1:8790` | `apps/core` → AI (`/ai/health`, routines) |
 | `ENGENTY_API_BASE_URL` | `https://engenty.localhost` | UI / gateway API calls |
+| `VITE_ENGENTY_AI_BASE_URL` | `https://engenty.localhost` | Browser Copilot (gateway `/ai`) |
 
 Worktrees use the matching slot port (e.g. `http://127.0.0.1:8797` for slot 1). Re-sync with
 `pnpm dev:portless` or `pnpm dev:urls:portless --domain=<name>`.

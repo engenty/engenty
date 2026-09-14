@@ -163,16 +163,19 @@ describe("dev-portless-lib", () => {
       coreName: "engenty",
       aiName: "ai.engenty",
       domain: "tab-ui",
+      corePort: 8797,
+      aiPort: 8800,
     });
     expect(entries.ENGENTY_UI_BASE_URL).toBe(
       "https://tab-ui.engenty.localhost"
     );
-    expect(entries.ENGENTY_AI_BASE_URL).toBe(
-      "https://tab-ui.ai.engenty.localhost"
-    );
+    expect(entries.ENGENTY_AI_BASE_URL).toBe("http://127.0.0.1:8800");
     expect(entries.ENGENTY_DEV_DOMAIN).toBe("tab-ui");
-    expect(entries.ENGENTY_CORE_BASE_URL).toBe("http://127.0.0.1:8787");
+    expect(entries.ENGENTY_CORE_BASE_URL).toBe("http://127.0.0.1:8797");
     expect(entries.ENGENTY_CORS_ORIGINS).toContain(
+      "https://tab-ui.engenty.localhost"
+    );
+    expect(entries.VITE_ENGENTY_AI_BASE_URL).toBe(
       "https://tab-ui.engenty.localhost"
     );
   });

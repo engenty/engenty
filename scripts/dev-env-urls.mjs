@@ -77,20 +77,34 @@ export function resolveCoreLoopbackOrigin(corePort = ports.core) {
   return `http://127.0.0.1:${corePort}`;
 }
 
+/** Loopback AI URL for server-side callers (core → AI). Same TLS reason as core. */
+export function resolveAiLoopbackOrigin(aiPort = ports.ai) {
+  return `http://127.0.0.1:${aiPort}`;
+}
+
+function resolvePort(explicit, envName, fallback) {
+  return (
+    explicit ?? (Number.parseInt(process.env[envName] ?? "", 10) || fallback)
+  );
+}
+
 export function buildPortlessEntries({
   coreName,
   aiName,
   domain = null,
   corePort,
+  aiPort,
 }) {
   const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
   const aiRoute = domain ? `${domain}.${aiName}` : aiName;
   const gateway = portlessOrigin(gatewayRoute);
   const ai = portlessOrigin(aiRoute);
-  const resolvedCorePort =
-    corePort ??
-    (Number.parseInt(process.env.ENGENTY_CORE_PORT ?? "", 10) || ports.core);
-  const coreLoopback = resolveCoreLoopbackOrigin(resolvedCorePort);
+  const coreLoopback = resolveCoreLoopbackOrigin(
+    resolvePort(corePort, "ENGENTY_CORE_PORT", ports.core)
+  );
+  const aiLoopback = resolveAiLoopbackOrigin(
+    resolvePort(aiPort, "ENGENTY_AI_PORT", ports.ai)
+  );
   const studioPort = Number.parseInt(process.env.ENGENTY_STUDIO_PORT ?? "", 10);
   const studioLoopback = Number.isFinite(studioPort) ? studioPort : 43_111;
   const corsOrigins = [
@@ -103,7 +117,7 @@ export function buildPortlessEntries({
   return {
     ENGENTY_UI_BASE_URL: gateway,
     ENGENTY_API_BASE_URL: gateway,
-    ENGENTY_AI_BASE_URL: ai,
+    ENGENTY_AI_BASE_URL: aiLoopback,
     ENGENTY_DOCS_BASE_URL: gateway,
     ENGENTY_CORE_BASE_URL: coreLoopback,
     ENGENTY_CORS_ORIGINS: corsOrigins,
@@ -119,6 +133,8 @@ export function buildPortlessAppUrlComments({
   docsName,
   wwwName = "www.engenty",
   domain = null,
+  corePort,
+  aiPort,
 }) {
   const gatewayRoute = domain ? `${domain}.${coreName}` : coreName;
   const aiRoute = domain ? `${domain}.${aiName}` : aiName;
@@ -138,7 +154,10 @@ export function buildPortlessAppUrlComments({
     `#   Studio:    ${gateway}/studio`,
     `#   OpenAPI:   ${gateway}/api/docs`,
     `#   Core (server-side / AI → core): ${resolveCoreLoopbackOrigin(
-      Number.parseInt(process.env.ENGENTY_CORE_PORT ?? "", 10) || ports.core
+      resolvePort(corePort, "ENGENTY_CORE_PORT", ports.core)
+    )}`,
+    `#   AI (server-side / core → AI): ${resolveAiLoopbackOrigin(
+      resolvePort(aiPort, "ENGENTY_AI_PORT", ports.ai)
     )}`,
     "# Direct upstream (debug):",
     `#   AI:        ${aiDirect}/`,
