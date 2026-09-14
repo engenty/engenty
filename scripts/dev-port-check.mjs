@@ -264,7 +264,9 @@ function main() {
         `I won't kill automatically.\n` +
         `Free ${unrelated.length > 1 ? "them" : "it"} manually, e.g.:\n` +
         unrelated.map((u) => `  kill ${u.pid}   # port ${u.port}`).join("\n") +
-        "\nthen retry: pnpm dev:portless\n"
+        "\nthen retry: pnpm dev:portless" +
+        (args.explicitDomain ? ` --domain=${args.explicitDomain}` : "") +
+        "\n"
     );
     process.exit(1);
   }

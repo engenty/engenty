@@ -20,7 +20,11 @@ import {
  * reverse) sends the browser to a host that is not serving this checkout —
  * the copilot then reports "could not reach the AI service".
  */
-function warnOnDevUrlShape(root: string, portless: boolean): void {
+function warnOnDevUrlShape(
+  root: string,
+  portless: boolean,
+  domain?: string
+): void {
   const envPath = path.join(root, ".env.local");
   if (!fs.existsSync(envPath)) {
     return;
@@ -37,7 +41,9 @@ function warnOnDevUrlShape(root: string, portless: boolean): void {
   if (isPortless === portless) {
     return;
   }
-  const fix = portless ? "pnpm dev:urls:portless" : "pnpm dev:urls:localhost";
+  const fix = portless
+    ? `pnpm dev:urls:portless${domain ? ` --domain=${domain}` : ""}`
+    : "pnpm dev:urls:localhost";
   console.warn(
     `\n.env.local has ${isPortless ? "Portless (https://*.localhost)" : "localhost"} dev URLs, but you are starting ${portless ? "pnpm dev:portless" : "pnpm dev"}. The UI would call the AI service at ${value}. Fix: ${fix}\n`
   );
@@ -71,10 +77,15 @@ export function registerDevCommands(program: Command): void {
           studio?: boolean;
         }) => {
           const root = requireWorkspaceRoot("dev");
-          warnOnDevUrlShape(root, Boolean(options.portless || options.domain));
+          warnOnDevUrlShape(
+            root,
+            Boolean(options.portless || options.domain),
+            options.domain
+          );
 
           if (options.preflight !== false) {
             const check = runWorkspaceScript({
+              args: options.domain ? [`--domain=${options.domain}`] : [],
               cwd: root,
               script: "scripts/predev-check.sh",
             });

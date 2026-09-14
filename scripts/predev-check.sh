@@ -8,10 +8,36 @@
 #
 # Portless HTTPS proxy (:443) is required only by `pnpm dev:portless`
 # (checked in scripts/dev-portless.sh).
+#
+# Usage:
+#   scripts/predev-check.sh
+#   scripts/predev-check.sh --domain=tab-ui
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+DOMAIN_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --domain)
+      [[ $# -ge 2 ]] || {
+        echo "Missing value for --domain" >&2
+        exit 1
+      }
+      DOMAIN_ARG="$2"
+      shift 2
+      ;;
+    --domain=*)
+      DOMAIN_ARG="${1#--domain=}"
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1 (try --domain=)" >&2
+      exit 1
+      ;;
+  esac
+done
 
 # Workspace-vendored CLI (pnpm install). Prefer it over a random global binary.
 export PATH="${ROOT}/node_modules/.bin:${PATH}"
@@ -498,7 +524,13 @@ ensure_dev_ports_free() {
   # this repo (e.g. a Vite left behind after an unclean Ctrl-C). Resolves
   # worktree-aware ports; unrelated apps on those ports abort with a clear
   # message instead of a vague "Port 5173 is already in use".
-  node "$ROOT/scripts/dev-port-check.mjs" --cwd="$ROOT"
+  # `--domain` is required on a standalone clone (worktree count 1), otherwise
+  # the checker assumes slot 0 and collides with whatever holds 8787.
+  PORT_CHECK_ARGS=(--cwd="$ROOT")
+  if [[ -n "$DOMAIN_ARG" ]]; then
+    PORT_CHECK_ARGS+=(--domain="$DOMAIN_ARG")
+  fi
+  node "$ROOT/scripts/dev-port-check.mjs" "${PORT_CHECK_ARGS[@]}"
   echo "✓ Dev ports clear." >&2
 }
 
