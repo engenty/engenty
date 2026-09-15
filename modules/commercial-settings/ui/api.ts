@@ -20,6 +20,7 @@ export interface Discipline {
 }
 
 export interface ExpenseCategory {
+  account_class?: string | null;
   account_number?: string | null;
   code: string;
   color?: string | null;

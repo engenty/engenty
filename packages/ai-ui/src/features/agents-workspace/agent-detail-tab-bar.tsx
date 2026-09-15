@@ -7,7 +7,9 @@ import type { AgentDetailTab } from "./agent-detail-tabs";
 const TAB_LABEL_KEYS: Record<AgentDetailTab, string> = {
   activity: "agentDetail.tabs.activity",
   capabilities: "agentDetail.tabs.capabilities",
+  files: "agentDetail.tabs.files",
   instructions: "agentDetail.tabs.instructions",
+  memory: "agentDetail.tabs.memory",
   workspace: "agentDetail.tabs.workspace",
   overview: "agentDetail.tabs.overview",
 };

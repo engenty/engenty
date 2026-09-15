@@ -1,0 +1,38 @@
+{
+  "id": "commercial-settings.review",
+  "description": "Compare tenant commercial settings to the region pack and report gaps.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "region": {
+        "type": "string",
+        "description": "ISO 3166-1 alpha-2 or locale. Defaults from stored default_locale."
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Review commercial settings",
+    "owner_agent_id": "commercial-settings.manager",
+    "allowed_tools": [
+      "loadCommercialSettings",
+      "listRegionPacks",
+      "loadRegionPack",
+      "lookupChartAccount"
+    ],
+    "skills": ["commercial-settings", "commercial-charts"]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "type": "mapping",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"commercial-settings.manager\"},\"brief\":{\"value\":\"# Review commercial settings\\n\\n## Task\\n\\nRead tenant commercial defaults and compare them to the region pack. Do not write.\\n\\n## Steps\\n\\n1. `loadCommercialSettings`.\\n2. Resolve region from input or `default_locale`.\\n3. `loadRegionPack` for that region.\\n4. Report:\\n   - currency / locale vs the region default\\n   - tax rates missing from the pack, extra rates, missing default\\n   - expense categories missing pack codes\\n   - categories with empty account_class or account_number\\n   - Austrian rows whose account starts with 4 (wrong — Erlöse)\\n5. Suggest merge tools the user can run; do not call them in this review.\\n\\n## Rules\\n\\n- Read only. Never claim a save.\\n- Do not invent account numbers in the report — quote pack rows.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"loadCommercialSettings\",\"listRegionPacks\",\"loadRegionPack\",\"lookupChartAccount\"]}}"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

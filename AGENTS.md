@@ -40,6 +40,7 @@ Core apps and packages must not depend on optional modules — use plugin hooks,
 ## Core commands
 
 ```bash
+npx engenty start        # no checkout: run engenty on this machine (own Supabase + prebuilt images) in ~/.engenty
 npx engenty create <dir> # no checkout yet: prerequisites → clone at this release → pnpm install → its engenty setup
 pnpm install
 pnpm engenty setup     # first run (repeatable): pick plugins + generate + Supabase + migrations + .env.local
@@ -52,7 +53,7 @@ pnpm check               # lint + format check
 pnpm fix                 # auto-fix
 ```
 
-CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`). The command implementations live in `packages/cli` (`@engenty/cli`, published to npm as `engenty` on each release tag); `apps/core/src/cli.ts` registers them plus the runtime-bound commands (auth, tools, skills, service-token, plugin-registered). `npx engenty …` inside a checkout delegates to `pnpm engenty …`; outside it offers `create`, `deploy`, `deploy migrate`, `doctor` — see [setup-process.md](./docs/content/dev/setup-process.md#npx-engenty).
+CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core exec tsx src/index.ts`). The command implementations live in `packages/cli` (`@engenty/cli`, published to npm as `engenty` on each release tag); `apps/core/src/cli.ts` registers them plus the runtime-bound commands (auth, tools, skills, service-token, plugin-registered). `npx engenty …` inside a checkout delegates to `pnpm engenty …`; outside it offers `start`/`status`/`stop`/`update` (a managed install in `~/.engenty`), `create`, `deploy`, `deploy migrate`, `doctor`, `env set` — see [setup-process.md](./docs/content/dev/setup-process.md#npx-engenty).
 
 **Commit messages:** use `type(scope): subject`, with the scope naming the mainly affected module, package, or app (for example `fix(time-tracking): …`, `feat(ai-core): …`, or `docs(ui): …`). Use `global` for genuinely repository-wide changes. Infrastructure scopes such as `ci`, `deploy`, and `release` are also valid. Do not omit the scope.
 

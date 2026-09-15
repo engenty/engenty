@@ -61,6 +61,14 @@ export interface CreateThreadInput {
 
 export interface AppendThreadMessageInput {
   authorUserId?: string | null;
+  /**
+   * Pin the row's `created_at` (ISO) instead of taking the database clock.
+   * Transcripts order by `(created_at, id)`, so a message that MEANS "first
+   * thing on this thread" (a hire welcome) must carry the thread's own
+   * creation time — a turn a person sends while it is still being generated
+   * would otherwise land ahead of it.
+   */
+  createdAt?: string;
   // Optional caller-supplied row id (the Mastra message id). When set, append is
   // an idempotent upsert keyed on id — re-saving the same message is a no-op
   // instead of a duplicate row, and `updateMessages` can find it by id.
@@ -536,6 +544,7 @@ export function createThreadStore(source: DbSource) {
             : input.parts,
         author_user_id: input.authorUserId ?? null,
         metadata: input.metadata ?? {},
+        ...(input.createdAt ? { created_at: input.createdAt } : {}),
       };
 
       const ensureMemberParticipant = async () => {

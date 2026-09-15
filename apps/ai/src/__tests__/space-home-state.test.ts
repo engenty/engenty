@@ -62,6 +62,26 @@ describe("resolveSpaceHomeThreadState", () => {
     });
     expect(state.state).toBe("quiet");
     expect(state.jobs).toEqual([]);
+    expect(state.awaiting_first_reply).toBe(false);
+  });
+
+  it("flags a hire welcome that nobody has answered yet", () => {
+    const state = resolveSpaceHomeThreadState({
+      nowMs: NOW,
+      runs: [],
+      sinceMs: SINCE,
+      thread: thread({
+        last_message: {
+          created_at: "2026-09-09T07:50:00.000Z",
+          metadata: { source: "hire-welcome" },
+          parts: [{ text: "Hi — I'm Chief of Staff.", type: "text" }],
+          role: "assistant",
+        },
+      }),
+    });
+    expect(state.state).toBe("quiet");
+    expect(state.awaiting_first_reply).toBe(true);
+    expect(state.last_message?.excerpt).toContain("Chief of Staff");
   });
 
   it("runs while a run is running", () => {

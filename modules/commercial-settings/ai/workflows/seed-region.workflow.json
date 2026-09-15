@@ -1,0 +1,43 @@
+{
+  "id": "commercial-settings.seed-region",
+  "description": "Merge a regional chart pack (expense categories and tax rates) into tenant commercial settings.",
+  "inputSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "region": {
+        "type": "string",
+        "description": "ISO 3166-1 alpha-2 or locale (AT, de-AT). Defaults from stored default_locale."
+      }
+    }
+  },
+  "outputSchema": {},
+  "metadata": {
+    "title": "Seed chart of accounts",
+    "owner_agent_id": "commercial-settings.manager",
+    "allowed_tools": [
+      "loadCommercialSettings",
+      "listRegionPacks",
+      "loadRegionPack",
+      "mergeExpenseCategoriesFromRegion",
+      "mergeTaxRatesFromRegion"
+    ],
+    "skills": [
+      "commercial-charts",
+      "commercial-expense-categories",
+      "commercial-tax-rates"
+    ]
+  },
+  "graph": [
+    {
+      "id": "prepare",
+      "type": "mapping",
+      "mapConfig": "{\"agent_type_key\":{\"value\":\"commercial-settings.manager\"},\"brief\":{\"value\":\"# Seed region chart pack\\n\\n## Task\\n\\nMerge the regional expense-category and tax-rate pack into tenant commercial settings.\\n\\n## Steps\\n\\n1. Call `loadCommercialSettings` first.\\n2. Resolve `region` from input, else from `default_locale` (de-AT → AT). If still unknown, ask is not available here — default AT and say so.\\n3. Call `loadRegionPack` for that region.\\n4. `mergeExpenseCategoriesFromRegion` with `dry_run: true`, then without dry_run.\\n5. `mergeTaxRatesFromRegion` with `dry_run: true`, then without dry_run.\\n6. Summarize added category codes, backfilled accounts, and added tax rates. Name the chart (EKR / SKR 03 / KMU).\\n\\n## Rules\\n\\n- Do not overwrite filled account numbers or an existing tax default.\\n- Austria expenses are class 7, never 4400.\\n- Collection writes replace the whole list; use the merge tools, not a hand-built one-row replace.\"},\"input\":{\"initData\":true,\"path\":\"\"},\"thread_mode\":{\"value\":\"new\"},\"allowed_tools\":{\"value\":[\"loadCommercialSettings\",\"listRegionPacks\",\"loadRegionPack\",\"mergeExpenseCategoriesFromRegion\",\"mergeTaxRatesFromRegion\"]}}"
+    },
+    {
+      "id": "run",
+      "toolId": "run_specialist",
+      "type": "tool"
+    }
+  ]
+}

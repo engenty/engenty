@@ -94,26 +94,38 @@ export async function readSetupChecks(): Promise<SetupCheck[]> {
 }
 
 /**
- * `VITE_ENGENTY_AI_BASE_URL` without a trailing slash, or the page's own
- * origin (the core gateway proxies `/ai` there). The same rule the copilot
- * client applies, so the gate probes exactly the URL the chat would use.
+ * Same-origin `/ai` (Vite or the core gateway proxies it). A baked
+ * `VITE_ENGENTY_AI_BASE_URL` of `https://engenty.localhost` must not be
+ * probed when this page is `http://localhost:5173` — that is a different
+ * origin, and the browser cannot reach it under plain `pnpm dev`.
  */
 export function resolveAiServiceBaseUrl(): string {
+  const pageOrigin =
+    typeof window === "undefined"
+      ? ""
+      : window.location.origin.replace(/\/$/, "");
+  if (pageOrigin) {
+    return pageOrigin;
+  }
   const raw =
     runtimeEnvOverride("VITE_ENGENTY_AI_BASE_URL") ??
     (import.meta as ImportMeta & { env?: Record<string, string | undefined> })
       .env?.VITE_ENGENTY_AI_BASE_URL;
-  const normalized = (raw ?? "").trim().replace(/\/$/, "");
-  if (normalized) {
-    return normalized;
+  return (raw ?? "").trim().replace(/\/$/, "");
+}
+
+const PORTLESS_ORIGIN = /^https:\/\/[^/]*\.localhost/i;
+
+function browserAiProbeFix(base: string): string {
+  if (PORTLESS_ORIGIN.test(base)) {
+    return "pnpm portless && pnpm dev:portless  (this page is HTTPS *.localhost — /ai is proxied there)";
   }
-  return typeof window === "undefined" ? "" : window.location.origin;
+  return "pnpm dev  (apps/ai must be running)";
 }
 
 /**
- * The row only the browser can answer. A Portless URL under plain `pnpm dev`
- * (F3 of the first test install) fails here and nowhere else: core reaches
- * apps/ai fine, the browser does not.
+ * The row only the browser can answer. Probes this page's origin, which is
+ * the URL the copilot would use through the same-origin `/ai` proxy.
  */
 export async function probeAiServiceFromBrowser(
   fetchImpl: typeof fetch = fetch
@@ -130,12 +142,9 @@ export async function probeAiServiceFromBrowser(
     }
     return { detail: url, id: "ai_service_browser", label, status: "ok" };
   } catch (error) {
-    const isPortless = /^https:\/\/[^/]*\.localhost/i.test(base);
     return {
       detail: `${url} — ${error instanceof Error ? error.message : String(error)}`,
-      fix: isPortless
-        ? "pnpm dev:urls:localhost && restart pnpm dev  (Portless URLs in .env.local, but the app runs on localhost — or start with pnpm dev:portless)"
-        : "pnpm dev  (apps/ai must be running); check VITE_ENGENTY_AI_BASE_URL in .env.local",
+      fix: browserAiProbeFix(base),
       id: "ai_service_browser",
       label,
       status: "fail",
@@ -239,6 +248,71 @@ export interface AiProviderSaveResult {
     | { hydrated: string[]; status: "reloaded" }
     | { detail: string; status: "unreachable" }
     | { status: "skipped" };
+}
+
+/**
+ * Env var names the gate already saw as set (`"AI_GATEWAY_API_KEY set"`).
+ * Empty when the provider row is missing or still a warning.
+ */
+export function aiProviderEnvKeysFromChecks(
+  checks: readonly SetupCheck[]
+): string[] {
+  const check = checks.find(
+    (row) => row.id === "ai_provider" && row.status === "ok"
+  );
+  if (!check?.detail) {
+    return [];
+  }
+  const known = new Set(AI_PROVIDER_OPTIONS.map((option) => option.envKey));
+  return check.detail
+    .replace(/\s+set$/i, "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter((key) => known.has(key));
+}
+
+export function aiProviderLabelFromEnvKeys(keys: readonly string[]): string {
+  const labels = AI_PROVIDER_OPTIONS.filter((option) =>
+    keys.includes(option.envKey)
+  ).map((option) => option.label);
+  return labels.length > 0 ? labels.join(", ") : "Server environment";
+}
+
+export type AiProviderStepDecision =
+  | { kind: "connected-env"; label: string }
+  | { kind: "need-key" }
+  | { kind: "save"; apiKey: string }
+  | { kind: "skipped" };
+
+/**
+ * Step 3: a pasted key is saved as a platform setting. An empty Continue or
+ * Skip keeps the server env key when the gate already saw one — it does not
+ * mean "the copilot stays off".
+ */
+export function decideAiProviderStep(params: {
+  envKeys: readonly string[];
+  intent: "continue" | "skip";
+  pastedKey: string;
+}): AiProviderStepDecision {
+  const pasted = params.pastedKey.trim();
+  if (params.intent === "skip") {
+    return params.envKeys.length > 0
+      ? {
+          kind: "connected-env",
+          label: aiProviderLabelFromEnvKeys(params.envKeys),
+        }
+      : { kind: "skipped" };
+  }
+  if (pasted) {
+    return { kind: "save", apiKey: pasted };
+  }
+  if (params.envKeys.length > 0) {
+    return {
+      kind: "connected-env",
+      label: aiProviderLabelFromEnvKeys(params.envKeys),
+    };
+  }
+  return { kind: "need-key" };
 }
 
 /**

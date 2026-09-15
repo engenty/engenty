@@ -92,6 +92,20 @@ export default function plugin(engenty: EngentyPluginContext) {
   });
 
   engenty.UI.registerRoute({
+    id: "ai_ui_admin_agents_memory",
+    path: `${AGENTS_CATALOG_ROOT_PATH}/:agentId/memory`,
+    component: AgentDetailPage,
+    order: 204,
+  });
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_agents_files",
+    path: `${AGENTS_CATALOG_ROOT_PATH}/:agentId/files`,
+    component: AgentDetailPage,
+    order: 204,
+  });
+
+  engenty.UI.registerRoute({
     id: "ai_ui_admin_agents_activity",
     path: `${AGENTS_CATALOG_ROOT_PATH}/:agentId/activity`,
     component: AgentDetailPage,

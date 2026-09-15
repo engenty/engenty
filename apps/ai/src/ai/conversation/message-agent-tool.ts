@@ -56,6 +56,7 @@ import {
   type DelegationToolDeps,
   runDelegatedSpecialist,
 } from "./delegate-tool.js";
+import { markDeskReplyPreview } from "./desk-reply-preview.js";
 
 const logger = createLogger({ name: "message-agent-tool" });
 
@@ -290,6 +291,17 @@ export function createMessageAgentTool(
           ...(pairThreadId ? { childThreadId: pairThreadId } : {}),
         });
         if (result.ok === true && pairThread && spaceId) {
+          // The desk that received "Message from …" now shows what its
+          // agent answered, cut to a preview, before the inbox hears of it.
+          await markDeskReplyPreview(deps, {
+            agentId,
+            agentName: alias,
+            artifactIds: readArtifactIds(result.artifact_ids),
+            fromId: deps.parentAgentId,
+            pairThread,
+            reply: result.result,
+            spaceId,
+          });
           await announceAgentMessage(deps, {
             fromId: agentId,
             pairThread,
@@ -590,6 +602,13 @@ async function messageExistingRoom(
     title: room.title,
     visibility: room.visibility,
   };
+}
+
+/** The delegate result's `artifact_ids`, as strings only. */
+function readArtifactIds(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === "string" && id !== "")
+    : [];
 }
 
 /** Whether the colleague may speak in the sender's current room. */

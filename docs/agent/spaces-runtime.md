@@ -120,5 +120,8 @@ How-tos: [define module AI](../../packages/ai-core/docs/howto-define-module-ai.m
 [build tools](../../packages/ai-core/docs/howto-build-tools.md),
 [frontend tools](../../packages/ag-ui-bridge/docs/frontend-tools.md),
 [workspaces](../../packages/ai-core/docs/howto-workspaces.md).
+The container half of a run — per-run sandboxes, the space computer, a person's
+browser, what each can reach — is
+[Agent computers](../content/dev/agent-computers.md).
 `pnpm ai:check` fails OPEN authoring defects; Package 10 CLOSED modules may
 still be in-flight.

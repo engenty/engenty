@@ -17,6 +17,7 @@ import {
   type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutSnapshotV1,
+  type CopilotWindowRect,
   reconcileCopilotLayoutSnapshot,
 } from "@engenty/app-shell";
 
@@ -39,6 +40,7 @@ export function parseCopilotLayoutSnapshot(
   const validModes: CopilotLayoutPersistDockMode[] = [
     "floating",
     "mini-floating",
+    "window",
     "drawer",
     "sidebar",
     "bottom",
@@ -118,6 +120,24 @@ export function parseCopilotLayoutSnapshot(
     };
   }
 
+  let windowRect: CopilotWindowRect | undefined;
+  const wr = o.windowRect as Record<string, unknown> | undefined | null;
+  if (
+    wr &&
+    typeof wr === "object" &&
+    isFiniteNumber(wr.x) &&
+    isFiniteNumber(wr.y) &&
+    isFiniteNumber(wr.width) &&
+    isFiniteNumber(wr.height)
+  ) {
+    windowRect = {
+      height: wr.height,
+      width: wr.width,
+      x: wr.x,
+      y: wr.y,
+    };
+  }
+
   let compactStatusFlapHeight: number | undefined;
   if (isFiniteNumber(o.compactStatusFlapHeight)) {
     compactStatusFlapHeight = o.compactStatusFlapHeight;
@@ -142,6 +162,7 @@ export function parseCopilotLayoutSnapshot(
     compactStatusFlapHeight,
     collapseToCircle,
     panelMode,
+    windowRect,
   });
 }
 
@@ -186,5 +207,7 @@ export function mergeCopilotLayoutSnapshot(
         ? base.collapseToCircle
         : patch.collapseToCircle,
     panelMode: patch.panelMode === undefined ? base.panelMode : patch.panelMode,
+    windowRect:
+      patch.windowRect === undefined ? base.windowRect : patch.windowRect,
   });
 }

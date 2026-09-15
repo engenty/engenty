@@ -39,6 +39,8 @@ describe("runtime managed skills", () => {
     expect(skills["sandbox-code-execution"]).toContain(
       "A Space-confined run can receive `/space` and does not receive `/shared`."
     );
+    expect(skills["sandbox-code-execution"]).toContain("/data/Files");
+    expect(skills["artifacts-and-downloads"]).toContain("/data/Files");
   });
 
   it("documents three-root authoring without a prompt index", () => {

@@ -31,4 +31,35 @@ describe("commercialSettingsSchema tax_rates", () => {
     });
     expect(r.success).toBe(true);
   });
+
+  it("accepts expense categories with EKR class and account", () => {
+    const r = commercialSettingsSchema.safeParse({
+      expense_categories: [
+        {
+          account_class: "7",
+          account_number: "7340",
+          code: "reise",
+          default_deduction_rate: 1,
+          is_tax_deductible: true,
+          name: "Reisekosten",
+        },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a non-digit Kontoklasse", () => {
+    const r = commercialSettingsSchema.safeParse({
+      expense_categories: [
+        {
+          account_class: "70",
+          code: "reise",
+          default_deduction_rate: 1,
+          is_tax_deductible: true,
+          name: "Reisekosten",
+        },
+      ],
+    });
+    expect(r.success).toBe(false);
+  });
 });

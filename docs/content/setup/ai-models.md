@@ -24,7 +24,7 @@ Superadmins manage it at **Manage → AI models**.
 | --- | --- |
 | **Sync now** | Re-fetches the model list and prices from the gateway. |
 | **Activate / deactivate** | Controls whether a model is offered anywhere in the installation. |
-| **Filters and search** | Narrow by provider, gateway, price tier, capability, or release age. |
+| **Filters and search** | Narrow by capability (tool-use, vision, …), provider, gateway, use case, price, or release age. Capability selections are AND — a model must have every tag you pick. Provider, gateway, and use case accept several values at once (OR) so you can activate a cohort, then change the filters and do the next. |
 | **Pricing history** | Shows what each model has cost over time. |
 
 Deactivating a model removes it from every picker immediately. Activating one

@@ -13,7 +13,7 @@
     "dev:app": "tsx watch --clear-screen=false src/index.ts",
     "dev:portless": "pnpm run dev:app",
     "start": "node dist/index.js",
-    "build": "tsup src/index.ts --format esm --clean --sourcemap --external @engenty/engenty-remote --external @engenty/ai-skills",
+    "build": "tsup src/index.ts src/cli/mastra-schema-init.ts --format esm --clean --sourcemap --external @engenty/engenty-remote --external @engenty/ai-skills",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "pnpm exec biome check .",

@@ -95,6 +95,7 @@ export function CopilotDrawerBody({
   positionFullscreenLabel = "Full Screen",
   positionHeadingLabel = "Position",
   positionSidebarLabel = "Sidebar",
+  positionWindowLabel = "Window",
   agentChooserLabels,
   agentSessionChooserEnabled = false,
   chooserMenuAgentId = null,
@@ -301,7 +302,8 @@ export function CopilotDrawerBody({
     (!open &&
       (effectiveMode === "drawer" ||
         effectiveMode === "bottom" ||
-        effectiveMode === "sidebar"));
+        effectiveMode === "sidebar" ||
+        effectiveMode === "window"));
 
   const surfaceInstanceKey = `${effectiveMode}:${surfaceEpoch}:${session.activeThreadId}`;
 
@@ -412,6 +414,7 @@ export function CopilotDrawerBody({
       positionHeadingLabel={positionHeadingLabel}
       positionMenuAriaLabel={positionMenuAriaLabel}
       positionSidebarLabel={positionSidebarLabel}
+      positionWindowLabel={positionWindowLabel}
       showDrawerOption={isMobile}
       value={positionMenuValue}
     />
@@ -435,6 +438,7 @@ export function CopilotDrawerBody({
       positionHeadingLabel={positionHeadingLabel}
       positionMenuAriaLabel={positionMenuAriaLabel}
       positionSidebarLabel={positionSidebarLabel}
+      positionWindowLabel={positionWindowLabel}
       showDrawerOption={isMobile}
       value={positionMenuValue}
     />
@@ -516,6 +520,8 @@ export function CopilotDrawerBody({
     ) : null,
     browserPanelLabel: "Your browser",
     browserPanelOpen,
+    // The drawer is the person's own copilot: its every thread is theirs.
+    chatKind: "copilot" as const,
     onToggleBrowserPanel: () => setBrowserPanelOpen((open) => !open),
     ...(agentSessionChooserEnabled
       ? { agentSessionChooser: renderAgentSessionChooser("panel") }
@@ -779,6 +785,7 @@ export function CopilotDrawerBody({
       compactContextOptions={compactContextOptions}
       compactInterruptContent={interruptBanner}
       composerPlaceholder={composerPlaceholder}
+      copilotLayout={copilotLayout}
       copilotPositionDropdown={copilotPositionDropdown}
       copilotSidebarRef={copilotSidebarRef}
       dragHandleLabel="Drag to move"

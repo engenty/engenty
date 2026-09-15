@@ -88,10 +88,14 @@ async function checkDatabase(deps: SetupChecksDeps): Promise<SetupCheck> {
     };
   }
   try {
+    // A real GET, not `head: true`: PostgREST answers a HEAD with no body, so
+    // supabase-js has nothing to build an error from and a missing table reads
+    // as success. `limit(0)` keeps it as cheap as the HEAD was.
     const result = await deps.client
       .schema("core")
       .from("users")
-      .select("id", { count: "exact", head: true });
+      .select("id")
+      .limit(0);
     if (result.error) {
       throw result.error;
     }
@@ -132,10 +136,14 @@ async function checkMastraSchema(deps: SetupChecksDeps): Promise<SetupCheck> {
   const missing: string[] = [];
   for (const table of MASTRA_TABLES) {
     try {
+      // Same reason as checkDatabase: a HEAD carries no body, so a 404 for a
+      // table that does not exist arrived as `error: null` and this check
+      // reported "ai.mastra_* present" on a database with none of them.
       const result = await deps.client
         .schema("ai")
         .from(table)
-        .select("id", { count: "exact", head: true });
+        .select("id")
+        .limit(0);
       if (result.error) {
         missing.push(table);
       }

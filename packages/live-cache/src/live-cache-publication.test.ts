@@ -17,20 +17,42 @@ const MODULE_REALTIME_MIGRATIONS = MODULE_REALTIME_MIGRATION_SPECS.filter(
 );
 
 describe("live cache publication guardrails", () => {
-  it("core realtime migration publishes ai.agent_session", () => {
-    const migrationsDir = path.join(repoRoot, "supabase/migrations");
-    const file = fs
+  const migrationsDir = path.join(repoRoot, "supabase/migrations");
+  const initialSchema = fs.readFileSync(
+    path.join(migrationsDir, "00000000000001_initial_schema.sql"),
+    "utf-8"
+  );
+
+  it("core schema defines ai.thread for realtime list invalidation", () => {
+    // Table was `ai.agent_session`; the dump names it `ai.thread`. Publication
+    // membership is not in the pg_dump baseline (Postgres omits it), so the
+    // guardrail is the table the UI actually subscribes to.
+    expect(initialSchema).toMatch(/create table ai\.thread\b/i);
+  });
+
+  it("a migration after the baseline re-publishes the tables the UI subscribes to", () => {
+    // pg_dump dropped every `alter publication … add table` when the
+    // migrations were consolidated, so a database built from the baseline had
+    // an EMPTY publication and no live list ever refreshed. The restore
+    // migration is the guardrail; these are the core tables it must carry.
+    const restore = fs
       .readdirSync(migrationsDir)
-      .find(
-        (name) =>
-          name.includes("core_realtime_publication") ||
-          name.includes("initial_schema")
-      );
-    expect(file).toBeDefined();
-    const content = fs.readFileSync(path.join(migrationsDir, file!), "utf-8");
-    expect(content).toMatch(
-      /alter publication supabase_realtime add table ai\.agent_session/i
+      .find((name) => name.includes("_realtime_publication_restore.sql"));
+    expect(restore).toBeDefined();
+    const content = fs.readFileSync(
+      path.join(migrationsDir, restore!),
+      "utf-8"
     );
+    for (const table of [
+      "ai.artifact",
+      "ai.thread",
+      "core.notifications",
+      "core.tenant_settings",
+      "core.user_settings",
+    ]) {
+      expect(content).toContain(`'${table}'`);
+    }
+    expect(content).toMatch(/alter publication supabase_realtime add table/i);
   });
 
   for (const spec of MODULE_REALTIME_MIGRATIONS) {
@@ -78,23 +100,11 @@ describe("live cache publication guardrails", () => {
     });
   }
 
-  it("custom access token hook migration exists with grants", () => {
-    const migrationsDir = path.join(repoRoot, "supabase/migrations");
-    const hookFile = fs
-      .readdirSync(migrationsDir)
-      .find(
-        (name) =>
-          name.includes("custom_access_token_hook.sql") ||
-          name.includes("initial_schema")
-      );
-    expect(hookFile).toBeDefined();
-    const content = fs.readFileSync(
-      path.join(migrationsDir, hookFile!),
-      "utf-8"
-    );
-    expect(content).toContain("core.custom_access_token_hook");
-    expect(content).toMatch(
-      /grant execute on function core\.custom_access_token_hook/i
+  it("custom access token hook exists with grants", () => {
+    expect(initialSchema).toContain("core.custom_access_token_hook");
+    // pg_dump writes GRANT ALL; older dedicated migrations used GRANT EXECUTE.
+    expect(initialSchema).toMatch(
+      /grant (?:all|execute) on function core\.custom_access_token_hook/i
     );
   });
 });

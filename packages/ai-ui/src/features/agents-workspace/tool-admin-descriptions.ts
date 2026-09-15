@@ -44,6 +44,36 @@ const TOOL_ADMIN_DESCRIPTIONS: Record<string, string> = {
     "Look up Austrian company data (Firmenbuch, UID-Check, Impressum) from name, VAT id, or website.",
   firmenbuch: "Query Austrian Firmenbuch company registry details.",
   uidCheck: "Validate or resolve Austrian UID (VAT) numbers.",
+  // The catalog floor every hired Engenty carries (ai-core `hire-floor.ts`).
+  engenty_tools_search:
+    "Find operations in the Space's app catalog by what they do.",
+  engenty_tools_discover:
+    "Read one operation's schema and gate before calling it.",
+  engenty_tool_execute:
+    "Run a catalog operation; gated writes ask for approval first.",
+  engenty_tools_preapprove:
+    "Ask once for a batch of gated operations before a multi-step job.",
+  artifact_write: "Save a durable deliverable (document, table, report).",
+  artifact_read: "Read an artifact back, by id or scope.",
+  table_write: "Write rows into a Space Data table.",
+  table_read: "Read rows from a Space Data table.",
+  app_build: "Build an App version from a manifest for a person to activate.",
+  routines_list: "List the routines this agent owns.",
+  routines_run: "Fire one of its own routines now.",
+  routines_update: "Adjust an owned routine's schedule or brief.",
+  workflows_list: "Look up published Workflows by name.",
+  invoke_workflow: "Run a published Workflow as one governed step.",
+  message_agent: "Ask or hand work to a colleague in the Space.",
+  agent_status: "See what a colleague is doing — read-only.",
+  desk_post:
+    "Leave a short note on its own desk, unprompted, with an inbox update.",
+  show_ui: "Answer with a small generated surface instead of prose.",
+  show_objects: "Show records from the Space beside the reply.",
+  show_artifact: "Open an artifact next to the chat.",
+  thread_state_set: "Keep where a multi-turn exercise stands.",
+  agent_self_revise: "Propose a change to its own instructions, for approval.",
+  workflow_self_revise:
+    "Propose a new version of a Workflow it owns, for approval.",
 };
 
 function titleCaseWords(s: string): string {

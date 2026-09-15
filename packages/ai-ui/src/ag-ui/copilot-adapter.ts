@@ -1,3 +1,4 @@
+import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import {
   agUiMessageText,
   isToolApprovalResumeNudgeText,
@@ -72,7 +73,7 @@ function readAuthorName(metadata: Record<string, unknown>): string | null {
  */
 function readAgentMessageMarker(
   metadata: Record<string, unknown>
-): { agentId: string; threadId: string } | null {
+): NonNullable<AgentTurnMessageLike["agentMessage"]> | null {
   const marker = metadata.engenty_agent_message;
   if (!isRecord(marker)) {
     return null;
@@ -80,9 +81,21 @@ function readAgentMessageMarker(
   // The link opens the desk that lists the pair thread, not the sender's.
   const agentId = marker.thread_agent_id ?? marker.agent_id;
   const threadId = marker.thread_id;
-  return typeof agentId === "string" && typeof threadId === "string"
-    ? { agentId, threadId }
-    : null;
+  if (!(typeof agentId === "string" && typeof threadId === "string")) {
+    return null;
+  }
+  const kind = marker.kind === "reply" ? "reply" : "message";
+  const artifactIds = Array.isArray(marker.artifact_ids)
+    ? marker.artifact_ids.filter(
+        (id): id is string => typeof id === "string" && id !== ""
+      )
+    : [];
+  return {
+    agentId,
+    kind,
+    threadId,
+    ...(artifactIds.length > 0 ? { artifactIds } : {}),
+  };
 }
 
 /**
@@ -699,9 +712,16 @@ export function agUiMessagesToCopilotMessages(
     const authorName = isRecord(message.metadata)
       ? readAuthorName(message.metadata)
       : null;
+    // A colleague's brief is a user row; the desk agent's reply preview is
+    // an assistant row. Either way the marker names the pair thread.
+    const markerCandidate = isRecord(message.metadata)
+      ? readAgentMessageMarker(message.metadata)
+      : null;
     const agentMessage =
-      message.role === "user" && isRecord(message.metadata)
-        ? readAgentMessageMarker(message.metadata)
+      markerCandidate &&
+      (message.role === "user" ||
+        (message.role === "assistant" && markerCandidate.kind === "reply"))
+        ? markerCandidate
         : null;
     const appRelease = isRecord(message.metadata)
       ? readAppReleaseMarker(message.metadata)

@@ -28,6 +28,11 @@ export const expenseCategorySchema = z.object({
   llm_hint: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   sort_order: z.number().int().optional(),
+  account_class: z
+    .string()
+    .regex(/^[0-9]$/)
+    .nullable()
+    .optional(),
   account_number: z.string().nullable().optional(),
 });
 
@@ -100,3 +105,76 @@ export const commercialDefaultsInputSchema = z.object({
 });
 
 export const commercialSettingsInputSchema = commercialSettingsSchema;
+
+export const regionPackIdSchema = z
+  .string()
+  .min(2)
+  .describe("ISO 3166-1 alpha-2 region or locale (AT, de-AT)");
+
+export const regionPackSummarySchema = z.object({
+  category_count: z.number().int(),
+  chart_id: z.string().nullable(),
+  chart_name: z.string().nullable(),
+  expense_class: z.string().nullable(),
+  region: z.string(),
+  short_name: z.string().nullable(),
+  tax_rate_count: z.number().int(),
+});
+
+export const regionPackSummariesSchema = z.object({
+  packs: z.array(regionPackSummarySchema),
+});
+
+export const regionPackGetInputSchema = z.object({
+  region: regionPackIdSchema,
+});
+
+export const chartAccountPresetSchema = z.object({
+  account_class: z.string().nullable().optional(),
+  account_name: z.string().nullable().optional(),
+  account_number: z.string().nullable().optional(),
+  code: z.string(),
+  default_deduction_rate: z.number(),
+  is_tax_deductible: z.boolean(),
+  llm_hint: z.string().nullable().optional(),
+  name: z.string(),
+});
+
+export const regionPackGetOutputSchema = z.object({
+  categories: z.array(chartAccountPresetSchema),
+  chart: z
+    .object({
+      classes: z.array(
+        z.object({
+          class: z.string(),
+          name: z.string(),
+          range: z.string(),
+        })
+      ),
+      id: z.string(),
+      name: z.string(),
+      region: z.string(),
+      short_name: z.string(),
+      standard: z.string().optional(),
+    })
+    .nullable(),
+  region: z.string(),
+  tax_rates: z.array(
+    z.object({
+      label: z.string(),
+      name: z.string(),
+      value: z.number(),
+    })
+  ),
+});
+
+export const chartLookupInputSchema = z.object({
+  code: z.string().optional(),
+  query: z.string().optional(),
+  region: regionPackIdSchema,
+});
+
+export const chartLookupOutputSchema = z.object({
+  matches: z.array(chartAccountPresetSchema.extend({ region: z.string() })),
+  region: z.string(),
+});

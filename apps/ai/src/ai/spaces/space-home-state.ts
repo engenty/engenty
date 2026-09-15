@@ -13,6 +13,7 @@ import {
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
+import { HIRE_WELCOME_SOURCE } from "../hire/hire-welcome-text.js";
 import { readRoomTurnState } from "../rooms/room-turns.js";
 
 /** Ordered by urgency — `SPACE_HOME_STATE_RANK` below depends on this order. */
@@ -62,6 +63,7 @@ export interface SpaceHomeRunInput {
 
 export interface SpaceHomeMessageInput {
   created_at: string;
+  metadata?: Record<string, unknown> | null;
   parts: unknown;
   role: string;
 }
@@ -128,6 +130,11 @@ export interface SpaceHomeLastMessage {
 export interface SpaceHomeThreadState {
   agent_id: string;
   agent_turns: number;
+  /**
+   * The hire's opening is the only thing said so far — keep a card on the
+   * home until a person answers, instead of collapsing it into Inactive.
+   */
+  awaiting_first_reply: boolean;
   jobs: SpaceHomeJob[];
   last_message: SpaceHomeLastMessage | null;
   paused: boolean;
@@ -217,6 +224,15 @@ function lastMessageOf(
       text.length > EXCERPT_MAX ? `${text.slice(0, EXCERPT_MAX - 1)}…` : text,
     role: message.role,
   };
+}
+
+function awaitingFirstReply(
+  message: SpaceHomeMessageInput | null | undefined
+): boolean {
+  return (
+    message?.role === "assistant" &&
+    message.metadata?.source === HIRE_WELCOME_SOURCE
+  );
 }
 
 function interruptOf(
@@ -368,6 +384,7 @@ export function resolveSpaceHomeThreadState(params: {
   return {
     agent_id: thread.agent_id,
     agent_turns: room.agentTurns,
+    awaiting_first_reply: awaitingFirstReply(thread.last_message),
     jobs,
     last_message: lastMessageOf(thread.last_message),
     paused: room.paused,

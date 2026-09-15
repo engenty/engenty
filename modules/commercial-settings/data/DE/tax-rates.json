@@ -1,0 +1,7 @@
+{
+  "region": "DE",
+  "rates": [
+    { "name": "MwSt", "label": "Mehrwertsteuer (Normal)", "value": 19 },
+    { "name": "MwSt_erm", "label": "Ermäßigt", "value": 7 }
+  ]
+}

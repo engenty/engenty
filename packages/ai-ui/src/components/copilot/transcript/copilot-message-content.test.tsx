@@ -89,13 +89,76 @@ describe("CopilotMessageContent tool timeline", () => {
       </MemoryRouter>
     );
 
-    // The running web search renders in the (open) tool timeline.
-    expect(screen.getByText('Searching for "engenty docs"')).toBeTruthy();
-    // The header reads as tool use, not the generic "Thinking…".
-    expect(screen.getByText("Working…")).toBeTruthy();
+    // Collapsed while live: the header IS the status line and names the
+    // running step — one truncated line, not a bare "Working…".
+    const header = screen.getByText('Searching for "engenty docs"');
+    expect(header.closest("[data-slot=cot-header]")).toBeTruthy();
+    expect(screen.queryByText("Working…")).toBeNull();
     // Reasoning is not rendered anywhere (no accordion, no chain step).
     expect(screen.queryByText("Decide the query.")).toBeNull();
     expect(screen.queryByText("Thinking")).toBeNull();
+    // The steps are one click away.
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    expect(screen.getAllByText('Searching for "engenty docs"').length).toBe(2);
+  });
+
+  it("stays live between two tool calls and says it is thinking", () => {
+    // The gap after a finished tool, before the next call or the answer, used
+    // to collapse the timeline to "Worked for Ns" — the turn read as finished
+    // while the model was still working.
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "ws-1",
+                toolName: "web_search",
+                state: "output-available",
+                input: { query: "engenty docs" },
+                output: { results: [] },
+              },
+            ],
+          }}
+          status="streaming"
+        />
+      </MemoryRouter>
+    );
+    const header = screen.getByText("Thinking…");
+    expect(header.closest("[data-slot=cot-header]")).toBeTruthy();
+    expect(screen.queryByText(/Worked for/)).toBeNull();
+  });
+
+  it("closes the live line once answer text follows the tools", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          messages={[{ id: "assistant-1" }]}
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "ws-1",
+                toolName: "web_search",
+                state: "output-available",
+                input: { query: "engenty docs" },
+                output: { results: [] },
+              },
+              { type: "text", text: "Here is what I found." },
+            ],
+          }}
+          status="streaming"
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText("Thinking…")).toBeNull();
+    expect(screen.getByText("Used 1 tool")).toBeTruthy();
   });
 });
 
@@ -129,7 +192,10 @@ describe("CopilotMessageContent generic tool step", () => {
       </MemoryRouter>
     );
 
+    // The running step's label is the collapsed header's status line…
     expect(screen.getByText('Updated "Unterlagen"')).toBeTruthy();
+    // …and its details sit in the step, one click away.
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
     // The secondary descriptor (scope) the label drops is now shown.
     expect(screen.getByText("phases")).toBeTruthy();
   });

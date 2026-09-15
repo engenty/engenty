@@ -1,0 +1,106 @@
+{
+  "region": "DE",
+  "chart": "de-skr03",
+  "categories": [
+    {
+      "code": "reise",
+      "name": "Reisekosten",
+      "account_class": "4",
+      "account_number": "4660",
+      "account_name": "Reisekosten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Fahrtkosten, Hotel, Verpflegungspauschale, Bahnticket"
+    },
+    {
+      "code": "bewirtung",
+      "name": "Bewirtung",
+      "account_class": "4",
+      "account_number": "4650",
+      "account_name": "Bewirtungskosten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 0.7,
+      "llm_hint": "Geschäftsessen — 70% absetzbar in DE"
+    },
+    {
+      "code": "buero",
+      "name": "Bürobedarf",
+      "account_class": "4",
+      "account_number": "4930",
+      "account_name": "Bürobedarf",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Büromaterial, Papier, Toner"
+    },
+    {
+      "code": "miete",
+      "name": "Miete & Nebenkosten",
+      "account_class": "4",
+      "account_number": "4210",
+      "account_name": "Miete",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Büromiete, Strom, Heizung, Nebenkosten"
+    },
+    {
+      "code": "telekom",
+      "name": "Telekommunikation",
+      "account_class": "4",
+      "account_number": "4920",
+      "account_name": "Telefon",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Telefon, Internet, Mobilfunk"
+    },
+    {
+      "code": "software",
+      "name": "Software & Lizenzen",
+      "account_class": "4",
+      "account_number": "4964",
+      "account_name": "Software",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "SaaS, Cloud, Lizenzen"
+    },
+    {
+      "code": "beratung",
+      "name": "Beratung & Fremdleistungen",
+      "account_class": "4",
+      "account_number": "4950",
+      "account_name": "Rechts- und Beratungskosten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Steuerberater, Anwalt, Freelancer"
+    },
+    {
+      "code": "versicherung",
+      "name": "Versicherungen",
+      "account_class": "4",
+      "account_number": "4360",
+      "account_name": "Versicherungen",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Betriebshaftpflicht, Berufshaftpflicht"
+    },
+    {
+      "code": "kfz",
+      "name": "Kfz-Kosten",
+      "account_class": "4",
+      "account_number": "4500",
+      "account_name": "Fahrzeugkosten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Treibstoff, Wartung, Leasing, Versicherung"
+    },
+    {
+      "code": "sonstige",
+      "name": "Sonstige betriebliche Aufwendungen",
+      "account_class": "4",
+      "account_number": "4900",
+      "account_name": "Sonstige betriebliche Aufwendungen",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Fallback-Kategorie"
+    }
+  ]
+}

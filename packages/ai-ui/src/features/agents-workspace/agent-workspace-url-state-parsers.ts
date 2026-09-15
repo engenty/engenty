@@ -21,6 +21,8 @@ export type AgentsWorkspaceSection =
   | "overview"
   | "instructions"
   | "workspace"
+  | "memory"
+  | "files"
   | "sessions"
   | "skills"
   | "tools";
@@ -72,6 +74,16 @@ export function parseAgentsWorkspaceSection(
   const workspacePattern = new RegExp(`^${agentBase}/[^/]+/workspace$`);
   if (workspacePattern.test(pathname)) {
     return "workspace";
+  }
+
+  const memoryPattern = new RegExp(`^${agentBase}/[^/]+/memory$`);
+  if (memoryPattern.test(pathname)) {
+    return "memory";
+  }
+
+  const filesPattern = new RegExp(`^${agentBase}/[^/]+/files$`);
+  if (filesPattern.test(pathname)) {
+    return "files";
   }
 
   const agentActivityPattern = new RegExp(`^${agentBase}/[^/]+/activity$`);

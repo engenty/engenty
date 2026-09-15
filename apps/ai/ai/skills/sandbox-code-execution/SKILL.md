@@ -7,6 +7,10 @@ description: Run Python or shell scripts in the agent sandbox workspace and offe
 
 Use the **sandbox workspace** at `/sandbox` for scripts, data files, and command output.
 
+Space uploads the user already stored are **not** here. They live at
+`/data/Files`. List and read that path with workspace file tools; do not copy
+the tree into `/sandbox` to look something up.
+
 ## Workflow
 
 1. Fetch structured data with module tools (for example `team_list` with `pageSize: 1000`, paginate when `total > pageSize`).

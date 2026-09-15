@@ -15,6 +15,10 @@ import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
 import { useArtifacts } from "../../../artifacts/artifact-store.js";
 import { ThreadContextBox } from "./thread-context-box.js";
 import { useThreadContextUi } from "./thread-context-store.js";
+import {
+  hasOwnedContext,
+  useAgentOwnedContext,
+} from "./use-agent-owned-context.js";
 import { useThreadContextSummary } from "./use-thread-context-summary.js";
 
 /**
@@ -33,9 +37,10 @@ export function ThreadContextToggle({
   const { t } = useTranslation("ai-ui");
   const { mode, overlayOpen, setOverlayOpen } = useThreadContextUi();
   const summary = useThreadContextSummary(hostKey);
+  const owned = useAgentOwnedContext(hostKey);
   const { unseenCount } = useArtifacts(hostKey);
 
-  if (mode !== "collapsed" || summary.isEmpty) {
+  if (mode !== "collapsed" || (summary.isEmpty && !hasOwnedContext(owned))) {
     return null;
   }
 

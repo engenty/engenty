@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Space } from "@/lib/api/spaces-client";
+import { spaceConversationSearch } from "@/lib/space-conversation-open";
 import { spaceAgentDeskPath, spaceRootPath } from "@/lib/space-routes";
 import {
   useSaveSpaceSetupMutation,
@@ -241,9 +242,14 @@ export function SpaceSetupDialog({
     if (!created) {
       return;
     }
-    const agentId = await hire.submit();
-    if (agentId) {
-      closeInto(spaceAgentDeskPath(created.key, agentId));
+    const hired = await hire.submit();
+    if (hired) {
+      closeInto(
+        `${spaceAgentDeskPath(created.key, hired.id)}${spaceConversationSearch({
+          kind: "desk",
+          threadId: hired.threadId,
+        })}`
+      );
     }
   };
   const optionalIsEmpty =

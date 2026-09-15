@@ -1,0 +1,35 @@
+{
+  "id": "ch-kmu",
+  "region": "CH",
+  "name": "KMU-Kontenrahmen",
+  "short_name": "KMU",
+  "standard": "Swiss KMU chart (OR)",
+  "year": 2013,
+  "digit_scheme": "Kontenklasse is the first digit. Class 6 is remaining operating expense (übriger betrieblicher Aufwand).",
+  "classes": [
+    { "class": "1", "name": "Umlaufvermögen", "range": "1000-1999" },
+    { "class": "2", "name": "Anlagevermögen", "range": "2000-2999" },
+    { "class": "3", "name": "Fremdkapital", "range": "3000-3999" },
+    {
+      "class": "4",
+      "name": "Betriebsertrag aus Lieferungen und Leistungen",
+      "range": "4000-4999"
+    },
+    {
+      "class": "5",
+      "name": "Aufwand für Material, Waren, Dienstleistungen und Personal",
+      "range": "5000-5999"
+    },
+    {
+      "class": "6",
+      "name": "Übriger betrieblicher Aufwand",
+      "range": "6000-6999"
+    },
+    { "class": "7", "name": "Betrieblicher Nebenerfolg", "range": "7000-7999" },
+    {
+      "class": "8",
+      "name": "Ausserordentlicher und betriebsfremder Erfolg, Steuern",
+      "range": "8000-8999"
+    }
+  ]
+}

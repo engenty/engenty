@@ -26,6 +26,31 @@ describe("formatCopilotRunError", () => {
       )
     ).toContain("too long for the selected model");
   });
+
+  it("maps provider moderation errors to the content-filter copy", () => {
+    expect(
+      formatCopilotRunError(
+        "<400> InternalError.Algo.DataInspectionFailed: Output data may contain inappropriate content."
+      )
+    ).toContain("content filter");
+    expect(formatCopilotRunError("finish_reason: content_filter")).toContain(
+      "content filter"
+    );
+  });
+
+  it("explains a run lost to a process restart", () => {
+    expect(
+      formatCopilotRunError("Process restarted while run was in progress")
+    ).toContain("restarted");
+  });
+
+  it("never shows a raw JSON error object as chat copy", () => {
+    const formatted = formatCopilotRunError(
+      '{"name":"AI_TypeValidationError","cause":{"name":"ZodError"}}'
+    );
+    expect(formatted).not.toContain("{");
+    expect(formatted).toContain("run failed");
+  });
 });
 
 describe("resolveAgUiRunErrorEventMessage", () => {

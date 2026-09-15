@@ -35,6 +35,45 @@ const COPILOT_LANE_AGENT_IDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The copilot's OWN chrome — opening, closing and re-docking its panel, the
+ * shell theme and locale. An Engenty on its desk has no copilot panel to move
+ * and no business changing the person's theme; it gets the page-driving set
+ * (navigate, dialogs, focus, guided tour, browser-use) and nothing about the
+ * shell itself.
+ */
+const COPILOT_CHROME_FRONTEND_TOOLS: ReadonlySet<string> = new Set([
+  "openCopilot",
+  "closeCopilot",
+  "setCopilotDockMode",
+  "shell_set_theme",
+  "i18n_set_locale",
+]);
+
+/**
+ * Whether one Engenty may hold the page-driving tools on THIS run.
+ *
+ * `uiTools` is the row's flag; `coordinator` is its position in the run's
+ * Space (top-level: no `reports_to`). `auto` — the default — says the
+ * coordinator drives the screen and the rest of the team does not, which is
+ * what "the Space's own mouth and hands" means without a new privilege class.
+ */
+export interface FrontendToolGrant {
+  coordinator: boolean;
+  uiTools?: "auto" | "off" | "on" | null;
+}
+
+export function engentyHoldsFrontendTools(grant: FrontendToolGrant): boolean {
+  switch (grant.uiTools ?? "auto") {
+    case "on":
+      return true;
+    case "off":
+      return false;
+    default:
+      return grant.coordinator;
+  }
+}
+
+/**
  * Which frontend tools an agent may hold.
  *
  * A frontend tool mutates client-local state the server cannot reach —
@@ -70,10 +109,17 @@ export function resolveFrontendToolTier(
  * snapshot (see buildAppsAiRunContext). That is a caller with no browser —
  * a script, a bot, a channel bridge — so it gets nothing rather than a catalog
  * of tools nobody can execute.
+ *
+ * `grant` is the worker lane's exception: an Engenty whose row (or position
+ * as coordinator) lets it drive the screen holds the page tools on a run a
+ * browser started. The no-browser rule above still comes first — the grant
+ * never reaches a routine or a channel turn, because those send no
+ * `clientTools` to begin with.
  */
 export function resolveFrontendToolsForAgent(params: {
   agentId: string | undefined;
   clientTools: FrontendToolDefinition[] | undefined;
+  grant?: FrontendToolGrant | null;
 }): FrontendToolDefinition[] {
   if (!params.clientTools) {
     return [];
@@ -87,6 +133,10 @@ export function resolveFrontendToolsForAgent(params: {
         includeServerTools: false,
       });
     default:
-      return [];
+      return params.grant && engentyHoldsFrontendTools(params.grant)
+        ? mergeFrontendToolDefinitions(params.clientTools).filter(
+            (tool) => !COPILOT_CHROME_FRONTEND_TOOLS.has(tool.name)
+          )
+        : [];
   }
 }

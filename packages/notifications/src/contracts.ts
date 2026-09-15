@@ -51,6 +51,9 @@ export const BUILTIN_NOTIFICATION_KINDS = {
   action_question: "decision",
   // A hire that went live without a card (tool-less agent, known space).
   agent_hired: "update",
+  // An Engenty left a note on its desk without being asked (`desk_post`,
+  // a routine report, a welcome) — the people in the Space were not watching.
+  agent_desk_post: "update",
   // One Engenty spoke to another: a hand-off, an ask, or the reply.
   agent_message_received: "update",
   agent_proposed: "decision",

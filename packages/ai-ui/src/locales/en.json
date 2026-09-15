@@ -271,13 +271,43 @@
     "cockpitBanner": "Looking for goals, tasks, and dispatch? This feed is for audit and debugging.",
     "cockpitBannerLink": "Open operations cockpit"
   },
+  "chatKind": {
+    "theAgent": "the agent",
+    "theSpace": "the Space",
+    "dm": {
+      "label": "Private",
+      "hint": "Only you and {{name}} see this",
+      "readers": "Only you and {{name}} see this"
+    },
+    "desk": {
+      "label": "Shared desk",
+      "labelWithSpace": "Shared desk · {{space}}",
+      "hint": "Everyone in {{space}} sees this",
+      "readers": "Everyone in {{space}} sees this"
+    },
+    "room": {
+      "label": "Room",
+      "labelWithCount_one": "Room · {{count}} member",
+      "labelWithCount_other": "Room · {{count}} members",
+      "hint": "The room's members see this",
+      "readers": "The room's members see this"
+    },
+    "copilot": {
+      "label": "Personal Copilot",
+      "hint": "Your own assistant — nobody else sees this",
+      "readers": "Only you see this"
+    }
+  },
   "agentMessage": {
     "failed": "Couldn't reach",
     "from": "Message from",
+    "replied": "replied",
+    "openConversation": "Open conversation",
     "openedRoom": "Opened a room with",
     "postedInRoom": "Posted in the room for",
     "messaged": "Messaged",
-    "messaging": "Messaging"
+    "messaging": "Messaging",
+    "openArtifact": "Open"
   },
   "memoryBreak": {
     "description": "What the agent still knows from the turns above this line, as its observer wrote it down. Last observed {{observedAt}}.",
@@ -288,6 +318,25 @@
     "reflected_one": "Remembered up to here · condensed · {{count}} observation",
     "reflected_other": "Remembered up to here · condensed · {{count}} observations",
     "title": "Remembered from above"
+  },
+  "agentSurface": {
+    "title": "Surfaces",
+    "description": "Where this Engenty may act besides its desk: the person's screen while they chat with it, and remote channels as itself.",
+    "unavailable": "Surface settings are not available for this agent.",
+    "uiTools": {
+      "label": "Screen tools",
+      "hint": "Open pages and dialogs, focus fields, guide the person, look at the page. Only while someone chats with it — never in a routine or from a channel.",
+      "auto": "Coordinator only (default)",
+      "on": "On",
+      "off": "Off"
+    },
+    "remote": {
+      "label": "Reachable from channels",
+      "hint": "Slack or Telegram may address this Engenty directly — with its own tools and memory. Off: channel messages stay with the shared front door.",
+      "handleLabel": "Handle",
+      "handleHint": "People write @{{handle}} or /to {{handle}} to reach it.",
+      "handleInvalid": "Lower-case letters, digits, dashes or underscores; up to 32 characters."
+    }
   },
   "agentConnections": {
     "description": "Accounts this agent may use on its own, in background tasks and routines. Granting access is not the same as approving what it does with it — autonomous mode and per-action rules still apply.",
@@ -418,6 +467,15 @@
       }
     },
     "reportsTo": "Reports to",
+    "relation": {
+      "coordinator": "Coordinator — reports to nobody, may hire and set up",
+      "reports": "Reports: {{names}}"
+    },
+    "status": {
+      "idle": "Idle",
+      "waiting": "Waiting for someone",
+      "working": "Working"
+    },
     "room": {
       "add": "Add",
       "cancel": "Cancel",
@@ -465,6 +523,7 @@
       "notARoom": "This conversation is not a room of this space.",
       "open": "Room info",
       "owner": "Owner",
+      "privateHint": "Private room — only its members see this",
       "title": "Room"
     }
   },
@@ -492,9 +551,17 @@
     "tabs": {
       "activity": "Activity",
       "capabilities": "Capabilities",
+      "files": "Files",
       "instructions": "Instructions",
+      "memory": "Memory",
       "overview": "Overview",
       "workspace": "Workspace"
+    },
+    "memory": {
+      "hint": "What this Engenty keeps for itself — per Space. The run writes these; you may correct or clear them.",
+      "loading": "Loading Spaces…",
+      "noSpaces": "No Space to read memory for.",
+      "space": "Space"
     },
     "workSourcesActions": "Workflows",
     "workSourcesActionsEmpty": "No workflow starts this agent.",
@@ -1426,6 +1493,16 @@
     "agentEmpty": "No direct skills are linked to this agent yet.",
     "derivedEmpty": "No workflow contributes a skill to this agent yet.",
     "effectiveToolsEmpty": "No catalog-defined tools on linked skills for this agent yet.",
+    "toolLayers": {
+      "default": "Default — every Engenty has these",
+      "defaultHint": "The catalog, Space Data, colleagues and the surface. Not on the row; applied at every run.",
+      "agent": "This Engenty",
+      "agentHint": "Declared on its own row or manifest, on top of the default set.",
+      "attached": "Attached at run time",
+      "attachedHint": "Presentation and approval tools every run gets; nothing to configure.",
+      "spaceHidden": "Hidden in this Space",
+      "spaceHiddenHint": "Declared, but their app is not mounted here — the run does not see them."
+    },
     "toolsSchemasToggle": "Schemas",
     "toolsSchemasLoading": "Loading tool schemas…",
     "toolsRuntimeDescription": "Runtime description (from tool)",
@@ -1680,6 +1757,15 @@
     "agents": "Agents",
     "objects": "Objects",
     "sources": "Sources",
+    "skills": "Skills",
+    "skillSource": {
+      "agent": "own",
+      "default": "every Engenty",
+      "space": "this Space"
+    },
+    "memory": "Memory",
+    "files": "Own files",
+    "agentArtefacts": "Own artefacts",
     "untitledAttachment": "Untitled file"
   },
   "toolForm": {
@@ -1839,6 +1925,7 @@
     "settingsTabDescription": "Workflows and trigger wiring for the selected agent.",
     "codeOwnedHint": "This workspace is defined in code and shown read-only. Files in writable mounts can still be edited.",
     "configurableHint": "This agent is tenant-created — workspace settings can be edited.",
+    "homeHint": "The agent's own files at /home — notes, drafts and working copies it keeps between runs.",
     "delete": "Delete",
     "disabled": "Disabled",
     "empty": "No files.",
@@ -1882,7 +1969,9 @@
   },
   "transcript": {
     "loadOlder": "Load older messages",
-    "loadingOlder": "Loading…"
+    "loadingOlder": "Loading…",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "appReview": {
     "headline": "Release {{version}} ({{sha}}) is waiting for you.",

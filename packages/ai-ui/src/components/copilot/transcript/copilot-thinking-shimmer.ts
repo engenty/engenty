@@ -1,4 +1,5 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
+import { isChainOfThoughtToolPart } from "./copilot-message-content";
 import {
   getToolState,
   isReasoningPart,
@@ -86,9 +87,34 @@ function transcriptHasPendingInteractiveTool(
   return false;
 }
 
+/**
+ * The live turn's tool timeline carries the status line itself (the running
+ * step, or "Thinking…" between two steps, with the elapsed time) whenever its
+ * last part is a timeline step. Only for a message that is still being
+ * streamed INTO — an older assistant turn ending on a tool says nothing about
+ * the turn the person just sent.
+ */
+function liveTimelineOwnsStatusLine(input: {
+  lastAssistantIsLastMessage?: boolean;
+  lastAssistantParts?: readonly unknown[];
+  status: string;
+}): boolean {
+  if (input.status !== "streaming" || !input.lastAssistantIsLastMessage) {
+    return false;
+  }
+  const lastPart = input.lastAssistantParts?.at(-1);
+  return (
+    lastPart != null &&
+    isToolPart(lastPart) &&
+    isChainOfThoughtToolPart(lastPart)
+  );
+}
+
 /** Whether the trailing “Thinking …” shimmer should show under the transcript. */
 export function shouldShowCopilotThinkingShimmer(input: {
   awaitingInterrupt?: boolean;
+  /** The last assistant turn is also the transcript's last message. */
+  lastAssistantIsLastMessage?: boolean;
   lastAssistantParts?: readonly unknown[];
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   status: "ready" | "streaming" | "submitted" | "error";
@@ -100,6 +126,9 @@ export function shouldShowCopilotThinkingShimmer(input: {
     return false;
   }
   if (messageHasActiveToolParts(input.lastAssistantParts)) {
+    return false;
+  }
+  if (liveTimelineOwnsStatusLine(input)) {
     return false;
   }
   if (input.awaitingInterrupt && input.openInterrupt) {

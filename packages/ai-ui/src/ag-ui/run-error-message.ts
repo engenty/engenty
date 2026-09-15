@@ -54,6 +54,32 @@ function mapProviderOrCodeMessage(message: string): string | null {
   ) {
     return "This chat is too long for the selected model. Start a new chat or ask for a smaller result.";
   }
+  // Provider-side moderation. Qwen/DashScope reports it as
+  // `InternalError.Algo.DataInspectionFailed` / code `data_inspection_failed`;
+  // OpenAI-compatible providers as `content_filter` finish reasons.
+  if (
+    lower.includes("data_inspection_failed") ||
+    lower.includes("datainspectionfailed") ||
+    lower.includes("inappropriate content") ||
+    lower.includes("content_filter") ||
+    lower.includes("content filter") ||
+    lower.includes("content_policy")
+  ) {
+    return RUN_ERROR_CODE_LABELS["agent_threads.contentFiltered"] ?? null;
+  }
+  // The AI process restarted mid-run (dev reload, deploy): the reaper marks
+  // the run `executor_lost` — nothing the person did.
+  if (
+    lower.includes("executor_lost") ||
+    lower.includes("process restarted while run was in progress")
+  ) {
+    return "The AI service restarted while the assistant was working, so this reply was lost. Send the message again.";
+  }
+  // Raw provider/SDK error object persisted as the run's error: unreadable as
+  // chat copy. Generic failure text beats a wall of JSON.
+  if (trimmed.startsWith("{")) {
+    return RUN_ERROR_CODE_LABELS["agent_threads.runFailed"] ?? null;
+  }
   return null;
 }
 

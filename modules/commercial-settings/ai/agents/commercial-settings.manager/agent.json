@@ -1,0 +1,68 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "commercial-settings.manager",
+  "name": "Commercial Settings",
+  "description": "Maintains tenant commercial defaults: currency, tax rates, units, disciplines, and expense categories mapped to the regional chart of accounts.",
+  "engenty": "tower",
+  "module_id": "commercial-settings",
+  "agent_scope": "shared",
+  "skills": [
+    "commercial-settings",
+    "commercial-charts",
+    "commercial-expense-categories",
+    "commercial-tax-rates",
+    "commercial-disciplines-and-units"
+  ],
+  "tools": [
+    "loadCommercialSettings",
+    "setCommercialDefaults",
+    "setCommercialCollection",
+    "listRegionPacks",
+    "loadRegionPack",
+    "lookupChartAccount",
+    "mergeExpenseCategoriesFromRegion",
+    "mergeTaxRatesFromRegion",
+    "engenty_tools_search",
+    "engenty_tool_execute",
+    "navigate"
+  ],
+  "workspace": {
+    "enabled": true,
+    "preset": "staff"
+  },
+  "starters": [
+    {
+      "id": "cs-review",
+      "label": "Review commercial setup",
+      "prompt": "Review our commercial settings against the region pack for our locale. Flag missing tax rates, empty Kontoklasse or account numbers, and anything that would misprice offers or invoices.",
+      "locales": {
+        "de": {
+          "label": "Kommerziell pr\u00fcfen",
+          "prompt": "Pr\u00fcfe unsere kommerziellen Einstellungen gegen das Regionenpaket zu unserer Locale. Markiere fehlende Steuers\u00e4tze, leere Kontoklasse oder Kontonummern und alles, was Angebote oder Rechnungen falsch bepreisen w\u00fcrde."
+        }
+      }
+    },
+    {
+      "id": "cs-seed-at",
+      "label": "Seed Austria EKR",
+      "prompt": "Merge the Austrian Einheitskontenrahmen expense categories and USt rates into our commercial settings. Preview first, then save if I confirm.",
+      "locales": {
+        "de": {
+          "label": "EKR \u00d6sterreich \u00fcbernehmen",
+          "prompt": "\u00dcbernimm die Aufwandskonten und USt-S\u00e4tze aus dem \u00f6sterreichischen Einheitskontenrahmen in unsere kommerziellen Einstellungen. Zeig mir zuerst eine Vorschau, speichere erst nach Best\u00e4tigung."
+        }
+      }
+    },
+    {
+      "id": "cs-lookup",
+      "label": "Look up an account",
+      "prompt": "Look up the Kontoklasse and account number for an expense I name, using our region chart of accounts.",
+      "locales": {
+        "de": {
+          "label": "Konto nachschlagen",
+          "prompt": "Schlag Kontoklasse und Kontonummer f\u00fcr eine Ausgabe nach, die ich nenne, anhand unseres regionalen Kontenrahmens."
+        }
+      }
+    }
+  ]
+}

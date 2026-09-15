@@ -38,6 +38,7 @@ import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "./ai/core-http-client.js";
+import { welcomeHiredAgentOnSpaces } from "./ai/hire/hire-welcome.js";
 import {
   createAgentRunStoreFromEnv,
   createAiService,
@@ -142,7 +143,10 @@ import {
   startGatewayModelSyncScheduler,
 } from "./gateway-model-sync-scheduler.js";
 import { syncGatewayModels } from "./gateway-models.js";
-import { seedModelBindingsIfMissing } from "./model-binding-seed.js";
+import {
+  applyBindingPackForProvider,
+  seedModelBindingsIfMissing,
+} from "./model-binding-seed.js";
 import { getModelGateway } from "./model-gateways/index.js";
 import { startNotificationDelivery } from "./notifications/inbox.js";
 import { resolveRunNotifications } from "./notifications/run-notifications.js";
@@ -822,6 +826,7 @@ export async function createApp(options: CreateAppOptions = {}) {
     getStore: () => registryStore ?? null,
     moduleLoader: moduleCapabilityLoader,
     scopeResolver,
+    welcomeHiredAgent: welcomeHiredAgentOnSpaces,
   });
   registerWorkflowPressRoutes(app, {
     getWorkflowRunStore: () => workflowRunStore,
@@ -931,6 +936,15 @@ export async function createApp(options: CreateAppOptions = {}) {
       })
         .map((id) => getModelGateway(id))
         .filter((gateway) => gateway !== null);
+      if (isGatewayModelStore(aiUsageStore) && result.hydrated.length > 0) {
+        try {
+          await applyBindingPackForProvider(aiUsageStore, result.hydrated);
+        } catch (err) {
+          logger.warn("Model-binding pack apply after settings reload failed", {
+            error: String(err),
+          });
+        }
+      }
       if (isGatewayModelStore(aiUsageStore) && keyed.length > 0) {
         void syncGatewayModels(aiUsageStore, {
           gateways: keyed,
@@ -959,6 +973,14 @@ export async function createApp(options: CreateAppOptions = {}) {
   // (Mastra AgentChannels + Chat SDK adapters), which activates when a platform
   // is configured and is killed by ENGENTY_REMOTE_CHANNELS_ENABLED=false.
   await registerRemoteChannels(app, {
+    // A bound or `@handle`-addressed Engenty answers as itself: assembled
+    // from the tenant's registry with its tools and memory.
+    getRegistry: (tenantId) =>
+      createDefaultAiRegistry({
+        databaseStore: registryStore,
+        moduleLoader: moduleCapabilityLoader,
+        tenantId,
+      }),
     mastra,
     threadStore,
   });

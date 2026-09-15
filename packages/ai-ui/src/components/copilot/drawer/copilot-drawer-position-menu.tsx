@@ -21,6 +21,7 @@ import {
   PanelBottom,
   PanelRight,
   PanelRightOpen,
+  PictureInPicture2,
 } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useRef, useState } from "react";
@@ -54,6 +55,7 @@ export interface CopilotDrawerPositionMenuProps {
   positionHeadingLabel?: string;
   positionMenuAriaLabel: string;
   positionSidebarLabel?: string;
+  positionWindowLabel?: string;
   /** Drawer is mobile-only; hide the menu entry on larger viewports. */
   showDrawerOption?: boolean;
   /** When false, only action items (e.g. copy thread) are shown. */
@@ -74,6 +76,7 @@ export function CopilotDrawerPositionMenu({
   positionHeadingLabel = "Position",
   positionMenuAriaLabel,
   positionSidebarLabel = "Sidebar",
+  positionWindowLabel = "Window",
   copyThreadCopiedLabel = "Copied",
   copyThreadLabel = "Copy thread",
   compactTrigger = false,
@@ -229,6 +232,21 @@ export function CopilotDrawerPositionMenu({
                 />
                 <span>{positionFloatingLabel}</span>
               </DropdownMenuRadioItem>
+              {/* The full panel as a window over the page: the sidebar
+                  without the reserved column, the modal without the
+                  single-line composer. Needs room — not offered on phones. */}
+              {showDrawerOption ? null : (
+                <DropdownMenuRadioItem
+                  className="flex items-center gap-2"
+                  value="window"
+                >
+                  <PictureInPicture2
+                    aria-hidden
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                  <span>{positionWindowLabel}</span>
+                </DropdownMenuRadioItem>
+              )}
               <DropdownMenuRadioItem
                 className="flex items-center gap-2"
                 value="sidebar"

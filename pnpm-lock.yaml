@@ -898,6 +898,9 @@ importers:
 
   modules/commercial-settings:
     dependencies:
+      '@engenty/ai-core':
+        specifier: workspace:*
+        version: link:../../packages/ai-core
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -931,6 +934,9 @@ importers:
       '@hono/zod-openapi':
         specifier: ^1.4.0
         version: 1.4.0(hono@4.12.26)(zod@4.4.3)
+      '@mastra/core':
+        specifier: 1.61.0
+        version: 1.61.0(patch_hash=472717f6e127815da7c01bdc2b1019f551fd7354fa75a745c8b14f3c80200870)(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.58(zod@4.4.3))(express@5.2.1)(rxjs@7.8.1)(zod@4.4.3)
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2

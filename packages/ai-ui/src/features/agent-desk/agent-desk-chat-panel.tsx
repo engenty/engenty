@@ -9,7 +9,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Eye } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { isAwaitingAgUiInitialHydrate } from "../../ag-ui/conversation.js";
 import { useAgentHost } from "../../agent-provider/index.js";
 import {
@@ -23,6 +23,7 @@ import { CopilotPanelContent } from "../../components/copilot/panel/copilot-pane
 import type { CopilotPanelContentProps } from "../../components/copilot/panel/copilot-panel-content-types.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
 import { TranscriptLoadOlder } from "../../components/copilot/transcript/transcript-load-older.js";
+import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-composer-draft-intent.js";
 import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
 import { isThreadWritableByViewer } from "../../threads/thread-write-access.js";
 import { TEMPORARY_ENGENTY_THREAD_ID_PREFIX } from "../../threads/use-engenty-threads.js";
@@ -32,6 +33,7 @@ import {
   mergeAgentDeskStarters,
 } from "./agent-desk-empty-starters.js";
 import { AgentDeskRunActivity } from "./agent-desk-run-activity.js";
+import { TranscriptTopSentinel } from "./transcript-top-sentinel.js";
 import { useAgentDeskGeneratedStarters } from "./use-agent-desk-feed.js";
 import type { useAgentDeskThread } from "./use-agent-desk-thread.js";
 
@@ -69,7 +71,16 @@ export function AgentDeskChatPanel(props: {
   composerLeadingControl?: ReactNode;
   /** The composer's hint; the agent's name when absent. A room names itself. */
   composerPlaceholder?: string;
+  /**
+   * Identity (and similar) that scrolls with the transcript, not a block
+   * above it — so the header cannot fight the chat scroller on height.
+   */
+  scrollHeader?: ReactNode;
+  /** False when the surface around this chat lays the context card out itself. */
+  contextPane?: boolean;
   hostKey: string;
+  /** Fires when the top of the transcript scrolls out of, or back into, view. */
+  onTranscriptTopVisibility?: (visible: boolean) => void;
   initialMessages: ReturnType<typeof useAgentDeskThread>["initialMessages"];
   isLoadingMessages: boolean;
   /** `@` candidates — the Space's people and other agents, as references. */
@@ -148,6 +159,13 @@ export function AgentDeskChatPanel(props: {
     threadKey,
     userId: currentUserId ?? "",
   });
+  // Object panels and widgets prefill THIS composer ("Ask the agent to…") the
+  // same way module pages prefill the copilot's — keyed by host, so a record
+  // opened beside the desk talks to the Engenty whose desk it is.
+  useEffect(
+    () => registerCopilotComposerDraftSetter(props.hostKey, lane.setDraft),
+    [lane.setDraft, props.hostKey]
+  );
   // A run this window attached to is someone else's turn (a colleague's in a
   // room, another window's): the composer stays a Send, not a Stop, and the
   // lane steers the words into that run (Grok Bot's "redirect the current
@@ -249,7 +267,15 @@ export function AgentDeskChatPanel(props: {
     // not on a tab you have to know to open: a routine fire is the agent
     // working, and the room should say so while it happens.
     transcriptHeader: (
-      <TranscriptLoadOlder olderMessages={props.olderMessages} />
+      <>
+        {props.onTranscriptTopVisibility ? (
+          <TranscriptTopSentinel
+            onVisibilityChange={props.onTranscriptTopVisibility}
+          />
+        ) : null}
+        {props.scrollHeader}
+        <TranscriptLoadOlder olderMessages={props.olderMessages} />
+      </>
     ),
     transcriptFooter: (
       <AgentDeskRunActivity
@@ -262,16 +288,22 @@ export function AgentDeskChatPanel(props: {
     transcriptLoading,
   };
 
+  const laneNode = (
+    <div
+      // No top clearance any more: the desk header is a real header now, so
+      // the topbar no longer overlaps this lane.
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
+      <CopilotPanelContent {...panelProps} />
+    </div>
+  );
+  // The desk lays the context card out as its own column beside header AND
+  // chat; only a surface without that frame (a room page) floats it here.
+  if (props.contextPane === false) {
+    return laneNode;
+  }
   return (
-    <ThreadContextPane hostKey={props.hostKey}>
-      <div
-        // No top clearance any more: the desk header is a real header now, so
-        // the topbar no longer overlaps this lane.
-        className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      >
-        <CopilotPanelContent {...panelProps} />
-      </div>
-    </ThreadContextPane>
+    <ThreadContextPane hostKey={props.hostKey}>{laneNode}</ThreadContextPane>
   );
 }
 

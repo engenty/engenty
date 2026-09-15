@@ -64,6 +64,8 @@ describe("getAgentDetailAffordances", () => {
       "overview",
       "capabilities",
       "instructions",
+      "memory",
+      "files",
       "workspace",
       "activity",
     ]);

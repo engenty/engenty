@@ -1,4 +1,4 @@
-// The bell, in the app rail under Settings: the tenant-wide unseen count, and
+// The bell, in the app rail under the main nav: the tenant-wide unseen count, and
 // the aggregate list in a popover (opening beside the rail) or a drawer.
 // Deliberately not narrowed by the space the user is standing in — a decision
 // waiting elsewhere is still waiting. Mounts the client-channel watcher and
@@ -31,15 +31,21 @@ import { useNotificationsRealtime } from "./realtime.js";
 export { NOTIFICATIONS_PATH } from "./notification-paths.js";
 
 /**
- * Styled as a rail item (same box and hover treatment as the Settings tile
+ * Styled as a rail item (same box and hover treatment as the app tiles
  * above it) rather than a toolbar button: the bell lives in the app rail.
  */
-function BellButton({ count }: { count: number }) {
+function BellButton({ count, open }: { count: number; open: boolean }) {
   const { t } = useTranslation("common");
   return (
     <button
       aria-label={t("notifications.bell", { defaultValue: "Notifications" })}
-      className="group/item relative mx-auto flex size-9 shrink-0 items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      className={cn(
+        "group/item relative mx-auto flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground transition-shadow",
+        // Match app-shell rail-tile chrome (chat / tasks / spaces).
+        open
+          ? "shadow-[0_2px_8px_rgb(0_0_0/0.35)] ring-2 ring-sidebar-foreground/90"
+          : "hover:shadow-[0_0_4px_color-mix(in_oklch,var(--sidebar-foreground)_58%,transparent),0_1px_3px_rgb(0_0_0/0.22)] focus-visible:shadow-[0_0_4px_color-mix(in_oklch,var(--sidebar-foreground)_58%,transparent),0_1px_3px_rgb(0_0_0/0.22)]"
+      )}
       type="button"
     >
       <Bell className="size-5 transition-transform duration-200 ease-out group-hover/item:scale-110" />
@@ -84,8 +90,8 @@ export function NotificationBell({
     return (
       <Sheet onOpenChange={setOpen} open={open}>
         <SheetTrigger asChild>
-          <span className={cn("inline-flex", className)}>
-            <BellButton count={count} />
+          <span className={cn("flex w-full justify-center", className)}>
+            <BellButton count={count} open={open} />
           </span>
         </SheetTrigger>
         <SheetContent className="w-[420px] max-w-full p-0" side="left">
@@ -100,8 +106,8 @@ export function NotificationBell({
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
-        <span className={cn("inline-flex", className)}>
-          <BellButton count={count} />
+        <span className={cn("flex w-full justify-center", className)}>
+          <BellButton count={count} open={open} />
         </span>
       </PopoverTrigger>
       <PopoverContent

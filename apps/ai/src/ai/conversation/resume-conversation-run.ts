@@ -21,7 +21,10 @@ import {
 import type { AiEffort, AiUsageStore } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import type { Workspace } from "@mastra/core/workspace";
-import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
+import {
+  type FrontendToolGrant,
+  resolveFrontendToolsForAgent,
+} from "../../../ai/frontend-tools/catalog.js";
 import {
   createNativeFrontendTools,
   type FrontendToolResumeData,
@@ -53,6 +56,7 @@ import {
   assembleDynamicAgent,
   type RuntimeModelConfig,
 } from "../registry/index.js";
+import { frontendToolGrantForRun } from "../sessions/frontend-tool-grant.js";
 import {
   type RunSpaceResolution,
   resolvedRunSpace,
@@ -323,7 +327,8 @@ function suspendedAgainLabel(suspended: SuspendedAgain): string {
  */
 async function resolveResumeInstructionExtras(
   input: ResumeConversationRunInput,
-  spaceResolution: RunSpaceResolution
+  spaceResolution: RunSpaceResolution,
+  frontendToolGrant: FrontendToolGrant | null
 ): Promise<{
   instructionExtras?: AssembleInstructionExtras;
   runtimeContextInstructions?: string;
@@ -355,6 +360,7 @@ async function resolveResumeInstructionExtras(
               frontend_tools: input.agentUi.frontend_tools ?? [],
             }
           : null,
+        frontendToolGrant,
         routeContext: (input.routeContext ?? null) as never,
         runContext: input.runContext as never,
         scope: input.scope,
@@ -410,7 +416,10 @@ async function resumeFromSnapshot(
 ): Promise<SnapshotResumeResult> {
   // Merged up front (not just for the stream) so the caller can resolve a
   // re-suspended frontend tool to its declaration even on an early bail.
-  const mergedDefinitions = resolveFrontendToolsForAgent({
+  // Re-merged below once the row and the Space are known: an Engenty that
+  // held the page tools when the run parked has to hold them again on the
+  // continuation, or the very tool that suspended is gone when it resumes.
+  let mergedDefinitions = resolveFrontendToolsForAgent({
     agentId: input.agentId,
     clientTools: input.agentUi?.frontend_tools,
   });
@@ -453,10 +462,24 @@ async function resumeFromSnapshot(
       store: input.store,
       threadId: input.threadId,
     });
-    const { instructionExtras, runtimeContextInstructions } =
-      await resolveResumeInstructionExtras(input, spaceResolution);
     const runSpace = resolvedRunSpace(spaceResolution);
     const agentConfig = await input.registry.getAgentConfig?.(input.agentId);
+    const frontendToolGrant = frontendToolGrantForRun({
+      agentId: input.agentId,
+      config: agentConfig,
+      spaceResolution,
+    });
+    mergedDefinitions = resolveFrontendToolsForAgent({
+      agentId: input.agentId,
+      clientTools: input.agentUi?.frontend_tools,
+      grant: frontendToolGrant,
+    });
+    const { instructionExtras, runtimeContextInstructions } =
+      await resolveResumeInstructionExtras(
+        input,
+        spaceResolution,
+        frontendToolGrant
+      );
     const resumeThread =
       typeof input.store.getThread === "function"
         ? await input.store.getThread({

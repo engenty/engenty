@@ -24,6 +24,7 @@ import {
 } from "@mastra/core/processors";
 import type { Workspace } from "@mastra/core/workspace";
 import {
+  agentCarriesCatalogFloor,
   preferredSkillIdsForRun,
   withCatalogFloor,
   withTopLevelHireTools,
@@ -50,8 +51,8 @@ import { createShowWidgetTool } from "../../../ai/tools/show-widget-tool.js";
 import { workspaceTransferTools } from "../../../ai/tools/workspace-move/index.js";
 import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 import { AiSessionError } from "../errors.js";
-import { DATABASE_SPECIALIST_INSTRUCTIONS } from "../instructions/database-specialist-instructions.js";
 import { REPLY_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
+import { SPECIALIST_INSTRUCTIONS } from "../instructions/specialist-instructions.js";
 import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
 import { nativeModuleToolMeta } from "../native-module-tool-meta.js";
@@ -224,18 +225,23 @@ async function assembleDynamicAgentWithAncestors(
   }
 
   const nextAncestors = new Set(ancestors).add(config.id);
-  // A hired specialist keeps the catalog floor whatever its row says: naming
-  // narrower tools used to REPLACE it, leaving an agent with no way to execute
-  // module operations at all. Approvals are the boundary, not this list — and
-  // applying it here (not only at hire time) repairs rows written before the
-  // rule existed. Unioned BEFORE the filters below, so an action's allow list
-  // can still narrow a guardrailed node deliberately.
+  // A specialist keeps the catalog floor whatever its row or manifest says:
+  // naming narrower tools used to REPLACE it, leaving an agent with no way to
+  // execute module operations at all. Approvals are the boundary, not this
+  // list — and applying it here (not only at hire time) repairs rows written
+  // before the rule existed. Module specialists (tasks.assist,
+  // knowledge-base.manager …) are on the same footing: the Space contract
+  // tells them to use `/data/Files`, artifacts and colleagues, so a manifest
+  // that lists only search + execute is a floor to stand on, not a ceiling.
+  // Unioned BEFORE the filters below, so an action's allow list can still
+  // narrow a guardrailed node deliberately.
   // A hired engenty that reports to nobody in this space is its lead: it
   // carries the first engenty's setup and hiring set on top of the floor.
   // The lane passes the resolved Space explicitly: the chat lanes assemble
   // BEFORE they enter the tools run context, so reading the ALS here found
   // nothing and neither this rule nor the visibility filter below ran.
   const space = options.space ?? getEngentyToolsRunContext().space;
+  const carriesFloor = agentCarriesCatalogFloor(config);
   const topLevel =
     config.source === "database" &&
     Boolean(
@@ -243,12 +249,11 @@ async function assembleDynamicAgentWithAncestors(
         !isUnresolvedSpaceGate(space) &&
         space.topLevelAgentIds?.has(config.id)
     );
-  const declaredToolIds =
-    config.source === "database"
-      ? topLevel
-        ? withTopLevelHireTools(withCatalogFloor(config.toolIds))
-        : withCatalogFloor(config.toolIds)
-      : config.toolIds;
+  const declaredToolIds = carriesFloor
+    ? topLevel
+      ? withTopLevelHireTools(withCatalogFloor(config.toolIds))
+      : withCatalogFloor(config.toolIds)
+    : config.toolIds;
   // Action guardrail: narrow the config tools to the action's allow list.
   const blockedToolIds = new Set(options.blockedToolIds ?? []);
   const toolIds = declaredToolIds.filter(
@@ -599,13 +604,15 @@ export function buildAgentInstructions(
   if (config.toolGating) {
     parts.push(SKILL_GATED_TOOLS_INSTRUCTIONS);
   }
-  if (config.source === "database") {
-    parts.push(DATABASE_SPECIALIST_INSTRUCTIONS);
+  if (agentCarriesCatalogFloor(config)) {
+    // The floor's own manual: hired or module-shipped, a specialist that has
+    // the catalog, Space Data and colleagues must be told how they work.
+    parts.push(SPECIALIST_INSTRUCTIONS);
   } else if (config.agentScope) {
-    // Hired specialists carry these inside DATABASE_SPECIALIST_INSTRUCTIONS.
-    // Any other agent with an audience — module specialists declaring
-    // `agent_scope`, the personal copilot — has the same MEMORY.md and
-    // TASKS.md bound to its run and needs to be told about them.
+    // Specialists carry these inside SPECIALIST_INSTRUCTIONS. Any other agent
+    // with an audience — the personal copilot, an interface declaring
+    // `agent_scope` — has the same MEMORY.md and TASKS.md bound to its run
+    // and needs to be told about them.
     parts.push(AGENT_MEMORY_INSTRUCTIONS, AGENT_TASKS_INSTRUCTIONS);
   }
   // Last, and only on a run nobody asked for: how to behave having woken up on

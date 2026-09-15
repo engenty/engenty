@@ -394,6 +394,10 @@ export interface CustomAgentConfig {
   managed_by_module?: string | null;
   model: string;
   name: string;
+  /** Reachable from remote channels as itself (P5); default off. */
+  remoteEnabled?: boolean;
+  /** Channel handle (`@handle`); null = the id's last segment. */
+  remoteHandle?: string | null;
   /** Server-derived on GET responses; never sent on create/update. */
   role?: AiAgentRole;
   skillIds: string[];
@@ -403,6 +407,8 @@ export interface CustomAgentConfig {
   starters?: AgentStarter[];
   subAgents?: { id: string; alias?: string }[];
   toolIds: string[];
+  /** Screen-driving tools on chat surfaces: auto (coordinator only), on, off. */
+  uiTools?: "auto" | "off" | "on";
 }
 
 export interface CustomToolConfig {

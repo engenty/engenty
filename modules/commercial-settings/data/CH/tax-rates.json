@@ -1,0 +1,8 @@
+{
+  "region": "CH",
+  "rates": [
+    { "name": "MWST", "label": "Normalsatz", "value": 8.1 },
+    { "name": "MWST_red", "label": "Reduziert", "value": 2.6 },
+    { "name": "MWST_hotel", "label": "Beherbergung", "value": 3.8 }
+  ]
+}

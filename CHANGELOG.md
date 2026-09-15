@@ -4,6 +4,40 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.4] - 2026-09-15
+- ADDED **[manage]** Activate AI models in filtered cohorts
+- ADDED **[ui]** Let ListFilterChip keep several values selected
+- ADDED **[ai]** Hire-floor desks, overlay context, and per-Engenty routing
+- ADDED **[spaces]** Files on home, columns that follow the pane
+- ADDED **[commercial-settings]** Give agents tools, skills, and a settings Engenty
+- ADDED **[commercial-settings]** Map expense categories to regional charts of accounts
+- ADDED **[spaces]** Let Modules and Extensions fold from the heading
+- ADDED **[spaces]** Enhance SpaceHomeAudience with section heading and improved accessibility text
+- ADDED **[shell]** Put the Engenty mark and column toggle on the app bar
+- ADDED **[spaces]** Show who belongs in the home header
+- ADDED **[spaces]** Greet a new hire so the desk is not silent
+- ADDED **[cli]** Run engenty on this machine with `engenty start`
+- CHANGED **[db]** Consolidate every owner's migrations into one baseline
+- DOCS **[remote]** Document handle routing and per-Engenty channel turns
+- DOCS Say which containers a run gets, and drop the old Code Mode plan
+- FIXED **[ai-ui]** Live one-line working status and visible run failures
+- FIXED **[ai]** Open delegated artifacts from the person's thread
+- FIXED **[core]** Restore supabase_realtime publication membership
+- FIXED **[ai]** Look up Space uploads at /data/Files
+- FIXED **[www]** A missing comma after the hero sub blanked the landing
+- FIXED **[shell]** Keep Close on the column’s right seam when pinned
+- FIXED **[spaces]** Shorten the home team line
+- FIXED **[spaces]** Drop the home tile and paint action links primary
+- FIXED **[spaces]** Put Copilot back on every space, including Company
+- FIXED **[setup]** Start Company with Files and Connections only
+- FIXED **[dev]** Point core at AI over loopback under Portless
+- FIXED **[cli]** Pass --domain through preflight port checks
+- FIXED **[core]** Stop the setup checks passing on a database that is missing tables
+- FIXED **[ai]** Create the Mastra tables on installs without a checkout
+- FIXED **[cli]** Make `engenty start` reach a serving app
+- FIXED **[db]** Make the consolidated baseline able to build a fresh database
+- FIXED **[cli]** Print CLI failures as a readable line instead of JSON
+
 ## [0.2.3] - 2026-09-13
 - ADDED **[www]** Landing built from colour bands, app groups and standing engenties
 - ADDED **[engenty]** Jelly coat for the large engenties, decal extras on both coats, styleguide row

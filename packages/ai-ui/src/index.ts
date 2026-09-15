@@ -133,6 +133,11 @@ export {
   PromptInputTools,
 } from "./components/ai-elements/prompt-input/index.js";
 export {
+  type ChatKind,
+  ChatKindBadge,
+  useChatKindCopy,
+} from "./components/copilot/chat-kind-badge.js";
+export {
   CHAT_LANE_COLUMN_CLASS,
   CHAT_LANE_COMPOSER_CLASS,
   CHAT_LANE_TRANSCRIPT_CLASS,
@@ -342,10 +347,15 @@ export {
 export * from "./embed.js";
 export { AgentDesk } from "./features/agent-desk/agent-desk.js";
 export {
+  type AgentDeskWelcome,
+  postAgentDeskWelcome,
+} from "./features/agent-desk/agent-desk-api.js";
+export {
   canManageAgent,
   isAgentDeskChatSurface,
   resolveAgentDeskDefault,
 } from "./features/agent-desk/agent-desk-defaults.js";
+export type { AgentDeskRelation } from "./features/agent-desk/agent-desk-header.js";
 export { AgentDeskNewRoomDialog } from "./features/agent-desk/agent-desk-new-room-dialog.js";
 export type {
   AgentDeskSwitchAgent,
@@ -374,6 +384,11 @@ export {
   useSpaceConversationsQuery,
   useUpdateRoomMutation,
 } from "./features/agent-desk/conversation-api.js";
+export {
+  type SendDeskMessageInput,
+  type SendDeskMessageResult,
+  sendDeskMessageInPlace,
+} from "./features/agent-desk/send-desk-message.js";
 export { useAgentDeskFeed } from "./features/agent-desk/use-agent-desk-feed.js";
 export {
   type AgentLiveActivity,

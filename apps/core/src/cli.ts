@@ -7,6 +7,7 @@ import {
   registerDevCommands,
   registerDoctorCommands,
   registerEnvCommands,
+  registerLocalCommands,
   registerModulesCommands,
   registerResetCommands,
   registerSetupCommands,
@@ -61,6 +62,7 @@ export async function createCli(): Promise<Command> {
   registerDbCommands(program);
   registerResetCommands(program);
   registerDeployCommands(program);
+  registerLocalCommands(program);
   registerEnvCommands(program);
   registerAuthCommands(program);
   registerServiceCredentialCommands(program);

@@ -22,6 +22,23 @@ vi.mock("../../artifacts/workspace-artifact-pane.js", () => ({
   ArtifactPaneToggle: () => null,
   WorkspaceArtifactPane: () => null,
 }));
+vi.mock(
+  "../../components/copilot/thread-context/thread-context-pane.js",
+  () => ({
+    ThreadContextPane: ({
+      children,
+      header,
+    }: {
+      children: React.ReactNode;
+      header?: React.ReactNode;
+    }) => (
+      <>
+        {header}
+        {children}
+      </>
+    ),
+  })
+);
 vi.mock("./agent-desk-chat.js", () => ({
   AgentDeskChat: (props: { pendingSubmit?: string | null }) => {
     capturedChat(props);

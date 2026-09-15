@@ -14,13 +14,21 @@ import {
 import type { AgentDetailTab } from "./agent-detail-tabs";
 import { buildWorkspaceTree } from "./workspace-tree-utils";
 
+/** The agent's own files: the Files tab browses this mount and no other. */
+export const AGENT_HOME_MOUNT = "/home";
+
 export function useAgentWorkspaceTab(params: {
   activeTab: AgentDetailTab;
   agentId: string | null;
   t: (key: string) => string;
 }) {
-  const active = params.activeTab === "workspace" && Boolean(params.agentId);
+  const active =
+    (params.activeTab === "workspace" || params.activeTab === "files") &&
+    Boolean(params.agentId);
   const agentId = active ? (params.agentId ?? "") : "";
+  // The Files tab is the Workspace browser held on `/home`: what the agent
+  // keeps for itself, without the mount table in the way.
+  const pinnedMount = params.activeTab === "files" ? AGENT_HOME_MOUNT : null;
 
   const viewQuery = useAgentWorkspaceViewQuery(agentId);
   const view = viewQuery.data?.workspace ?? null;
@@ -29,16 +37,27 @@ export function useAgentWorkspaceTab(params: {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [editorBody, setEditorBody] = useState("");
 
-  // Default to the first browsable mount once the view resolves.
+  // Default to the first browsable mount once the view resolves; the Files
+  // tab defaults to (and stays on) `/home`.
   useEffect(() => {
-    if (!view || selectedMount) {
+    if (!view) {
+      return;
+    }
+    if (pinnedMount) {
+      if (selectedMount !== pinnedMount) {
+        setSelectedMount(pinnedMount);
+        setSelectedFile(null);
+      }
+      return;
+    }
+    if (selectedMount) {
       return;
     }
     const first = view.mounts.find((mount) => mount.browsable);
     if (first) {
       setSelectedMount(first.path);
     }
-  }, [view, selectedMount]);
+  }, [pinnedMount, view, selectedMount]);
 
   const activeMount = useMemo(
     () => view?.mounts.find((mount) => mount.path === selectedMount) ?? null,
@@ -98,6 +117,8 @@ export function useAgentWorkspaceTab(params: {
     isBusy: writeMutation.isPending || deleteMutation.isPending,
     isDirty: selectedFile !== null && editorBody !== loadedBody,
     isNewFile,
+    /** True on the Files tab: the mount is `/home` and not for choosing. */
+    mountLocked: pinnedMount !== null,
     readOnly,
     selectedFile,
     selectedMount,

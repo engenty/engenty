@@ -734,6 +734,7 @@
       "drawer": "Drawer",
       "modal": "Modal",
       "floating": "Schwebend",
+      "window": "Fenster",
       "sidebar": "Seitenleiste",
       "fullscreen": "Vollbild"
     },
@@ -900,6 +901,12 @@
         "working": "Arbeitet …"
       },
       "wizard": {
+        "comesWith": "Bringt mit",
+        "comesWithCount_one": "{{count}} Tool",
+        "comesWithCount_other": "{{count}} Tools",
+        "floorTools": "Jeder Engenty hat diese — Katalog, Space-Daten, Kolleginnen, Oberfläche. Nicht änderbar.",
+        "templateTools": "Diese Rolle ergänzt",
+        "skills": "Skills",
         "reportsToLabel": "Berichtet an",
         "reportsToNone": "Niemand",
         "createFailed": "Dieser Agent konnte nicht erstellt werden.",
@@ -1281,10 +1288,37 @@
       "modules": {
         "mount": "Modul einbinden"
       },
+      "extensions": {
+        "title": "Erweiterungen",
+        "empty": "In diesem Space ist noch kein zusätzliches Konto eingebunden.",
+        "add": "Konto hinzufügen",
+        "all": "Alle"
+      },
+      "files": {
+        "title": "Dateien",
+        "drop": "Dateien hier ablegen",
+        "uploading": "Wird hochgeladen…",
+        "upload": "Dateien hochladen",
+        "connect": "Verbinden",
+        "all": "Alle",
+        "loadFailed": "Dateien konnten nicht geladen werden."
+      },
       "menu": {
         "copyLink": "Link kopieren",
         "linkCopied": "Link kopiert",
         "linkCopyFailed": "Link konnte nicht kopiert werden"
+      },
+      "workingIn": "Arbeitest in {{name}}",
+      "teamMembers": "Teammitglieder",
+      "teamSpace": {
+        "title": "Team-Space",
+        "open": "Offen für das Team.",
+        "restricted": "Nur für Mitglieder."
+      },
+      "emptyHire": {
+        "title": "Engenty einstellen",
+        "body": "Ein Engenty ist ein Teammitglied, das du in diesen Space einstellst. Es übernimmt eine Aufgabe — Arbeit im Blick behalten, Daten aktuell halten, Entwürfe schreiben — und arbeitet mit den Apps, die hier eingebunden sind.",
+        "action": "Engenty einstellen"
       },
       "greetingNamed": {
         "morning": "Good morning, {{name}}.",
@@ -1292,6 +1326,7 @@
         "evening": "Good evening, {{name}}."
       },
       "sections": {
+        "agents": "Agenten",
         "pinned": "Favoriten",
         "active": "Aktiv",
         "quiet": "Inaktiv"
@@ -1650,6 +1685,14 @@
       "pin": "Anheften",
       "unpin": "Lösen",
       "more": "{{count}} weitere"
+    },
+    "files": {
+      "section": "Dateien",
+      "empty": "Zuletzt geänderte und angeheftete Dateien erscheinen hier.",
+      "loadFailed": "Dateien konnten nicht geladen werden.",
+      "recent": "Zuletzt",
+      "pin": "Anheften",
+      "unpin": "Lösen"
     },
     "dashboard": "Dashboard"
   },

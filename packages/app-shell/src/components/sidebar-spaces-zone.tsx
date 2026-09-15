@@ -34,6 +34,10 @@ import type {
   RailSpaceTile,
   ResolveRailSpacesResult,
 } from "../lib/rail-spaces";
+import {
+  RAIL_TILE_ACTIVE_RING_CLASSNAME,
+  RAIL_TILE_SPACE_REST_CLASSNAME,
+} from "../lib/rail-tile-chrome";
 import { SpaceIconFace } from "./space-icon-face";
 
 /** Show `⋯` only when at least this many spaces sit past the visible budget. */
@@ -101,10 +105,11 @@ const TILE_BASE =
   "relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg font-semibold text-xs";
 
 /**
- * Discord-style left pill + a raised ring on the current tile. The pill sits
- * on the rail's left edge (`-translate-x-1.5` cancels the app-bar `px-1.5`).
- * Hover on a quiet tile grows a short stub so you can see which place you
- * are about to enter.
+ * Discord-style left pill + shadow chrome on the tile. The pill sits on the
+ * rail's left edge (`-translate-x-1.5` cancels the app-bar `px-1.5`). Quiet
+ * tiles carry a soft contrast halo; hover is a fuller shadow, still thinner
+ * than the current tile's 2px outline. Hover also grows a short stub so you
+ * can see which place you are about to enter.
  */
 function RailSpaceSlot({
   children,
@@ -126,8 +131,10 @@ function RailSpaceSlot({
       />
       <div
         className={cn(
-          current &&
-            "rounded-lg shadow-[0_2px_8px_rgb(0_0_0/0.35)] ring-2 ring-sidebar-foreground/90"
+          "rounded-lg transition-shadow",
+          current
+            ? RAIL_TILE_ACTIVE_RING_CLASSNAME
+            : RAIL_TILE_SPACE_REST_CLASSNAME
         )}
       >
         {children}

@@ -170,6 +170,7 @@ export {
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
   type CopilotPersistedPanelMode,
+  type CopilotWindowRect,
   reconcileCopilotLayoutSnapshot,
   UI_SCROLL_SAFE_BOTTOM,
   UI_SCROLL_SAFE_BOTTOM_DOCKED,

@@ -6,6 +6,7 @@ import { cn } from "../../utils";
 import { Button } from "./button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -206,16 +207,39 @@ function ListIconSegmentToggle<T extends string>({
 const FILTER_CHIP_CN =
   "h-8 shrink-0 gap-1 rounded-full border px-3 text-sm shadow-none [box-shadow:var(--shadow-ember-elevated)] focus-visible:ring-0";
 
+interface ListFilterChipOption {
+  label: string;
+  value: string;
+}
+
 interface ListFilterChipProps {
   activeLabel?: string;
   ariaLabel: string;
   clearLabel: string;
   isActive: boolean;
   label: string;
+  /**
+   * When true, options are checkboxes and the menu stays open so several
+   * values can be OR'd. Pass `values` / `onValuesChange` instead of `value`.
+   */
+  multiple?: boolean;
   onClear: () => void;
-  onSelect: (next: string) => void;
-  options: { label: string; value: string }[];
-  value: string;
+  onSelect?: (next: string) => void;
+  onValuesChange?: (next: string[]) => void;
+  options: ListFilterChipOption[];
+  value?: string;
+  values?: string[];
+}
+
+function defaultMultiActiveLabel(
+  values: string[],
+  options: ListFilterChipOption[]
+) {
+  return values
+    .map(
+      (item) => options.find((option) => option.value === item)?.label ?? item
+    )
+    .join(", ");
 }
 
 function ListFilterChip({
@@ -224,11 +248,18 @@ function ListFilterChip({
   clearLabel,
   isActive,
   label,
+  multiple = false,
   onClear,
   onSelect,
+  onValuesChange,
   options,
   value,
+  values = [],
 }: ListFilterChipProps) {
+  const resolvedActiveLabel =
+    activeLabel ??
+    (multiple ? defaultMultiActiveLabel(values, options) : undefined);
+
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -245,7 +276,7 @@ function ListFilterChip({
           variant="outline"
         >
           <span className="max-w-[12rem] truncate">
-            {isActive && activeLabel ? activeLabel : label}
+            {isActive && resolvedActiveLabel ? resolvedActiveLabel : label}
           </span>
           {isActive ? (
             <span
@@ -280,17 +311,38 @@ function ListFilterChip({
         <DropdownMenuLabel className="text-muted-foreground text-xs">
           {label}
         </DropdownMenuLabel>
-        <DropdownMenuRadioGroup onValueChange={onSelect} value={value}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem
-              closeOnClick
+        {multiple ? (
+          options.map((option) => (
+            <DropdownMenuCheckboxItem
+              checked={values.includes(option.value)}
+              closeOnClick={false}
               key={option.value}
-              value={option.value}
+              onCheckedChange={(checked) => {
+                const selected = new Set(values);
+                if (checked) {
+                  selected.add(option.value);
+                } else {
+                  selected.delete(option.value);
+                }
+                onValuesChange?.([...selected]);
+              }}
             >
               {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+            </DropdownMenuCheckboxItem>
+          ))
+        ) : (
+          <DropdownMenuRadioGroup onValueChange={onSelect} value={value}>
+            {options.map((option) => (
+              <DropdownMenuRadioItem
+                closeOnClick
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

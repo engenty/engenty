@@ -30,6 +30,7 @@ pnpm dev                # = engenty dev: preflight → build → core + ui + ai 
 | `engenty install <slug>` | Shorthand for `engenty plugins install <slug>`: add a module to `engenty.plugins` and regenerate. | files |
 | `engenty env …` | `init` (wizard), `check`, `edit`, `generate` (secrets), `example`. | env |
 | `engenty reset` | Back to a fresh checkout: generated files, local env, runtime dirs, build caches, `node_modules` (`--light` keeps them). `--db` also wipes the local database, and runs first because it needs the generated files. | files, DB with `--db` |
+| `engenty start` | Run engenty on this machine without a checkout: its own Supabase on a free port band, the release's migrations, the prebuilt containers. Idempotent. `status`, `stop` (`--purge`), `update` manage it afterwards. The install lives in `~/.engenty` (`ENGENTY_HOME`). | remote |
 | `engenty deploy` | The self-host wizard (`--dry-run`). In a checkout it works in `deploy/`; outside — `npx engenty deploy` on the server — in `./engenty-deploy/`, writing the `.env` and the compose files, so the server needs no clone. `deploy migrate` pushes the migrations: via `supabase link` + `deploy/scripts/migrate.sh` in a checkout, via `SUPABASE_DB_URL` and the release's baked migrations outside. | remote |
 
 ## What `engenty generate` regenerates
@@ -100,7 +101,31 @@ is a door, not a second CLI — what it does depends on where it runs:
 | where | `npx engenty …` |
 |---|---|
 | inside a checkout (a `pnpm-workspace.yaml` up the tree) | hands the whole command line to that checkout's `pnpm engenty …` — the checkout's version of the code, plugin commands included. Says so when the two versions differ. |
-| anywhere else | `create`, `deploy`, `deploy migrate`, `doctor` (host prerequisites, `--remote`). The checkout-only commands answer with the one line that points at `create`. |
+| anywhere else | `start`, `status`, `stop`, `update`, `create`, `deploy`, `deploy migrate`, `doctor` (host prerequisites, `--remote`), `env set`. The checkout-only commands answer with the one line that points at `create`. |
+
+### The managed install
+
+`engenty start` is the third mode, and the only one that leaves a running
+installation behind. It writes **`~/.engenty`** — `ENGENTY_HOME` overrides it,
+`engenty status` prints it — holding the `.env`, the two compose files and a
+generated `supabase/config.toml`. The databases are named Docker volumes, which
+is why the directory sits in `$HOME` and not in whatever directory the command
+was run from: a cwd-relative folder would be configuration pretending to be the
+installation, and a second `start` elsewhere would build a second one.
+
+`engenty deploy` is the other half and keeps writing `./engenty-deploy`: on a
+server that folder is the deliverable the operator owns and backs up.
+
+The managed Supabase is the same stack a checkout runs, under `project_id
+"engenty"` and a port band `findFreePortBand()` picks, so it never collides
+with a developer's `engenty-local`. Studio and the log pipeline stay off, and
+so does the Edge Runtime — there are no `supabase/functions` in a release, and
+it is the one Supabase container the CLI starts without a restart policy.
+
+The containers reach Supabase through `host.docker.internal`, because it runs
+in the Supabase CLI's own compose project rather than ours. That, and the
+published host port, are the whole of `docker-compose.local.yaml`; the base
+compose stays a server file.
 
 Outside a checkout the release's facts come from a `release-manifest.json`
 the publish bakes in: the schemas the release exposes (`doctor --remote`,

@@ -6,10 +6,8 @@ import {
   BUILT_IN_NO_TAX,
   getRegionFromLocale,
 } from "../../lib/locale-config.js";
-import {
-  mergeStandardTaxRatesForRegion,
-  STANDARD_TAX_PRESETS,
-} from "../../lib/standard-tax-presets.js";
+import { STANDARD_TAX_PRESETS } from "../../lib/region-packs.js";
+import { mergeStandardTaxRatesForRegion } from "../../lib/standard-tax-presets.js";
 
 interface TaxRatesSectionProps {
   defaultLocale: string;

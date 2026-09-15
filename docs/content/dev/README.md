@@ -10,6 +10,7 @@ Everything you need to build on and contribute to Engenty.
 - **[Architecture](./architecture)** — how the apps, packages, and modules fit together.
 - **[Local development](./local-development)** — clone, install, and run the stack.
 - **[Plugins & modules](./plugins)** — extend Engenty with your own modules.
+- **[Agent computers](./agent-computers)** — the containers behind an agent run, and what each one can reach.
 - **[Optimistic UI](./optimistic-ui)** — mutation lifecycle, concurrency, and realtime coordination.
 - **[Notifications](./notifications)** — one record per signal, decide-in-place bodies, resolve-by-subject, streams and channels.
 

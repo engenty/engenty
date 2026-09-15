@@ -1,0 +1,15 @@
+{
+  "gateway": "openrouter",
+  "label": "OpenRouter",
+  "roles": {
+    "model.low": "z-ai/glm-5.3-flash",
+    "model.medium": "z-ai/glm-5.3-flash",
+    "model.high": "z-ai/glm-5.3-flash",
+    "router": "openai/gpt-oss-20b:free",
+    "classifier": "openai/gpt-oss-20b:free",
+    "safeguard": "openai/gpt-oss-safeguard-20b",
+    "planning_coding": "openai/gpt-5.6-luna",
+    "research": "z-ai/glm-5.3-flash",
+    "memory": "openai/gpt-5.6-luna"
+  }
+}

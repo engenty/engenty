@@ -9,12 +9,14 @@ import {
   type ResolveOwnerSpaceId,
   registerFileManagerRoutes,
 } from "./api/file-manager-routes.js";
+import { registerFileShortcutsRoutes } from "./api/file-shortcuts-routes.js";
 import { registerFileSourcesRoutes } from "./api/file-sources-routes.js";
 import { registerSpaceFileOperations } from "./api/space-file-operations.js";
 import {
   createFileManagerStores,
   createFileMountStore,
 } from "./dal/file-manager-store.js";
+import { createFileShortcutsStore } from "./dal/file-shortcuts-store.js";
 import { createCompositeFileSource } from "./sources/composite-file-source.js";
 import {
   type ConnectorMountRow,
@@ -144,6 +146,9 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
   };
 
   registerFileManagerRoutes(server, source, resolveOwnerSpaceId);
+  // Recent + pinned: the Work sidebar's Files section. Native rows only —
+  // a connector mount's recents would be a provider walk, not a query.
+  registerFileShortcutsRoutes(server, createFileShortcutsStore(getDb));
   registerFileSourcesRoutes(server, {
     client: connectionsClient,
     getDb,

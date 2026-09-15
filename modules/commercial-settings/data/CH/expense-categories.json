@@ -1,0 +1,66 @@
+{
+  "region": "CH",
+  "chart": "ch-kmu",
+  "categories": [
+    {
+      "code": "reise",
+      "name": "Reisespesen",
+      "account_class": "6",
+      "account_number": "6540",
+      "account_name": "Reiseaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Reisekosten, Bahn, Flug, Hotel"
+    },
+    {
+      "code": "verpflegung",
+      "name": "Verpflegung & Repräsentation",
+      "account_class": "6",
+      "account_number": "6570",
+      "account_name": "Repräsentationsaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Geschäftsessen, Verpflegungskosten"
+    },
+    {
+      "code": "buero",
+      "name": "Büromaterial",
+      "account_class": "6",
+      "account_number": "6500",
+      "account_name": "Verwaltungs- und Büroaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Bürobedarf, Verbrauchsmaterial"
+    },
+    {
+      "code": "miete",
+      "name": "Miete & Nebenkosten",
+      "account_class": "6",
+      "account_number": "6000",
+      "account_name": "Raumaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Büromiete, Nebenkosten"
+    },
+    {
+      "code": "software",
+      "name": "Software & IT",
+      "account_class": "6",
+      "account_number": "6510",
+      "account_name": "Informatikaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "SaaS, Lizenzen, IT-Kosten"
+    },
+    {
+      "code": "sonstige",
+      "name": "Übriger Aufwand",
+      "account_class": "6",
+      "account_number": "6700",
+      "account_name": "Übriger betrieblicher Aufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Sonstige geschäftliche Ausgaben"
+    }
+  ]
+}

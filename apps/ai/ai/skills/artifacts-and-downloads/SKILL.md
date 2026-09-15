@@ -12,9 +12,13 @@ metadata:
 
 Use an **artifact** for authored output the user should read, review, or hand
 off. Use **Files** for durable file deliverables. Both are real product
-surfaces; workspace mounts are run context and working files, and `/data` is
-mounted module records. Never substitute a scratch path, signed URL, or raw
-storage key in chat.
+surfaces; workspace mounts are run context and working files. Never substitute
+a scratch path, signed URL, or raw storage key in chat.
+
+Space uploads the user already stored (Data → Files) live at `/data/Files`.
+List and read that tree; do not republish them through `vault_files`. Tenant
+Speicher (`vault_files`) is for deliverables *you* generate. `/data` otherwise
+is mounted module records.
 
 ## Pick a surface (HTML vs App vs file)
 

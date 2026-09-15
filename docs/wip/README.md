@@ -22,9 +22,6 @@ lands, its doc graduates into `docs/content/dev/` (or the owning module's `dev/`
 - [file-based-agents.md](./file-based-agents.md) — Mastra's new fs convention vs. our
   `defineModuleAi` convention: keep ours (superset: actions/routines/tenancy), adopt
   `createSkill` and note the pure `assembleAgentFromFsEntry` seam.
-- [code-mode-adoption.md](./code-mode-adoption.md) — generate typed per-operation
-  tools from the contract catalog, read-only allow-list first (task specialist →
-  copilot), writes stay outside Code Mode.
 - [realtime-voice-providers.md](./realtime-voice-providers.md) — provider abstraction
   over realtime voice: OpenAI speech-to-speech vs a Voxtral+ElevenLabs server cascade
   (Austrian dialect voices), provider-neutral German register, per-tenant selection

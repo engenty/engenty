@@ -50,9 +50,11 @@ export function AgentWorkspaceTab({ t, workspace }: AgentWorkspaceTabProps) {
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 text-muted-foreground text-xs">
-          {view.configurable
-            ? t("workspace.configurableHint")
-            : t("workspace.codeOwnedHint")}
+          {workspace.mountLocked
+            ? t("workspace.homeHint")
+            : view.configurable
+              ? t("workspace.configurableHint")
+              : t("workspace.codeOwnedHint")}
         </p>
         {statusBadges}
       </div>

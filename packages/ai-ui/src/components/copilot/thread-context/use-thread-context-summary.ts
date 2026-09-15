@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
-import { useAgentHost } from "../../../agent-provider/engenty-agent.js";
+import { useOptionalAgentHostByKey } from "../../../agent-provider/engenty-agent.js";
 import { useArtifactsListQuery } from "../../../artifacts/artifacts-api.js";
-import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
+import { useOptionalCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
 import { useObjectWidgets } from "../../../objects/object-widget-registry.js";
 import {
   buildThreadContextSummary,
@@ -18,15 +18,22 @@ import type { ThreadContextSummary } from "./thread-context-types.js";
  * the thread has none of these.
  */
 export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
-  const { activeThreadId } = useCopilotThreadBinding();
-  const host = useAgentHost(hostKey);
-  const threadId = host.threadId?.trim() || activeThreadId?.trim() || null;
+  // Desk, room, and the copilot all float this card. Only the copilot wraps
+  // CopilotThreadBindingProvider; only a mounted EngentyAgent has a host.
+  // Requiring either one crashed the specialist desk (the card sits *around*
+  // the chat host, not inside it).
+  const binding = useOptionalCopilotThreadBinding();
+  const host = useOptionalAgentHostByKey(hostKey);
+  const threadId =
+    host?.threadId?.trim() || binding?.activeThreadId?.trim() || null;
   const artifactsQuery = useArtifactsListQuery("thread", threadId);
   const widgets = useObjectWidgets();
   // The summary resolves agent NAMES while it builds. Those arrive with the
   // agent catalog, after the first run rows are already on screen, so the box
   // has to rebuild when one lands or it keeps showing the id.
   const agentNamesVersion = useAgentDisplayNamesVersion();
+  const copilotMessages = host?.copilotMessages ?? [];
+  const pendingUserParts = host?.pendingUserParts ?? [];
 
   return useMemo(() => {
     const artefacts = (artifactsQuery.data ?? []).map((row) => ({
@@ -34,7 +41,7 @@ export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
       title: row.title,
       type: row.type,
     }));
-    const pendingParts = host.pendingUserParts ?? [];
+    const pendingParts = pendingUserParts;
     const spaceKey =
       typeof window === "undefined"
         ? null
@@ -43,7 +50,7 @@ export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
       artefacts,
       matchers: widgets,
       messages: [
-        ...host.copilotMessages,
+        ...copilotMessages,
         ...(pendingParts.length > 0
           ? [{ role: "user", parts: pendingParts }]
           : []),
@@ -54,8 +61,8 @@ export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
   }, [
     agentNamesVersion,
     artifactsQuery.data,
-    host.copilotMessages,
-    host.pendingUserParts,
+    copilotMessages,
+    pendingUserParts,
     threadId,
     widgets,
   ]);

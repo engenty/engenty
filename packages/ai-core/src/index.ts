@@ -119,6 +119,11 @@ export {
   FIRST_ENGENTY_TOOL_IDS,
 } from "./agents/first-engenty.js";
 export {
+  LIVE_HIRE_ATTACHED_TOOL_IDS,
+  LIVE_HIRE_SKILL_IDS,
+  LIVE_HIRE_TOOL_IDS,
+} from "./agents/hire-floor.js";
+export {
   composeAllowedToolsIntersection,
   normalizeAllowedToolsInput,
 } from "./allowed-tools.js";
@@ -164,6 +169,7 @@ export {
   DEFAULT_AI_CHAT_MODEL_ID,
   DEFAULT_AI_CLASSIFIER_MODEL_ID,
   DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
+  DEFAULT_AI_LOW_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
   type ResolveChatModelIdOptions,
   type ResolveSafeguardModelIdOptions,
@@ -179,6 +185,16 @@ export {
   UnconfiguredModelGatewayError,
 } from "./config/gateway-provider.js";
 export { withLlmTrace } from "./config/llm-trace.js";
+export {
+  BINDING_PACK_GATEWAY_PREFERENCE,
+  bindingPackFor,
+  gatewayIdFromApiKeyEnvName,
+  isStockPlatformBindings,
+  listBindingPacks,
+  type ModelBindingPack,
+  type StockBinding,
+  seedGatewayFromEnv,
+} from "./config/model-binding-packs.js";
 export {
   AI_MODEL_PURPOSE_SPECS,
   AI_MODEL_PURPOSES,

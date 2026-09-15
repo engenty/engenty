@@ -36,9 +36,18 @@ export type CopilotPersistedPanelMode = "docked" | "floating";
 export type CopilotLayoutPersistDockMode =
   | "floating"
   | "mini-floating"
+  | "window"
   | "drawer"
   | "sidebar"
   | "bottom";
+
+/** Where the `window` dock mode sits and how big it is, in viewport px. */
+export interface CopilotWindowRect {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
 
 /**
  * Which viewport edges the FAB avatar is pinned to, plus the gap from each
@@ -73,6 +82,8 @@ export interface CopilotLayoutSnapshotV1 {
   panelMode?: CopilotPersistedPanelMode;
   preferredDockMode: CopilotLayoutPersistDockMode | null;
   v: 1;
+  /** Last position and size of the `window` dock mode. */
+  windowRect?: CopilotWindowRect;
 }
 
 /** `open` + collapsed circle hides all chrome; force expanded when shell is open. */

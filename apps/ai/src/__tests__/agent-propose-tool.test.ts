@@ -240,6 +240,7 @@ describe("agentProposeTool", () => {
       "invoke_workflow",
       "message_agent",
       "agent_status",
+      "desk_post",
       "web_search",
       "show_ui",
       "thread_state_set",

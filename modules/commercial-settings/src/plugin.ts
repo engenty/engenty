@@ -1,5 +1,9 @@
-import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import {
+  createPluginServerGatewayCaller,
+  type EngentyPluginFactory,
+} from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { commercialSettingsAiRegistration } from "../ai/registrar.js";
 import { registerCommercialSettingsApi } from "./api/index.js";
 import { createCommercialSettingsRepoSupabase } from "./dal/index.js";
 
@@ -38,7 +42,13 @@ const registerCommercialSettingsPlugin: EngentyPluginFactory = (engenty) => {
       auth.tenantId,
       auth.scopeId
     );
+  const { invokeOperation } = createPluginServerGatewayCaller(engenty.server);
   registerCommercialSettingsApi(engenty.server, repoOrFactory);
+  engenty.server.registerAiRegistration(
+    commercialSettingsAiRegistration({
+      invokeCommercialSettingsOperation: invokeOperation,
+    })
+  );
 };
 
 export default registerCommercialSettingsPlugin;

@@ -54,6 +54,28 @@ Each active module owns its own `supabase/migrations` and storage buckets,
 declared in `engenty.plugin.json`. `pnpm engenty generate` composes them into that
 one config and migrations tree, and `pnpm engenty db migrate` applies changes.
 
+An owner's migrations are periodically consolidated into a single baseline: one
+file per owner holding the schema as it stands, dumped from a database with the
+whole history applied. Consolidating means proving the two are the same — apply
+the history and the baselines to two empty databases, then diff the schema dump
+and the seeded rows. A baseline keeps one of its owner's own versions, so a
+database that ran the history already has it recorded and never re-runs it; the
+baseline is the fresh-install path only.
+
+A database that ran the superseded files still has their versions in
+`supabase_migrations.schema_migrations`, and the Supabase CLI refuses to push
+while the remote knows versions the directory does not. Clear them once per
+database, after pulling a release that consolidates:
+
+```bash
+psql "$SUPABASE_DB_URL" -c "delete from supabase_migrations.schema_migrations
+  where version not in (select unnest(string_to_array('$(ls supabase/migrations | cut -c1-14 | paste -sd, -)', ',')))"
+```
+
+That is what `supabase migration repair --status reverted <version>` does, one
+statement instead of one argument per superseded version. It touches migration
+bookkeeping only, never application data.
+
 ## Authentication & authorization
 
 [Supabase Auth](https://supabase.com/docs/guides/auth) handles sign-in

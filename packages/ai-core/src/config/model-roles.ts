@@ -22,13 +22,15 @@
  * need to know what jobs a module invents.
  */
 
+import { bindingPackFor, seedGatewayFromEnv } from "./model-binding-packs.js";
 import {
   DEFAULT_AI_CHAT_MODEL_ID,
   DEFAULT_AI_CLASSIFIER_MODEL_ID,
+  DEFAULT_AI_LOW_MODEL_ID,
   DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
 } from "./model-defaults.js";
-import { parseModelRef } from "./model-ref.js";
+import { DEFAULT_MODEL_GATEWAY_ID, parseModelRef } from "./model-ref.js";
 
 /** How much thinking a piece of work deserves. The only user-facing axis. */
 export const AI_EFFORT_LEVELS = ["low", "medium", "high"] as const;
@@ -75,64 +77,65 @@ export interface AiRoleSpec {
 /**
  * Platform roles and their seeds.
  *
- * The graded seeds start deliberately conservative — low and medium share the
- * current chat default rather than guessing at a cheaper model, because a wrong
- * downgrade is invisible until someone notices worse answers. Rebinding is a
- * one-line change in the console; a silent quality regression is not.
+ * Graded and fixed seeds come from `data/model-bindings/<gateway>.json`.
+ * `defaultModelId` here is the Vercel pack (and the unbound fallback).
  */
+const vercelRoles = bindingPackFor(DEFAULT_MODEL_GATEWAY_ID).roles;
+
 export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    defaultModelId: vercelRoles["model.low"] ?? DEFAULT_AI_LOW_MODEL_ID,
     label: "General · low effort",
     role: "model.low",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: vercelRoles["model.medium"] ?? DEFAULT_AI_CHAT_MODEL_ID,
     label: "General · medium effort",
     role: "model.medium",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: vercelRoles["model.high"] ?? DEFAULT_AI_CHAT_MODEL_ID,
     label: "General · high effort",
     role: "model.high",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    defaultModelId: vercelRoles.router ?? DEFAULT_AI_CLASSIFIER_MODEL_ID,
     label: "Router",
     role: "router",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    defaultModelId: vercelRoles.classifier ?? DEFAULT_AI_CLASSIFIER_MODEL_ID,
     label: "Classifier",
     role: "classifier",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_SAFEGUARD_MODEL_ID,
+    defaultModelId: vercelRoles.safeguard ?? DEFAULT_AI_SAFEGUARD_MODEL_ID,
     label: "Safeguard",
     role: "safeguard",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_PLANNING_CODING_MODEL_ID,
+    defaultModelId:
+      vercelRoles.planning_coding ?? DEFAULT_AI_PLANNING_CODING_MODEL_ID,
     label: "Planning & coding",
     role: "planning_coding",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: vercelRoles.research ?? DEFAULT_AI_CHAT_MODEL_ID,
     label: "Research",
     role: "research",
     surface: "fixed",
@@ -146,7 +149,7 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
     // `finishReason: "length"` with the model still narrating its plan, so
     // nothing was ever written back and the observation pile only grew. Same
     // failure the coordinator hit on 2026-08-22 — see PURPOSE_TO_ROLE below.
-    defaultModelId: DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: vercelRoles.memory ?? DEFAULT_AI_CHAT_MODEL_ID,
     label: "Memory",
     role: "memory",
     surface: "fixed",
@@ -190,18 +193,27 @@ export function bindingsFromList(list: readonly ModelBinding[]): ModelBindings {
 /** The seed set, used to populate an empty binding table at boot. */
 export function seedBindings(
   roles: readonly AiRoleSpec[] = AI_PLATFORM_ROLES,
-  readEnv?: (key: string) => string | undefined
+  readEnv?: (key: string) => string | undefined,
+  gateway?: string | null
 ): ModelBinding[] {
+  const pack = bindingPackFor(
+    gateway ??
+      (readEnv ? seedGatewayFromEnv(readEnv) : null) ??
+      DEFAULT_MODEL_GATEWAY_ID
+  );
   return roles.map((spec) => {
     // Env vars seeded the platform layer before bindings existed. They are read
     // once, here, so an existing deployment keeps its behaviour on upgrade —
     // and then never again, so there is exactly one place to look afterwards.
     // A seed may name its gateway (`openrouter:openai/gpt-4o`), which is how a
     // fresh install can come up on OpenRouter without a manual rebind.
-    const ref = parseModelRef(
-      envSeedFor(spec.role, readEnv) ?? spec.defaultModelId
-    );
-    return { gateway: ref.gateway, modelId: ref.modelId, role: spec.role };
+    const fromEnv = envSeedFor(spec.role, readEnv);
+    if (fromEnv) {
+      const ref = parseModelRef(fromEnv);
+      return { gateway: ref.gateway, modelId: ref.modelId, role: spec.role };
+    }
+    const modelId = pack.roles[spec.role] ?? spec.defaultModelId;
+    return { gateway: pack.gateway, modelId, role: spec.role };
   });
 }
 

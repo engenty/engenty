@@ -126,6 +126,10 @@ export function AgentDetailPage() {
       );
     } else if (value === "workspace") {
       detail.navigateToAgentWorkspace(agent.id);
+    } else if (value === "memory") {
+      detail.navigateToAgentMemory(agent.id);
+    } else if (value === "files") {
+      detail.navigateToAgentFiles(agent.id);
     } else if (value === "activity") {
       detail.navigateToAgentActivity(agent.id);
     } else {

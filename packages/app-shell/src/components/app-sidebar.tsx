@@ -10,12 +10,18 @@ import { type CSSProperties, type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useShellSecondaryNav } from "../context/shell-secondary-nav-context";
 import { matchesPath } from "../lib/navigation";
+import {
+  RAIL_TILE_ACTIVE_RING_CLASSNAME,
+  RAIL_TILE_GLYPH_HOVER_CLASSNAME,
+} from "../lib/rail-tile-chrome";
 import type {
   NavigationItem,
   NavigationSection,
   ShellSidebarConfig,
 } from "../types/shell";
+import { AppBarBrand } from "./app-bar-brand";
 import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./app-layout/constants";
+import { SecondaryNavSeamToggle } from "./app-layout/secondary-nav-seam-toggle";
 import { SortableModulesRail } from "./sortable-modules-rail";
 
 type AppSidebarSurface = "rail" | "panel";
@@ -53,19 +59,31 @@ interface AppSidebarProps {
   /** Persist a new modules-rail order (contribution ids). */
   onModulesReorder?: (orderedIds: string[]) => void;
   onNavigate?: () => void;
+  /** Open the ⌘K app menu from the Engenty mark. */
+  onOpenAppMenu?: () => void;
+  onSecondaryNavHoverEnter?: () => void;
+  onSecondaryNavHoverLeave?: () => void;
+  /** Desktop rail-edge Open/Close. Omit on mobile — the sheet has its own close. */
+  onToggleSecondaryNav?: () => void;
   /**
-   * Rendered directly below Settings in the admin block — the notification
-   * bell. Passed in like `spacesZone`: the app owns the data.
+   * Rendered in the compact rail directly below the main nav (apps), above
+   * the admin cluster — the notification bell. Passed in like `spacesZone`:
+   * the app owns the data.
    */
   railEndSlot?: ReactNode;
+  /**
+   * Hover preview of the secondary column is on screen. The rail-edge Open
+   * chip hides (opacity 0) so the overlay’s pin is the visible control, while
+   * the chip stays a hover target.
+   */
+  secondaryNavHoverPreview?: boolean;
   sections: NavigationSection[];
   shell: ShellSidebarConfig;
   sidebarWidth?: number;
   /**
-   * Zone ② — the spaces (PLAN-spaces.md Phase 5a). Rendered at the top of the
-   * compact rail (the old tenant tile is gone; that space is reserved for later
-   * use). The mobile panel lists spaces in its own body rather than as 36px
-   * tiles.
+   * Zone ② — the spaces (PLAN-spaces.md Phase 5a). Rendered below the brand
+   * row on the compact rail. The mobile panel lists spaces in its own body
+   * rather than as 36px tiles.
    */
   spacesZone?: ReactNode;
   style?: CSSProperties;
@@ -81,7 +99,12 @@ export function AppSidebar({
   onItemHoverLeave,
   onModulesReorder,
   onNavigate,
+  onOpenAppMenu,
+  onSecondaryNavHoverEnter,
+  onSecondaryNavHoverLeave,
+  onToggleSecondaryNav,
   railEndSlot,
+  secondaryNavHoverPreview = false,
   shell,
   spacesZone,
   footer,
@@ -91,7 +114,7 @@ export function AppSidebar({
   sidebarWidth,
 }: AppSidebarProps) {
   const { pathname, search } = useLocation();
-  const { hasSecondaryNav } = useShellSecondaryNav();
+  const { hasSecondaryNav, secondaryNavOpen } = useShellSecondaryNav();
   const [adminRailExpanded, setAdminRailExpanded] = useState(false);
   const isPanel = surface === "panel";
   const iconScale = sidebarWidth && sidebarWidth < 64 ? sidebarWidth / 64 : 1;
@@ -102,11 +125,17 @@ export function AppSidebar({
     );
   }
 
+  const isCompactRail = compact && !isPanel;
   const baseItemClass = cn(
-    "group/item flex items-center gap-2 rounded-md text-sm transition-colors",
+    "group/item flex items-center gap-2 text-sm",
+    isCompactRail
+      ? "rounded-lg transition-shadow"
+      : "rounded-md transition-colors",
     isPanel
       ? "text-foreground hover:bg-muted hover:text-foreground"
-      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+      : isCompactRail
+        ? "text-sidebar-foreground"
+        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
     compact ? "mx-auto size-9 shrink-0 justify-center p-0" : "w-full px-2 py-2"
   );
 
@@ -158,10 +187,16 @@ export function AppSidebar({
 
     const itemClass = cn(
       baseItemClass,
+      isCompactRail &&
+        (active
+          ? RAIL_TILE_ACTIVE_RING_CLASSNAME
+          : RAIL_TILE_GLYPH_HOVER_CLASSNAME),
       active &&
         (isPanel
           ? "bg-muted font-medium text-foreground"
-          : "bg-sidebar-accent font-medium text-sidebar-accent-foreground"),
+          : isCompactRail
+            ? "font-medium"
+            : "bg-sidebar-accent font-medium text-sidebar-accent-foreground"),
       inFlyout && "min-w-[140px] justify-start px-2",
       isDockGrow && "group/item-grow",
       inert && "cursor-grab"
@@ -278,7 +313,7 @@ export function AppSidebar({
     <TooltipProvider>
       <aside
         className={cn(
-          "flex h-full flex-col",
+          "relative flex h-full flex-col overflow-visible",
           // No line on the rail's edge: the rail is the canvas-family frame and
           // the column beside it is the raised card — its shadow separates them.
           isPanel
@@ -290,7 +325,21 @@ export function AppSidebar({
         data-engenty-region="app-bar"
         style={style}
       >
-        {compact ? null : (
+        {compact &&
+        hasSecondaryNav &&
+        onToggleSecondaryNav &&
+        !secondaryNavOpen ? (
+          <SecondaryNavSeamToggle
+            onMouseEnter={onSecondaryNavHoverEnter}
+            onMouseLeave={onSecondaryNavHoverLeave}
+            onToggle={onToggleSecondaryNav}
+            toggleMode="expand"
+            visuallyHidden={secondaryNavHoverPreview}
+          />
+        ) : null}
+        {compact ? (
+          <AppBarBrand onOpenAppMenu={onOpenAppMenu} />
+        ) : (
           <div className="flex flex-col gap-2 px-3 py-2">
             <button
               className={cn(
@@ -315,11 +364,9 @@ export function AppSidebar({
         )}
 
         {spacesZone && compact ? (
-          // Even margins around the tiles: the 36px tile has 10px to either
-          // side of the 56px rail, so it gets 10px above too (`pt-1.5` here plus
-          // the zone's own `py-1`). A tile hugging the top edge read as cramped.
-          // Spacing, not a rule, keeps the spaces apart from the apps below:
-          // filled tiles against line glyphs already say "different kind".
+          // Below the brand row, not flush with `--shell-row`. Even side
+          // margins (10px in the 56px rail); a little air under the mark so
+          // the first place is not cramped against the Engenty icon.
           <div className="px-1.5 pt-1.5 pb-2">{spacesZone}</div>
         ) : null}
 
@@ -373,10 +420,18 @@ export function AppSidebar({
               </div>
             );
           })}
+          {railEndSlot ? (
+            <div className="mt-1 flex w-full justify-center">{railEndSlot}</div>
+          ) : null}
         </nav>
 
         {adminSection && (
-          <div className={cn("mt-auto py-2", compact ? "px-1.5" : "px-2")}>
+          <div
+            className={cn(
+              "mt-auto pb-2",
+              compact ? "px-1.5 pt-3" : "px-2 py-2"
+            )}
+          >
             {compact ? (
               <div
                 aria-label={adminSection.label || "Admin"}
@@ -394,7 +449,6 @@ export function AppSidebar({
                 role="group"
               >
                 {/* column-reverse: first in DOM sits lowest, under Settings. */}
-                {railEndSlot}
                 {settingsItem && renderItem(settingsItem, false)}
                 {engentyAdminItem && renderItem(engentyAdminItem, false)}
                 {otherAdminItems.length > 0 ? (
@@ -403,7 +457,7 @@ export function AppSidebar({
                     className={cn(
                       "flex flex-col gap-1 overflow-hidden transition-[max-height,opacity] duration-200 ease-out",
                       adminRailExpanded
-                        ? "max-h-[min(70vh,24rem)] opacity-100"
+                        ? "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
                         : "max-h-0 opacity-0"
                     )}
                     inert={adminRailExpanded ? undefined : true}
@@ -427,7 +481,6 @@ export function AppSidebar({
                   </p>
                 )}
                 {adminSection.items.map((item) => renderItem(item, false))}
-                {railEndSlot}
               </div>
             )}
           </div>

@@ -10,9 +10,9 @@ import {
   cn,
   Dialog,
   DialogContent,
+  Engenty,
   ShellBreadcrumbTrail,
 } from "@engenty/ui-core";
-import { DockEngentyIcon } from "@engenty/ui-icons";
 import { type PageBreadcrumb, usePageHeader } from "@engenty/ui-plugin-sdk";
 import {
   Code2,
@@ -27,13 +27,7 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { findActiveNavLabel } from "../lib/navigation";
 import type { NavigationSection, ShellSidebarConfig } from "../types/shell";
@@ -76,6 +70,7 @@ export interface AppMenuActions {
 interface AppTopbarProps {
   /** Quick-action callbacks for the ⌘K menu. */
   appMenuActions?: AppMenuActions;
+  appMenuOpen: boolean;
   defaultTitle?: string;
   hasSecondaryNav?: boolean;
   /** Whether the primary sidebar (app bar) is currently hidden via auto-hide. */
@@ -84,12 +79,15 @@ interface AppTopbarProps {
   isSidebarHovering?: boolean;
   /** Module root (primary nav) when secondary column is open or hover preview is visible. */
   moduleRootNavItem?: { icon: ReactElement; label: string; to: string } | null;
+  onAppMenuOpenChange: (open: boolean) => void;
   onMenuClick: () => void;
   onSecondaryNavHoverEnter?: () => void;
   onSecondaryNavHoverLeave?: () => void;
   onToggleSecondaryNav?: () => void;
   /** Toggle dock (primary sidebar) between pinned and auto-hide. */
   onToggleSidebarHidden?: () => void;
+  /** App bar is on screen (pinned or hovered) — Open/Close lives on its edge. */
+  railVisible?: boolean;
   /**
    * A crumb the ROUTE contributes ahead of the page's own — the space a module
    * is open in. Shown only while the secondary column is collapsed: when it is
@@ -105,7 +103,9 @@ interface AppTopbarProps {
 
 export function AppTopbar({
   appMenuActions,
+  appMenuOpen,
   sections,
+  onAppMenuOpenChange,
   onMenuClick,
   defaultTitle,
   hasSecondaryNav,
@@ -113,6 +113,7 @@ export function AppTopbar({
   isSidebarHovering,
   secondaryNavOpen,
   moduleRootNavItem,
+  railVisible,
   routeBreadcrumb,
   onToggleSecondaryNav,
   onToggleSidebarHidden,
@@ -121,19 +122,18 @@ export function AppTopbar({
 }: AppTopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [appMenuOpen, setAppMenuOpen] = useState(false);
 
   // Global CMD+K / Ctrl+K shortcut to toggle app menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setAppMenuOpen((prev) => !prev);
+        onAppMenuOpenChange(!appMenuOpen);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [appMenuOpen, onAppMenuOpenChange]);
 
   const currentTitle =
     findActiveNavLabel(location.pathname, location.search, sections) ??
@@ -192,8 +192,13 @@ export function AppTopbar({
     sections,
   ]);
 
-  // Show Engenty icon trigger: only when sidebar is auto-hidden AND not currently hovering in
+  // Show Engenty icon trigger: only when the app bar is auto-hidden AND not
+  // currently hovering in (the rail itself owns the mark while it is visible).
   const showAppMenuTrigger = isSidebarHidden && !isSidebarHovering;
+  // Open/Close sits on the app-bar edge while the rail is on screen. Fall
+  // back to the topbar only when the bar is gone.
+  const showSecondaryNavToggleInTopbar =
+    !!hasSecondaryNav && !secondaryNavOpen && !railVisible;
 
   const suppressEmptyTopbar =
     !topbarOverlap &&
@@ -208,14 +213,14 @@ export function AppTopbar({
 
   const handleAppMenuSelect = useCallback(
     (to: string, external?: boolean) => {
-      setAppMenuOpen(false);
+      onAppMenuOpenChange(false);
       if (external || to.startsWith("http://") || to.startsWith("https://")) {
         window.open(to, "_blank", "noopener,noreferrer");
       } else {
         navigate(to);
       }
     },
-    [navigate]
+    [navigate, onAppMenuOpenChange]
   );
 
   // Split sections into main, admin (without settings children), and settings sub-pages
@@ -259,10 +264,12 @@ export function AppTopbar({
         contentBlend
           ? "h-(--shell-row) gap-1 bg-transparent px-2 py-0"
           : "h-(--shell-row) gap-2 bg-card/85 px-3 backdrop-blur",
-        // Seam Close/Pin is size-6 centred on the column edge, so half of it
-        // sits on the canvas. Default px-2/px-3 is not enough; clear it on md+
-        // while the column is open. Collapsed, Open already occupies this side.
-        hasSecondaryNav && secondaryNavOpen && "max-md:pl-2 md:pl-6"
+        // Seam Open is size-6 centred on the app-bar edge while collapsed.
+        // Seam Close/Pin is size-6 centred on the column’s right edge while
+        // open. Either way half of it sits on this row — clear it on md+.
+        hasSecondaryNav &&
+          (secondaryNavOpen || railVisible) &&
+          "max-md:pl-2 md:pl-6"
       )}
       data-engenty-region="topbar"
       data-topbar-chrome={contentBlend ? "content-blend" : undefined}
@@ -297,8 +304,8 @@ export function AppTopbar({
           <span className="sr-only">Open navigation</span>
         </Button>
 
-        {/* 1) Secondary nav open/close trigger — if available */}
-        {hasSecondaryNav && !secondaryNavOpen ? (
+        {/* 1) Secondary nav open trigger — only when the app bar is hidden */}
+        {showSecondaryNavToggleInTopbar ? (
           <Button
             aria-label="Open module navigation"
             className={cn("hidden shrink-0 md:flex", contentBlend && "size-8")}
@@ -353,15 +360,13 @@ export function AppTopbar({
                 ? "size-7 rounded-md"
                 : "size-8 border border-border-soft bg-muted/30 shadow-xs"
             )}
-            onClick={() => setAppMenuOpen(true)}
+            onClick={() => onAppMenuOpenChange(true)}
             type="button"
           >
-            <DockEngentyIcon
-              aria-hidden
-              className={cn(
-                "text-muted-foreground transition-colors hover:text-foreground",
-                contentBlend ? "size-4" : "size-[18px]"
-              )}
+            <Engenty
+              animated={false}
+              kind="round"
+              size={contentBlend ? 20 : 22}
             />
           </button>
         ) : null}
@@ -429,7 +434,7 @@ export function AppTopbar({
       </div>
 
       {/* App menu Command dialog */}
-      <Dialog onOpenChange={setAppMenuOpen} open={appMenuOpen}>
+      <Dialog onOpenChange={onAppMenuOpenChange} open={appMenuOpen}>
         <DialogContent
           className="overflow-hidden p-0 sm:max-w-[420px]"
           showCloseButton={false}
@@ -512,7 +517,7 @@ export function AppTopbar({
                     <CommandItem
                       onSelect={() => {
                         onToggleSidebarHidden();
-                        setAppMenuOpen(false);
+                        onAppMenuOpenChange(false);
                       }}
                     >
                       {isSidebarHidden ? (
@@ -546,7 +551,7 @@ export function AppTopbar({
                     <CommandItem
                       onSelect={() => {
                         appMenuActions.onToggleTheme();
-                        setAppMenuOpen(false);
+                        onAppMenuOpenChange(false);
                       }}
                     >
                       {appMenuActions.currentTheme === "dark" ? (
@@ -564,7 +569,7 @@ export function AppTopbar({
                     <CommandItem
                       onSelect={() => {
                         appMenuActions.onToggleLanguage();
-                        setAppMenuOpen(false);
+                        onAppMenuOpenChange(false);
                       }}
                     >
                       <Globe className="mr-2 size-4 shrink-0" />
@@ -578,7 +583,7 @@ export function AppTopbar({
                       <CommandItem
                         onSelect={() => {
                           appMenuActions.onToggleDeveloperMode();
-                          setAppMenuOpen(false);
+                          onAppMenuOpenChange(false);
                         }}
                       >
                         <Code2 className="mr-2 size-4 shrink-0" />
@@ -592,7 +597,7 @@ export function AppTopbar({
                     <CommandItem
                       onSelect={() => {
                         appMenuActions.onSignOut();
-                        setAppMenuOpen(false);
+                        onAppMenuOpenChange(false);
                       }}
                     >
                       <LogOut className="mr-2 size-4 shrink-0" />

@@ -24,6 +24,7 @@ import {
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
 import { spaceAgentDeskPath } from "../agent-form/hire-spaces.js";
 
@@ -109,6 +110,7 @@ export function AgentDeskSwitcher({
                 <span className="min-w-0 flex-1 truncate">
                   {candidate.name}
                 </span>
+                <ChatKindBadge iconOnly kind="desk" name={candidate.name} />
               </DropdownMenuItem>
             ))}
             {rooms.length > 0 ? (
@@ -134,6 +136,11 @@ export function AgentDeskSwitcher({
                     <span className="min-w-0 flex-1 truncate">
                       {room.title}
                     </span>
+                    <ChatKindBadge
+                      iconOnly
+                      kind="room"
+                      memberCount={room.kinds.length}
+                    />
                   </DropdownMenuItem>
                 ))}
               </>

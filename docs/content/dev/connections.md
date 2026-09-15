@@ -26,6 +26,7 @@ modules/connections/providers/slack        connector: slack
 modules/connections/providers/hubspot      connector: hubspot (api_key / private app)
 modules/connections/providers/s3           connector: s3 (api_key auth, files capability)
 modules/connections/providers/local-files  connector: local-files (browser auth, FSA bridge)
+modules/connections/providers/external     imported OpenAPI/MCP connectors
 ```
 
 Connector providers are **nested workspace plugins** under
@@ -289,6 +290,60 @@ do not poll. When no tab is showing the folder, actions fail fast with
 `error` until the user re-grants it (one click — Chromium often returns
 `prompt` after a restart, which is expected, not a bug).
 
+## Imported connectors: OpenAPI and MCP
+
+Not every connector is hand-written. `modules/connections/providers/external`
+imports one at admin request from an **OpenAPI spec** or an **MCP server**, and
+what it produces is an ordinary `ConnectorDefinition` — so the catalog, agent
+tools, Space mounts, policies, approvals and audit all apply unchanged. An
+agent never learns that a tool came from an MCP server; it calls
+`<toolPrefix>_<actionId>` like any other operation.
+
+The pipeline is: fetch the source → apply the registry's spec overrides →
+normalize → map auth → store. Either half refuses rather than half-works: a
+surface that needs a URL variable, an environment-sourced header, or auth that
+cannot be expressed never becomes a connector.
+
+| | OpenAPI | MCP |
+| --- | --- | --- |
+| Source | spec URL | server endpoint |
+| Actions from | paths × methods | `tools/list` |
+| Group | HTTP method + path hints (`GET`→`read`, `DELETE`→`destructive`, ambiguous→`write`) | `readOnlyHint`→`read`, `destructiveHint`→`destructive`, no hint→`write` |
+| Transport | HTTP | streamable HTTP, SSE when the registry declares it or the handshake is rejected |
+
+Both cap at 500 actions per connector. MCP annotations are **advisory**: no
+hint never yields `read`, so an unannotated tool requires approval.
+
+Two properties worth keeping:
+
+- **Every outbound call goes through a guarded fetch.** URLs here come from a
+  registry, an admin-pasted field, or a stored record — attacker-influenceable
+  in all three cases — so the host is DNS-resolved and private/link-local ranges
+  are blocked before the first request and again on each redirect. An MCP
+  endpoint cannot be pointed at a private address.
+- **The MCP SDK's own OAuth provider is deliberately unused.** Grants live in the
+  connections store; this module only renders the resolved token into
+  headers. Every call opens a client and releases it in `finally`, terminating
+  the streamable session, so a failed `tools/call` leaks no server-side session.
+
+## Connectors in a Space
+
+A Space mounts connectors one **provider-account at a time**, so a connector
+operation is gated twice before it reaches core:
+
+| Question | Checked against |
+| --- | --- |
+| May this Space use Gmail at all? | the Space's mounted connector **tool prefixes** (`space-gate.ts`) |
+| Which mailbox? | the Space's mounted **connection ids** (`core.space_mount`) |
+
+Prefix matching is longest-match-wins, because ids are minted as
+`<toolPrefix>_<actionId>` and a connector whose prefix prefixes another's
+(`g` vs `gmail`) must not swallow it. Discovery is filtered by the same rule —
+an unmounted connector's operations are hidden from `engenty_tools_search` and
+refused by `engenty_tool_execute`; hiding alone would be decoration, refusing
+alone would waste a turn. See the
+[Spaces runtime contract](../../agent/spaces-runtime.md).
+
 ## Operations reference
 
 | Operation | Purpose |
@@ -316,4 +371,4 @@ do not poll. When no tab is showing the folder, actions fail fast with
   connections match on the principal id, which for autonomous/delegated runs
   is the service/agent principal — mapping through the delegation chain is a
   known follow-up, as is automatic task re-dispatch when an approval is
-  granted, and the MCP connector kind.
+  granted.

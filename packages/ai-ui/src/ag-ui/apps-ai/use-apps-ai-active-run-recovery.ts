@@ -16,6 +16,7 @@ import {
 } from "../../lib/runtime/runs-api.js";
 import { logCopilotChatNew } from "../chat-new-debug.js";
 import type { EngentyAgUiMessage } from "../conversation.js";
+import { buildTerminalRunFailureNotice } from "./apps-ai-run-failure-notice.js";
 import {
   buildRecoveryMessagesSnapshotEvent,
   coalesceRunEventText,
@@ -39,12 +40,40 @@ import { attachAppsAiRunStream } from "./apps-ai-transport.js";
 import { clearThreadLaneSnapshot } from "./thread-lane-snapshot-cache.js";
 
 /**
- * Fetches run events for a terminal run and, if partial assistant text exists
- * only in the event log (not yet in thread messages), synthesizes an interrupted
- * assistant message and applies it as a MESSAGES_SNAPSHOT.
- *
- * This covers the cancelled/failed-run case where the Mastra coalescer was cut
- * off before flushing buffered text deltas to the thread messages table.
+ * Partial assistant text a cancelled/failed run left only in its event log —
+ * the Mastra coalescer was cut off before flushing to the messages table.
+ * Empty when the transcript already ends in an assistant row (it flushed) or
+ * the log holds no text.
+ */
+async function readUnflushedAssistantMessages(params: {
+  runId: string;
+  signal: AbortSignal;
+  snapshotMessages: readonly EngentyAgUiMessage[];
+}): Promise<EngentyAgUiMessage[]> {
+  if (!transcriptMissingAssistantMessage(params.snapshotMessages)) {
+    return [];
+  }
+  const eventsResult = await getAiRunEvents(params.runId, params.signal);
+  if (params.signal.aborted) {
+    return [];
+  }
+  const interrupted: EngentyAgUiMessage[] = [];
+  for (const [messageId, text] of coalesceRunEventText(eventsResult.events)) {
+    if (text.trim()) {
+      interrupted.push({ id: messageId, role: "assistant", content: text });
+    }
+  }
+  return interrupted;
+}
+
+/**
+ * Settle the transcript for the newest terminal run that ended badly: replay
+ * partial text the coalescer never flushed, and — when the run failed without
+ * a word (content filter, lost executor, provider 5xx) — append the same
+ * `run-error-<runId>` notice the live RUN_ERROR path renders. Without the
+ * second half a reload showed the closed tool cards of a failed turn and
+ * nothing else (live 2026-09-15). Applies a MESSAGES_SNAPSHOT when there is
+ * something to add and the lane is not ahead.
  */
 async function maybeReplayTerminalRunEvents(params: {
   applyEvent: (event: never) => void;
@@ -56,57 +85,35 @@ async function maybeReplayTerminalRunEvents(params: {
   threadId: string;
 }): Promise<boolean> {
   const terminalRun = pickLatestTerminalAppsAiRun(params.runs);
-  if (!isTerminalRunWithPotentialUnflushedText(terminalRun)) {
+  if (!(terminalRun && isTerminalRunWithPotentialUnflushedText(terminalRun))) {
     return false;
   }
 
-  const snapshotMessages = params.snapshotMessages;
-
-  // If the transcript already has an assistant message, the coalescer flushed — nothing to do.
-  if (!transcriptMissingAssistantMessage(snapshotMessages)) {
-    return false;
-  }
-
-  // Fetch the run events to extract partial text. terminalRun is non-null here
-  // because isTerminalRunWithPotentialUnflushedText returned true above.
-  const runId = terminalRun?.id ?? "";
-  if (!runId) {
-    return false;
-  }
-  const eventsResult = await getAiRunEvents(runId, params.signal);
+  const interruptedMessages = await readUnflushedAssistantMessages({
+    runId: terminalRun.id,
+    signal: params.signal,
+    snapshotMessages: params.snapshotMessages,
+  });
   if (params.signal.aborted) {
     return false;
   }
-
-  const textByMessageId = coalesceRunEventText(eventsResult.events);
-  if (textByMessageId.size === 0) {
+  const withPartialText = [...params.snapshotMessages, ...interruptedMessages];
+  const failureNotice = buildTerminalRunFailureNotice({
+    messages: withPartialText,
+    run: terminalRun,
+  });
+  if (interruptedMessages.length === 0 && !failureNotice) {
     return false;
   }
-
-  // Build the synthetic interrupted assistant message(s).
-  const interruptedMessages: EngentyAgUiMessage[] = [];
-  for (const [messageId, text] of textByMessageId) {
-    if (!text.trim()) {
-      continue;
-    }
-    interruptedMessages.push({
-      id: messageId,
-      role: "assistant",
-      content: text,
-    });
-  }
-
-  if (interruptedMessages.length === 0) {
-    return false;
-  }
-
-  // Merge snapshot messages with the coalesced interrupted assistant messages.
-  const mergedMessages = [...snapshotMessages, ...interruptedMessages];
+  const mergedMessages = failureNotice
+    ? [...withPartialText, failureNotice]
+    : withPartialText;
 
   logCopilotChatNew("terminal run event replay", {
-    runId: terminalRun?.id ?? null,
-    runStatus: terminalRun?.status ?? null,
+    runId: terminalRun.id,
+    runStatus: terminalRun.status,
     interruptedMessageCount: interruptedMessages.length,
+    failureNotice: failureNotice !== null,
     threadId: params.threadId,
   });
 

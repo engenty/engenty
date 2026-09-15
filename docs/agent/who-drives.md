@@ -9,7 +9,7 @@ work. The nouns themselves are defined in
 |---|---|---|
 | Copilot dock (any page) | `engenty.copilot` | Sit beside the human: navigate, edit records via catalog, coach in the UI. This is the Copilot surface. |
 | Space Home | — | Greeting, cards, and optional embed. Not a chat. |
-| Remote channel | `engenty.copilot` through the channel adapter | The same live assistant outside the web UI |
+| Remote channel | `engenty.remote` (front door), or the addressed Engenty | Chat-tuned assistant outside the web UI. A binding's default agent or a leading `@handle` / `/to handle` routes the turn to that Engenty, assembled as itself (its tools and memory; no workspace mounts on channel turns yet) — only when its row has *Reachable from channels* on. See [remote-channels.md](../content/dev/remote-channels.md). |
 | Engenty desks | the Engenty | Do module work the human addresses directly |
 | Routine / unattended | the owning Engenty | Wake on a schedule or event and start a run; the run is the record |
 
@@ -65,4 +65,6 @@ whose subject is that Task. Completing the run does not complete the Task.
 Tenant remains the authorization boundary.
 
 Do not add a third front-door agent. If a surface needs live conversation, it
-uses Copilot or is an explicitly named agent Desk.
+uses Copilot (web), `engenty.remote` (channels) or is an explicitly named
+agent Desk. A channel reaching an Engenty by handle is that Engenty's desk
+spoken to from outside, not a new front door.

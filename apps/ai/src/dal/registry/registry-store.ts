@@ -51,6 +51,10 @@ export interface RegistryAgentRow {
   /** Space a NEW proposal should mount on approve. Null for revisions. */
   proposed_space_id?: string | null;
   purpose?: string | null;
+  /** Reachable from remote channels as itself; see AgentConfig.remoteEnabled. */
+  remote_enabled?: boolean | null;
+  /** Channel handle (`@handle`); see AgentConfig.remoteHandle. */
+  remote_handle?: string | null;
   /** Sandbox slice of the workspace declaration; null = platform default. */
   sandbox?: Record<string, unknown> | null;
   skill_ids: string[];
@@ -59,6 +63,8 @@ export interface RegistryAgentRow {
   sub_agents: { id: string; alias?: string }[];
   tenant_id: string;
   tool_ids: string[];
+  /** Screen-driving tools on chat surfaces; see AgentConfig.uiTools. */
+  ui_tools?: string | null;
   updated_at: string;
 }
 
@@ -132,11 +138,14 @@ function agentRowWriteColumns(config: AgentConfig) {
     module_id: config.moduleId ?? null,
     name: config.name,
     purpose: config.purpose ?? null,
+    remote_enabled: config.remoteEnabled ?? false,
+    remote_handle: config.remoteHandle ?? null,
     sandbox: config.workspace?.sandbox ?? null,
     skill_ids: config.skillIds ?? [],
     starters: config.starters ?? [],
     sub_agents: config.subAgents ?? [],
     tool_ids: config.toolIds ?? [],
+    ui_tools: config.uiTools ?? "auto",
   };
 }
 
@@ -169,6 +178,10 @@ function resolveAgentSandbox(
 
 function isEffort(value: unknown): value is "low" | "medium" | "high" {
   return value === "low" || value === "medium" || value === "high";
+}
+
+function isUiTools(value: unknown): value is "auto" | "on" | "off" {
+  return value === "auto" || value === "on" || value === "off";
 }
 
 function isAgentKind(value: unknown): value is AgentConfig["kind"] {
@@ -204,6 +217,11 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     ...(row.model_override ? { modelOverride: row.model_override } : {}),
     ...(row.module_id ? { moduleId: row.module_id } : {}),
     ...(purpose ? { purpose } : {}),
+    ...(row.remote_enabled ? { remoteEnabled: true } : {}),
+    ...(row.remote_handle ? { remoteHandle: row.remote_handle } : {}),
+    ...(isUiTools(row.ui_tools) && row.ui_tools !== "auto"
+      ? { uiTools: row.ui_tools }
+      : {}),
     workspace: {
       enabled: true,
       preset: row.agent_scope === "personal" ? "assistant" : "staff",

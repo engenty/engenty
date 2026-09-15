@@ -282,6 +282,13 @@ export async function removeSpaceMount(
 }
 
 export interface SpaceResourceSurface {
+  /**
+   * Who each hired engenty reports to here: agent id → the `reports_to` on
+   * its mount, for mounts that name one. The roster the model reads and the
+   * desk header draw the team's shape from this; `topLevelAgents` is its
+   * complement (the mounts that name nobody).
+   */
+  agentReportsTo: Record<string, string>;
   /** Agent ids available in this space. */
   agents: string[];
   /**
@@ -413,6 +420,17 @@ export function surfaceFromMounts(
         !isBaselineSpaceMount(mount)
     )
     .map((mount) => mount.resourceKey);
+  const agentReportsTo: Record<string, string> = {};
+  for (const mount of mounts) {
+    const reportsTo = mount.reportsTo?.trim();
+    if (
+      mount.resourceType === "agent" &&
+      reportsTo &&
+      reportsTo !== mount.resourceKey
+    ) {
+      agentReportsTo[mount.resourceKey] = reportsTo;
+    }
+  }
   const skills = keysOf("skill");
   const connections = keysOf("connection");
   // Capabilities stay CONNECTOR-shaped: `module.connections.write.<connectorId>`
@@ -427,6 +445,7 @@ export function surfaceFromMounts(
     ),
   ].sort();
   return {
+    agentReportsTo,
     agents,
     capabilities: deriveSpaceAgentCapabilities({ connectors, modules }),
     connections,

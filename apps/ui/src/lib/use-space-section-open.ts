@@ -7,6 +7,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export const SPACE_SECTION_OPEN_KEYS = {
   artifacts: "engenty.space.artifacts-section.open",
   data: "engenty.space.data-section.open",
+  files: "engenty.space.files-section.open",
+  homeExtensions: "engenty.space.home.extensions-section.open",
+  homeFiles: "engenty.space.home.files-section.open",
+  homeModules: "engenty.space.home.modules-section.open",
   members: "engenty.space.members-section.open",
   modules: "engenty.space.modules-section.open",
 } as const;

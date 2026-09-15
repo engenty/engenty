@@ -141,6 +141,7 @@ function toStateInput(
     last_message: lastMessage
       ? {
           created_at: lastMessage.created_at,
+          metadata: lastMessage.metadata ?? null,
           parts: lastMessage.parts,
           role: lastMessage.role,
         }

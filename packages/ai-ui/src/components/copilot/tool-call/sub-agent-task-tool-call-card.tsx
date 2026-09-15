@@ -18,6 +18,10 @@ import { Link } from "react-router-dom";
 import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
 import { resolveAgentDisplayName } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import {
+  DelegatedArtifactRow,
+  readDelegatedArtifactIds,
+} from "../../../artifacts/delegated-artifact-row.js";
+import {
   InlineAppArtifact,
   readDelegatedAppArtifactId,
 } from "../../../artifacts/inline-app-artifact.js";
@@ -145,6 +149,9 @@ export function SubAgentTaskToolCallCard({
   // outside the collapse: the deliverable belongs in the conversation, not
   // behind the drill-in.
   const appArtifactId = readDelegatedAppArtifactId(output);
+  // Artifacts the child wrote or presented — offered here, where the person
+  // reads, not only behind the child-thread drill-in.
+  const artifactIds = isFailed ? [] : readDelegatedArtifactIds(output);
 
   return (
     <section
@@ -267,6 +274,14 @@ export function SubAgentTaskToolCallCard({
           ) : null}
         </div>
       </div>
+
+      {artifactIds.length > 0 ? (
+        <div className="flex flex-col gap-1.5 px-3 pb-3">
+          {artifactIds.map((artifactId) => (
+            <DelegatedArtifactRow artifactId={artifactId} key={artifactId} />
+          ))}
+        </div>
+      ) : null}
 
       {appArtifactId ? (
         <div className="px-3 pb-3">

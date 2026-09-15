@@ -2,83 +2,20 @@
 import {
   FIRST_ENGENTY_SKILL_ID,
   FIRST_ENGENTY_TOOL_IDS,
+  LIVE_HIRE_ATTACHED_TOOL_IDS,
+  LIVE_HIRE_SKILL_IDS,
+  LIVE_HIRE_TOOL_IDS,
 } from "@engenty/ai-core";
+
 // Axis is the specialist's declared tools/skills + whether this is a NEW
 // hire with a known space — not the tenant operation-approval mode (Axis B).
-
-/**
- * Catalog path, Space Data writers, and the native surface a specialist
- * answers on. Every hired specialist keeps these whatever its row declared —
- * pages go through execute, Ablage/tables/apps through the native write tools.
- * Approvals stay the boundary.
- */
-export const LIVE_HIRE_TOOL_IDS = [
-  "engenty_tools_search",
-  "engenty_tools_discover",
-  "engenty_tool_execute",
-  "artifact_write",
-  "artifact_read",
-  "table_write",
-  "table_read",
-  "app_build",
-  // Its own jobs: list, run now, adjust the schedule. Self-scoped inside the
-  // tools — a specialist sees and steers only routines it owns. Creating a
-  // routine stays a management act (copilot/coordinator), so routines_create
-  // is deliberately absent.
-  "routines_list",
-  "routines_run",
-  "routines_update",
-  // Governed deterministic work as one step: a specialist may run a PUBLISHED
-  // action (human gates intact) instead of improvising the sequence.
-  "workflows_list",
-  "invoke_workflow",
-  // A colleague one message away. Space allow-list and self-refusal live in
-  // the tool; leaf depth is budgeted in the delegation layer.
-  "message_agent",
-  // The pull half of that: a read-only look at a colleague's desk.
-  "agent_status",
-  // Provider-side web search (search + page reading). A hired specialist
-  // whose job is "fetch today's news" is unhirable without it, and the
-  // copilot already carries it — the parity rule says the floor follows.
-  "web_search",
-  // A specialist with a desk chat answers people, and some answers are a
-  // surface rather than prose — a term with its explanation, a small set of
-  // facts. The A2UI catalog renders in the desk transcript exactly as it does
-  // in the copilot's, so the floor follows the surface. In the floor, not the
-  // attached list, so rows written before this get it at assembly too.
-  "show_ui",
-  // Somewhere to keep where a multi-turn exercise stands. A specialist that
-  // asks, grades and asks again has no other durable place for "which item,
-  // how many wrong" — the transcript is recalled, not read back as state.
-  "thread_state_set",
-  // Told to work differently from now on, a specialist can put that in
-  // writing against its own row. It never applies it: the change lands as a
-  // pending revision and a human approves it, so the floor carries a
-  // proposal, not a self-promotion.
-  "agent_self_revise",
-  // The same for the Workflows it owns: a new version for a human to
-  // publish, never a new Workflow and never a colleague's.
-  "workflow_self_revise",
-] as const;
-
-/** Presentation tools attached after a live hire passes the go-live gate. */
-export const LIVE_HIRE_ATTACHED_TOOL_IDS = [
-  "show_objects",
-  "show_artifact",
-] as const;
-
-/**
- * The playbooks of the floor's own tools. `space-data` for the Space Data
- * writers, `app-authoring` + `engenty-bridge` for `app_build`: a floor tool
- * whose skill only arrives with a module mount is a tool the agent uses
- * blind — live on 2026-09-06 a specialist with `app_build` and no apps
- * module in its space built from a guessed manifest.
- */
-export const LIVE_HIRE_SKILL_IDS = [
-  "space-data",
-  "app-authoring",
-  "engenty-bridge",
-] as const;
+// The floor lists live in ai-core so the hire form can show them; re-exported
+// here for the runtime callers that always read them from the policy.
+export {
+  LIVE_HIRE_ATTACHED_TOOL_IDS,
+  LIVE_HIRE_SKILL_IDS,
+  LIVE_HIRE_TOOL_IDS,
+} from "@engenty/ai-core";
 
 /**
  * The catalog floor every custom specialist keeps, whatever else it declares.
@@ -127,19 +64,44 @@ export function withLiveHirePresentationTools(
 }
 
 /**
- * The skills a run may open, from the row's own list: every database-sourced
- * agent gets the live-hire set, a top-level one the chief-of-staff playbook
- * on top; module and builtin agents keep their list. One function for the
- * prompt hint (assembly) and the workspace's skill filter (session service):
- * the two must never disagree, or a skill the prompt names is a directory the
- * agent cannot list.
+ * Whether an agent is an Engenty in a Space — the kind the catalog floor,
+ * the floor skills and the specialist appendix are for. Every specialist
+ * carries them, hired (database) or shipped by a module: the Space contract
+ * tells both to use `/data/Files`, artifacts and `message_agent`, and a
+ * module's `agent.json` that names only search + execute used to leave its
+ * agent without any of those (tasks.assist, knowledge-base.manager). The
+ * space's interfaces (copilot, coordinator, remote), delegated sub-agents
+ * and chat surfaces keep exactly what they declare.
+ */
+export function agentCarriesCatalogFloor(config: {
+  kind?: string | null;
+  source?: string | null;
+}): boolean {
+  const kind = config.kind ?? "specialist";
+  return (
+    kind === "specialist" &&
+    (config.source === "database" || config.source === "module")
+  );
+}
+
+/**
+ * The skills a run may open, from the row's own list: every specialist gets
+ * the live-hire set, a top-level one the chief-of-staff playbook on top;
+ * interfaces, delegated agents and builtins keep their list. One function
+ * for the prompt hint (assembly) and the workspace's skill filter (session
+ * service): the two must never disagree, or a skill the prompt names is a
+ * directory the agent cannot list.
  */
 export function preferredSkillIdsForRun(
-  config: { skillIds?: readonly string[]; source?: string | null },
+  config: {
+    kind?: string | null;
+    skillIds?: readonly string[];
+    source?: string | null;
+  },
   topLevel: boolean
 ): string[] {
   const own = config.skillIds ?? [];
-  if (config.source !== "database") {
+  if (!agentCarriesCatalogFloor(config)) {
     return [...own];
   }
   return topLevel

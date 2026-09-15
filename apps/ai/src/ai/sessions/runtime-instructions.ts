@@ -7,16 +7,21 @@
 // the user but can't answer "what's my email?".
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { SPACE_CONTRACT_PROMPT } from "@engenty/ai-core";
+import type { FrontendToolGrant } from "../../../ai/frontend-tools/catalog.js";
+import type { ThreadKind } from "../../dal/threads/types.js";
 import {
   type AgentStateSessionStore,
   createThreadStoreFromEnv,
 } from "../index.js";
+import { SHARED_DESK_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
 import { createSessionAgentStateChannel } from "../registry/function-provider.js";
+import type { DroppedWorkspaceMount } from "../workspace/workspace-presets.js";
 import { buildAgentUiContextInstructions } from "./agent-ui-context-instructions.js";
 import type { RunSpaceResolution } from "./run-space.js";
 import { buildRuntimeContextInstructions } from "./runtime-context.js";
 import { spaceIdFromRouteContext } from "./session-identity.js";
 import type { AgentUiProducerContext, AiSessionScope } from "./types.js";
+import { formatWorkspaceMountNote } from "./workspace-mount-note.js";
 
 const LANGUAGE_NAMES: Record<string, string> = {
   de: "German (Deutsch)",
@@ -90,6 +95,18 @@ export async function buildThreadStateInstructions(input: {
 export interface SessionRuntimeInstructionsInput {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
+  /**
+   * Declared workspace mounts this run does not have. Named in the runtime
+   * block so a dropped `/data` reads as "not mounted, here is why" and not as
+   * "this Space has no files".
+   */
+  droppedMounts?: readonly DroppedWorkspaceMount[];
+  /**
+   * Whether this worker-lane agent holds the page-driving tools on this run.
+   * Same value the executor registered with, so the prompt names exactly the
+   * tools the model has (see `resolveFrontendToolsForAgent`).
+   */
+  frontendToolGrant?: FrontendToolGrant | null;
   routeContext?: Record<string, unknown> | null;
   runContext?: RunAgentInput["context"];
   scope: AiSessionScope;
@@ -104,6 +121,11 @@ export interface SessionRuntimeInstructionsInput {
    */
   spaceResolution?: RunSpaceResolution;
   threadId: string;
+  /**
+   * What kind of thread the turn is in. A shared desk or a room gets the
+   * team-chat line; a DM, a run and a pair room do not.
+   */
+  threadKind?: ThreadKind | null;
 }
 
 /**
@@ -134,6 +156,7 @@ export async function buildSessionRuntimeInstructions(
     buildAgentUiContextInstructions({
       agentId: input.agentId,
       agentUi: input.agentUi,
+      frontendToolGrant: input.frontendToolGrant ?? null,
       runContext: input.runContext,
       scope: input.scope,
     }),
@@ -150,9 +173,20 @@ export async function buildSessionRuntimeInstructions(
     languageInstruction = `## Language Instruction\n- The user's preferred UI language is ${langName}.\n- Please respond to the user in ${langName}.`;
   }
 
+  const workspaceNote = formatWorkspaceMountNote({
+    dropped: input.droppedMounts ?? [],
+    resolution: input.spaceResolution,
+  });
+
+  const sharedStyle =
+    input.threadKind === "desk" || input.threadKind === "room"
+      ? SHARED_DESK_STYLE_INSTRUCTIONS
+      : "";
+
   return [
     SPACE_CONTRACT_PROMPT,
-    runtimeContext,
+    workspaceNote ? `${runtimeContext}\n${workspaceNote}` : runtimeContext,
+    sharedStyle,
     agentUiContext,
     threadState,
     languageInstruction,

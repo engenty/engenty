@@ -133,8 +133,10 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
 // short of things the copilot does without a lane: `navigate`, `show_objects`,
 // `message_agent`, `registry_agents_list`, `artifact_read`,
 // `show_artifact`, the catalog meta-tools, `requestDecision`/`requestFeedback`,
-// the dock/theme/locale tools, and `execute_typescript` — which AGENTS.md
-// mandates for bulk writes, so it must never need a skill first.
+// the dock/theme/locale tools, `execute_typescript`, and workspace
+// list/read/stat/grep — Space Files at `/data/Files` must not wait on the
+// sandbox skill. AGENTS.md mandates `execute_typescript` for bulk writes, so
+// it must never need a skill first.
 export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
   // Hiring a specialist and giving it a standing job. `agent_propose` is the
   // reason this lane exists; the routine and action verbs are what finish it.
@@ -180,19 +182,16 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
     "ui_screenshot",
     "ui_scroll",
   ],
-  // Free-form work in the sandbox workspace. Mastra attaches its whole
-  // workspace tool set whenever a workspace exists, which is how eleven file
-  // tools ended up in a chat that mostly writes records through the catalog.
+  // Free-form work in the sandbox workspace. List/read/stat/grep stay
+  // always-on so Space Files at `/data/Files` are reachable without loading
+  // this lane — BM25 search does not index `/data`, and hiding list/read made
+  // agents conclude the Space had no files. Mutating tools and shell stay here.
   "sandbox-code-execution": [
     "mastra_workspace_delete",
     "mastra_workspace_edit_file",
     "mastra_workspace_execute_command",
-    "mastra_workspace_file_stat",
-    "mastra_workspace_grep",
     "mastra_workspace_index",
-    "mastra_workspace_list_files",
     "mastra_workspace_mkdir",
-    "mastra_workspace_read_file",
     "mastra_workspace_search",
     "mastra_workspace_write_file",
     "workspace_copy",

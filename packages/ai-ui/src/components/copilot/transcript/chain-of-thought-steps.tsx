@@ -334,6 +334,44 @@ function ArgChips({ chips }: { chips: Array<{ key: string; value: string }> }) {
   );
 }
 
+function resolveWebSearchStepLabel(part: ToolPartLike): string {
+  const query =
+    findFirstStringDeep(part.input, ["query", "search_query", "q"]) ??
+    findFirstStringDeep(coerceToolOutput(part.output), [
+      "query",
+      "search_query",
+      "q",
+    ]);
+  return query ? `Searching for "${query}"` : "Web search";
+}
+
+function resolveSkillStepLabel(part: ToolPartLike, toolName: string): string {
+  const skillName = resolveSkillName(part);
+  return skillName
+    ? `Skill: "${skillName}"`
+    : resolveToolStepLabel(part, toolName);
+}
+
+/**
+ * The one-line label a step draws, by kind — the same string the timeline's
+ * header shows while that step is the one running, so the collapsed block
+ * reads as the current step rather than a bare "Working…".
+ */
+export function resolveThoughtStepLabel(input: {
+  kind: "skill" | "tool" | "web_search";
+  part: ToolPartLike;
+  toolName: string;
+}): string {
+  switch (input.kind) {
+    case "web_search":
+      return resolveWebSearchStepLabel(input.part);
+    case "skill":
+      return resolveSkillStepLabel(input.part, input.toolName);
+    default:
+      return resolveToolStepLabel(input.part, input.toolName);
+  }
+}
+
 export function WebSearchStep({
   part,
   isStreaming,
@@ -343,11 +381,8 @@ export function WebSearchStep({
 }) {
   const { errorMessage, images, status } = resolveStepContent(part);
   const output = coerceToolOutput(part.output);
-  const query =
-    findFirstStringDeep(part.input, ["query", "search_query", "q"]) ??
-    findFirstStringDeep(output, ["query", "search_query", "q"]);
   const results = collectWebSearchResults(output).slice(0, MAX_RESULT_CHIPS);
-  const label = query ? `Searching for "${query}"` : "Web search";
+  const label = resolveWebSearchStepLabel(part);
   const description =
     !(isStreaming || errorMessage) && results.length > 0
       ? `${results.length} result${results.length === 1 ? "" : "s"}`
@@ -451,10 +486,7 @@ export function SkillStep({
   toolName: string;
 }) {
   const { errorMessage, images, status } = resolveStepContent(part);
-  const skillName = resolveSkillName(part);
-  const label = skillName
-    ? `Skill: "${skillName}"`
-    : resolveToolStepLabel(part, toolName);
+  const label = resolveSkillStepLabel(part, toolName);
   const preview =
     isStreaming || errorMessage ? null : extractSkillPreview(part.output);
 

@@ -20,6 +20,8 @@ import {
   type CitationItem,
   SourceCitations,
 } from "../../ai-elements/source-citations.js";
+import { formatElapsedSeconds } from "../composer/agent-status-ticker/format-elapsed-seconds.js";
+import { useElapsedSeconds } from "../composer/agent-status-ticker/use-elapsed-seconds.js";
 import { parseDecisionResolution } from "../interrupts/decision-artifact.js";
 import { parseFeedbackResolution } from "../interrupts/feedback-artifact.js";
 import { ToolCallCard } from "../tool-call/tool-call-card";
@@ -28,10 +30,12 @@ import { hasStandaloneToolCallUi } from "../tool-call/tool-call-ui-registry";
 import {
   GenericToolStep,
   isSkillToolName,
+  resolveThoughtStepLabel,
   SkillStep,
   WebSearchStep,
 } from "./chain-of-thought-steps";
 import { softenUserInlineCode } from "./chat-user-bubble.js";
+import { CollapsibleMessageText } from "./collapsible-message-text.js";
 import {
   getToolDisplayLabel,
   getToolName,
@@ -63,14 +67,17 @@ export function clearLiveRunMessagesForTests() {
   liveRunMessageIds.clear();
 }
 
-// Tool-timeline header label — tool-oriented wording ("Working…", "Used N tools")
-// so the block reads as tool use rather than the generic "Thinking…".
-function toolTimelineLabel(
-  count: number
+// Tool-timeline header label — tool-oriented wording ("Used N tools") so the
+// block reads as tool use rather than the generic "Thinking…". While the turn
+// is live the header IS the status line: the running step's own label, or
+// "Thinking…" between two steps — one truncated line, the list one click away.
+export function toolTimelineLabel(
+  count: number,
+  liveLabel: string | null = null
 ): (isStreaming: boolean, duration?: number) => string {
   return (isStreaming, duration) => {
     if (isStreaming) {
-      return "Working…";
+      return liveLabel ?? "Thinking…";
     }
     if (typeof duration === "number") {
       return `Worked for ${duration}s`;
@@ -113,6 +120,49 @@ function isInteractiveDecisionToolResolved(part: ToolPartLike): boolean {
     return part.output != null;
   }
   return false;
+}
+
+/** Tool parts whose card IS the answer — they render full-width, never as a step. */
+function isStandaloneCardToolPart(
+  part: ToolPartLike,
+  toolName: string
+): boolean {
+  return (
+    isSubAgentDelegationTool(part, toolName) ||
+    isObjectRenderToolPart(part, toolName) ||
+    isA2uiToolPart(part, toolName) ||
+    isMcpAppWidgetToolPart(part, toolName) ||
+    isConnectRequestToolPart(part, toolName) ||
+    // Module-registered standalone cards (artifact, generative UI, …)
+    // escape the collapsed timeline too — the persisted row coalesces the
+    // turn into one message, so without this the card renders live but
+    // folds into "Used N tools" after a reload.
+    hasStandaloneToolCallUi({
+      displayLabel: part.displayLabel,
+      input: part.input,
+      output: part.output,
+      resolvedToolName: getToolResolvedName(part, toolName),
+      state: getToolState(part),
+      toolName,
+    })
+  );
+}
+
+/**
+ * Whether a part is a step of the collapsed tool timeline (as opposed to a
+ * standalone card, a HITL chooser, text, …). The transcript's trailing
+ * "Thinking…" row asks this: while the timeline is live it carries the status
+ * line itself, and a second shimmer under it said the same thing twice.
+ */
+export function isChainOfThoughtToolPart(part: unknown): boolean {
+  const c = classifyPart(part);
+  if (!(c.kind === "tool" || c.kind === "web_search" || c.kind === "skill")) {
+    return false;
+  }
+  return !(
+    isInteractiveDecisionToolPart(c.part) ||
+    isStandaloneCardToolPart(c.part, c.toolName)
+  );
 }
 
 function classifyPart(part: unknown): PartKind {
@@ -345,23 +395,7 @@ export function CopilotMessageContent({
 
     if (
       (c.kind === "tool" || c.kind === "web_search" || c.kind === "skill") &&
-      (isSubAgentDelegationTool(c.part, c.toolName) ||
-        isObjectRenderToolPart(c.part, c.toolName) ||
-        isA2uiToolPart(c.part, c.toolName) ||
-        isMcpAppWidgetToolPart(c.part, c.toolName) ||
-        isConnectRequestToolPart(c.part, c.toolName) ||
-        // Module-registered standalone cards (artifact, generative UI, …)
-        // escape the collapsed timeline too — the persisted row coalesces the
-        // turn into one message, so without this the card renders live but
-        // folds into "Used N tools" after a reload.
-        hasStandaloneToolCallUi({
-          displayLabel: c.part.displayLabel,
-          input: c.part.input,
-          output: c.part.output,
-          resolvedToolName: getToolResolvedName(c.part, c.toolName),
-          state: getToolState(c.part),
-          toolName: c.toolName,
-        }))
+      isStandaloneCardToolPart(c.part, c.toolName)
     ) {
       if (i <= lastTextIndex || lastTextIndex === -1) {
         preTextCardParts.push({
@@ -425,32 +459,58 @@ export function CopilotMessageContent({
     ({ kind }) => kind.kind !== "reasoning"
   );
 
-  // Determine if any tool thought part is currently streaming
+  // The step that is running right now (the newest, when several are), and
+  // whether the turn is still inside its tool phase: a step is running, or the
+  // model is thinking after one with no answer text yet. Both keep the
+  // timeline live — before, the gap between two tool calls collapsed it to
+  // "Worked for Ns" and the turn looked finished while it was not.
+  const runningThought = toolThoughtParts.findLast(({ kind }) => {
+    if (
+      kind.kind === "tool" ||
+      kind.kind === "web_search" ||
+      kind.kind === "skill"
+    ) {
+      const state = getToolState(kind.part);
+      return state === "running" || state === "pending";
+    }
+    return false;
+  });
+  const lastMeaningfulIndex = classified.findLastIndex(
+    (c) => c.kind !== "skip"
+  );
+  const lastThought = toolThoughtParts.at(-1);
   const isThoughtStreaming =
     isCurrentlyStreaming &&
-    toolThoughtParts.some(({ kind }) => {
-      if (
-        kind.kind === "tool" ||
-        kind.kind === "web_search" ||
-        kind.kind === "skill"
-      ) {
-        const state = getToolState(kind.part);
-        return state === "running" || state === "pending";
-      }
-      return false;
-    });
+    (runningThought !== undefined ||
+      (lastThought !== undefined && lastThought.index === lastMeaningfulIndex));
+  const liveLabel =
+    runningThought &&
+    (runningThought.kind.kind === "tool" ||
+      runningThought.kind.kind === "web_search" ||
+      runningThought.kind.kind === "skill")
+      ? resolveThoughtStepLabel(runningThought.kind)
+      : null;
+  const thoughtElapsed = useElapsedSeconds(isThoughtStreaming);
 
   const showChainOfThought = toolThoughtParts.length > 0;
 
   return (
     <>
       {showChainOfThought ? (
+        // Collapsed by default, live or not: the header is the one-line
+        // status while the turn works; the steps are one click away.
         <ChainOfThought
           className="mb-1.5 w-full"
+          defaultOpen={false}
           isStreaming={isThoughtStreaming}
         >
           <ChainOfThoughtHeader
-            getLabel={toolTimelineLabel(toolThoughtParts.length)}
+            getLabel={toolTimelineLabel(toolThoughtParts.length, liveLabel)}
+            trailing={
+              isThoughtStreaming
+                ? `${toolThoughtParts.length > 1 ? `${toolThoughtParts.length} · ` : ""}${formatElapsedSeconds(thoughtElapsed)}`
+                : undefined
+            }
           />
           <ChainOfThoughtContent>
             {toolThoughtParts.map(({ index, kind }) => {
@@ -515,17 +575,27 @@ export function CopilotMessageContent({
         })
       )}
 
-      {rewrittenTextParts.map(({ index, text }) =>
-        // A person's turn with @-mentions is drawn as typed, pills inline —
-        // the mention is the point of the message, not a footnote to it.
-        userRefs.length > 0 ? (
-          <MentionInlineText
-            key={`${msg.id}-${index}`}
-            refs={userRefs}
-            text={text}
-          />
-        ) : (
-          <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
+      {msg.role === "assistant" && rewrittenTextParts.length > 0 ? (
+        // The agent's words fold past a screenful — a chat, not a memo. The
+        // text parts of one turn fold together so one "Show more" opens all.
+        <CollapsibleMessageText streaming={isCurrentlyStreaming}>
+          {rewrittenTextParts.map(({ index, text }) => (
+            <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
+          ))}
+        </CollapsibleMessageText>
+      ) : (
+        rewrittenTextParts.map(({ index, text }) =>
+          // A person's turn with @-mentions is drawn as typed, pills inline —
+          // the mention is the point of the message, not a footnote to it.
+          userRefs.length > 0 ? (
+            <MentionInlineText
+              key={`${msg.id}-${index}`}
+              refs={userRefs}
+              text={text}
+            />
+          ) : (
+            <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
+          )
         )
       )}
 

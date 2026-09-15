@@ -9,7 +9,9 @@ import {
   buildAgentActivityPath,
   buildAgentCapabilitiesPath,
   buildAgentDetailPath,
+  buildAgentFilesPath,
   buildAgentInstructionsPath,
+  buildAgentMemoryPath,
   buildAgentSessionDetailPath,
   buildAgentSessionsPath,
   buildAgentsWorkspacePath,
@@ -76,6 +78,20 @@ export function useAgentsWorkspaceNavigation() {
     [navigate]
   );
 
+  const navigateToAgentMemory = useCallback(
+    (agentId: string) => {
+      navigate(buildAgentMemoryPath(agentId), { replace: true });
+    },
+    [navigate]
+  );
+
+  const navigateToAgentFiles = useCallback(
+    (agentId: string) => {
+      navigate(buildAgentFilesPath(agentId), { replace: true });
+    },
+    [navigate]
+  );
+
   const navigateToAgentInstructions = useCallback(
     (agentId: string, file?: string | null) => {
       navigate(buildAgentInstructionsPath(agentId, { file }), {
@@ -134,7 +150,9 @@ export function useAgentsWorkspaceNavigation() {
     navigateToAgent,
     navigateToAgentActivity,
     navigateToAgentCapabilities,
+    navigateToAgentFiles,
     navigateToAgentInstructions,
+    navigateToAgentMemory,
     navigateToAgentSession,
     navigateToAgentSessions,
     navigateToAgentsLanding,

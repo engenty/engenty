@@ -46,6 +46,12 @@ export interface UseSpaceHomeResult extends SpaceHomeCardsModel {
   isPending: boolean;
   /** What the cards are measured against; null before the first read. */
   since: string | null;
+  /**
+   * Agents with a desk conversation in this Space — spoken to, or that spoke.
+   * From the threads themselves, not from which cards happen to be showing: a
+   * quiet desk has no card but is not silent.
+   */
+  spokenAgentIds: ReadonlySet<string>;
 }
 
 export function useSpaceHome(spaceId: string | null): UseSpaceHomeResult {
@@ -87,9 +93,20 @@ export function useSpaceHome(spaceId: string | null): UseSpaceHomeResult {
     [homeQuery.data?.threads, sidebar.model]
   );
 
+  const spokenAgentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const thread of homeQuery.data?.threads ?? []) {
+      if (thread.kind === "desk") {
+        ids.add(thread.agent_id);
+      }
+    }
+    return ids;
+  }, [homeQuery.data?.threads]);
+
   return {
     ...model,
     isPending: homeQuery.isPending || sidebar.isPending,
     since,
+    spokenAgentIds,
   };
 }

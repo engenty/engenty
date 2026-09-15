@@ -46,6 +46,9 @@ describe("registerCommercialSettingsGatewayMethods", () => {
       "commercial_settings_expense_categories_set",
       "commercial_settings_tax_deduction_rules_set",
       "commercial_settings_defaults_set",
+      "commercial_settings_region_packs_list",
+      "commercial_settings_region_pack_get",
+      "commercial_settings_chart_lookup",
     ]);
     expect(
       getOperation(serverOperations, "commercial_settings_get")
@@ -82,10 +85,13 @@ describe("registerCommercialSettingsGatewayMethods", () => {
         ])
       )
     ).toEqual({
+      commercial_settings_chart_lookup: false,
       commercial_settings_defaults_set: true,
       commercial_settings_disciplines_set: false,
       commercial_settings_expense_categories_set: true,
       commercial_settings_get: false,
+      commercial_settings_region_pack_get: false,
+      commercial_settings_region_packs_list: false,
       commercial_settings_tax_deduction_rules_set: true,
       commercial_settings_tax_rates_set: true,
       commercial_settings_units_set: false,
@@ -165,5 +171,40 @@ describe("registerCommercialSettingsGatewayMethods", () => {
     } as any);
 
     expect(result).toEqual({ currency: "EUR" });
+  });
+
+  it("lists region packs without touching the repo", async () => {
+    const { server, serverOperations } = makeMockApi();
+    registerCommercialSettingsGatewayMethods(server, {
+      get: async () => {
+        throw new Error("should not read settings");
+      },
+      set: async () => {
+        throw new Error("should not write settings");
+      },
+    } as any);
+
+    const result = (await getOperation(
+      serverOperations,
+      "commercial_settings_region_packs_list"
+    ).handler({}, {
+      auth: {
+        tenantId: "tenant-1",
+        scopeId: "default",
+        principalId: "user-1",
+      },
+    } as any)) as {
+      packs: Array<{ region: string; expense_class: string | null }>;
+    };
+
+    expect(result.packs.map((pack) => pack.region)).toEqual([
+      "AT",
+      "CH",
+      "DE",
+      "GB",
+    ]);
+    expect(
+      result.packs.find((pack) => pack.region === "AT")?.expense_class
+    ).toBe("7");
   });
 });

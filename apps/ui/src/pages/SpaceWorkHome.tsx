@@ -6,10 +6,11 @@
  * unpinned one only while it is live (waiting, paused, running, or finished
  * since the last visit). Everything else is named in one line at the end.
  *
- * Beside the cards, the two lists of nouns: the artifacts this person pinned
- * and the modules the space mounts. And below both — when a mounted plugin
- * opted in via `registerSpaceTab({ embedOnHome })` — that module's landing
- * page.
+ * Beside the cards, the lists of nouns: the artifacts this person pinned,
+ * the files they keep at hand, the modules the space mounts, and the extra
+ * accounts those modules use.
+ * Below those — when a mounted plugin opted in via
+ * `registerSpaceTab({ embedOnHome })` — that module's landing page.
  *
  * Copilot stays the dock. The one composer here belongs to a pinned card with
  * nothing to answer, and it writes into that conversation, not to the Space.
@@ -27,16 +28,20 @@ import { Pencil } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SpaceHomeArtifacts } from "@/components/space-home/SpaceHomeArtifacts";
+import { SpaceHomeAudience } from "@/components/space-home/SpaceHomeAudience";
 import { SpaceHomeCard } from "@/components/space-home/SpaceHomeCard";
+import { SpaceHomeExtensions } from "@/components/space-home/SpaceHomeExtensions";
+import { SpaceHomeFiles } from "@/components/space-home/SpaceHomeFiles";
+import { SpaceHomeHireEmptyCard } from "@/components/space-home/SpaceHomeHireEmptyCard";
 import { SpaceHomeModules } from "@/components/space-home/SpaceHomeModules";
 import { SpaceHomeQuietLine } from "@/components/space-home/SpaceHomeQuietLine";
 import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectionHeading";
 import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
-import { SpaceNavTile } from "@/components/spaces/SpaceNavHeader";
 import { spaceTabModuleId } from "@/lib/space-nav";
 import { MODULE_ROUTE_PREFIX } from "@/lib/space-route-mirrors";
 import { spaceSettingsPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
+import { useEnsureHireWelcome } from "@/lib/use-ensure-hire-welcome";
 import { useSpaceHome } from "@/lib/use-space-home";
 import { useSpaceModules } from "@/lib/use-space-modules";
 import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
@@ -57,6 +62,15 @@ const GREETINGS = {
   evening: "Good evening",
   morning: "Good morning",
 } as const;
+
+/**
+ * Two columns when THIS pane is wide enough for the 322px rail plus a
+ * card column — not when the viewport is. The space sidebar already ate
+ * width, so viewport `lg:` split while the cards and the rail overlapped.
+ */
+const HOME_SPLIT_CLASS = "@min-[52rem]:flex-row";
+/** Right column on home — header audience and Module/Extensions share this. */
+const HOME_RAIL_CLASS = "w-full shrink-0 @min-[52rem]:w-[322px]";
 
 function spaceTabRoutePath(tab: {
   moduleId?: string;
@@ -79,12 +93,20 @@ export function SpaceWorkHome() {
     [spaceKey, spacesQuery.data]
   );
   const { modules } = useSpaceModules(space?.id ?? null);
-  const { agents } = useSpaceRosterAgents(space?.id ?? null);
+  const { agents, isPending: rosterPending } = useSpaceRosterAgents(
+    space?.id ?? null
+  );
   const rosterById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent])),
     [agents]
   );
   const home = useSpaceHome(space?.id ?? null);
+  useEnsureHireWelcome({
+    agents,
+    ready: Boolean(space?.id) && !rosterPending && !home.isPending,
+    spokenAgentIds: home.spokenAgentIds,
+    spaceId: space?.id ?? null,
+  });
   // First name only: the greeting is a hello, not an address label.
   const { displayName } = useCurrentUserProfile();
   const firstName = displayName.trim().split(/\s+/)[0] ?? "";
@@ -129,121 +151,130 @@ export function SpaceWorkHome() {
         HomePage ? "pb-0" : null
       )}
     >
-      <div className="mx-auto flex w-full max-w-6xl shrink-0 flex-col px-page pt-7 pb-6">
-        {/* Short on purpose: the space is named twice over already — switcher
-            and breadcrumb — so the greeting is the only heading. */}
-        {space ? (
-          <>
-            {/* Whose home this is: the same tile the rail and the sidebar
-                header show, the space's name, and what it is for. A person who
-                did not set the space up has nowhere else to read that. */}
-            <div className="group flex items-start gap-3.5 pb-5">
-              <SpaceNavTile
-                color={space.color}
-                icon={space.icon}
-                name={space.name}
-                size="xl"
-              />
-              <div className="min-w-0 flex-1 pt-0.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <p className="truncate font-semibold text-[17px]">
-                    {space.name}
-                  </p>
-                  {/* Editing the space is the one thing you do FROM its name.
-                      Hidden until the header is hovered (and always there for
-                      the keyboard), so identity stays identity at rest. */}
-                  <Button
-                    asChild
-                    className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <Link
-                      aria-label={t("navigation.settings", {
-                        defaultValue: "Settings",
-                      })}
-                      to={spaceSettingsPath(space.key)}
-                    >
-                      <Pencil aria-hidden className="size-3.5" />
-                    </Link>
-                  </Button>
-                </div>
-                {space.description?.trim() ? (
-                  <p className="line-clamp-2 text-[13px] text-muted-foreground leading-relaxed">
-                    {space.description}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <h1 className="font-semibold text-3xl tracking-tight">
-              {firstName
-                ? t(`spaces.home.greetingNamed.${greeting}`, {
-                    defaultValue: `${GREETINGS[greeting]}, {{name}}.`,
-                    name: firstName,
-                  })
-                : t(`spaces.home.greeting.${greeting}`, {
-                    defaultValue: `${GREETINGS[greeting]}.`,
-                  })}
-            </h1>
-          </>
-        ) : null}
-      </div>
       {space ? (
-        <div className="mx-auto flex w-full max-w-6xl shrink-0 flex-col gap-5 px-page lg:flex-row lg:items-start">
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Favoriten first, always — the sidebar's own split, not a
-                ranking. What follows is everything that is live right now. */}
-            {pinnedCards.length > 0 ? (
-              <>
-                <SpaceHomeSectionHeading>
-                  {t("spaces.home.sections.pinned", {
-                    defaultValue: "Favourites",
+        <div className="@container w-full min-w-0">
+          <div
+            className={cn(
+              "mx-auto flex w-full max-w-6xl shrink-0 flex-col gap-5 px-page pt-7 pb-6",
+              HOME_SPLIT_CLASS,
+              "@min-[52rem]:items-end"
+            )}
+          >
+            <div className="group min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <p className="truncate text-muted-foreground text-sm">
+                  {t("spaces.home.workingIn", {
+                    defaultValue: "Working in {{name}}",
+                    name: space.name,
                   })}
-                </SpaceHomeSectionHeading>
-                <div className="flex flex-col gap-2.5">
-                  {pinnedCards.map((card) => (
-                    <SpaceHomeCard
-                      card={card}
-                      key={card.item.key}
-                      rosterById={rosterById}
-                      space={space}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-            {otherCards.length > 0 ? (
-              <>
-                <SpaceHomeSectionHeading>
-                  {t("spaces.home.sections.active", { defaultValue: "Active" })}
-                </SpaceHomeSectionHeading>
-                <div className="flex flex-col gap-2.5">
-                  {otherCards.map((card) => (
-                    <SpaceHomeCard
-                      card={card}
-                      key={card.item.key}
-                      rosterById={rosterById}
-                      space={space}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-            {home.quiet.length > 0 ? (
-              <>
-                <SpaceHomeSectionHeading>
-                  {t("spaces.home.sections.quiet", {
-                    defaultValue: "Inactive",
-                  })}
-                </SpaceHomeSectionHeading>
-                <SpaceHomeQuietLine items={home.quiet} spaceKey={space.key} />
-              </>
-            ) : null}
+                </p>
+                <Button
+                  asChild
+                  className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Link
+                    aria-label={t("navigation.settings", {
+                      defaultValue: "Settings",
+                    })}
+                    to={spaceSettingsPath(space.key)}
+                  >
+                    <Pencil aria-hidden className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+              <h1 className="font-semibold @min-[52rem]:text-3xl text-2xl tracking-tight">
+                {firstName
+                  ? t(`spaces.home.greetingNamed.${greeting}`, {
+                      defaultValue: `${GREETINGS[greeting]}, {{name}}.`,
+                      name: firstName,
+                    })
+                  : t(`spaces.home.greeting.${greeting}`, {
+                      defaultValue: `${GREETINGS[greeting]}.`,
+                    })}
+              </h1>
+              {space.description?.trim() ? (
+                <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground leading-relaxed">
+                  {space.description}
+                </p>
+              ) : null}
+            </div>
+            <div className={HOME_RAIL_CLASS}>
+              <SpaceHomeAudience space={space} />
+            </div>
           </div>
-          <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[322px]">
-            <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
-            <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
-          </aside>
+          <div
+            className={cn(
+              "mx-auto flex w-full max-w-6xl shrink-0 flex-col gap-5 px-page",
+              HOME_SPLIT_CLASS,
+              "@min-[52rem]:items-start"
+            )}
+          >
+            <div className="flex min-w-0 flex-1 flex-col">
+              {!rosterPending && agents.length === 0 ? (
+                <SpaceHomeHireEmptyCard space={space} />
+              ) : null}
+              {/* Favoriten first, always — the sidebar's own split, not a
+                ranking. What follows is everything that is live right now. */}
+              {pinnedCards.length > 0 ? (
+                <>
+                  <SpaceHomeSectionHeading>
+                    {t("spaces.home.sections.pinned", {
+                      defaultValue: "Favourites",
+                    })}
+                  </SpaceHomeSectionHeading>
+                  <div className="flex flex-col gap-2.5">
+                    {pinnedCards.map((card) => (
+                      <SpaceHomeCard
+                        card={card}
+                        key={card.item.key}
+                        rosterById={rosterById}
+                        space={space}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {otherCards.length > 0 ? (
+                <>
+                  <SpaceHomeSectionHeading>
+                    {t("spaces.home.sections.active", {
+                      defaultValue: "Active",
+                    })}
+                  </SpaceHomeSectionHeading>
+                  <div className="flex flex-col gap-2.5">
+                    {otherCards.map((card) => (
+                      <SpaceHomeCard
+                        card={card}
+                        key={card.item.key}
+                        rosterById={rosterById}
+                        space={space}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+              {home.quiet.length > 0 ? (
+                <>
+                  <SpaceHomeSectionHeading>
+                    {t("spaces.home.sections.quiet", {
+                      defaultValue: "Inactive",
+                    })}
+                  </SpaceHomeSectionHeading>
+                  <SpaceHomeQuietLine items={home.quiet} spaceKey={space.key} />
+                </>
+              ) : null}
+            </div>
+            <aside
+              className={cn("flex min-w-0 flex-col gap-5", HOME_RAIL_CLASS)}
+            >
+              <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
+              <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
+              <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
+              <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
+            </aside>
+          </div>
         </div>
       ) : null}
       {HomePage ? (

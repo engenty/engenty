@@ -35,9 +35,9 @@ export interface AppLayoutProps {
   /** Persist modules-rail order (contribution ids) to tenant-settings. */
   onModulesReorder?: (orderedIds: string[]) => void;
   /**
-   * Rendered in the app rail directly below Settings, on every route — the
-   * notification bell. Passed in for the same reason as `spacesZone`: the
-   * app owns the data, app-shell stays free of fetching.
+   * Rendered in the app rail directly below the main nav (apps), above the
+   * admin cluster — the notification bell. Passed in for the same reason as
+   * `spacesZone`: the app owns the data, app-shell stays free of fetching.
    */
   railEndSlot?: ReactNode;
   /**

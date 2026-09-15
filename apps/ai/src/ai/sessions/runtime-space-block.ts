@@ -74,20 +74,71 @@ const AGENT_DESCRIPTION_MAX = 140;
  * name + one line of purpose; ids the registry could not identify stay as
  * bare ids rather than disappearing.
  */
+/** How the team hangs together, as the roster names it per agent. */
+export interface SpaceAgentRelations {
+  /** Agent id → the agent it reports to (the mount's `reports_to`). */
+  reportsTo: ReadonlyMap<string, string>;
+  /** Hired engenties whose mount names nobody — the Space's coordinators. */
+  topLevel: ReadonlySet<string>;
+}
+
+export function spaceAgentRelationsFromSurface(
+  surface: Pick<EngentySpaceSurface, "agentReportsTo" | "topLevelAgents">
+): SpaceAgentRelations {
+  return {
+    reportsTo: new Map(Object.entries(surface.agentReportsTo ?? {})),
+    topLevel: new Set(surface.topLevelAgents ?? []),
+  };
+}
+
+/**
+ * The relationship tail of one roster line: `reports to X`, `coordinator`,
+ * `reports: a, b` — so an agent knows who is above and beside it, and a
+ * coordinator knows whose work it answers for. Empty when the Space says
+ * nothing about this agent.
+ */
+export function formatAgentRelationTail(
+  id: string,
+  relations: SpaceAgentRelations | undefined,
+  nameOf: (agentId: string) => string
+): string {
+  if (!relations) {
+    return "";
+  }
+  const parts: string[] = [];
+  const manager = relations.reportsTo.get(id);
+  if (manager) {
+    parts.push(`reports to ${nameOf(manager)}`);
+  } else if (relations.topLevel.has(id)) {
+    parts.push("coordinator — reports to nobody, may hire and set up");
+  }
+  const reports = [...relations.reportsTo.entries()]
+    .filter(([, to]) => to === id)
+    .map(([from]) => nameOf(from))
+    .sort((a, b) => a.localeCompare(b));
+  if (reports.length > 0) {
+    parts.push(`reports: ${reports.join(", ")}`);
+  }
+  return parts.length > 0 ? ` [${parts.join("; ")}]` : "";
+}
+
 function formatMountedAgents(
   agentIds: ReadonlySet<string>,
-  identities: readonly SpaceAgentIdentity[] | undefined
+  identities: readonly SpaceAgentIdentity[] | undefined,
+  relations: SpaceAgentRelations | undefined
 ): string[] {
   const ids = [...agentIds].filter(Boolean).sort((a, b) => a.localeCompare(b));
   const byId = new Map((identities ?? []).map((meta) => [meta.id, meta]));
   if (ids.length === 0 || byId.size === 0) {
     return [formatNameList("space_mounted_agents", ids)];
   }
+  const nameOf = (agentId: string) => byId.get(agentId)?.name ?? agentId;
   const lines = ["- space_mounted_agents (address by id):"];
   for (const id of ids) {
     const meta = byId.get(id);
+    const tail = formatAgentRelationTail(id, relations, nameOf);
     if (!meta) {
-      lines.push(`  - ${id}`);
+      lines.push(`  - ${id}${tail}`);
       continue;
     }
     const description = meta.description?.trim().replace(/\s+/g, " ") ?? "";
@@ -95,7 +146,9 @@ function formatMountedAgents(
       description.length > AGENT_DESCRIPTION_MAX
         ? `${description.slice(0, AGENT_DESCRIPTION_MAX - 1)}…`
         : description;
-    lines.push(`  - ${id} — ${meta.name}${clipped ? `: ${clipped}` : ""}`);
+    lines.push(
+      `  - ${id} — ${meta.name}${clipped ? `: ${clipped}` : ""}${tail}`
+    );
   }
   return lines;
 }
@@ -146,7 +199,11 @@ export function formatSpaceRuntimeBlock(input: {
   const lines = [
     formatCurrentSpaceLine(space, input.spaceIdentity),
     ...formatMountedModules(surface),
-    ...formatMountedAgents(space.agentIds, input.agentIdentities),
+    ...formatMountedAgents(
+      space.agentIds,
+      input.agentIdentities,
+      spaceAgentRelationsFromSurface(surface)
+    ),
     `- space_mounted_connections: ${surface.connections.length}`,
     formatNameList("space_mounted_skills", surface.skills),
   ];

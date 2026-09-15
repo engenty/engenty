@@ -2,8 +2,13 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Building2, User } from "lucide-react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ListIconSegmentToggle, ListSearchInput } from "./list-toolbar.js";
+import {
+  ListFilterChip,
+  ListIconSegmentToggle,
+  ListSearchInput,
+} from "./list-toolbar.js";
 
 afterEach(() => {
   cleanup();
@@ -81,5 +86,48 @@ describe("ListIconSegmentToggle", () => {
     const shell = container.querySelector('[role="group"]');
     expect(shell?.className).toContain("rounded-full");
     expect(shell?.className).toContain("bg-card");
+  });
+});
+
+describe("ListFilterChip", () => {
+  it("lets several checkbox values stay selected", async () => {
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [values, setValues] = useState<string[]>([]);
+      return (
+        <ListFilterChip
+          ariaLabel="Provider"
+          clearLabel="Clear filter"
+          isActive={values.length > 0}
+          label="All providers"
+          multiple
+          onClear={() => setValues([])}
+          onValuesChange={setValues}
+          options={[
+            { value: "openai", label: "openai" },
+            { value: "anthropic", label: "anthropic" },
+          ]}
+          values={values}
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    await user.click(screen.getByLabelText("Provider"));
+    await user.click(
+      await screen.findByRole("menuitemcheckbox", { name: "openai" })
+    );
+    await user.click(
+      await screen.findByRole("menuitemcheckbox", { name: "anthropic" })
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "openai" }).getAttribute("aria-checked")
+    ).toBe("true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "anthropic" }).getAttribute("aria-checked")
+    ).toBe("true");
   });
 });

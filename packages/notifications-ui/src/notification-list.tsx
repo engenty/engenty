@@ -210,6 +210,7 @@ function iconForKind(
     case "agent_hired":
       return Bot;
     case "agent_message_received":
+    case "agent_desk_post":
     case "agent_work_completed":
       return MessagesSquare;
     case "records_written":

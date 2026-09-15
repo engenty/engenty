@@ -14,7 +14,7 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 | `AI_GATEWAY_API_KEY` | API key for the Vercel AI Gateway (required for copilot) | — |
 | `OPENROUTER_API_KEY` | API key for OpenRouter, the optional second gateway | — |
 | `AI_CHAT_MODEL` | Seeds the `model.medium` and `model.high` role bindings | `DEFAULT_AI_CHAT_MODEL_ID` |
-| `AI_CLASSIFIER_MODEL` | Seeds `model.low` | Role default |
+| `AI_CLASSIFIER_MODEL` | Seeds `classifier` (and `model.low` if unset in the pack) | Gateway pack |
 | `AI_ROUTING_MODEL` | Seeds `router` | Role default |
 | `AI_SAFEGUARD_MODEL` | Seeds `safeguard` | Role default |
 | `AI_PLANNING_CODING_MODEL` | Seeds `planning_coding` | Role default |
@@ -22,8 +22,10 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 
 These variables are **seed values, not runtime configuration**. They are read by
 `seedBindings` (`config/model-roles.ts`) to populate `ai.model_binding` when that
-table is empty; afterwards the binding rows are the source of truth and changing
-an env var has no effect. Manage models in the bindings console instead.
+table is empty. Per-gateway defaults live in
+`packages/ai-core/data/model-bindings/<gateway>.json`. Afterwards the binding
+rows are the source of truth and changing an env var has no effect. Manage
+models in the bindings console instead.
 
 Each role has exactly one env key. `AI_COORDINATOR_MODEL` and the other
 legacy aliases were removed on 2026-08-04 along with the dead

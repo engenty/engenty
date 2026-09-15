@@ -331,13 +331,13 @@ Decided 2026-09-05 (PLAN-shell-chrome, variant B). Enforced by `pnpm check:shell
 
 **Two line tokens.** `border-border` (default) and `border-border-soft` (`--border-soft`, half strength). `border-border/NN` and `divide-border/NN` are forbidden. `--sidebar-border` is for furniture inside the app bar (user-menu separators, the dashed new-space tile, the hidden-rail pill), never a layout edge. `--hairline*` no longer exists. `ring-border/NN` / `bg-border/NN` are fills and rings, not rules, and are outside this rule.
 
-**Shell row grid.** `--shell-row` (44px): topbar, secondary-column header, and a horizontal app bar. `--shell-footer` (48px): the rail's user-menu row and the column's Settings/About row, content centred, no rule above either. The first space tile has even 10px margins in the 56px rail.
+**Shell row grid.** `--shell-row` (44px): topbar, secondary-column header, and the app bar's brand row (Engenty mark). `--shell-footer` (48px): the rail's user-menu row and the column's Settings/About row, content centred, no rule above either. Space tiles start *below* the brand row.
 
 **Topbar is part of the page.** Transparent on the main area's own surface, compact density, no border, no blur, by default; `topbarChrome: "band"` is the only opt-in (card strip, wider density, still no `border-b`). `"contentBlend"` no longer exists.
 
-**Space chooser is one row** in the column header: toggle · 20px tile · name · chevron. Collapsed, the same chooser leads the topbar trail. Modules do not repeat their own name as the first page crumb.
+**Space identity is one row** in the column header: 20px tile · name. Open sits on the **app bar's right edge** while collapsed; Close and pin sit on the **column’s right seam** while pinned or hovering. Neither lives in this row. Collapsed, the same identity leads the topbar trail. Modules do not repeat their own name as the first page crumb.
 
-**Furniture controls** (column toggle, module-root trail icon, resize handle) use a muted colour that goes full on hover, never `opacity-*`.
+**Furniture controls** (column Open on the app-bar edge, Close/pin on the column seam, module-root trail icon, resize handle) use a muted colour that goes full on hover, never `opacity-*`.
 
 **Breadcrumb slash** is `text-border` in the topbar and in `ShellBreadcrumbTrail`.
 
@@ -345,7 +345,7 @@ Decided 2026-09-05 (PLAN-shell-chrome, variant B). Enforced by `pnpm check:shell
 
 - The topbar is **part of the page, not a bar over it**: by default transparent on the main area's own surface, no border, compact density (`gap-1 px-2`, `size-8` toggles, `~12.5px` crumbs, the compact actions cascade). Height is `--shell-row` (44px), the same row as the secondary column header. Pages set nothing — `topbarChrome: "contentBlend"` no longer exists.
 - **`topbarChrome: "band"`** is the opt-in for a page that needs a distinct sticky strip: `bg-card/85 backdrop-blur`, wider density (`gap-2 px-3`, `size="icon"` buttons), still **no `border-b`**. Nothing opts in yet; a module whose white list looks odd under a paper topbar row should set `contentStackBackground: "card"` first and reach for the band only if it truly needs a strip.
-- **Furniture controls** (column toggle, module-root icon in the trail) are `text-muted-foreground` → `text-foreground` on hover — a colour step, never `opacity-*`, so the glyph does not ghost the surface behind it.
+- **Furniture controls** (module-root icon in the trail; column toggle lives on the app-bar edge) are `text-muted-foreground` → `text-foreground` on hover — a colour step, never `opacity-*`, so the glyph does not ghost the surface behind it.
 - **`topbarOverlap`**: when set via page config, the topbar is `absolute inset-x-0 top-0` within the non-scrolling column so hero/cover regions can extend underneath.
 
 ### Breadcrumbs (`ShellBreadcrumbTrail`)
@@ -355,16 +355,17 @@ Decided 2026-09-05 (PLAN-shell-chrome, variant B). Enforced by `pnpm check:shell
 - **`enrichFirstBreadcrumbWithNavIcon`** (`app-shell`): may replace the first segment with the matching primary-nav icon unless module secondary nav is **pinned open** (`suppress`) — avoids duplicating the module mark when it already appears in the column header.
 - When secondary nav is **open** and `breadcrumbs` is **empty**, the trail is hidden (module title / switcher is expected in `secondaryNavHeaderSlot`); a **module root** icon link can still appear for quick navigation to the module home.
 - A segment whose `label` is a picker (ReactNode) is **not** wrapped in a trail `<a>` — the trigger is already a button. `to` still feeds the compact overflow menu.
-- A picker as the **first** crumb sits flush after the column toggle — no leading `/`. The slash still separates later segments (`Company ▾ / Contacts`).
+- A picker as the **first** crumb sits flush after the trail start — no leading `/`. The slash still separates later segments (`Company ▾ / Contacts`).
 
 ### Primary sidebar rail (`AppSidebar`)
 
 - Uses `--sidebar*` tokens from `shadcn-ember.css`, seeded by `--raw-sidebar`.
 - **No line on its edge**, no `border-r`, no footer `border-t`. The rail is the shell's frame layer: light default seed is `var(--paper)` (the page canvas), dark default is one step below the canvas (`.dark --raw-sidebar` in `ember-primitives.css`); the Ember preset's `dark.sidebar` is empty so CSS owns it. Colour presets keep their own rail hex — they separate by hue. The white column beside it is the raised card; its ambient shadow is the edge.
-- **Row grid:** the first space tile sits 10px from the top, the same as its side margins in the 56px rail (`pt-1.5` + the zone's `py-1`); the user-menu footer is one `--shell-footer` row (48px), lineless, level with the column's Settings footer.
+- **Row grid:** the first row is `--shell-row` (44px) with a round Engenty left-aligned in the rail (Apple-menu analogue: opens the app menu). Space tiles start below that row, with even 10px side margins in the 56px rail. The user-menu footer is one `--shell-footer` row (48px), lineless, level with the column's Settings footer.
 - **Active** item: `bg-sidebar-accent font-medium text-sidebar-accent-foreground`; parent routes stay active when a child path matches.
-- **Zones are separated by spacing, never by a short rule**: spaces zone `pb-2` + nav `py-1`, sections `mb-4`. Filled space tiles vs line glyphs already mark the zone change.
-- **No tenant tile.** The compact rail starts with spaces (then apps). About opens from the Settings / Setup column footer (brand name + plan · version); clicking it opens the About modal. Superadmins switch tenants on **Settings → Tenant**, not from a rail popover.
+- **Zones are separated by spacing, never by a short rule**: brand row, then spaces zone `pt-1.5 pb-2` + nav `py-1`, sections `mb-4`. Filled space tiles vs line glyphs already mark the zone change.
+- **Engenty mark, not a tenant tile.** The compact rail's top-left is the brand (opens the app menu). Spaces sit under it. About opens from the Settings / Setup column footer (brand name + plan · version); clicking it opens the About modal. Superadmins switch tenants on **Settings → Tenant**, not from a rail popover.
+- **Column open/close:** Open is a size-6 chip on the **app bar's right edge** (collapsed). Close and pin sit on the **column’s right seam** (pinned / hover preview), half overlapping the canvas. The glyph is `text-foreground` on `bg-popover` — solid, not muted. While the hover preview is open, the rail Open chip is `opacity-0` (still a hover target) so only the pin is visible.
 
 ### Topbar actions (`contentBlend` pages)
 
@@ -380,7 +381,7 @@ Buttons in `secondaryNavHeaderSlot` / topbar action area use compact sizing:
 - Place search input and role links inside `secondaryNavAfterItems` (not `secondaryNavHeaderSlot`)
 - `secondaryNavHeaderSlot` should be `null` when the panel owns the full sidebar body
 - Use `useSecondaryNavSearchResultsOnly(true)` to suppress shell-registered nav links when the panel renders its own
-- **Shell link geometry matches the space Work list** (`SpaceNavRow`): `rounded-[8px] px-2 py-0.5`, `size-7` icon slot with `size-5` glyph, active `bg-muted font-semibold`, hover `hover:bg-muted/60`. Section labels: `px-2 pb-1` + `text-xs uppercase tracking-wide`. Sections stack with `gap-3`. Settings / Setup use the same compact header as a space (`px-1`, no hairline, `icon-sm` toggle).
+- **Shell link geometry matches the space Work list** (`SpaceNavRow`): `rounded-[8px] px-2 py-0.5`, `size-7` icon slot with `size-5` glyph, active `bg-muted font-semibold`, hover `hover:bg-muted/60`. Section labels: `px-2 pb-1` + `text-xs uppercase tracking-wide`. Sections stack with `gap-3`. Settings / Setup use the same compact header as a space (`pl-4`, no hairline). Open/close is on the app-bar edge, not in this row.
 
 ### Space Work tab agents
 

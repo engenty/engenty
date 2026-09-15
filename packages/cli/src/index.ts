@@ -28,6 +28,8 @@ export {
   underline,
   yellow,
 } from "./env-setup/env-style.js";
+export { engentyHome, readInstallVersion } from "./home.js";
+export { registerLocalCommands } from "./local/local-commands.js";
 export { registerModulesCommands } from "./module-commands.js";
 export { pickWorkspaceSlugs } from "./plugins/pick-workspace-plugins.js";
 export {

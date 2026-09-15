@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEngentyMountSpecs,
   expandWorkspaceMounts,
+  resolveEngentyMountSpecs,
   resolveMountSpaceId,
   resolveScopeRelativePath,
   type WorkspaceScopeContext,
@@ -331,6 +332,36 @@ describe("the /data mount (PLAN-space-data.md D4)", () => {
     );
     expect(specs).toEqual([]);
     expect(specs.some((spec) => spec.mountPath === "/data")).toBe(false);
+  });
+
+  it("names every drop and why, so the run can say it instead of looking empty", () => {
+    const { dropped, specs } = resolveEngentyMountSpecs(
+      expandWorkspaceMounts(config({ preset: "staff" })),
+      { ...base, spaceId: undefined }
+    );
+    expect(specs.map((spec) => spec.mountPath)).toEqual(
+      expect.arrayContaining(["/home", "/shared", "/skills"])
+    );
+    expect(specs.some((spec) => spec.mountPath === "/data")).toBe(false);
+    expect(dropped).toEqual(
+      expect.arrayContaining([
+        { path: "/data", reason: "no_space" },
+        { path: "/space", reason: "no_space" },
+        { path: "/task", reason: "no_task" },
+      ])
+    );
+    // The tenant commons a confined run loses is a drop with its own name.
+    const confined = resolveEngentyMountSpecs(
+      expandWorkspaceMounts(config({ preset: "staff" })),
+      { ...base, spaceConfined: true, spaceId: "space-9" }
+    );
+    expect(confined.dropped).toContainEqual({
+      path: "/shared",
+      reason: "space_confined",
+    });
+    expect(confined.specs.some((spec) => spec.mountPath === "/space")).toBe(
+      true
+    );
   });
 
   it("is space-rooted and marked as data, not as a storage prefix", () => {

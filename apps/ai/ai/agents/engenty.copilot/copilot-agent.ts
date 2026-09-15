@@ -17,6 +17,7 @@ import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
+import { createDeskPostTools } from "../../tools/desk-post-tool.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
 import { getEngentyToolsRunContext } from "../../tools/engenty-tools/lib/run-context.js";
 import { createInvokeActionTools } from "../../tools/invoke-workflow-tool.js";
@@ -140,6 +141,10 @@ export function createBuiltinRegistryTools() {
     // time and would carry the schema on every call for nothing. A specialist
     // running an exercise declares it (and keeps it via the catalog floor).
     ...createThreadStateTools(),
+    // A specialist speaking on its own desk unprompted. Resolution only: the
+    // copilot is always answering someone; a specialist keeps it via the
+    // catalog floor.
+    ...createDeskPostTools(),
     // File analyst (and any agent listing analyze_file in toolIds).
     analyze_file: analyzeFileTool,
     convert_image: convertImageTool,

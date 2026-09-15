@@ -7,7 +7,9 @@ import { runCliAction } from "./cli-errors.js";
 import { registerCreateCommand } from "./create/create-commands.js";
 import { registerDeployCommands } from "./deploy/deploy-commands.js";
 import { registerDoctorCommands } from "./doctor/doctor-commands.js";
+import { registerEnvCommands } from "./env-setup/env-commands.js";
 import { dim } from "./env-setup/env-style.js";
+import { registerLocalCommands } from "./local/local-commands.js";
 import {
   cliVersion,
   currentWorkspaceRoot,
@@ -21,7 +23,6 @@ export const CHECKOUT_ONLY_COMMANDS = [
   "dev",
   "reset",
   "db",
-  "env",
   "install",
   "plugins",
   "auth",
@@ -100,15 +101,19 @@ function registerCheckoutOnlyCommands(program: Command): void {
 export function createStandaloneCli(): Command {
   const program = new Command("engenty")
     .description(
-      "engenty from anywhere: create a checkout, deploy to a server, check a machine or a deployment. Inside a checkout, every command runs through the checkout's own CLI."
+      "engenty from anywhere: run it on this machine, get a checkout, deploy to a server, check a machine or a deployment. Inside a checkout, every command runs through the checkout's own CLI."
     )
     .version(cliVersion());
   program.addHelpText("before", (context) =>
     context.command === program ? `${BANNER}\n` : ""
   );
   registerCreateCommand(program);
+  registerLocalCommands(program);
   registerDeployCommands(program);
   registerDoctorCommands(program);
+  // Only `set` and `check --scope home` are meaningful without a checkout; the
+  // wizards below them resolve a workspace root and say so when there is none.
+  registerEnvCommands(program);
   registerCheckoutOnlyCommands(program);
   return program;
 }

@@ -27,6 +27,10 @@ export function AgentDeskChat(props: {
   /** Composer control left of the attach (+) menu — the effort chooser. */
   composerLeadingControl?: ReactNode;
   composerPlaceholder?: string;
+  /** Identity that scrolls with the transcript, not a block above it. */
+  scrollHeader?: ReactNode;
+  /** False when the surface around this chat lays the context card out itself. */
+  contextPane?: boolean;
   /**
    * The host key this chat runs under. A desk's by default; a room passes its
    * own so its pane and drafts never share the host's desk.
@@ -36,6 +40,8 @@ export function AgentDeskChat(props: {
   mentionRefSearch?: MentionRefSearch;
   onPendingConsumed?: () => void;
   onThreadCreated: (threadId: string) => void;
+  /** The top of the transcript scrolled out of, or back into, view. */
+  onTranscriptTopVisibility?: (visible: boolean) => void;
   pendingSubmit?: string | null;
   spaceId: string;
   starters?: boolean;
@@ -88,12 +94,19 @@ export function AgentDeskChat(props: {
         {...(props.composerPlaceholder
           ? { composerPlaceholder: props.composerPlaceholder }
           : {})}
+        {...(props.contextPane === undefined
+          ? {}
+          : { contextPane: props.contextPane })}
         hostKey={hostKey}
         initialMessages={deskThread.initialMessages}
         isLoadingMessages={deskThread.isLoadingMessages}
         mentionRefSearch={props.mentionRefSearch}
         olderMessages={deskThread.olderMessages}
+        onTranscriptTopVisibility={props.onTranscriptTopVisibility}
         openInterruptFromSession={deskThread.openInterruptFromSession}
+        {...(props.scrollHeader === undefined
+          ? {}
+          : { scrollHeader: props.scrollHeader })}
         spaceId={props.spaceId}
         {...(props.starters === undefined ? {} : { starters: props.starters })}
         thread={deskThread.thread.session}

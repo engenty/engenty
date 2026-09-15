@@ -39,6 +39,7 @@ import {
   createEngentySessionMastraMemory,
   createEngentySessionMemoryStorage,
 } from "../ai/memory/index.js";
+import type { AiRegistry } from "../ai/registry/index.js";
 import {
   getServiceAccessToken,
   isServiceCredentialConfigured,
@@ -52,6 +53,15 @@ import {
   loadRemoteAgentConfig,
 } from "./load-engenty-remote.js";
 import { configuredRemoteChannelProviders } from "./remote-channels/providers/index.js";
+import {
+  type RemoteTargetResolution,
+  resolveRemoteTarget,
+  unreachableAgentReply,
+} from "./remote-channels/remote-agent-routing.js";
+import {
+  remoteAgentThreadId,
+  runRemoteAgentTurn,
+} from "./remote-channels/remote-agent-turn.js";
 
 const logger = createLogger({ name: "remote-channels" });
 
@@ -243,6 +253,12 @@ async function mintActorToken(input: {
 // ai.thread_message like every other conversation in the product.
 
 export interface RemoteChannelDeps {
+  /**
+   * Tenant-scoped registry for per-Engenty turns (P5): a bound or `@handle`
+   * addressed agent is assembled from it as itself. Absent = every turn goes
+   * to the front door, whatever the binding says.
+   */
+  getRegistry?: (tenantId: string) => AiRegistry;
   mastra: Mastra;
   threadStore: ThreadStore;
 }
@@ -664,11 +680,50 @@ export function createIdentityGateHandler(
       }
     }
 
+    // P5: who answers. A leading `@handle` / `/to handle`, else the binding's
+    // default agent, else the front door. Decided before any thread work so a
+    // per-agent turn never provisions the front door's thread as a side
+    // effect.
+    let target: RemoteTargetResolution = {
+      kind: "front-door",
+      text: message.text ?? "",
+    };
+    const registry =
+      deps?.getRegistry && tenantId ? deps.getRegistry(tenantId) : null;
+    if (registry) {
+      try {
+        target = await resolveRemoteTarget({
+          bindingAgentId: resolved.binding.agent_id,
+          listAgents: () => listRegistryAgents(registry),
+          text: message.text ?? "",
+        });
+      } catch (error) {
+        logger.warn("remote channels: target resolution failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (
+        target.kind === "front-door" &&
+        resolved.binding.agent_id &&
+        resolved.binding.agent_id !== ENGENTY_REMOTE_AGENT_ID
+      ) {
+        logger.warn(
+          "remote channels: binding names an agent that is not reachable; using the front door",
+          { agentId: resolved.binding.agent_id, platform }
+        );
+      }
+    }
+    if (target.kind === "unreachable") {
+      await thread.post(unreachableAgentReply(target.handle));
+      return;
+    }
+
     // R2: make sure the dedicated engenty thread backing this conversation
     // exists BEFORE the SDK resolves its mapping thread, so agent.stream runs
     // against our tenant-scoped thread id rather than an SDK-minted one.
     let aiThreadId = resolved.conversation?.ai_thread_id ?? null;
     if (
+      target.kind === "front-door" &&
       deps &&
       resolved.conversation &&
       !resolved.conversation.ai_thread_id &&
@@ -721,16 +776,63 @@ export function createIdentityGateHandler(
     // forwarded (same shape as session-service.ts chat runs), core's
     // escalation policy treats the call as agent-authored and the "defer"
     // contract holds: durable approval request + approval_pending result.
+    const answeringAgentId =
+      target.kind === "agent" ? target.agent.id : ENGENTY_REMOTE_AGENT_ID;
     const coreAgentId = await resolveCoreAgentId(
       tenantId ?? "",
-      ENGENTY_REMOTE_AGENT_ID
+      answeringAgentId
     );
+
+    // Per-Engenty turn: assembled as itself, its own thread per platform
+    // thread, plain-text reply posted back. Same ALS scope as the front door
+    // — the authority is still the paired user's token, the agent is the
+    // attribution.
+    const goalThreadId =
+      target.kind === "agent" && tenantId
+        ? remoteAgentThreadId({
+            agentId: target.agent.id,
+            externalThreadId: externalThreadId ?? channelId ?? "dm",
+            platform,
+            tenantId,
+          })
+        : aiThreadId;
+    const runTurn =
+      target.kind === "agent" && registry && deps && tenantId
+        ? async () => {
+            const agentTarget = target as Extract<
+              RemoteTargetResolution,
+              { kind: "agent" }
+            >;
+            try {
+              const reply = await runRemoteAgentTurn({
+                agent: agentTarget.agent,
+                externalThreadId: externalThreadId ?? channelId ?? "dm",
+                mastra: deps.mastra,
+                platform,
+                registry,
+                tenantId,
+                text: agentTarget.text,
+                threadStore: deps.threadStore,
+                userId,
+              });
+              await thread.post(reply);
+            } catch (error) {
+              logger.error("remote channels: agent turn failed", {
+                agentId: agentTarget.agent.id,
+                message: error instanceof Error ? error.message : String(error),
+              });
+              await thread.post(
+                `${agentTarget.agent.name} could not answer right now — please try again in a moment.`
+              );
+            }
+          }
+        : () => defaultHandler(thread, message);
 
     await engentyToolsRunAls.run(
       {
         ...getEngentyToolsRunContext(),
         ...(coreAgentId ? { agentId: coreAgentId } : {}),
-        agentTypeKey: ENGENTY_REMOTE_AGENT_ID,
+        agentTypeKey: answeringAgentId,
         approvalGrants: [],
         // "request": run the AI-side pre-gate; a gated op returns a structured
         // approval_pending WITHOUT executing, so the model tells the user and
@@ -749,14 +851,27 @@ export function createIdentityGateHandler(
         approvalPolicy: "request",
         // Approval grants persist against the goal; for channel turns that is
         // the backing engenty thread (mirrors chat runs using the thread id).
-        ...(aiThreadId ? { goalId: aiThreadId } : {}),
+        // A per-Engenty turn has its own thread, so its grants live there.
+        ...(goalThreadId ? { goalId: goalThreadId } : {}),
         tenantId: tenantId ?? null,
         userId,
         accessToken: actorToken,
       },
-      () => defaultHandler(thread, message)
+      runTurn
     );
   };
+}
+
+/** Every agent the registry knows, or none when it cannot list. */
+async function listRegistryAgents(
+  registry: AiRegistry
+): Promise<AgentConfig[]> {
+  const lister = registry as AiRegistry & {
+    listAgentConfigs?: () => Promise<AgentConfig[]>;
+  };
+  return typeof lister.listAgentConfigs === "function"
+    ? await lister.listAgentConfigs()
+    : [];
 }
 
 // ── Agent + adapters ────────────────────────────────────────────────────────
@@ -862,7 +977,12 @@ export function getRemoteChannelsAgent(): Agent | null {
  */
 export async function registerRemoteChannels(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
-  input: { mastra: Mastra; threadStore?: ThreadStore | null }
+  input: {
+    /** Per-tenant registry, so a bound or addressed Engenty answers as itself. */
+    getRegistry?: (tenantId: string) => AiRegistry;
+    mastra: Mastra;
+    threadStore?: ThreadStore | null;
+  }
 ): Promise<void> {
   if (!isRemoteChannelsEnabled()) {
     return;
@@ -888,7 +1008,11 @@ export async function registerRemoteChannels(
   }
   const agent = await createRemoteChannelsAgent(
     input.threadStore
-      ? { mastra: input.mastra, threadStore: input.threadStore }
+      ? {
+          ...(input.getRegistry ? { getRegistry: input.getRegistry } : {}),
+          mastra: input.mastra,
+          threadStore: input.threadStore,
+        }
       : undefined
   );
   if (!agent) {

@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useContext, useMemo } from "react";
 export interface ShellSecondaryNavContextValue {
   /** Current route exposes a module secondary column (role links + page slots). */
   hasSecondaryNav: boolean;
-  /** User toggled the secondary column open (topbar control). */
+  /** User toggled the secondary column open (app-bar edge control). */
   secondaryNavOpen: boolean;
   /**
    * Hold hover preview open while a portaled menu in the secondary nav header is open.

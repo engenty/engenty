@@ -55,6 +55,7 @@ export interface SpaceHomeLastMessage {
 export interface SpaceHomeThread {
   agent_id: string;
   agent_turns: number;
+  awaiting_first_reply: boolean;
   jobs: SpaceHomeJob[];
   kind: SpaceHomeThreadKind;
   last_message: SpaceHomeLastMessage | null;

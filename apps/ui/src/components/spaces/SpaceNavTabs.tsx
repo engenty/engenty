@@ -42,6 +42,7 @@ import { SpaceArtifactsSection } from "@/components/spaces/SpaceArtifactsSection
 import { SpaceConversationSections } from "@/components/spaces/SpaceConversationSections";
 import { SpaceCopilotWorkRows } from "@/components/spaces/SpaceCopilotWorkRows";
 import { SpaceDataTree } from "@/components/spaces/SpaceDataTree";
+import { SpaceFilesSection } from "@/components/spaces/SpaceFilesSection";
 import { SpaceMembersSection } from "@/components/spaces/SpaceMembersSection";
 import { SpaceModulesSection } from "@/components/spaces/SpaceModulesSection";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
@@ -269,6 +270,14 @@ export function SpaceNavTabs({
               modules that produce records: a pinned artifact is at hand the
               way a favourite conversation is. */}
           <SpaceArtifactsSection spaceId={spaceId} spaceKey={spaceKey} />
+          {/* Files beside Artifacts: pinned first, then the newest few. Only
+              where the files module is mounted — the same gate as the Files
+              root in Data. */}
+          <SpaceFilesSection
+            filesMounted={mountedIds.has("files")}
+            spaceId={spaceId}
+            spaceKey={spaceKey}
+          />
           <SpaceModulesSection
             activeModuleId={activeModuleId}
             canAdd={canEdit}

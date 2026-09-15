@@ -23,6 +23,7 @@ import {
   getSpaceArtifacts,
   getSpaceProjects,
 } from "@/lib/api/space-drive-client";
+import { isSpaceDrivePending } from "@/lib/space-drive-pending";
 import { spaceKeys, useSpaceSurfaceQuery } from "@/lib/spaces-queries";
 
 export const spaceDriveKeys = {
@@ -160,10 +161,14 @@ export function useSpaceDrive(
 
   return {
     capabilitiesByRoot,
-    isPending:
-      projectsQuery.isPending ||
-      artifactsQuery.isPending ||
-      dataRootsQuery.isPending,
+    isPending: isSpaceDrivePending({
+      artifactsPending: artifactsQuery.isPending,
+      dataRootsPending: dataRootsQuery.isPending,
+      enabled,
+      projectsMounted,
+      projectsPending: projectsQuery.isPending,
+      surfacePending: surfaceQuery.isPending,
+    }),
     nodes,
     unavailable,
   };

@@ -244,7 +244,8 @@ export function useCopilotDrawerLayout({
         launcherMode === "mini-floating" ||
         effectiveMode === "drawer" ||
         effectiveMode === "bottom" ||
-        effectiveMode === "sidebar"));
+        effectiveMode === "sidebar" ||
+        effectiveMode === "window"));
 
   useCopilotDrawerLayoutPersistence({
     collapseToCircle,

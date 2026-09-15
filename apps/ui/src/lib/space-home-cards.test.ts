@@ -42,6 +42,7 @@ const dm = (id: string, agentId: string): SpaceDmRow => ({
 const state = (overrides: Partial<SpaceHomeThread>): SpaceHomeThread => ({
   agent_id: "tom",
   agent_turns: 0,
+  awaiting_first_reply: false,
   jobs: [],
   kind: "desk",
   last_message: null,
@@ -105,6 +106,26 @@ describe("resolveSpaceHomeCards", () => {
     });
     expect(model.cards).toHaveLength(1);
     expect(model.cards[0]?.state).toBe("running");
+  });
+
+  it("keeps a quiet hire that is still waiting for a first reply", () => {
+    const model = resolveSpaceHomeCards({
+      sidebar: sidebar(),
+      threads: [
+        state({
+          agent_id: "tom",
+          awaiting_first_reply: true,
+          last_message: {
+            at: "2026-09-09T07:00:00Z",
+            excerpt: "Hi — I'm Tom.",
+            role: "assistant",
+          },
+        }),
+      ],
+    });
+    expect(model.cards).toHaveLength(1);
+    expect(model.cards[0]?.lastMessage?.excerpt).toContain("Tom");
+    expect(model.quiet.map((item) => item.key)).not.toContain("agent:tom");
   });
 
   it("gathers a desk's parallel jobs onto one card, most urgent first", () => {

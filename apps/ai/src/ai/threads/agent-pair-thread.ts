@@ -97,6 +97,21 @@ export const AGENT_MESSAGE_MARKER_KEY = "engenty_agent_message";
 export interface AgentMessageMarker {
   /** The colleague whose message this points at. */
   agent_id: string;
+  /**
+   * For a `reply`: artifacts the desk agent wrote or presented while
+   * answering, so the desk offers the deliverable beside the quote instead of
+   * leaving it in the pair thread.
+   */
+  artifact_ids?: string[];
+  /**
+   * What the row is: the brief a colleague sent (`message`, the default — a
+   * user row carrying the sender header) or the desk agent's own reply to
+   * it, cut to a preview (`reply`, an assistant row). The desk draws the
+   * reply as a quote with a way into the pair thread.
+   */
+  kind?: "message" | "reply";
+  /** For a `reply`: who the desk agent answered. */
+  reply_to_agent_id?: string;
   /** The agent whose desk lists the pair thread — where it opens. */
   thread_agent_id: string;
   /** The pair thread the message lives in. */

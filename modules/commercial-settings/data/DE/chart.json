@@ -1,0 +1,30 @@
+{
+  "id": "de-skr03",
+  "region": "DE",
+  "name": "DATEV-Kontenrahmen SKR 03",
+  "short_name": "SKR 03",
+  "standard": "DATEV SKR 03",
+  "year": 2024,
+  "digit_scheme": "Kontenklasse is the first digit of the 4-digit account. SKR 03 class 4 is operating expenses (not revenue).",
+  "source": {
+    "title": "DATEV SKR 03",
+    "note": "SKR 04 (process-oriented) puts expenses in class 6 instead. This pack uses SKR 03, which is the usual small-business chart."
+  },
+  "classes": [
+    { "class": "0", "name": "Anlagevermögen", "range": "0000-0999" },
+    { "class": "1", "name": "Finanz- und Privatkonten", "range": "1000-1999" },
+    { "class": "2", "name": "Abgrenzungskonten", "range": "2000-2999" },
+    {
+      "class": "3",
+      "name": "Wareneingangs- und Bestandskonten",
+      "range": "3000-3999"
+    },
+    { "class": "4", "name": "Betriebliche Aufwendungen", "range": "4000-4999" },
+    { "class": "8", "name": "Erlöskonten", "range": "8000-8999" },
+    {
+      "class": "9",
+      "name": "Vortrags-, Kapital- und Statistikkonten",
+      "range": "9000-9999"
+    }
+  ]
+}

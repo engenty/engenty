@@ -169,6 +169,7 @@ describe("reportRoutineRun", () => {
       threads: [thread()],
     });
     await reportRoutineRun({
+      resolveReportsTo: async () => null,
       routineId: "01a03ab6",
       routines: h.routines,
       runId: "run-1",
@@ -219,6 +220,7 @@ describe("reportRoutineRun", () => {
       ],
     });
     await reportRoutineRun({
+      resolveReportsTo: async () => null,
       routineId: "01a03ab6",
       routines: h.routines,
       runId: "run-1",
@@ -227,7 +229,9 @@ describe("reportRoutineRun", () => {
       tenantId: TENANT,
       threadId: RUN_THREAD,
     });
-    expect(h.upsertThread).toHaveBeenCalledTimes(1);
+    // resolveRoutineOwnerThread creates the desk, then speakOnDesk
+    // re-resolves it (the list mock still only returns the fire thread).
+    expect(h.upsertThread).toHaveBeenCalledTimes(2);
     const posted = h.appendMessage.mock.calls[0]?.[0] as never as {
       threadId: string;
     };

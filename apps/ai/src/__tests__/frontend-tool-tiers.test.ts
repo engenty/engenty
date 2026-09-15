@@ -1,6 +1,7 @@
 import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
+  engentyHoldsFrontendTools,
   resolveFrontendToolsForAgent,
   resolveFrontendToolTier,
 } from "../../ai/frontend-tools/catalog.js";
@@ -41,6 +42,58 @@ describe("frontend tool tiers", () => {
       resolveFrontendToolsForAgent({
         agentId: "time-tracking.tracker",
         clientTools: [clientTool],
+      })
+    ).toEqual([]);
+  });
+
+  it("lets a granted Engenty drive the page but never the copilot's chrome", () => {
+    const names = resolveFrontendToolsForAgent({
+      agentId: "sales.lead",
+      clientTools: [clientTool],
+      grant: { coordinator: false, uiTools: "on" },
+    }).map((tool) => tool.name);
+
+    expect(names).toContain("navigate");
+    expect(names).toContain("openDialog");
+    expect(names).toContain("test.openPanel");
+    for (const chrome of [
+      "openCopilot",
+      "closeCopilot",
+      "setCopilotDockMode",
+      "shell_set_theme",
+      "i18n_set_locale",
+    ]) {
+      expect(names).not.toContain(chrome);
+    }
+  });
+
+  it("defaults the grant to the Space's coordinator and to nobody else", () => {
+    expect(
+      engentyHoldsFrontendTools({ coordinator: true, uiTools: "auto" })
+    ).toBe(true);
+    expect(
+      engentyHoldsFrontendTools({ coordinator: false, uiTools: "auto" })
+    ).toBe(false);
+    expect(
+      engentyHoldsFrontendTools({ coordinator: true, uiTools: "off" })
+    ).toBe(false);
+    expect(
+      resolveFrontendToolsForAgent({
+        agentId: "sales.lead",
+        clientTools: [clientTool],
+        grant: { coordinator: false, uiTools: "auto" },
+      })
+    ).toEqual([]);
+  });
+
+  it("keeps a granted Engenty empty-handed when no browser is on the run", () => {
+    // A routine or a channel turn sends no client tools; the grant must not
+    // conjure a catalog nobody can execute.
+    expect(
+      resolveFrontendToolsForAgent({
+        agentId: "sales.lead",
+        clientTools: undefined,
+        grant: { coordinator: true, uiTools: "on" },
       })
     ).toEqual([]);
   });

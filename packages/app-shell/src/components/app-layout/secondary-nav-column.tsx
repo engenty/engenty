@@ -25,7 +25,7 @@ interface SecondaryNavColumnProps {
   widthDisplayedPx: number;
 }
 
-/** Pinned secondary nav body (resize handle + seam Close + shell). Width animation lives on the parent wrapper. */
+/** Pinned secondary nav body (resize handle + Close on the right seam + shell). Width animation lives on the parent wrapper. */
 export function SecondaryNavColumn({
   onToggle,
   pathname,

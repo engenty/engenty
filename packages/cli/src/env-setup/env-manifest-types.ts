@@ -2,7 +2,7 @@
  * Which env file a variable lives in. Note: the Vite apps (ui, manage) read env
  * from the workspace root too (`envDir: repoRoot`), so VITE_* vars are root-scoped.
  */
-export type EnvScope = "root" | "deploy";
+export type EnvScope = "root" | "deploy" | "home";
 
 export interface EnvScopeInfo {
   /** Workspace-relative path of the live (gitignored) env file. */
@@ -139,6 +139,15 @@ export interface ContributedEnv {
   vars: ContributedEnvVarSpec[];
 }
 
+/**
+ * A managed install's `.env` feeds the same compose file a server's
+ * `deploy/.env` does, so the manifest answers for it under that scope. Only
+ * the file's location differs, and that is `env-files.ts`'s business.
+ */
+export function manifestScope(scope: EnvScope): EnvScope {
+  return scope === "home" ? "deploy" : scope;
+}
+
 export function requirementForScope(
   spec: Pick<EnvVarSpec, "required">,
   scope: EnvScope
@@ -146,7 +155,7 @@ export function requirementForScope(
   if (typeof spec.required === "string") {
     return spec.required;
   }
-  return spec.required[scope] ?? "optional";
+  return spec.required[manifestScope(scope)] ?? "optional";
 }
 
 export function defaultValueForScope(
@@ -156,5 +165,5 @@ export function defaultValueForScope(
   if (typeof spec.defaultValue === "string") {
     return spec.defaultValue;
   }
-  return spec.defaultValue?.[scope];
+  return spec.defaultValue?.[manifestScope(scope)];
 }

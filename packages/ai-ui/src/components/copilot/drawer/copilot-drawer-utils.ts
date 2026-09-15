@@ -11,28 +11,33 @@ export type CopilotPositionMenuChoice =
   | "drawer"
   | "mini-floating"
   | "floating"
+  | "window"
   | "sidebar";
+
+const POSITION_MENU_CHOICES: ReadonlySet<string> =
+  new Set<CopilotPositionMenuChoice>([
+    "bottom",
+    "drawer",
+    "mini-floating",
+    "floating",
+    "window",
+    "sidebar",
+  ]);
+
+function isPositionMenuChoice(
+  value: CopilotDockMode | null | undefined
+): value is CopilotPositionMenuChoice {
+  return value != null && POSITION_MENU_CHOICES.has(value);
+}
 
 export function normalizeCopilotPositionMenuValue(
   preferred: CopilotDockMode | null | undefined,
   effective: CopilotDockMode
 ): CopilotPositionMenuChoice {
-  if (
-    preferred === "bottom" ||
-    preferred === "drawer" ||
-    preferred === "mini-floating" ||
-    preferred === "floating" ||
-    preferred === "sidebar"
-  ) {
+  if (isPositionMenuChoice(preferred)) {
     return preferred;
   }
-  if (
-    effective === "bottom" ||
-    effective === "drawer" ||
-    effective === "mini-floating" ||
-    effective === "floating" ||
-    effective === "sidebar"
-  ) {
+  if (isPositionMenuChoice(effective)) {
     return effective;
   }
   return "floating";
@@ -88,7 +93,8 @@ export function resolveCopilotOpenDockMode(
     preferred === "drawer" ||
     preferred === "sidebar" ||
     preferred === "bottom" ||
-    preferred === "floating"
+    preferred === "floating" ||
+    preferred === "window"
   ) {
     return preferred;
   }

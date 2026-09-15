@@ -5,6 +5,7 @@ import type {
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
+import type { ChatKind } from "../chat-kind-badge.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { CopilotDecisionInterruptFeedback } from "../interrupts/copilot-tool-call-actions";
@@ -40,6 +41,8 @@ export interface CopilotPanelContentProps {
   cancelLabel: string;
   /** When false, empty-state composer stays bottom-aligned (widget / embed chat). Default: centered dock landing. */
   centerEmptyLanding?: boolean;
+  /** The badge in the header saying what kind of conversation this is. */
+  chatKind?: ChatKind | null;
   clearLabel?: string;
   closeLabel: string;
   /** When true, show minimal UI (composer + compact transcript). Used for mini-floating. */

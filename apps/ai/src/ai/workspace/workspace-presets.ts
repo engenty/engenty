@@ -393,18 +393,71 @@ function applySpaceConfinement(
   );
 }
 
-// Resolve the declared mount table into Mastra mount specs for the current run.
-// Mounts whose `requireBinding` entity is missing (e.g. `/task` with no task)
-// are dropped rather than mounted empty.
-export function buildEngentyMountSpecs(
+/** Why a declared mount is not in this run's workspace. */
+export type DroppedWorkspaceMountReason =
+  /** The mount is rooted in the Space and the run has none (unresolved, or global). */
+  | "no_space"
+  /** `/task` (or a task-lifecycle sandbox) with no task bound to the run. */
+  | "no_task"
+  /** `/project` with no containment chain above the bound task. */
+  | "no_project"
+  /** `/routine` outside a routine fire. */
+  | "no_routine"
+  /** The tenant `/shared` a Space-confined run deliberately loses. */
+  | "space_confined"
+  /** A scope the resolver does not know. */
+  | "unsupported";
+
+export interface DroppedWorkspaceMount {
+  path: string;
+  reason: DroppedWorkspaceMountReason;
+}
+
+function droppedMountReason(
+  mount: AgentWorkspaceMount
+): DroppedWorkspaceMountReason {
+  switch (mount.source) {
+    case "data":
+    case "commons":
+      return "no_space";
+    case "checkout":
+      return "no_task";
+    case "sandbox":
+      return "no_task";
+    case "project":
+      return "no_project";
+    case "routine":
+      return "no_routine";
+    default:
+      return "unsupported";
+  }
+}
+
+/**
+ * Resolve the declared mount table into Mastra mount specs for the current
+ * run, AND say which declared mounts did not make it and why. Mounts whose
+ * `requireBinding` entity is missing (e.g. `/task` with no task) or whose
+ * Space is unresolved are dropped rather than mounted empty — fail-closed is
+ * right, but a dropped `/data` or `/skills` used to be indistinguishable from
+ * "this Space has no files, no skills". Callers log each drop and tell the
+ * model in its runtime block.
+ */
+export function resolveEngentyMountSpecs(
   mounts: AgentWorkspaceMount[],
   ctx: WorkspaceScopeContext
-): EngentyWorkspaceMountSpec[] {
+): { dropped: DroppedWorkspaceMount[]; specs: EngentyWorkspaceMountSpec[] } {
   const specs: EngentyWorkspaceMountSpec[] = [];
-  for (const mount of applySpaceConfinement(mounts, ctx)) {
+  const dropped: DroppedWorkspaceMount[] = [];
+  const confined = applySpaceConfinement(mounts, ctx);
+  for (const mount of mounts) {
+    if (!confined.includes(mount)) {
+      dropped.push({ path: mount.path, reason: "space_confined" });
+    }
+  }
+  for (const mount of confined) {
     const fileStorageRelativePath = resolveScopeRelativePath(mount, ctx);
     if (!fileStorageRelativePath) {
-      // Unresolved binding (or an unsupported scope): skip.
+      dropped.push({ path: mount.path, reason: droppedMountReason(mount) });
       continue;
     }
     const spaceId = resolveMountSpaceId(mount, ctx);
@@ -416,7 +469,15 @@ export function buildEngentyMountSpecs(
       ...(spaceId ? { spaceId } : {}),
     });
   }
-  return specs;
+  return { dropped, specs };
+}
+
+// The specs alone — for callers that have no one to tell about drops.
+export function buildEngentyMountSpecs(
+  mounts: AgentWorkspaceMount[],
+  ctx: WorkspaceScopeContext
+): EngentyWorkspaceMountSpec[] {
+  return resolveEngentyMountSpecs(mounts, ctx).specs;
 }
 
 // The default skill discovery paths inside the workspace. The `/skills` mount

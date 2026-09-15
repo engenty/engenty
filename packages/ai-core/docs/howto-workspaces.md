@@ -73,6 +73,13 @@ workspace: {
 
 Only remove `requireApproval` for fully-trusted internal automation agents with no user interaction.
 
+A declared `run` lifecycle becomes the **space computer** when the run resolves a
+Space — one long-lived container shared by that Space's agents, instead of a
+container per run. `task` and `session` declarations keep their own containers.
+The declared `network` (`none` by default) is likewise overridden on the machine
+by the Space's own setting. See
+[Agent computers](../../../docs/content/dev/agent-computers.md).
+
 ## 4. Enable search (optional)
 
 BM25 keyword search over workspace files is on by default when the `/skills` mount is present. Add vector (semantic) search for hybrid retrieval:
@@ -173,4 +180,7 @@ hidden even though tenant storage is shared.
 ## Related docs
 
 - [Spaces runtime contract](../../../docs/agent/spaces-runtime.md)
+- [Agent computers](../../../docs/content/dev/agent-computers.md) — what the
+  declared sandbox actually becomes at run time: lifecycle resolution, the space
+  computer, network tiers, resource ceilings, and the mounts the container sees
 - [Who drives what](../../../docs/agent/who-drives.md)

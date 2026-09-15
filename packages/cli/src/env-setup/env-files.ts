@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findWorkspaceRootFrom } from "@engenty/environment/env";
+import { engentyHome } from "../home.js";
 import {
   type EnvDocument,
   parseEnvDocument,
@@ -13,15 +14,41 @@ export function resolveWorkspaceRoot(): string {
   return findWorkspaceRootFrom(process.cwd());
 }
 
+/**
+ * `findWorkspaceRootFrom` falls back to the directory it started in, so it
+ * cannot say "no checkout". This can, which is what tells `env set` whether the
+ * manifest it is validating against is the complete one: outside a checkout
+ * there are no `engenty.plugin.json` files, so module-contributed variables
+ * (AI_GATEWAY_API_KEY among them) are simply absent.
+ */
+export function currentWorkspaceRootOrNull(): string | null {
+  const root = findWorkspaceRootFrom(process.cwd());
+  return fs.existsSync(path.join(root, "pnpm-workspace.yaml")) ? root : null;
+}
+
+/**
+ * `home` lives outside any checkout, so it resolves against ENGENTY_HOME and
+ * ignores the workspace root callers pass for the other scopes.
+ */
+export function scopeBaseDir(workspaceRoot: string, scope: EnvScope): string {
+  return scope === "home" ? engentyHome() : workspaceRoot;
+}
+
 export function envFilePath(workspaceRoot: string, scope: EnvScope): string {
-  return path.join(workspaceRoot, ENV_SCOPES[scope].envFile);
+  return path.join(
+    scopeBaseDir(workspaceRoot, scope),
+    ENV_SCOPES[scope].envFile
+  );
 }
 
 export function exampleFilePath(
   workspaceRoot: string,
   scope: EnvScope
 ): string {
-  return path.join(workspaceRoot, ENV_SCOPES[scope].exampleFile);
+  return path.join(
+    scopeBaseDir(workspaceRoot, scope),
+    ENV_SCOPES[scope].exampleFile
+  );
 }
 
 /** null when the live env file does not exist yet. */

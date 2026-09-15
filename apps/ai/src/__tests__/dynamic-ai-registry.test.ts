@@ -71,6 +71,7 @@ vi.mock("@mastra/core/agent", async (importOriginal) => {
   };
 });
 
+import { LIVE_HIRE_TOOL_IDS } from "@engenty/ai-core";
 import { builtinFunctionAgents } from "../ai/agents/function-agents.js";
 import { createDefaultAiRegistry } from "../ai/agents.js";
 import { assembleDynamicAgent } from "../ai/registry/assemble-dynamic-agent.js";
@@ -371,6 +372,11 @@ describe("dynamic AI registry", () => {
             },
           ],
           moduleId: "contacts",
+          // Module specialists now carry the catalog floor; assembly looks
+          // each id up on this provider, so the floor has to exist here.
+          tools: Object.fromEntries(
+            LIVE_HIRE_TOOL_IDS.map((id) => [id, { id }])
+          ),
         },
       ]),
     };

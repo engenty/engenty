@@ -14,7 +14,7 @@ import { Layers } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
-import { useCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
+import { useOptionalCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
 import type { ArtifactStoreTarget } from "./artifact-move-menu.js";
 import { ArtifactPane } from "./artifact-pane.js";
 import {
@@ -43,6 +43,7 @@ import {
   useContainerArtifactsQuery,
   type WorkContainerRef,
 } from "./artifacts-api.js";
+import { usePinnedActiveArtifact } from "./use-pinned-active-artifact.js";
 
 /** One tab source for the pane; a null id disables the query (no tabs). */
 export interface ArtifactPaneScope {
@@ -110,8 +111,8 @@ export function WorkspaceArtifactPane({
 }: WorkspaceArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
   const queryClient = useQueryClient();
-  const { activeThreadId } = useCopilotThreadBinding();
-  const threadId = activeThreadId?.trim() || null;
+  const threadId =
+    useOptionalCopilotThreadBinding()?.activeThreadId?.trim() || null;
   const { copilotContext } = useCopilotShell();
 
   const primaryScope: ArtifactPaneScope = scope ?? {
@@ -149,10 +150,24 @@ export function WorkspaceArtifactPane({
     mergeArtifacts(primaryQuery.data ?? [], containerQuery.data ?? []),
     extraQuery.data ?? []
   );
-  const artifacts = mergeArtifacts(
+  const listedArtifacts = mergeArtifacts(
     scopedArtifacts,
     library.filter((a) => pickedIds.includes(a.id))
   );
+
+  // The content query runs off the active id alone, so an artifact the lists
+  // do not carry still loads — and its summary pins a tab for it below.
+  const activeArtifactId = isTransientPaneTabKey(activeId) ? null : activeId;
+  const activeVersion = listedArtifacts.find(
+    (a) => a.id === activeArtifactId
+  )?.current_version;
+  const detailQuery = useArtifactDetailQuery(activeArtifactId, activeVersion);
+  const artifacts = usePinnedActiveArtifact({
+    activeArtifactId,
+    artifacts: listedArtifacts,
+    detail: detailQuery.data?.artifact,
+    library,
+  });
 
   useArtifactListSync({
     hostKey,
@@ -258,12 +273,6 @@ export function WorkspaceArtifactPane({
     activate(id);
   };
 
-  const activeArtifactId = isTransientPaneTabKey(activeId) ? null : activeId;
-  const activeVersion = artifacts.find(
-    (a) => a.id === activeArtifactId
-  )?.current_version;
-  const detailQuery = useArtifactDetailQuery(activeArtifactId, activeVersion);
-
   const target = useWorkspaceEndPaneTarget();
 
   const archive = useMutation({
@@ -359,6 +368,17 @@ export function WorkspaceArtifactPane({
             setPickedIds((prev) => prev.filter((picked) => picked !== id));
             return;
           }
+          // A pinned artifact (opened from a card, outside this pane's
+          // scopes) is somebody's deliverable elsewhere: closing its tab only
+          // moves focus on, it never archives.
+          if (!listedArtifacts.some((a) => a.id === id)) {
+            const next = listedArtifacts[0]?.id ?? null;
+            setActiveArtifact(hostKey, next);
+            if (!next) {
+              setPaneOpen(false);
+            }
+            return;
+          }
           archive.mutate(id);
         }}
         onSaveContent={async ({ artifactId, content, expectedVersion }) => {
@@ -406,13 +426,14 @@ export function ArtifactPaneToggle({
   scope?: ArtifactPaneScope;
 }) {
   const { t } = useTranslation("ai-ui");
-  const { activeThreadId } = useCopilotThreadBinding();
+  const threadId =
+    useOptionalCopilotThreadBinding()?.activeThreadId?.trim() || null;
   const { fileTabs, objectTabs, openPane, paneOpen, unseenCount } =
     useArtifacts(hostKey);
 
   const primaryScope: ArtifactPaneScope = scope ?? {
     type: "thread",
-    id: activeThreadId?.trim() || null,
+    id: threadId,
   };
   const primaryQuery = useArtifactsListQuery(
     primaryScope.type,

@@ -1,0 +1,163 @@
+{
+  "id": "at-ekr",
+  "region": "AT",
+  "name": "Österreichischer Einheitskontenrahmen",
+  "short_name": "EKR",
+  "standard": "KFS/BW 6",
+  "publisher": "Kammer der Steuerberater und Wirtschaftsprüfer",
+  "year": 2017,
+  "digit_scheme": "Kontenklasse (1 digit) / Kontengruppe (2) / Konto (3). A company plan may extend to 4+ digits; this pack uses the 3-digit EKR number plus a trailing 0.",
+  "source": {
+    "title": "KFS/BW 6 — Österreichischer Einheitskontenrahmen",
+    "note": "Do not ship the official PDF. Cite KFS/BW 6 and map from its 3-digit accounts."
+  },
+  "classes": [
+    {
+      "class": "0",
+      "name": "Anlagevermögen",
+      "range": "000-099",
+      "statement": "balance_sheet"
+    },
+    {
+      "class": "1",
+      "name": "Vorräte",
+      "range": "100-199",
+      "statement": "balance_sheet"
+    },
+    {
+      "class": "2",
+      "name": "Sonstiges Umlaufvermögen, aktive RAP, aktive latente Steuern",
+      "range": "200-299",
+      "statement": "balance_sheet"
+    },
+    {
+      "class": "3",
+      "name": "Rückstellungen, Verbindlichkeiten, passive RAP",
+      "range": "300-399",
+      "statement": "balance_sheet"
+    },
+    {
+      "class": "4",
+      "name": "Betriebliche Erträge",
+      "range": "400-499",
+      "statement": "income"
+    },
+    {
+      "class": "5",
+      "name": "Materialaufwand und sonstige bezogene Herstellungsleistungen",
+      "range": "500-599",
+      "statement": "income"
+    },
+    {
+      "class": "6",
+      "name": "Personalaufwand",
+      "range": "600-699",
+      "statement": "income"
+    },
+    {
+      "class": "7",
+      "name": "Abschreibungen und sonstige betriebliche Aufwendungen",
+      "range": "700-799",
+      "statement": "income"
+    },
+    {
+      "class": "8",
+      "name": "Finanzerträge und Finanzaufwendungen, Steuern vom Einkommen und Ertrag, Rücklagenbewegung",
+      "range": "800-899",
+      "statement": "income"
+    },
+    {
+      "class": "9",
+      "name": "Eigenkapital, Einlagen unechter stiller Gesellschafter, Abschluss- und Evidenzkonten",
+      "range": "900-999",
+      "statement": "balance_sheet"
+    }
+  ],
+  "expense_groups": [
+    {
+      "group": "70",
+      "accounts": "700-706",
+      "name": "Abschreibungen, Sofortabschreibung GWG"
+    },
+    {
+      "group": "72",
+      "accounts": "720-728",
+      "name": "Instandhaltung und Betriebskosten (Reinigung, Energie, Entsorgung)"
+    },
+    {
+      "group": "73",
+      "accounts": "732-733",
+      "name": "Kfz-Aufwand (PKW/Kombi, LKW)"
+    },
+    {
+      "group": "73",
+      "accounts": "734-735",
+      "name": "Reise- und Fahrtaufwand (inkl. Kilometergeld)"
+    },
+    {
+      "group": "73",
+      "accounts": "736-737",
+      "name": "Tag- und Nächtigungsgelder"
+    },
+    {
+      "group": "73",
+      "accounts": "738",
+      "name": "Nachrichtenaufwand (Porto, Telefon, Internet)"
+    },
+    {
+      "group": "74",
+      "accounts": "740-743",
+      "name": "Miet- und Pachtaufwand"
+    },
+    {
+      "group": "74",
+      "accounts": "748",
+      "name": "Lizenzaufwand"
+    },
+    {
+      "group": "76",
+      "accounts": "760",
+      "name": "Büromaterial und Drucksorten"
+    },
+    {
+      "group": "76",
+      "accounts": "763-764",
+      "name": "Fachliteratur und Zeitungen"
+    },
+    {
+      "group": "76",
+      "accounts": "765-767",
+      "name": "Werbung und Repräsentation"
+    },
+    {
+      "group": "77",
+      "accounts": "770-774",
+      "name": "Versicherungen"
+    },
+    {
+      "group": "77",
+      "accounts": "775-776",
+      "name": "Beratung und Prüfung"
+    },
+    {
+      "group": "77",
+      "accounts": "777",
+      "name": "Aus- und Fortbildung"
+    },
+    {
+      "group": "77",
+      "accounts": "778",
+      "name": "Mitgliedsbeiträge"
+    },
+    {
+      "group": "77",
+      "accounts": "779",
+      "name": "Spesen des Geldverkehrs"
+    },
+    {
+      "group": "78",
+      "accounts": "784-787",
+      "name": "Verschiedene betriebliche Aufwendungen"
+    }
+  ]
+}

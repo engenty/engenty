@@ -7,6 +7,8 @@ export type AgentDetailTab =
   | "overview"
   | "capabilities"
   | "instructions"
+  | "memory"
+  | "files"
   | "workspace"
   | "activity";
 
@@ -14,6 +16,8 @@ export const AGENT_DETAIL_TABS: AgentDetailTab[] = [
   "overview",
   "capabilities",
   "instructions",
+  "memory",
+  "files",
   "workspace",
   "activity",
 ];
@@ -29,6 +33,10 @@ export function resolveAgentDetailTab(
       return "instructions";
     case "workspace":
       return "workspace";
+    case "memory":
+      return "memory";
+    case "files":
+      return "files";
     // /sessions stays as an alias of the Activity tab (ui-6 batch 3).
     case "activity":
     case "sessions":

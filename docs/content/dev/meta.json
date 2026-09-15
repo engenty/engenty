@@ -11,6 +11,7 @@
     "setup-process",
     "plugins",
     "connections",
+    "agent-computers",
     "artifacts",
     "objects",
     "generative-ui",

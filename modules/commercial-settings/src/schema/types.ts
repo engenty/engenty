@@ -21,6 +21,8 @@ export interface Discipline {
 }
 
 export interface ExpenseCategory {
+  /** Kontenklasse (first digit of the chart account), e.g. `"7"` for AT EKR Aufwand. */
+  account_class?: string | null;
   account_number?: string | null;
   code: string;
   color?: string | null;

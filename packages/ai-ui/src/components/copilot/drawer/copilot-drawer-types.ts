@@ -21,6 +21,7 @@ export type CopilotPanelMode = "docked" | "floating";
 export type CopilotDockMode =
   | "floating"
   | "mini-floating"
+  | "window"
   | "drawer"
   | "sidebar"
   | "bottom";
@@ -115,6 +116,8 @@ export interface CopilotDrawerProps {
   /** Bottom-dock ⋮ menu: aria label for the position trigger. */
   positionMenuAriaLabel?: string;
   positionSidebarLabel?: string;
+  /** Draggable, resizable window over the page (`window` dock mode). */
+  positionWindowLabel?: string;
   preferredDockMode?: CopilotDockMode | null;
   /**
    * When true with `agentSessionChooserEnabled`, `chooserMenuSessions` is a flat recent-session list

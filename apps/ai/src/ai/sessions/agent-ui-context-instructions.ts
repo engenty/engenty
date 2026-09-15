@@ -11,7 +11,10 @@ import {
   resolveCurrentPageModule,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import { resolveFrontendToolsForAgent } from "../../../ai/frontend-tools/catalog.js";
+import {
+  type FrontendToolGrant,
+  resolveFrontendToolsForAgent,
+} from "../../../ai/frontend-tools/catalog.js";
 import { getEngentyCoreBaseUrlFromEnv } from "../core-http-client.js";
 import { resolveModuleSkillCatalogHint } from "../skills/module-skill-hint.js";
 import { createSkillStorage } from "../skills/skill-storage.js";
@@ -30,13 +33,15 @@ const COPILOT_AGENT_ID = "engenty.copilot";
 
 function buildFrontendToolInstructions(
   agentId: string,
-  agentUi?: AgentUiProducerContext | null
+  agentUi?: AgentUiProducerContext | null,
+  grant?: FrontendToolGrant | null
 ): string {
   // Same seam the executor registers from — otherwise the prompt teaches tools
   // the model was never given, which is how a model ends up inventing one.
   const tools = resolveFrontendToolsForAgent({
     agentId,
     clientTools: agentUi?.frontend_tools,
+    grant: grant ?? null,
   });
   if (tools.length === 0) {
     return "";
@@ -131,12 +136,15 @@ async function resolveModuleSkillHintSection(input: {
 export async function buildAgentUiContextInstructions(input: {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
+  /** The worker-lane page-tool grant; see `resolveFrontendToolsForAgent`. */
+  frontendToolGrant?: FrontendToolGrant | null;
   runContext?: RunAgentInput["context"];
   scope: AiSessionScope;
 }): Promise<string> {
   const frontendToolInstructions = buildFrontendToolInstructions(
     input.agentId,
-    input.agentUi
+    input.agentUi,
+    input.frontendToolGrant
   );
   const runContextInstructions = formatRunAgentContextEntries(input.runContext);
   const snapshot = input.agentUi?.state_snapshot;

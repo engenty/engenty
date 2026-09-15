@@ -26,7 +26,7 @@ import {
 import {
   firstSuccessfulDeskPath,
   listHireSpaces,
-  spaceAgentDeskPath,
+  spaceAgentDeskHref,
   spaceRootPath,
 } from "../features/agent-form/hire-spaces";
 import {
@@ -190,20 +190,37 @@ export function AgentFormPage({
         ...config,
         spaceIds: draft.spaceIds,
       });
+      const welcomeThreadId = (spaceId: string) =>
+        result.welcome?.find((row) => row.spaceId === spaceId)?.threadId ??
+        null;
       let deskPath: string | null = null;
       if (lockedSpace) {
         const mountedHere = result.mounted.some(
           (row) => row.ok && row.spaceId === lockedSpace.id
         );
         if (mountedHere) {
-          deskPath = spaceAgentDeskPath(lockedSpace.key, result.agent.id);
+          deskPath = spaceAgentDeskHref(
+            lockedSpace.key,
+            result.agent.id,
+            welcomeThreadId(lockedSpace.id)
+          );
         }
       } else {
-        deskPath = firstSuccessfulDeskPath(
-          result.mounted,
-          spacesQuery.data ?? [],
-          result.agent.id
+        const mounted = result.mounted.find((row) => row.ok);
+        const space = spacesQuery.data?.find(
+          (candidate) => candidate.id === mounted?.spaceId
         );
+        deskPath = space
+          ? spaceAgentDeskHref(
+              space.key,
+              result.agent.id,
+              welcomeThreadId(space.id)
+            )
+          : firstSuccessfulDeskPath(
+              result.mounted,
+              spacesQuery.data ?? [],
+              result.agent.id
+            );
       }
       if (!deskPath) {
         setLocalError(t("agentForm.mountFailed"));

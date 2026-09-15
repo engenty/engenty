@@ -9,7 +9,9 @@
 
 /** Default AI Gateway model ids (single source; re-exported by chat-model-id). */
 export const DEFAULT_AI_CHAT_MODEL_ID = "openai/gpt-5.6-luna";
-/** Default for classifier / router / low-effort roles. */
+/** Cheapest capable agent-turn model (tools). Not the classifier 20B. */
+export const DEFAULT_AI_LOW_MODEL_ID = "openai/gpt-5-nano";
+/** Default for classifier / router — short jobs, open-weight, cheap. */
 export const DEFAULT_AI_CLASSIFIER_MODEL_ID = "openai/gpt-oss-20b";
 /**
  * Default for the planning & coding tier (sandboxed code execution, plan

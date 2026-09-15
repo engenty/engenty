@@ -78,6 +78,11 @@ export interface EngentySpaceMount {
 }
 
 export interface EngentySpaceSurface {
+  /**
+   * Agent id → who it reports to here, for mounts that name one. Optional
+   * for the same reason; absent means the roster carries no relationships.
+   */
+  agentReportsTo?: Record<string, string>;
   agents: string[];
   /**
    * The acting person's consent for THEIR browser in this space

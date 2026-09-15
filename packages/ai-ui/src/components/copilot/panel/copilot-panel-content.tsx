@@ -79,6 +79,7 @@ export function CopilotPanelContent({
   applySelectedLabel,
   cancelLabel,
   centerEmptyLanding: centerEmptyLandingProp,
+  chatKind = null,
   emptyLandingAlign: emptyLandingAlignProp,
   emptyStateHeader,
   selectedCountLabel,
@@ -226,6 +227,7 @@ export function CopilotPanelContent({
       attachLabel={attachLabel}
       browserPanelLabel={browserPanelLabel}
       browserPanelOpen={browserPanelOpen}
+      chatKind={chatKind}
       clearLabel={clearLabel}
       closeLabel={closeLabel}
       contextMenuLabel={contextMenuLabel}
@@ -368,7 +370,7 @@ export function CopilotPanelContent({
                   {reviewPromptLabel}
                 </p>
               )}
-            {transcriptHeader && !showTranscriptLoading ? (
+            {transcriptHeader ? (
               <div className={cn(transcriptContainerClassName, "empty:hidden")}>
                 {transcriptHeader}
               </div>

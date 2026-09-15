@@ -12,6 +12,10 @@ an Artifact (markdown page, html, table handle, app, file), a typed table, or
 an App — and stay there as you refine it. Chat-only drafts, `/data` scratch,
 and CSV `table` artifacts are the wrong surface.
 
+**Uploaded files already in this Space** (Data → Files) are `/data/Files`, not
+this skill. List that root with workspace list/read; do not load this lane to
+open a PDF or spreadsheet the user already stored.
+
 Survey `current_space` first. If it is unresolved, stop: Space Data writes are
 refused for this run. Never widen to the tenant.
 

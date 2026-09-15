@@ -375,3 +375,11 @@ describe("exists and stat see folders as well as nodes", () => {
     expect(await fs.exists("/Files/ghost")).toBe(false);
   });
 });
+
+describe("mount instructions", () => {
+  it("tells the agent Space uploads live under /data/Files", () => {
+    const fs = filesystem(fakeCore());
+    expect(fs.getInstructions()).toContain("/data/Files");
+    expect(fs.getInstructions()).toContain("does not index /data");
+  });
+});

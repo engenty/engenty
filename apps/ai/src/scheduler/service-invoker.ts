@@ -47,11 +47,16 @@ export async function resolveSchedulerServiceScope(
       tenantId ? { tenantId } : undefined
     );
   } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    // Core answered; this is not a boot race. `invalid_client` means the
+    // env secret is unknown (typical after a DB wipe that kept .env.local).
+    const statusMatch = /HTTP (\d{3})/.exec(error);
+    const status = statusMatch ? Number(statusMatch[1]) : 503;
     return {
-      error: err instanceof Error ? err.message : String(err),
+      error,
       ok: false,
       reason: "resolution_failed",
-      status: 503,
+      status,
     };
   }
   if (!serviceJwt) {

@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { runSetupChecks } from "./setup-checks.js";
 
+/**
+ * Shaped like the real query builder: `select()` returns a thenable that also
+ * carries `limit()`. The earlier fake made `select()` itself terminal, which is
+ * why it never noticed the checks asking for a HEAD — a request PostgREST
+ * answers with no body, leaving supabase-js no error to report and a missing
+ * table looking present.
+ */
 function fakeClient(failing: { core?: boolean; ai?: string[] } = {}) {
   return {
     schema: (schema: string) => ({
-      from: (table: string) => ({
-        select: async () => {
+      from: (table: string) => {
+        const result = () => {
           if (schema === "core" && failing.core) {
             return { error: { message: "connection refused" } };
           }
@@ -13,8 +20,9 @@ function fakeClient(failing: { core?: boolean; ai?: string[] } = {}) {
             return { error: { message: `relation ai.${table} missing` } };
           }
           return { count: 0, error: null };
-        },
-      }),
+        };
+        return { select: () => ({ limit: async () => result() }) };
+      },
     }),
   } as never;
 }

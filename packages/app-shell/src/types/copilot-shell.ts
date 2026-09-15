@@ -11,10 +11,21 @@ export const COPILOT_LAYOUT_NOOP: CopilotLayoutPersistence = {
   mergeLayout: () => {},
 };
 
-/** Shell-level copilot dock modes. Used for layout selection. */
+/**
+ * Shell-level copilot dock modes. Used for layout selection.
+ *
+ * - `floating`: the compact launcher (one input line + status flap).
+ * - `mini-floating`: collapsed to the avatar.
+ * - `window`: the full panel as a draggable, resizable window over the page —
+ *   the conversation and the page side by side without a reserved column.
+ * - `drawer`: overlay panel from the right edge (mobile / tablet fallback).
+ * - `sidebar`: inline, resizable right-hand column.
+ * - `bottom`: composer card docked to the bottom of the main area.
+ */
 export type CopilotDockMode =
   | "floating"
   | "mini-floating"
+  | "window"
   | "drawer"
   | "sidebar"
   | "bottom";

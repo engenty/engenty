@@ -1,5 +1,6 @@
 "use client";
 
+import type { CopilotLayoutPersistence } from "@engenty/app-shell";
 import {
   cn,
   SidePanel,
@@ -30,6 +31,7 @@ import {
   shouldShowCopilotFab,
 } from "./copilot-drawer-utils";
 import { CopilotFabTrigger } from "./copilot-fab-trigger";
+import { CopilotWindowSurface } from "./copilot-window-surface";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
 
 export interface CopilotDrawerSurfaceTreeProps {
@@ -44,6 +46,8 @@ export interface CopilotDrawerSurfaceTreeProps {
    *  approval card the docked panel does. Null when nothing is pending. */
   compactInterruptContent?: ReactNode;
   composerPlaceholder: string;
+  /** Layout persistence — the `window` mode stores its rect here. */
+  copilotLayout?: CopilotLayoutPersistence | null;
   copilotPositionDropdown: ReactNode;
   copilotSidebarRef: RefObject<HTMLDivElement | null> | undefined;
   dragHandleLabel: string;
@@ -178,8 +182,10 @@ export function CopilotDrawerSurfaceTree({
   compactContextOptions,
   compactInterruptContent,
   composerPlaceholder,
+  copilotLayout = null,
   copilotPositionDropdown,
   copilotSidebarRef,
+  dragHandleLabel,
   effectiveMode,
   handleCompactContextChange,
   layout,
@@ -354,6 +360,25 @@ export function CopilotDrawerSurfaceTree({
                 title,
               })
             : null}
+      </>
+    );
+  }
+
+  if (effectiveMode === "window") {
+    return (
+      <>
+        {fabTrigger}
+        {collapseMorph}
+        {open ? (
+          <CopilotWindowSurface
+            copilotLayout={copilotLayout}
+            dragHandleLabel={dragHandleLabel}
+            surfaceInstanceKey={surfaceInstanceKey}
+            title={title}
+          >
+            {panelContent}
+          </CopilotWindowSurface>
+        ) : null}
       </>
     );
   }

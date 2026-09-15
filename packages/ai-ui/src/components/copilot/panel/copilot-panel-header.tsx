@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { type ChatKind, ChatKindBadge } from "../chat-kind-badge.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import type { CopilotHeaderChrome } from "./copilot-panel-content-types";
@@ -190,6 +191,7 @@ export function CopilotPanelHeader({
 
 export function CopilotPanelInlineHeader({
   title = "Enhance",
+  chatKind = null,
   headerVariant,
   headerChrome,
   showAgentChooser,
@@ -218,6 +220,8 @@ export function CopilotPanelInlineHeader({
   browserPanelOpen?: boolean;
   onToggleBrowserPanel?: () => void;
   title?: string;
+  /** Says what kind of conversation this is — the copilot's is personal. */
+  chatKind?: ChatKind | null;
   headerVariant: "docked" | "floating";
   headerChrome: CopilotHeaderChrome;
   showAgentChooser: boolean;
@@ -262,6 +266,9 @@ export function CopilotPanelInlineHeader({
         ) : (
           <CopilotTitle title={title} />
         )}
+        {chatKind ? (
+          <ChatKindBadge className="hidden sm:inline-flex" kind={chatKind} />
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         {onToggleBrowserPanel ? (

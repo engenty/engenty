@@ -32,6 +32,7 @@ import {
   useSpaceMountsQuery,
   useSpacesQuery,
 } from "@/lib/spaces-queries";
+import { SpaceAgentHireCapabilities } from "./SpaceAgentHireCapabilities";
 import { SpaceAgentHireCharacter } from "./SpaceAgentHireCharacter";
 import {
   buildSpaceAgentHireInput,
@@ -82,7 +83,7 @@ export interface SpaceAgentHireForm {
   setReportsTo: (value: string | null) => void;
   spaceId: string;
   /** Creates and mounts the engenty; resolves to its id, or null on error. */
-  submit: () => Promise<string | null>;
+  submit: () => Promise<{ id: string; threadId: string | null } | null>;
   template: SpaceAgentHireTemplate | null;
 }
 
@@ -169,7 +170,10 @@ export function useSpaceAgentHireForm({
     setError(null);
   };
 
-  const submit = async (): Promise<string | null> => {
+  const submit = async (): Promise<{
+    id: string;
+    threadId: string | null;
+  } | null> => {
     if (!canSubmit) {
       return null;
     }
@@ -193,7 +197,12 @@ export function useSpaceAgentHireForm({
         );
         return null;
       }
-      return result.agent.id;
+      return {
+        id: result.agent.id,
+        threadId:
+          result.welcome?.find((row) => row.spaceId === spaceId)?.threadId ??
+          null,
+      };
     } catch (caught) {
       setError(
         getErrorMessage(
@@ -348,6 +357,7 @@ export function SpaceAgentHireFields({
             </Select>
           </div>
         ) : null}
+        <SpaceAgentHireCapabilities template={form.template} />
         {form.error ? (
           <p className="text-destructive text-xs" role="alert">
             {form.error}

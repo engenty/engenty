@@ -219,6 +219,13 @@ export interface DelegatedConversationResult {
   childThreadId: string;
   error?: string;
   finalText: string;
+  /**
+   * Artifacts the child wrote or presented (artifact_write / show_artifact),
+   * in order. The delegate tool hands them to the parent transcript so the
+   * person finds the deliverable where they read, not only in the child's
+   * own thread.
+   */
+  producedArtifactIds?: string[];
   /** Field updates the agent proposed for approval (proposeUpdates artifact). */
   suggestions?: FieldSuggestion[];
   /** True when the run was suspended for approval (observe.suspendForApproval). */
@@ -708,6 +715,9 @@ export async function runDelegatedConversation(
         }
         if (outcome.appArtifactId) {
           result.appArtifactId = outcome.appArtifactId;
+        }
+        if (outcome.producedArtifactIds.length > 0) {
+          result.producedArtifactIds = [...outcome.producedArtifactIds];
         }
         agUiUsage = outcome.usage;
         return outcome.finalText;

@@ -1,0 +1,196 @@
+{
+  "region": "AT",
+  "chart": "at-ekr",
+  "categories": [
+    {
+      "code": "reise",
+      "name": "Reisekosten",
+      "account_class": "7",
+      "account_number": "7340",
+      "account_name": "Reise- und Fahrtaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Flüge, Bahn, Hotel, Tagegeld, Diäten, Km-Geld, Taxi, Mietwagen"
+    },
+    {
+      "code": "bewirtung",
+      "name": "Bewirtung & Repräsentation",
+      "account_class": "7",
+      "account_number": "7650",
+      "account_name": "Werbung und Repräsentation",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 0.5,
+      "llm_hint": "Geschäftsessen, Restaurant, Catering, Kundenessen — 50% absetzbar in AT"
+    },
+    {
+      "code": "buero",
+      "name": "Büromaterial & Verbrauchsmaterial",
+      "account_class": "7",
+      "account_number": "7600",
+      "account_name": "Büromaterial und Drucksorten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Papier, Toner, Stifte, Druckerpatronen, Reinigungsmittel"
+    },
+    {
+      "code": "miete",
+      "name": "Miete & Betriebskosten",
+      "account_class": "7",
+      "account_number": "7400",
+      "account_name": "Miet- und Pachtaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Büromiete, Pacht. Strom, Heizung, Reinigung gemieteter Räume gehören auf 7200 (Klasse 7, Gruppe 72), nicht auf 74."
+    },
+    {
+      "code": "telekom",
+      "name": "Telefon, Internet & Kommunikation",
+      "account_class": "7",
+      "account_number": "7380",
+      "account_name": "Nachrichtenaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Handyvertrag, Festnetz, Internet, Mobilfunk, Hosting, Domain"
+    },
+    {
+      "code": "porto",
+      "name": "Porto & Versand",
+      "account_class": "7",
+      "account_number": "7381",
+      "account_name": "Nachrichtenaufwand (Porto)",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Briefmarken, Paketversand, Kurier, DHL, Post"
+    },
+    {
+      "code": "literatur",
+      "name": "Fachliteratur & Zeitschriften",
+      "account_class": "7",
+      "account_number": "7630",
+      "account_name": "Fachliteratur und Zeitungen",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Fachbücher, Zeitschriften-Abo, Online-Zugang, Newsletter-Abo"
+    },
+    {
+      "code": "fortbildung",
+      "name": "Aus- und Fortbildung",
+      "account_class": "7",
+      "account_number": "7770",
+      "account_name": "Aus- und Fortbildung",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Seminare, Kurse, Konferenzen, Workshops, Zertifizierungen, Prüfungsgebühren"
+    },
+    {
+      "code": "versicherung",
+      "name": "Versicherungen",
+      "account_class": "7",
+      "account_number": "7700",
+      "account_name": "Versicherungen",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Betriebshaftpflicht, Berufshaftpflicht, Elektronikversicherung, Rechtsschutz"
+    },
+    {
+      "code": "kfz",
+      "name": "Kfz-Kosten",
+      "account_class": "7",
+      "account_number": "7320",
+      "account_name": "Kfz-Aufwand (PKW und Kombis)",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Treibstoff, Tankrechnung, Service, Reparatur, Vignette, Maut, Parkgebühren, Leasing"
+    },
+    {
+      "code": "werbung",
+      "name": "Werbung & Marketing",
+      "account_class": "7",
+      "account_number": "7660",
+      "account_name": "Werbung und Repräsentation",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Anzeigen, Google Ads, Social Media, Flyer, Druckkosten, Messestand, Sponsoring"
+    },
+    {
+      "code": "beratung",
+      "name": "Beratung & Fremdleistungen",
+      "account_class": "7",
+      "account_number": "7750",
+      "account_name": "Beratung und Prüfung",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Steuerberater, Rechtsanwalt, Unternehmensberatung, Freelancer, Subunternehmer"
+    },
+    {
+      "code": "software",
+      "name": "Software, Lizenzen & IT",
+      "account_class": "7",
+      "account_number": "7480",
+      "account_name": "Lizenzaufwand",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "SaaS-Abos, Cloud, Microsoft 365, Adobe, Antivirus, Server, Backup"
+    },
+    {
+      "code": "ausstattung",
+      "name": "Büroeinrichtung & Geräte",
+      "account_class": "7",
+      "account_number": "7060",
+      "account_name": "Sofortabschreibung geringwertiger Vermögensgegenstände",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Möbel, Monitor, Laptop, Tastatur, Drucker — GWG sofort auf 7060; über der GWG-Grenze Anlagevermögen Klasse 0 (060/062)"
+    },
+    {
+      "code": "bank",
+      "name": "Bank- & Zahlungsgebühren",
+      "account_class": "7",
+      "account_number": "7790",
+      "account_name": "Spesen des Geldverkehrs",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Kontogebühren, Überweisungsgebühren, Kreditkartengebühren, PayPal-Gebühren"
+    },
+    {
+      "code": "mitglied",
+      "name": "Mitgliedsbeiträge & Verbände",
+      "account_class": "7",
+      "account_number": "7780",
+      "account_name": "Mitgliedsbeiträge",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "WKO, Berufsverband, Kammer, Verein, Fachverband"
+    },
+    {
+      "code": "geschenke",
+      "name": "Geschenke & Kundengeschenke",
+      "account_class": "7",
+      "account_number": "7670",
+      "account_name": "Werbung und Repräsentation",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Werbegeschenke mit Logo 100% absetzbar, rein repräsentative Geschenke nicht"
+    },
+    {
+      "code": "reparatur",
+      "name": "Reparaturen & Instandhaltung",
+      "account_class": "7",
+      "account_number": "7200",
+      "account_name": "Instandhaltung und Betriebskosten",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Gerätereparatur, Büroreparatur, Wartungsvertrag, Handwerker"
+    },
+    {
+      "code": "sonstige",
+      "name": "Sonstige betriebliche Aufwendungen",
+      "account_class": "7",
+      "account_number": "7840",
+      "account_name": "Verschiedene betriebliche Aufwendungen",
+      "is_tax_deductible": true,
+      "default_deduction_rate": 1,
+      "llm_hint": "Alles, was in keine andere Kategorie passt — Fallback-Kategorie"
+    }
+  ]
+}

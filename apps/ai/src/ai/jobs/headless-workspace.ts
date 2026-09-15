@@ -25,8 +25,8 @@ import type { RunSpaceResolution } from "../sessions/run-space.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { mergeDeclaredWorkspaceMounts } from "../workspace/sandbox-mounts.js";
 import {
-  buildEngentyMountSpecs,
   expandWorkspaceMounts,
+  resolveEngentyMountSpecs,
 } from "../workspace/workspace-presets.js";
 
 const logger = createLogger({ name: "apps/ai/headless-workspace" });
@@ -80,18 +80,37 @@ export async function buildHeadlessWorkspace(input: {
     workspaceConfig,
     expandWorkspaceMounts(workspaceConfig)
   );
-  const mountSpecs = buildEngentyMountSpecs(declaredMounts, {
-    agentId: input.agentId,
-    runId: input.runId,
-    sandboxLifecycle: workspaceConfig.sandbox?.lifecycle ?? "run",
-    tenantId: input.scope.tenantId,
-    threadId: input.threadId,
-    userId: input.scope.userId,
-    ...(input.projectId ? { projectId: input.projectId } : {}),
-    ...(input.routineId ? { routineId: input.routineId } : {}),
-    ...(input.spaceId ? { spaceId: input.spaceId } : {}),
-    ...(input.taskIdentifier ? { taskIdentifier: input.taskIdentifier } : {}),
-  });
+  const { specs: mountSpecs, dropped } = resolveEngentyMountSpecs(
+    declaredMounts,
+    {
+      agentId: input.agentId,
+      runId: input.runId,
+      sandboxLifecycle: workspaceConfig.sandbox?.lifecycle ?? "run",
+      tenantId: input.scope.tenantId,
+      threadId: input.threadId,
+      userId: input.scope.userId,
+      ...(input.projectId ? { projectId: input.projectId } : {}),
+      ...(input.routineId ? { routineId: input.routineId } : {}),
+      ...(input.spaceId ? { spaceId: input.spaceId } : {}),
+      ...(input.taskIdentifier ? { taskIdentifier: input.taskIdentifier } : {}),
+    }
+  );
+  // A Space-rooted mount that fell away is the "no access to files" report;
+  // a binding drop is the ordinary shape of a run. Same split as the chat lane.
+  for (const mount of dropped) {
+    const fields = {
+      agent_id: input.agentId,
+      mount_path: mount.path,
+      reason: mount.reason,
+      run_id: input.runId,
+      tenant_id: input.scope.tenantId,
+    };
+    if (mount.reason === "no_space") {
+      logger.warn("workspace_mount_dropped", fields);
+    } else {
+      logger.debug("workspace_mount_dropped", fields);
+    }
+  }
   if (mountSpecs.length === 0) {
     // Same call the chat lane makes, and worth the same line: the run proceeds,
     // but the agent's instructions may assume file tools that are not there.

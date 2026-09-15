@@ -17,7 +17,13 @@ const MIGRATIONS_DIR = join(
   "../../supabase/migrations"
 );
 
-const DECLARATION = "create or replace function core.space_baseline_mounts()";
+/**
+ * Matched case-insensitively and in both spellings: hand-written migrations say
+ * `create or replace function`, while the consolidated baseline is pg_dump
+ * output and says `CREATE FUNCTION`.
+ */
+const DECLARATION =
+  /create (?:or replace )?function core\.space_baseline_mounts\(/i;
 
 /**
  * The LAST migration that redefines the function, not a fixed filename.
@@ -34,12 +40,12 @@ function latestBaselineMigration(): string {
     .filter((name) => name.endsWith(".sql"))
     .sort()
     .filter((name) =>
-      readFileSync(join(MIGRATIONS_DIR, name), "utf8").includes(DECLARATION)
+      DECLARATION.test(readFileSync(join(MIGRATIONS_DIR, name), "utf8"))
     );
   const last = files.at(-1);
   if (!last) {
     throw new Error(
-      `No migration defines ${DECLARATION} — this guard is checking nothing.`
+      "No migration defines core.space_baseline_mounts() — this guard is checking nothing."
     );
   }
   return join(MIGRATIONS_DIR, last);
@@ -57,7 +63,7 @@ function parseBaselineFunction(sql: string): ParsedRow[] {
   // Bounded by the function's own `$$;` terminator rather than by the `comment
   // on` that used to follow it: a redefinition need not repeat the comment, and
   // an unfound end marker silently made this slice the whole file.
-  const start = sql.indexOf(DECLARATION);
+  const start = sql.search(DECLARATION);
   const end = sql.indexOf("$$;", start);
   const body = sql.slice(start, end === -1 ? undefined : end);
   const literal = "(?:'([^']*)'|null)::text";
@@ -119,33 +125,62 @@ describe("core.space_baseline_mounts() ↔ SPACE_BASELINE_MOUNTS", () => {
 });
 
 /**
- * Company's default modules live in `core.ensure_default_space()` — the
- * tenant trigger that makes the space, since no template ever runs for it.
- * Tasks is a DEFAULT there, never baseline:
- * seeded `is_required = false`, so an admin can still drop it.
+ * Company's first space lives in `core.ensure_default_space()` — the tenant
+ * trigger that makes the space, since no template ever runs for it.
+ * Baseline mounts (Copilot, Files, Connections, platform agents) are seeded
+ * by `core.seed_space_baseline_mounts()`. Tasks is not a Company default.
  */
 describe("core.ensure_default_space() seeds Company's defaults", () => {
-  const ENSURE = "create or replace function core.ensure_default_space()";
+  // Same two spellings as DECLARATION above: hand-written vs pg_dump.
+  const ENSURE =
+    /create (?:or replace )?function core\.ensure_default_space\(/i;
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((name) => name.endsWith(".sql"))
     .sort()
     .filter((name) =>
-      readFileSync(join(MIGRATIONS_DIR, name), "utf8").includes(ENSURE)
+      ENSURE.test(readFileSync(join(MIGRATIONS_DIR, name), "utf8"))
     );
   const latest = files.at(-1);
   const sql = latest ? readFileSync(join(MIGRATIONS_DIR, latest), "utf8") : "";
-  const start = sql.indexOf(ENSURE);
+  const start = sql.search(ENSURE);
   const body = sql.slice(start, sql.indexOf("$$;", start));
 
-  it("mounts tasks as a removable default, not a required one", () => {
-    expect(body).toMatch(
-      /values\s*\(\s*new\.id,\s*v_space_id,\s*'module',\s*'tasks',\s*null,\s*'write',\s*false\s*\)/
-    );
+  it("finds the function at all", () => {
+    // Guards the guard: an empty body would make the assertion below pass.
+    expect(body.length).toBeGreaterThan(80);
+  });
+
+  it("does not seed tasks on the default Company space", () => {
+    expect(body).not.toMatch(/'tasks'/);
   });
 
   it("does not also list tasks in the baseline", () => {
     expect(SPACE_BASELINE_MOUNTS.map(spaceMountKey)).not.toContain(
       "module:tasks"
     );
+  });
+});
+
+describe("core.seed_space_baseline_mounts() seeds Copilot on every space", () => {
+  const SEED =
+    /create (?:or replace )?function core\.seed_space_baseline_mounts\(/i;
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .filter((name) =>
+      SEED.test(readFileSync(join(MIGRATIONS_DIR, name), "utf8"))
+    );
+  const latest = files.at(-1);
+  const sql = latest ? readFileSync(join(MIGRATIONS_DIR, latest), "utf8") : "";
+  const start = sql.search(SEED);
+  const body = sql.slice(start, sql.indexOf("$$;", start));
+
+  it("finds the function at all", () => {
+    expect(body.length).toBeGreaterThan(80);
+  });
+
+  it("does not skip Copilot when the space is the tenant default", () => {
+    expect(body).not.toMatch(/new\.is_default/);
+    expect(body).toMatch(/space_baseline_mounts\(\)/);
   });
 });

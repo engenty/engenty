@@ -271,13 +271,43 @@
     "cockpitBanner": "Sie suchen Ziele, Aufgaben und Dispatch? Dieser Feed dient der Prüfung und Fehlersuche.",
     "cockpitBannerLink": "Operations-Cockpit öffnen"
   },
+  "chatKind": {
+    "theAgent": "der Agent",
+    "theSpace": "der Space",
+    "dm": {
+      "label": "Privat",
+      "hint": "Nur du und {{name}} sehen das",
+      "readers": "Nur du und {{name}} sehen das"
+    },
+    "desk": {
+      "label": "Geteilter Desk",
+      "labelWithSpace": "Geteilter Desk · {{space}}",
+      "hint": "Alle in {{space}} sehen das",
+      "readers": "Alle in {{space}} sehen das"
+    },
+    "room": {
+      "label": "Raum",
+      "labelWithCount_one": "Raum · {{count}} Mitglied",
+      "labelWithCount_other": "Raum · {{count}} Mitglieder",
+      "hint": "Die Mitglieder des Raums sehen das",
+      "readers": "Die Mitglieder des Raums sehen das"
+    },
+    "copilot": {
+      "label": "Persönlicher Copilot",
+      "hint": "Dein eigener Assistent — niemand sonst sieht das",
+      "readers": "Nur du siehst das"
+    }
+  },
   "agentMessage": {
     "failed": "Nicht erreicht:",
     "from": "Nachricht von",
+    "replied": "hat geantwortet",
+    "openConversation": "Unterhaltung öffnen",
     "openedRoom": "Raum eröffnet mit",
     "postedInRoom": "Im Raum an",
     "messaged": "Nachricht an",
-    "messaging": "Schreibt an"
+    "messaging": "Schreibt an",
+    "openArtifact": "Öffnen"
   },
   "memoryBreak": {
     "description": "Was der Agent von den Nachrichten oberhalb dieser Linie noch weiß, so wie sein Beobachter es notiert hat. Zuletzt beobachtet {{observedAt}}.",
@@ -288,6 +318,25 @@
     "reflected_one": "Bis hier erinnert · verdichtet · {{count}} Beobachtung",
     "reflected_other": "Bis hier erinnert · verdichtet · {{count}} Beobachtungen",
     "title": "Erinnert von oben"
+  },
+  "agentSurface": {
+    "title": "Oberflächen",
+    "description": "Wo dieser Engenty außer an seinem Desk wirken darf: auf dem Bildschirm der Person, während sie mit ihm chattet, und in Kanälen als er selbst.",
+    "unavailable": "Oberflächen-Einstellungen sind für diesen Agenten nicht verfügbar.",
+    "uiTools": {
+      "label": "Bildschirm-Werkzeuge",
+      "hint": "Seiten und Dialoge öffnen, Felder fokussieren, die Person führen, die Seite ansehen. Nur während jemand mit ihm chattet – nie in einer Routine oder aus einem Kanal.",
+      "auto": "Nur Koordinator (Standard)",
+      "on": "An",
+      "off": "Aus"
+    },
+    "remote": {
+      "label": "Aus Kanälen erreichbar",
+      "hint": "Slack oder Telegram dürfen diesen Engenty direkt ansprechen – mit seinen eigenen Werkzeugen und seinem Gedächtnis. Aus: Kanal-Nachrichten bleiben bei der gemeinsamen Eingangstür.",
+      "handleLabel": "Handle",
+      "handleHint": "Personen schreiben @{{handle}} oder /to {{handle}}, um ihn zu erreichen.",
+      "handleInvalid": "Kleinbuchstaben, Ziffern, Bindestriche oder Unterstriche; bis zu 32 Zeichen."
+    }
   },
   "agentConnections": {
     "description": "Konten, die dieser Agent selbständig nutzen darf – in Hintergrundaufgaben und Routinen. Zugriff geben heißt nicht zustimmen: Autonomiemodus und Regeln pro Aktion gelten weiterhin.",
@@ -418,6 +467,15 @@
       }
     },
     "reportsTo": "Berichtet an",
+    "relation": {
+      "coordinator": "Koordinator — berichtet an niemanden, darf einstellen und einrichten",
+      "reports": "Berichte von: {{names}}"
+    },
+    "status": {
+      "idle": "Bereit",
+      "waiting": "Wartet auf jemanden",
+      "working": "Arbeitet"
+    },
     "room": {
       "add": "Hinzufügen",
       "cancel": "Abbrechen",
@@ -465,6 +523,7 @@
       "notARoom": "Diese Unterhaltung ist kein Raum dieses Space.",
       "open": "Rauminfo",
       "owner": "Besitzer",
+      "privateHint": "Privater Raum — nur seine Mitglieder sehen das",
       "title": "Raum"
     }
   },
@@ -492,9 +551,17 @@
     "tabs": {
       "activity": "Aktivität",
       "capabilities": "Capabilities",
+      "files": "Dateien",
       "instructions": "Anweisungen",
+      "memory": "Gedächtnis",
       "overview": "Übersicht",
       "workspace": "Arbeitsbereich"
+    },
+    "memory": {
+      "hint": "Was dieser Engenty sich merkt — pro Space. Der Lauf schreibt es; du kannst korrigieren oder leeren.",
+      "loading": "Spaces werden geladen…",
+      "noSpaces": "Kein Space, dessen Gedächtnis gelesen werden könnte.",
+      "space": "Space"
     },
     "workSourcesActions": "Workflows",
     "workSourcesActionsEmpty": "Kein Workflow löst diesen Agenten aus.",
@@ -1426,6 +1493,16 @@
     "agentEmpty": "Diesem Agenten sind noch keine direkten Skills zugeordnet.",
     "derivedEmpty": "Noch steuert kein Workflow einen Skill zu diesem Agenten bei.",
     "effectiveToolsEmpty": "Für diesen Agenten sind in den verknüpften Skills noch keine katalogdefinierten Tools hinterlegt.",
+    "toolLayers": {
+      "default": "Standard — jeder Engenty hat diese",
+      "defaultHint": "Katalog, Space-Daten, Kolleginnen und Oberfläche. Nicht auf der Zeile; bei jedem Lauf angewendet.",
+      "agent": "Dieser Engenty",
+      "agentHint": "Auf der eigenen Zeile oder im Manifest deklariert, zusätzlich zum Standardsatz.",
+      "attached": "Zur Laufzeit angehängt",
+      "attachedHint": "Darstellungs- und Freigabe-Tools, die jeder Lauf erhält; nichts zu konfigurieren.",
+      "spaceHidden": "In diesem Space verborgen",
+      "spaceHiddenHint": "Deklariert, aber die App ist hier nicht eingebunden — der Lauf sieht sie nicht."
+    },
     "toolsSchemasToggle": "Schemas",
     "toolsSchemasLoading": "Tool-Schemas werden geladen…",
     "toolsRuntimeDescription": "Runtime-Beschreibung (vom Tool)",
@@ -1680,6 +1757,15 @@
     "agents": "Agenten",
     "objects": "Objekte",
     "sources": "Quellen",
+    "skills": "Skills",
+    "skillSource": {
+      "agent": "eigene",
+      "default": "jeder Engenty",
+      "space": "dieser Space"
+    },
+    "memory": "Gedächtnis",
+    "files": "Eigene Dateien",
+    "agentArtefacts": "Eigene Artefakte",
     "untitledAttachment": "Unbenannte Datei"
   },
   "toolForm": {
@@ -1845,6 +1931,7 @@
     "settingsTabDescription": "Workflows und Trigger-Verdrahtung für den ausgewählten Agenten.",
     "codeOwnedHint": "Dieser Arbeitsbereich ist im Code definiert und wird schreibgeschützt angezeigt. Dateien in beschreibbaren Mounts können dennoch bearbeitet werden.",
     "configurableHint": "Dieser Agent ist mandantenspezifisch – Arbeitsbereich-Einstellungen sind bearbeitbar.",
+    "homeHint": "Die eigenen Dateien des Agenten unter /home — Notizen, Entwürfe und Arbeitskopien zwischen den Läufen.",
     "delete": "Löschen",
     "disabled": "Deaktiviert",
     "empty": "Keine Dateien.",
@@ -1882,7 +1969,9 @@
   },
   "transcript": {
     "loadOlder": "Ältere Nachrichten laden",
-    "loadingOlder": "Lädt…"
+    "loadingOlder": "Lädt…",
+    "showMore": "Mehr anzeigen",
+    "showLess": "Weniger anzeigen"
   },
   "appReview": {
     "headline": "Release {{version}} ({{sha}}) wartet auf dich.",

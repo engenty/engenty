@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@engenty/ui-core";
 import { useNavigate } from "react-router-dom";
+import { spaceConversationSearch } from "@/lib/space-conversation-open";
 import { spaceAgentDeskPath } from "@/lib/space-routes";
 import {
   SpaceAgentHireFields,
@@ -44,12 +45,18 @@ export function SpaceAgentHireWizard({
   });
 
   const submit = async () => {
-    const agentId = await form.submit();
-    if (!agentId) {
+    const hired = await form.submit();
+    if (!hired) {
       return;
     }
     onOpenChange(false);
-    navigate(spaceAgentDeskPath(spaceKey, agentId), { replace: true });
+    navigate(
+      `${spaceAgentDeskPath(spaceKey, hired.id)}${spaceConversationSearch({
+        kind: "desk",
+        threadId: hired.threadId,
+      })}`,
+      { replace: true }
+    );
   };
 
   return (

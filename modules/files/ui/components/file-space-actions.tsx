@@ -84,9 +84,9 @@ export function useFileSpaceActions(
 
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files;
+      const files = Array.from(event.target.files ?? []);
       event.target.value = "";
-      if (files) {
+      if (files.length > 0) {
         void uploadFiles(files);
       }
     },

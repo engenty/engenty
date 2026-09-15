@@ -19,6 +19,7 @@ export function MobileNavSheet(props: {
   hasSecondaryNav: boolean;
   mobileOpen: boolean;
   onMobileOpenChange: (open: boolean) => void;
+  onOpenAppMenu?: () => void;
   pathname: string;
   search: string;
   sections: NavigationSection[];
@@ -35,6 +36,7 @@ export function MobileNavSheet(props: {
     hasSecondaryNav,
     mobileOpen,
     onMobileOpenChange,
+    onOpenAppMenu,
     pathname,
     search,
     sections,
@@ -72,6 +74,7 @@ export function MobileNavSheet(props: {
           <AppSidebar
             compact
             onNavigate={() => onMobileOpenChange(false)}
+            onOpenAppMenu={onOpenAppMenu}
             sections={sections}
             shell={shell}
             spacesZone={spacesZone}

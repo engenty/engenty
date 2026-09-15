@@ -3,6 +3,7 @@
 import { Button, cn, Engenty } from "@engenty/ui-core";
 import { Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
 import type {
   SpaceChatKind,
   SpaceChatKindGroup,
@@ -65,7 +66,15 @@ function ChatRow({
       <span className="min-w-0 flex-1 truncate" title={label}>
         {label}
       </span>
-      {row.visibility === "private" ? (
+      {/* The kind, as the same glyph the chat header wears — the heading says
+          it once, the row says it where the eye lands. */}
+      <ChatKindBadge
+        iconOnly
+        kind={row.kind}
+        memberCount={row.memberAgentIds.length}
+        name={row.agentName}
+      />
+      {row.visibility === "private" && row.kind !== "dm" ? (
         <Lock aria-hidden className="size-3 shrink-0 text-muted-foreground" />
       ) : null}
       {/* A run in flight is the one status worth a mark in a list this dense:

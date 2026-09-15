@@ -156,6 +156,10 @@ export const ChainOfThought = memo(
     });
 
     const hasEverStreamedRef = useRef(isStreaming);
+    // Only a panel THIS component opened for the stream folds itself back up
+    // afterwards. One a person opened stays open — closing it under them 1.2s
+    // after the run ends threw away what they had just chosen to read.
+    const autoOpenedRef = useRef(resolvedDefaultOpen && isStreaming);
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
     const startTimeRef = useRef<number | null>(null);
     const rootRef = useRef<HTMLDivElement | null>(null);
@@ -201,6 +205,7 @@ export const ChainOfThought = memo(
 
     useEffect(() => {
       if (isStreaming && !isOpen && !isExplicitlyClosed) {
+        autoOpenedRef.current = true;
         setIsOpenPinned(true);
       }
     }, [isExplicitlyClosed, isOpen, isStreaming, setIsOpenPinned]);
@@ -208,6 +213,7 @@ export const ChainOfThought = memo(
     useEffect(() => {
       if (
         hasEverStreamedRef.current &&
+        autoOpenedRef.current &&
         !isStreaming &&
         isOpen &&
         !hasAutoClosed
@@ -252,6 +258,8 @@ export type ChainOfThoughtHeaderProps = ComponentProps<
   typeof CollapsibleTrigger
 > & {
   getLabel?: (isStreaming: boolean, duration?: number) => ReactNode;
+  /** Drawn after the label, never truncated — an elapsed counter, a count. */
+  trailing?: ReactNode;
 };
 
 const defaultGetLabel = (isStreaming: boolean, duration?: number): string => {
@@ -269,6 +277,7 @@ export const ChainOfThoughtHeader = memo(
     children,
     className,
     getLabel = defaultGetLabel,
+    trailing,
     ...props
   }: ChainOfThoughtHeaderProps) => {
     const { duration, isOpen, isStreaming } = useChainOfThought();
@@ -297,6 +306,14 @@ export const ChainOfThoughtHeader = memo(
                 label
               )}
             </span>
+            {trailing != null && trailing !== false ? (
+              <span
+                className="shrink-0 text-muted-foreground/70 text-xs tabular-nums"
+                data-slot="cot-trailing"
+              >
+                {trailing}
+              </span>
+            ) : null}
             <ChevronDown
               className={cn(
                 "size-3.5 shrink-0 opacity-50 transition-transform",

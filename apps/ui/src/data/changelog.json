@@ -1,7 +1,205 @@
 [
   {
+    "version": "v0.2.4",
+    "timestamp": 1789489447,
+    "commits": [
+      {
+        "id": "16db2ed",
+        "message": "live one-line working status and visible run failures",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c2e2142",
+        "message": "open delegated artifacts from the person's thread",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6d512d4",
+        "message": "restore supabase_realtime publication membership",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "852555e",
+        "message": "activate AI models in filtered cohorts",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4a24ff9",
+        "message": "let ListFilterChip keep several values selected",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7fa479f",
+        "message": "document handle routing and per-Engenty channel turns",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9a14195",
+        "message": "hire-floor desks, overlay context, and per-Engenty routing",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bd9e3b2",
+        "message": "look up Space uploads at /data/Files",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "779a40c",
+        "message": "Files on home, columns that follow the pane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0c45e2e",
+        "message": "give agents tools, skills, and a settings Engenty",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "592d53a",
+        "message": "map expense categories to regional charts of accounts",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d3f3de8",
+        "message": "a missing comma after the hero sub blanked the landing",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "35910c4",
+        "message": "keep Close on the column’s right seam when pinned",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8cff763",
+        "message": "let Modules and Extensions fold from the heading",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f22c162",
+        "message": "enhance SpaceHomeAudience with section heading and improved accessibility text",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "61836fc",
+        "message": "put the Engenty mark and column toggle on the app bar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "17fd560",
+        "message": "shorten the home team line",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "94be200",
+        "message": "show who belongs in the home header",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "12dfcad",
+        "message": "drop the home tile and paint action links primary",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e547d48",
+        "message": "put Copilot back on every space, including Company",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3e0781d",
+        "message": "greet a new hire so the desk is not silent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "06d2e40",
+        "message": "start Company with Files and Connections only",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fb3ccfb",
+        "message": "point core at AI over loopback under Portless",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "00be609",
+        "message": "pass --domain through preflight port checks",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5a38e41",
+        "message": "say which containers a run gets, and drop the old Code Mode plan",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "8cd0419",
+        "message": "stop the setup checks passing on a database that is missing tables",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ae78956",
+        "message": "create the Mastra tables on installs without a checkout",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "812c2c7",
+        "message": "make `engenty start` reach a serving app",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "85a340e",
+        "message": "make the consolidated baseline able to build a fresh database",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c6ceb60",
+        "message": "run engenty on this machine with `engenty start`",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "217d43e",
+        "message": "consolidate every owner's migrations into one baseline",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "7d77e12",
+        "message": "print CLI failures as a readable line instead of JSON",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.3",
-    "timestamp": 1789330698,
+    "timestamp": 1789330700,
     "commits": [
       {
         "id": "77d689f",

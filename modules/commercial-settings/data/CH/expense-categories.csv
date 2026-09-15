@@ -1,0 +1,7 @@
+code,name,account_class,account_number,account_name,is_tax_deductible,default_deduction_rate,llm_hint
+reise,Reisespesen,6,6540,Reiseaufwand,true,1,"Reisekosten, Bahn, Flug, Hotel"
+verpflegung,Verpflegung & Repräsentation,6,6570,Repräsentationsaufwand,true,1,"Geschäftsessen, Verpflegungskosten"
+buero,Büromaterial,6,6500,Verwaltungs- und Büroaufwand,true,1,"Bürobedarf, Verbrauchsmaterial"
+miete,Miete & Nebenkosten,6,6000,Raumaufwand,true,1,"Büromiete, Nebenkosten"
+software,Software & IT,6,6510,Informatikaufwand,true,1,"SaaS, Lizenzen, IT-Kosten"
+sonstige,Übriger Aufwand,6,6700,Übriger betrieblicher Aufwand,true,1,Sonstige geschäftliche Ausgaben

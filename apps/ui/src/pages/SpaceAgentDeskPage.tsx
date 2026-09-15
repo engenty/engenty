@@ -36,6 +36,20 @@ export function SpaceAgentDeskPage({
       ? modules.find((app) => app.id === moduleId)?.label
       : undefined;
   }, [modules, rosterEntry]);
+  // Where the agent stands in this Space's team: its manager, its reports,
+  // and whether it is the coordinator (a hired engenty with no manager).
+  const relation = useMemo(() => {
+    if (!rosterEntry) {
+      return null;
+    }
+    return {
+      coordinator: rosterEntry.source === "database" && !rosterEntry.reportsTo,
+      reportNames: rosterAgents
+        .filter((candidate) => candidate.reportsTo === agentId)
+        .map((candidate) => candidate.name),
+      reportsToName: rosterEntry.reportsToName ?? null,
+    };
+  }, [agentId, rosterAgents, rosterEntry]);
   const redirect = resolveSpaceAgentDeskRedirect(agentId, spaceKey);
 
   if (redirect) {
@@ -57,10 +71,11 @@ export function SpaceAgentDeskPage({
       }
       mentionRefSearch={mentionRefSearch}
       moduleLabel={moduleLabel}
-      reportsToName={rosterEntry?.reportsToName ?? undefined}
+      relation={relation}
       rosterAgents={rosterAgents}
       spaceId={space.id}
       spaceKey={spaceKey}
+      spaceName={space.name}
     />
   );
 }

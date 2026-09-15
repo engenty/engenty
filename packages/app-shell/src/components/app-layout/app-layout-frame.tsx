@@ -299,6 +299,25 @@ export function AppLayoutFrame({
     return () => window.clearTimeout(timeoutId);
   }, [secondaryNavClosing]);
   const topbarSecondaryNavOpen = secondaryNavOpen || secondaryNavClosing;
+  const [appMenuOpen, setAppMenuOpen] = useState(false);
+  const railVisible = !isSidebarHidden || isHoveringSidebar;
+
+  const handleToggleSecondaryNav = () => {
+    if (secondaryNavAllowPinned) {
+      if (secondaryNavOpen) {
+        closeSecondaryNavPinned();
+        return;
+      }
+      setSecondaryNavOpen(true);
+      return;
+    }
+    // Overlay-only pages: toggle the hover sheet, never pin width.
+    if (overlayOpen) {
+      closeHoverPanel();
+      return;
+    }
+    openHoverPanel();
+  };
 
   return (
     <ShellSecondaryNavProvider value={shellSecondaryNavValue}>
@@ -326,7 +345,7 @@ export function AppLayoutFrame({
 
         {/* Actual floating sidebar */}
         <div
-          className="fixed inset-y-0 left-0 z-40 hidden h-full transition-all duration-300 ease-in-out md:block"
+          className="fixed inset-y-0 left-0 z-40 hidden h-full overflow-visible transition-all duration-300 ease-in-out md:block"
           onContextMenu={handleContextMenu}
           onMouseEnter={isSidebarHidden ? handleMouseEnter : undefined}
           onMouseLeave={isSidebarHidden ? handleMouseLeave : undefined}
@@ -344,7 +363,12 @@ export function AppLayoutFrame({
             onItemHoverEnter={openNavItemHover}
             onItemHoverLeave={closeNavItemHover}
             onModulesReorder={onModulesReorder}
+            onOpenAppMenu={() => setAppMenuOpen(true)}
+            onSecondaryNavHoverEnter={openHoverPanel}
+            onSecondaryNavHoverLeave={closeHoverPanel}
+            onToggleSecondaryNav={handleToggleSecondaryNav}
             railEndSlot={railEndSlot}
+            secondaryNavHoverPreview={showHoverSecondaryColumn && overlayOpen}
             sections={sections}
             shell={shell}
             sidebarWidth={sidebarWidth}
@@ -387,6 +411,7 @@ export function AppLayoutFrame({
           hasSecondaryNav={hasSecondaryNav}
           mobileOpen={mobileOpen}
           onMobileOpenChange={setMobileOpen}
+          onOpenAppMenu={() => setAppMenuOpen(true)}
           pathname={pathname}
           search={search}
           secondaryItems={shellSecondaryLinks}
@@ -518,29 +543,21 @@ export function AppLayoutFrame({
               >
                 <AppTopbar
                   appMenuActions={appMenuActions}
+                  appMenuOpen={appMenuOpen}
                   defaultTitle={defaultTopbarTitle}
                   hasSecondaryNav={hasSecondaryNav}
                   isSidebarHidden={isSidebarHidden}
                   isSidebarHovering={isHoveringSidebar}
                   moduleRootNavItem={moduleRootNavItem}
+                  onAppMenuOpenChange={setAppMenuOpen}
                   onMenuClick={() => setMobileOpen(true)}
                   onSecondaryNavHoverEnter={openHoverPanel}
                   onSecondaryNavHoverLeave={closeHoverPanel}
-                  onToggleSecondaryNav={() => {
-                    if (secondaryNavAllowPinned) {
-                      setSecondaryNavOpen(true);
-                      return;
-                    }
-                    // Overlay-only pages: toggle the hover sheet, never pin width.
-                    if (overlayOpen) {
-                      closeHoverPanel();
-                      return;
-                    }
-                    openHoverPanel();
-                  }}
+                  onToggleSecondaryNav={handleToggleSecondaryNav}
                   onToggleSidebarHidden={() =>
                     updateSidebarHidden(!isSidebarHidden)
                   }
+                  railVisible={railVisible}
                   routeBreadcrumb={secondaryNavRouteBreadcrumb}
                   secondaryNavOpen={topbarSecondaryNavOpen}
                   sections={sections}

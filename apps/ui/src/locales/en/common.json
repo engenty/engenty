@@ -734,6 +734,7 @@
       "drawer": "Drawer",
       "modal": "Modal",
       "floating": "Floating",
+      "window": "Window",
       "sidebar": "Sidebar",
       "fullscreen": "Full Screen"
     },
@@ -900,6 +901,12 @@
         "working": "Working …"
       },
       "wizard": {
+        "comesWith": "Comes with",
+        "comesWithCount_one": "{{count}} tool",
+        "comesWithCount_other": "{{count}} tools",
+        "floorTools": "Every Engenty has these — catalog, Space Data, colleagues, surface. Not editable.",
+        "templateTools": "This role adds",
+        "skills": "Skills",
         "reportsToLabel": "Reports to",
         "reportsToNone": "Nobody",
         "createFailed": "Could not create this agent.",
@@ -1275,10 +1282,37 @@
       "modules": {
         "mount": "Mount a module"
       },
+      "extensions": {
+        "title": "Extensions",
+        "empty": "No extra account is mounted in this space yet.",
+        "add": "Add an account",
+        "all": "All"
+      },
+      "files": {
+        "title": "Files",
+        "drop": "Drop files here",
+        "uploading": "Uploading…",
+        "upload": "Upload files",
+        "connect": "Connect",
+        "all": "All",
+        "loadFailed": "Files could not be loaded."
+      },
       "menu": {
         "copyLink": "Copy link",
         "linkCopied": "Link copied",
         "linkCopyFailed": "Could not copy link"
+      },
+      "workingIn": "Working in {{name}}",
+      "teamMembers": "Team Members",
+      "teamSpace": {
+        "title": "Team Space",
+        "open": "Open to the team.",
+        "restricted": "Restricted to members."
+      },
+      "emptyHire": {
+        "title": "Hire an Engenty",
+        "body": "An Engenty is a teammate you hire into this space. It owns a standing job here — watching work, keeping records, drafting — and works with the apps you mount.",
+        "action": "Hire an Engenty"
       },
       "greetingNamed": {
         "morning": "Good morning, {{name}}.",
@@ -1286,6 +1320,7 @@
         "evening": "Good evening, {{name}}."
       },
       "sections": {
+        "agents": "Agents",
         "pinned": "Favourites",
         "active": "Active",
         "quiet": "Inactive"
@@ -1644,6 +1679,14 @@
       "pin": "Pin",
       "unpin": "Unpin",
       "more": "{{count}} more"
+    },
+    "files": {
+      "section": "Files",
+      "empty": "Recent and pinned files show up here.",
+      "loadFailed": "Files could not be loaded.",
+      "recent": "Recent",
+      "pin": "Pin",
+      "unpin": "Unpin"
     },
     "dashboard": "Dashboard"
   },

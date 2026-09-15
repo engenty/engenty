@@ -8,7 +8,12 @@ import {
   select,
   text,
 } from "@clack/prompts";
-import { getValue, isPortlessOwned, setValue } from "./env-file-document.js";
+import {
+  type EnvDocument,
+  getValue,
+  isPortlessOwned,
+  setValue,
+} from "./env-file-document.js";
 import {
   loadScopeDocument,
   maskSecret,
@@ -35,7 +40,9 @@ function displayCurrentValue(
 async function pickKey(
   workspaceRoot: string
 ): Promise<EnvVarSpec | "cancelled"> {
-  const docs = new Map(
+  // Checkout scopes only: `engenty env edit` browses a workspace, and the
+  // managed install is reached with `env set --scope home`.
+  const docs = new Map<EnvScope, EnvDocument | null>(
     (["root", "deploy"] as const).map((scope) => [
       scope,
       loadScopeDocument(workspaceRoot, scope),

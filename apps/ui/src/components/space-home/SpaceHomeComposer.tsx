@@ -5,10 +5,13 @@
  * compact shell, the same pair the dock and every desk render: the pill, the
  * (+) menu, the mic, Enter to send. Not a text field shaped like one.
  *
- * It does not open a second chat. It hands the message to the conversation
- * through the host-message handoff the desk already uses — router state, with
- * a sessionStorage copy that survives the redirect — and follows it there, so
- * the answer arrives where the conversation lives. The dock stays what it is:
+ * It does not open a second chat. The message goes to the conversation from
+ * HERE — the thread is opened if the desk has none, the run starts, and the
+ * words sit in a bubble on the card the moment Enter is pressed — and only
+ * then does the page follow it to the desk, which hydrates the turn and
+ * attaches to the run already answering. The old handoff (park the text,
+ * navigate, let the desk send once it is ready) stays as the fallback for a
+ * send that fails before the server accepts it. The dock stays what it is:
  * the Space's assistant, not this row's.
  */
 import {
@@ -16,11 +19,16 @@ import {
   agentRoomHostKey,
   CopilotCompactComposerShell,
   CopilotComposerSection,
+  conversationEngagement,
   HOST_MESSAGE_HANDOFF_STATE,
   PromptInputProvider,
+  sendDeskMessageInPlace,
+  spaceHomeQueryKey,
+  useEngentyAIContext,
   writePendingHostMessage,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SpaceApprovalModeControl } from "@/components/spaces/SpaceApprovalModeControl";
@@ -47,7 +55,12 @@ export function SpaceHomeComposer({
 }) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { serviceBaseUrl } = useEngentyAIContext();
   const [draft, setDraft] = useState("");
+  // The words, shown on the card the instant they are sent — the same bubble
+  // the card draws for the last message, so the send reads as one already.
+  const [sent, setSent] = useState<string | null>(null);
   const spaceId = space.id;
   // The conversation this composer writes into — the same key its own desk or
   // room runs under, so effort and approval read and write that lane's state.
@@ -61,25 +74,52 @@ export function SpaceHomeComposer({
     [agentId, kind, spaceId, threadId]
   );
 
-  const submit = (text: string) => {
+  const follow = (search: string, state?: Record<string, string>) => {
+    navigate(`${target}${search}`, state ? { state } : undefined);
+  };
+
+  const submit = async (text: string) => {
     const message = text.trim();
-    if (!message) {
+    if (!(message && hostKey)) {
       return;
     }
-    if (!hostKey) {
-      return;
-    }
-    writePendingHostMessage(hostKey, message);
     setDraft("");
-    // Where the message is sent decides how the desk must be opened. A desk is
-    // a conversation only when one is bound — `engagement` for the thread this
-    // agent already has, `action=ask` for the first message ever, which opens a
-    // new one (agent-desk.tsx `chatIsConversation`). A room is always its own
-    // conversation and needs neither.
-    const search = spaceConversationSearch({ kind, threadId });
-    navigate(`${target}${search}`, {
-      state: { [HOST_MESSAGE_HANDOFF_STATE]: message },
-    });
+    setSent(message);
+    try {
+      const result = await sendDeskMessageInPlace({
+        agentId: agentId ?? null,
+        hostKey,
+        routeContext: {
+          moduleId: "agent-desk",
+          pathname: target,
+          routeKey: "agent-desk",
+          scope: { space_id: spaceId },
+        },
+        serviceBaseUrl,
+        text: message,
+        threadId,
+        title: kind === "desk" ? agentName : null,
+      });
+      // The card's preview and the sidebar's order read the thread; both
+      // pick the new turn up on their next fetch.
+      void queryClient.invalidateQueries({
+        queryKey: spaceHomeQueryKey(spaceId, null).slice(0, 3),
+      });
+      // A desk opens the conversation it was written into — the one just
+      // created when it had none. A room or a DM is always its own thread.
+      follow(
+        kind === "desk"
+          ? `?engagement=${encodeURIComponent(conversationEngagement(result.threadId))}`
+          : ""
+      );
+    } catch {
+      // The server never took the message: park it and let the desk send it
+      // the way it always could.
+      writePendingHostMessage(hostKey, message);
+      follow(spaceConversationSearch({ kind, threadId }), {
+        [HOST_MESSAGE_HANDOFF_STATE]: message,
+      });
+    }
   };
 
   return (
@@ -87,7 +127,17 @@ export function SpaceHomeComposer({
     // the card's text column, so the card reads as one stack of even blocks
     // rather than a wide quote over a short field. Tighter than the dock, but
     // no narrower than what it answers.
-    <div className="min-w-0">
+    <div className="flex min-w-0 flex-col gap-3">
+      {sent ? (
+        <div
+          className="ml-auto min-w-0 max-w-[min(100%,28rem)] rounded-2xl bg-primary/10 px-3 py-2"
+          data-testid="space-home-composer-sent"
+        >
+          <p className="line-clamp-2 text-[13px] text-foreground leading-relaxed">
+            {sent}
+          </p>
+        </div>
+      ) : null}
       <PromptInputProvider initialInput="">
         {/* No avatar and no usage meter: the card's header already carries this
           engenty's face, and a token meter belongs to a conversation you are
@@ -101,7 +151,7 @@ export function SpaceHomeComposer({
           the conversation. Approval is the Space's, so it answers here. */}
         <CopilotCompactComposerShell
           belowCard={<SpaceApprovalModeControl space={space} />}
-          chatStatus="ready"
+          chatStatus={sent ? "submitted" : "ready"}
           dense
           enableStatusFlap={false}
           showAvatar={false}
@@ -117,8 +167,10 @@ export function SpaceHomeComposer({
             draft={draft}
             setDraft={setDraft}
             showStarterPrompts={false}
-            status="ready"
-            submitMessage={submit}
+            status={sent ? "submitted" : "ready"}
+            submitMessage={(text) => {
+              void submit(text);
+            }}
           />
         </CopilotCompactComposerShell>
       </PromptInputProvider>

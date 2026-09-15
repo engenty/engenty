@@ -1,6 +1,6 @@
 // Inline translations for auth pages (login + setup wizard).
-// Language is detected from navigator.language — no manual switch yet.
-// Add more locales here as needed; fallback is always "en".
+// Default is the browser language; a stored preference (same key i18next
+// uses) wins after the person picks one on the first setup screen.
 
 export const AUTH_TRANSLATIONS = {
   en: {
@@ -64,6 +64,12 @@ export const AUTH_TRANSLATIONS = {
       step5CardTitle: "Your personal space",
       step5CardDesc:
         "A private space only you can see — your own notes, files and agents. It already exists; give it a name, or keep the one it has.",
+      step5NameLabel: "Name",
+      step5NameHint:
+        "Reached at /s/me. Private: no members, and it cannot be opened to the team — sharing something means moving it to a shared space.",
+      step5SaveName: "Save name",
+      step5Saving: "Saving…",
+      step5KeepName: (name: string) => `Keep “${name}”`,
       step6CardTitle: (name: string) => `${name} is ready`,
       step6CardDesc:
         "You are signed in as the administrator once you open a space.",
@@ -80,6 +86,8 @@ export const AUTH_TRANSLATIONS = {
       checkingSetup: "Checking workspace setup...",
     },
     footer: `© ${new Date().getFullYear()} Engenty. All rights reserved.`,
+    language: "Language",
+    languageName: "English",
   },
 
   de: {
@@ -143,6 +151,12 @@ export const AUTH_TRANSLATIONS = {
       step5CardTitle: "Dein persönlicher Space",
       step5CardDesc:
         "Ein privater Space, den nur du siehst — deine Notizen, Dateien und Agenten. Er existiert schon; gib ihm einen Namen oder behalte den bisherigen.",
+      step5NameLabel: "Name",
+      step5NameHint:
+        "Erreichbar unter /s/me. Privat: keine Mitglieder, und er lässt sich nicht fürs Team öffnen — etwas teilen heißt, es in einen gemeinsamen Space zu legen.",
+      step5SaveName: "Namen speichern",
+      step5Saving: "Speichern…",
+      step5KeepName: (name: string) => `„${name}“ behalten`,
       step6CardTitle: (name: string) => `${name} ist bereit`,
       step6CardDesc:
         "Sobald du einen Space öffnest, bist du als Administrator angemeldet.",
@@ -160,18 +174,54 @@ export const AUTH_TRANSLATIONS = {
       checkingSetup: "Workspace wird geprüft…",
     },
     footer: `© ${new Date().getFullYear()} Engenty. Alle Rechte vorbehalten.`,
+    language: "Sprache",
+    languageName: "Deutsch",
   },
 } as const;
 
 export type AuthLocale = keyof typeof AUTH_TRANSLATIONS;
 
-/** Detects the browser locale and returns the closest supported language. */
+export const AUTH_LOCALES = ["en", "de"] as const;
+
+/** Same key i18next-browser-languagedetector writes, so the app keeps the pick. */
+export const AUTH_LOCALE_STORAGE_KEY = "i18nextLng";
+
+function normalizeAuthLocale(
+  value: string | null | undefined
+): AuthLocale | null {
+  const lang = value?.split("-")[0]?.toLowerCase();
+  return lang && lang in AUTH_TRANSLATIONS ? (lang as AuthLocale) : null;
+}
+
+/** Stored preference, then the browser language, then English. */
 export function detectAuthLocale(): AuthLocale {
-  if (typeof navigator === "undefined") {
-    return "en";
+  if (typeof localStorage !== "undefined") {
+    const stored = normalizeAuthLocale(
+      localStorage.getItem(AUTH_LOCALE_STORAGE_KEY)
+    );
+    if (stored) {
+      return stored;
+    }
   }
-  const lang = navigator.language.split("-")[0].toLowerCase();
-  return (lang in AUTH_TRANSLATIONS ? lang : "en") as AuthLocale;
+  if (typeof navigator !== "undefined") {
+    const fromBrowser = normalizeAuthLocale(navigator.language);
+    if (fromBrowser) {
+      return fromBrowser;
+    }
+  }
+  return "en";
+}
+
+/** Remember the pick for the rest of this browser and for i18next after setup. */
+export function setAuthLocalePreference(locale: AuthLocale): void {
+  try {
+    localStorage.setItem(AUTH_LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // Private mode / tests without storage.
+  }
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = locale;
+  }
 }
 
 export type AuthTranslations = (typeof AUTH_TRANSLATIONS)["en"];

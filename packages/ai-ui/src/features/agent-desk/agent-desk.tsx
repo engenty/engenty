@@ -2,7 +2,7 @@ import { spaceRoomPathname } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Engenty, uiPageScrollClassName } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Lock } from "lucide-react";
+import { Lock, Users } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -20,13 +20,19 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { WorkspaceArtifactPane } from "../../artifacts/workspace-artifact-pane.js";
+import {
+  type ChatKind,
+  useChatKindCopy,
+} from "../../components/copilot/chat-kind-badge.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
+import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
 import {
   clearPendingHostMessage,
   pendingHostMessageFromState,
   resolvePendingHostMessage,
   writePendingHostMessage,
 } from "../../copilot/host-message-handoff.js";
+import { ObjectDisplayIntentProvider } from "../../objects/object-display-intent.js";
 import { spaceAgentDeskPath } from "../agent-form/hire-spaces.js";
 import { UserBrowserPane } from "../browser/user-browser-pane.js";
 import { AgentDeskActions } from "./agent-desk-actions.js";
@@ -43,7 +49,10 @@ import {
   parseAgentDeskPanel,
 } from "./agent-desk-drawer.js";
 import { AgentDeskEngagementList } from "./agent-desk-engagement-list.js";
-import { AgentDeskHeader } from "./agent-desk-header.js";
+import {
+  AgentDeskHeader,
+  type AgentDeskRelation,
+} from "./agent-desk-header.js";
 import { AgentDeskNewRoomDialog } from "./agent-desk-new-room-dialog.js";
 import {
   type AgentDeskSwitchAgent,
@@ -60,15 +69,10 @@ import {
   useSpaceConversationsQuery,
 } from "./conversation-api.js";
 import { useAgentDeskFeed } from "./use-agent-desk-feed.js";
+import { useDeskObjectDisplayIntent } from "./use-desk-object-display-intent.js";
 
 const NO_BREADCRUMBS: PageBreadcrumb[] = [];
 const NO_ROSTER: readonly AgentDeskSwitchAgent[] = [];
-
-/** Scroll depth that shrinks the identity header, and the one that restores it. */
-const HEADER_COLLAPSE_AT_PX = 120;
-const HEADER_EXPAND_AT_PX = 8;
-/** Longer than the band's own 200ms height transition. */
-const HEADER_SETTLE_MS = 260;
 
 /** The engagement list of an agent that has no chat, as a scrolling column. */
 function PageBody({ children }: { children: ReactNode }) {
@@ -125,13 +129,16 @@ export function AgentDesk(props: {
    * roster is the app's query, shared with its sidebar.
    */
   /**
-   * Who this agent reports to in this space, by name. Injected: `reports_to`
-   * lives on the space's mount rows, which are the app's query.
+   * Where this agent stands in the Space's team — manager, reports,
+   * coordinator. Injected: `reports_to` lives on the space's mount rows,
+   * which are the app's query.
    */
-  reportsToName?: string;
+  relation?: AgentDeskRelation | null;
   rosterAgents?: readonly AgentDeskSwitchAgent[];
   spaceId: string;
   spaceKey: string;
+  /** The Space's display name — the shared desk's badge says whose team reads. */
+  spaceName?: string | null;
 }) {
   const {
     agentId,
@@ -139,10 +146,11 @@ export function AgentDesk(props: {
     composerLeadingControl,
     mentionRefSearch,
     moduleLabel,
-    reportsToName,
+    relation,
     rosterAgents = NO_ROSTER,
     spaceId,
     spaceKey,
+    spaceName,
   } = props;
   const { i18n } = useTranslation("common");
   const { t } = useTranslation("ai-ui");
@@ -219,6 +227,7 @@ export function AgentDesk(props: {
       return params;
     });
   }, [setSearchParams]);
+  const objectDisplayIntent = useDeskObjectDisplayIntent(hostKey);
   const deskDefault = feedQuery.data
     ? resolveAgentDeskDefault(feedQuery.data)
     : null;
@@ -245,61 +254,18 @@ export function AgentDesk(props: {
   const canManage = Boolean(
     feedQuery.data && canManageAgents && canManageAgent(feedQuery.data.agent)
   );
-  // Shrink the header to the title once the chat scrolls. Scroll events do
-  // not bubble, so a capturing listener on the wrapper catches the chat's own
-  // scroller.
-  //
-  // A callback ref, NOT useRef + useEffect([]): the first render of this page
-  // early-returns a loading message, so an effect that reads the ref once finds
-  // null and — with empty deps — never looks again. The listener would silently
-  // never attach and the header would never collapse.
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  const detachScroll = useRef<(() => void) | null>(null);
-  const settleUntil = useRef(0);
-  const scrollRootRef = useCallback((node: HTMLDivElement | null) => {
-    detachScroll.current?.();
-    detachScroll.current = null;
-    if (!node) {
-      return;
-    }
-    const onScroll = (event: Event) => {
-      const el = event.target as HTMLElement | null;
-      if (typeof el?.scrollTop !== "number") {
-        return;
-      }
-      // Horizontal-only scrollers fire with scrollTop 0 and would wrongly
-      // expand the header again.
-      if (el.scrollHeight <= el.clientHeight) {
-        return;
-      }
-      // Toggling the header resizes the transcript's viewport — over 200ms,
-      // because the band animates — and every frame of that resize fires a
-      // scroll event of its own. Read with one threshold and no settle window,
-      // the header's own animation crossed that threshold back and the band
-      // flickered between the two states near the top of the transcript.
-      //
-      // Three things keep the toggle from re-triggering itself: scroll
-      // anchoring off, so a shrinking viewport does not drag scrollTop along;
-      // a gap between the collapse and the expand point; and a settle window
-      // that ignores the events the animation itself produces.
-      if (performance.now() < settleUntil.current) {
-        return;
-      }
-      el.style.overflowAnchor = "none";
-      setHeaderCollapsed((collapsed) => {
-        const next = collapsed
-          ? el.scrollTop > HEADER_EXPAND_AT_PX
-          : el.scrollTop > HEADER_COLLAPSE_AT_PX;
-        if (next !== collapsed) {
-          settleUntil.current = performance.now() + HEADER_SETTLE_MS;
-        }
-        return next;
-      });
-    };
-    node.addEventListener("scroll", onScroll, true);
-    detachScroll.current = () =>
-      node.removeEventListener("scroll", onScroll, true);
+  // Compact overlay in the topbar band once the identity has scrolled. The
+  // large identity stays in the transcript — swapping its height used to
+  // oscillate the scroller at one content length.
+  const [headerCollapsed, setHeaderCollapsed] = useState(() =>
+    Boolean(threadId)
+  );
+  const onTranscriptTopVisibility = useCallback((visible: boolean) => {
+    setHeaderCollapsed(!visible);
   }, []);
+  useEffect(() => {
+    setHeaderCollapsed(Boolean(threadId));
+  }, [threadId]);
   const actions = feedQuery.data ? (
     <AgentDeskActions
       agentId={feedQuery.data.agent.id}
@@ -338,6 +304,33 @@ export function AgentDesk(props: {
       ? spaceRoomPathname(spaceKey, threadId)
       : null;
   const conversationsQuery = useSpaceConversationsQuery(spaceId);
+  // What the open (or about-to-open) conversation is. A room redirects to
+  // its own page; a personal agent's thread is the copilot's; a DM is the
+  // viewer's line; everything else on a desk is the team's shared
+  // conversation. Non-chat agents show their engagement list — no kind.
+  const openEngagementIsDm = openEngagement?.metadata.dm === true;
+  const chatIsConversation = Boolean(
+    feedQuery.data &&
+      (asking ||
+        Boolean(threadId) ||
+        isAgentDeskChatSurface(feedQuery.data.agent))
+  );
+  const chatKind: ChatKind | null = chatIsConversation
+    ? feedQuery.data?.agent.agentScope === "personal"
+      ? "copilot"
+      : openEngagementIsDm
+        ? "dm"
+        : "desk"
+    : null;
+  const kindCopy = useChatKindCopy({
+    kind: chatKind ?? "desk",
+    name: feedQuery.data?.agent.name,
+    spaceName,
+  });
+  // The composer says who reads before the first word is typed.
+  const composerPlaceholder = feedQuery.data
+    ? `${t("agentDesk.composerPlaceholder", { name: feedQuery.data.agent.name })} · ${kindCopy.readers}`
+    : undefined;
   const breadcrumbs = useMemo((): PageBreadcrumb[] => {
     if (!feedQuery.data) {
       return NO_BREADCRUMBS;
@@ -412,14 +405,42 @@ export function AgentDesk(props: {
   }
 
   const { agent, engagements } = feedQuery.data;
-  const openEngagementIsDm = openEngagement?.metadata.dm === true;
   const defaultEngagementId =
     deskDefault?.kind === "desk" ? deskDefault.engagement?.id : undefined;
+  const scrollHeader = (
+    <>
+      <AgentDeskHeader
+        agent={agent}
+        chatKind={chatKind}
+        collapsed={false}
+        hostKey={hostKey}
+        moduleLabel={moduleLabel}
+        relation={relation}
+        spaceName={spaceName}
+      />
+      {threadId && chatSurface && chatKind ? (
+        <div
+          className="flex items-center gap-2 px-1 pb-2 text-muted-foreground text-xs"
+          data-testid={
+            chatKind === "dm" ? "agent-desk-dm-bar" : "agent-desk-readers-bar"
+          }
+        >
+          {chatKind === "dm" ? (
+            <Lock aria-hidden className="size-3.5 shrink-0" />
+          ) : (
+            <Users aria-hidden className="size-3.5 shrink-0" />
+          )}
+          <span className="min-w-0 truncate">
+            {chatKind === "dm"
+              ? t("agentDesk.dm.onlyYou", { name: agent.name })
+              : kindCopy.readers}
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
   // Non-chat agents never had a chat to show; their Chat position falls back to
   // the engagement list they always had.
-  const chatIsConversation =
-    asking || Boolean(threadId) || isAgentDeskChatSurface(agent);
-
   const chatBody = chatIsConversation ? (
     <AgentDeskChat
       agentConnectors={agent.connectors}
@@ -432,6 +453,8 @@ export function AgentDesk(props: {
       agentSkills={agent.skills}
       agentStarters={agent.starters}
       composerLeadingControl={composerLeadingControl}
+      {...(composerPlaceholder ? { composerPlaceholder } : {})}
+      contextPane={false}
       mentionRefSearch={mentionRefSearch}
       onPendingConsumed={consumePendingSubmit}
       onThreadCreated={(createdThreadId) => {
@@ -441,7 +464,9 @@ export function AgentDesk(props: {
         }
         bindCreatedThread(createdThreadId, false);
       }}
+      onTranscriptTopVisibility={onTranscriptTopVisibility}
       pendingSubmit={pendingSubmit}
+      scrollHeader={scrollHeader}
       spaceId={spaceId}
       threadId={threadId}
     />
@@ -464,29 +489,31 @@ export function AgentDesk(props: {
   );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      {/* The agent's identity is the page header — not a block inside the chat
-          that only the empty state showed. */}
-      <AgentDeskHeader
-        agent={agent}
-        collapsed={headerCollapsed}
-        moduleLabel={moduleLabel}
-        reportsToName={reportsToName}
-      />
-      {threadId && chatSurface && openEngagementIsDm ? (
-        <div
-          className="flex items-center gap-2 border-border-soft border-b px-4 py-2 text-muted-foreground text-sm"
-          data-testid="agent-desk-dm-bar"
-        >
-          <Lock aria-hidden className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate">
-            {t("agentDesk.dm.onlyYou", { name: agent.name })}
-          </span>
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+      {chatIsConversation && headerCollapsed ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
+          <AgentDeskHeader
+            agent={agent}
+            chatKind={chatKind}
+            collapsed
+            hostKey={hostKey}
+            moduleLabel={moduleLabel}
+            relation={relation}
+            spaceName={spaceName}
+          />
         </div>
       ) : null}
-      <div className="flex min-h-0 flex-1 flex-col" ref={scrollRootRef}>
-        {chatBody}
-      </div>
+      {/* Identity scrolls with the transcript; the context card is overlaid
+          (sticky in the pane) so the main column is one scroller. */}
+      <ObjectDisplayIntentProvider value={objectDisplayIntent}>
+        <ThreadContextPane
+          {...(chatIsConversation ? {} : { header: scrollHeader })}
+          hostKey={hostKey}
+          layout="column"
+        >
+          {chatBody}
+        </ThreadContextPane>
+      </ObjectDisplayIntentProvider>
       {/* The person's browser in the end-pane slot beside the artifact pane,
           whatever the desk shows — conversation or engagement list — so the
           monitor toggle always has somewhere to open (PLAN-user-browser.md

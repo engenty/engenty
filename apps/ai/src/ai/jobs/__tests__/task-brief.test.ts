@@ -61,6 +61,7 @@ describe("buildTaskBrief", () => {
     expect(brief).toContain(
       "`/data` is mounted module records, never workspace scratch"
     );
+    expect(brief).toContain("`/data/Files`");
     expect(brief).not.toContain("tenants/…");
   });
 

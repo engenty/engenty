@@ -27,6 +27,14 @@ const sizeClasses = {
   xl: "size-12",
 } as const;
 
+/** Larger faces need more overlap so a long roster still reads as one pile. */
+const overlapClasses = {
+  sm: "-space-x-2",
+  md: "-space-x-2.5",
+  lg: "-space-x-3",
+  xl: "-space-x-4",
+} as const;
+
 /** Applied on fallback — AvatarFallback defaults to text-sm, which clips on small sizes. */
 const fallbackTextClasses = {
   sm: "text-[10px] leading-none",
@@ -59,11 +67,11 @@ export const AvatarStack = ({
 
   return (
     <TooltipProvider>
-      <div className="flex -space-x-2">
+      <div className={cn("flex", overlapClasses[size])}>
         {displayProfiles.map((profile) => (
           <Tooltip key={profile.id}>
             <TooltipTrigger asChild>
-              <Avatar className={avatarClassName}>
+              <Avatar className={cn(avatarClassName, "relative hover:z-10")}>
                 {profile.avatar_url && (
                   <AvatarImage
                     alt={profile.full_name}
@@ -90,7 +98,7 @@ export const AvatarStack = ({
         {remainingCount > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Avatar className={avatarClassName}>
+              <Avatar className={cn(avatarClassName, "relative z-10")}>
                 <AvatarFallback
                   className={cn(
                     "bg-muted text-muted-foreground",

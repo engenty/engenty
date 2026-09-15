@@ -35,6 +35,37 @@ export function appBuildArtifactIdOf(result: unknown): string | null {
   return null;
 }
 
+/**
+ * The tools whose result names an artifact the colleague made or presented.
+ * `artifact_write` returns `{ artifact_id, version }` on success (and
+ * `{ error }` otherwise); `show_artifact` echoes the id it presented.
+ */
+const ARTIFACT_PRODUCING_TOOLS = new Set(["artifact_write", "show_artifact"]);
+
+/**
+ * Recognize an artifact tool result that names an artifact — the deliverable
+ * a delegated colleague made, so the parent's transcript can offer it where
+ * the person reads (see delegate-tool `artifact_ids`).
+ */
+export function producedArtifactIdOf(
+  toolName: string | undefined,
+  result: unknown
+): string | null {
+  if (!(toolName && ARTIFACT_PRODUCING_TOOLS.has(toolName))) {
+    return null;
+  }
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+  const record = result as { artifact_id?: unknown; error?: unknown };
+  if (record.error !== undefined && record.error !== null) {
+    return null;
+  }
+  return typeof record.artifact_id === "string" && record.artifact_id
+    ? record.artifact_id
+    : null;
+}
+
 /** Everything the headless lane learns from the run's event stream. */
 export interface HeadlessRunSinks {
   /** A workspace tool parked for a human: same grant id the Session path used. */
@@ -89,8 +120,15 @@ export interface HeadlessRunState {
    * grant id says what was asked for; only the interrupt id can answer it.
    */
   pendingApprovals: PendingApproval[];
+  /**
+   * Artifacts the run wrote or presented (artifact_write / show_artifact), in
+   * order, each once. The parent surfaces them beside the colleague's reply.
+   */
+  producedArtifactIds: string[];
   streamError: string | null;
   suggestions?: FieldSuggestion[];
+  /** toolCallId → toolCallName, since TOOL_CALL_RESULT carries only the id. */
+  toolCallNames: Map<string, string>;
   /** Grant ids of workspace tools that suspended — a park, never a failure. */
   workspaceSuspensions: Set<string>;
 }
@@ -100,7 +138,9 @@ export function createHeadlessRunState(): HeadlessRunState {
     finalText: "",
     messageText: "",
     pendingApprovals: [],
+    producedArtifactIds: [],
     streamError: null,
+    toolCallNames: new Map(),
     workspaceSuspensions: new Set(),
   };
 }
@@ -187,6 +227,10 @@ export function mapHeadlessAgUiEvent(
       const toolName = event.toolCallName;
       if (typeof toolName === "string") {
         sinks.onProgress?.(`Running ${toolName}`);
+        const toolCallId = event.toolCallId;
+        if (typeof toolCallId === "string") {
+          state.toolCallNames.set(toolCallId, toolName);
+        }
       }
       break;
     }
@@ -211,6 +255,16 @@ export function mapHeadlessAgUiEvent(
       const appArtifactId = appBuildArtifactIdOf(parsed);
       if (appArtifactId) {
         state.appArtifactId = appArtifactId;
+      }
+      const toolCallId = event.toolCallId;
+      const produced = producedArtifactIdOf(
+        typeof toolCallId === "string"
+          ? state.toolCallNames.get(toolCallId)
+          : undefined,
+        parsed
+      );
+      if (produced && !state.producedArtifactIds.includes(produced)) {
+        state.producedArtifactIds.push(produced);
       }
       break;
     }

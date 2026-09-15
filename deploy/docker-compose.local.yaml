@@ -1,0 +1,78 @@
+# A managed local install: `engenty start` runs this on top of
+# docker-compose.prebuilt.yaml, and nothing else uses it.
+#
+# It exists so the base file stays a server file. Five things differ on a
+# laptop:
+#
+#   1. A published host port. The base file has none ON PURPOSE — read the
+#      comment above `engenty-edge` there before you are tempted to add one:
+#      a bound host port makes a second edge container impossible, which turns
+#      every deploy into stop-old-then-start-new, i.e. an outage. Here there is
+#      no Traefik to route by label, and one container at a time is fine.
+#   2. A route to the host. Supabase runs in the Supabase CLI's own compose
+#      project, so our containers reach it through the host rather than over
+#      our network. `host-gateway` gives Linux the name macOS and OrbStack
+#      already resolve.
+#   3. The migrate service is a no-op here. `engenty start` applies the
+#      release's migrations with the pinned Supabase CLI before it brings the
+#      containers up, so running them again buys nothing — and the image's
+#      baked migration set is the one from its own release, which collides with
+#      the package's on a database the package built. `engenty-edge` and
+#      `engenty-ai` wait for this service to complete successfully, so it stays
+#      in the graph and exits 0 instead of being removed.
+#   4. Host paths under the install instead of /opt. The base file bind-mounts
+#      /opt/engenty/sandboxes and /opt/engenty/spaces literally, which is right
+#      on a server and needs root on a laptop (Docker Desktop also refuses to
+#      share /opt by default). The container paths stay the same, so
+#      ENGENTY_SPACES_DIR is unchanged; only the host side moves into the
+#      install, and ENGENTY_SANDBOX_HOST_DIR tells apps/ai where that is when it
+#      asks the daemon for a sibling container.
+#   5. A platform pin. The release images are published linux/amd64 only
+#      (build-images.yml), so on an Apple Silicon machine the pull fails with
+#      "no matching manifest for linux/arm64/v8". Pinning makes Docker emulate
+#      them instead. Emulation costs speed; publishing multi-arch images is the
+#      real fix, and this pin becomes redundant the day that lands.
+services:
+  engenty-edge:
+    platform: linux/amd64
+    ports:
+      - "${ENGENTY_LOCAL_PORT:-8787}:8787"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  engenty-ai:
+    platform: linux/amd64
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ${ENGENTY_SANDBOX_HOST_DIR}:/opt/engenty/sandboxes
+      - ${ENGENTY_SPACES_HOST_DIR}:/opt/engenty/spaces
+
+  engenty-app-host:
+    platform: linux/amd64
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ${ENGENTY_SPACES_HOST_DIR}:/opt/engenty/spaces
+
+  engenty-migrate:
+    platform: linux/amd64
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'echo "engenty start applied the migrations; nothing to do."'
+
+  # Creates the Mastra tables; the one service in this overlay that must
+  # really run, since nothing else on a non-checkout install does.
+  engenty-mastra-init:
+    platform: linux/amd64
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  engenty-sandbox:
+    platform: linux/amd64
+
+  engenty-browser:
+    platform: linux/amd64

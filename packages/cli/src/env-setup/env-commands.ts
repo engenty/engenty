@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
 import { printBanner } from "../banner.js";
+import { runCliAction } from "../cli-errors.js";
 import {
   checkResultToJson,
   renderScopeReport,
@@ -9,12 +10,20 @@ import {
 } from "./env-check.js";
 import { runEnvEdit } from "./env-edit.js";
 import { renderExampleFile } from "./env-example-render.js";
-import { exampleFilePath, resolveWorkspaceRoot } from "./env-files.js";
+import {
+  currentWorkspaceRootOrNull,
+  exampleFilePath,
+  resolveWorkspaceRoot,
+} from "./env-files.js";
 import type { EnvScope } from "./env-manifest-types.js";
 import { runEnvMenu } from "./env-menu.js";
+import { runEnvSet } from "./env-set.js";
 import { runEnvGenerate, runEnvInitWizard } from "./env-wizard.js";
 
+/** What `--scope all` sweeps: the checkout's own files. */
 const ALL_SCOPES: EnvScope[] = ["root", "deploy"];
+/** Also accepted by name — `home` is a managed install, not part of a sweep. */
+const NAMED_SCOPES: EnvScope[] = [...ALL_SCOPES, "home"];
 
 function parseScopes(
   raw: string | undefined,
@@ -25,11 +34,11 @@ function parseScopes(
   }
   const scopes = raw.split(",").map((part) => part.trim());
   const invalid = scopes.filter(
-    (scope) => !ALL_SCOPES.includes(scope as EnvScope)
+    (scope) => !NAMED_SCOPES.includes(scope as EnvScope)
   );
   if (invalid.length > 0) {
     throw new Error(
-      `Invalid --scope: ${invalid.join(", ")} (use root, deploy, or all)`
+      `Invalid --scope: ${invalid.join(", ")} (use root, deploy, home, or all)`
     );
   }
   return scopes as EnvScope[];
@@ -119,11 +128,13 @@ export function registerEnvCommands(program: Command): void {
     .option("--json", "Machine-readable output")
     .option(
       "--scope <scopes>",
-      "Comma-separated: root, deploy, or all (default: root)"
+      "Comma-separated: root, deploy, home, or all (default: root)"
     )
     .action((options: { json?: boolean; scope?: string }) => {
       const scopes = parseScopes(options.scope, ["root"]);
-      const workspaceRoot = resolveWorkspaceRoot();
+      const workspaceRoot = scopes.every((scope) => scope === "home")
+        ? ""
+        : resolveWorkspaceRoot();
       const result = runEnvCheck(workspaceRoot, scopes);
       if (options.json) {
         console.log(
@@ -145,6 +156,41 @@ export function registerEnvCommands(program: Command): void {
         process.exitCode = 1;
       }
     });
+
+  env
+    .command("set")
+    .description("Set one variable without prompting")
+    .argument("<key>", "Variable name")
+    .argument("<value>", "New value")
+    .option("--scope <scope>", "root, deploy or home (default: root)")
+    .option("--force", "Write a key the manifest does not know")
+    .action(
+      runCliAction(
+        (
+          key: string,
+          value: string,
+          options: { force?: boolean; scope?: string },
+          command: Command
+        ) => {
+          // The parent `env` declares `--scope` too, and commander hands a
+          // flag to whichever command parses it first — so a trailing
+          // `--scope home` lands on the parent. Fall back to it.
+          const raw =
+            options.scope ??
+            (command.parent?.opts() as { scope?: string } | undefined)?.scope;
+          const [scope] = parseScopes(raw, ["root"]);
+          const workspaceRoot = currentWorkspaceRootOrNull();
+          runEnvSet({
+            force: options.force === true,
+            key,
+            manifestComplete: workspaceRoot !== null,
+            scope,
+            value,
+            workspaceRoot: workspaceRoot ?? "",
+          });
+        }
+      )
+    );
 
   env
     .command("edit")

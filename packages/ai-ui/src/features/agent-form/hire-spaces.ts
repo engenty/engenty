@@ -1,6 +1,7 @@
 // Spaces the hire form can mount onto. Fetched from core (`GET /api/spaces`);
 // the desk URL is duplicated here so ai-ui does not import apps/ui.
 
+import { conversationEngagement } from "@engenty/ai-core/browser";
 import { requestApiJson } from "@engenty/api-client";
 
 export interface HireSpaceOption {
@@ -38,4 +39,16 @@ export function firstSuccessfulDeskPath(
     return null;
   }
   return spaceAgentDeskPath(space.key, agentId);
+}
+
+export function spaceAgentDeskHref(
+  spaceKey: string,
+  agentId: string,
+  threadId: string | null
+): string {
+  const path = spaceAgentDeskPath(spaceKey, agentId);
+  if (!threadId) {
+    return `${path}?action=ask`;
+  }
+  return `${path}?engagement=${encodeURIComponent(conversationEngagement(threadId))}`;
 }

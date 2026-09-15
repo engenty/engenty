@@ -26,10 +26,12 @@ import {
   ArtifactPaneToggle,
   WorkspaceArtifactPane,
 } from "../../artifacts/workspace-artifact-pane.js";
+import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { ThreadContextToggle } from "../../components/copilot/thread-context/thread-context-toggle.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
 import { resolvePendingHostMessage } from "../../copilot/host-message-handoff.js";
+import { ObjectDisplayIntentProvider } from "../../objects/object-display-intent.js";
 import { AgentDeskChat } from "./agent-desk-chat.js";
 import { AgentDeskDrawerShell } from "./agent-desk-drawer.js";
 import {
@@ -50,6 +52,7 @@ import {
   useSpaceConversationsQuery,
 } from "./conversation-api.js";
 import { useAgentDeskFeed } from "./use-agent-desk-feed.js";
+import { useDeskObjectDisplayIntent } from "./use-desk-object-display-intent.js";
 
 const NO_BREADCRUMBS: PageBreadcrumb[] = [];
 const NO_ROSTER: readonly AgentDeskSwitchAgent[] = [];
@@ -134,6 +137,7 @@ export function AgentRoom(props: {
   const { currentUserId } = useWorkspaceContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const hostKey = agentRoomHostKey(spaceId, threadId);
+  const objectDisplayIntent = useDeskObjectDisplayIntent(hostKey);
   // A message written somewhere else and sent here — the Space home's card
   // composer (PLAN-space-home.md H5). Same handoff a desk uses.
   const location = useLocation();
@@ -316,6 +320,19 @@ export function AgentRoom(props: {
           page: the clearance the breadcrumb and action row sit in. A room has
           no identity band — the crumb names it. */}
       <header className="h-11 w-full shrink-0" />
+      {/* Who reads this: the same badge the desk header wears, so a room and
+          a desk are never confused for one another. */}
+      <div
+        className="flex items-center gap-2 border-border-soft border-b px-4 py-1.5 text-muted-foreground text-xs"
+        data-testid="agent-room-readers-bar"
+      >
+        <ChatKindBadge kind="room" memberCount={members.length} />
+        <span className="min-w-0 truncate">
+          {isPrivate
+            ? t("agentDesk.roomInfo.privateHint")
+            : t("chatKind.room.readers")}
+        </span>
+      </div>
       {paused ? (
         <div
           className="flex flex-wrap items-center gap-2 border-border-soft border-b px-4 py-2 text-sm"
@@ -338,29 +355,33 @@ export function AgentRoom(props: {
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col">
-        <AgentDeskChat
-          agentConnectors={host.connectors}
-          agentDescription={host.description}
-          agentEngenty={host.engenty}
-          agentId={host.id}
-          agentName={host.name}
-          agentRole={host.role}
-          agentScope={host.agentScope}
-          agentSkills={host.skills}
-          agentStarters={host.starters}
-          composerLeadingControl={composerLeadingControl}
-          composerPlaceholder={t("agentDesk.roomInfo.composerPlaceholder", {
-            title,
-          })}
-          hostKey={hostKey}
-          mentionRefSearch={mentionRefSearch}
-          // A room exists before anyone speaks in it; nothing is created here.
-          onThreadCreated={() => undefined}
-          pendingSubmit={pendingSubmit}
-          spaceId={spaceId}
-          starters={false}
-          threadId={threadId}
-        />
+        {/* Records the host or a colleague shows open in the pane beside the
+            room, same as on a desk. */}
+        <ObjectDisplayIntentProvider value={objectDisplayIntent}>
+          <AgentDeskChat
+            agentConnectors={host.connectors}
+            agentDescription={host.description}
+            agentEngenty={host.engenty}
+            agentId={host.id}
+            agentName={host.name}
+            agentRole={host.role}
+            agentScope={host.agentScope}
+            agentSkills={host.skills}
+            agentStarters={host.starters}
+            composerLeadingControl={composerLeadingControl}
+            composerPlaceholder={t("agentDesk.roomInfo.composerPlaceholder", {
+              title,
+            })}
+            hostKey={hostKey}
+            mentionRefSearch={mentionRefSearch}
+            // A room exists before anyone speaks in it; nothing is created here.
+            onThreadCreated={() => undefined}
+            pendingSubmit={pendingSubmit}
+            spaceId={spaceId}
+            starters={false}
+            threadId={threadId}
+          />
+        </ObjectDisplayIntentProvider>
       </div>
       <WorkspaceArtifactPane
         hostKey={hostKey}

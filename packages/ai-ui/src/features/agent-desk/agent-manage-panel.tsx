@@ -38,18 +38,14 @@ import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
 import { AgentConnectionsPanel } from "../agents-workspace/agent-connections-panel.js";
 import { AgentIdentityRow } from "../agents-workspace/agent-identity-card.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
+import {
+  AgentMemorySection,
+  AgentTasksSection,
+} from "./agent-memory-sections.js";
 import { AgentPadSection } from "./agent-pad-section.js";
 import { AgentRecentRuns } from "./agent-runs-panel.js";
 import { AgentSkillsDialog } from "./agent-skills-dialog.js";
 import { AgentWorkSections } from "./agent-work-sections.js";
-import {
-  useAgentMemoryQuery,
-  useSaveAgentMemoryMutation,
-} from "./use-agent-memory.js";
-import {
-  useAgentTasksQuery,
-  useSaveAgentTasksMutation,
-} from "./use-agent-tasks.js";
 
 function Chips({
   chips,
@@ -344,68 +340,6 @@ export function AgentManagePanel({
         </Button>
       ) : null}
     </div>
-  );
-}
-
-/**
- * MEMORY.md — what the engenty keeps for itself in this Space. The run writes
- * it through `memory_note` / `memory_forget`; here a person reads it, corrects
- * a line, or clears it. Save is explicit (not on blur): a half-typed edit to
- * an agent's memory must not land by accident.
- */
-function AgentMemorySection({
-  agentId,
-  editable,
-  spaceId,
-}: {
-  agentId: string;
-  editable: boolean;
-  spaceId: string;
-}) {
-  const query = useAgentMemoryQuery({ agentId, spaceId });
-  const save = useSaveAgentMemoryMutation({ agentId, spaceId });
-  const stored = query.data?.memory ?? "";
-  return (
-    <AgentPadSection
-      clear={{
-        disabled: !stored,
-        run: (onSuccess) => save.mutate("", { onSuccess }),
-      }}
-      editable={editable}
-      enabled={query.data?.enabled ?? true}
-      kind="memory"
-      maxChars={query.data?.max_chars ?? 8000}
-      save={save}
-      stored={stored}
-    />
-  );
-}
-
-function AgentTasksSection({
-  agentId,
-  editable,
-  spaceId,
-}: {
-  agentId: string;
-  editable: boolean;
-  spaceId: string;
-}) {
-  const query = useAgentTasksQuery({ agentId, spaceId });
-  const save = useSaveAgentTasksMutation({ agentId, spaceId });
-  const stored = query.data?.tasks ?? "";
-  return (
-    <AgentPadSection
-      clear={{
-        disabled: !stored,
-        run: (onSuccess) => save.mutate("", { onSuccess }),
-      }}
-      editable={editable}
-      enabled={query.data?.enabled ?? true}
-      kind="tasks"
-      maxChars={query.data?.max_chars ?? 6000}
-      save={save}
-      stored={stored}
-    />
   );
 }
 

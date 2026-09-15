@@ -177,6 +177,8 @@ export class SpaceDataFilesystem extends MastraFilesystem {
       "runs the module's own operation, so a write can require a human approval and will say so.",
       "Modules differ in what they allow: creating a folder works where folders are real (the space's",
       "own Files), and is refused where a 'new item' means a record with a schema (Contacts, Offers).",
+      "User-uploaded files and connected folders are under /data/Files. List that root (not only Documents/Images) before asking which file.",
+      "Workspace BM25 search does not index /data — list and read, or grep the path you listed.",
       "Do not park conversation notes here; observational memory and the chat reply carry context. Do not create a new top-level folder beside the modules.",
       "A refusal naming the module's own action is the answer, not an error to retry.",
     ].join(" ");

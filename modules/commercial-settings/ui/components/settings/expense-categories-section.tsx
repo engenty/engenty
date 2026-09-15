@@ -4,9 +4,10 @@ import { Plus, Trash2 } from "lucide-react";
 import type { ExpenseCategory } from "../../api.js";
 import { getRegionFromLocale } from "../../lib/locale-config.js";
 import {
-  mergeStandardCategoriesForRegion,
+  accountClassFromNumber,
   STANDARD_CATEGORY_PRESETS,
-} from "../../lib/standard-category-presets.js";
+} from "../../lib/region-packs.js";
+import { mergeStandardCategoriesForRegion } from "../../lib/standard-category-presets.js";
 
 interface ExpenseCategoriesSectionProps {
   categories: ExpenseCategory[];
@@ -15,6 +16,8 @@ interface ExpenseCategoriesSectionProps {
 }
 
 const EMPTY_CATEGORY: ExpenseCategory = {
+  account_class: null,
+  account_number: null,
   code: "",
   name: "",
   is_tax_deductible: false,
@@ -32,10 +35,13 @@ export function ExpenseCategoriesSection({
 }: ExpenseCategoriesSectionProps) {
   const { t } = useTranslation("commercial-settings");
   const region = getRegionFromLocale(defaultLocale || "de-AT");
-  const presetCount = STANDARD_CATEGORY_PRESETS[region]?.length ?? 0;
-  const presetAddCount = (STANDARD_CATEGORY_PRESETS[region] ?? []).filter(
+  const regionPresets = STANDARD_CATEGORY_PRESETS[region] ?? [];
+  const presetCount = regionPresets.length;
+  const presetAddCount = regionPresets.filter(
     (p) => !categories.some((c) => c.code === p.code)
   ).length;
+  const accountPlaceholder = regionPresets[0]?.account_number ?? "7340";
+  const classPlaceholder = regionPresets[0]?.account_class ?? "7";
 
   const addCategory = () => {
     onCategoriesChange([
@@ -58,6 +64,19 @@ export function ExpenseCategoriesSection({
     value: string | number | boolean | null
   ) => {
     const updated = [...categories];
+    if (field === "account_number") {
+      const number = typeof value === "string" ? value : "";
+      updated[index] = {
+        ...updated[index],
+        account_number: number || null,
+        account_class:
+          accountClassFromNumber(number) ??
+          updated[index].account_class ??
+          null,
+      };
+      onCategoriesChange(updated);
+      return;
+    }
     updated[index] = { ...updated[index], [field]: value };
     onCategoriesChange(updated);
   };
@@ -79,6 +98,9 @@ export function ExpenseCategoriesSection({
             <div className="flex items-center gap-2 px-1 text-muted-foreground text-xs">
               <span className="w-24 shrink-0">
                 {t("sections.categoryCode")}
+              </span>
+              <span className="w-12 shrink-0">
+                {t("sections.categoryClass")}
               </span>
               <span className="w-20 shrink-0">
                 {t("sections.categoryAccount")}
@@ -109,6 +131,20 @@ export function ExpenseCategoriesSection({
                   value={cat.code}
                 />
                 <Input
+                  className="h-8 w-12 shrink-0 font-mono text-sm"
+                  inputMode="numeric"
+                  maxLength={1}
+                  onChange={(e) =>
+                    updateCategory(
+                      index,
+                      "account_class",
+                      e.target.value.replace(/[^0-9]/g, "").slice(0, 1) || null
+                    )
+                  }
+                  placeholder={classPlaceholder}
+                  value={cat.account_class ?? ""}
+                />
+                <Input
                   className="h-8 w-20 shrink-0 font-mono text-sm"
                   onChange={(e) =>
                     updateCategory(
@@ -117,7 +153,7 @@ export function ExpenseCategoriesSection({
                       e.target.value || null
                     )
                   }
-                  placeholder="4400"
+                  placeholder={accountPlaceholder}
                   value={cat.account_number ?? ""}
                 />
                 <Input

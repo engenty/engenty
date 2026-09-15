@@ -2,7 +2,7 @@
 name: chief-of-staff
 description: "The coordinator's playbook — every engenty that reports to nobody in a Space: set the Space up, route its work, hire teammates, keep shared knowledge in one file."
 license: MIT
-allowed-tools: space_setup registry_agents_list agent_propose agent_status message_agent routines_list routines_create routines_update skill_propose agent_self_revise engenty_tools_search engenty_tool_execute requestDecision
+allowed-tools: space_setup registry_agents_list agent_propose agent_status message_agent routines_list routines_create routines_update skill_propose agent_self_revise engenty_tools_search engenty_tool_execute requestDecision mastra_workspace_list_files mastra_workspace_read_file mastra_workspace_grep
 metadata:
   engenty:
     category: spaces
@@ -84,6 +84,19 @@ Adding an app is admin work — on a 403 say so plainly and stop.
 Facts everyone here should know — who the client is, the conventions, the
 tools in use — go to `/space/KNOWLEDGE.md`, one dated line per fact. Your own
 memory holds what only you need. Authoritative records stay in the apps.
+
+## Files in this Space
+
+Uploads and connected folders live at `/data/Files` (Data → Files), not in
+`/home`, `/space`, `/sandbox`, or tenant Speicher (`vault_files`). Workspace
+search does not index `/data`. When someone asks what a document, receipt, or
+spreadsheet says:
+
+1. `mastra_workspace_list_files` on `/data/Files` (the root, not only
+   Documents/Images).
+2. Read the matching path. Names carry an id (`mietvertrag__<uuid>.pdf`).
+3. Only then ask which file — and only if the listing left it genuinely
+   ambiguous. Never invent filenames that were not in the listing.
 
 Your own open work — what you accepted and still owe — lives in your TASKS.md
 (`todo_edit`), with your standing goals on top. Nobody else sees it. Work a

@@ -20,14 +20,49 @@ Give each space the agents, apps, and knowledge for the job — including comput
 
 ## Prerequisites
 
-* **Node 24** — Node 22 may also work.
-* **via nvm** — `nvm install && nvm use` via `.nvmrc` in the repo
-* **pnpm** — `corepack enable`
-* **Docker** — A Docker-compatible daemon - `docker info` must answer.
-* **Nothing else** — the Supabase CLI comes with `pnpm install` and runs Postgres,
-  auth, storage and realtime in those containers.
+* **Docker** — a Docker-compatible daemon; `docker info` must answer.
+* **Node 24** — for the `npx` command itself. Node 22 also works, and `nvm
+  install && nvm use` picks the version from `.nvmrc`.
+* **pnpm** — `corepack enable`. Only needed to work on the code.
+* **Nothing else** — Postgres, auth, storage and realtime run in containers,
+  and the Supabase CLI that manages them is fetched for the run.
 
-## Run it locally
+## Run it
+
+```bash
+npx engenty start
+```
+
+It checks Docker, starts engenty's own Supabase, applies the migrations and
+brings the containers up. Open **http://localhost:8787**. The first visit is
+`/initial_setup`: it checks the installation, then walks you through the
+administrator account, your team, a model provider, your first space and your
+personal space.
+
+Chat needs a key from one model provider — [Vercel AI
+Gateway](https://vercel.com/docs/ai-gateway), OpenRouter, OpenAI, Anthropic or
+Opper. The wizard asks for one and tests it; everything else comes up without
+it.
+
+Day to day:
+
+```bash
+npx engenty status    # what is running, and where it lives
+npx engenty stop      # stop it; the data is kept
+npx engenty update    # this release's images, new migrations, restart
+```
+
+The installation lives in `~/.engenty` — the configuration, and the compose
+files pointing at the Docker volumes that hold your data. Set `ENGENTY_HOME` to
+put it elsewhere; `npx engenty status` prints the path. To remove it and its
+data, `npx engenty stop --purge`.
+
+Already have a Supabase project, on their cloud or your own server? `npx
+engenty deploy` wires the stack to it instead of starting one.
+
+## Develop it
+
+To change the code, get a checkout. This needs pnpm as well.
 
 ```bash
 npx engenty create my-engenty   # clone this release, pnpm install, run its setup
@@ -39,19 +74,17 @@ Or from a clone of [GitHub](https://github.com/engenty/engenty):
 ```bash
 pnpm install
 pnpm engenty setup   # plugins, generated files, Supabase, migrations, .env.local
-pnpm dev               # core + ui + ai + docs
+pnpm dev             # core + ui + ai + docs
 ```
 
-Open **http://localhost:5173**. First visit is `/initial_setup`: it checks the
-installation, then walks you through the administrator account, your team, a
-model provider, your first space and your personal space.
+Open **http://localhost:5173** — same first-run wizard as above.
 
-Copilot chat needs a [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) or
-OpenRouter key; the wizard asks for one and tests it, and everything else comes
-up without it. `engenty setup` is safe to re-run, and `pnpm engenty doctor`
+`pnpm dev` is shorthand for `pnpm engenty dev`. Inside a checkout every command
+is that checkout's own, so `pnpm engenty <command>` and `npx engenty <command>`
+do the same thing. `engenty setup` is safe to re-run, and `pnpm engenty doctor`
 tells you what state the checkout is in. Outside a checkout, `npx engenty
-doctor` checks the machine and `npx engenty deploy` is the self-host wizard —
-see [Setup process](docs/content/dev/setup-process.md#npx-engenty).
+doctor` checks the machine — see [Setup
+process](docs/content/dev/setup-process.md#npx-engenty).
 
 ### Run locally with HTTPS via Portless
 

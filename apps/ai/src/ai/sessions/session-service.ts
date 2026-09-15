@@ -23,7 +23,11 @@ import {
   engentyToolsRunAls,
   withEnvCoreBaseUrl,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import type { ThreadMessageRow, ThreadRow } from "../../dal/threads/index.js";
+import {
+  type ThreadMessageRow,
+  type ThreadRow,
+  threadKind,
+} from "../../dal/threads/index.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { isResumeInFlight } from "../conversation/resume-claims.js";
@@ -48,10 +52,12 @@ import { resolveTenantDefaultSpaceId } from "../work-scope/resolve-space.js";
 import { resolveWorkVisibility } from "../work-scope/resolve-work-visibility.js";
 import { mergeDeclaredWorkspaceMounts } from "../workspace/sandbox-mounts.js";
 import {
-  buildEngentyMountSpecs,
+  type DroppedWorkspaceMount,
   expandWorkspaceMounts,
+  resolveEngentyMountSpecs,
 } from "../workspace/workspace-presets.js";
 import { buildAgentWorkspaceForRun } from "./agent-workspace-hook.js";
+import { frontendToolGrantForRun } from "./frontend-tool-grant.js";
 import { resolveAgentMaxSteps } from "./max-steps.js";
 import {
   buildNativeMastraModelInput,
@@ -294,6 +300,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
     const rootConfig = await registry.getAgentConfig(session.agent_id);
     let taskWorkspace: Workspace | undefined;
     let sandboxProvider: EngentySandboxProvider | undefined;
+    let droppedMounts: DroppedWorkspaceMount[] = [];
     const subAgentSandboxProviders: EngentySandboxProvider[] = [];
     const subAgentWorkspacesMap = new Map<string, Workspace>();
     // The run's space, resolved ONCE and validated against the caller's access
@@ -365,6 +372,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       });
       taskWorkspace = workspaceResult?.workspace;
       sandboxProvider = workspaceResult?.sandboxProvider;
+      droppedMounts = workspaceResult?.droppedMounts ?? [];
 
       // Build dedicated workspaces for sub-agents that declare workspace.enabled.
       // Each sub-agent gets its own workspace keyed by id/alias; session-lifecycle
@@ -434,9 +442,17 @@ export function createThreadService(opts: ThreadServiceOptions) {
         scopeAccessToken(input.scope) ??
         input.authorization?.replace(/^Bearer\s+/i, "").trim(),
     });
+    // An Engenty holds the page tools when its row says so, or by default when
+    // it is the Space's coordinator — only on this browser-started run.
+    const frontendToolGrant = frontendToolGrantForRun({
+      agentId: session.agent_id,
+      config: rootConfig,
+      spaceResolution,
+    });
     const mergedDefinitions = resolveFrontendToolsForAgent({
       agentId: session.agent_id,
       clientTools: gatedAgentUi?.frontend_tools,
+      grant: frontendToolGrant,
     });
     const nativeFrontendTools = createNativeFrontendTools(mergedDefinitions);
     const assembleOptions = {
@@ -503,6 +519,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
     return {
       agent,
       agentConfig: rootConfig,
+      droppedMounts,
       mergedDefinitions,
       modelId,
       rootConfig,
@@ -533,6 +550,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
     workspaceConfig?: AgentWorkspaceConfig;
   }): Promise<
     | {
+        /** Declared mounts this run does not have, and why — for the prompt. */
+        droppedMounts: DroppedWorkspaceMount[];
         sandboxProvider?: EngentySandboxProvider;
         workspace: Workspace;
       }
@@ -656,17 +675,37 @@ export function createThreadService(opts: ThreadServiceOptions) {
       }
     }
 
-    const mountSpecs = buildEngentyMountSpecs(declaredMounts, {
-      agentId: input.agentId,
-      runId: input.runId,
-      sandboxLifecycle: workspaceConfig.sandbox?.lifecycle ?? "run",
-      tenantId: input.scope.tenantId,
-      threadId: input.threadId,
-      userId: input.scope.userId,
-      ...(taskIdentifier ? { taskIdentifier } : {}),
-      ...(projectId ? { projectId } : {}),
-      ...(spaceId ? { spaceId } : {}),
-    });
+    const { specs: mountSpecs, dropped: droppedMounts } =
+      resolveEngentyMountSpecs(declaredMounts, {
+        agentId: input.agentId,
+        runId: input.runId,
+        sandboxLifecycle: workspaceConfig.sandbox?.lifecycle ?? "run",
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+        userId: input.scope.userId,
+        ...(taskIdentifier ? { taskIdentifier } : {}),
+        ...(projectId ? { projectId } : {}),
+        ...(spaceId ? { spaceId } : {}),
+      });
+    // Every drop is named, one line each. A Space-rooted mount that fell away
+    // (`/data`, `/space`) is the case people report as "the agent has no
+    // access to files" — that one is a warning. A binding drop (`/task` on a
+    // chat with no task) is the ordinary shape of a run and stays at debug.
+    for (const mount of droppedMounts) {
+      const fields = {
+        agent_id: input.agentId,
+        mount_path: mount.path,
+        reason: mount.reason,
+        run_id: input.runId,
+        space_resolution: spaceResolution.kind,
+        tenant_id: input.scope.tenantId,
+      };
+      if (mount.reason === "no_space") {
+        workspaceLogger.warn("workspace_mount_dropped", fields);
+      } else {
+        workspaceLogger.debug("workspace_mount_dropped", fields);
+      }
+    }
     // An agent declared a workspace but nothing in its mount table resolved —
     // every mount needed a binding that isn't there (a `/task` mount on a
     // session with no task, an unsupported scope). The run proceeds without a
@@ -683,7 +722,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       return;
     }
 
-    return buildAgentWorkspaceForRun({
+    const built = await buildAgentWorkspaceForRun({
       agentId: input.agentId,
       mounts: mountSpecs,
       runId: input.runId,
@@ -696,6 +735,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
         : {}),
       ...(taskIdentifier ? { taskIdentifier } : {}),
     });
+    return { ...built, droppedMounts };
   }
 
   async function spaceResolutionForSessionWorkspace(input: {
@@ -1294,6 +1334,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       const {
         agent,
         agentConfig,
+        droppedMounts,
         modelId,
         rootConfig,
         spaceResolution,
@@ -1333,11 +1374,18 @@ export function createThreadService(opts: ThreadServiceOptions) {
       const runtimeContextInstructions = await buildSessionRuntimeInstructions({
         agentId: session.agent_id,
         agentUi: input.agentUi,
+        droppedMounts,
+        frontendToolGrant: frontendToolGrantForRun({
+          agentId: session.agent_id,
+          config: rootConfig,
+          spaceResolution,
+        }),
         routeContext: session.route_context,
         runContext: input.runContext,
         scope: input.scope,
         spaceResolution,
         threadId: input.threadId,
+        threadKind: threadKind(session),
       });
       const modelMessages = buildNativeMastraModelInput({
         currentUserTurn: findCurrentUserTurn(rows),

@@ -31,6 +31,7 @@ import {
 import { createThreadStoreFromEnv } from "../index.js";
 import { resolveTaskJobServiceScope } from "../jobs/task-job-scope.js";
 import { scopeAccessToken } from "../sessions/types.js";
+import { speakOnDesk } from "../threads/speak-on-desk.js";
 import { resolveSpecialistChatThread } from "../threads/specialist-chat-thread.js";
 import { stableUuid } from "../workflows/dispatch-published-run.js";
 import type {
@@ -386,16 +387,24 @@ export async function reportRoutineRun(
       run_thread_id: input.threadId,
       source: "routine-report",
     };
-    await store.appendMessage({
-      authorUserId: null,
-      // Derived from the run, so a replayed settle upserts instead of posting
-      // the same report twice.
-      id: stableUuid(`routine-report:${input.runId}`),
+    // The desk door: same room `resolveRoutineOwnerThread` found, plus the
+    // inbox `update` for the Space. The id derives from the run, so a
+    // replayed settle upserts instead of posting the same report twice.
+    await speakOnDesk({
+      agentId: routine.agent_id,
+      messageId: stableUuid(`routine-report:${input.runId}`),
       metadata,
-      parts: [{ text, type: "text" }],
-      role: "assistant",
+      notify: {
+        summary: `Routine · ${routine.name}: ${input.status === "failed" ? "run failed" : input.summary?.trim() || "finished"}`,
+      },
+      ownerUserId: routine.created_by_user_id,
+      source: "routine-report",
+      spaceId: routine.space_id,
+      store,
       tenantId: input.tenantId,
-      threadId: destination,
+      text,
+      threadSeed: `routine-report-thread:${routine.id}`,
+      title: routine.name,
     });
     // Upward, too: the same words in the room of whoever this agent reports
     // to. Its own failure is logged, never raised — the owner already has
@@ -412,20 +421,19 @@ export async function reportRoutineRun(
         const upward = reportsTo
           ? await resolveReportsToThread({ reportsTo, routine, store })
           : null;
-        if (upward && upward !== destination) {
-          await store.appendMessage({
-            authorUserId: null,
-            id: stableUuid(`routine-report:${input.runId}:${reportsTo}`),
+        if (upward && upward !== destination && reportsTo) {
+          await speakOnDesk({
+            agentId: reportsTo,
+            messageId: stableUuid(`routine-report:${input.runId}:${reportsTo}`),
             metadata: { ...metadata, reports_to: reportsTo },
-            parts: [
-              {
-                text: `${text}\n\n_Reported by ${routine.agent_id}._`,
-                type: "text",
-              },
-            ],
-            role: "assistant",
+            ownerUserId: routine.created_by_user_id,
+            source: "routine-report",
+            spaceId: routine.space_id,
+            store,
             tenantId: input.tenantId,
-            threadId: upward,
+            text: `${text}\n\n_Reported by ${routine.agent_id}._`,
+            threadSeed: `routine-report-thread:${routine.id}:${reportsTo}`,
+            title: routine.name,
           });
         }
       } catch (err) {

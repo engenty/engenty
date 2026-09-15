@@ -17,14 +17,22 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+/**
+ * The consolidated baseline, not the migration that first wrote these rules:
+ * the consolidation replaced 121 files with one pg_dump of the schema they
+ * produce. The invariants are the same; their spelling is the dump's.
+ */
 const MIGRATION = join(
   dirname(fileURLToPath(import.meta.url)),
-  "../../supabase/migrations/20260811000000_core_space_membership.sql"
+  "../../supabase/migrations/00000000000001_initial_schema.sql"
 );
 
 const sql = readFileSync(MIGRATION, "utf8");
-/** Collapse whitespace so assertions survive reformatting of the SQL. */
-const flat = sql.replace(/\s+/g, " ");
+/**
+ * Collapse whitespace and case so assertions survive reformatting — pg_dump
+ * writes keywords in upper case, hand-written migrations in lower.
+ */
+const flat = sql.replace(/\s+/g, " ").toLowerCase();
 
 /**
  * One `create policy` statement, bounded at its terminating semicolon.
@@ -33,6 +41,10 @@ const flat = sql.replace(/\s+/g, " ");
  * carry every later policy with it, so a `not.toContain` assertion would fail on
  * a neighbour's text and a `toContain` one would pass on it. Both directions
  * gave a wrong answer before this existed.
+ */
+/**
+ * pg_dump normalizes predicates — extra parentheses, `'x'::text` casts, and
+ * `( select f() as f)` for a scalar subquery — so assertions match that form.
  */
 function policy(name: string): string {
   const start = flat.indexOf(`create policy ${name}`);
@@ -46,7 +58,7 @@ function policy(name: string): string {
 describe("core.space_member migration", () => {
   it("parses the migration at all", () => {
     expect(sql.length).toBeGreaterThan(2000);
-    expect(flat).toContain("create table if not exists core.space_member");
+    expect(flat).toContain("create table core.space_member");
   });
 
   it("keeps both foreign keys composite on (…, tenant_id)", () => {
@@ -54,13 +66,13 @@ describe("core.space_member migration", () => {
     // tenant's row — the exact trap core.space_mount documents. Module DAL runs
     // partly on a service-role client where RLS would not catch it either.
     expect(flat).toContain(
-      "foreign key (space_id, tenant_id) references core.spaces (id, tenant_id)"
+      "foreign key (space_id, tenant_id) references core.spaces(id, tenant_id)"
     );
     expect(flat).toContain(
-      "foreign key (user_id, tenant_id) references core.users (id, tenant_id)"
+      "foreign key (user_id, tenant_id) references core.users(id, tenant_id)"
     );
     expect(flat).toContain(
-      "foreign key (owner_user_id, tenant_id) references core.users (id, tenant_id)"
+      "foreign key (owner_user_id, tenant_id) references core.users(id, tenant_id)"
     );
   });
 
@@ -82,9 +94,7 @@ describe("core.space_member migration", () => {
     // The migration must be a no-op for everyone until a space is deliberately
     // made private. A default of 'private' would silently hide every existing
     // space from every user at deploy time.
-    expect(flat).toContain(
-      "add column if not exists visibility text not null default 'open'"
-    );
+    expect(flat).toContain("visibility text default 'open'::text not null");
   });
 
   it("creates the personal space from the canonical membership table", () => {
@@ -110,13 +120,7 @@ describe("a personal space has no members", () => {
   // The correction that reshaped Phase P: a personal space is a SPECIAL type of
   // space, not an ordinary one that starts private. `owner_user_id` is the whole
   // of its access grant, so `core.space_member` is a shared-space table only.
-  const later = readFileSync(
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      "../../supabase/migrations/20260811020000_core_personal_space_has_no_members.sql"
-    ),
-    "utf8"
-  ).replace(/\s+/g, " ");
+  const later = flat;
 
   it("parses that migration at all", () => {
     expect(later).toContain("core.forbid_personal_space_member()");
@@ -130,12 +134,10 @@ describe("a personal space has no members", () => {
   it("stops the creation trigger seeding an owner membership", () => {
     // The superseded version inserted one; its absence is the fix, so assert on
     // the replacement function's body rather than trusting the comment.
-    const body = later.slice(
-      later.indexOf("create or replace function core.ensure_personal_space()"),
-      later.indexOf(
-        "drop trigger if exists user_tenant_roles_ensure_personal_space"
-      )
+    const start = later.search(
+      /create (?:or replace )?function core\.ensure_personal_space\(/
     );
+    const body = later.slice(start, later.indexOf("$$;", start));
     expect(body).toContain("core.spaces");
     // The only membership insert left is the one into the DEFAULT space.
     expect(body).toContain("v_default_space_id");
@@ -144,20 +146,17 @@ describe("a personal space has no members", () => {
     );
   });
 
-  it("clears every member row on a personal space, not merely the owner's", () => {
-    // The first cut deleted only rows where member == owner, which left rows
-    // that step 2 forbids anyone from creating — the invariant would have read
-    // as enforced with a violating row still in the table.
-    expect(later).toContain("delete from core.space_member m");
-    expect(later).toContain("and s.owner_user_id is not null");
-  });
+  // The one-time cleanup that deleted pre-existing member rows on personal
+  // spaces was a migration step, not an invariant, so the consolidated baseline
+  // legitimately has no trace of it. What must still hold is the trigger that
+  // forbids creating such a row, which the two tests above pin.
 });
 
 describe("row level security", () => {
   it("gates core.spaces on open ∨ owner ∨ member", () => {
     const rule = policy("spaces_select_own_tenant");
-    expect(rule).toContain("visibility = 'open'");
-    expect(rule).toContain("owner_user_id = (select core.current_user_id())");
+    expect(rule).toContain("visibility = 'open'::text");
+    expect(rule).toContain("owner_user_id = ( select core.current_user_id()");
     expect(rule).toContain("from core.space_member m");
   });
 
@@ -166,7 +165,7 @@ describe("row level security", () => {
     // A duplicated access rule here would drift from the one above.
     const rule = policy("space_mount_select_own_tenant");
     expect(rule).toContain(
-      "from core.spaces s where s.id = space_mount.space_id"
+      "from core.spaces s where (s.id = space_mount.space_id)"
     );
     expect(rule).not.toContain("visibility = 'open'");
   });
@@ -175,7 +174,7 @@ describe("row level security", () => {
     // Not "rows of spaces I can see": core.spaces' policy reads this table, and a
     // policy that looked back at core.spaces would make the pair recursive.
     const rule = policy("space_member_select_own");
-    expect(rule).toContain("user_id = (select core.current_user_id())");
+    expect(rule).toContain("user_id = ( select core.current_user_id()");
     expect(rule).not.toContain("from core.spaces");
   });
 
@@ -184,7 +183,7 @@ describe("row level security", () => {
     // would match nothing and lock the application out of its own tables. Server
     // paths are guarded in the DAL instead (requireSpaceAccess).
     const rule = policy("srv_tenant_isolation on core.space_member");
-    expect(rule).toContain("tenant_id = (select core.current_tenant_id())");
+    expect(rule).toContain("tenant_id = ( select core.current_tenant_id()");
     expect(rule).not.toContain("current_user_id");
   });
 });

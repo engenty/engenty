@@ -127,6 +127,7 @@ export function createCustomAgent(input: CreateCustomAgentInput) {
   return requestAiServiceJson<{
     agent: CustomAgentConfig;
     mounted: AgentSpaceMountResult[];
+    welcome?: { spaceId: string; threadId: string }[];
   }>("/ai/registry/agents", {
     body: JSON.stringify(input),
     method: "POST",

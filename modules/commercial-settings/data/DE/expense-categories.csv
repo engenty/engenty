@@ -1,0 +1,11 @@
+code,name,account_class,account_number,account_name,is_tax_deductible,default_deduction_rate,llm_hint
+reise,Reisekosten,4,4660,Reisekosten,true,1,"Fahrtkosten, Hotel, Verpflegungspauschale, Bahnticket"
+bewirtung,Bewirtung,4,4650,Bewirtungskosten,true,0.7,Geschäftsessen — 70% absetzbar in DE
+buero,Bürobedarf,4,4930,Bürobedarf,true,1,"Büromaterial, Papier, Toner"
+miete,Miete & Nebenkosten,4,4210,Miete,true,1,"Büromiete, Strom, Heizung, Nebenkosten"
+telekom,Telekommunikation,4,4920,Telefon,true,1,"Telefon, Internet, Mobilfunk"
+software,Software & Lizenzen,4,4964,Software,true,1,"SaaS, Cloud, Lizenzen"
+beratung,Beratung & Fremdleistungen,4,4950,Rechts- und Beratungskosten,true,1,"Steuerberater, Anwalt, Freelancer"
+versicherung,Versicherungen,4,4360,Versicherungen,true,1,"Betriebshaftpflicht, Berufshaftpflicht"
+kfz,Kfz-Kosten,4,4500,Fahrzeugkosten,true,1,"Treibstoff, Wartung, Leasing, Versicherung"
+sonstige,Sonstige betriebliche Aufwendungen,4,4900,Sonstige betriebliche Aufwendungen,true,1,Fallback-Kategorie

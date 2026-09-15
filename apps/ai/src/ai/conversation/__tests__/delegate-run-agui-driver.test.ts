@@ -119,6 +119,56 @@ describe("headless AG-UI driver mapping", () => {
     expect(lines).toEqual(["Running engenty_tool_execute"]);
   });
 
+  it("collects the artifacts the run wrote or presented, by tool name", () => {
+    // TOOL_CALL_RESULT names only the call id, so the start event's name is
+    // what tells an artifact_write from any other tool that echoes an id. A
+    // colleague's deliverable otherwise stayed in the pair thread nobody
+    // reads (live 2026-09-15: "E-Mail-Entwurf" only behind the drill-in).
+    const state = drive([
+      {
+        toolCallId: "w1",
+        toolCallName: "artifact_write",
+        type: EventType.TOOL_CALL_START,
+      },
+      {
+        content: JSON.stringify({ artifact_id: "art-1", version: 1 }),
+        toolCallId: "w1",
+        type: EventType.TOOL_CALL_RESULT,
+      },
+      {
+        toolCallId: "r1",
+        toolCallName: "artifact_read",
+        type: EventType.TOOL_CALL_START,
+      },
+      {
+        content: JSON.stringify({ artifact_id: "art-9", content: "…" }),
+        toolCallId: "r1",
+        type: EventType.TOOL_CALL_RESULT,
+      },
+      {
+        toolCallId: "w2",
+        toolCallName: "artifact_write",
+        type: EventType.TOOL_CALL_START,
+      },
+      {
+        content: JSON.stringify({ error: "version_conflict" }),
+        toolCallId: "w2",
+        type: EventType.TOOL_CALL_RESULT,
+      },
+      {
+        toolCallId: "s1",
+        toolCallName: "show_artifact",
+        type: EventType.TOOL_CALL_START,
+      },
+      {
+        content: JSON.stringify({ artifact_id: "art-1", shown: true }),
+        toolCallId: "s1",
+        type: EventType.TOOL_CALL_RESULT,
+      },
+    ]);
+    expect(state.producedArtifactIds).toEqual(["art-1"]);
+  });
+
   it("pulls field suggestions out of a tool result carried as a JSON string", () => {
     // AG-UI carries TOOL_CALL_RESULT.content as a STRING; the Session handed over a
     // parsed object. Forgetting to parse would silently drop every artifact.

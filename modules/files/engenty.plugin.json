@@ -27,5 +27,14 @@
       "bindOperation": "files_account_bind"
     }
   ],
-  "mountOperation": "files_space_mount"
+  "mountOperation": "files_space_mount",
+  "supabase": {
+    "storageBuckets": [
+      {
+        "name": "files",
+        "public": false,
+        "fileSizeLimit": "50MiB"
+      }
+    ]
+  }
 }

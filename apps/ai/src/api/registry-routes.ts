@@ -13,6 +13,7 @@ import {
 } from "../ai/index.js";
 import { listAllWorkflows } from "../ai/module-workflows.js";
 import { buildAgentInstructions } from "../ai/registry/assemble-dynamic-agent.js";
+import { resolveEffectiveCapabilities } from "../ai/registry/effective-capabilities.js";
 import {
   AGENT_STARTER_MAX,
   type AgentConfig,
@@ -21,6 +22,7 @@ import {
   agentStarterSchema,
   toolConfigSchema,
 } from "../ai/registry/types.js";
+import { resolveRunSpaceById } from "../ai/sessions/run-space.js";
 import {
   type AiSessionScope,
   scopeAccessToken,
@@ -87,6 +89,13 @@ export interface RegisterRegistryRoutesOptions {
   // Tenant-scoped module capability channel — source of module workflow defs.
   moduleLoader?: DynamicAiModuleCapabilityLoader;
   scopeResolver: AiScopeResolver;
+  /** After a live hire: open its desk and leave a first message. */
+  welcomeHiredAgent?: (input: {
+    agent: AgentConfig;
+    locale: string;
+    scope: AiSessionScope;
+    spaceIds: readonly string[];
+  }) => Promise<{ spaceId: string; threadId: string }[]>;
 }
 
 function coreClientForScope(
@@ -224,6 +233,57 @@ export function registerRegistryRoutes(
     }
   });
 
+  // The runtime tool and skill set by layer — the assemble pipeline run dry.
+  // `?space_id=` adds the Space's visibility filter and its mounted skills,
+  // resolved the way a run resolves them (the caller's access included).
+  app.get(
+    `${AI_BASE_PATH}/registry/agents/:id/effective-capabilities`,
+    async (c) => {
+      const resolved = await resolveScope(c, scopeResolver);
+      if (!resolved.ok) {
+        return resolved.response;
+      }
+      try {
+        const agentId = c.req.param("id");
+        const registry = getRegistry?.(resolved.scope.tenantId);
+        const store = registry ? null : getStore();
+        const agent = registry
+          ? await registry.getAgentConfig(agentId)
+          : await store?.getAgentConfig(resolved.scope.tenantId, agentId);
+        if (!agent) {
+          return c.json({ error: "agent_registry.notFound" }, 404);
+        }
+        const spaceIdRaw = c.req.query("space_id")?.trim();
+        const spaceId = spaceIdRaw
+          ? optionalSpaceIdSchema.safeParse(spaceIdRaw)
+          : null;
+        if (spaceId && !spaceId.success) {
+          return c.json({ error: "agent_registry.invalidSpaceId" }, 400);
+        }
+        const spaceResolution = spaceId?.success
+          ? await resolveRunSpaceById({
+              scope: resolved.scope,
+              spaceId: spaceId.data,
+            })
+          : null;
+        const capabilities = await resolveEffectiveCapabilities({
+          config: agent,
+          registry: registry ?? null,
+          spaceId: spaceId?.success ? spaceId.data : null,
+          spaceResolution,
+        });
+        return c.json(capabilities);
+      } catch (err) {
+        return handleRouteError(
+          c,
+          "failed to resolve effective capabilities",
+          "agent_registry.internalError",
+          err
+        );
+      }
+    }
+  );
+
   /**
    * Tool ids an agent declares must be tools the registry can actually provide.
    * A hire naming MODULE OPERATION ids (`contacts_bulk_import`) instead of tool
@@ -358,7 +418,24 @@ export function registerRegistryRoutes(
             ok: false as const,
             spaceId,
           }));
-      return c.json({ agent, mounted });
+      const mountedOk = mounted
+        .filter((row) => row.ok)
+        .map((row) => row.spaceId);
+      // Best-effort: a silent hire shows as Inactive on the Space home.
+      const locale =
+        c.req.header("accept-language")?.split(",")[0]?.trim() || "en";
+      const welcome =
+        mountedOk.length > 0 && options.welcomeHiredAgent
+          ? await options
+              .welcomeHiredAgent({
+                agent,
+                locale,
+                scope: resolved.scope,
+                spaceIds: mountedOk,
+              })
+              .catch(() => [])
+          : [];
+      return c.json({ agent, mounted, welcome });
     } catch (err) {
       return handleRouteError(
         c,

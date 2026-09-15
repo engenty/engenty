@@ -37,6 +37,7 @@ import { SandboxCommandConfirmCard } from "../interrupts/sandbox-command-confirm
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import { transcriptHasActiveSandboxCommandToolPart } from "../tool-call/sandbox-command-transcript-utils";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
+import { AgentReplyPreview } from "./agent-reply-preview.js";
 import {
   type ChatBubbleCluster,
   chatBubbleCluster,
@@ -238,6 +239,11 @@ export function CopilotTranscript({
 
   const showThinkingShimmer = shouldShowCopilotThinkingShimmer({
     awaitingInterrupt,
+    // A pending (not yet echoed) user turn sits after it in the transcript.
+    lastAssistantIsLastMessage:
+      !showPending &&
+      lastAssistantMessage !== null &&
+      filteredMessages.at(-1)?.id === lastAssistantMessage.id,
     lastAssistantParts: lastAssistantMessage?.parts,
     openInterrupt,
     status,
@@ -301,6 +307,20 @@ export function CopilotTranscript({
         <div className="w-full py-2" key={raw.id}>
           <InlineAppArtifact artifactId={raw.appRelease.artifactId} />
         </div>
+      );
+    }
+    // The desk agent's answer to a colleague, cut to a preview: a quote with
+    // a way into the pair thread, not a full assistant bubble.
+    if (raw.role === "assistant" && raw.agentMessage?.kind === "reply") {
+      return (
+        <AgentReplyPreview
+          agentId={raw.agentMessage.agentId}
+          agentName={raw.authorName ?? null}
+          className={stackClassName}
+          key={raw.id}
+          marker={raw.agentMessage}
+          parts={raw.parts}
+        />
       );
     }
     // A colleague's message lands as a user turn with a header naming the

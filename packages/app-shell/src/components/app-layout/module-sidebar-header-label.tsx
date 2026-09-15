@@ -1,9 +1,8 @@
 /**
  * Static module label for the shell secondary nav column header slot.
  *
- * Renders the module icon + translated label (e.g. 🧑‍🤝‍🧑 Team) next to the
- * toggle / pin button. Modules that need a chooser (e.g. KB picker) provide
- * their own `secondaryNavHeaderSlot` instead of using this component.
+ * Renders the module icon + translated label (e.g. 🧑‍🤝‍🧑 Team). The column
+ * Close/pin control lives on the column’s right seam, not in this row.
  */
 
 import type { UiIconComponent } from "@engenty/ui-plugin-sdk";

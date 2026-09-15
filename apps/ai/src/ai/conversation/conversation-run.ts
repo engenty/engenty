@@ -54,6 +54,7 @@ import {
   emitExecutionLaneRunStarted,
   executionSpaceId,
 } from "../sessions/execution-lane.js";
+import { frontendToolGrantForRun } from "../sessions/frontend-tool-grant.js";
 import { agentRunErrorCode } from "../sessions/mastra-stream-failure.js";
 import { resolveAgentMaxSteps } from "../sessions/max-steps.js";
 import { registerActiveRunAbortController } from "../sessions/run-abort-registry.js";
@@ -359,11 +360,6 @@ export async function startConversationRun(
   let failureNotice: string | null = null;
   await patchThreadStatus({ ...input, status: "running" });
   try {
-    const mergedDefinitions = resolveFrontendToolsForAgent({
-      agentId: input.agentId,
-      clientTools: input.agentUi?.frontend_tools,
-    });
-    const frontendTools = createNativeFrontendTools(mergedDefinitions);
     // Built early so the delegation tools' onProgress can fold lines onto the
     // sub-agent card (recordSubAgentProgress) and tag live progress events.
     const converter = new AgUiTurnAccumulator();
@@ -373,6 +369,19 @@ export async function startConversationRun(
     // BOTH chat lanes — this one and the resume — have to agree, and a value
     // threaded from two routes is a value that eventually diverges.
     const rootConfig = await input.registry.getAgentConfig?.(input.agentId);
+    // The page-driving grant reads the row and the Space position, so it comes
+    // after both are known; the executor and the prompt share this one value.
+    const frontendToolGrant = frontendToolGrantForRun({
+      agentId: input.agentId,
+      config: rootConfig,
+      spaceResolution,
+    });
+    const mergedDefinitions = resolveFrontendToolsForAgent({
+      agentId: input.agentId,
+      clientTools: input.agentUi?.frontend_tools,
+      grant: frontendToolGrant,
+    });
+    const frontendTools = createNativeFrontendTools(mergedDefinitions);
     const threadRow =
       typeof input.store.getThread === "function"
         ? await input.store.getThread({
@@ -472,6 +481,7 @@ export async function startConversationRun(
       await buildSessionRuntimeInstructions({
         agentId: input.agentId,
         agentUi: input.agentUi,
+        frontendToolGrant,
         routeContext: input.routeContext ?? null,
         runContext: input.runContext,
         scope: input.scope,

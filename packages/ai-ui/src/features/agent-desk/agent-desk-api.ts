@@ -118,3 +118,27 @@ export function putAgentDeskTasks(input: {
     { body: JSON.stringify({ tasks: input.tasks }), method: "PUT" }
   );
 }
+
+export interface AgentDeskWelcome {
+  created: boolean;
+  thread_id: string;
+}
+
+/** Open the desk if needed and leave a first message when the hire is still silent. */
+export function postAgentDeskWelcome(input: {
+  agent_id: string;
+  locale?: string;
+  space_id: string;
+}): Promise<AgentDeskWelcome> {
+  const query = new URLSearchParams({
+    agent_id: input.agent_id,
+    space_id: input.space_id,
+  });
+  if (input.locale) {
+    query.set("locale", input.locale);
+  }
+  return requestAiServiceJson<AgentDeskWelcome>(
+    `/ai/v1/agent-desk/welcome?${query.toString()}`,
+    { method: "POST" }
+  );
+}

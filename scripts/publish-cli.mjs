@@ -38,11 +38,15 @@ const STAGE_DIR = ".engenty/publish-cli";
 const SHIPPED = ["dist", "lib", "wizard", "README.md"];
 const TEMPLATES = [
   "docker-compose.prebuilt.yaml",
+  "docker-compose.local.yaml",
   "docker-compose.backend.prebuilt.yaml",
   "docker-compose.edge.prebuilt.yaml",
   "docker-compose.migrate.prebuilt.yaml",
   "blue-green.env.example",
 ];
+
+/** Directories the compose files bind-mount, copied verbatim. */
+const TEMPLATE_DIRS = ["egress-proxy", "browser-proxy"];
 
 /**
  * Pure transform: the package.json the release publishes with. Exported for
@@ -203,6 +207,23 @@ export function stage(root, { version }) {
       publicImageNames(fs.readFileSync(path.join(root, "deploy", name), "utf8"))
     );
   }
+  // The compose bind-mounts these by relative path, so an install that has only
+  // the yaml files fails at container start with "not a directory" — Docker
+  // creates a directory where a config file was expected. Both the managed
+  // install and `engenty deploy` on a server need them next to the compose.
+  for (const dir of TEMPLATE_DIRS) {
+    fs.cpSync(path.join(root, "deploy", dir), path.join(templateDir, dir), {
+      recursive: true,
+    });
+  }
+
+  // `engenty start` materializes a managed install's supabase/config.toml from
+  // the same template a checkout uses, so the two stacks differ only in their
+  // project id and port band.
+  fs.copyFileSync(
+    path.join(root, "supabase", "config.toml.example"),
+    path.join(templateDir, "config.toml.example")
+  );
 
   const release = {
     version,

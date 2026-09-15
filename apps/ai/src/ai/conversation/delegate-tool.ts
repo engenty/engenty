@@ -358,6 +358,12 @@ export async function runDelegatedSpecialist(
     // card — the user sees the deliverable in the chat, not only in the
     // artifact pane or behind the child-thread drill-in.
     ...(result.appArtifactId ? { app_artifact_id: result.appArtifactId } : {}),
+    // Artifacts the child wrote or presented. Its `artifact_write` card sits
+    // in the child's own thread — a pair thread nobody reads — so the parent's
+    // hand-off row offers them where the person actually is.
+    ...(result.producedArtifactIds?.length
+      ? { artifact_ids: result.producedArtifactIds }
+      : {}),
     child_run_id: childRunId,
     child_thread_id: childThreadId,
     ok: true,

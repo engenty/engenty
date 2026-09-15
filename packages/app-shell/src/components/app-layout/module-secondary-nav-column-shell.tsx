@@ -86,8 +86,8 @@ export function ModuleSecondaryNavColumnShell(props: {
     ? (routeHeaderSlot ?? secondaryNavHeaderSlot)
     : headerSlot;
   // Settings / Setup use a page header slot, not a route override — they still
-  // need the same compact row as a space. Collapse lives on the seam now, so
-  // this row is only the title.
+  // need the same compact row as a space. Open/close lives on the app-bar
+  // edge, so this row is only the title.
   const compactHeader =
     contentBlend || routeOwnsChrome || resolvedHeaderSlot != null;
 

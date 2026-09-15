@@ -1,0 +1,15 @@
+{
+  "gateway": "opper",
+  "label": "Opper",
+  "roles": {
+    "model.low": "openai/gpt-5-nano",
+    "model.medium": "openai/gpt-5.6-luna",
+    "model.high": "openai/gpt-5.6-luna",
+    "router": "openai/gpt-oss-20b",
+    "classifier": "openai/gpt-oss-20b",
+    "safeguard": "openai/gpt-oss-safeguard-20b",
+    "planning_coding": "openai/gpt-5.6-luna",
+    "research": "openai/gpt-5.6-luna",
+    "memory": "openai/gpt-5.6-luna"
+  }
+}

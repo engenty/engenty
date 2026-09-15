@@ -40,7 +40,22 @@ describe("SPACE_CONTRACT_PROMPT", () => {
       "`/data` is this Space's module records"
     );
     expect(SPACE_CONTRACT_PROMPT).toContain("observational memory");
-    expect(SPACE_CONTRACT_PROMPT).not.toContain("/data/Files");
+    expect(SPACE_CONTRACT_PROMPT).toContain("not a file dump");
+  });
+
+  it("puts the agent's own context before the Space's and the tenant's", () => {
+    expect(SPACE_CONTRACT_PROMPT).toContain("Prefer your own context first");
+    expect(SPACE_CONTRACT_PROMPT).toContain("MEMORY.md and TASKS.md");
+    expect(SPACE_CONTRACT_PROMPT).toContain("artifacts scoped to you");
+    expect(SPACE_CONTRACT_PROMPT).toContain(
+      "do not ask the person for it again"
+    );
+  });
+
+  it("sends Space uploads to /data/Files instead of workspace scratch", () => {
+    expect(SPACE_CONTRACT_PROMPT).toContain("/data/Files");
+    expect(SPACE_CONTRACT_PROMPT).toContain("does not index `/data`");
+    expect(SPACE_CONTRACT_PROMPT).toContain("files_space_list");
   });
 
   it("defines Space and workspace without making either a driver", () => {
@@ -51,7 +66,7 @@ describe("SPACE_CONTRACT_PROMPT", () => {
       "not a driver, queue, or scheduler"
     );
     expect(SPACE_CONTRACT_PROMPT).toContain(
-      "A workspace is run context and files, not a queue or module database"
+      "A workspace is run context and working files, not a queue or module database"
     );
     expect(SPACE_CONTRACT_PROMPT).toContain(
       "Files and artifacts are real deliverable stores and review surfaces"

@@ -63,8 +63,8 @@ import {
   Settings2,
   Terminal,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { SettingsOverviewIcon } from "@/components/settings";
 import { SpaceAppearanceDialog } from "@/components/spaces/SpaceAppearanceDialog";
@@ -86,7 +86,10 @@ import {
   resolveSpaceAgentKind,
   type SpaceAgentKind,
 } from "@/lib/space-agent-nav";
-import { spaceModulePath } from "@/lib/space-routes";
+import {
+  SPACE_SETTINGS_PEOPLE_HASH,
+  spaceModulePath,
+} from "@/lib/space-routes";
 import {
   useSaveSpaceSetupMutation,
   useSpaceAgentCatalogQuery,
@@ -488,6 +491,7 @@ function SpaceBrowserRow({ spaceId }: { spaceId: string }) {
 export function SpaceSettingsPage() {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
+  const location = useLocation();
   const { spaceKey } = useParams<{ spaceKey: string }>();
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
   const spacesQuery = useSpacesQuery();
@@ -520,6 +524,21 @@ export function SpaceSettingsPage() {
   // Its own owner may configure it — admins deliberately cannot see private
   // spaces, so an admin-only rule would leave personal spaces unconfigurable.
   const canEdit = canManage || isPersonal;
+
+  useEffect(() => {
+    if (location.hash !== `#${SPACE_SETTINGS_PEOPLE_HASH}`) {
+      return;
+    }
+    if (isPersonal || !spaceId) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(SPACE_SETTINGS_PEOPLE_HASH)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isPersonal, location.hash, spaceId]);
 
   const mounts: readonly SpaceMount[] = useMemo(
     () => mountsQuery.data ?? [],
@@ -1093,22 +1112,24 @@ export function SpaceSettingsPage() {
               section that could only ever say "nobody here" is worse than
               none. */}
           {isPersonal || !spaceId ? null : (
-            <SettingsFormSection
-              cardVariant="flush"
-              /* On an OPEN space this list gates nothing: `canAccessSpace`
-                 returns true for the whole tenant before it ever looks for a
-                 member row. Saying "who can open this space" over a roster
-                 that admits nobody and excludes nobody is the one sentence
-                 here that can be flatly untrue, so it follows the switch. */
-              description={
-                space?.visibility === "private"
-                  ? t("spaces.members.description")
-                  : t("spaces.members.descriptionOpen")
-              }
-              title={t("spaces.members.section")}
-            >
-              <SpaceMembersCard canManage={canManage} spaceId={spaceId} />
-            </SettingsFormSection>
+            <div className="scroll-mt-6" id={SPACE_SETTINGS_PEOPLE_HASH}>
+              <SettingsFormSection
+                cardVariant="flush"
+                /* On an OPEN space this list gates nothing: `canAccessSpace`
+                   returns true for the whole tenant before it ever looks for a
+                   member row. Saying "who can open this space" over a roster
+                   that admits nobody and excludes nobody is the one sentence
+                   here that can be flatly untrue, so it follows the switch. */
+                description={
+                  space?.visibility === "private"
+                    ? t("spaces.members.description")
+                    : t("spaces.members.descriptionOpen")
+                }
+                title={t("spaces.members.section")}
+              >
+                <SpaceMembersCard canManage={canManage} spaceId={spaceId} />
+              </SettingsFormSection>
+            </div>
           )}
 
           {/* One card per mount kind, each with its own editor. Skills and

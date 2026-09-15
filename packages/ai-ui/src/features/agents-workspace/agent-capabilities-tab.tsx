@@ -12,6 +12,7 @@ import {
   AgentEffectiveToolsPanel,
   AgentSkillsPanel,
 } from "./agent-skills-panel";
+import { AgentSurfacePanel } from "./agent-surface-panel";
 
 interface AgentCapabilitiesTabProps {
   actions: AiRegisteredAction[];
@@ -67,6 +68,18 @@ export function AgentCapabilitiesTab({
       >
         <AgentConnectionsPanel agentId={agent.id} />
       </SettingsFormSection>
+      {/* Where else it may act: the person's screen, and remote channels as
+          itself. Registry rows only — a module's agent declares these in its
+          manifest, and the copilot always drives the screen. */}
+      {agent.agent_origin === "custom" && agent.role !== "copilot" ? (
+        <SettingsFormSection
+          cardClassName="overflow-hidden p-0 sm:p-0"
+          description={t("agentSurface.description")}
+          title={t("agentSurface.title")}
+        >
+          <AgentSurfacePanel agentId={agent.id} />
+        </SettingsFormSection>
+      ) : null}
     </div>
   );
 }

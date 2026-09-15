@@ -20,6 +20,42 @@ describe("shouldShowCopilotThinkingShimmer", () => {
     ).toBe(true);
   });
 
+  it("hides while the live turn's tool timeline carries the status line", () => {
+    // The timeline header shows "Thinking… · 9s" itself between two tool
+    // calls; a second shimmer under it said the same thing twice.
+    const finishedSearch = {
+      input: { query: "x" },
+      output: { results: [] },
+      state: "output-available",
+      toolCallId: "ws-1",
+      toolName: "web_search",
+      type: "dynamic-tool",
+    };
+    expect(
+      shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: true,
+        lastAssistantParts: [finishedSearch],
+        status: "streaming",
+      })
+    ).toBe(false);
+    // An older assistant turn ending on a tool says nothing about the turn the
+    // person just sent — the shimmer is all the feedback there is then.
+    expect(
+      shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: false,
+        lastAssistantParts: [finishedSearch],
+        status: "streaming",
+      })
+    ).toBe(true);
+    expect(
+      shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: true,
+        lastAssistantParts: [finishedSearch],
+        status: "submitted",
+      })
+    ).toBe(true);
+  });
+
   it("hides when an open decision interrupt is active", () => {
     expect(
       shouldShowCopilotThinkingShimmer({

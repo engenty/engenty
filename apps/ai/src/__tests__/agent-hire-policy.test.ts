@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentCarriesCatalogFloor,
   hirePolicyGateReason,
   isLiveHireEligible,
   preferredSkillIdsForRun,
@@ -122,6 +123,7 @@ describe("withCatalogFloor", () => {
       "invoke_workflow",
       "message_agent",
       "agent_status",
+      "desk_post",
       "web_search",
       "show_ui",
       "thread_state_set",
@@ -147,6 +149,7 @@ describe("withCatalogFloor", () => {
       "invoke_workflow",
       "message_agent",
       "agent_status",
+      "desk_post",
       "web_search",
       "show_ui",
       "thread_state_set",
@@ -185,6 +188,7 @@ describe("withCatalogFloor", () => {
       "invoke_workflow",
       "message_agent",
       "agent_status",
+      "desk_post",
       "web_search",
       "show_ui",
       "thread_state_set",
@@ -216,12 +220,46 @@ describe("withLiveHireSkills", () => {
     expect(
       preferredSkillIdsForRun({ skillIds: [], source: "database" }, true)
     ).toContain("chief-of-staff");
+    // A module specialist stands on the same floor as a hired one …
     expect(
       preferredSkillIdsForRun(
         { skillIds: ["kb-ingest"], source: "module" },
+        false
+      )
+    ).toEqual(["kb-ingest", "space-data", "app-authoring", "engenty-bridge"]);
+    // … but a module's interface, delegate or chat surface keeps its list.
+    expect(
+      preferredSkillIdsForRun(
+        { kind: "chat_surface", skillIds: ["kb-answer"], source: "module" },
         true
       )
-    ).toEqual(["kb-ingest"]);
+    ).toEqual(["kb-answer"]);
+    expect(
+      preferredSkillIdsForRun(
+        { kind: "interface", skillIds: [], source: "builtin" },
+        true
+      )
+    ).toEqual([]);
+  });
+});
+
+describe("agentCarriesCatalogFloor", () => {
+  it("is every specialist, hired or module-shipped, and nothing else", () => {
+    expect(agentCarriesCatalogFloor({ source: "database" })).toBe(true);
+    expect(agentCarriesCatalogFloor({ source: "module" })).toBe(true);
+    expect(
+      agentCarriesCatalogFloor({ kind: "specialist", source: "module" })
+    ).toBe(true);
+    expect(
+      agentCarriesCatalogFloor({ kind: "delegated", source: "module" })
+    ).toBe(false);
+    expect(
+      agentCarriesCatalogFloor({ kind: "interface", source: "module" })
+    ).toBe(false);
+    expect(
+      agentCarriesCatalogFloor({ kind: "chat_surface", source: "module" })
+    ).toBe(false);
+    expect(agentCarriesCatalogFloor({ source: "builtin" })).toBe(false);
   });
 });
 

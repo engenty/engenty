@@ -327,6 +327,23 @@ export const agentConfigSchema = z.object({
    */
   purpose: agentModelPurposeSchema.optional(),
   name: z.string().min(1),
+  /**
+   * Reachable from a remote channel (Slack, Telegram, …) as itself, not only
+   * through the shared front door. When on, a bound channel or an `@handle`
+   * routes the turn to THIS agent, assembled with its own tools and memory.
+   * Off by default: a channel turn that lands on an agent nobody
+   * meant to expose is a leak, not a feature.
+   */
+  remoteEnabled: z.boolean().optional(),
+  /**
+   * The short name a channel addresses it by (`@sales`, `/to sales`). Lower
+   * case, letters/digits/dashes/underscores. Absent = the agent id's last
+   * segment.
+   */
+  remoteHandle: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9_-]{0,31}$/)
+    .nullish(),
   skillIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),
   /**
@@ -343,6 +360,16 @@ export const agentConfigSchema = z.object({
   toolIds: z.array(z.string().min(1)).default([]),
   /** Skill-gated tool visibility. See {@link agentToolGatingConfigSchema}. */
   toolGating: agentToolGatingConfigSchema.optional(),
+  /**
+   * Whether this agent may drive the person's screen from a chat surface —
+   * the frontend tools (navigate, open a dialog, focus a field, the guided
+   * tour, the browser-use set). Only ever on a run a browser started; a
+   * channel or routine turn never carries them whatever this says.
+   *
+   * `auto` (default) = on for the Space's coordinator (top-level Engenty),
+   * off for the rest. `on` / `off` decide outright.
+   */
+  uiTools: z.enum(["auto", "on", "off"]).optional(),
   // Optional per-agent workspace request (filesystem + skills + sandbox).
   workspace: agentWorkspaceConfigSchema.optional(),
 });

@@ -48,6 +48,25 @@ services:
     networks:
       - engenty
 
+  # Mastra's own DDL, applied once per deploy. It is NOT a migration (the SQL
+  # belongs to @mastra/pg and would drift) and NOT a boot step: its ~34
+  # idempotent statements each fire ddl_command_end, which reloads PostgREST's
+  # schema cache and 502s in-flight requests. apps/ai refuses to start without
+  # these tables, so on a fresh install there has to be something that creates
+  # them, and outside a checkout this is it.
+  engenty-mastra-init:
+    image: ghcr.io/engenty/engenty-ai:latest
+    pull_policy: always
+    restart: "no"
+    entrypoint: ["node", "apps/ai/dist/cli/mastra-schema-init.js"]
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
+    depends_on:
+      engenty-migrate:
+        condition: service_completed_successfully
+    networks:
+      - engenty
+
   engenty-edge:
     image: ghcr.io/engenty/engenty-edge:latest
     # Always pull :latest on deploy — without this, `docker compose up` reuses
@@ -103,6 +122,17 @@ services:
       ENGENTY_GATEWAY_STUDIO_URL: http://engenty-studio:43111
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # The symmetric secret the tenant-locked server lane signs its
+      # engenty_server tokens with. Required on any stack that verifies
+      # HS256 (local, self-hosted); empty on Supabase Cloud with
+      # asymmetric signing keys, which uses ENGENTY_SERVER_LANE_* instead.
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      # What the BROWSER must use, when it differs from what the containers
+      # use — prod-gateway-runtime-env falls back to SUPABASE_URL, which is a
+      # container-side address on a managed local install. Empty elsewhere, so
+      # the fallback still applies.
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}
       # Server-lane signing key — see the header note. Unset on stacks that
@@ -128,7 +158,8 @@ services:
       # that space's computer at /sandbox/apps.
       ENGENTY_SPACES_DIR: /opt/engenty/spaces
     depends_on:
-      engenty-migrate:
+      # Transitively waits for engenty-migrate too.
+      engenty-mastra-init:
         condition: service_completed_successfully
       # service_STARTED, not service_healthy: core only proxies to ai at request
       # time (ENGENTY_GATEWAY_AI_URL), so waiting for ai to pass a health check
@@ -172,7 +203,8 @@ services:
           node -e "fetch('http://127.0.0.1:8790/ai/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       timeout: 8s
     depends_on:
-      engenty-migrate:
+      # Transitively waits for engenty-migrate too.
+      engenty-mastra-init:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
@@ -206,6 +238,11 @@ services:
       ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # The symmetric secret the tenant-locked server lane signs its
+      # engenty_server tokens with. Required on any stack that verifies
+      # HS256 (local, self-hosted); empty on Supabase Cloud with
+      # asymmetric signing keys, which uses ENGENTY_SERVER_LANE_* instead.
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       # apps/ai mints its own server-lane tokens (WP6) — same key as core.
       ENGENTY_SECURITY_JWT_SECRET: ${ENGENTY_SECURITY_JWT_SECRET}

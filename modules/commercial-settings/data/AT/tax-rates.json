@@ -1,0 +1,8 @@
+{
+  "region": "AT",
+  "rates": [
+    { "name": "USt", "label": "Umsatzsteuer (Normal)", "value": 20 },
+    { "name": "USt_erm", "label": "Ermäßigt", "value": 10 },
+    { "name": "USt_bes", "label": "Besonders", "value": 13 }
+  ]
+}

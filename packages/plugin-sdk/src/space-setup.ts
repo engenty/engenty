@@ -61,15 +61,12 @@ export function spaceMountKey(
  * and refused by the removal path.
  *
  * Planning is NOT baseline. Tasks is a module a space chooses — the wizard
- * features it on every template and Company gets it by default (the tenant
- * trigger seeds a non-required mount) — but a space that only chats and keeps
- * files is a complete space.
+ * features it on purpose templates — but a space that only chats and keeps
+ * files is a complete space. The first Company space is baseline only.
  *
  * MIRRORED IN SQL: `core.space_baseline_mounts()` — the latest migration that
- * redefines it (currently
- * `20260904120000_core_space_baseline_drop_tasks.sql`).
- * `space-setup.test.ts` / `space-baseline-sql-pin.test.ts` read that function
- * and fail if the two lists disagree.
+ * redefines it. `space-setup.test.ts` / `space-baseline-sql-pin.test.ts` read
+ * that function and fail if the two lists disagree.
  */
 export const SPACE_BASELINE_MOUNTS: readonly SpaceMountDeclaration[] = [
   // Chat. A mounted app like any other — not a special case in the schema.

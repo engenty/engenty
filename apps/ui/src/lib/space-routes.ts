@@ -72,6 +72,13 @@ export function spaceSettingsPath(spaceKey: string): string {
   return `${spaceRootPath(spaceKey)}/settings`;
 }
 
+/** People / members card on space settings — hash so home can land on it. */
+export const SPACE_SETTINGS_PEOPLE_HASH = "people";
+
+export function spaceSettingsPeoplePath(spaceKey: string): string {
+  return `${spaceSettingsPath(spaceKey)}#${SPACE_SETTINGS_PEOPLE_HASH}`;
+}
+
 /**
  * The space's inbox — the shell's notification centre, narrowed to this space:
  * `/s/<key>/notifications`. A reserved segment like `settings`; it belongs to

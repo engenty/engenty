@@ -12,6 +12,7 @@ import {
   spaceNotificationsPath,
   spaceRootPath,
   spaceSettingsPath,
+  spaceSettingsPeoplePath,
 } from "./space-routes";
 
 describe("space routes", () => {
@@ -188,6 +189,12 @@ describe("space notifications", () => {
 describe("space settings", () => {
   it("builds the space's own settings path", () => {
     expect(spaceSettingsPath("company")).toBe("/s/company/settings");
+  });
+
+  it("lands on the people section from the home team-space link", () => {
+    expect(spaceSettingsPeoplePath("company")).toBe(
+      "/s/company/settings#people"
+    );
   });
 
   it("does NOT report `settings` as an open module", () => {

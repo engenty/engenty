@@ -3,6 +3,7 @@ import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
+import { ensureHireWelcome } from "../ai/hire/hire-welcome.js";
 import {
   type AiRegistry,
   type AiService,
@@ -482,6 +483,83 @@ export function registerAgentDeskRoutes(
       return handleRouteError(
         c,
         "failed to write agent tasks",
+        "agent_desk.internalError",
+        error
+      );
+    }
+  });
+
+  const welcomeQuerySchema = z.object({
+    agent_id: z.string().trim().min(1).max(128),
+    locale: z.string().trim().min(2).max(16).default("en"),
+    space_id: uuidString,
+  });
+
+  app.post(`${AI_BASE_PATH}/v1/agent-desk/welcome`, async (c) => {
+    const resolved = await resolveScope(c, options.scopeResolver);
+    if (!resolved.ok) {
+      return resolved.response;
+    }
+    const query = welcomeQuerySchema.safeParse(c.req.query());
+    if (!query.success) {
+      return c.json(
+        { error: "agent_desk.invalidQuery", details: query.error.issues },
+        400
+      );
+    }
+    const accessToken = scopeAccessToken(resolved.scope);
+    const coreBaseUrl = options.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
+    if (!(accessToken && coreBaseUrl)) {
+      return c.json({ error: "agent_desk.unconfiguredCore" }, 503);
+    }
+    const core = new EngentyCoreClient({
+      accessToken,
+      coreBaseUrl,
+      fetchImpl: options.coreFetch,
+    });
+    try {
+      const agent = await options
+        .getRegistry(resolved.scope.tenantId)
+        .getAgentConfig(query.data.agent_id);
+      if (!agent) {
+        return c.json({ error: "agent_desk.agent_not_found" }, 404);
+      }
+      const surface = await core.getSpaceSurface(query.data.space_id);
+      if (!surface.agents.includes(agent.id)) {
+        return c.json({ error: "agent_desk.forbidden" }, 403);
+      }
+      const result = await ensureHireWelcome({
+        accessToken,
+        agent,
+        getSpaceSurface: () => Promise.resolve(surface),
+        listSpaces: () => core.listSpaces(),
+        locale: query.data.locale,
+        ownerUserId: resolved.scope.userId,
+        spaceId: query.data.space_id,
+        tenantId: resolved.scope.tenantId,
+      });
+      if (!result) {
+        return c.json({ error: "agent_desk.welcomeFailed" }, 503);
+      }
+      return c.json({
+        created: result.created,
+        thread_id: result.threadId,
+      });
+    } catch (error) {
+      if (error instanceof AgentDeskNotFoundError) {
+        return c.json({ error: `agent_desk.${error.code}` }, 404);
+      }
+      if (error instanceof EngentyCoreHttpError) {
+        if (error.status === 401 || error.status === 403) {
+          return c.json({ error: "agent_desk.forbidden" }, 403);
+        }
+        if (error.status === 404) {
+          return c.json({ error: "agent_desk.space_not_found" }, 404);
+        }
+      }
+      return handleRouteError(
+        c,
+        "failed to welcome hired agent",
         "agent_desk.internalError",
         error
       );

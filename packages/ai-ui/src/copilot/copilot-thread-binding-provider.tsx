@@ -296,8 +296,12 @@ export function CopilotThreadBindingProvider(
   );
 }
 
+export function useOptionalCopilotThreadBinding(): CopilotThreadBindingContextValue | null {
+  return useContext(CopilotThreadBindingContext);
+}
+
 export function useCopilotThreadBinding(): CopilotThreadBindingContextValue {
-  const context = useContext(CopilotThreadBindingContext);
+  const context = useOptionalCopilotThreadBinding();
   if (!context) {
     throw new Error(
       "useCopilotThreadBinding must be used inside <CopilotThreadBindingProvider>"

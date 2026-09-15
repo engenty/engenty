@@ -220,8 +220,10 @@ describe("createMessageAgentTool", () => {
         {} as never
       )
     );
-    expect(store.appendMessage).toHaveBeenCalledTimes(1);
-    expect(store.appendMessage).toHaveBeenCalledWith(
+    // Ask: the "Message from …" marker, then the colleague's reply preview.
+    expect(store.appendMessage).toHaveBeenCalledTimes(2);
+    expect(store.appendMessage).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         authorUserId: "user-1",
         metadata: {
@@ -242,6 +244,19 @@ describe("createMessageAgentTool", () => {
     )[0]?.[0]?.parts[0]?.text;
     expect(text).toContain("**Message from engenty.coordinator**");
     expect(text).toContain("research Acme");
+    expect(store.appendMessage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          engenty_agent_message: expect.objectContaining({
+            kind: "reply",
+            reply_to_agent_id: "engenty.coordinator",
+          }),
+        }),
+        role: "assistant",
+        threadId: "room:space-1:sales.researcher",
+      })
+    );
   });
 
   it("marks the desk with the whole message, however long", async () => {

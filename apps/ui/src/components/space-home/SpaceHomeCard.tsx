@@ -34,7 +34,7 @@ import { SpaceHomeJobRow } from "./SpaceHomeJobRow";
  * edge — roughly the engenty gutter on the left, so the chat blocks read as
  * one inset column between two margins.
  */
-const CHAT_BLOCK_INSET = "mr-12";
+const CHAT_BLOCK_INSET = "mr-4 @min-[22rem]:mr-12";
 
 function cardTitle(card: SpaceHomeCardModel): string {
   const { item } = card;
@@ -138,7 +138,7 @@ export function SpaceHomeCard({
   return (
     <section
       className={cn(
-        "ui-card-raised ui-card-interactive group relative flex cursor-pointer items-start gap-3.5 rounded-[14px] px-4 py-3.5",
+        "@container ui-card-raised ui-card-interactive group relative flex cursor-pointer items-start gap-3.5 rounded-[14px] px-4 py-3.5",
         needsVerdict ? "border-amber-500/40" : null
       )}
       data-state={card.state}
@@ -178,7 +178,7 @@ export function SpaceHomeCard({
             eat into it and re-wrap the text, which made cards of the same
             engenty look different depending on what it happened to be doing. */}
         <header className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex items-center gap-3">
+          <div className="flex @min-[22rem]:flex-row flex-col items-start @min-[22rem]:items-center @min-[22rem]:gap-3 gap-1.5">
             <div className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold text-[15px]">
               <span className="truncate group-hover:underline">{title}</span>
               {card.pinned ? (

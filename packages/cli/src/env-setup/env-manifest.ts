@@ -8,6 +8,14 @@ import type {
 import { isHttpUrl } from "./env-validators.js";
 
 export const ENV_SCOPES: Record<EnvScope, EnvScopeInfo> = {
+  // Not workspace-relative: resolved against ENGENTY_HOME (~/.engenty), the
+  // install `engenty start` manages. There is no checkout to hold it.
+  home: {
+    envFile: ".env",
+    exampleFile: ".env.example",
+    label: "Managed install (~/.engenty/.env)",
+    scope: "home",
+  },
   deploy: {
     envFile: "deploy/.env",
     exampleFile: "deploy/.env.example",

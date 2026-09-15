@@ -1,0 +1,7 @@
+{
+  "region": "GB",
+  "rates": [
+    { "name": "VAT", "label": "Standard", "value": 20 },
+    { "name": "VAT_red", "label": "Reduced", "value": 5 }
+  ]
+}

@@ -1,10 +1,20 @@
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "@hono/zod-openapi";
 import {
+  getRegionPack,
+  listRegionPackSummaries,
+  lookupChartAccounts,
+} from "../region-packs.js";
+import {
+  chartLookupInputSchema,
+  chartLookupOutputSchema,
   commercialDefaultsInputSchema,
   commercialSettingsSchema,
   disciplinesSchema,
   expenseCategoriesSchema,
+  regionPackGetInputSchema,
+  regionPackGetOutputSchema,
+  regionPackSummariesSchema,
   taxDeductionRulesSchema,
   taxRatesSchema,
   unitsSchema,
@@ -136,6 +146,60 @@ export function registerCommercialSettingsGatewayMethods(
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
       return repo.set(commercialDefaultsInputSchema.parse(input ?? {}));
+    },
+  });
+
+  server.registerOperation({
+    operationId: "commercial_settings_region_packs_list",
+    summary:
+      "List regional chart-of-accounts packs (AT EKR, DE SKR 03, CH KMU, GB VAT).",
+    moduleId: "commercial-settings",
+    spacePolicy: { kind: "tenant_shared" },
+    requiredCapabilities: ["module.commercial-settings.read"],
+    riskLevel: "low",
+    idempotent: true,
+    dryRunSupported: false,
+    requiresApproval: false,
+    inputSchema: z.object({}).optional(),
+    outputSchema: regionPackSummariesSchema,
+    handler: async () => ({ packs: listRegionPackSummaries() }),
+  });
+
+  server.registerOperation({
+    operationId: "commercial_settings_region_pack_get",
+    summary:
+      "Load one region pack: chart metadata, expense-category defaults, and tax rates.",
+    moduleId: "commercial-settings",
+    spacePolicy: { kind: "tenant_shared" },
+    requiredCapabilities: ["module.commercial-settings.read"],
+    riskLevel: "low",
+    idempotent: true,
+    dryRunSupported: false,
+    requiresApproval: false,
+    inputSchema: regionPackGetInputSchema,
+    outputSchema: regionPackGetOutputSchema,
+    handler: async (input) => {
+      const { region } = regionPackGetInputSchema.parse(input ?? {});
+      return getRegionPack(region);
+    },
+  });
+
+  server.registerOperation({
+    operationId: "commercial_settings_chart_lookup",
+    summary:
+      "Look up Kontoklasse and account number for a category code or search query in a region pack.",
+    moduleId: "commercial-settings",
+    spacePolicy: { kind: "tenant_shared" },
+    requiredCapabilities: ["module.commercial-settings.read"],
+    riskLevel: "low",
+    idempotent: true,
+    dryRunSupported: false,
+    requiresApproval: false,
+    inputSchema: chartLookupInputSchema,
+    outputSchema: chartLookupOutputSchema,
+    handler: async (input) => {
+      const parsed = chartLookupInputSchema.parse(input ?? {});
+      return lookupChartAccounts(parsed);
     },
   });
 }

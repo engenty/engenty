@@ -5,6 +5,7 @@ import { AgentActivityTab } from "./agent-activity-tab.js";
 import { AgentCapabilitiesTab } from "./agent-capabilities-tab.js";
 import { AgentDetailActivityDetail } from "./agent-detail-activity-detail.js";
 import { AgentDetailFilesTab } from "./agent-detail-files-tab.js";
+import { AgentDetailMemoryTab } from "./agent-detail-memory-tab.js";
 import type {
   AgentDetailAffordances,
   AgentDetailTab,
@@ -54,8 +55,23 @@ export function AgentDetailTabContent({
     return <AgentDetailFilesTab detail={detail} files={files} t={t} />;
   }
 
-  if (activeTab === "workspace") {
+  // Files = the same browser, held on `/home`: the hook reads the tab and
+  // pins the mount, so nothing here differs but the frame.
+  if (activeTab === "workspace" || activeTab === "files") {
     return <AgentDetailWorkspaceTab t={t} workspace={workspace} />;
+  }
+
+  if (activeTab === "memory") {
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto">
+        <div className="mx-auto w-full max-w-4xl space-y-6 p-page">
+          <AgentDetailMemoryTab
+            agentId={agent.id}
+            editable={!affordances.isExternal}
+          />
+        </div>
+      </div>
+    );
   }
 
   if (activeTab === "activity") {

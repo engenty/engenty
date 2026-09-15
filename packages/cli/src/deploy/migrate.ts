@@ -44,11 +44,16 @@ export function resolveDeployDbUrl(cwd = process.cwd()): string | undefined {
  * than the remote's newest.
  */
 export function runStandaloneMigrate(): void {
-  const manifest = requireReleaseManifest("deploy migrate");
   const dbUrl = resolveDeployDbUrl();
   if (!dbUrl) {
     throw new Error(DB_URL_HELP);
   }
+  runMigrateAgainst(dbUrl, "deploy migrate");
+}
+
+/** The same push against a database URL the caller already has. */
+export function runMigrateAgainst(dbUrl: string, command: string): void {
+  const manifest = requireReleaseManifest(command);
   const migrationsDir = path.join(cliPackageRoot(), manifest.migrationsDir);
   const files = fs.existsSync(migrationsDir)
     ? fs.readdirSync(migrationsDir).filter((name) => name.endsWith(".sql"))
@@ -89,7 +94,7 @@ export function runStandaloneMigrate(): void {
       { cwd: work, stdio: "inherit" }
     );
     if (result.status !== 0) {
-      throw new Error("engenty deploy migrate failed.");
+      throw new Error(`engenty ${command} failed.`);
     }
     console.log("Migrations up to date.");
   } finally {

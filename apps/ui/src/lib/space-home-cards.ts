@@ -139,14 +139,17 @@ export function resolveSpaceHomeCards(input: {
     const live = allJobs.filter((job) => job.state !== "done");
     const doneCount = allJobs.length - live.length;
     const state = mostUrgent(states.map((entry) => entry.state));
-    if (state === "quiet" && !pinned) {
-      quiet.push(item);
-      continue;
-    }
     const lastMessage = states
       .map((entry) => entry.last_message)
       .filter((message): message is SpaceHomeLastMessage => Boolean(message))
       .toSorted((left, right) => (left.at < right.at ? 1 : -1))[0];
+    const awaitingFirstReply = states.some(
+      (entry) => entry.awaiting_first_reply
+    );
+    if (state === "quiet" && !pinned && !awaitingFirstReply) {
+      quiet.push(item);
+      continue;
+    }
     cards.push({
       agentTurns: Math.max(0, ...states.map((entry) => entry.agent_turns), 0),
       doneCount,

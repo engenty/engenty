@@ -102,25 +102,32 @@ useEffect(() => {
 
 ## Toggle button wiring
 
-### Secondary nav (AppLayout → AppTopbar)
+### Secondary nav (AppLayout → rail Open, column Close/pin)
 
-Pass hover callbacks via `AppTopbar` props. They are only active when the nav is closed:
+Open lives on the **app bar's right edge** (`SecondaryNavSeamToggle` in `AppSidebar`) only while the column is collapsed. Close and pin live on the **column’s right seam**. Hover callbacks are only active when the nav is closed. The topbar keeps a fallback Open control only while the app bar itself is auto-hidden.
 
 ```tsx
-// AppTopbar.tsx — secondary nav button
-<Button
-  onMouseEnter={!secondaryNavOpen ? onSecondaryNavHoverEnter : undefined}
-  onMouseLeave={!secondaryNavOpen ? onSecondaryNavHoverLeave : undefined}
-  onClick={onToggleSecondaryNav}
-  ...
-/>
+// AppSidebar — rail-edge Open (collapsed only)
+{!secondaryNavOpen ? (
+  <SecondaryNavSeamToggle
+    onMouseEnter={onSecondaryNavHoverEnter}
+    onMouseLeave={onSecondaryNavHoverLeave}
+    onToggle={onToggleSecondaryNav}
+    toggleMode="expand"
+    visuallyHidden={secondaryNavHoverPreview}
+  />
+) : null}
+
+// SecondaryNavColumn — right-seam Close (pinned)
+<SecondaryNavSeamToggle onToggle={closeSecondaryNavPinned} toggleMode="collapse" />
 ```
 
 Pass from `AppLayoutFrame`:
 ```tsx
-<AppTopbar
+<AppSidebar
   onSecondaryNavHoverEnter={openHoverPanel}
   onSecondaryNavHoverLeave={closeHoverPanel}
+  onToggleSecondaryNav={handleToggleSecondaryNav}
   ...
 />
 ```
@@ -158,6 +165,6 @@ useAgentsWorkspaceNavRegistration({
 - [ ] `shell-divider` applied only when open (not at `w-0`)
 - [ ] Hover overlay uses `translate-x` with `pointer-events-none` when hidden
 - [ ] Hover state uses 150 ms debounce on close
-- [ ] Toggle button in topbar passes hover callbacks (do NOT put trigger strip on content edge)
+- [ ] Toggle button on the app-bar edge (or topbar fallback when the rail is hidden) passes hover callbacks (do NOT put trigger strip on content edge)
 - [ ] Hover state cleared when sidebar is pinned open
 - [ ] Timeout cleaned up on unmount

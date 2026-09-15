@@ -113,7 +113,7 @@ export function WorkspaceFileBrowser({
         }
       >
         <div className="shrink-0 space-y-1.5 border-b p-2">
-          {view ? (
+          {view && !workspace.mountLocked ? (
             <Select
               onValueChange={workspace.selectMount}
               value={workspace.selectedMount ?? ""}

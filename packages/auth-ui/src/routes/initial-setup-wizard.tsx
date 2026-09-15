@@ -4,7 +4,8 @@
 //         from core and from this browser; blocks until every red row is fixed
 //   1     Administrator — the account
 //   2     Team — renames the tenant step 1 created
-//   3     AI provider — a gateway key, stored as a platform setting (skippable)
+//   3     AI provider — a gateway key, stored as a platform setting (skippable;
+//         skipped automatically when the environment already has a key)
 //   4     First space — names and re-keys the trigger-made default, or creates
 //   5     Personal space — names the admin's own private space (skippable)
 //   6     Ready — the outcome, and the only place the shared client signs in
@@ -27,14 +28,21 @@ import {
 } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { Check, Eye, EyeOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
+import { useCallback, useEffect, useState } from "react";
+import { AuthLocaleSwitch } from "../components/auth-locale-switch";
+import {
+  AUTH_TRANSLATIONS,
+  type AuthLocale,
+  detectAuthLocale,
+} from "../lib/auth-i18n";
 import { createInitialAdmin } from "../lib/initial-setup";
 import {
   AI_PROVIDER_OPTIONS,
   type AiProviderOption,
   type AiProviderTestResult,
+  aiProviderEnvKeysFromChecks,
   attentionCount,
+  decideAiProviderStep,
   probeAiServiceFromBrowser,
   readSetupChecks,
   type SetupCheck,
@@ -98,11 +106,12 @@ interface RailEntry {
 function SetupLeftPanel({
   entries,
   step,
+  t,
 }: {
   entries: readonly RailEntry[];
   step: Step;
+  t: Translations;
 }) {
-  const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()], []);
   return (
     <div
       className="relative hidden flex-col justify-between overflow-hidden lg:flex"
@@ -658,18 +667,33 @@ function Step2TeamForm({
 // "Test key" asks the gateway's own auth endpoint — the catalogs need no
 // credential, so they would say nothing.
 
+function envConnectedOutcome(envKeys: readonly string[]): ProviderOutcome {
+  const decision = decideAiProviderStep({
+    envKeys,
+    intent: "skip",
+    pastedKey: "",
+  });
+  return decision.kind === "connected-env"
+    ? { kind: "connected", label: decision.label, reloadConfirmed: true }
+    : { kind: "skipped" };
+}
+
 function Step3ProviderForm({
   accessToken,
+  envKeys,
   onComplete,
-  providerKeyAlreadySet,
 }: {
   accessToken: string;
+  /** Env var names the gate already saw as set. */
+  envKeys: readonly string[];
   onComplete: (outcome: ProviderOutcome) => void;
-  /** The gate saw a key in the environment already (env wizard / deploy). */
-  providerKeyAlreadySet: boolean;
 }) {
+  const alreadySet = envKeys.length > 0;
   const [option, setOption] = useState<AiProviderOption>(
-    AI_PROVIDER_OPTIONS[0] as AiProviderOption
+    () =>
+      AI_PROVIDER_OPTIONS.find((candidate) =>
+        envKeys.includes(candidate.envKey)
+      ) ?? (AI_PROVIDER_OPTIONS[0] as AiProviderOption)
   );
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -704,15 +728,24 @@ function Step3ProviderForm({
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!key) {
+    const decision = decideAiProviderStep({
+      envKeys,
+      intent: "continue",
+      pastedKey: apiKey,
+    });
+    if (decision.kind === "need-key") {
       setError("Paste the key, or skip for now.");
+      return;
+    }
+    if (decision.kind !== "save") {
+      onComplete(envConnectedOutcome(envKeys));
       return;
     }
     setBusy("save");
     try {
       const saved = await saveAiProviderKey({
         accessToken,
-        apiKey: key,
+        apiKey: decision.apiKey,
         envKey: option.envKey,
       });
       onComplete({
@@ -735,10 +768,11 @@ function Step3ProviderForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={save}>
-      {providerKeyAlreadySet ? (
+      {alreadySet ? (
         <p className="rounded-[4px] bg-muted px-3 py-2 text-muted-foreground text-xs">
-          A gateway key is already set in the server environment. Saving one
-          here stores it as a platform setting, which takes precedence.
+          A gateway key is already set in the server environment. Continue uses
+          that key. Paste another only if you want it stored as a platform
+          setting, which takes precedence.
         </p>
       ) : null}
 
@@ -867,10 +901,11 @@ function Step3ProviderForm({
       </div>
       <SkipLink
         disabled={busy !== null}
-        onClick={() => onComplete({ kind: "skipped" })}
+        onClick={() => onComplete(envConnectedOutcome(envKeys))}
       >
-        Skip for now — the copilot stays off until a key is set in Setup →
-        Platform settings
+        {alreadySet
+          ? "Keep the server environment key — you can change it later in Setup → Platform settings"
+          : "Skip for now — the copilot stays off until a key is set in Setup → Platform settings"}
       </SkipLink>
     </form>
   );
@@ -880,8 +915,8 @@ function Step3ProviderForm({
 // Names and re-keys the tenant's default space, which the trigger created
 // with its baseline mounts — or creates one when the tenant has none.
 
-/** What the default space ships with; the trigger seeds these, the wizard only names it. */
-const FIRST_SPACE_COMES_WITH = ["Copilot", "Files", "Connections", "Tasks"];
+/** What the default Company space ships with; the trigger seeds these, the wizard only names it. */
+const FIRST_SPACE_COMES_WITH = ["Copilot", "Files", "Connections"];
 
 function Step4SpaceForm({
   accessToken,
@@ -973,16 +1008,18 @@ function Step4SpaceForm({
 
 // ─── Step 5 – Personal space (optional) ───────────────────────────────────────
 // The database gave the admin a private space when they joined the tenant
-// (`core.ensure_personal_space`). This step names it; skipping keeps the name
-// the trigger chose. Its key never changes — `/s/me` resolves it.
+// (`core.ensure_personal_space`). This step can rename it. Continue with the
+// current name just proceeds; a keep-link only appears after they edit.
 
 function Step5PersonalSpaceForm({
   accessToken,
   onComplete,
+  t,
   userId,
 }: {
   accessToken: string;
   onComplete: (name: string | null) => void;
+  t: Translations;
   userId: string;
 }) {
   const [space, setSpace] = useState<
@@ -1026,7 +1063,7 @@ function Step5PersonalSpaceForm({
       return;
     }
     if (!trimmed) {
-      setError("A name is required — or skip to keep the current one.");
+      setError("A name is required.");
       return;
     }
     if (trimmed === space.name) {
@@ -1078,11 +1115,13 @@ function Step5PersonalSpaceForm({
     );
   }
 
+  const unchanged = name.trim() === space.name;
+
   return (
     <form className="flex flex-col gap-5" onSubmit={save}>
       <div className="flex flex-col gap-1.5">
         <Label className="font-medium text-sm" htmlFor="setup-personal-space">
-          Name
+          {t.setup.step5NameLabel}
         </Label>
         <Input
           autoFocus
@@ -1092,10 +1131,7 @@ function Step5PersonalSpaceForm({
           onChange={(e) => setName(e.target.value)}
           value={name}
         />
-        <p className="text-muted-foreground text-xs">
-          Reached at /s/me. Private: no members, and it cannot be opened to the
-          team — sharing something means moving it to a shared space.
-        </p>
+        <p className="text-muted-foreground text-xs">{t.setup.step5NameHint}</p>
       </div>
 
       <ErrorLine message={error} />
@@ -1104,11 +1140,17 @@ function Step5PersonalSpaceForm({
         {submitting && (
           <AnimatedLoaderIcon className="mr-2" play="always" size="sm" />
         )}
-        {submitting ? "Saving…" : "Save name"}
+        {submitting
+          ? t.setup.step5Saving
+          : unchanged
+            ? t.setup.gateContinue
+            : t.setup.step5SaveName}
       </Button>
-      <SkipLink disabled={submitting} onClick={() => onComplete(space.name)}>
-        Skip — keep "{space.name}"
-      </SkipLink>
+      {unchanged ? null : (
+        <SkipLink disabled={submitting} onClick={() => onComplete(space.name)}>
+          {t.setup.step5KeepName(space.name)}
+        </SkipLink>
+      )}
     </form>
   );
 }
@@ -1299,7 +1341,8 @@ interface InitialSetupWizardProps {
 }
 
 export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
-  const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()], []);
+  const [locale, setLocale] = useState<AuthLocale>(detectAuthLocale);
+  const t = AUTH_TRANSLATIONS[locale];
   const [step, setStep] = useState<Step>(0);
   const [gateChecks, setGateChecks] = useState<SetupCheck[]>([]);
   // Admin credentials are carried through every step: step 2 signs in with
@@ -1321,9 +1364,7 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
   );
 
   const gateAttention = attentionCount(gateChecks);
-  const providerKeyAlreadySet = gateChecks.some(
-    (check) => check.id === "ai_provider" && check.status === "ok"
-  );
+  const providerEnvKeys = aiProviderEnvKeysFromChecks(gateChecks);
 
   const rail: RailEntry[] = [
     {
@@ -1402,7 +1443,7 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
       }}
     >
       <div className="grid min-h-dvh lg:grid-cols-[420px_1fr]">
-        <SetupLeftPanel entries={rail} step={step} />
+        <SetupLeftPanel entries={rail} step={step} t={t} />
 
         <div className="flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-[460px]">
@@ -1420,9 +1461,18 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                 >
                   {step === 0 ? "··" : String(step).padStart(2, "0")}
                 </p>
-                <h2 className="font-heading font-semibold text-2xl tracking-tight">
-                  {cardTitle}
-                </h2>
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-heading font-semibold text-2xl tracking-tight">
+                    {cardTitle}
+                  </h2>
+                  {step === 0 ? (
+                    <AuthLocaleSwitch
+                      label={t.language}
+                      locale={locale}
+                      onChange={setLocale}
+                    />
+                  ) : null}
+                </div>
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   {cardDesc}
                 </p>
@@ -1458,6 +1508,11 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                           setAccessToken(result.accessToken);
                           setUserId(result.userId);
                           setTeamName(result.teamName);
+                          if (providerEnvKeys.length > 0) {
+                            setProvider(envConnectedOutcome(providerEnvKeys));
+                            setStep(4);
+                            return;
+                          }
                           setStep(3);
                         }}
                       />
@@ -1465,11 +1520,11 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                     {step === 3 ? (
                       <Step3ProviderForm
                         accessToken={accessToken}
+                        envKeys={providerEnvKeys}
                         onComplete={(result) => {
                           setProvider(result);
                           setStep(4);
                         }}
-                        providerKeyAlreadySet={providerKeyAlreadySet}
                       />
                     ) : null}
                     {step === 4 ? (
@@ -1489,6 +1544,7 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                           setPersonalSpaceName(name);
                           setStep(6);
                         }}
+                        t={t}
                         userId={userId}
                       />
                     ) : null}

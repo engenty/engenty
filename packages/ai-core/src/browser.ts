@@ -86,6 +86,11 @@ export {
   FIRST_ENGENTY_TOOL_IDS,
 } from "./agents/first-engenty.js";
 export {
+  LIVE_HIRE_ATTACHED_TOOL_IDS,
+  LIVE_HIRE_SKILL_IDS,
+  LIVE_HIRE_TOOL_IDS,
+} from "./agents/hire-floor.js";
+export {
   createFieldSuggestionsArtifact,
   FIELD_SUGGESTIONS_ARTIFACT_TYPE,
   type FieldSuggestion,
@@ -104,6 +109,7 @@ export {
   DEFAULT_AI_CHAT_MODEL_ID,
   DEFAULT_AI_CLASSIFIER_MODEL_ID,
   DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
+  DEFAULT_AI_LOW_MODEL_ID,
   DEFAULT_AI_SAFEGUARD_MODEL_ID,
   resolveChatModelId,
   resolveSafeguardModelId,

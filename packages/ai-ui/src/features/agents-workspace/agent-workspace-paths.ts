@@ -69,6 +69,16 @@ export function buildAgentWorkspacePath(agentId: string) {
   return `${buildAgentDetailPath(agentId)}/workspace`;
 }
 
+/** MEMORY.md and TASKS.md per Space — what the agent keeps for itself. */
+export function buildAgentMemoryPath(agentId: string) {
+  return `${buildAgentDetailPath(agentId)}/memory`;
+}
+
+/** The agent's own files: the workspace browser held on `/home`. */
+export function buildAgentFilesPath(agentId: string) {
+  return `${buildAgentDetailPath(agentId)}/files`;
+}
+
 export function buildAgentActivityPath(agentId: string) {
   return `${buildAgentDetailPath(agentId)}/activity`;
 }

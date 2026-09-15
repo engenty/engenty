@@ -181,6 +181,8 @@ dialog exists. Shortcuts are ignored while focus is inside a dialog/sheet. Set
 - Optional filters: `ListToolbarFilterToggle` + `ListToolbarFilterRow` of
   `ListFilterChip`s, or `ListIconSegmentToggle` / `ListFilterSelectTrigger` as
   children of `ListToolbarMainArea`.
+- `ListFilterChip` is single-select by default. Pass `multiple` with `values` /
+  `onValuesChange` for OR'd checkbox facets (provider, tags, and similar).
 
 ## Reference pages
 

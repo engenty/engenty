@@ -25,6 +25,10 @@ import { CircleAlert, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
 import { resolveAgentDisplayName } from "../../../ag-ui/resolve-transcript-tool-display.js";
+import {
+  DelegatedArtifactRow,
+  readDelegatedArtifactIds,
+} from "../../../artifacts/delegated-artifact-row.js";
 import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
 import { AgentNamePill } from "../agent-name-pill.js";
 import type { ToolCallCardProps } from "./tool-call-card.types";
@@ -117,6 +121,9 @@ export function AgentMessageToolCallCard({
     (state === "running" || state === "pending");
   const failureText = errorText?.trim() || readString(out.message) || undefined;
   const liveLine = running ? (readString(progressLines?.at(-1)) ?? null) : null;
+  // What the colleague made while answering. Its own Write card is in the
+  // pair thread; the person is here, so the deliverable is offered here.
+  const artifactIds = failed ? [] : readDelegatedArtifactIds(output);
 
   // A room is its own page; a pair thread lives on the colleague's desk.
   const href =
@@ -186,6 +193,13 @@ export function AgentMessageToolCallCard({
         >
           {liveLine}
         </span>
+      ) : null}
+      {artifactIds.length > 0 ? (
+        <div className="mt-2 flex w-full max-w-md flex-col gap-1.5">
+          {artifactIds.map((artifactId) => (
+            <DelegatedArtifactRow artifactId={artifactId} key={artifactId} />
+          ))}
+        </div>
       ) : null}
     </div>
   );
