@@ -46,4 +46,5 @@ export { CallbackPage } from "./routes/callback-page";
 export { DevLoginPage } from "./routes/dev-login-page";
 export { InitialSetupPage } from "./routes/initial-setup-page";
 export { LoginPage } from "./routes/login-page";
+export { OAuthConsentPage } from "./routes/oauth-consent-page";
 export { ServiceUnavailablePage } from "./routes/service-unavailable-page";

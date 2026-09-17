@@ -37,14 +37,16 @@ export {
   type NotificationBellProps,
 } from "./notification-bell.js";
 export {
+  notificationHref,
+  notificationOrigin,
+} from "./notification-href.js";
+export {
   NotificationInboxPanel,
   notificationInboxPopoverClassName,
 } from "./notification-inbox-panel.js";
 export {
   NotificationList,
   type NotificationListProps,
-  notificationHref,
-  notificationOrigin,
 } from "./notification-list.js";
 export { spaceInboxPath } from "./notification-paths.js";
 export { NotificationPreferencesSection } from "./notification-preferences-section.js";

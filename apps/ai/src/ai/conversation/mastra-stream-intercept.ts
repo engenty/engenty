@@ -23,6 +23,16 @@
 //     not recognise (its processor warns "Unrecognized stream chunk type").
 //   - **`tool-call-approval`** — the pause a `requireApproval` gate opens, restated
 //     as the `tool-call-suspended` upstream does have a case for.
+//   - **the `tripwire` chunk** — a processor block ends the loop with no reply;
+//     upstream drops the chunk, so the harness could not tell it from success.
+//   - **run guards** — `modelSettings.timeout` and the empty-reply completion
+//     check (`run-guards.ts`); upstream passes neither, so a hung provider call
+//     or a model that stopped without text ran, or ended, unnoticed.
+import type { MastraTripwireInfo } from "../sessions/mastra-stream-failure.js";
+import {
+  createEmptyReplyCompletion,
+  withRunTimeouts,
+} from "../sessions/run-guards.js";
 import {
   formatSubAgentProgressLine,
   isSubAgentDelegationToolName,
@@ -49,6 +59,12 @@ export interface MastraStreamInterceptOptions {
   maxSteps?: number;
   /** Native sub-agent progress lines, keyed by delegation tool call. */
   onSubAgentProgress?: (toolCallId: string, line: string) => void;
+  /**
+   * The shared run guards (`run-guards.ts`): the env-resolved
+   * `modelSettings.timeout` budget and the one-shot empty-reply nudge. On by
+   * default for every lane; `false` opts a caller out (tests, tiny helpers).
+   */
+  runGuards?: boolean;
   /** Keep the stream open across background-task continuations. */
   untilIdle?: boolean;
 }
@@ -59,6 +75,27 @@ export interface MastraStreamIntercept {
   readErrorChunk: () => Error | undefined;
   /** The stream result, for the finishReason check. */
   readStream: () => unknown;
+  /** Mastra's `tripwire` chunk (processor block), if one passed by. */
+  readTripwireChunk: () => MastraTripwireInfo | null;
+}
+
+/**
+ * The guards folded into one `agent.stream()` call's options. Caller values
+ * win: an explicit `timeout` field or `isTaskComplete` stays as passed.
+ */
+export function applyRunGuards(
+  callOptions: Record<string, unknown>
+): Record<string, unknown> {
+  const modelSettings = withRunTimeouts(
+    callOptions.modelSettings as Record<string, unknown> | undefined
+  );
+  return {
+    ...callOptions,
+    ...(modelSettings ? { modelSettings } : {}),
+    ...(callOptions.isTaskComplete
+      ? {}
+      : { isTaskComplete: createEmptyReplyCompletion() }),
+  };
 }
 
 /**
@@ -114,6 +151,7 @@ export function interceptMastraStream(
 ): MastraStreamIntercept {
   let captured: unknown;
   let errorChunk: Error | undefined;
+  let tripwireChunk: MastraTripwireInfo | null = null;
   // The delegation tool call nested progress currently attaches to.
   let activeDelegation: string | null = null;
   const target = agent as Record<string, unknown>;
@@ -138,12 +176,16 @@ export function interceptMastraStream(
         second: unknown
       ) => Promise<unknown>;
       return async (first: unknown, second: unknown) => {
-        const callOptions = {
+        const baseOptions = {
           ...(second as Record<string, unknown>),
           ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
           ...(options.maxSteps ? { maxSteps: options.maxSteps } : {}),
           ...(options.untilIdle ? { untilIdle: true } : {}),
         };
+        const callOptions =
+          options.runGuards === false
+            ? baseOptions
+            : applyRunGuards(baseOptions);
         const firstArg =
           method === "stream" && options.attachments?.length
             ? appendAttachments(first, options.attachments)
@@ -162,6 +204,7 @@ export function interceptMastraStream(
         const observed = (async function* () {
           for await (const chunk of source) {
             errorChunk ??= errorFromChunk(chunk);
+            tripwireChunk ??= tripwireFromChunk(chunk);
             activeDelegation = readSubAgentProgress(
               chunk,
               activeDelegation,
@@ -190,6 +233,28 @@ export function interceptMastraStream(
     proxied,
     readErrorChunk: () => errorChunk,
     readStream: () => captured,
+    readTripwireChunk: () => tripwireChunk,
+  };
+}
+
+/**
+ * Mastra's `tripwire` chunk: `{ payload: { reason, processorId, retry } }`.
+ * Upstream has no case for it, so the run would otherwise end as a clean
+ * finish with nothing said.
+ */
+function tripwireFromChunk(chunk: unknown): MastraTripwireInfo | null {
+  const typed = chunk as
+    | { payload?: Record<string, unknown>; type?: string }
+    | undefined;
+  if (typed?.type !== "tripwire") {
+    return null;
+  }
+  const payload = typed.payload ?? {};
+  return {
+    ...(typeof payload.processorId === "string"
+      ? { processorId: payload.processorId }
+      : {}),
+    ...(typeof payload.reason === "string" ? { reason: payload.reason } : {}),
   };
 }
 

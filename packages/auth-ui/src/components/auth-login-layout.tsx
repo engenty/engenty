@@ -5,8 +5,8 @@
 
 import { Engenty, EngentyLogoMark, EngentyWordmark } from "@engenty/ui-core";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
-import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
+import { AUTH_TRANSLATIONS, type AuthLocale } from "../lib/auth-i18n";
+import { AuthLocaleSwitch } from "./auth-locale-switch";
 
 /** Landing hero ember — matches www mockup `oklch(44% 0.16 30)`. */
 const BRAND_EMBER = "oklch(44% 0.16 30)";
@@ -59,18 +59,34 @@ function FeatureItem({
   );
 }
 
-export function AuthLoginLayout({ children }: { children: ReactNode }) {
-  const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()], []);
+export function AuthLoginLayout({
+  children,
+  locale,
+  onLocaleChange,
+}: {
+  children: ReactNode;
+  locale: AuthLocale;
+  onLocaleChange: (locale: AuthLocale) => void;
+}) {
+  const t = AUTH_TRANSLATIONS[locale];
 
   return (
     <div
-      className="grid min-h-dvh"
+      className="relative grid min-h-dvh"
       style={{ background: "var(--color-paper, oklch(98.4% 0.006 70))" }}
     >
+      <div className="absolute top-4 right-4 z-30 sm:top-6 sm:right-6">
+        <AuthLocaleSwitch
+          label={t.language}
+          locale={locale}
+          onChange={onLocaleChange}
+        />
+      </div>
+
       <div className="grid min-h-dvh lg:grid-cols-[440px_1fr]">
         {/* Left: landing-colored brand panel */}
         <div
-          className="relative hidden flex-col justify-between overflow-hidden lg:flex"
+          className="relative hidden flex-col justify-between overflow-hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:max-h-dvh"
           style={{ background: BRAND_EMBER, padding: "3rem" }}
         >
           <span
@@ -142,9 +158,9 @@ export function AuthLoginLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        {/* Right: form panel */}
-        <div className="flex items-center justify-center p-6 sm:p-10">
-          <div className="w-full max-w-[420px]">
+        {/* Right: form panel — scrollable for tall consent in small popups */}
+        <div className="flex min-h-0 items-start justify-center overflow-y-auto px-6 pt-20 pb-6 sm:px-10 sm:pt-24 sm:pb-10 lg:items-center lg:py-10">
+          <div className="w-full max-w-[420px] py-2">
             <div className="relative">
               <div
                 aria-hidden="true"

@@ -19,7 +19,7 @@ cd my-engenty && pnpm dev
 ```
 
 From a clone it is the same flow by hand — see
-**[Developer → Local development](/dev/local-development)**:
+**[Developer → Local development](/docs/dev/local-development)**:
 
 ```bash
 git clone https://github.com/engenty/engenty.git
@@ -37,7 +37,7 @@ the team, a model provider connection, the first space and your personal space.
 
 Deploy the full stack to a VPS behind a single HTTPS domain.
 
-- **[VPS deployment with Coolify](/setup/coolify)** — [Coolify](https://coolify.io/)
+- **[VPS deployment with Coolify](/docs/setup/coolify)** — [Coolify](https://coolify.io/)
   terminates TLS and forwards to `engenty-edge`.
 
 You will need a VPS with Docker, a domain, a Supabase project (self-hosted or

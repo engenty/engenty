@@ -54,8 +54,8 @@ is already there. It does no dev-stack preflight; that is `pnpm dev`'s job.
 Do **not** commit generated local artifacts. Run **`pnpm engenty generate`** when **`engenty.plugins`** changes.
 
 For what each command does (what `engenty generate` regenerates, the CLI
-bootstrap, Docker/Supabase on demand, env init), see **[Setup process](../setup-process)**.
-For the plugin model and lifecycle commands, see **[Plugin framework](../plugins)**.
+bootstrap, Docker/Supabase on demand, env init), see **[Setup process](/docs/dev/setup-process)**.
+For the plugin model and lifecycle commands, see **[Plugin framework](/docs/dev/plugins)**.
 
 ## Run
 
@@ -97,12 +97,12 @@ the same origin.
 On first visit you are redirected to `/initial_setup`: a readiness gate (what
 `engenty setup` should have left behind, checked from the running services),
 then the admin user, the team, a model provider, the first space and your
-personal space — see [Setup process](../setup-process#first-run-in-the-browser).
+personal space — see [Setup process](/docs/dev/setup-process#first-run-in-the-browser).
 
 ### Optional: HTTPS via Portless
 
 For production-like URLs (`https://engenty.localhost`), see
-[Portless local URLs](../../../dev/portless-local-urls.md) — recommended for daily
+Portless local URLs (`docs/dev/portless-local-urls.md`) — recommended for daily
 dev if you already use Portless, but not required for contributors.
 
 ```bash
@@ -111,7 +111,7 @@ pnpm portless             # each session — HTTPS proxy on :443 (sudo, Terminal
 pnpm dev:portless         # env sync, routes, dev stack (+ ready URL announcer)
 ```
 
-See [Portless local URLs](../../../dev/portless-local-urls.md) for worktrees, env URLs, and
+See Portless local URLs (`docs/dev/portless-local-urls.md`) for worktrees, env URLs, and
 troubleshooting (`pnpm portless:proxy:check`, loopback `ENGENTY_CORE_BASE_URL`, …).
 
 ## The Supabase stack: lean by default
@@ -178,5 +178,5 @@ pnpm check
 ## Signing in for tests & automation
 
 For headless and preview browsers, the app provides a secret-less, local-only
-login route. See **[Agent login](./agent-login)** for how it works, the required
+login route. See **[Agent login](/docs/dev/local-development/agent-login)** for how it works, the required
 `.env.local`, and the security gates that disable it in production.

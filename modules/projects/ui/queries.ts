@@ -10,7 +10,6 @@ import {
   getProjectSettings,
   getProjects,
   getTaskCounts,
-  getTasks,
 } from "./api.js";
 import {
   type ProjectSpaceScope,
@@ -21,9 +20,12 @@ import type { ContactsPluginApi } from "./plugins.js";
 
 // biome-ignore lint/performance/noBarrelFile: preserve established query-hook imports
 export {
-  useCreateProjectMutation,
+  useCreateProjectTaskMutation,
   useDeleteProjectMutation,
-  useUpdateProjectTaskMutation as useUpdateTaskMutation,
+  useDeleteProjectTaskMutation,
+  useReorderProjectTasksMutation,
+  useSetProjectTaskVisibilityMutation,
+  useUpdateProjectTaskMutation,
 } from "./optimistic-mutations.js";
 
 export const projectKeys = {
@@ -32,8 +34,6 @@ export const projectKeys = {
   detail: (id: string) => [...projectKeys.all, "detail", id] as const,
   list: (params: ProjectsQueryParams) =>
     [...projectKeys.all, "list", params] as const,
-  tasksList: (params: ProjectTasksQueryParams) =>
-    [...projectKeys.all, "tasks", "list", params] as const,
   taskCounts: (
     params: Omit<
       ProjectTasksQueryParams,
@@ -71,24 +71,6 @@ export function useProjectsList(
 ) {
   const spaceId = useProjectSpaceScope(options.scope);
   return useQuery(projectsListOptions(withProjectSpaceScope(params, spaceId)));
-}
-
-export function projectTasksListOptions(params: ProjectTasksQueryParams) {
-  return queryOptions({
-    queryKey: projectKeys.tasksList(params),
-    queryFn: ({ signal }) => getTasks(params, signal),
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function useProjectTasksList(
-  params: ProjectTasksQueryParams,
-  options: { scope?: ProjectSpaceScope } = {}
-) {
-  const spaceId = useProjectSpaceScope(options.scope);
-  return useQuery(
-    projectTasksListOptions(withProjectSpaceScope(params, spaceId))
-  );
 }
 
 export function projectTaskCountsOptions(

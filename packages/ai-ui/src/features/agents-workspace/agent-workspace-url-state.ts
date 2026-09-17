@@ -38,6 +38,7 @@ export {
   CONNECTIONS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
+  WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH,
   WORKFLOWS_CATALOG_ROOT_PATH,
   withWorkspaceParam,
 } from "./agent-workspace-paths";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useWorkspaceEndPaneCount } from "@engenty/app-shell";
 import {
   type CSSProperties,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
   THREAD_CONTEXT_FLOAT_WIDTH_PX,
   THREAD_CONTEXT_INLINE_MIN_WIDTH_PX,
   THREAD_CONTEXT_INLINE_PAD_VAR,
+  THREAD_CONTEXT_TOP_CLEARANCE_VAR,
 } from "./thread-context-types.js";
 import {
   hasOwnedContext,
@@ -71,6 +73,10 @@ export function ThreadContextPane({
   const owned = useAgentOwnedContext(hostKey);
   const isEmpty = summary.isEmpty && !hasOwnedContext(owned);
   const { paneOpen } = useArtifacts(hostKey);
+  // Any pane in the workspace end column — artifact, browser, agent settings —
+  // is the same screen real estate this card floats in. Two stacked cards read
+  // as two competing sidebars, so the card steps back behind the topbar icon.
+  const endPaneCount = useWorkspaceEndPaneCount();
   const [enoughWidth, setEnoughWidth] = useState(true);
   const [overlapPadPx, setOverlapPadPx] = useState(THREAD_CONTEXT_FLOAT_GAP_PX);
 
@@ -105,7 +111,8 @@ export function ThreadContextPane({
     return () => observer.disconnect();
   }, []);
 
-  const showFloating = !(isEmpty || paneOpen) && enoughWidth;
+  const showFloating =
+    !(isEmpty || paneOpen || endPaneCount > 0) && enoughWidth;
 
   useEffect(() => {
     if (isEmpty) {
@@ -134,6 +141,10 @@ export function ThreadContextPane({
       } as CSSProperties)
     : undefined;
 
+  // The topbar is the floor; a surface that draws its own band over the chat
+  // (the desk, once the identity has scrolled away) raises it.
+  const topClearance = `max(${overlapPadPx}px, var(${THREAD_CONTEXT_TOP_CLEARANCE_VAR}, 0px))`;
+
   const contextOverlay = showFloating ? (
     <aside
       className="pointer-events-none absolute inset-y-0 right-0 z-10 flex justify-end pr-3 pb-3"
@@ -141,13 +152,13 @@ export function ThreadContextPane({
         layout === "column" ? "thread-context-column" : "thread-context-float"
       }
       style={{
-        paddingTop: overlapPadPx,
+        paddingTop: topClearance,
         width: THREAD_CONTEXT_FLOAT_RESERVE_PX,
       }}
     >
       <div
         className="pointer-events-auto sticky max-h-full self-start overflow-y-auto"
-        style={{ top: overlapPadPx, width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
+        style={{ top: topClearance, width: THREAD_CONTEXT_FLOAT_WIDTH_PX }}
       >
         <ThreadContextBox hostKey={hostKey} summary={summary} />
       </div>

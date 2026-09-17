@@ -289,6 +289,7 @@ export async function runDelegatedConversation(
   const observe = input.observe;
   /** `RUN_FINISHED.usage` — one TokenUsage entry per model call in this run. */
   let agUiUsage: unknown = null;
+  let windowInputTokens: number | null = null;
   const childConfig = await input.registry.getAgentConfig?.(input.childAgentId);
   // The caller's config carries the tier chosen for the CALLER's run. The
   // colleague was not part of that choice: its own default tier applies, and
@@ -720,6 +721,7 @@ export async function runDelegatedConversation(
           result.producedArtifactIds = [...outcome.producedArtifactIds];
         }
         agUiUsage = outcome.usage;
+        windowInputTokens = outcome.windowInputTokens;
         return outcome.finalText;
       }
     );
@@ -727,16 +729,17 @@ export async function runDelegatedConversation(
     if (streamError && !result.error) {
       result.error = streamError;
     }
-    // Two numbers, same accounting as the interactive lane: billed totals, plus
-    // the LAST model call's input as window occupancy. `RUN_FINISHED.usage` is one
-    // entry per call rather than a running total, so the sum/last split lives in
-    // the reader — summing for occupancy would report a context window several
-    // times larger than any single call used. Null when nothing streamed usage.
+    // Two numbers, same accounting as the interactive lane: billed totals from
+    // `RUN_FINISHED.usage`, plus the LAST model call's input as window
+    // occupancy read off the Mastra stream's own steps. The bridge attaches
+    // usage as ONE aggregated entry, so its "last entry" is the run total —
+    // every `direct` run row used to carry the sum as its window. The entry
+    // fallback stays for a stream that exposed no steps.
     const runUsage = usageFromAgUiTokens(agUiUsage);
     const lastStepUsage = usageFromAgUiTokens(agUiUsage, { lastOnly: true });
     const usageFields = {
       completionTokens: runUsage?.output ?? null,
-      contextPromptTokens: lastStepUsage?.input ?? null,
+      contextPromptTokens: windowInputTokens ?? lastStepUsage?.input ?? null,
       promptTokens: runUsage?.input ?? null,
     };
     if (tracker) {

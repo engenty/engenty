@@ -128,6 +128,31 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
+      "Canonical HTTPS URL of the Engenty MCP resource server (ends with /mcp). OAuth access tokens must carry this exact audience; the generic `aud: engenty` token is never accepted at /mcp.",
+    exampleValue: "https://engenty.localhost/mcp",
+    group: "API security",
+    key: "ENGENTY_MCP_RESOURCE_URL",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+    validate: isHttpUrl,
+  },
+
+  {
+    description:
+      "MCP access-token audience. Defaults to `engenty-mcp`. Must match the claim minted by core.custom_access_token_hook; generic `aud: engenty` tokens are never accepted at /mcp.",
+    exampleValue: "engenty-mcp",
+    group: "API security",
+    key: "ENGENTY_MCP_AUDIENCE",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+
+  {
+    description:
       "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>` from `engenty service-token create --name ai-service`. A locked-down mint must list module.read,module.write,module.execute plus Plan caps (module.tasks.read,module.tasks.write) — module.read does not cover module.tasks.read. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_SECRET",

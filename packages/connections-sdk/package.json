@@ -22,13 +22,13 @@
     "@engenty/platform-settings": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/telemetry": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@supabase/supabase-js": "^2.108.2",
+    "@supabase/supabase-js": "^2.116.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "@types/node": "^24.0.0"
+    "vitest": "^4.1.11",
+    "@types/node": "^24.13.5"
   }
 }

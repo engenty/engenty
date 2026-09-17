@@ -42,4 +42,4 @@ Disconnecting destroys the stored tokens.
 
 The operations for the connected services themselves — reading mail, creating
 calendar events, posting to Slack — are listed under
-[Connected services](/user/agent-operations/connected-services).
+[Connected services](/docs/user/agent-operations/connected-services).

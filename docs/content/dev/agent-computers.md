@@ -9,7 +9,7 @@ An agent's model loop runs **host-side in `apps/ai`**. A container is a pair of
 hands: it executes commands and holds bytes. Almost nothing an agent knows about
 Engenty arrives through the container — app records, tools and connections travel
 the host-side operation pipeline described in the
-[Spaces runtime contract](../../agent/spaces-runtime.md).
+Spaces runtime contract (`docs/agent/spaces-runtime.md`).
 
 This page is the container half: which containers exist, what is mounted in
 them, what they can reach, and how a program inside one still calls Engenty
@@ -25,7 +25,7 @@ tools.
 | Space computer | `engenty-space-<tenant>-<space>` | Space | never — stopped when idle, removed only on Reset or Space deletion |
 | User browser | `engenty-browser-<tenant>-<space>-<user>` | person × Space | stopped when idle; removed on Reset |
 
-Ids are parsed by [`parse-engenty-sandbox-id.ts`](../../../apps/ai/src/ai/sandbox/parse-engenty-sandbox-id.ts);
+Ids are parsed by `apps/ai/src/ai/sandbox/parse-engenty-sandbox-id.ts`;
 every container carries Mastra's `mastra.sandbox.id` label, which is how the
 Computers view, the sweeps and Reset find them.
 
@@ -51,7 +51,7 @@ everything else                    →  the declaration stands
 ```
 
 `resolveRunSandboxLifecycle` in
-[`agent-workspace-hook.ts`](../../../apps/ai/src/ai/sessions/agent-workspace-hook.ts).
+`apps/ai/src/ai/sessions/agent-workspace-hook.ts`.
 `task` and `session` keep their own containers because each is a continuity
 mechanism of its own; a run with no resolved Space falls back to a per-run lease.
 
@@ -142,7 +142,7 @@ It runs as uid 1000 (`ENGENTY_SANDBOX_UID`) with `HOME=/opt/sandbox` — *not*
 | Path | Contents |
 | --- | --- |
 | `/sandbox` | the run's scratch (per Space on the machine, per run otherwise) |
-| `/home`, `/shared` xor `/space`, `/skills`, `/task`, `/project` | the workspace mounts — see [How-to: Agent Workspaces](../../../packages/ai-core/docs/howto-workspaces.md) |
+| `/home`, `/shared` xor `/space`, `/skills`, `/task`, `/project` | the workspace mounts — see `packages/ai-core/docs/howto-workspaces.md` |
 | `/data` | the Space's module records, staged (below) |
 | `/cache/{uv,bun,npm}` | per-Space package caches; each tool's cache env var points here |
 | `/sandbox/apps/<slug>/{src,data}` | the Space's Apps — the same files the running App reads; `app-host` owns the tree |
@@ -262,9 +262,9 @@ run, session and task containers are **removed**.
 
 ## Related
 
-- [Spaces runtime contract](../../agent/spaces-runtime.md) — what a Space makes
+- Spaces runtime contract (`docs/agent/spaces-runtime.md`) — what a Space makes
   available, record scopes, catalog-is-not-data
-- [How-to: Agent Workspaces](../../../packages/ai-core/docs/howto-workspaces.md) — declaring
+- How-to: Agent Workspaces (`packages/ai-core/docs/howto-workspaces.md`) — declaring
   presets, mounts and `sandbox.enabled` on an agent
 - [Connections](./connections) — connectors and MCP servers; tokens never enter a
   container

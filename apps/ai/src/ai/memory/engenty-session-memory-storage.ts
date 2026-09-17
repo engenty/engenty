@@ -622,6 +622,14 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
         messages.push(message);
         continue;
       }
+      // Mastra's completion-check feedback (`isTaskComplete`, the empty-reply
+      // nudge in run-guards.ts) is an assistant message the MODEL reads
+      // between two steps of one run. It is not a reply: a "Completion Check
+      // Results" block must never land as a chat bubble.
+      if (isCompletionFeedbackMessage(message)) {
+        messages.push(message);
+        continue;
+      }
       const rows =
         rowsByThreadId.get(message.threadId) ??
         (await this.#store.listMessagesOrdered({
@@ -1224,6 +1232,21 @@ function isUserMessageSignal(message: MastraDBMessage): boolean {
     message.content?.metadata as { signal?: { type?: unknown } } | undefined
   )?.signal?.type;
   return signalType === "user";
+}
+
+/**
+ * Mastra stamps `content.metadata.completionResult` on the assistant message
+ * its `isTaskComplete` check appends between two steps (the empty-reply
+ * nudge). Model-facing only — never a transcript row.
+ */
+function isCompletionFeedbackMessage(message: MastraDBMessage): boolean {
+  if (message.role !== "assistant") {
+    return false;
+  }
+  const metadata = message.content?.metadata as
+    | { completionResult?: unknown }
+    | undefined;
+  return Boolean(metadata?.completionResult);
 }
 
 function resolveAgentTypeKey(

@@ -72,6 +72,8 @@ export const BUILTIN_NOTIFICATION_KINDS = {
   approval_requested: "decision",
   connection_approval_requested: "decision",
   routine_failed: "alert",
+  // A routine with `report: ask` finished and holds until someone has looked.
+  routine_review: "decision",
   skill_proposed: "decision",
   stream_escalation: "todo",
   stream_update: "update",

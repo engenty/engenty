@@ -23,6 +23,10 @@ import {
 } from "../index.js";
 import { finishActionRun } from "../jobs/action-job-run-record.js";
 import { reportRoutineRun } from "../routines/report-routine-run.js";
+import {
+  holdRunForReview,
+  routineHoldsForReview,
+} from "../routines/review-hold.js";
 import type { GraphRunOutcome } from "./dispatch.js";
 import { forgetGraphRunScope } from "./run-context.js";
 import { emitGraphRunTerminal } from "./run-events.js";
@@ -260,6 +264,66 @@ export async function settleGraphRun(
     }
   }
 
+  // The routine behind a fire, read once: its report knob decides whether
+  // this settle finishes the run or parks it for a look.
+  const routines = request?.routine_id ? createRoutineStoreFromEnv() : null;
+  const routine =
+    routines && request?.routine_id
+      ? await routines
+          .get({ id: request.routine_id, tenantId: input.tenantId })
+          .catch(() => null)
+      : null;
+
+  // `report: ask` — a completed fire is not done until its owner has looked.
+  // The report goes out now (never silent), the run stays parked, and the
+  // review route finishes what this branch leaves open. A task-owned run
+  // has the task's own review; a crash is an alert, handled below.
+  if (
+    status === "completed" &&
+    !owner &&
+    request?.routine_id &&
+    request.thread_id &&
+    requests &&
+    routines &&
+    routine &&
+    routineHoldsForReview(routine)
+  ) {
+    const summary = summarizeRunResult(input.outcome.result);
+    const artifact = await resolveResultArtifact(
+      input.outcome.result,
+      input.tenantId
+    );
+    await holdRunForReview({
+      initiatorUserId: input.initiatorUserId ?? null,
+      outcome,
+      reason,
+      reporting: contract.reporting ?? null,
+      request,
+      requests,
+      routine,
+      runId: input.runId,
+      spaceId: settledSpaceId(input.space),
+      summary,
+      tenantId: input.tenantId,
+    });
+    await reportRoutineRun({
+      awaitingReview: true,
+      summary,
+      ...(artifact ? { artifact } : {}),
+      ...(outcome ? { outcome } : {}),
+      ...(contract.reporting ? { reporting: contract.reporting } : {}),
+      routineId: request.routine_id,
+      routines,
+      runId: input.runId,
+      status,
+      ...(request.created_at ? { since: new Date(request.created_at) } : {}),
+      tenantId: input.tenantId,
+      threadId: request.thread_id,
+      ...(reason ? { reason } : {}),
+    });
+    return;
+  }
+
   try {
     await requests?.finish({
       id: input.requestId,
@@ -306,17 +370,10 @@ export async function settleGraphRun(
   // A routine fire says what it did. Every settle path lands here — a run that
   // finished on the first pass, one resumed after an approval days later, one
   // woken from a sleep — so the report follows the work rather than the tick.
-  const routines = request?.routine_id ? createRoutineStoreFromEnv() : null;
   if (status === "failed" && !owner) {
     // A press or a fire that broke with nobody supervising it: the failure is
     // an alert, coalesced per routine while unhandled (a crashing schedule
     // would otherwise raise one per interval).
-    const routine =
-      routines && request?.routine_id
-        ? await routines
-            .get({ id: request.routine_id, tenantId: input.tenantId })
-            .catch(() => null)
-        : null;
     await emitInboxNotification({
       dedupeKey: request?.routine_id
         ? `routine_failed:${request.routine_id}`

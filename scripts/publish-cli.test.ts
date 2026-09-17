@@ -29,7 +29,7 @@ describe("publish-cli", () => {
     expect(out.devDependencies).toBeUndefined();
     expect(out.dependencies).toEqual({ commander: "^15.0.0" });
     expect(out.publishConfig).toEqual({ access: "public" });
-    expect(out.bin).toEqual({ engenty: "./dist/bin.js" });
+    expect(out.bin).toEqual({ engenty: "dist/bin.js" });
   });
 
   it("rewrites the pro image names to the public ones", () => {

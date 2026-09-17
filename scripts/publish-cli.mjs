@@ -59,13 +59,25 @@ export function transformCliManifestForPublish(pkg, { version, repository }) {
       ([name]) => !name.startsWith("@engenty/")
     )
   );
+  // npm 11 strips `./dist/bin.js` as an "invalid" bin path during publish;
+  // keep the published form bare (`dist/bin.js`) so the warning does not
+  // drop the bin entirely on a future npm that stops auto-correcting.
+  const bin =
+    pkg.bin && typeof pkg.bin === "object" && !Array.isArray(pkg.bin)
+      ? Object.fromEntries(
+          Object.entries(pkg.bin).map(([name, script]) => [
+            name,
+            typeof script === "string" ? script.replace(/^\.\//, "") : script,
+          ])
+        )
+      : pkg.bin;
   return {
     name: PUBLISHED_NAME,
     version,
     description: pkg.description,
     license: "FSL-1.1-MIT",
     type: "module",
-    bin: pkg.bin,
+    bin,
     files: pkg.files,
     engines: pkg.engines,
     dependencies,

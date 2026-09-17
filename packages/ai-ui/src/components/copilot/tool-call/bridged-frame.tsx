@@ -1,27 +1,17 @@
 "use client";
 
 import { cn } from "@engenty/ui-core";
+import {
+  AppBridge,
+  PostMessageTransport,
+} from "@modelcontextprotocol/ext-apps/app-bridge";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * Sandboxed host frame speaking MCP JSON-RPC over postMessage (spec
- * io.modelcontextprotocol/ui, rev 2026-01-26).
- *
- * This is the transport half of the former `McpAppFrame`, lifted out so two
- * very different guests can share one audited bridge:
- *
- *   - MCP Apps widgets in the chat transcript, whose `tools/call` goes to a
- *     registered MCP server (`McpAppFrame`);
- *   - engenty Apps in the artifact pane, whose `tools/call` goes to the
- *     app proxy under a manifest allow-list (`AppArtifactView`).
- *
- * What must NOT be parameterised is the isolation: `srcdoc` without
- * `allow-same-origin` gives the guest an opaque origin, so it has no cookies,
- * no localStorage of ours, and no reachable platform session — which is the
- * entire reason tenant-authored code is allowed to run here at all.
- *
- * Exit ramp: the official `@modelcontextprotocol/ext-apps` AppBridge tracks
- * the core 2026-07-28 release; these props are shaped to swap onto it.
+ * Sandboxed host frame using the official MCP Apps AppBridge
+ * (`io.modelcontextprotocol/ui`). Isolation is not optional: `srcdoc` without
+ * `allow-same-origin` gives the guest an opaque origin — no cookies, no local
+ * storage, no host session, no bearer tokens.
  */
 
 export interface BridgedFrameCsp {
@@ -39,13 +29,11 @@ export interface BridgedFrameProps {
   /** Stable identity for the message listener — must not change per render. */
   frameKey: string;
   html: string;
-  /** Pushed to the guest once it reports `ui/notifications/initialized`. */
   initialData?: {
     structuredContent?: unknown;
     toolInput?: unknown;
     toolResult?: unknown;
   };
-  /** Called when the guest asks the host to surface a message. */
   onNotify?: (text: string) => void;
   title: string;
 }
@@ -54,22 +42,10 @@ const MIN_HEIGHT_PX = 120;
 const MAX_HEIGHT_PX = 640;
 const DEFAULT_HEIGHT_PX = 320;
 
-interface JsonRpcMessage {
-  id?: number | string;
-  jsonrpc?: string;
-  method?: string;
-  params?: Record<string, unknown>;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-/**
- * Enforce the guest's declared CSP by injecting a meta tag ahead of any guest
- * markup. Undeclared domains stay blocked (`default-src 'none'` base); inline
- * script/style is the spec default for self-contained templates.
- */
 export function buildWidgetCsp(csp?: BridgedFrameCsp): string {
   const connect = csp?.connectDomains?.join(" ") ?? "";
   const resources = csp?.resourceDomains?.join(" ") ?? "";
@@ -101,7 +77,6 @@ function hostTheme(): "dark" | "light" {
     : "light";
 }
 
-/** Imperative handle a host can use to push a notification into a live frame. */
 export interface BridgedFrameHandle {
   notify: (method: string, params: Record<string, unknown>) => void;
 }
@@ -122,11 +97,6 @@ export function BridgedFrame({
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [heightPx, setHeightPx] = useState(DEFAULT_HEIGHT_PX);
-
-  // Latest callbacks and payloads, read through refs so the message listener
-  // binds once per frame rather than once per render. An inline arrow from the
-  // parent changes identity every render; without this the listener would
-  // re-bind constantly and drop in-flight replies.
   const callToolRef = useRef(callTool);
   callToolRef.current = callTool;
   const dataRef = useRef(initialData);
@@ -140,156 +110,117 @@ export function BridgedFrame({
   );
 
   useEffect(() => {
-    const post = (message: Record<string, unknown>) => {
-      // Sandboxed srcdoc = opaque origin; "*" is the only addressable target.
-      // Delivery is still confined to this specific iframe's contentWindow.
-      iframeRef.current?.contentWindow?.postMessage(
-        { jsonrpc: "2.0", ...message },
-        "*"
-      );
-    };
-
-    if (handleRef) {
-      handleRef.current = {
-        notify: (method, params) => post({ method, params }),
-      };
+    const iframe = iframeRef.current;
+    if (!iframe) {
+      return;
     }
+    let cancelled = false;
+    let bridge: AppBridge | null = null;
 
-    const pushInitialData = () => {
-      const {
-        structuredContent: sc,
-        toolInput: ti,
-        toolResult: tr,
-      } = dataRef.current ?? {};
-      post({
-        method: "ui/notifications/tool-input",
-        params: { arguments: isRecord(ti) ? ti : {} },
-      });
-      post({
-        method: "ui/notifications/tool-result",
-        params: {
-          result: isRecord(tr) ? tr : { content: [], structuredContent: sc },
-        },
-      });
-    };
-
-    const onMessage = (event: MessageEvent) => {
-      const frameWindow = iframeRef.current?.contentWindow;
-      if (!frameWindow || event.source !== frameWindow) {
+    const start = async () => {
+      const win = iframe.contentWindow;
+      if (!win || cancelled) {
         return;
       }
-      const msg = event.data as JsonRpcMessage;
-      if (!isRecord(msg) || msg.jsonrpc !== "2.0") {
-        return;
-      }
-      const respond = (result: unknown) =>
-        post({ id: msg.id, result: result ?? {} });
-      const respondError = (code: number, message: string) =>
-        post({ id: msg.id, error: { code, message } });
-
-      switch (msg.method) {
-        case "ui/initialize": {
-          respond({
-            capabilities: {},
-            hostContext: {
-              displayMode: fit === "fill" ? "pane" : "inline",
-              locale:
-                typeof navigator === "undefined" ? "en" : navigator.language,
-              theme: hostTheme(),
+      const next = new AppBridge(
+        null,
+        { name: "engenty", version: "1" },
+        { openLinks: {}, serverTools: {} },
+        {
+          hostContext: {
+            displayMode: fit === "fill" ? "fullscreen" : "inline",
+            availableDisplayModes: ["inline", "fullscreen"],
+            platform: "web",
+            theme: hostTheme(),
+          },
+        }
+      );
+      bridge = next;
+      next.oncalltool = async (params) => {
+        const result = await callToolRef.current(
+          params.name,
+          isRecord(params.arguments) ? params.arguments : {}
+        );
+        if (isRecord(result) && Array.isArray(result.content)) {
+          return result as {
+            content: Array<{ type: "text"; text: string }>;
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: typeof result === "string" ? result : "ok",
             },
-            hostInfo: { name: "engenty", version: "1" },
-            protocolVersion: "2026-01-26",
-          });
+          ],
+        };
+      };
+      next.onopenlink = async (params) => {
+        if (/^https?:\/\//i.test(params.url)) {
+          window.open(params.url, "_blank", "noopener,noreferrer");
+        }
+        return {};
+      };
+      next.onmessage = async (params) => {
+        const text = params.content
+          .map((block) =>
+            block.type === "text" && "text" in block ? String(block.text) : ""
+          )
+          .join("")
+          .trim();
+        if (text) {
+          notifyRef.current?.(text.slice(0, 2000));
+        }
+        return {};
+      };
+      next.onsizechange = ({ height }) => {
+        if (fit === "fill" || typeof height !== "number") {
           return;
         }
-        case "ui/notifications/initialized": {
-          pushInitialData();
-          return;
-        }
-        case "tools/call": {
-          const params = msg.params as Record<string, unknown> | undefined;
-          const name = typeof params?.name === "string" ? params.name : null;
-          if (!name) {
-            respondError(-32_602, "tools/call requires a tool name");
-            return;
-          }
-          callToolRef
-            .current(name, isRecord(params?.arguments) ? params.arguments : {})
-            .then((result) => respond(result))
-            .catch((err) =>
-              respondError(
-                -32_000,
-                err instanceof Error ? err.message : "tool call failed"
-              )
-            );
-          return;
-        }
-        case "ui/notifications/message": {
-          // Frame → conversation. Text only: the guest is untrusted, so it
-          // gets to say something, not to render something.
-          const messageParams = msg.params as
-            | Record<string, unknown>
-            | undefined;
-          const text =
-            typeof messageParams?.text === "string" ? messageParams.text : "";
-          if (text) {
-            notifyRef.current?.(text.slice(0, 2000));
-          }
-          if (msg.id !== undefined) {
-            respond({});
-          }
-          return;
-        }
-        case "ui/open-link": {
-          const linkParams = msg.params as Record<string, unknown> | undefined;
-          const url = typeof linkParams?.url === "string" ? linkParams.url : "";
-          if (/^https?:\/\//i.test(url)) {
-            window.open(url, "_blank", "noopener,noreferrer");
-            respond({});
-          } else {
-            respondError(-32_602, "Only http(s) links can be opened");
-          }
-          return;
-        }
-        case "ui/request-display-mode": {
-          respond({ displayMode: fit === "fill" ? "pane" : "inline" });
-          return;
-        }
-        case "ui/notifications/size-changed": {
-          if (fit === "fill") {
-            // The pane owns its own height; a guest cannot resize it.
-            return;
-          }
-          const sizeParams = msg.params as Record<string, unknown> | undefined;
-          const raw = sizeParams?.height;
-          const height = typeof raw === "number" ? raw : Number(raw);
-          if (Number.isFinite(height)) {
-            setHeightPx(
-              Math.min(MAX_HEIGHT_PX, Math.max(MIN_HEIGHT_PX, height))
-            );
-          }
-          return;
-        }
-        case "ping": {
-          respond({});
-          return;
-        }
-        default: {
-          if (msg.id !== undefined) {
-            respondError(-32_601, `Unsupported method: ${msg.method}`);
-          }
-        }
+        setHeightPx(Math.min(MAX_HEIGHT_PX, Math.max(MIN_HEIGHT_PX, height)));
+      };
+      next.oninitialized = () => {
+        const data = dataRef.current;
+        void next.sendToolInput({
+          arguments: isRecord(data?.toolInput) ? data.toolInput : {},
+        });
+        void next.sendToolResult({
+          content: [],
+          structuredContent: data?.structuredContent,
+          ...(isRecord(data?.toolResult) ? data.toolResult : {}),
+        });
+      };
+      if (handleRef) {
+        handleRef.current = {
+          notify: (method, params) => {
+            if (method === "ui/notifications/tool-result") {
+              void next.sendToolResult({
+                content: [],
+                ...(isRecord(params) ? params : {}),
+              });
+            }
+          },
+        };
       }
+      await next.connect(new PostMessageTransport(win, win));
     };
 
-    window.addEventListener("message", onMessage);
+    const onLoad = () => {
+      void start();
+    };
+    iframe.addEventListener("load", onLoad);
+    if (iframe.contentDocument?.readyState === "complete") {
+      void start();
+    }
     return () => {
-      window.removeEventListener("message", onMessage);
+      cancelled = true;
+      iframe.removeEventListener("load", onLoad);
       if (handleRef) {
         handleRef.current = null;
       }
+      void bridge?.teardownResource({}).catch(() => undefined);
     };
-  }, [fit, frameKey, handleRef]);
+  }, [fit, frameKey, handleRef, srcDoc]);
 
   return (
     <iframe

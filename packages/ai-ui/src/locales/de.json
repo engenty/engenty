@@ -373,6 +373,8 @@
       "open": "Lauf öffnen",
       "paused": "Pausiert",
       "requiresAction": "Wartet auf eine Entscheidung",
+      "reviewPrompt": "Fertig — wartet auf deine Durchsicht.",
+      "markReviewed": "Angesehen",
       "routine": "Routine · {{name}}",
       "starting": "Wird gestartet…",
       "stopped": "Routine gestoppt",
@@ -385,6 +387,9 @@
     "composerPlaceholder": "Nachricht an {{name}}…",
     "connectors": "Konnektoren",
     "drawer": {
+      "back": "Zurück",
+      "collapse": "Einstellungen wieder verkleinern",
+      "expand": "Einstellungen vergrößern",
       "close": "Schließen",
       "resize": "Panel-Breite ändern",
       "runs": "Läufe",

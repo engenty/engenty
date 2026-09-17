@@ -18,6 +18,7 @@ import {
   reconcileModuleWorkflows,
   repairWorkflow,
   resumeWorkflowRun,
+  reviewWorkflowRun,
   runWorkflow,
   saveWorkflowVersion,
   updateWorkflow,
@@ -207,6 +208,16 @@ export function useResumeRunMutation() {
       const { runId, ...rest } = input;
       return resumeWorkflowRun(runId, rest);
     },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+}
+
+export function useReviewRunMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) => reviewWorkflowRun(runId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workflowKeys.all });
     },

@@ -5,13 +5,13 @@ description: Invoices from draft to issued, cancellations via Storno, and the ag
 
 # Invoices
 
-Invoices work like [offers](/user/modules/offers) — metadata plus blocks — with
+Invoices work like [offers](/docs/user/modules/offers) — metadata plus blocks — with
 the extra rules that billing demands. **Issuing** an invoice finalizes it and is
 gated behind owner approval; after that it is a record, and the way to undo it
 is a cancellation (Storno), not an edit.
 
 Numbering, currency and tax come from
-[Commercial settings](/user/modules/commercial-settings).
+[Commercial settings](/docs/user/modules/commercial-settings).
 
 ## Agent operations
 

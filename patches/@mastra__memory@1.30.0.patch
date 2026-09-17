@@ -1,0 +1,26 @@
+diff --git a/dist/src-Dt8oPiQN.js b/dist/src-Dt8oPiQN.js
+index 69c0cfafe788aa967257b9f9921ea14cb9389846..a55d7d88c2c7b5550f67da2392ac84a99ff61c2e 100644
+--- a/dist/src-Dt8oPiQN.js
++++ b/dist/src-Dt8oPiQN.js
+@@ -21861,7 +21861,7 @@ var WorkingMemoryExtractor = class extends Extractor {
+ 			retryStructuredExtractionOnEmptyObject: true,
+ 			instructions: async (context) => buildWorkingMemoryInstructions(await getWorkingMemoryDetails(context)),
+ 			schema: async (context) => {
+-				return (await getWorkingMemoryDetails(context)).usesSchema ? z.union([z.record(z.string(), z.unknown()), z.null()]) : void 0;
++				return (await getWorkingMemoryDetails(context)).usesSchema ? /* engenty patch: `z.record` emits JSON-Schema `propertyNames`, which OpenAI's structured-output subset rejects ("'propertyNames' is not permitted"), so every observational-memory extraction 400s whenever working memory has a schema AND the observer runs on an OpenAI-family model. `looseObject` is the same open object without that keyword. Mastra's own OpenAISchemaCompatLayer deletes `propertyNames` — this schema just never passes through it. Drop this patch once upstream routes it through the compat layer. */ z.union([z.looseObject({}), z.null()]) : void 0;
+ 			},
+ 			onExtracted: async ({ current, memory, threadId, resourceId, requestContext }) => {
+ 				const memoryConfig = parseMemoryRequestContext(requestContext)?.memoryConfig;
+diff --git a/dist/src-oL_dDHN9.cjs b/dist/src-oL_dDHN9.cjs
+index 0ff01f882ef85a5bd36c62ce798fd0a07f809167..91cee4b97f94c4a3a1bf650fbc0281efc73c056c 100644
+--- a/dist/src-oL_dDHN9.cjs
++++ b/dist/src-oL_dDHN9.cjs
+@@ -21883,7 +21883,7 @@ var WorkingMemoryExtractor = class extends Extractor {
+ 			retryStructuredExtractionOnEmptyObject: true,
+ 			instructions: async (context) => buildWorkingMemoryInstructions(await getWorkingMemoryDetails(context)),
+ 			schema: async (context) => {
+-				return (await getWorkingMemoryDetails(context)).usesSchema ? zod.z.union([zod.z.record(zod.z.string(), zod.z.unknown()), zod.z.null()]) : void 0;
++				return (await getWorkingMemoryDetails(context)).usesSchema ? /* engenty patch: `z.record` emits JSON-Schema `propertyNames`, which OpenAI's structured-output subset rejects ("'propertyNames' is not permitted"), so every observational-memory extraction 400s whenever working memory has a schema AND the observer runs on an OpenAI-family model. `looseObject` is the same open object without that keyword. Mastra's own OpenAISchemaCompatLayer deletes `propertyNames` — this schema just never passes through it. Drop this patch once upstream routes it through the compat layer. */ zod.z.union([zod.z.looseObject({}), zod.z.null()]) : void 0;
+ 			},
+ 			onExtracted: async ({ current, memory, threadId, resourceId, requestContext }) => {
+ 				const memoryConfig = (0, _mastra_core_memory.parseMemoryRequestContext)(requestContext)?.memoryConfig;

@@ -5,7 +5,7 @@ description: What agents can do inside Gmail, Outlook, Drive, OneDrive, Slack, G
 
 # Connected services
 
-Once a [connection](/user/agent-operations/connections) exists, these operations
+Once a [connection](/docs/user/agent-operations/connections) exists, these operations
 become available. Each one runs against the account you connected and follows
 that connection's allow / ask / deny policy.
 

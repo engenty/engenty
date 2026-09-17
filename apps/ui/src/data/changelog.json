@@ -1,5 +1,95 @@
 [
   {
+    "version": "v0.2.5",
+    "timestamp": 1789667868,
+    "commits": [
+      {
+        "id": "ac8c355",
+        "message": "phase and project edits land immediately too",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4938206",
+        "message": "project task edits land immediately",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9751b37",
+        "message": "fix internal links that 404 on the site",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "21f3832",
+        "message": "a new file under patches/ is an open path",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e669c4f",
+        "message": "the internal Apps page and the user-guide stub",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "cbfe70d",
+        "message": "document where Apps run, with the architecture figures",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6e54426",
+        "message": "hold `report: ask` routines for review, rebuild the desk identity",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "66703fd",
+        "message": "name silent finishes on the headless lane too",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a85e6c9",
+        "message": "run guards, adaptive history budget, real window occupancy",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ed16260",
+        "message": "space and risk grants with shared auth enforcement",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7140ba2",
+        "message": "one execution path for module operations",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "95331d9",
+        "message": "add a first-party MCP resource server",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6c1fcf4",
+        "message": "land unknown routes on last space, not Copilot",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "147e4f1",
+        "message": "make engenty npm publish fail on bad auth, not a 404",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.4",
     "timestamp": 1789489447,
     "commits": [

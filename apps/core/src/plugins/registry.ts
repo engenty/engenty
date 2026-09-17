@@ -41,6 +41,7 @@ import type {
 } from "@engenty/plugin-sdk";
 import {
   assertStrictToolId,
+  isMcpDisposition,
   isOperationSpacePolicy,
   RoleProfileRegistry,
 } from "@engenty/plugin-sdk";
@@ -326,6 +327,10 @@ export interface PluginRegistry {
       >
     > & {
       audit?: PluginOperationMeta["audit"];
+      mcpAppResourceUri?: PluginOperationMeta["mcpAppResourceUri"];
+      mcpDisposition?: PluginOperationMeta["mcpDisposition"];
+      mcpSafeAnnotations?: PluginOperationMeta["mcpSafeAnnotations"];
+      mcpTaskCapable?: boolean;
       requiredCapabilities: string[];
       spacePolicy?: PluginOperationMeta["spacePolicy"];
     };
@@ -943,6 +948,16 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       ...(operation.audit ? { audit: operation.audit } : {}),
       ...(isOperationSpacePolicy(operation.spacePolicy)
         ? { spacePolicy: operation.spacePolicy }
+        : {}),
+      ...(isMcpDisposition(operation.mcpDisposition)
+        ? { mcpDisposition: operation.mcpDisposition }
+        : {}),
+      ...(operation.mcpSafeAnnotations
+        ? { mcpSafeAnnotations: operation.mcpSafeAnnotations }
+        : {}),
+      ...(operation.mcpTaskCapable ? { mcpTaskCapable: true } : {}),
+      ...(operation.mcpAppResourceUri
+        ? { mcpAppResourceUri: operation.mcpAppResourceUri }
         : {}),
     } as const;
     // Phase 5 audit: a gateway method with no explicit requiredCapabilities

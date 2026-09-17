@@ -269,6 +269,16 @@ export function resumeWorkflowRun(
   );
 }
 
+/** The owner looked at a held run (routine `report: ask`) — finish it. */
+export function reviewWorkflowRun(
+  runId: string
+): Promise<{ ok: true; result: "released" | "not_held" }> {
+  return requestAiServiceJson(
+    `${BASE}/runs/${encodeURIComponent(runId)}/review`,
+    { body: "{}", method: "POST" }
+  );
+}
+
 export interface WorkflowRunDto {
   context_id: string | null;
   context_type: string | null;

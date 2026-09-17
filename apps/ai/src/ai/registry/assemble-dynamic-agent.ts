@@ -60,9 +60,15 @@ import { createRuntimeContextProcessor } from "../sessions/runtime-context-proce
 import { SHARED_ROOM_INSTRUCTIONS } from "../sessions/speaker-turn-processor.js";
 import { buildGuardrailProcessors } from "./build-guardrail-processors.js";
 import {
+  type ContextTokensResolver,
+  estimateToolBlockTokens,
+  historyTokenLimit,
+} from "./history-token-budget.js";
+import {
   createSkillGatedToolsProcessor,
   SKILL_GATED_TOOLS_INSTRUCTIONS,
 } from "./skill-gated-tools-processor.js";
+import { createStreamErrorRetryProcessor } from "./stream-error-retry.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";
 
 /**
@@ -179,6 +185,12 @@ export interface RuntimeModelConfig {
   planningCodingModelId?: string;
   // Research / retrieval tier; falls back to chat when unset.
   researchModelId?: string;
+  /**
+   * The model's context window from the platform catalog, for the recalled-
+   * history budget (history-token-budget.ts). Absent or null = unknown window,
+   * fixed default budget.
+   */
+  resolveContextTokens?: ContextTokensResolver;
   routingModelId: string;
   // Mastra guardrail processors classify with this model id; the harness
   // resolves it from tenant `ai.config.safeguard_model_id` (defaulted).
@@ -401,7 +413,14 @@ async function assembleDynamicAgentWithAncestors(
   // History hygiene, always on (before the guardrail classifiers): strip bulky
   // `engenty_tool_execute` transcripts from RECALLED history — the last two
   // tool-producing steps stay intact so the live loop keeps its results — and
-  // hard-cap recalled history so a long thread cannot blow the prompt budget.
+  // cap recalled history at what THIS model's window leaves after the tool
+  // block, the reply and the runtime tail (history-token-budget.ts).
+  const modelId = resolveAgentModelId(config, options.modelConfig);
+  const historyLimit = historyTokenLimit({
+    contextTokens:
+      (await options.modelConfig?.resolveContextTokens?.(modelId)) ?? null,
+    toolTokens: estimateToolBlockTokens(agentTools),
+  });
   const inputProcessors: Processor[] = [
     // Lane tools ride with their lane skill (`AgentConfig.toolGating`): withheld
     // from the tool block until the skill is activated, which Mastra lets us do
@@ -414,7 +433,7 @@ async function assembleDynamicAgentWithAncestors(
       exclude: [ENGENTY_TOOL_EXECUTE_TOOL_ID],
       filterAfterToolSteps: 2,
     }),
-    new TokenLimiterProcessor({ limit: 100_000 }),
+    new TokenLimiterProcessor({ limit: historyLimit }),
     ...guardrailInput,
     ...(options.memoryProcessors ?? []),
   ];
@@ -445,7 +464,14 @@ async function assembleDynamicAgentWithAncestors(
     // first-class handler detects that API rejection and retries once with a
     // hidden `continue` reminder — the framework-native cure, applied to the
     // supervisor and every sub-agent assembled here.
-    errorProcessors: [new PrefillErrorHandler()],
+    // Transient provider failures (429/5xx via the AI SDK's `isRetryable`,
+    // plus a dropped socket) retry the step instead of ending the run on a
+    // finishReason "error". Mastra's own `maxRetries` covers only the request
+    // that never opened; this covers the stream that died after it did.
+    errorProcessors: [
+      new PrefillErrorHandler(),
+      createStreamErrorRetryProcessor(),
+    ],
     id: config.id,
     instructions,
     // Mastra 1.55: Processor[] is structurally compatible; variance requires a boundary cast.

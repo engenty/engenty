@@ -149,6 +149,12 @@ in the owner's chat. It is a per-run widening of the routine's `report` knob:
 the run's value wins when present. `nothing_to_do` defaults to `silent`;
 failures and `needs_attention` always report, whatever the level.
 
+A routine with `report: ask` goes one step further: a completed run is **held**
+(`requires_action`, like a gate) until a person marks it reviewed — on the
+desk card or through `POST /workflows/runs/:runId/review`. The report goes out
+at once, never silent; the inbox carries one `routine_review` decision; and the
+next fire skips as overlap until the hold is released.
+
 ## Retired vocabulary
 
 | Was | Now |

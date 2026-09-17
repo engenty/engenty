@@ -289,6 +289,62 @@ describe("reportRoutineRun", () => {
   });
 });
 
+describe("report: ask", () => {
+  it("never lets an ask routine end in silence, even on nothing_to_do", () => {
+    expect(
+      resolveReportingLevel({
+        outcome: "nothing_to_do",
+        routineReport: "ask",
+        status: "completed",
+      })
+    ).toBe("info");
+    expect(
+      resolveReportingLevel({
+        reporting: "silent",
+        routineReport: "ask",
+        status: "completed",
+      })
+    ).toBe("info");
+  });
+
+  it("tells the reader the run is waiting on them", () => {
+    const text = buildRoutineReportText({
+      awaitingReview: true,
+      body: "3 replies found",
+      name: "Mail-Antwort-Wache",
+      status: "completed",
+    });
+    expect(text).toContain("3 replies found");
+    expect(text).toContain("Waiting for your review");
+  });
+
+  it("posts the held run's report without a second inbox update", async () => {
+    const h = harness({
+      messages: ASSISTANT_RESULT,
+      routine: routine({ report: "ask" }),
+      threads: [thread()],
+    });
+    await reportRoutineRun({
+      awaitingReview: true,
+      resolveReportsTo: async () => null,
+      routineId: "01a03ab6",
+      routines: h.routines,
+      runId: "run-1",
+      status: "completed",
+      store: h.store,
+      tenantId: TENANT,
+      threadId: RUN_THREAD,
+    });
+    expect(h.appendMessage).toHaveBeenCalledTimes(1);
+    const text = (
+      h.appendMessage.mock.calls[0]?.[0] as {
+        parts: { text: string }[];
+      }
+    ).parts[0]?.text;
+    expect(text).toContain("Waiting for your review");
+  });
+});
+
 describe("resolveReportingLevel", () => {
   it("lets the run's own level beat the routine's knob, both directions", () => {
     expect(

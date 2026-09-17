@@ -19,7 +19,7 @@ const ICONS = {
 
 const TONES: Record<ChatKind, string> = {
   copilot: "border-primary/30 bg-primary/10 text-primary",
-  desk: "border-border bg-muted/60 text-muted-foreground",
+  desk: "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300",
   dm: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   room: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
 };

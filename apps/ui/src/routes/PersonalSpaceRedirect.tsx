@@ -6,12 +6,11 @@
  * history — or worse, in the address bar for someone to copy — would turn "here
  * is the space I mean" into a link that sends each reader to their own.
  *
- * Landing order when nothing is aliased: last-visited, then personal, then the
- * tenant default. Personal sits in the middle deliberately — going back where
- * you were beats going somewhere correct-but-unasked-for, and the default space
- * is the answer only for someone whose personal space does not exist yet
- * (a user whose row predates the Phase P backfill).
+ * This alias always means the viewer's personal space. Last-visited vs
+ * personal vs tenant-default is `DefaultPlaceRedirect` (`/` and unmatched
+ * URLs) — not `/s/me`.
  */
+import { COPILOT_CHAT_ROOT } from "@engenty/engenty-copilot/paths";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { isPersonalSpace } from "@/lib/api/spaces-client";
 import { spaceRootPath } from "@/lib/space-routes";
@@ -34,8 +33,9 @@ export function PersonalSpaceRedirect() {
 
   if (!target) {
     // No space at all is a broken install (every tenant has a Company space by
-    // trigger), not a state to design a screen for.
-    return <Navigate replace to="/" />;
+    // trigger), not a state to design a screen for. Do not bounce to `/` —
+    // that route now lands in a space too and would loop.
+    return <Navigate replace to={COPILOT_CHAT_ROOT} />;
   }
 
   // Carry the rest of the path through, so `/s/me/tasks/briefing` lands on the

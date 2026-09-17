@@ -28,6 +28,7 @@ export { useSettingsSecondaryShellNav } from "./components/app-layout/use-settin
 export { useSetupSecondaryShellNav } from "./components/app-layout/use-setup-secondary-shell-nav";
 export {
   setWorkspaceEndPaneExpanded,
+  useWorkspaceEndPaneCount,
   useWorkspaceEndPaneTarget,
 } from "./components/app-layout/workspace-end-pane";
 export { WorkspaceEndPaneItem } from "./components/app-layout/workspace-end-pane-item";

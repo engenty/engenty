@@ -12,6 +12,8 @@ describe("gateway-paths", () => {
     expect(resolveGatewayTarget("/api/docs")).toBeNull();
     expect(resolveGatewayTarget("/api/openapi.json")).toBeNull();
     expect(resolveGatewayTarget("/gateway/foo")).toBeNull();
+    expect(resolveGatewayTarget("/mcp")).toBeNull();
+    expect(resolveGatewayTarget("/mcp/")).toBeNull();
   });
 
   it("isDocsGatewayPath matches Fumadocs routes", () => {

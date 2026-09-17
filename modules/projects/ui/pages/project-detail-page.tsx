@@ -1,7 +1,6 @@
 import { PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQueryClient } from "@engenty/query-client";
 import { InlineEditableRichText } from "@engenty/tiptap-editor";
 import "@engenty/tiptap-editor/styles.css";
 import { useTeamMembersCatalogQuery } from "@engenty/tasks/ui/assignee";
@@ -10,14 +9,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
-import {
-  createPhase,
-  type PhaseTask,
-  type ProjectPhase,
-  type ProjectWithPhasesAndTasks,
-  updatePhase,
-  updateProject,
-} from "../api.js";
+import type { PhaseTask, ProjectPhase } from "../api.js";
 import { PhaseFormDialog } from "../components/phase-form-dialog.js";
 import { ProjectDetailHeader } from "../components/project-detail-header.js";
 import { ProjectDetailPageActions } from "../components/project-detail-page-actions.js";
@@ -38,8 +30,13 @@ import {
 } from "../hooks/use-project-tabs.js";
 import { useProjectsDetailAgentUiSlice } from "../hooks/use-projects-agent-ui-slice.js";
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
+import {
+  useCreateProjectPhaseMutation,
+  useUpdateProjectDetailMutation,
+  useUpdateProjectPhaseMutation,
+} from "../optimistic-mutations.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
-import { projectKeys, useProjectSettings } from "../queries.js";
+import { useProjectSettings } from "../queries.js";
 
 const EMPTY_TEAM_CATALOG: TeamMemberCatalogRow[] = [];
 
@@ -77,7 +74,9 @@ export function ProjectDetailPage() {
     id,
     teamMembersCatalog
   );
-  const queryClient = useQueryClient();
+  const createPhaseMutation = useCreateProjectPhaseMutation(id ?? "");
+  const updatePhaseMutation = useUpdateProjectPhaseMutation(id ?? "");
+  const updateProjectMutation = useUpdateProjectDetailMutation(id ?? "");
 
   // Tab configuration is persisted on the project (enabled_tabs). Drive the UI
   // from the project so it survives reloads; persist changes optimistically.
@@ -92,15 +91,9 @@ export function ProjectDetailPage() {
       if (!id) {
         return;
       }
-      queryClient.setQueryData<ProjectWithPhasesAndTasks>(
-        projectKeys.detail(id),
-        (prev) => (prev ? { ...prev, enabled_tabs: tabs } : prev)
-      );
-      updateProject(id, { enabled_tabs: tabs }).catch(() => {
-        void loadProject();
-      });
+      updateProjectMutation.mutate({ enabled_tabs: tabs });
     },
-    [id, queryClient, loadProject]
+    [id, updateProjectMutation]
   );
 
   const {
@@ -119,7 +112,6 @@ export function ProjectDetailPage() {
   } = useProjectDetailHandlers({
     id,
     project,
-    loadProject,
     editingPhase,
     editingTask,
     addTaskPhaseId,
@@ -183,15 +175,9 @@ export function ProjectDetailPage() {
       setEditingTitle(false);
       return;
     }
-    try {
-      const { updateProject } = await import("../api.js");
-      await updateProject(id, { title: titleValue.trim() });
-      setEditingTitle(false);
-      await loadProject();
-    } catch {
-      // Leave editing state; user can retry or cancel
-    }
-  }, [id, titleValue, project, loadProject]);
+    updateProjectMutation.mutate({ title: titleValue.trim() });
+    setEditingTitle(false);
+  }, [id, titleValue, project, updateProjectMutation]);
 
   const resetTitleEditing = useCallback(() => {
     setEditingTitle(false);
@@ -290,47 +276,41 @@ export function ProjectDetailPage() {
       if (!id) {
         return null;
       }
-      const newPhase = await createPhase(id, {
-        title,
-        start_date: null,
+      // The row paints from `onMutate`; the awaited id is the server's.
+      const newPhase = await createPhaseMutation.mutateAsync({
         end_date: null,
         is_main: false,
         is_public: false,
         order_index: project?.phases?.length ?? 0,
+        start_date: null,
+        title,
       });
-      await loadProject();
       return newPhase.id;
     },
-    [id, project?.phases?.length, loadProject]
+    [id, project?.phases?.length, createPhaseMutation]
   );
 
   const handlePhaseTitleUpdate = useCallback(
-    async (phaseId: string, title: string) => {
+    (phaseId: string, title: string) => {
       if (!id) {
         return;
       }
-      await updatePhase(id, phaseId, { title });
-      await loadProject();
+      updatePhaseMutation.mutate({ patch: { title }, phaseId });
     },
-    [id, loadProject]
+    [id, updatePhaseMutation]
   );
 
   const handlePhaseUpdate = useCallback(
-    async (
-      phaseId: string,
-      startDate: string | null,
-      endDate: string | null
-    ) => {
+    (phaseId: string, startDate: string | null, endDate: string | null) => {
       if (!id) {
         return;
       }
-      await updatePhase(id, phaseId, {
-        start_date: startDate,
-        end_date: endDate,
+      updatePhaseMutation.mutate({
+        patch: { end_date: endDate, start_date: startDate },
+        phaseId,
       });
-      await loadProject();
     },
-    [id, loadProject]
+    [id, updatePhaseMutation]
   );
 
   if (!id) {

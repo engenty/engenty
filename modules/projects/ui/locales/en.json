@@ -39,34 +39,10 @@
     }
   },
   "tasks": {
-    "comingSoon": "Tasks overview coming soon.",
-    "scopeMine": "My tasks",
-    "scopeAll": "All tasks",
-    "searchPlaceholder": "Search tasks...",
-    "addTask": "Add task",
-    "noTasks": "No tasks yet",
-    "noTasksDescription": "Create tasks in a project to see them here.",
-    "noSearchResults": "No tasks match your search",
-    "columns": {
-      "title": "Task",
-      "project": "Project",
-      "phase": "Phase",
-      "assignees": "Assignees",
-      "status": "Status",
-      "hours": "Hours",
-      "updatedAt": "Updated"
-    },
-    "sortByUpdatedAt": "Updated",
-    "sortByCreatedAt": "Created",
-    "sortByTitle": "Title",
-    "sortByStatus": "Status",
-    "general": "General",
-    "paginationSummary": "{{total}} tasks",
-    "viewProject": "View project",
-    "kanbanView": "Kanban",
-    "filterAllStatuses": "All statuses",
-    "statusUpdateFailed": "Failed to update task status",
-    "selectProject": "Select project"
+    "createFailed": "Could not create the task.",
+    "updateFailed": "Could not save the task.",
+    "deleteFailed": "Could not delete the task.",
+    "reorderFailed": "Could not reorder the tasks."
   },
   "updates": {
     "comingSoon": "Updates and activity feed coming soon."
@@ -281,7 +257,8 @@
       "portalSectionDescription": "Public access for this project's clients: view tasks and submit requests.",
       "clientSection": "Client",
       "clientSectionDescription": "The contact or organisation this project runs for."
-    }
+    },
+    "saveFailed": "Could not save the project."
   },
   "create": {
     "title": "Create project",
@@ -428,5 +405,10 @@
       "start": "Start",
       "end": "End"
     }
+  },
+  "phases": {
+    "createFailed": "Could not create the phase.",
+    "updateFailed": "Could not save the phase.",
+    "deleteFailed": "Could not delete the phase."
   }
 }

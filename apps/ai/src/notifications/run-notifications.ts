@@ -19,7 +19,9 @@ export interface RunAsk {
     | "agent_run_suspended"
     | "tool_approval"
     | "task_question"
-    | "task_needs_input";
+    | "task_needs_input"
+    /** A finished routine run held until its owner has looked (`report: ask`). */
+    | "routine_review";
   payload?: Record<string, unknown>;
   priority?: NotificationPriority;
   title: string;
@@ -94,7 +96,7 @@ export async function notifyRunSuspended(
  * that succeeded. Never throws.
  */
 export async function resolveRunNotifications(input: {
-  outcome: "resumed" | "completed" | "failed";
+  outcome: "resumed" | "completed" | "failed" | "decided";
   subject: { id: string; type: "run" | "task" };
   tenantId: string;
 }): Promise<number> {

@@ -17,7 +17,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
-import { Repeat2, X } from "lucide-react";
+import { Check, Repeat2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useWorkflowRunStatus } from "../../hooks/use-workflow-run-status.js";
@@ -25,6 +25,7 @@ import { WorkflowRunStatus } from "../agents-workspace/workflow-run-status.js";
 import { GateDecisionCard } from "../workflow-canvas/gate-decision-card.js";
 import {
   useResumeRunMutation,
+  useReviewRunMutation,
   useWorkflowRunQuery,
 } from "../workflow-canvas/workflow-queries.js";
 import { conversationEngagement } from "./agent-desk-url.js";
@@ -59,6 +60,11 @@ export function AgentDeskRunActivity(props: {
   );
   const gate = parked ? parkedRun.data?.snapshot?.gate : undefined;
   const resume = useResumeRunMutation();
+  // Parked with no gate is a review hold (`report: ask`): the fire finished
+  // and waits for a look. Only a gate can suspend a graph, so nothing else
+  // leaves a run in this state.
+  const heldForReview = parked && parkedRun.isSuccess && !gate;
+  const review = useReviewRunMutation();
 
   // A settled fire is a new thread on the desk. The feed is a snapshot taken
   // before the fire existed, so nothing would list it until the next load.
@@ -113,6 +119,27 @@ export function AgentDeskRunActivity(props: {
           <X aria-hidden className="size-3.5" />
         </Button>
       </div>
+      {heldForReview && watchedRunId ? (
+        <div className="ui-card-panel flex flex-wrap items-center justify-between gap-2 p-2.5 text-xs">
+          <span className="text-muted-foreground">
+            {t("agentDesk.activity.reviewPrompt")}
+          </span>
+          <Button
+            className="h-6 gap-1 px-2 text-xs"
+            disabled={review.isPending}
+            onClick={() =>
+              review.mutate(watchedRunId, {
+                onSuccess: () => void parkedRun.refetch(),
+              })
+            }
+            size="sm"
+            type="button"
+          >
+            <Check aria-hidden className="size-3.5" />
+            {t("agentDesk.activity.markReviewed")}
+          </Button>
+        </div>
+      ) : null}
       {gate && watchedRunId ? (
         <GateDecisionCard
           busy={resume.isPending}

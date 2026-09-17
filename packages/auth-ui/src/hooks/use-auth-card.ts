@@ -16,6 +16,31 @@ import { getSupabaseAuthClient } from "../lib/supabase-auth-client";
 
 export type AuthCardMode = "login" | "signup" | "forgot";
 
+/** Prefer a human message; never surface JSON.stringify(Error) → "{}". */
+function formatAuthFailure(err: unknown): string {
+  if (err instanceof Error) {
+    const msg = err.message?.trim();
+    if (msg && msg !== "{}") {
+      return msg;
+    }
+  }
+  if (err && typeof err === "object") {
+    const record = err as Record<string, unknown>;
+    for (const key of [
+      "msg",
+      "message",
+      "error_description",
+      "error",
+    ] as const) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim() && value.trim() !== "{}") {
+        return value.trim();
+      }
+    }
+  }
+  return "Authentication failed.";
+}
+
 export function useAuthCard(onAuthenticated?: () => void) {
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthCardMode>("login");
@@ -130,7 +155,7 @@ export function useAuthCard(onAuthenticated?: () => void) {
       }
       onAuthenticated?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed.");
+      setError(formatAuthFailure(err));
     } finally {
       setSubmitting(false);
     }

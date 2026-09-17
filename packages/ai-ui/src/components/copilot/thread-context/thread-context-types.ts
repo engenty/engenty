@@ -22,6 +22,14 @@ export const THREAD_CONTEXT_FLOAT_RESERVE_PX =
  */
 export const THREAD_CONTEXT_INLINE_PAD_VAR = "--thread-context-inline-pad";
 
+/**
+ * CSS custom property a surface sets when something of its own already covers
+ * the top of the chat — the desk's collapsed identity band. The floating card
+ * clears the larger of this and the topbar.
+ */
+export const THREAD_CONTEXT_TOP_CLEARANCE_VAR =
+  "--thread-context-top-clearance";
+
 /** @deprecated Use {@link THREAD_CONTEXT_FLOAT_WIDTH_PX}. */
 export const THREAD_CONTEXT_PANE_WIDTH_PX = THREAD_CONTEXT_FLOAT_WIDTH_PX;
 

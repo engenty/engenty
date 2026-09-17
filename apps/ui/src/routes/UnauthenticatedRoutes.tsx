@@ -5,6 +5,7 @@ import {
   DevLoginPage,
   InitialSetupPage,
   LoginPage,
+  OAuthConsentPage,
   ServiceUnavailablePage,
 } from "@engenty/auth-ui";
 import type { UiContributions } from "@engenty/ui-plugin-sdk";
@@ -36,6 +37,8 @@ export function UnauthenticatedRoutes({
       <Route element={<AgentLoginPage />} path="/auth/agent-login" />
       <Route element={<LoginPage />} path="/auth/login" />
       <Route element={<CallbackPage />} path="/auth/callback" />
+      {/* Hardcoded: MCP OAuth must not depend on public plugin bootstrap. */}
+      <Route element={<OAuthConsentPage />} path="/oauth/consent" />
       <Route element={<ServiceUnavailablePage />} path="/service_unavailable" />
       <Route element={<AuthRedirect />} path="*" />
     </Routes>

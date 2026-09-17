@@ -5,6 +5,7 @@ import {
   ACTIVITY_ROOT_PATH,
   CONNECTIONS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
+  WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH,
   WORKFLOWS_CATALOG_ROOT_PATH,
 } from "./agent-workspace-url-state";
 
@@ -37,7 +38,9 @@ export function workspaceNavPrimaryTabFromPathname(
   // it reconciles into are two views of one runnable.
   if (
     pathname === WORKFLOWS_CATALOG_ROOT_PATH ||
-    pathname.startsWith(`${WORKFLOWS_CATALOG_ROOT_PATH}/`)
+    pathname.startsWith(`${WORKFLOWS_CATALOG_ROOT_PATH}/`) ||
+    pathname === WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH ||
+    pathname.startsWith(`${WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH}/`)
   ) {
     return "flows";
   }

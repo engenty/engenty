@@ -20,14 +20,14 @@
   },
   "dependencies": {
     "@engenty/plugin-sdk": "workspace:*",
-    "@hono/zod-openapi": "^1.4.0",
-    "@supabase/supabase-js": "^2.108.2",
-    "zod": "4.4.3"
+    "@hono/zod-openapi": "^1.6.3",
+    "@supabase/supabase-js": "^2.116.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.6.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

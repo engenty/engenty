@@ -45,6 +45,12 @@ export interface ReportRoutineRunInput {
   /** The artifact the run produced, already resolved to its title — the
    * report names it instead of leaving a bare uuid in the chat. */
   artifact?: { id: string; title: string } | null;
+  /**
+   * The run is parked until its owner has looked (`report: ask`). The report
+   * says so, and the inbox row is the review decision itself rather than an
+   * `update` about the post.
+   */
+  awaitingReview?: boolean;
   /** The flow's own verdict on the work, when it declared one. */
   outcome?: RunOutcome;
   /** Why it failed, when it did — the run's own words. */
@@ -180,6 +186,7 @@ const OUTCOME_LABELS: Partial<Record<RunOutcome, string>> = {
 
 export function buildRoutineReportText(input: {
   artifact?: { id: string; title: string } | null;
+  awaitingReview?: boolean;
   body: string | null;
   name: string;
   outcome?: RunOutcome;
@@ -207,11 +214,16 @@ export function buildRoutineReportText(input: {
       input.outcome === "needs_attention")
       ? `\n\n${reason}`
       : "";
+  // The hold is part of the report: a reader must know the routine is
+  // waiting on THEM, not just done.
+  const reviewLine = input.awaitingReview
+    ? "\n\n⏸ Waiting for your review — this routine holds until you mark the run reviewed."
+    : "";
   // A run that succeeded without saying anything still gets reported. Silence
   // that looks like success is the shape of failure this cutover kept hitting.
   return body
-    ? `${heading}\n\n${body}${explained}${artifactLine}`
-    : `${heading}\n\n${reason ?? "Run finished without a written result."}${artifactLine}`;
+    ? `${heading}\n\n${body}${explained}${artifactLine}${reviewLine}`
+    : `${heading}\n\n${reason ?? "Run finished without a written result."}${artifactLine}${reviewLine}`;
 }
 
 /**
@@ -220,10 +232,11 @@ export function buildRoutineReportText(input: {
  * The run's own level wins when present — a per-run widening (or quieting) of
  * the routine's knob. Without one, `nothing_to_do` is silent by design (the
  * quiet nightly report is a consequence of the outcome, not a choice), and the
- * knob maps `quiet`→silent, everything else→info. Two overrides beat all of
- * it: a crashed run always reports, and so does work that went wrong —
+ * knob maps `quiet`→silent, everything else→info. Three overrides beat all of
+ * it: a crashed run always reports, so does work that went wrong —
  * `failed`, `rejected`, `needs_attention` — because silence that hides a
- * problem is the exact bug reporting exists to end.
+ * problem is the exact bug reporting exists to end, and so does an `ask`
+ * routine, whose every run waits for a person and cannot wait in silence.
  */
 export function resolveReportingLevel(input: {
   outcome?: RunOutcome;
@@ -233,6 +246,7 @@ export function resolveReportingLevel(input: {
 }): RunReportingLevel {
   const mustReport =
     input.status === "failed" ||
+    input.routineReport === "ask" ||
     input.outcome === "failed" ||
     input.outcome === "rejected" ||
     input.outcome === "needs_attention";
@@ -377,6 +391,7 @@ export async function reportRoutineRun(
           : input.summary?.trim() || proseFromLastWord(lastWord),
       name: routine.name,
       status: input.status,
+      ...(input.awaitingReview ? { awaitingReview: true } : {}),
       ...(input.artifact ? { artifact: input.artifact } : {}),
       ...(input.outcome ? { outcome: input.outcome } : {}),
       ...(input.reason ? { reason: input.reason } : {}),
@@ -394,9 +409,13 @@ export async function reportRoutineRun(
       agentId: routine.agent_id,
       messageId: stableUuid(`routine-report:${input.runId}`),
       metadata,
-      notify: {
-        summary: `Routine · ${routine.name}: ${input.status === "failed" ? "run failed" : input.summary?.trim() || "finished"}`,
-      },
+      // A held run's inbox row is the review decision itself — an `update`
+      // beside it would be the same news twice.
+      notify: input.awaitingReview
+        ? false
+        : {
+            summary: `Routine · ${routine.name}: ${input.status === "failed" ? "run failed" : input.summary?.trim() || "finished"}`,
+          },
       ownerUserId: routine.created_by_user_id,
       source: "routine-report",
       spaceId: routine.space_id,

@@ -8,6 +8,7 @@ import {
   ARTIFACTS_ROOT_PATH,
   SKILLS_CATALOG_ROOT_PATH,
   TOOLS_ROOT_PATH,
+  WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH,
   WORKFLOWS_CATALOG_ROOT_PATH,
 } from "./features/agents-workspace/agent-workspace-paths.js";
 import { ComputersPage } from "./features/computers/computers-page.js";
@@ -17,6 +18,7 @@ import { AgentFormPage } from "./routes/agent-form-page.js";
 import { AgentsCatalogPage } from "./routes/agents-catalog-page.js";
 import { ArtifactsCatalogPage } from "./routes/artifacts-catalog-page.js";
 import { ArtifactsDetailPage } from "./routes/artifacts-detail-page.js";
+import { LegacyFlowsRedirect } from "./routes/legacy-flows-redirect.js";
 import { OverviewPage } from "./routes/overview-page.js";
 import { SkillDetailPage } from "./routes/skill-detail-page.js";
 import { SkillsCatalogPage } from "./routes/skills-catalog-page.js";
@@ -172,14 +174,14 @@ export default function plugin(engenty: EngentyPluginContext) {
     order: 216,
   });
 
-  // ── Actions — the one list of everything this workspace can run ───────────
+  // ── Workflows — the one list of everything this workspace can run ─────────
   //
-  // An Action holds the input parameters and is what a button, a slash
+  // A Workflow holds the input parameters and is what a button, a slash
   // command, a routine or an agent calls. Its steps are one agent turn or a
   // whole graph — a SHAPE, not a second species, so there is no second
-  // catalog and no second URL space. `/actions/:id` takes either id the
-  // catalog produces (a declared module-workflow id, or a stored graph uuid) and
-  // the router picks the right view.
+  // catalog and no second URL space. `/workflows/:id` takes either id the
+  // catalog produces (a declared module-workflow id, or a stored graph uuid)
+  // and the router picks the right view.
 
   engenty.UI.registerRoute({
     id: "ai_ui_admin_actions",
@@ -193,6 +195,20 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: `${WORKFLOWS_CATALOG_ROOT_PATH}/:workflowId`,
     component: WorkflowDetailRouter,
     order: 220.5,
+  });
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_actions_legacy_flows",
+    path: WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH,
+    component: LegacyFlowsRedirect,
+    order: 220.6,
+  });
+
+  engenty.UI.registerRoute({
+    id: "ai_ui_admin_actions_legacy_flows_detail",
+    path: `${WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH}/:workflowId`,
+    component: LegacyFlowsRedirect,
+    order: 220.7,
   });
 
   // ── Skills ────────────────────────────────────────────────────────────────

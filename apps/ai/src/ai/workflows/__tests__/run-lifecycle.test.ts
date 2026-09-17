@@ -10,6 +10,7 @@ const finish = vi.fn();
 const getByRunId = vi.fn();
 const finishActionRun = vi.fn();
 const reportRoutineRun = vi.fn();
+const holdRunForReview = vi.fn();
 const routineStore = { get: vi.fn() };
 
 vi.mock("../../index.js", () => ({
@@ -23,6 +24,12 @@ vi.mock("../../jobs/action-job-run-record.js", () => ({
 }));
 vi.mock("../../routines/report-routine-run.js", () => ({
   reportRoutineRun: (...args: unknown[]) => reportRoutineRun(...args),
+}));
+vi.mock("../../routines/review-hold.js", async () => ({
+  ...(await vi.importActual<typeof import("../../routines/review-hold.js")>(
+    "../../routines/review-hold.js"
+  )),
+  holdRunForReview: (...args: unknown[]) => holdRunForReview(...args),
 }));
 vi.mock("../run-context.js", () => ({
   forgetGraphRunScope: vi.fn(),
@@ -46,6 +53,77 @@ function request(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   getByRunId.mockResolvedValue(request());
+  routineStore.get.mockResolvedValue(null);
+});
+
+describe("settleGraphRun with report: ask", () => {
+  it("holds a completed fire for review instead of finishing it", async () => {
+    getByRunId.mockResolvedValue(request({ routine_id: "routine-1" }));
+    routineStore.get.mockResolvedValue({
+      agent_id: "mail.watch",
+      created_by_user_id: "user-1",
+      id: "routine-1",
+      name: "Mail-Antwort-Wache",
+      report: "ask",
+      space_id: null,
+      tenant_id: TENANT,
+    });
+    await settleGraphRun({
+      outcome: { result: { summary: "1 reply" }, status: "success" },
+      requestId: "request-1",
+      runId: "run-1",
+      tenantId: TENANT,
+    });
+    expect(holdRunForReview).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-1", summary: "1 reply" })
+    );
+    expect(finish).not.toHaveBeenCalled();
+    expect(finishActionRun).not.toHaveBeenCalled();
+    expect(reportRoutineRun).toHaveBeenCalledWith(
+      expect.objectContaining({ awaitingReview: true, routineId: "routine-1" })
+    );
+  });
+
+  it("does not hold a crash — a failure is an alert, not a review", async () => {
+    getByRunId.mockResolvedValue(request({ routine_id: "routine-1" }));
+    routineStore.get.mockResolvedValue({
+      agent_id: "mail.watch",
+      created_by_user_id: "user-1",
+      id: "routine-1",
+      name: "Mail-Antwort-Wache",
+      report: "ask",
+      space_id: null,
+      tenant_id: TENANT,
+    });
+    await settleGraphRun({
+      outcome: { reason: "boom", status: "failed" },
+      requestId: "request-1",
+      runId: "run-1",
+      tenantId: TENANT,
+    });
+    expect(holdRunForReview).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed" })
+    );
+  });
+
+  it("finishes a desk_card routine's run as before", async () => {
+    getByRunId.mockResolvedValue(request({ routine_id: "routine-1" }));
+    routineStore.get.mockResolvedValue({
+      id: "routine-1",
+      report: "desk_card",
+    });
+    await settleGraphRun({
+      outcome: { result: "done", status: "success" },
+      requestId: "request-1",
+      runId: "run-1",
+      tenantId: TENANT,
+    });
+    expect(holdRunForReview).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "completed" })
+    );
+  });
 });
 
 describe("settleGraphRun contract fields", () => {

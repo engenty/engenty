@@ -32,7 +32,7 @@ export interface PhaseDeleteConfirm {
 
 interface PhaseDeleteDialogProps {
   onClose: () => void;
-  onConfirm: (options: PhaseDeleteConfirm) => Promise<void>;
+  onConfirm: (options: PhaseDeleteConfirm) => void | Promise<void>;
   open: boolean;
   phaseTitle: string;
   targetPhases: PhaseDeleteTargetOption[];

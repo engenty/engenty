@@ -13,12 +13,12 @@ interface ProjectTimeplanSectionProps {
   endDate: string | null;
   onPhaseCreate?: (title: string) => Promise<string | null>;
   onPhaseFormOpen?: () => void;
-  onPhaseTitleUpdate?: (phaseId: string, title: string) => Promise<void>;
+  onPhaseTitleUpdate?: (phaseId: string, title: string) => void | Promise<void>;
   onPhaseUpdate?: (
     phaseId: string,
     startDate: string | null,
     endDate: string | null
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   phases: (ProjectPhase & { tasks: PhaseTask[] })[];
   startDate: string | null;
   viewMode: "internal" | "external";

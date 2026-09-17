@@ -99,67 +99,6 @@ export function useRemoveContactRoleMutation(id: string) {
   });
 }
 
-export function useSetContactSettingsMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setContactSettings,
-    onMutate: async (settings) => ({
-      transactions: await Promise.all([
-        beginOptimisticUpdate<ContactSettings>(queryClient, {
-          queryKey: contactKeys.settings(),
-          update: () => settings,
-        }),
-        beginOptimisticUpdate<ContactSettingsPageData>(queryClient, {
-          queryKey: contactKeys.settingsPage(),
-          update: (current) => (current ? { ...current, settings } : current),
-        }),
-      ]),
-    }),
-    onError: (_error, _settings, context) => {
-      context?.transactions.forEach((transaction) => transaction.rollback());
-      toast.error("Could not save contact settings.");
-    },
-    onSuccess: (saved) => {
-      queryClient.setQueryData(contactKeys.settings(), saved);
-      queryClient.setQueryData<ContactSettingsPageData>(
-        contactKeys.settingsPage(),
-        (current) => (current ? { ...current, settings: saved } : current)
-      );
-    },
-  });
-}
-
-export function useSetContactsRoleMenuConfigMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: setContactsRoleMenuConfig,
-    onMutate: async (roleMenuConfig) => ({
-      transactions: await Promise.all([
-        beginOptimisticUpdate<ContactsRoleMenuConfig>(queryClient, {
-          queryKey: contactKeys.roleMenu(),
-          update: () => roleMenuConfig,
-        }),
-        beginOptimisticUpdate<ContactSettingsPageData>(queryClient, {
-          queryKey: contactKeys.settingsPage(),
-          update: (current) =>
-            current ? { ...current, roleMenuConfig } : current,
-        }),
-      ]),
-    }),
-    onError: (_error, _config, context) => {
-      context?.transactions.forEach((transaction) => transaction.rollback());
-      toast.error("Could not save the contact role menu.");
-    },
-    onSuccess: (_result, roleMenuConfig) => {
-      queryClient.setQueryData(contactKeys.roleMenu(), roleMenuConfig);
-      queryClient.setQueryData<ContactSettingsPageData>(
-        contactKeys.settingsPage(),
-        (current) => (current ? { ...current, roleMenuConfig } : current)
-      );
-    },
-  });
-}
-
 export function useSaveContactSettingsPageMutation() {
   const queryClient = useQueryClient();
   return useMutation({

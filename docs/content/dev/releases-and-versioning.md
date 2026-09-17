@@ -126,7 +126,7 @@ fix(time-tracking): stabilize bootstrap and breadcrumb user picker
 fix(ci): publish-open without checkout credential helper
 ```
 
-`pnpm release` / [`cliff.toml`](../../../cliff.toml) turns that into changelog lines:
+`pnpm release` / `cliff.toml` turns that into changelog lines:
 
 ```markdown
 - Added [tasks]: Plugin list columns and group-by project

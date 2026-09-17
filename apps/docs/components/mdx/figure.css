@@ -1,0 +1,171 @@
+/*
+ * Hand-drawn architecture figures.
+ *
+ * A diagram is inline SVG in the MDX, written against the class vocabulary
+ * below — boxes by role, text by role, lines by role — so the drawing carries
+ * no colours of its own and follows the site's theme in both directions.
+ *
+ * Neutrals come from the Fumadocs tokens. Only the two semantic colours are
+ * the figure's own: `accent` for the path that matters in a diagram, `block`
+ * for the thing that does not work. Both have a dark value, because a mid
+ * teal that reads on paper disappears on a dark ground.
+ *
+ * Everything is namespaced under `.efig`: `.zone` and `.ln` are exactly the
+ * kind of names that would collide with something else one day.
+ */
+
+.efig {
+  margin: 2rem 0 2.25rem;
+
+  --efig-surface: var(--color-fd-card);
+  --efig-sunk: var(--color-fd-secondary, var(--color-fd-muted));
+  --efig-ink: var(--color-fd-foreground);
+  --efig-ink-soft: color-mix(
+    in srgb,
+    var(--color-fd-foreground) 72%,
+    transparent
+  );
+  --efig-muted: var(--color-fd-muted-foreground);
+  --efig-rule: var(--color-fd-border);
+  --efig-accent: #0b6e68;
+  --efig-accent-ink: #084f4a;
+  --efig-accent-wash: #ddecea;
+  --efig-block: #a63a2b;
+  --efig-block-wash: #f6e4e1;
+}
+
+.dark .efig {
+  --efig-accent: #4fc3b8;
+  --efig-accent-ink: #8fddd5;
+  --efig-accent-wash: #16302e;
+  --efig-block: #e08376;
+  --efig-block-wash: #32201d;
+}
+
+.efig-box {
+  background: var(--color-fd-background);
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.5rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+  /* Wide diagrams scroll inside their own box; the page never does. */
+  overflow-x: auto;
+}
+
+.efig svg {
+  display: block;
+  width: 100%;
+  /* Below this the labels stop being readable, so scroll instead of shrink. */
+  min-width: 660px;
+  height: auto;
+  color: var(--efig-ink-soft);
+}
+
+.efig figcaption {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--efig-muted);
+  margin-top: 0.85rem;
+  max-width: 62ch;
+}
+
+.efig figcaption b {
+  color: var(--efig-ink-soft);
+  font-weight: 600;
+}
+
+/* Boxes, by what the box is. */
+.efig .s-box {
+  fill: var(--efig-surface);
+  stroke: currentColor;
+  stroke-width: 1.25;
+}
+.efig .s-sunk {
+  fill: var(--efig-sunk);
+  stroke: var(--efig-rule);
+  stroke-width: 1.25;
+}
+.efig .s-acc {
+  fill: var(--efig-accent-wash);
+  stroke: var(--efig-accent);
+  stroke-width: 1.5;
+}
+.efig .s-blk {
+  fill: var(--efig-block-wash);
+  stroke: var(--efig-block);
+  stroke-width: 1.5;
+}
+/* A dashed container around things that share a boundary. */
+.efig .zone {
+  fill: none;
+  stroke: var(--efig-rule);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+/* Text, by what the text is. */
+.efig .t-title {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--efig-ink);
+}
+.efig .t-sub,
+.efig .t-edge,
+.efig .t-acc,
+.efig .t-blk,
+.efig .t-zone {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+}
+.efig .t-sub {
+  fill: var(--efig-muted);
+}
+.efig .t-edge {
+  fill: var(--efig-ink-soft);
+}
+.efig .t-acc {
+  fill: var(--efig-accent-ink);
+  font-weight: 600;
+}
+.efig .t-blk {
+  fill: var(--efig-block);
+  font-weight: 600;
+}
+.efig .t-zone {
+  font-size: 10px;
+  fill: var(--efig-muted);
+  letter-spacing: 0.1em;
+}
+
+/* Lines. `ln-acc` is the path the section is about; `ln-blk` does not work. */
+.efig .ln {
+  stroke: currentColor;
+  stroke-width: 1.4;
+  fill: none;
+}
+.efig .ln-acc {
+  stroke: var(--efig-accent);
+  stroke-width: 1.8;
+  fill: none;
+}
+.efig .ln-blk {
+  stroke: var(--efig-block);
+  stroke-width: 1.6;
+  fill: none;
+  stroke-dasharray: 5 4;
+}
+
+/* Arrowheads and the crossed-out marks inherit from the line they belong to. */
+.efig .m-ink {
+  fill: currentColor;
+}
+.efig .m-acc {
+  fill: var(--efig-accent);
+}
+.efig .m-blk {
+  fill: var(--efig-block);
+}
+.efig .x-blk {
+  stroke: var(--efig-block);
+  stroke-width: 2;
+}

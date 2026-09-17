@@ -118,6 +118,11 @@ interface PageHeaderContextValue {
   breadcrumbs: PageBreadcrumb[];
   /** Topbar column + in-page hero alignment for the blended topbar (see `paper` stack). */
   contentStackBackground: PageContentStackBackground;
+  /**
+   * A control the page hangs on the route (space) crumb — the desk's
+   * conversation switcher. Rendered right after that crumb's label.
+   */
+  routeBreadcrumbAction: ReactNode;
   /** Rendered in the shell secondary nav column below module submenu links (e.g. recents). */
   secondaryNavAfterItems: ReactNode;
   /**
@@ -152,6 +157,7 @@ interface PageHeaderDispatchContextValue {
   ) => void;
   setBreadcrumbs: (breadcrumbs: PageBreadcrumb[]) => void;
   setContentStackBackground: (value: PageContentStackBackground) => void;
+  setRouteBreadcrumbAction: (node: ReactNode) => void;
   setSecondaryNavAfterItems: (node: ReactNode) => void;
   setSecondaryNavAllowPinned: (value: boolean) => void;
   setSecondaryNavBeforeItems: (node: ReactNode) => void;
@@ -168,6 +174,8 @@ const PageHeaderDispatchContext =
 export function PageHeaderProvider({ children }: { children: ReactNode }) {
   const [breadcrumbs, setBreadcrumbsState] = useState<PageBreadcrumb[]>([]);
   const [actions, setActionsState] = useState<ReactNode>(null);
+  const [routeBreadcrumbAction, setRouteBreadcrumbActionState] =
+    useState<ReactNode>(null);
   const [agentsWorkspaceNav, setAgentsWorkspaceNavState] =
     useState<AgentsWorkspaceNavRegistration | null>(null);
   const [secondaryNavBeforeItems, setSecondaryNavBeforeItemsState] =
@@ -195,6 +203,12 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
   const setActions = useCallback((nextActions: ReactNode) => {
     setActionsState((prev) =>
       Object.is(prev, nextActions) ? prev : nextActions
+    );
+  }, []);
+
+  const setRouteBreadcrumbAction = useCallback((node: ReactNode) => {
+    setRouteBreadcrumbActionState((prev) =>
+      Object.is(prev, node) ? prev : node
     );
   }, []);
 
@@ -256,6 +270,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       agentsWorkspaceNav,
       breadcrumbs,
       contentStackBackground,
+      routeBreadcrumbAction,
       secondaryNavAfterItems,
       secondaryNavAllowPinned,
       secondaryNavBeforeItems,
@@ -269,6 +284,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       agentsWorkspaceNav,
       breadcrumbs,
       contentStackBackground,
+      routeBreadcrumbAction,
       secondaryNavAfterItems,
       secondaryNavAllowPinned,
       secondaryNavBeforeItems,
@@ -284,6 +300,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setAgentsWorkspaceNavRegistration,
       setBreadcrumbs,
       setContentStackBackground,
+      setRouteBreadcrumbAction,
       setSecondaryNavAfterItems,
       setSecondaryNavAllowPinned,
       setSecondaryNavBeforeItems,
@@ -297,6 +314,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setAgentsWorkspaceNavRegistration,
       setBreadcrumbs,
       setContentStackBackground,
+      setRouteBreadcrumbAction,
       setSecondaryNavAfterItems,
       setSecondaryNavAllowPinned,
       setSecondaryNavBeforeItems,
@@ -382,6 +400,8 @@ export function usePageConfig(config: {
    * without wrapping a nested sheet.
    */
   contentStackBackground?: PageContentStackBackground;
+  /** A control hung on the route (space) crumb, after its label. Resets on unmount. */
+  routeBreadcrumbAction?: ReactNode;
   secondaryNavAfterItems?: ReactNode;
   /**
    * When false, secondary nav is overlay-only (never pinned open / no layout width).
@@ -408,6 +428,7 @@ export function usePageConfig(config: {
     actions,
     breadcrumbs,
     contentStackBackground,
+    routeBreadcrumbAction,
     secondaryNavAfterItems,
     secondaryNavAllowPinned,
     secondaryNavBeforeItems,
@@ -420,6 +441,7 @@ export function usePageConfig(config: {
     setActions,
     setBreadcrumbs,
     setContentStackBackground,
+    setRouteBreadcrumbAction,
     setSecondaryNavAfterItems,
     setSecondaryNavAllowPinned,
     setSecondaryNavBeforeItems,
@@ -507,4 +529,13 @@ export function usePageConfig(config: {
   }, [topbarOverlap, setTopbarOverlap]);
 
   useLayoutEffect(() => () => setTopbarOverlap(false), [setTopbarOverlap]);
+
+  useLayoutEffect(() => {
+    setRouteBreadcrumbAction(routeBreadcrumbAction ?? null);
+  }, [routeBreadcrumbAction, setRouteBreadcrumbAction]);
+
+  useLayoutEffect(
+    () => () => setRouteBreadcrumbAction(null),
+    [setRouteBreadcrumbAction]
+  );
 }

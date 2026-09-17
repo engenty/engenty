@@ -2,8 +2,8 @@ import { spaceRoomPathname } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Engenty, uiPageScrollClassName } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Lock, Users } from "lucide-react";
 import {
+  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -13,7 +13,6 @@ import {
   useState,
 } from "react";
 import {
-  Link,
   Navigate,
   useLocation,
   useNavigate,
@@ -27,13 +26,16 @@ import {
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
 import {
+  THREAD_CONTEXT_FLOAT_GAP_PX,
+  THREAD_CONTEXT_TOP_CLEARANCE_VAR,
+} from "../../components/copilot/thread-context/thread-context-types.js";
+import {
   clearPendingHostMessage,
   pendingHostMessageFromState,
   resolvePendingHostMessage,
   writePendingHostMessage,
 } from "../../copilot/host-message-handoff.js";
 import { ObjectDisplayIntentProvider } from "../../objects/object-display-intent.js";
-import { spaceAgentDeskPath } from "../agent-form/hire-spaces.js";
 import { UserBrowserPane } from "../browser/user-browser-pane.js";
 import { AgentDeskActions } from "./agent-desk-actions.js";
 import { AgentDeskChat } from "./agent-desk-chat.js";
@@ -44,16 +46,17 @@ import {
 } from "./agent-desk-defaults.js";
 import {
   AGENT_DESK_PANEL_STATE_KEYS,
-  AgentDeskDrawer,
   type AgentDeskPanel,
   parseAgentDeskPanel,
 } from "./agent-desk-drawer.js";
 import { AgentDeskEngagementList } from "./agent-desk-engagement-list.js";
 import {
   AgentDeskHeader,
+  type AgentDeskReaders,
   type AgentDeskRelation,
 } from "./agent-desk-header.js";
 import { AgentDeskNewRoomDialog } from "./agent-desk-new-room-dialog.js";
+import { AgentDeskPane } from "./agent-desk-pane.js";
 import {
   type AgentDeskSwitchAgent,
   AgentDeskSwitcher,
@@ -266,6 +269,26 @@ export function AgentDesk(props: {
   useEffect(() => {
     setHeaderCollapsed(Boolean(threadId));
   }, [threadId]);
+  // The band is opaque and sits over the top of the chat, so the floating
+  // context card has to clear it, not just the topbar. Its height depends on
+  // how the badges wrap, so it is measured rather than guessed.
+  const bandObserver = useRef<ResizeObserver | null>(null);
+  const [bandHeightPx, setBandHeightPx] = useState(0);
+  const bandRef = useCallback((node: HTMLDivElement | null) => {
+    bandObserver.current?.disconnect();
+    bandObserver.current = null;
+    if (!node) {
+      setBandHeightPx(0);
+      return;
+    }
+    setBandHeightPx(node.offsetHeight);
+    const observer = new ResizeObserver(() => {
+      setBandHeightPx(node.offsetHeight);
+    });
+    observer.observe(node);
+    bandObserver.current = observer;
+  }, []);
+  useEffect(() => () => bandObserver.current?.disconnect(), []);
   const actions = feedQuery.data ? (
     <AgentDeskActions
       agentId={feedQuery.data.agent.id}
@@ -339,35 +362,46 @@ export function AgentDesk(props: {
     return [
       {
         compactKept: true,
+        // The name opens the agent's settings pane — the desk itself is
+        // already the page, so the crumb has nowhere else to go.
         label: (
-          <AgentDeskSwitcher
-            agents={rosterAgents}
-            current={{ id: current.id, kind: "agent" }}
-            label={
-              <Link
-                className="flex min-w-0 items-center gap-1.5 rounded-sm font-medium text-foreground text-sm hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                to={spaceAgentDeskPath(spaceKey, current.id)}
-              >
-                <Engenty kind={current.engenty} size={20} />
-                <span className="min-w-0 truncate">{current.name}</span>
-              </Link>
-            }
-            rooms={switchRoomsFrom(
-              conversationsQuery.data?.rooms ?? [],
-              rosterAgents
-            )}
-            spaceKey={spaceKey}
-          />
+          <button
+            className="flex min-w-0 items-center gap-1.5 rounded-sm font-medium text-foreground text-sm hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            onClick={() => openPanel("manage")}
+            type="button"
+          >
+            <Engenty kind={current.engenty} size={20} />
+            <span className="min-w-0 truncate">{current.name}</span>
+          </button>
         ),
         menuLabel: current.name,
       },
     ];
-  }, [conversationsQuery.data?.rooms, feedQuery.data, rosterAgents, spaceKey]);
+  }, [feedQuery.data, openPanel]);
+  // The conversation switcher hangs on the SPACE crumb: it lists the Space's
+  // desks and rooms, so the Space is what it belongs to — the agent crumb is
+  // just the name of the one that is open.
+  const routeBreadcrumbAction = useMemo(
+    () =>
+      feedQuery.data ? (
+        <AgentDeskSwitcher
+          agents={rosterAgents}
+          current={{ id: feedQuery.data.agent.id, kind: "agent" }}
+          rooms={switchRoomsFrom(
+            conversationsQuery.data?.rooms ?? [],
+            rosterAgents
+          )}
+          spaceKey={spaceKey}
+        />
+      ) : null,
+    [conversationsQuery.data?.rooms, feedQuery.data, rosterAgents, spaceKey]
+  );
 
   usePageConfig({
     actions,
     breadcrumbs,
     contentStackBackground: "paper",
+    routeBreadcrumbAction,
     // The header is a white band, so the transparent topbar floats over it
     // and the two blend — as on the admin personnel file. The header's own top
     // clearance keeps the title clear of the topbar's controls.
@@ -407,37 +441,25 @@ export function AgentDesk(props: {
   const { agent, engagements } = feedQuery.data;
   const defaultEngagementId =
     deskDefault?.kind === "desk" ? deskDefault.engagement?.id : undefined;
+  // Who reads the open conversation — part of the identity block, in its
+  // column, so it lines up with the mandate rather than with the avatar.
+  const readers: AgentDeskReaders | null =
+    threadId && chatSurface && chatKind
+      ? chatKind === "dm"
+        ? { kind: "dm", text: t("agentDesk.dm.onlyYou", { name: agent.name }) }
+        : { kind: "shared", text: kindCopy.readers }
+      : null;
   const scrollHeader = (
-    <>
-      <AgentDeskHeader
-        agent={agent}
-        chatKind={chatKind}
-        collapsed={false}
-        hostKey={hostKey}
-        moduleLabel={moduleLabel}
-        relation={relation}
-        spaceName={spaceName}
-      />
-      {threadId && chatSurface && chatKind ? (
-        <div
-          className="flex items-center gap-2 px-1 pb-2 text-muted-foreground text-xs"
-          data-testid={
-            chatKind === "dm" ? "agent-desk-dm-bar" : "agent-desk-readers-bar"
-          }
-        >
-          {chatKind === "dm" ? (
-            <Lock aria-hidden className="size-3.5 shrink-0" />
-          ) : (
-            <Users aria-hidden className="size-3.5 shrink-0" />
-          )}
-          <span className="min-w-0 truncate">
-            {chatKind === "dm"
-              ? t("agentDesk.dm.onlyYou", { name: agent.name })
-              : kindCopy.readers}
-          </span>
-        </div>
-      ) : null}
-    </>
+    <AgentDeskHeader
+      agent={agent}
+      chatKind={chatKind}
+      collapsed={false}
+      hostKey={hostKey}
+      moduleLabel={moduleLabel}
+      readers={readers}
+      relation={relation}
+      spaceName={spaceName}
+    />
   );
   // Non-chat agents never had a chat to show; their Chat position falls back to
   // the engagement list they always had.
@@ -489,15 +511,28 @@ export function AgentDesk(props: {
   );
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <div
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
+      style={
+        {
+          [THREAD_CONTEXT_TOP_CLEARANCE_VAR]: bandHeightPx
+            ? `${bandHeightPx + THREAD_CONTEXT_FLOAT_GAP_PX}px`
+            : undefined,
+        } as CSSProperties
+      }
+    >
       {chatIsConversation && headerCollapsed ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10"
+          ref={bandRef}
+        >
           <AgentDeskHeader
             agent={agent}
             chatKind={chatKind}
             collapsed
             hostKey={hostKey}
             moduleLabel={moduleLabel}
+            readers={readers}
             relation={relation}
             spaceName={spaceName}
           />
@@ -527,7 +562,7 @@ export function AgentDesk(props: {
         hostKey={hostKey}
         scope={{ id: threadId, type: "thread" }}
       />
-      <AgentDeskDrawer
+      <AgentDeskPane
         agent={agent}
         canEditPads={Boolean(feedQuery.data && canManageAgents)}
         canManage={canManage}

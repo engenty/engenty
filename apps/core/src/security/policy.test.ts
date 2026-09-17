@@ -2,7 +2,7 @@ import {
   createApprovalService,
   createFakeApprovalDb,
 } from "@engenty/approvals-sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAgentEscalationPolicy } from "./agent-escalation-policy.js";
 import type { PrincipalContext } from "./auth.js";
 import { evaluatePolicy, type PolicyInput } from "./policy.js";
@@ -228,6 +228,28 @@ describe("evaluatePolicy", () => {
       }
     );
     expect(decision.action).toBe("deny");
+  });
+
+  it("denies above a delegated risk ceiling before approval can widen it", async () => {
+    const resolveAgentApproval = vi.fn(async () => ({
+      mode: "pass-all" as const,
+      spaceWriteMounted: true,
+    }));
+    const decision = await evaluatePolicy(
+      highRiskWrite(
+        principal({
+          maxRiskLevel: "medium",
+          principalType: "agent",
+        })
+      ),
+      undefined,
+      { resolveAgentApproval }
+    );
+    expect(decision).toMatchObject({
+      action: "deny",
+      reason: "operation risk high exceeds grant ceiling medium",
+    });
+    expect(resolveAgentApproval).not.toHaveBeenCalled();
   });
 
   it("auto passes a medium space-mounted write and still asks for high", async () => {

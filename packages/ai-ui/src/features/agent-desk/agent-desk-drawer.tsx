@@ -1,28 +1,19 @@
 "use client";
 
-import type { AgentDeskAgent } from "@engenty/ai-core/browser";
-// The specialist's side drawer: Settings or Runs slides in over the chat from
-// the right, the chat stays mounted underneath. Neither is a place you go —
-// the chat is the page — so they open from the toolbar and close back onto
-// the same open thread. One panel per drawer: Runs is a feed you read, not a
-// second face of the settings, so it gets its own drawer rather than a tab
-// strip over them. The settings' last-three-runs section hands over to it. The drawer is a resizable overlay: dragged wider for
-// a run's trajectory, narrower for a glance at the routines, and the width
-// is remembered.
-//
-// URL state: `panel=manage|runs`. The panel's own state (`routine`,
-// `workflow`, `run`) rides next to it, so a deep link opens the drawer on the
-// exact routine or run it names.
+// The desk's panel vocabulary (`panel=manage|runs`, plus the panel's own
+// `routine` / `workflow` / `run` keys) and the resizable side-sheet shell a
+// ROOM still fills with its info. The specialist's own settings and runs
+// moved out of the sheet into the workspace end-pane column
+// (`agent-desk-pane.tsx`); the URL keys stayed, so links minted for the
+// drawer open the pane.
 import {
   PaneResizeHandle,
   usePersistedEwResizePaneWidth,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, Sheet, SheetContent, SheetTitle } from "@engenty/ui-core";
-import { XIcon } from "lucide-react";
+import { ChevronLeftIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { AgentManagePanel } from "./agent-manage-panel.js";
-import { AgentRunsPanel } from "./agent-runs-panel.js";
 
 export const AGENT_DESK_PANELS = ["manage", "runs"] as const;
 export type AgentDeskPanel = (typeof AGENT_DESK_PANELS)[number];
@@ -57,14 +48,17 @@ export function parseAgentDeskPanel(
  */
 export function AgentDeskDrawerShell({
   children,
+  onBack,
   onClose,
   open,
   title,
 }: {
   children: ReactNode;
+  /** A step back inside the drawer (out of an open routine); hidden when null. */
+  onBack?: (() => void) | null;
   onClose: () => void;
   open: boolean;
-  title: string;
+  title: ReactNode;
 }) {
   const { t } = useTranslation("ai-ui");
   const {
@@ -106,9 +100,23 @@ export function AgentDeskDrawerShell({
           />
         </div>
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
-          <SheetTitle className="min-w-0 truncate font-semibold text-base">
-            {title}
-          </SheetTitle>
+          <div className="flex min-w-0 items-center gap-1">
+            {onBack ? (
+              <Button
+                aria-label={t("agentDesk.drawer.back")}
+                className="-ml-2"
+                onClick={onBack}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <ChevronLeftIcon className="size-4" />
+              </Button>
+            ) : null}
+            <SheetTitle className="min-w-0 truncate font-semibold text-base">
+              {title}
+            </SheetTitle>
+          </div>
           <Button
             aria-label={t("agentDesk.drawer.close")}
             onClick={onClose}
@@ -124,55 +132,5 @@ export function AgentDeskDrawerShell({
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-export function AgentDeskDrawer({
-  agent,
-  canEditPads,
-  canManage,
-  locale,
-  moduleLabel,
-  onClose,
-  panel,
-  spaceId,
-}: {
-  agent: AgentDeskAgent;
-  canEditPads: boolean;
-  canManage: boolean;
-  locale: string;
-  moduleLabel?: string;
-  onClose: () => void;
-  panel: AgentDeskPanel | null;
-  spaceId: string;
-}) {
-  const { t } = useTranslation("ai-ui");
-  // `panel` is null the moment the URL drops it; the settings keep rendering
-  // while the close transition plays.
-  const shown: AgentDeskPanel = panel ?? "manage";
-
-  return (
-    <AgentDeskDrawerShell
-      onClose={onClose}
-      open={panel !== null}
-      title={
-        shown === "runs"
-          ? t("agentDesk.drawer.runs")
-          : t("agentDesk.drawer.settings")
-      }
-    >
-      {shown === "runs" ? (
-        <AgentRunsPanel agentId={agent.id} locale={locale} />
-      ) : (
-        <AgentManagePanel
-          agent={agent}
-          canEditPads={canEditPads}
-          canManage={canManage}
-          locale={locale}
-          moduleLabel={moduleLabel}
-          spaceId={spaceId}
-        />
-      )}
-    </AgentDeskDrawerShell>
   );
 }

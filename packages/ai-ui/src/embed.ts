@@ -277,7 +277,7 @@ export {
 export {
   RoutineDetailBody,
   type RoutineDetailBodyProps,
-  RoutineDetailStateRow,
+  RoutineEnabledToggle,
 } from "./features/routines/routine-detail-body.js";
 export {
   RoutineEditor,

@@ -453,11 +453,13 @@ describe("the snapshot lane never reports a failed run as finished", () => {
 
     expect(types).toContain("RUN_ERROR");
     expect(types).not.toContain("RUN_FINISHED");
+    // Named on the way out, like the start lane: the raw provider code becomes
+    // the harness code the UI and the run row both understand.
     expect(
       events.some(
         (e) =>
           e.type === "RUN_ERROR" &&
-          String(e.message).includes("context_length_exceeded")
+          e.message === "agent_threads.contextLengthExceeded"
       )
     ).toBe(true);
   });

@@ -32,7 +32,7 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Tenant plugins (setup) | `/setup/plugins` |",
     "| Roles & permissions (setup) | `/setup/roles` |",
     "| Audit logs (setup) | `/setup/audit-logs` |",
-    "| Agents / AI workspace | `/admin/engenty` (sessions, agents, skills, actions under this prefix) |",
+    "| Agents / AI workspace | `/admin/engenty` — agents `/admin/engenty/agents/…`, skills `/admin/engenty/skills/…`, workflows `/admin/engenty/workflows/<id>` (never `/admin/engenty/flows/…`; that path is not a page) |",
     // A prefix is not a page: over half the modules register no bare
     // `/mdl/<module-folder>` route, and it fell through to the catch-all.
     "| Module plugins | Pages live under `/mdl/<module-folder>/…`. Common shapes where a module has them: list `/mdl/<module-folder>`; detail `/mdl/<module-folder>/<id>`; edit `/mdl/<module-folder>/<id>/edit`; settings `/mdl/<module-folder>/settings`. These are conventions, not guarantees. Legacy `/mdl/` links redirect into the Space mirror when that module is Space-placed. Record results from module operations carry a ready `link` — use it verbatim instead of building one. |",

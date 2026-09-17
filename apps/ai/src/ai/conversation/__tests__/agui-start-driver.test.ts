@@ -11,7 +11,12 @@ import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { AGENT_THREADS_OUTPUT_TRUNCATED } from "../../sessions/mastra-stream-failure.js";
+import {
+  AGENT_THREADS_EMPTY_REPLY,
+  AGENT_THREADS_OUTPUT_TRUNCATED,
+  AGENT_THREADS_RUN_TIMED_OUT,
+  AGENT_THREADS_STEP_LIMIT_REACHED,
+} from "../../sessions/mastra-stream-failure.js";
 import { runInteractiveViaMastraAgent } from "../agui-start-driver.js";
 import { AgUiTurnAccumulator } from "../agui-turn-accumulator.js";
 
@@ -415,5 +420,120 @@ describe("I3: failures", () => {
     );
     // ...and the text message it opened is still closed on the wire.
     expect(typesOf(emitted)).toContain(EventType.TEXT_MESSAGE_END);
+  });
+});
+
+describe("run guards: a silent finish gets one more step, then a name", () => {
+  it("nudges a model that stopped without text and keeps the reply it then writes", async () => {
+    // First call: the model "answers" with nothing. Mastra's completion check
+    // (run-guards.ts) fails that step, appends its feedback, and runs another
+    // step — where the model speaks. The nudge itself never reaches the wire.
+    const calls: number[] = [];
+    const agent = textAgent("", async () => {
+      calls.push(calls.length + 1);
+      const text = calls.length === 1 ? null : "here you go";
+      return {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            ...(text
+              ? [
+                  { type: "text-start", id: "t1" },
+                  { type: "text-delta", id: "t1", delta: text },
+                  { type: "text-end", id: "t1" },
+                ]
+              : []),
+            { type: "finish", finishReason: "stop", usage },
+          ],
+        }),
+      };
+    });
+
+    const { accumulator, emitted, outcome } = await drive(agent);
+
+    expect(calls).toHaveLength(2);
+    expect(outcome.runError).toBeNull();
+    expect(accumulator.getTranscriptParts()).toEqual([
+      { text: "here you go", type: "text" },
+    ]);
+    const wireText = emitted
+      .filter((e) => e.type === EventType.TEXT_MESSAGE_CONTENT)
+      .map((e) => String(e.delta))
+      .join("");
+    expect(wireText).toBe("here you go");
+  });
+
+  it("names the run when the model stays silent after the nudge", async () => {
+    const agent = textAgent("", async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: "stream-start", warnings: [] },
+          { type: "finish", finishReason: "stop", usage },
+        ],
+      }),
+    }));
+
+    const { accumulator, outcome } = await drive(agent);
+
+    expect(accumulator.hasAssistantText).toBe(false);
+    expect(outcome.runError).toBe(AGENT_THREADS_EMPTY_REPLY);
+  });
+
+  it("names the step cap when the last allowed step still wanted a tool", async () => {
+    const lookup = createTool({
+      description: "always more",
+      execute: async () => ({ ok: true }),
+      id: "lookup",
+      inputSchema: z.object({}),
+    });
+    const agent = new Agent({
+      instructions: "test",
+      model: new MockLanguageModelV3({
+        doStream: async () => ({
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start", warnings: [] },
+              {
+                input: "{}",
+                toolCallId: `call-${Math.random()}`,
+                toolName: "lookup",
+                type: "tool-call",
+              },
+              { type: "finish", finishReason: "tool-calls", usage },
+            ],
+          }),
+        }),
+      } as never) as never,
+      name: "step-cap-fixture",
+      storage: new InMemoryStore(),
+      tools: { lookup },
+    } as never);
+
+    const { accumulator, outcome } = await drive(agent, { maxSteps: 2 });
+
+    expect(accumulator.hasAssistantText).toBe(false);
+    expect(outcome.runError).toBe(AGENT_THREADS_STEP_LIMIT_REACHED);
+  });
+
+  it("names a model call that outlives the step budget instead of hanging", async () => {
+    const previous = process.env.ENGENTY_AI_STEP_TIMEOUT_MS;
+    process.env.ENGENTY_AI_STEP_TIMEOUT_MS = "50";
+    try {
+      const agent = textAgent(
+        "",
+        () =>
+          new Promise(() => {
+            // never resolves: the provider accepted the call and went quiet
+          })
+      );
+      const { outcome } = await drive(agent);
+      expect(outcome.runError).toBe(AGENT_THREADS_RUN_TIMED_OUT);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ENGENTY_AI_STEP_TIMEOUT_MS;
+      } else {
+        process.env.ENGENTY_AI_STEP_TIMEOUT_MS = previous;
+      }
+    }
   });
 });

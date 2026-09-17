@@ -68,7 +68,15 @@ describe("AG-UI session message mapping", () => {
       "assistant",
       "tool",
     ]);
-    expect(messages.map((message) => MessageSchema.parse(message))).toEqual([
+    // @ag-ui/core 0.0.59 carries `metadata` on every message, so the parse no
+    // longer strips it; the transcript metadata is asserted on its own below.
+    expect(
+      messages.map((message) => {
+        const { metadata: _metadata, ...official } =
+          MessageSchema.parse(message);
+        return official;
+      })
+    ).toEqual([
       { id: "system-1", role: "system", content: "You are helpful." },
       {
         id: "user-1",

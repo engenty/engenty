@@ -10,6 +10,11 @@ import {
   type FieldSuggestion,
   fieldSuggestionsToolOutputToCreatedValue,
 } from "@engenty/ai-core";
+import {
+  formatAgentStreamFailureMessage,
+  readMastraStreamFailure,
+} from "../sessions/mastra-stream-failure.js";
+import { contextPromptTokensFromOutput } from "../sessions/usage.js";
 
 /**
  * Recognize an app_build tool result that published a preview artifact. The
@@ -326,6 +331,8 @@ export interface HeadlessRunOutcome extends HeadlessRunState {
    * an explicit null rather than an optional a caller might not notice.
    */
   usage: HeadlessRunUsage[] | null;
+  /** The LAST model call's input tokens — window occupancy, never the sum. */
+  windowInputTokens: number | null;
 }
 
 /**
@@ -377,11 +384,33 @@ export async function runHeadlessViaMastraAgent(input: {
   // the initial stream and on every continuation alike — so both calls the bridge
   // makes are wrapped, or the second pause disappears the way the first did.
   const stepOptions = input.maxSteps ? { maxSteps: input.maxSteps } : {};
-  const proxied = interceptMastraStream(
-    interceptMastraStream(input.agent, "stream", stepOptions).proxied,
+  const startIntercept = interceptMastraStream(
+    input.agent,
+    "stream",
+    stepOptions
+  );
+  const resumeIntercept = interceptMastraStream(
+    startIntercept.proxied,
     "resumeStream",
     stepOptions
-  ).proxied;
+  );
+  const proxied = resumeIntercept.proxied;
+  // Window occupancy is the LAST model call's input. `RUN_FINISHED.usage`
+  // cannot supply it — the bridge attaches ONE aggregated entry, so "last
+  // entry" there is the run total (every `direct` run row carried the sum
+  // as its window). The stream's own steps can; the latest continuation's
+  // stream, when there was one, holds the last call.
+  const readWindowInputTokens = async (): Promise<number | null> => {
+    const stream = resumeIntercept.readStream() ?? startIntercept.readStream();
+    try {
+      const s = stream as
+        | { getFullOutput?: () => Promise<unknown> }
+        | undefined;
+      return await contextPromptTokensFromOutput(await s?.getFullOutput?.());
+    } catch {
+      return null;
+    }
+  };
 
   // 5c/5e: thread, resource and requestContext bind at CONSTRUCTION. The Session
   // path needed an explicit `thread.switch` because `createSession` defaults to
@@ -411,7 +440,7 @@ export async function runHeadlessViaMastraAgent(input: {
   // aborted signal must not start the run at all — the Session path checked that.
   const onAbort = () => agUiAgent.abortRun();
   if (input.abortSignal?.aborted) {
-    return { ...state, usage: null };
+    return { ...state, usage: null, windowInputTokens: null };
   }
   input.abortSignal?.addEventListener("abort", onAbort, { once: true });
 
@@ -517,5 +546,31 @@ export async function runHeadlessViaMastraAgent(input: {
     input.abortSignal?.removeEventListener("abort", onAbort);
   }
 
-  return { ...state, usage };
+  // Name the failure the way the chat lanes do. The bridge's RUN_ERROR carries
+  // a flattened message ("[object Object]" for an object-shaped error), so the
+  // raw chunk wins; and a run that ended CLEANLY with nothing to show — a
+  // step-cap stop, a tripwire, a model that stayed silent after the nudge, a
+  // timeout — is a failure with a name, not "completed with no output". A run
+  // parked on an approval or stopped by its caller ends without text on
+  // purpose and is left alone.
+  const parked =
+    state.pendingApprovals.length > 0 || state.workspaceSuspensions.size > 0;
+  const latest = resumeIntercept.readStream()
+    ? resumeIntercept
+    : startIntercept;
+  const rawError = latest.readErrorChunk() ?? startIntercept.readErrorChunk();
+  if (rawError) {
+    state.streamError = formatAgentStreamFailureMessage(rawError);
+  } else if (!(state.streamError || parked || input.abortSignal?.aborted)) {
+    const failure = await readMastraStreamFailure(latest.readStream(), {
+      hasAssistantText: state.finalText.trim().length > 0,
+      tripwire:
+        latest.readTripwireChunk() ?? startIntercept.readTripwireChunk(),
+    });
+    if (failure) {
+      state.streamError = failure.message;
+    }
+  }
+
+  return { ...state, usage, windowInputTokens: await readWindowInputTokens() };
 }

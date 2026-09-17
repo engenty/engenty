@@ -30,6 +30,7 @@ Register via workspace UI catalog (generated from `engenty.plugin.json`):
 | `auth_dev_login` | `/auth/dev-login` | public | Dev login (non-prod) |
 | `auth_initial_setup` | `/initial_setup` | default | First admin setup |
 | `auth_login` | `/auth/login` | default | Sign-in |
+| `auth_oauth_consent` | `/oauth/consent` | public | MCP OAuth client consent |
 | `auth_callback` | `/auth/callback` | default | OAuth / reset password callback |
 
 `ServiceUnavailablePage` is exported from the main entry for `apps/ui` to mount at `/service_unavailable` (not always registered in the plugin file — check `UnauthenticatedRoutes` in the app).

@@ -12,6 +12,10 @@ import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
+  AGENT_THREADS_EMPTY_REPLY,
+  AGENT_THREADS_STEP_LIMIT_REACHED,
+} from "../../sessions/mastra-stream-failure.js";
+import {
   describeWorkspaceToolCall,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
@@ -282,5 +286,136 @@ describe("requestContext", () => {
     });
 
     expect(seenTenant).toBe("tenant-abc");
+  });
+});
+
+describe("window occupancy on a multi-step run", () => {
+  it("reports the LAST call's input, while usage keeps the billed total", async () => {
+    // RUN_FINISHED.usage arrives as ONE aggregated entry, so reading "the last
+    // entry" there gave the run total — every direct-run row carried the sum as
+    // its window. The stream's own steps hold the per-call numbers.
+    let calls = 0;
+    const lookup = createTool({
+      description: "lookup",
+      execute: async () => ({ ok: true }),
+      id: "lookup",
+      inputSchema: z.object({}),
+    });
+    const agent = new Agent({
+      instructions: "test",
+      model: new MockLanguageModelV3({
+        doStream: async () => {
+          calls += 1;
+          const stepUsage = {
+            inputTokens: 100 * calls,
+            outputTokens: 5,
+            totalTokens: 100 * calls + 5,
+          };
+          return {
+            stream: simulateReadableStream({
+              chunks: (calls === 1
+                ? [
+                    { type: "stream-start", warnings: [] },
+                    {
+                      input: "{}",
+                      toolCallId: "c1",
+                      toolName: "lookup",
+                      type: "tool-call",
+                    },
+                    {
+                      finishReason: "tool-calls",
+                      type: "finish",
+                      usage: stepUsage,
+                    },
+                  ]
+                : [
+                    { type: "stream-start", warnings: [] },
+                    { id: "t1", type: "text-start" },
+                    { delta: "done", id: "t1", type: "text-delta" },
+                    { id: "t1", type: "text-end" },
+                    {
+                      finishReason: "stop",
+                      type: "finish",
+                      usage: stepUsage,
+                    },
+                  ]) as never,
+            }),
+          };
+        },
+      } as never) as never,
+      name: "two-step",
+      storage: new InMemoryStore(),
+      tools: { lookup },
+    } as never);
+
+    const outcome = await run(agent, { maxSteps: 5 });
+
+    expect(calls).toBe(2);
+    expect(outcome.windowInputTokens).toBe(200);
+    expect(
+      outcome.usage?.reduce((sum, u) => sum + (u.inputTokens ?? 0), 0)
+    ).toBe(300);
+  });
+});
+
+describe("named silent finishes on the headless lane", () => {
+  it("fails a run whose model stayed silent after the nudge, by name", async () => {
+    // Text-less stop: the empty-reply completion check gives the model one more
+    // step; still nothing → the run must not read as "completed, no output".
+    const agent = new Agent({
+      instructions: "test",
+      model: new MockLanguageModelV3({
+        doStream: async () => ({
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start", warnings: [] },
+              { finishReason: "stop", type: "finish", usage },
+            ],
+          }),
+        }),
+      } as never) as never,
+      name: "silent",
+      storage: new InMemoryStore(),
+    } as never);
+
+    const outcome = await run(agent);
+
+    expect(outcome.finalText).toBe("");
+    expect(outcome.streamError).toBe(AGENT_THREADS_EMPTY_REPLY);
+  });
+
+  it("names the step cap when the last allowed step still wanted a tool", async () => {
+    const lookup = createTool({
+      description: "always more",
+      execute: async () => ({ ok: true }),
+      id: "lookup",
+      inputSchema: z.object({}),
+    });
+    const agent = new Agent({
+      instructions: "test",
+      model: new MockLanguageModelV3({
+        doStream: async () => ({
+          stream: simulateReadableStream({
+            chunks: [
+              { type: "stream-start", warnings: [] },
+              {
+                input: "{}",
+                toolCallId: `call-${Math.random()}`,
+                toolName: "lookup",
+                type: "tool-call",
+              },
+              { finishReason: "tool-calls", type: "finish", usage },
+            ],
+          }),
+        }),
+      } as never) as never,
+      name: "step-cap",
+      storage: new InMemoryStore(),
+      tools: { lookup },
+    } as never);
+
+    const outcome = await run(agent, { maxSteps: 2 });
+
+    expect(outcome.streamError).toBe(AGENT_THREADS_STEP_LIMIT_REACHED);
   });
 });

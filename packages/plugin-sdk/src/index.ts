@@ -5,6 +5,7 @@
  */
 
 import type { FeatureFlagDefinition as _FeatureFlagDefinition } from "@engenty/feature-flags";
+import type { McpDisposition, McpSafeAnnotations } from "./mcp-disposition.js";
 import type { PluginCategory, PluginStability } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
@@ -67,6 +68,14 @@ export {
   foreignSelect,
   type TenantScope,
 } from "./foreign-schema.js";
+export {
+  inferMcpDisposition,
+  isMcpDisposition,
+  MCP_DISPOSITIONS,
+  type McpDisposition,
+  type McpSafeAnnotations,
+  resolveMcpDisposition,
+} from "./mcp-disposition.js";
 export {
   createRecordLinker,
   moduleRecordPath,
@@ -527,6 +536,25 @@ export interface PluginOperationMeta {
    * Whether operation may be safely retried.
    */
   idempotent?: boolean;
+  /**
+   * Predeclared `ui://` MCP App template for this operation, when one exists.
+   */
+  mcpAppResourceUri?: string;
+  /**
+   * MCP tool-surface disposition. Undeclared operations are inferred
+   * conservatively (`never` for control-plane ids, `explicit_grant` for
+   * writes / high risk, `default` for low-risk reads).
+   */
+  mcpDisposition?: McpDisposition;
+  /**
+   * Optional MCP tool annotations (read-only / destructive / idempotent hints).
+   */
+  mcpSafeAnnotations?: McpSafeAnnotations;
+  /**
+   * When true, eligible MCP clients that advertised `io.modelcontextprotocol/tasks`
+   * may receive a durable task handle instead of a synchronous result.
+   */
+  mcpTaskCapable?: boolean;
   /**
    * Owning module id (usually plugin id). If omitted, runtime falls back to plugin id.
    */

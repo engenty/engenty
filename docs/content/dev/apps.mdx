@@ -1,0 +1,400 @@
+---
+title: Apps
+description: Where an App's source, its data and its running halves live — the spaces tree, the agentOS isolate, and the one door out.
+---
+
+# Apps
+
+An App is a small program a tenant owns: a frontend, an optional backend, and
+its own files. Two things about it are worth holding before anything else.
+
+**It is a folder with a history.** The source is a git work tree on a shared
+host directory, not rows in a database. A release is a commit.
+
+**Its two halves never share a disk.** The frontend runs in the viewer's
+browser, the backend in an [agentOS](https://rivet.dev/agentos) isolate on
+`apps/app-host`. What they do share is one directory on the host, which is the
+only thing about an App that survives a deploy.
+
+<Figure label="Figure 1." caption={<>Two halves, one shared exit, and one directory that is the App’s own: <code>src/</code> is the history, <code>data/</code> survives every deploy, and both are what the space computer sees at <code>/sandbox/apps/&lt;slug&gt;</code>. The teal path is still the sole way either half reaches engenty.</>}>
+  <svg viewBox="0 0 900 530" role="img" aria-label="An engenty App is built from a Postgres jsonb column into two halves: an inlined HTML frontend running in a sandboxed browser iframe, and a backend running in an agentOS isolate inside the app-host container. The isolate has a read-only /app mount per release and a read-write /data mount that is a host directory keyed by App, holding app.db opened with node:sqlite. Both halves reach engenty only through apps/ai.">
+            <defs>
+              <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-ink" points="0,1 10,5 0,9"></polygon>
+              </marker>
+              <marker id="a1acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-acc" points="0,1 10,5 0,9"></polygon>
+              </marker>
+            </defs>
+            <rect className="s-sunk" x="30" y="24" width="250" height="66" rx="3"></rect>
+            <text className="t-title" x="46" y="50">git · src/ on the spaces tree</text>
+            <text className="t-sub" x="46" y="70">a release is a commit</text>
+            <line className="ln" x1="280" y1="57" x2="378" y2="57" markerEnd="url(#a1)"></line>
+            <text className="t-edge" x="290" y="47">sha</text>
+            <rect className="s-box" x="380" y="24" width="220" height="66" rx="3"></rect>
+            <text className="t-title" x="396" y="50">esbuild — on the host</text>
+            <text className="t-sub" x="396" y="70">version row: sha · manifest</text>
+            <path className="ln" d="M 440 90 L 440 122 L 190 122 L 190 158" markerEnd="url(#a1)"></path>
+            <text className="t-edge" x="200" y="114">frontend_html</text>
+            <path className="ln" d="M 545 90 L 545 122 L 700 122 L 700 158" markerEnd="url(#a1)"></path>
+            <text className="t-edge" x="562" y="114">tree at sha</text>
+            <rect className="zone" x="30" y="158" width="330" height="132" rx="4"></rect>
+            <text className="t-zone" x="42" y="176">VIEWER'S BROWSER</text>
+            <rect className="s-box" x="52" y="188" width="286" height="82" rx="3"></rect>
+            <text className="t-title" x="68" y="214">iframe · srcDoc</text>
+            <text className="t-sub" x="68" y="233">opaque origin</text>
+            <text className="t-sub" x="68" y="250">CSP default-src 'none'</text>
+            <rect className="zone" x="540" y="158" width="330" height="236" rx="4"></rect>
+            <text className="t-zone" x="552" y="176">CONTAINER · app-host</text>
+            <rect className="s-box" x="562" y="188" width="286" height="82" rx="3"></rect>
+            <text className="t-title" x="578" y="214">agentOS isolate</text>
+            <text className="t-sub" x="578" y="233">maxReplicas: 1 · runs as root</text>
+            <text className="t-sub" x="578" y="250">/app read-only, per release</text>
+            <rect className="s-acc" x="562" y="286" width="286" height="94" rx="3"></rect>
+            <text className="t-title" x="578" y="312">/data</text>
+            <text className="t-sub" x="578" y="331">host_dir · read-write · keyed by App</text>
+            <text className="t-sub" x="578" y="348">app.db via node:sqlite</text>
+            <text className="t-sub" x="578" y="365">= …/apps/&lt;slug&gt;/data</text>
+            <path className="ln-acc" d="M 195 290 L 195 410 L 360 410 L 360 436" markerEnd="url(#a1acc)"></path>
+            <text className="t-acc" x="205" y="402">postMessage — the only exit</text>
+            <path className="ln-acc" d="M 705 394 L 705 410 L 540 410 L 540 436" markerEnd="url(#a1acc)"></path>
+            <text className="t-acc" x="560" y="402">capability handle</text>
+            <rect className="s-acc" x="290" y="438" width="320" height="60" rx="3"></rect>
+            <text className="t-title" x="306" y="463">apps/ai</text>
+            <text className="t-sub" x="306" y="482">manifest allow-list · one guard</text>
+            <line className="ln" x1="450" y1="498" x2="450" y2="522" markerEnd="url(#a1)"></line>
+            <text className="t-edge" x="462" y="518">core → Postgres</text>
+          </svg>
+</Figure>
+
+Everything above the directory is rebuilt on every release. `data/` is not, and
+that is the point.
+
+## Where an App lives
+
+One directory per App under `ENGENTY_SPACES_DIR` — `/opt/engenty/spaces` in a
+container, `~/.engenty/spaces` in local development. The same value must be set
+for `engenty-app-host` and `engenty-ai`; both bind the tree at the identical
+path so a directory means the same thing on either side.
+
+| Path | What it is |
+| --- | --- |
+| `tenants/<tenant>/spaces/<space>/apps/<slug>/src` | the git work tree — the source of truth |
+| `tenants/<tenant>/spaces/<space>/apps/<slug>/data` | the App's own files, mounted at `/data` in the isolate |
+| `tenants/<tenant>/apps/<slug>` | an App created outside any Space, same two directories |
+| `apps/<appHostId>` | a link to the directory above, by App id |
+
+<Figure label="Figure 2." caption={<>One directory holds both halves of an App's state: <code>src/</code>, the history a release is cut from, and <code>data/</code>, which no release key names. The space computer binds it, app-host mounts it, and Postgres keeps only the ledger. The teal path is the bridge, and it is no longer how an App reaches its own files.</>}>
+  <svg viewBox="0 0 900 550" role="img" aria-label="Proposed App structure: a bare git repository and a data directory on a per-space volume; the agent works in a clone inside the space computer and pushes; a release is a commit sha built by esbuild on the host; the backend runs in an agentOS isolate with the data directory mounted at /data via host_dir and opens app.db with node:sqlite; the frontend iframe and the engenty operations bridge are unchanged.">
+            <defs>
+              <marker id="a1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-ink" points="0,1 10,5 0,9"></polygon>
+              </marker>
+              <marker id="a1bacc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-acc" points="0,1 10,5 0,9"></polygon>
+              </marker>
+            </defs>
+            <rect className="zone" x="30" y="24" width="300" height="116" rx="4"></rect>
+            <text className="t-zone" x="42" y="42">CONTAINER · SPACE COMPUTER</text>
+            <rect className="s-box" x="52" y="54" width="256" height="72" rx="3"></rect>
+            <text className="t-title" x="68" y="80">/sandbox/apps/&lt;slug&gt;/src</text>
+            <text className="t-sub" x="68" y="99">the work tree, bound in</text>
+            <text className="t-sub" x="68" y="116">git commit, or let app_build commit</text>
+            <path className="ln" d="M 180 126 L 180 210" markerEnd="url(#a1b)"></path>
+            <text className="t-edge" x="188" y="172">the same directory</text>
+            <rect className="zone" x="30" y="180" width="300" height="250" rx="4"></rect>
+            <text className="t-zone" x="42" y="198">HOST · /opt/engenty/spaces/…/apps/&lt;slug&gt;</text>
+            <rect className="s-box" x="52" y="212" width="256" height="66" rx="3"></rect>
+            <text className="t-title" x="68" y="238">src/</text>
+            <text className="t-sub" x="68" y="258">git work tree — the source of truth</text>
+            <rect className="s-acc" x="52" y="330" width="256" height="82" rx="3"></rect>
+            <text className="t-title" x="68" y="356">data/</text>
+            <text className="t-sub" x="68" y="375">app.db · uploads/</text>
+            <text className="t-sub" x="68" y="392">plain files, outlive every release</text>
+            <rect className="s-sunk" x="370" y="24" width="210" height="66" rx="3"></rect>
+            <text className="t-title" x="386" y="50">Postgres · module_apps</text>
+            <text className="t-sub" x="386" y="70">versions: sha · manifest · status</text>
+            <path className="ln" d="M 475 90 L 475 210" markerEnd="url(#a1b)"></path>
+            <text className="t-edge" x="483" y="154">approve → live</text>
+            <path className="ln" d="M 308 245 L 368 245" markerEnd="url(#a1b)"></path>
+            <text className="t-edge" x="326" y="236">sha</text>
+            <rect className="s-box" x="370" y="212" width="210" height="66" rx="3"></rect>
+            <text className="t-title" x="386" y="238">esbuild — on the host</text>
+            <text className="t-sub" x="386" y="258">tree at sha, read by app-host</text>
+            <rect className="zone" x="620" y="24" width="250" height="116" rx="4"></rect>
+            <text className="t-zone" x="632" y="42">VIEWER'S BROWSER</text>
+            <rect className="s-box" x="642" y="54" width="206" height="72" rx="3"></rect>
+            <text className="t-title" x="658" y="80">iframe · srcDoc</text>
+            <text className="t-sub" x="658" y="99">unchanged</text>
+            <text className="t-sub" x="658" y="116">CSP default-src 'none'</text>
+            <path className="ln" d="M 580 232 L 600 232 L 600 90 L 640 90" markerEnd="url(#a1b)"></path>
+            <text className="t-edge" x="606" y="172">frontend_html</text>
+            <rect className="zone" x="620" y="200" width="250" height="230" rx="4"></rect>
+            <text className="t-zone" x="632" y="218">CONTAINER · APP-HOST</text>
+            <path className="ln" d="M 580 258 L 640 258" markerEnd="url(#a1b)"></path>
+            <text className="t-edge" x="588" y="250">backend</text>
+            <rect className="s-box" x="642" y="232" width="206" height="72" rx="3"></rect>
+            <text className="t-title" x="658" y="258">agentOS isolate</text>
+            <text className="t-sub" x="658" y="277">maxReplicas: 1</text>
+            <text className="t-sub" x="658" y="294">own fs: release-scoped</text>
+            <rect className="s-acc" x="642" y="326" width="206" height="82" rx="3"></rect>
+            <text className="t-title" x="658" y="352">/data</text>
+            <text className="t-sub" x="658" y="371">host_dir · read-write</text>
+            <text className="t-sub" x="658" y="388">app.db · node:sqlite</text>
+            <path className="ln-acc" d="M 312 371 L 638 371" markerStart="url(#a1bacc)" markerEnd="url(#a1bacc)"></path>
+            <text className="t-acc" x="428" y="362">the same directory</text>
+            <text className="t-sub" x="382" y="390">agent and App see one set of files</text>
+            <path className="ln-acc" d="M 700 430 L 700 466" markerEnd="url(#a1bacc)"></path>
+            <text className="t-acc" x="560" y="452">capability handle</text>
+            <path className="ln-acc" d="M 848 90 L 884 90 L 884 498 L 712 498" markerEnd="url(#a1bacc)"></path>
+            <text className="t-acc" x="722" y="490">postMessage</text>
+            <rect className="s-acc" x="370" y="468" width="340" height="60" rx="3"></rect>
+            <text className="t-title" x="386" y="493">apps/ai</text>
+            <text className="t-sub" x="386" y="512">engenty operations only · unchanged</text>
+          </svg>
+</Figure>
+
+The link exists because a booting replica knows its App id and nothing else. It
+is remade on every deploy and on every source write, so an App that moved still
+resolves. See `apps/app-host/src/app-store.ts`.
+
+The Space computer binds that Space's `apps/` at `/sandbox/apps`, so an agent
+opens `/sandbox/apps/<slug>/src` with ordinary tools and edits the same files
+the running App reads. Nothing about that tree is synced to object storage —
+see [Agent computers](/docs/dev/agent-computers) for the other mounts a container gets.
+
+Both containers run as uid 1000 because they write the same files. A tree
+created by an older, root-running image needs a one-time `chown`.
+
+## A release is a commit
+
+`app_file_write` writes files into the work tree and commits them; the manifest
+is written as `engenty.json` beside them. `app_release_propose` commits whatever
+is still uncommitted — including edits an agent made from the Space computer —
+then reads the tree at that commit and builds it.
+
+<Figure label="Figure 3." caption={<>A release attempt is one commit. The failure edge is the ordinary one: the build log goes on the failed version, the agent fixes the tree, and the next attempt is a new commit — the earlier attempts stay as history.</>}>
+  <svg viewBox="0 0 900 230" role="img" aria-label="Proposing a release commits the work tree, then builds that commit. A build that fails is recorded as a failed version carrying its build log, and the agent fixes the tree and proposes again. A build that succeeds becomes a proposed version, which a person approves to make active.">
+    <defs>
+      <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <polygon className="m-ink" points="0,1 10,5 0,9"></polygon>
+      </marker>
+      <marker id="a4acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <polygon className="m-acc" points="0,1 10,5 0,9"></polygon>
+      </marker>
+      <marker id="a4blk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <polygon className="m-blk" points="0,1 10,5 0,9"></polygon>
+      </marker>
+    </defs>
+    <rect className="s-box" x="30" y="34" width="156" height="60" rx="3"></rect>
+    <text className="t-title" x="46" y="60">work tree</text>
+    <text className="t-sub" x="46" y="79">src/ — edited</text>
+    <path className="ln" d="M 186 64 L 246 64" markerEnd="url(#a4)"></path>
+    <text className="t-edge" x="192" y="54">propose</text>
+    <rect className="s-sunk" x="248" y="34" width="140" height="60" rx="3"></rect>
+    <text className="t-title" x="264" y="60">commit</text>
+    <text className="t-sub" x="264" y="79">one sha</text>
+    <path className="ln" d="M 388 64 L 428 64" markerEnd="url(#a4)"></path>
+    <rect className="s-box" x="430" y="34" width="186" height="60" rx="3"></rect>
+    <text className="t-title" x="446" y="60">build the tree at that sha</text>
+    <text className="t-sub" x="446" y="79">manifest · entries · operations</text>
+    <path className="ln-acc" d="M 616 64 L 668 64" markerEnd="url(#a4acc)"></path>
+    <text className="t-acc" x="622" y="54">ok</text>
+    <rect className="s-acc" x="670" y="34" width="200" height="60" rx="3"></rect>
+    <text className="t-title" x="686" y="60">proposed</text>
+    <text className="t-sub" x="686" y="79">built, deployed, inert</text>
+    <path className="ln-acc" d="M 770 94 L 770 146" markerEnd="url(#a4acc)"></path>
+    <text className="t-acc" x="780" y="124">a person approves</text>
+    <rect className="s-acc" x="670" y="148" width="200" height="60" rx="3"></rect>
+    <text className="t-title" x="686" y="174">active</text>
+    <text className="t-sub" x="686" y="193">exactly one per App</text>
+    <path className="ln-blk" d="M 523 94 L 523 146" markerEnd="url(#a4blk)"></path>
+    <text className="t-blk" x="533" y="124">did not build</text>
+    <rect className="s-blk" x="430" y="148" width="186" height="60" rx="3"></rect>
+    <text className="t-title" x="446" y="174">failed</text>
+    <text className="t-sub" x="446" y="193">keeps the build log</text>
+    <path className="ln" d="M 430 178 L 108 178 L 108 100" markerEnd="url(#a4)" strokeDasharray="5 4"></path>
+    <text className="t-edge" x="196" y="196">fix the tree, propose again</text>
+  </svg>
+</Figure>
+
+A version row is one release attempt of one commit. Postgres keeps only what
+git cannot: which commit was released, what it declared, whether it built, and
+who approved it.
+
+| Status | Meaning |
+| --- | --- |
+| `failed` | the commit did not build; `build_log` is what the authoring agent reads |
+| `proposed` | built and deployed, waiting for a human |
+| `active` | live — exactly one per App |
+| `archived` | rejected, or superseded by a later release |
+
+Proposing the same commit twice answers with the version that already exists.
+Rolling back redeploys an earlier commit and reuses the document stored at its
+release, rather than rebuilding it with a toolchain that has moved on.
+
+Two checks run before a build is attempted, because both are cheaper to fail
+here than at an App's first call: an entry the manifest names must be among the
+files, and every operation it declares must exist in the registry. Unknown ids
+land in the build log by name. See
+`modules/engenty-apps/src/domain/release-service.ts`.
+
+## The App's own data
+
+The backend gets `/data`: its host directory projected into the isolate through
+agentOS's `host_dir` plugin, read-write. `/app` — the release itself — is
+read-only, and the isolate's own filesystem dies with the release.
+
+<Figure label="Figure 4." caption={<>Two releases of one App are two actors. The filesystem is durable within a release and unreachable across one, which makes it scratch space for a version. The App’s data goes on a mount that no release key names.</>}>
+  <svg viewBox="0 0 900 300" role="img" aria-label="An agentOS actor key contains the release hash, so publishing a new release creates a different actor with an empty filesystem and the previous data is unreachable.">
+            <defs>
+              <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-ink" points="0,1 10,5 0,9"></polygon>
+              </marker>
+              <marker id="a5blk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-blk" points="0,1 10,5 0,9"></polygon>
+              </marker>
+            </defs>
+            <text className="t-zone" x="30" y="30">RELEASE v1</text>
+            <rect className="s-box" x="30" y="42" width="360" height="58" rx="3"></rect>
+            <text className="t-sub" x="46" y="66">actor key</text>
+            <text className="t-title" x="46" y="86">invoices / a42b2d85… / default</text>
+            <line className="ln" x1="210" y1="100" x2="210" y2="132" markerEnd="url(#a5)"></line>
+            <rect className="s-box" x="30" y="134" width="360" height="86" rx="3"></rect>
+            <text className="t-title" x="46" y="159">/home/agentos</text>
+            <text className="t-sub" x="46" y="180">counter.txt → 4</text>
+            <text className="t-sub" x="46" y="199">survives sleep, wake and cold start</text>
+            <text className="t-zone" x="510" y="30">RELEASE v2 — ONE LINE CHANGED</text>
+            <rect className="s-box" x="510" y="42" width="360" height="58" rx="3"></rect>
+            <text className="t-sub" x="526" y="66">actor key</text>
+            <text className="t-title" x="526" y="86">invoices / 4952d2fc… / default</text>
+            <line className="ln" x1="690" y1="100" x2="690" y2="132" markerEnd="url(#a5)"></line>
+            <rect className="s-blk" x="510" y="134" width="360" height="86" rx="3"></rect>
+            <text className="t-title" x="526" y="159">/home/agentos</text>
+            <text className="t-blk" x="526" y="180">MISSING(ENOENT)</text>
+            <text className="t-sub" x="526" y="199">a different actor, a different disk</text>
+            <path className="ln-blk" d="M 390 177 L 502 177" markerEnd="url(#a5blk)"></path>
+            <line x1="435" y1="163" x2="457" y2="191" className="x-blk"></line>
+            <line x1="457" y1="163" x2="435" y2="191" className="x-blk"></line>
+            <text className="t-blk" x="396" y="242">data does not</text>
+            <text className="t-blk" x="396" y="258">carry over</text>
+            <text className="t-sub" x="30" y="262">the hash in the key IS the release</text>
+            <text className="t-sub" x="30" y="280">— so a new version is a new actor</text>
+          </svg>
+</Figure>
+
+The database is `/data/app.db`, opened with the guest's own `node:sqlite`. Under
+the hood that is a checkout: `open()` copies the file to a host path and runs
+every query there, `close()` writes the whole file back. Two rules follow, and
+both are in the app-authoring skill an agent loads before writing one:
+
+- **Open per request, close in `finally`.** The file on disk is only current
+  after `close()`.
+- **One process owns it.** Apps run at `maxReplicas: 1` for exactly this reason:
+  two replicas would be two checkouts of one file.
+
+Native drivers (`better-sqlite3`, `@libsql/client` on a file path) do not load
+in the isolate. `node:fs` works on `/data` normally — uploads, exports and
+caches go there.
+
+The directory is single-host durability and the only copy of tenant data.
+`deploy/scripts/backup-spaces.sh` snapshots it.
+
+## What an App may reach
+
+An App backend never holds a credential. It holds a capability handle: 32 random
+bytes with a five-minute life that resolve only in the process that minted them.
+The app proxy in `apps/ai` exchanges the handle for the viewing user's token and
+calls core's gateway, so an App reaches the whole operation registry — module
+operations, core operations, connector actions and the tools of MCP servers —
+through one door, as the person using it.
+
+<Figure label="Figure 5." caption={<>One door for operations — the same exact-id allow-list whether the id belongs to a module, core, a connector or an MCP server, always invoked as the viewing user. Storage is the other door, and today it has exactly one mount.</>}>
+  <svg viewBox="0 0 900 400" role="img" aria-label="An App backend holds a capability handle. The apps/ai proxy resolves it to the user's token and checks the manifest allow-list and consent, then calls core's gateway, which applies the user's own authorisation, approvals and audit, and dispatches into the single operation registry: module, core, connector and MCP operations. A separate path mounts storage into the isolate: host_dir, object_s3, google_drive, chunked_s3, declared in the manifest with credentials kept sidecar-side. Raw REST with a bearer is blocked.">
+            <defs>
+              <marker id="a1c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-ink" points="0,1 10,5 0,9"></polygon>
+              </marker>
+              <marker id="a1cacc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-acc" points="0,1 10,5 0,9"></polygon>
+              </marker>
+              <marker id="a1cblk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <polygon className="m-blk" points="0,1 10,5 0,9"></polygon>
+              </marker>
+            </defs>
+            <rect className="s-box" x="30" y="100" width="150" height="80" rx="3"></rect>
+            <text className="t-title" x="46" y="126">App backend</text>
+            <text className="t-sub" x="46" y="145">agentOS isolate</text>
+            <text className="t-sub" x="46" y="162">no bearer token</text>
+            <path className="ln-acc" d="M 180 140 L 228 140" markerEnd="url(#a1cacc)"></path>
+            <text className="t-acc" x="188" y="130">handle</text>
+            <rect className="s-acc" x="230" y="96" width="190" height="88" rx="3"></rect>
+            <text className="t-title" x="246" y="122">apps/ai · app proxy</text>
+            <text className="t-sub" x="246" y="141">handle → user token</text>
+            <text className="t-sub" x="246" y="158">manifest allow-list</text>
+            <text className="t-sub" x="246" y="175">consent per manifest</text>
+            <path className="ln-acc" d="M 420 140 L 468 140" markerEnd="url(#a1cacc)"></path>
+            <text className="t-acc" x="426" y="130">as user</text>
+            <rect className="s-acc" x="470" y="96" width="190" height="88" rx="3"></rect>
+            <text className="t-title" x="486" y="122">apps/core · gateway</text>
+            <text className="t-sub" x="486" y="141">/api/tools/:id/invoke</text>
+            <text className="t-sub" x="486" y="158">user authz · approval</text>
+            <text className="t-sub" x="486" y="175">audit trail</text>
+            <path className="ln-acc" d="M 660 140 L 708 140" markerEnd="url(#a1cacc)"></path>
+            <rect className="zone" x="710" y="30" width="160" height="224" rx="4"></rect>
+            <text className="t-zone" x="722" y="48">OPERATION REGISTRY</text>
+            <rect className="s-box" x="728" y="60" width="124" height="34" rx="3"></rect>
+            <text className="t-title" x="744" y="82">module ops</text>
+            <rect className="s-box" x="728" y="102" width="124" height="34" rx="3"></rect>
+            <text className="t-title" x="744" y="124">core ops</text>
+            <rect className="s-box" x="728" y="144" width="124" height="34" rx="3"></rect>
+            <text className="t-title" x="744" y="166">connector ops</text>
+            <rect className="s-box" x="728" y="186" width="124" height="34" rx="3"></rect>
+            <text className="t-title" x="744" y="208">MCP tools</text>
+            <text className="t-sub" x="722" y="244">one list, exact ids</text>
+            <path className="ln-blk" d="M 105 180 L 105 236 L 565 236 L 565 190" markerEnd="url(#a1cblk)"></path>
+            <line x1="189" y1="222" x2="211" y2="250" className="x-blk"></line>
+            <line x1="211" y1="222" x2="189" y2="250" className="x-blk"></line>
+            <text className="t-blk" x="262" y="228">no raw REST · a bearer is the whole session</text>
+            <path className="ln" d="M 60 180 L 60 298" markerEnd="url(#a1c)"></path>
+            <rect className="zone" x="30" y="270" width="192" height="112" rx="4"></rect>
+            <text className="t-zone" x="42" y="288">MOUNTS</text>
+            <rect className="s-acc" x="52" y="300" width="148" height="68" rx="3"></rect>
+            <text className="t-title" x="68" y="324">/data</text>
+            <text className="t-sub" x="68" y="343">host_dir</text>
+            <text className="t-sub" x="68" y="358">real files</text>
+          </svg>
+</Figure>
+
+| Gate | Where | What it decides |
+| --- | --- | --- |
+| Manifest allow-list | app proxy | `engenty.operations`, exact ids, deny-all default. Undeclared means nonexistent. |
+| Consent | app proxy | the user approved this manifest's list; a widened list asks again |
+| Capability handle | app proxy | resolves to one user and one App, or to nothing |
+| The user's own authorisation | core | module policy, tenant scope, connector account — as if the person had called it |
+| Approval | core | operations marked `requiresApproval` still pause for a human |
+
+There is no raw REST surface on purpose. An actor token carries a user's entire
+grant set and nothing in the codebase narrows one to a list of ids, so a token
+in tenant-authored code would be the user's whole session. An exact-id list is
+also the only form a human can read and approve.
+
+Because the call runs as the user, there is no autonomous App call: the handle
+is minted from a session.
+
+Beside the operations door an App has three smaller stores, all reached through
+the same bridge: a **working store** scoped to one artifact instance, **config**
+that outlives instances, and declared **Space tables** shared with agents and
+people. Records the backend owns outright belong in `/data`; the working store
+is scratch.
+
+## Where to look
+
+| | |
+| --- | --- |
+| Directory layout, commits, reads | `apps/app-host/src/app-store.ts` |
+| `/data` mount, replica options | `apps/app-host/src/runtime.ts` |
+| Release state machine | `modules/engenty-apps/src/domain/release-service.ts` |
+| The bridge and its gates | `apps/ai/src/api/app-proxy-routes.ts` |
+| Writing an App | the `app-authoring` and `engenty-bridge` skills in `modules/engenty-apps/ai/skills` |
+| Using one | [Apps](/docs/user/agent-operations/apps) in the user guide |

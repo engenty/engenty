@@ -6,6 +6,13 @@ import type { GrantSubject } from "../security/resolve-grants.js";
  * core convention; use a service-role client here.
  */
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 export interface RoleAssignmentRow {
   agent_id: string | null;
   created_at: string;
@@ -22,6 +29,12 @@ export async function listAssignedRoleIds(
   tenantId: string,
   subject: GrantSubject
 ): Promise<string[]> {
+  // MCP (and other synthetic) agent principals use ids like `mcp:<clientUuid>`.
+  // `core.role_assignments.agent_id` / `user_id` are uuid columns — querying
+  // them with a non-uuid throws 22P02 instead of returning no rows.
+  if (!isUuid(subject.id)) {
+    return [];
+  }
   const column = subject.kind === "user" ? "user_id" : "agent_id";
   const { data, error } = await db
     .schema("core")
@@ -85,6 +98,9 @@ export async function getAgentById(
   tenantId: string,
   agentId: string
 ): Promise<TenantAgentRow | null> {
+  if (!isUuid(agentId)) {
+    return null;
+  }
   const { data, error } = await db
     .schema("core")
     .from("agents")

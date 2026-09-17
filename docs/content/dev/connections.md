@@ -225,7 +225,7 @@ you are looking at, derived from `ENGENTY_CORE_BASE_URL`.
 **Client-credential resolution.** A connector's `clientIdEnv` / `clientSecretEnv`
 are resolved through the settings store, not just `process.env`: a tenant
 override → a platform setting → the environment variable (see
-[Platform settings](/setup/platform-settings)). This lets a tenant bring their
+[Platform settings](/docs/setup/platform-settings)). This lets a tenant bring their
 own OAuth app from the UI without redeploying. The catalog's per-connector
 `configured` flag reflects whether client credentials resolve at any layer;
 `hasOAuth2ClientCredentials()` computes it and the UI shows "Needs setup" when
@@ -342,7 +342,7 @@ Prefix matching is longest-match-wins, because ids are minted as
 an unmounted connector's operations are hidden from `engenty_tools_search` and
 refused by `engenty_tool_execute`; hiding alone would be decoration, refusing
 alone would waste a turn. See the
-[Spaces runtime contract](../../agent/spaces-runtime.md).
+Spaces runtime contract (`docs/agent/spaces-runtime.md`).
 
 ## Operations reference
 

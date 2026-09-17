@@ -40,8 +40,8 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-/** Source pill + the enable toggle — the row above the routine's title. */
-export function RoutineDetailStateRow({
+/** The enable toggle — sits at the right end of the action row. */
+export function RoutineEnabledToggle({
   locale = "en",
   routine,
 }: {
@@ -58,32 +58,15 @@ export function RoutineDetailStateRow({
   );
 
   return (
-    <div className="flex items-center justify-between">
-      <span
-        className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium text-xs ${
-          routine.source === "custom"
-            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-        }`}
-      >
-        {routine.source === "custom"
-          ? isDe
-            ? "Eigene"
-            : "Custom"
-          : isDe
-            ? "Modul"
-            : "Module"}
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground text-xs">
+        {isDe ? "Aktiviert" : "Active"}
       </span>
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground text-xs">
-          {isDe ? "Aktiviert" : "Active"}
-        </span>
-        <Switch
-          checked={patchMutation.isPending ? !routine.enabled : routine.enabled}
-          disabled={patchMutation.isPending}
-          onCheckedChange={handleToggleActive}
-        />
-      </div>
+      <Switch
+        checked={patchMutation.isPending ? !routine.enabled : routine.enabled}
+        disabled={patchMutation.isPending}
+        onCheckedChange={handleToggleActive}
+      />
     </div>
   );
 }
@@ -178,7 +161,7 @@ export function RoutineDetailBody({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           className="gap-2 font-medium"
           disabled={runMutation.isPending || !routine.enabled}
@@ -217,6 +200,10 @@ export function RoutineDetailBody({
             {isDe ? "Löschen" : "Delete"}
           </Button>
         ) : null}
+
+        <div className="ml-auto">
+          <RoutineEnabledToggle locale={locale} routine={routine} />
+        </div>
       </div>
 
       {skipped ? (
@@ -228,8 +215,14 @@ export function RoutineDetailBody({
         </p>
       ) : null}
 
-      {/* The whole routine in one reading: what wakes it, what runs, what has
-          to be true at the end. */}
+      {/* What wakes it comes first — the canvas below shows the same sources
+          as nodes, this is the readable inventory. */}
+      <div className="space-y-2">
+        <SectionHeading>{isDe ? "Auslöser" : "Trigger"}</SectionHeading>
+        <RoutineTriggerList locale={locale} routine={routine} />
+      </div>
+
+      {/* What runs, and what has to be true at the end. */}
       <div className="space-y-2">
         <SectionHeading>Action</SectionHeading>
         <div className="ui-card-panel p-3.5">
@@ -254,13 +247,6 @@ export function RoutineDetailBody({
               : `Next execution: ${new Date(routine.next_due_at).toLocaleString()}`}
           </p>
         ) : null}
-      </div>
-
-      {/* The wake source as a row — the canvas shows it as a node, this is the
-          readable inventory under it. */}
-      <div className="space-y-2">
-        <SectionHeading>{isDe ? "Auslöser" : "Trigger"}</SectionHeading>
-        <RoutineTriggerList locale={locale} routine={routine} />
       </div>
 
       {hideAgent ? null : (

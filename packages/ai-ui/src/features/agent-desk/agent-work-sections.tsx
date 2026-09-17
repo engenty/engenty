@@ -40,10 +40,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
-import {
-  RoutineDetailBody,
-  RoutineDetailStateRow,
-} from "../routines/routine-detail-body.js";
+import { RoutineDetailBody } from "../routines/routine-detail-body.js";
 import { RoutineEditor } from "../routines/routine-editor.js";
 import {
   routineBelongsToAgent,
@@ -245,46 +242,28 @@ export function AgentWorkSections({
   if (openRoutine) {
     return (
       <div className="space-y-4">
-        {/* One back link, two meanings: out of the form while editing, out of
-            the routine while reading. Editing is a state of this view, not a
-            place you navigated to. */}
-        <Button
-          className="-ml-2 gap-1 text-muted-foreground"
-          onClick={() =>
-            isEditing ? setIsEditing(false) : selectRoutine(null)
-          }
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <ChevronLeft className="size-4" />
-          {isEditing
-            ? isDe
-              ? "Bearbeiten abbrechen"
-              : "Cancel editing"
-            : isDe
-              ? "Zurück"
-              : "Back"}
-        </Button>
+        {/* Out of the routine is the drawer's own chevron; out of the FORM is
+            a state of this view, so it gets its own link while editing. */}
+        {isEditing ? (
+          <Button
+            className="-ml-2 gap-1 text-muted-foreground"
+            onClick={() => setIsEditing(false)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <ChevronLeft className="size-4" />
+            {isDe ? "Bearbeiten abbrechen" : "Cancel editing"}
+          </Button>
+        ) : null}
 
-        {/* The state row stays in BOTH modes — it is part of the routine's
-            identity, and hiding it while editing was one of the jumps that
-            made edit mode feel like a different screen. */}
-        <RoutineDetailStateRow locale={locale} routine={openRoutine} />
-
-        {/* The title and description are the form's first two fields, so the
-            panel does not print them a second time above the inputs. */}
-        {isEditing ? null : (
-          <div className="space-y-1">
-            <h2 className="font-semibold text-xl tracking-tight">
-              {openRoutine.name}
-            </h2>
-            {openRoutine.description ? (
-              <p className="text-muted-foreground text-sm">
-                {openRoutine.description}
-              </p>
-            ) : null}
-          </div>
+        {/* The name is the drawer's title while a routine is open, and the
+            description is the form's second field — so reading mode prints
+            only the description, editing mode neither. */}
+        {isEditing || !openRoutine.description ? null : (
+          <p className="text-muted-foreground text-sm">
+            {openRoutine.description}
+          </p>
         )}
 
         {isEditing ? (

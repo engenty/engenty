@@ -14,12 +14,14 @@ import { setApiClientSpaceProvider } from "@engenty/api-client";
 import type { WorkspaceSpace } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import { rememberSpaceKey } from "@/lib/landing-space";
 import { parseSpacePath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 
 /**
- * The last space key the URL carried, for the one caller that needs it after the
- * URL has stopped carrying one: the legacy `/mdl/*` redirect.
+ * The last space key the URL carried, for callers that need it after the
+ * URL has stopped carrying one: the legacy `/mdl/*` redirect, and `/` /
+ * unmatched-route landing.
  *
  * Modules build absolute links from a `/mdl/<module>` base constant — eleven of
  * them do, and rewriting all of them is the version of this that stalls. So a
@@ -28,23 +30,19 @@ import { useSpacesQuery } from "@/lib/spaces-queries";
  * to the tenant's DEFAULT space, silently relocating them mid-click: clicking
  * through the Tasks tab in space B would drop them in space A.
  *
- * Deliberately a plain module variable rather than state: nothing re-renders on
- * it, it is read exactly once at redirect time, and making it context would put
- * a provider between every route and its space for a value only one component
- * reads. It is a hint — an empty one only costs the old fallback behaviour.
+ * Deliberately a plain module variable (plus localStorage) rather than state:
+ * nothing re-renders on it, it is read at redirect time, and making it context
+ * would put a provider between every route and its space for a value only a
+ * handful of redirects read.
  */
-let lastSpaceKey: string | null = null;
-
-export function rememberedSpaceKey(): string | null {
-  return lastSpaceKey;
-}
+export { rememberedSpaceKey } from "@/lib/landing-space";
 
 /**
  * The resolved space id every API request carries as `x-engenty-space-id`
  * (PLAN-spaces.md Phase CN.3) — so a module page inside a space sees the
  * accounts that space mounts, and not the tenant's whole list.
  *
- * A module variable for the same reason as `lastSpaceKey` above: it is read
+ * A module variable for the same reason as `rememberedSpaceKey` above: it is read
  * inside `fetch`, not during render, and making it context would put a
  * provider between every route and a value no component displays. Registered
  * with the api client once, in App, rather than read from there directly —
@@ -68,7 +66,7 @@ export function useRouteSpace(
   const spaceKey = parseSpacePath(location.pathname)?.spaceKey ?? null;
 
   if (spaceKey) {
-    lastSpaceKey = spaceKey;
+    rememberSpaceKey(spaceKey);
   }
 
   const space = useMemo(() => {

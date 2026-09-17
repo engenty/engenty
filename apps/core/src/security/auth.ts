@@ -1,5 +1,8 @@
 import { envString } from "@engenty/environment/env";
-import type { PluginCallOrigin } from "@engenty/plugin-sdk";
+import type {
+  PluginCallOrigin,
+  PluginOperationRisk,
+} from "@engenty/plugin-sdk";
 import { jwtVerify } from "jose";
 import { log } from "../observability/evlog.js";
 import { isTokenIdRevoked } from "./token-revocation.js";
@@ -37,6 +40,8 @@ export interface PrincipalContext {
   goalId?: string;
   issuedAt?: number;
   issuer?: string;
+  /** Hard operation-risk ceiling. Used by delegated interfaces such as MCP. */
+  maxRiskLevel?: PluginOperationRisk;
   moduleIds: string[];
   permissions: string[];
   principalId: string;

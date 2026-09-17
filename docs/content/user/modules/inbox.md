@@ -10,7 +10,7 @@ triage it without needing your mailbox open. Threads sit in status lanes, and
 search covers the synced body text, not just subjects.
 
 Connect an account first — see
-[Connections](/user/agent-operations/connections).
+[Connections](/docs/user/agent-operations/connections).
 
 ## Agent operations
 

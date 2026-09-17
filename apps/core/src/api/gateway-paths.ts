@@ -59,6 +59,10 @@ export function resolveGatewayTarget(pathname: string): GatewayTarget | null {
   ) {
     return null;
   }
+  // Streamable HTTP MCP resource server — must not fall through to the SPA.
+  if (pathname === "/mcp" || pathname.startsWith("/mcp/")) {
+    return null;
+  }
   if (pathname === "/ai" || pathname.startsWith("/ai/")) {
     return "ai";
   }

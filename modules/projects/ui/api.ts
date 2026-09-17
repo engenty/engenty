@@ -211,19 +211,6 @@ export interface ProjectTasksQueryParams {
   status?: string;
 }
 
-export interface ProjectTaskListItem extends PhaseTask {
-  client_name: string | null;
-  phase_title: string | null;
-  project_title: string;
-}
-
-export interface ProjectTasksPaginatedResponse {
-  data: ProjectTaskListItem[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
-
 export type ProjectTaskCountsByStatus = Record<string, number | undefined>;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -386,26 +373,6 @@ export async function updateTaskVisibility(
       body: JSON.stringify({ is_public }),
     }
   );
-}
-
-export async function getTasks(
-  params: ProjectTasksQueryParams = {},
-  signal?: AbortSignal
-): Promise<ProjectTasksPaginatedResponse> {
-  const response = await requestApiEnvelope<
-    ProjectTaskListItem[],
-    { page: number; pageSize: number; total: number }
-  >(`/api/projects/tasks${buildQuery(params as Record<string, unknown>)}`, {
-    method: "GET",
-    signal,
-  });
-  return {
-    data: response.data ?? [],
-    page: response.meta?.page ?? params.page ?? 1,
-    pageSize:
-      response.meta?.pageSize ?? params.pageSize ?? response.data?.length ?? 0,
-    total: response.meta?.total ?? response.data?.length ?? 0,
-  } satisfies ProjectTasksPaginatedResponse;
 }
 
 export async function getTaskCounts(

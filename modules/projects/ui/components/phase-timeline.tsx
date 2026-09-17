@@ -26,12 +26,12 @@ import type { ProjectPhase } from "../api.js";
 
 export interface PhaseTimelineProps {
   onPhaseCreate?: (title: string) => Promise<string | null>; // Returns new phase ID
-  onPhaseTitleUpdate?: (phaseId: string, title: string) => Promise<void>;
+  onPhaseTitleUpdate?: (phaseId: string, title: string) => void | Promise<void>;
   onPhaseUpdate?: (
     phaseId: string,
     startDate: string | null,
     endDate: string | null
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   phases: ProjectPhase[];
   projectDueDate?: string | null; // Due date for vertical alert line
   projectStartDate?: string | null;

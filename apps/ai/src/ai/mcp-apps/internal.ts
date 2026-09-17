@@ -13,6 +13,12 @@
  */
 
 import {
+  clearMcpAppTemplatesForTests,
+  getMcpAppTemplate,
+  MCP_APP_TEMPLATE_MAX_BYTES,
+  registerMcpAppTemplate,
+} from "@engenty/mcp-server";
+import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
@@ -28,7 +34,7 @@ export const INTERNAL_MCP_APP_SERVER_URL = "engenty:internal";
 export const INTERNAL_MCP_APP_SERVER_LABEL = "Engenty";
 
 /** Generated/first-party widget HTML cap — well below the 1MB template cap. */
-export const INTERNAL_WIDGET_MAX_BYTES = 262_144;
+export const INTERNAL_WIDGET_MAX_BYTES = MCP_APP_TEMPLATE_MAX_BYTES;
 /** Bridge `tools/call` argument payload cap for internal calls. */
 export const INTERNAL_CALL_ARGS_MAX_BYTES = 65_536;
 
@@ -50,13 +56,14 @@ const internalTemplates = new Map<string, InternalMcpAppTemplate>();
 export function registerInternalMcpAppTemplate(
   template: InternalMcpAppTemplate
 ): () => void {
-  if (Buffer.byteLength(template.html, "utf8") > INTERNAL_WIDGET_MAX_BYTES) {
-    throw new Error(
-      `Internal MCP App template ${template.uri} exceeds the ${INTERNAL_WIDGET_MAX_BYTES} byte limit`
-    );
-  }
+  const unregisterShared = registerMcpAppTemplate({
+    html: template.html,
+    uri: template.uri,
+    ...(template.csp ? { csp: template.csp } : {}),
+  });
   internalTemplates.set(template.uri, template);
   return () => {
+    unregisterShared();
     if (internalTemplates.get(template.uri) === template) {
       internalTemplates.delete(template.uri);
     }
@@ -66,11 +73,12 @@ export function registerInternalMcpAppTemplate(
 export function getInternalMcpAppTemplate(
   uri: string
 ): InternalMcpAppTemplate | undefined {
-  return internalTemplates.get(uri);
+  return internalTemplates.get(uri) ?? getMcpAppTemplate(uri);
 }
 
 export function clearInternalMcpAppTemplatesForTests(): void {
   internalTemplates.clear();
+  clearMcpAppTemplatesForTests();
 }
 
 /**

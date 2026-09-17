@@ -11,13 +11,18 @@
 //   POST   /ai/v1/workflows/:id/publish        approve + point at a version
 //   POST   /ai/v1/workflows/:id/run            run the published version
 //   POST   /ai/v1/workflows/runs/:runId/resume answer a gate
+//   POST   /ai/v1/workflows/runs/:runId/review release a held run (report: ask)
 //   GET    /ai/v1/workflows/:id/repair … and the rest, all under one base.
 //
 // RENAME ring 3 (2026-08-24): the base moved from /v1/action-graphs. No
 // compatibility redirect — nothing is deployed off this branch.
 import { createLogger } from "@engenty/telemetry";
 import type { Hono } from "hono";
-import { createThreadStoreFromEnv } from "../ai/index.js";
+import {
+  createRoutineStoreFromEnv,
+  createThreadStoreFromEnv,
+} from "../ai/index.js";
+import { releaseReviewedRun } from "../ai/routines/review-hold.js";
 import { wrapPublishedWorkflow } from "../ai/routines/wrap-workflow.js";
 import { resolveRunSpaceForThread } from "../ai/sessions/run-space.js";
 import {
@@ -1057,6 +1062,70 @@ export function registerWorkflowRoutes(
       return handleRouteError(
         c,
         "failed to resume action graph run",
+        "workflows.internalError",
+        err
+      );
+    }
+  });
+
+  // The owner looked at a held run (routine `report: ask`) — finish it. A run
+  // parked at a GATE is not reviewable; its answer goes through `resume`.
+  app.post(`${base}/runs/:runId/review`, async (c) => {
+    const ctx = await ready(c);
+    if (!ctx.ok) {
+      return ctx.response;
+    }
+    const runId = c.req.param("runId");
+    try {
+      const requests = getWorkflowRunStore();
+      const request = await requests?.getByRunId({
+        runId,
+        tenantId: ctx.scope.tenantId,
+      });
+      if (!(requests && request?.workflow_version_id)) {
+        return c.json({ error: "workflows.runNotFound" }, 404);
+      }
+      if (request.status !== "requires_action") {
+        return c.json({ error: "workflows.runNotHeld" }, 409);
+      }
+      const threadStore = createThreadStoreFromEnv();
+      if (request.thread_id && threadStore) {
+        const spaceGate = await resolveRunSpaceForThread({
+          scope: ctx.scope,
+          store: threadStore,
+          threadId: request.thread_id,
+        });
+        if (spaceGate.kind === "unresolved") {
+          return c.json({ error: "workflows.spaceForbidden" }, 403);
+        }
+      }
+      const version = await ctx.store.getVersion({
+        id: request.workflow_version_id,
+        tenantId: ctx.scope.tenantId,
+      });
+      if (version) {
+        const snapshot = await readGraphRunSnapshot({ runId, version });
+        if (snapshot?.gate) {
+          return c.json({ error: "workflows.runAwaitingGate" }, 409);
+        }
+      }
+      const routine = request.routine_id
+        ? ((await createRoutineStoreFromEnv()
+            ?.get({ id: request.routine_id, tenantId: ctx.scope.tenantId })
+            .catch(() => null)) ?? null)
+        : null;
+      const result = await releaseReviewedRun({
+        request,
+        requests,
+        routine,
+        runId,
+        tenantId: ctx.scope.tenantId,
+      });
+      return c.json({ ok: true, result });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to release reviewed run",
         "workflows.internalError",
         err
       );

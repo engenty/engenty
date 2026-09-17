@@ -157,7 +157,7 @@ is_open_path() {
     apps/core | apps/core/* | apps/ui | apps/ui/* | apps/ai | apps/ai/* | apps/docs | apps/docs/* | apps/www | apps/www/* | apps/ports.config.mjs)
       return 0
       ;;
-    packages/* | modules/* | scripts | scripts/* | .github | .github/* | docs | docs/* | deploy | deploy/* | e2e | e2e/*)
+    packages/* | modules/* | patches | patches/* | scripts | scripts/* | .github | .github/* | docs | docs/* | deploy | deploy/* | e2e | e2e/*)
       return 0
       ;;
   esac

@@ -30,24 +30,24 @@
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
-    "@floating-ui/dom": "^1.7.6",
+    "@floating-ui/dom": "^1.8.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.21.0",
-    "react-router-dom": "^7.18.0",
-    "tailwind-merge": "^3.6.0"
+    "lucide-react": "^1.46.0",
+    "react-router-dom": "^7.18.4",
+    "tailwind-merge": "^3.7.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.3.2",
-    "@types/node": "^26.0.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.10.6",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "happy-dom": "^20.14.5",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

@@ -1,14 +1,27 @@
 import { Button, Card, CardContent, Input, Label } from "@engenty/ui-core";
 import { AnimatedLoaderIcon, AnimatedSendIcon } from "@engenty/ui-icons";
 import { Eye, EyeOff } from "lucide-react";
-import { useMemo } from "react";
 import { useAuthCard } from "../hooks/use-auth-card";
-import { AUTH_TRANSLATIONS, detectAuthLocale } from "../lib/auth-i18n";
+import {
+  AUTH_TRANSLATIONS,
+  type AuthLocale,
+  detectAuthLocale,
+} from "../lib/auth-i18n";
 import { AuthCardResetEmailSent } from "./auth-card-reset-email-sent";
 import { PasswordAuthBlock } from "./password-auth-block";
 
+/** One step above the styleguide single-line field (h-8 → h-9). */
+const AUTH_FIELD_CLASS = "h-9 min-h-9 px-3 text-base md:text-base";
+
 interface AuthCardProps {
+  /** Override the default mode-based description. */
+  description?: string;
+  /** When true, hide signup / forgot-password mode switches (OAuth embeds). */
+  hideModeSwitch?: boolean;
+  locale?: AuthLocale;
   onAuthenticated?: () => void;
+  /** Override the default mode-based heading. */
+  title?: string;
 }
 
 // Accent color per mode (matches blob character palette)
@@ -18,8 +31,15 @@ const MODE_COLOR: Record<string, string> = {
   forgot: "#1e7d49", // meadow
 };
 
-export function AuthCard({ onAuthenticated }: AuthCardProps) {
-  const t = useMemo(() => AUTH_TRANSLATIONS[detectAuthLocale()].login, []);
+export function AuthCard({
+  description,
+  hideModeSwitch = false,
+  locale: localeProp,
+  onAuthenticated,
+  title: titleOverride,
+}: AuthCardProps) {
+  const locale = localeProp ?? detectAuthLocale();
+  const t = AUTH_TRANSLATIONS[locale].login;
 
   const {
     checkingSetupState,
@@ -52,23 +72,26 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
   const accentColor = MODE_COLOR[mode] ?? MODE_COLOR.login;
 
   const title =
-    mode === "forgot"
+    titleOverride ??
+    (mode === "forgot"
       ? t.resetPassword
       : isLogin
         ? t.welcomeBack
         : initialSetupRequired
           ? t.initialSetup
-          : t.createAccount;
+          : t.createAccount);
 
-  const subtitle = checkingSetupState
-    ? t.checkingSetup
-    : mode === "forgot"
-      ? t.resetPasswordDesc
-      : initialSetupRequired
-        ? t.initialSetupDesc
-        : isLogin
-          ? t.signInDesc
-          : t.createAccountDesc;
+  const subtitle =
+    description ??
+    (checkingSetupState
+      ? t.checkingSetup
+      : mode === "forgot"
+        ? t.resetPasswordDesc
+        : initialSetupRequired
+          ? t.initialSetupDesc
+          : isLogin
+            ? t.signInDesc
+            : t.createAccountDesc);
 
   return (
     <div className="space-y-4">
@@ -94,31 +117,33 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
           <PasswordAuthBlock
             error={error}
             footer={
-              <div className="flex flex-col gap-1">
-                {mode === "forgot" ? (
-                  <button
-                    className="text-primary text-xs hover:underline"
-                    disabled={submitting}
-                    onClick={() => setMode("login")}
-                    type="button"
-                  >
-                    Back to sign in
-                  </button>
-                ) : (
-                  <button
-                    className="text-primary text-xs hover:underline"
-                    disabled={submitting || initialSetupRequired}
-                    onClick={() => setMode(isLogin ? "signup" : "login")}
-                    type="button"
-                  >
-                    {initialSetupRequired
-                      ? "Initial setup in progress"
-                      : isLogin
-                        ? "Need an account?"
-                        : "Already have an account?"}
-                  </button>
-                )}
-              </div>
+              hideModeSwitch ? null : (
+                <div className="flex flex-col gap-1">
+                  {mode === "forgot" ? (
+                    <button
+                      className="text-primary text-xs hover:underline"
+                      disabled={submitting}
+                      onClick={() => setMode("login")}
+                      type="button"
+                    >
+                      Back to sign in
+                    </button>
+                  ) : (
+                    <button
+                      className="text-primary text-xs hover:underline"
+                      disabled={submitting || initialSetupRequired}
+                      onClick={() => setMode(isLogin ? "signup" : "login")}
+                      type="button"
+                    >
+                      {initialSetupRequired
+                        ? "Initial setup in progress"
+                        : isLogin
+                          ? "Need an account?"
+                          : "Already have an account?"}
+                    </button>
+                  )}
+                </div>
+              )
             }
             isLoading={submitting}
             mode={mode === "forgot" ? "login" : isLogin ? "login" : "signup"}
@@ -128,6 +153,7 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
                 <Input
+                  className={AUTH_FIELD_CLASS}
                   disabled={submitting}
                   id="fullName"
                   placeholder="John Doe"
@@ -138,6 +164,7 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
+                className={AUTH_FIELD_CLASS}
                 disabled={submitting}
                 id="email"
                 placeholder="you@company.com"
@@ -150,10 +177,10 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Input
-                    className="pr-9"
+                    className={`${AUTH_FIELD_CLASS} pr-10`}
                     disabled={submitting}
                     id="password"
-                    placeholder="Minimum 6 characters"
+                    placeholder={isLogin ? undefined : "Minimum 6 characters"}
                     type={showPassword ? "text" : "password"}
                     {...form.register("password")}
                   />
@@ -161,7 +188,7 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                     disabled={submitting}
                     onClick={() => setShowPassword((p) => !p)}
                     type="button"
@@ -173,7 +200,7 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
                     )}
                   </button>
                 </div>
-                {isLogin && (
+                {isLogin && !hideModeSwitch && (
                   <div className="flex justify-end">
                     <button
                       className="text-primary text-xs hover:underline"
@@ -187,7 +214,12 @@ export function AuthCard({ onAuthenticated }: AuthCardProps) {
                 )}
               </div>
             )}
-            <Button className="w-full" disabled={submitting} type="submit">
+            <Button
+              className="w-full"
+              disabled={submitting}
+              size="lg"
+              type="submit"
+            >
               {submitting ? (
                 <AnimatedLoaderIcon className="mr-2" play="always" size="sm" />
               ) : mode === "forgot" ? (

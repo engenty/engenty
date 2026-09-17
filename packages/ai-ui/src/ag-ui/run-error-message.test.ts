@@ -62,3 +62,20 @@ describe("resolveAgUiRunErrorEventMessage", () => {
     ).toContain("too long for the selected model");
   });
 });
+
+describe("named run guard failures", () => {
+  it("maps the timeout, step-limit, empty-reply and guardrail codes to copy", () => {
+    expect(formatCopilotRunError("agent_threads.runTimedOut")).toContain(
+      "took too long"
+    );
+    expect(formatCopilotRunError("agent_threads.stepLimitReached")).toContain(
+      "step limit"
+    );
+    expect(formatCopilotRunError("agent_threads.emptyReply")).toContain(
+      "without a reply"
+    );
+    expect(formatCopilotRunError("agent_threads.guardrailTripped")).toContain(
+      "guardrail"
+    );
+  });
+});

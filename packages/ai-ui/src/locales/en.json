@@ -373,6 +373,8 @@
       "open": "Open run",
       "paused": "Paused",
       "requiresAction": "Waiting for a decision",
+      "reviewPrompt": "Finished — waiting for your review.",
+      "markReviewed": "Reviewed",
       "routine": "Routine · {{name}}",
       "starting": "Starting…",
       "stopped": "Routine stopped",
@@ -385,6 +387,9 @@
     "composerPlaceholder": "Message {{name}}…",
     "connectors": "Connectors",
     "drawer": {
+      "back": "Back",
+      "collapse": "Restore settings panel size",
+      "expand": "Expand settings panel",
       "close": "Close",
       "resize": "Resize panel",
       "runs": "Runs",

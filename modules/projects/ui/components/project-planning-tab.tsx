@@ -34,12 +34,12 @@ interface ProjectPlanningTabProps {
   onPhaseCreate: (title: string) => Promise<string | null>;
   onPhaseEdit: (phase: ProjectPhase & { tasks: PhaseTask[] }) => void;
   onPhaseFormOpen: () => void;
-  onPhaseTitleUpdate: (phaseId: string, title: string) => Promise<void>;
+  onPhaseTitleUpdate: (phaseId: string, title: string) => void | Promise<void>;
   onPhaseUpdate: (
     phaseId: string,
     startDate: string | null,
     endDate: string | null
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   onPhaseVisibilityToggle: (phaseId: string, is_public: boolean) => void;
   onTaskAdd: () => void;
   onTaskDelete: (taskId: string) => void;

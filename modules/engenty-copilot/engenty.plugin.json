@@ -213,6 +213,42 @@
         "secret": false
       },
       {
+        "description": "Time budget for ONE model call in an agent run, in milliseconds. Default 180000 (3 min); a call past it fails the run with a named timeout instead of hanging. 0 disables.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_STEP_TIMEOUT_MS",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Hard override for the recalled-history token budget of every agent, in tokens. Unset: derived per run from the model's catalog context window minus the tool block, the reply reserve and the runtime tail (100000 when the window is unknown).",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_HISTORY_TOKEN_LIMIT",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Time budget for a WHOLE agent run (every step, tool call and retry), in milliseconds. Default 1200000 (20 min). 0 disables.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_RUN_TIMEOUT_MS",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
         "description": "Langfuse secret key. Sends every agent run (model steps, tool calls, prompts and completions) to Langfuse; off when unset.",
         "feature": "observability",
         "group": "Observability",

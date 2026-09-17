@@ -84,7 +84,7 @@ ENGENTY_AI_SERVICE_SECRET=<credentialId>.<rawSecret>
 
 `apps/ai` mints on demand and caches until 2 minutes before expiry, with
 concurrent callers sharing one in-flight exchange
-([service-credential.ts](../../../apps/ai/src/ai/service-credential.ts)). A
+(`apps/ai/src/ai/service-credential.ts`). A
 scheduled routine firing days after boot rides a token minted seconds earlier,
 never the one from boot.
 
@@ -108,7 +108,7 @@ because everything up to it looks healthy.
 
 A service credential has no row in `auth.users` and no tenant membership.
 `/api/users/setup/context` answers for it from a separate path
-([workspace.ts](../../../apps/core/src/dal/core-users/workspace.ts)) that
+(`apps/core/src/dal/core-users/workspace.ts`) that
 reports `tenantRole: "service"`, `onboarded: true`, and only the credential's
 own tenant — it cannot enumerate or switch tenants.
 

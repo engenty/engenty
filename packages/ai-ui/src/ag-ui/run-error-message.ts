@@ -7,6 +7,14 @@ const RUN_ERROR_CODE_LABELS: Record<string, string> = {
     "The assistant ran out of context before it could write a reply. Start a new chat or continue with a shorter request.",
   "agent_threads.contentFiltered":
     "The model provider's content filter stopped the reply. Rephrase the request and try again.",
+  "agent_threads.runTimedOut":
+    "The model took too long to respond, so the run was stopped. Send the message again or split the task into smaller steps.",
+  "agent_threads.stepLimitReached":
+    "The assistant reached the step limit for this turn before writing a reply. Say “continue” to carry on, or narrow the task.",
+  "agent_threads.emptyReply":
+    "The assistant ended the turn without a reply. Send the message again or make the request more specific.",
+  "agent_threads.guardrailTripped":
+    "A safety guardrail blocked this message. Rephrase it and try again.",
   "agent_threads.runFailed":
     "The assistant run failed. Try again or start a new chat.",
   "agent_threads.usageLimitExceeded":

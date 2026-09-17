@@ -10,8 +10,8 @@ validity, tax handling) and a body made of **blocks**: positions with quantity
 and price, headlines, free text, and optional phases that group them.
 
 Numbers, currency and tax rates come from
-[Commercial settings](/user/modules/commercial-settings); the printed layout
-comes from [PDF templates](/user/modules/pdf-templates).
+[Commercial settings](/docs/user/modules/commercial-settings); the printed layout
+comes from [PDF templates](/docs/user/modules/pdf-templates).
 
 Offers move `draft → ready → accepted`. Only a draft is meant to be edited
 freely — a status change moves it out of the draft editor.

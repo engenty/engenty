@@ -5,12 +5,10 @@ import { resolveEngentyAiServiceBaseUrlSafe } from "../../../artifacts/artifacts
 import { BridgedFrame, type BridgedFrameCsp } from "./bridged-frame.js";
 
 /**
- * MCP Apps widget host frame (spec io.modelcontextprotocol/ui, rev
- * 2026-01-26). The transport lives in `BridgedFrame`, which engenty Apps in
- * the artifact pane share; this module supplies the MCP-server transport:
- * widget `tools/call` requests are proxied through the AI service's
- * `/ai/mcp-apps/call` route, which authenticates the viewing user and
- * validates the target server against the tenant registry.
+ * MCP Apps widget host frame (spec io.modelcontextprotocol/ui). The
+ * transport lives in `BridgedFrame` (official AppBridge); this module supplies
+ * the MCP-server transport: widget `tools/call` requests are proxied through
+ * the AI service's `/ai/mcp-apps/call` route.
  */
 
 export interface McpAppFrameProps {

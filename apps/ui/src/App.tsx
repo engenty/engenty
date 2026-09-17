@@ -157,8 +157,17 @@ function App() {
   const [brand, setBrand] = useState<UiBrandInfo>({});
   const appVersion = import.meta.env.VITE_APP_VERSION ?? "";
   const isPortalPath = location.pathname.startsWith("/portal/");
+  const isOAuthConsentPath =
+    location.pathname === "/oauth/consent" ||
+    location.pathname.startsWith("/oauth/consent/");
+  const isAuthPath =
+    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
+  // Standalone public surfaces: skip the authenticated shell/onboarding even
+  // when a session already exists (MCP OAuth consent + login must not boot the app).
+  const isStandalonePublicPath =
+    isPortalPath || isOAuthConsentPath || isAuthPath;
   const publicContributions = usePublicUiPluginContributions(
-    !(loading || isAuthenticated) || isPortalPath
+    !(loading || isAuthenticated) || isStandalonePublicPath
   );
 
   const {
@@ -311,6 +320,7 @@ function App() {
         }
         hint={t("shell.envHint")}
         message={error}
+        offerSignOut
         title={t("shell.authSetupRequired")}
       />
     );
@@ -339,10 +349,28 @@ function App() {
     );
   }
 
+  // MCP OAuth consent (and portals) must not wait on workspace onboarding or
+  // mount the app shell — they are standalone public surfaces even with a
+  // live session (Supabase redirects here with only `authorization_id`).
+  if (isStandalonePublicPath) {
+    if (!publicContributions.ready) {
+      return <AppLoadingScreen message={t("shell.loading")} shimmer />;
+    }
+    return (
+      <>
+        <UnauthenticatedRoutes
+          contributions={publicContributions.contributions}
+        />
+        <Toaster position="bottom-right" richColors />
+      </>
+    );
+  }
+
   if (onboardingError) {
     return (
       <AppErrorCard
         message={onboardingError}
+        offerSignOut
         title={t("shell.authSetupRequired")}
       />
     );
@@ -390,24 +418,6 @@ function App() {
   const onSettingsChrome =
     location.pathname.startsWith("/settings") ||
     location.pathname.startsWith("/setup");
-
-  // Portal paths render without the app shell for a neutral/standalone look
-  if (isPortalPath) {
-    if (!publicContributions.ready) {
-      return <AppLoadingScreen message={t("shell.loading")} shimmer />;
-    }
-    return (
-      <>
-        <AppearanceBootstrap
-          resolvedAppearance={workspaceContext.resolvedAppearance}
-        />
-        <UnauthenticatedRoutes
-          contributions={publicContributions.contributions}
-        />
-        <Toaster position="bottom-right" richColors />
-      </>
-    );
-  }
 
   return (
     <>

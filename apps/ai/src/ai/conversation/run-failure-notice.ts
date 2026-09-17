@@ -10,7 +10,12 @@
 import type { ThreadStore } from "../../dal/threads/index.js";
 import {
   AGENT_THREADS_CONTENT_FILTERED,
+  AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED,
+  AGENT_THREADS_EMPTY_REPLY,
+  AGENT_THREADS_GUARDRAIL_TRIPPED,
   AGENT_THREADS_OUTPUT_TRUNCATED,
+  AGENT_THREADS_RUN_TIMED_OUT,
+  AGENT_THREADS_STEP_LIMIT_REACHED,
 } from "../sessions/mastra-stream-failure.js";
 import type { AiSessionScope } from "../sessions/types.js";
 
@@ -19,9 +24,29 @@ const NOTICES: Record<string, { de: string; en: string }> = {
     de: "Mir ist der Kontext ausgegangen, bevor ich antworten konnte. Starte einen neuen Chat oder fahre hier mit einer kürzeren Anfrage fort.",
     en: "I ran out of context before I could write a reply. Start a new chat, or continue here with a shorter request.",
   },
+  [AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED]: {
+    de: "Dieser Chat ist für das gewählte Modell zu lang geworden. Starte einen neuen Chat oder bitte um ein kleineres Ergebnis.",
+    en: "This chat has grown too long for the selected model. Start a new chat, or ask for a smaller result.",
+  },
   [AGENT_THREADS_CONTENT_FILTERED]: {
     de: "Der Inhaltsfilter des Modellanbieters hat diese Antwort gestoppt. Formuliere deine Anfrage um und versuche es erneut.",
     en: "The model provider's content filter stopped this reply. Rephrase your request and try again.",
+  },
+  [AGENT_THREADS_RUN_TIMED_OUT]: {
+    de: "Das Modell hat zu lange nicht geantwortet, deshalb habe ich abgebrochen. Sende die Nachricht erneut oder teile die Aufgabe in kleinere Schritte.",
+    en: "The model took too long to respond, so I stopped. Send the message again, or split the task into smaller steps.",
+  },
+  [AGENT_THREADS_STEP_LIMIT_REACHED]: {
+    de: "Ich habe die maximale Anzahl an Arbeitsschritten für diese Runde erreicht, bevor ich antworten konnte. Schreib „weiter“, um fortzufahren, oder verkleinere die Aufgabe.",
+    en: "I reached the step limit for this turn before I could write a reply. Say “continue” to carry on, or narrow the task.",
+  },
+  [AGENT_THREADS_EMPTY_REPLY]: {
+    de: "Ich habe diese Runde ohne Antwort beendet. Sende die Nachricht erneut oder formuliere die Frage konkreter.",
+    en: "I ended this turn without a reply. Send the message again, or make the request more specific.",
+  },
+  [AGENT_THREADS_GUARDRAIL_TRIPPED]: {
+    de: "Eine Sicherheitsregel hat diese Nachricht blockiert. Formuliere sie um und versuche es erneut.",
+    en: "A safety guardrail blocked this message. Rephrase it and try again.",
   },
 };
 

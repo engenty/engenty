@@ -56,34 +56,10 @@
     }
   },
   "tasks": {
-    "comingSoon": "Aufgabenübersicht demnächst verfügbar.",
-    "scopeMine": "Meine Aufgaben",
-    "scopeAll": "Alle Aufgaben",
-    "searchPlaceholder": "Aufgaben suchen...",
-    "addTask": "Aufgabe hinzufügen",
-    "noTasks": "Noch keine Aufgaben",
-    "noTasksDescription": "Erstellen Sie Aufgaben in einem Projekt, um sie hier zu sehen.",
-    "noSearchResults": "Keine Aufgaben entsprechen Ihrer Suche",
-    "columns": {
-      "title": "Aufgabe",
-      "project": "Projekt",
-      "phase": "Phase",
-      "assignees": "Zugewiesen",
-      "status": "Status",
-      "hours": "Stunden",
-      "updatedAt": "Aktualisiert"
-    },
-    "sortByUpdatedAt": "Aktualisiert",
-    "sortByCreatedAt": "Erstellt",
-    "sortByTitle": "Titel",
-    "sortByStatus": "Status",
-    "general": "Allgemein",
-    "paginationSummary": "{{total}} Aufgaben",
-    "viewProject": "Projekt anzeigen",
-    "kanbanView": "Kanban",
-    "filterAllStatuses": "Alle Status",
-    "statusUpdateFailed": "Aufgabestatus konnte nicht gespeichert werden",
-    "selectProject": "Projekt auswählen"
+    "createFailed": "Aufgabe konnte nicht erstellt werden.",
+    "updateFailed": "Aufgabe konnte nicht gespeichert werden.",
+    "deleteFailed": "Aufgabe konnte nicht gelöscht werden.",
+    "reorderFailed": "Reihenfolge konnte nicht gespeichert werden."
   },
   "updates": {
     "comingSoon": "Aktualisierungen und Aktivitätsfeed demnächst verfügbar."
@@ -298,7 +274,8 @@
       "portalSectionDescription": "Öffentlicher Zugang für Kundinnen und Kunden: Aufgaben ansehen und Anfragen stellen.",
       "clientSection": "Kunde",
       "clientSectionDescription": "Kontakt oder Organisation, für die dieses Projekt läuft."
-    }
+    },
+    "saveFailed": "Projekt konnte nicht gespeichert werden."
   },
   "create": {
     "title": "Projekt erstellen",
@@ -445,5 +422,10 @@
       "start": "Start",
       "end": "Ende"
     }
+  },
+  "phases": {
+    "createFailed": "Phase konnte nicht erstellt werden.",
+    "updateFailed": "Phase konnte nicht gespeichert werden.",
+    "deleteFailed": "Phase konnte nicht gelöscht werden."
   }
 }

@@ -9,7 +9,7 @@ A project groups work into **phases**, and phases hold **tasks**. Each phase and
 task can be marked visible in the client portal, so the same project serves both
 your internal planning and what the client is shown.
 
-Tasks created here are the same records the [Tasks](/user/modules/tasks) module
+Tasks created here are the same records the [Tasks](/docs/user/modules/tasks) module
 manages, so an agent can pick one up and work it.
 
 ## Agent operations

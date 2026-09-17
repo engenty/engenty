@@ -29,7 +29,7 @@ function autoGrow(el: HTMLTextAreaElement) {
 }
 
 interface PhaseFormDialogProps {
-  onDelete?: (options: PhaseDeleteConfirm) => Promise<void>;
+  onDelete?: (options: PhaseDeleteConfirm) => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: {
     title: string;

@@ -1,5 +1,12 @@
-import type { OperationSpacePolicy } from "@engenty/plugin-sdk";
-import { recordScopeFromSpacePolicy } from "@engenty/plugin-sdk";
+import type {
+  McpDisposition,
+  McpSafeAnnotations,
+  OperationSpacePolicy,
+} from "@engenty/plugin-sdk";
+import {
+  recordScopeFromSpacePolicy,
+  resolveMcpDisposition,
+} from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { PluginRegistry } from "../plugins/registry.js";
 
@@ -20,6 +27,14 @@ export interface OperationContract {
   };
   description?: string;
   inputSchema: SchemaSummary;
+  mcp: {
+    annotations?: McpSafeAnnotations;
+    appResourceUri?: string;
+    declared: boolean;
+    disposition: McpDisposition;
+    enabled: boolean;
+    taskCapable: boolean;
+  };
   methodName: string;
   moduleId: string;
   operationId: string;
@@ -77,6 +92,15 @@ export function buildOperationContracts(
   return registry.moduleOperations.map((operation) => {
     const spacePolicy = operation.operation.spacePolicy;
     const record_scope = recordScopeFromSpacePolicy(spacePolicy);
+    const resolved = resolveMcpDisposition({
+      idempotent: operation.operation.idempotent,
+      mcpDisposition: operation.operation.mcpDisposition,
+      operationId: operation.operationId,
+      requiresApproval: operation.operation.requiresApproval,
+      riskLevel: operation.operation.riskLevel,
+    });
+    const disposition = resolved.disposition;
+    const mcpEnabled = disposition !== "never";
     return {
       operationId: operation.operationId,
       toolId: operation.operationId,
@@ -101,7 +125,21 @@ export function buildOperationContracts(
         requiresApproval: operation.operation.requiresApproval,
         allowedPrincipalTypes: ["user", "agent", "service"],
       },
-      transports: ["rest", "cli", "mcp"],
+      transports: mcpEnabled
+        ? (["rest", "cli", "mcp"] as const)
+        : (["rest", "cli"] as const),
+      mcp: {
+        declared: resolved.declared,
+        disposition,
+        enabled: mcpEnabled,
+        taskCapable: operation.operation.mcpTaskCapable === true,
+        ...(operation.operation.mcpAppResourceUri
+          ? { appResourceUri: operation.operation.mcpAppResourceUri }
+          : {}),
+        ...(operation.operation.mcpSafeAnnotations
+          ? { annotations: operation.operation.mcpSafeAnnotations }
+          : {}),
+      },
       ...(record_scope ? { record_scope } : {}),
       ...(spacePolicy ? { spacePolicy } : {}),
     };

@@ -209,8 +209,11 @@ function itemClass(
   if (truncateOverflow === "clip") {
     // Shrink-wrap custom controls (space switcher, KB picker). `w-full` on
     // the inner label used to stretch this li to the 16rem cap, leaving a
-    // hole between the control and the `/` that follows it.
-    return "flex w-max min-w-0 max-w-[min(16rem,45vw)] shrink-0 items-center gap-1";
+    // hole between the control and the `/` that follows it. The tail is
+    // the page's own name and gets the room the trail has left.
+    return isLast
+      ? "flex w-max min-w-0 max-w-[min(36rem,60vw)] shrink items-center gap-1"
+      : "flex w-max min-w-0 max-w-[min(16rem,45vw)] shrink-0 items-center gap-1";
   }
   return "flex min-w-0 shrink-0 items-center gap-1";
 }

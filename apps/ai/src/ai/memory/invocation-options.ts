@@ -3,6 +3,10 @@ import type { MastraMemory } from "@mastra/core/memory";
 import type { Processor } from "@mastra/core/processors";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import { AiSessionError } from "../errors.js";
+import {
+  createEmptyReplyCompletion,
+  withRunTimeouts,
+} from "../sessions/run-guards.js";
 import { createSpeakerTurnProcessor } from "../sessions/speaker-turn-processor.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
 import { createEngentySupervisorDelegationConfig } from "../supervisor/delegation.js";
@@ -221,10 +225,21 @@ export function createEngentyAgentExecutionOptions(
     runId?: string | null;
   }
 ): AgentExecutionOptionsBase<unknown> {
+  // The non-streaming `generate` lane gets the same run guards the stream
+  // intercept folds in for the AG-UI lanes: a time budget on the model calls
+  // and one push-back on a silent finish.
+  const modelSettings = withRunTimeouts(undefined);
   return {
     ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
     delegation: createEngentySupervisorDelegationConfig(),
+    isTaskComplete: createEmptyReplyCompletion(),
     maxSteps: input.maxSteps,
+    ...(modelSettings
+      ? {
+          modelSettings:
+            modelSettings as AgentExecutionOptionsBase<unknown>["modelSettings"],
+        }
+      : {}),
     ...(input.runId ? { runId: input.runId } : {}),
     ...createEngentyMemoryInvocationOptions(input),
   };

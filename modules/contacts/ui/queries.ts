@@ -19,8 +19,6 @@ export {
   useAddContactRoleMutation,
   useRemoveContactRoleMutation,
   useSaveContactSettingsPageMutation,
-  useSetContactSettingsMutation,
-  useSetContactsRoleMenuConfigMutation,
   useUpdateContactMutation,
 } from "./optimistic-mutations.js";
 export { contactKeys, contactsListQueryKeyParts } from "./query-keys.js";

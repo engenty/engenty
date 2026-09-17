@@ -127,17 +127,14 @@ export async function resumeViaMastraAgent(params: {
   toolCallId: string;
 }): Promise<AgUiResumeOutcome> {
   const { MastraAgent } = await import("@ag-ui/mastra");
-  const { readMastraStreamFailure } = await import(
-    "../sessions/mastra-stream-failure.js"
-  );
+  const { formatAgentStreamFailureMessage, readMastraStreamFailure } =
+    await import("../sessions/mastra-stream-failure.js");
   const outcome: AgUiResumeOutcome = { streamError: null };
   // `@ag-ui/mastra` emits TEXT_MESSAGE_CHUNK; this wire is defined on the
   // expanded form — see agui-text-chunks.ts for the three reasons.
   const text = new AgUiTextChunkExpander();
-  const { proxied, readErrorChunk, readStream } = interceptMastraStream(
-    params.agent,
-    "resumeStream",
-    {
+  const { proxied, readErrorChunk, readStream, readTripwireChunk } =
+    interceptMastraStream(params.agent, "resumeStream", {
       ...(params.maxSteps ? { maxSteps: params.maxSteps } : {}),
       onSubAgentProgress: (toolCallId, line) => {
         params.accumulator.recordSubAgentProgress(toolCallId, line);
@@ -152,8 +149,7 @@ export async function resumeViaMastraAgent(params: {
         } as AGUIEvent);
       },
       untilIdle: true,
-    }
-  );
+    });
 
   const agUiAgent = new (
     MastraAgent as never as new (
@@ -263,11 +259,12 @@ export async function resumeViaMastraAgent(params: {
   // an object-shaped error says "[object Object]", which tells nobody anything.
   const rawError = readErrorChunk();
   if (rawError) {
-    outcome.streamError = rawError.message;
+    outcome.streamError = formatAgentStreamFailureMessage(rawError);
   }
   if (!outcome.streamError) {
     const failure = await readMastraStreamFailure(readStream(), {
       hasAssistantText: params.accumulator.hasAssistantText,
+      tripwire: readTripwireChunk(),
     });
     if (failure) {
       outcome.streamError = failure.message;

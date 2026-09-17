@@ -34,12 +34,6 @@ describe("project query keys", () => {
       "list",
       { space_id: "space-acme" },
     ]);
-    expect(projectKeys.tasksList({ space_id: "space-acme" })).toEqual([
-      "projects",
-      "tasks",
-      "list",
-      { space_id: "space-acme" },
-    ]);
     expect(projectKeys.taskCounts({ space_id: "space-acme" })).toEqual([
       "projects",
       "tasks",

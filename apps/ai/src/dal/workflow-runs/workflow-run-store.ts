@@ -110,7 +110,11 @@ export interface WorkflowRunStore {
     reason?: string | null;
     /** The run's reporting level; absent leaves the column untouched. */
     reporting?: string | null;
-    status: WorkflowRunStatus;
+    /**
+     * `requires_action` here is a review hold (routine `report: ask`): the
+     * result columns land now and the terminal status waits for a person.
+     */
+    status: WorkflowRunStatus | "requires_action";
     /** What the run achieved, for the desk card. Success prose, not an error. */
     summary?: string | null;
     tenantId: string;

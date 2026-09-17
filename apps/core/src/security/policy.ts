@@ -63,6 +63,13 @@ export interface PolicyDeps {
   }>;
 }
 
+const RISK_RANK = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  critical: 3,
+} as const;
+
 function hasCapability(auth: PrincipalContext, required: string): boolean {
   // Delegates to the shared plugin-sdk matcher — single source of truth so
   // server enforcement can never drift from the clamp/UI tester.
@@ -141,6 +148,15 @@ async function evaluatePolicyRules(
   deps?: PolicyDeps
 ): Promise<PolicyDecision> {
   const { auth, moduleId, requiredCapabilities, operationId, scopeId } = input;
+  if (
+    auth.maxRiskLevel &&
+    RISK_RANK[input.riskLevel] > RISK_RANK[auth.maxRiskLevel]
+  ) {
+    return {
+      action: "deny",
+      reason: `operation risk ${input.riskLevel} exceeds grant ceiling ${auth.maxRiskLevel}`,
+    };
+  }
   if (auth.moduleIds.length > 0 && !auth.moduleIds.includes(moduleId)) {
     return { action: "deny", reason: "module not allowed for actor" };
   }

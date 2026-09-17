@@ -30,21 +30,21 @@
     "@engenty/telemetry": "workspace:*",
     "@engenty/ui-core": "workspace:*",
     "@engenty/ui-icons": "workspace:*",
-    "@hono/zod-openapi": "^1.4.0",
-    "ai": "7.0.58",
+    "@hono/zod-openapi": "^1.6.3",
+    "ai": "7.0.102",
     "exceljs": "^4.4.0",
-    "lucide-react": "^1.21.0",
-    "zod": "4.4.3"
+    "lucide-react": "^1.46.0",
+    "zod": "4.6.5"
   },
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

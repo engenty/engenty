@@ -3,6 +3,8 @@ import { normalizeInstructionFilename } from "../../lib/admin/instruction-settin
 export const AGENTS_WORKSPACE_ROOT_PATH = "/admin/engenty";
 export const AGENTS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/agents`;
 export const WORKFLOWS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/workflows`;
+/** Pre-rename segment. Unmatched `/flows/:id` fell through to Copilot chat. */
+export const WORKFLOWS_CATALOG_LEGACY_FLOWS_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/flows`;
 export const SKILLS_CATALOG_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/skills`;
 export const TOOLS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/tools`;
 export const ARTIFACTS_ROOT_PATH = `${AGENTS_WORKSPACE_ROOT_PATH}/artifacts`;

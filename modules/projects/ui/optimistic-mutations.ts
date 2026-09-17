@@ -1,23 +1,51 @@
+import { useTranslation } from "@engenty/i18n/ui";
 import {
+  beginOptimisticUpdate,
   createOptimisticId,
-  patchOptimisticItems,
-  prependOptimisticItem,
-  reconcileOptimisticItem,
   removeOptimisticItems,
   useMutation,
   useQueryClient,
 } from "@engenty/query-client";
 import { toast } from "sonner";
 import type {
-  ProjectCreateInput,
-  ProjectListItem,
+  PhaseTask,
   ProjectsPaginatedResponse,
   ProjectsQueryParams,
-  ProjectTaskListItem,
-  ProjectTasksPaginatedResponse,
-  ProjectTasksQueryParams,
+  ProjectUpdateInput,
+  ProjectWithPhasesAndTasks,
 } from "./api.js";
-import { createProject, deleteProject, updateTask } from "./api.js";
+import {
+  createPhase,
+  createTask,
+  deletePhase,
+  deleteProject,
+  deleteTask,
+  updatePhase,
+  updatePhaseVisibility,
+  updateProject,
+  updateTask,
+  updateTaskVisibility,
+} from "./api.js";
+import {
+  insertPhase,
+  optimisticPhase,
+  type ProjectPhaseCreateInput,
+  type ProjectPhasePatch,
+  patchPhase,
+  patchProject,
+  reconcilePhase,
+  removePhase,
+} from "./lib/project-detail-phase-cache.js";
+import {
+  insertTask,
+  optimisticPhaseTask,
+  type ProjectTaskCreateInput,
+  type ProjectTaskPatch,
+  patchTask,
+  reconcileTask,
+  removeTask,
+  reorderTasks,
+} from "./lib/project-detail-task-cache.js";
 import {
   type ProjectSpaceScope,
   useProjectSpaceScope,
@@ -25,106 +53,20 @@ import {
 } from "./lib/use-project-space-scope.js";
 import { projectKeys } from "./queries.js";
 
-export function optimisticProject(
-  input: ProjectCreateInput,
-  id: string,
-  now = new Date().toISOString()
-): ProjectListItem {
-  return {
-    briefing: input.briefing ?? null,
-    client_id: input.client_id,
-    client_name: input.client_name,
-    created_at: now,
-    created_by: input.created_by ?? null,
-    enabled_tabs: input.enabled_tabs ?? null,
-    end_date: input.end_date ?? null,
-    id,
-    lead_id: input.lead_id ?? null,
-    portal_enabled: input.portal_enabled ?? false,
-    scope_id: "",
-    space_id: input.space_id ?? "",
-    start_date: input.start_date ?? null,
-    tenant_id: "",
-    timeplan_enabled: input.timeplan_enabled ?? true,
-    title: input.title,
-    updated_at: now,
-  };
-}
+/**
+ * Project tasks are edited on the project-detail document, so every task
+ * mutation runs one `beginOptimisticUpdate` transaction against
+ * `projectKeys.detail(projectId)`. The document reducers live in
+ * `lib/project-detail-task-cache.ts`; the recovery policy per family is
+ * documented in `docs/content/dev/optimistic-ui-mutation-inventory.md`.
+ */
 
-export function projectMatchesList(
-  project: ProjectListItem,
-  params: ProjectsQueryParams
-): boolean {
-  return (
-    (!params.client_id || project.client_id === params.client_id) &&
-    (!params.lead_id || project.lead_id === params.lead_id) &&
-    (!params.space_id || project.space_id === params.space_id) &&
-    (!params.search ||
-      project.title.toLowerCase().includes(params.search.toLowerCase()))
-  );
-}
-
-function taskMatches(
-  task: ProjectTaskListItem,
-  params: ProjectTasksQueryParams
-): boolean {
-  return (
-    (!params.project_id || task.project_id === params.project_id) &&
-    (!params.phase_id || task.phase_id === params.phase_id) &&
-    (!params.status || task.status === params.status) &&
-    (!params.search ||
-      task.title.toLowerCase().includes(params.search.toLowerCase()))
-  );
-}
-
-export function useCreateProjectMutation(
-  params: ProjectsQueryParams,
-  options: { scope?: ProjectSpaceScope } = {}
-) {
-  const queryClient = useQueryClient();
-  const spaceId = useProjectSpaceScope(options.scope);
-  const listParams = withProjectSpaceScope(params, spaceId);
-  return useMutation({
-    mutationFn: (input: ProjectCreateInput) =>
-      createProject(withProjectSpaceScope(input, spaceId)),
-    onMutate: async (input) => {
-      const optimisticId = createOptimisticId();
-      const optimistic = optimisticProject(
-        withProjectSpaceScope(input, spaceId),
-        optimisticId
-      );
-      const queryKey = projectKeys.list(listParams);
-      await queryClient.cancelQueries({ queryKey });
-      queryClient.setQueryData<ProjectsPaginatedResponse>(
-        queryKey,
-        (current) =>
-          projectMatchesList(optimistic, listParams)
-            ? prependOptimisticItem(current, optimistic)
-            : current
-      );
-      return { optimisticId, queryKey };
-    },
-    onError: (_error, _input, context) => {
-      if (context) {
-        queryClient.setQueryData<ProjectsPaginatedResponse>(
-          context.queryKey,
-          (current) =>
-            removeOptimisticItems(current, new Set([context.optimisticId]))
-        );
-        void queryClient.invalidateQueries({ queryKey: context.queryKey });
-      }
-      toast.error("Could not create the project.");
-    },
-    onSuccess: (saved, _input, context) => {
-      if (!context) {
-        return;
-      }
-      queryClient.setQueryData<ProjectsPaginatedResponse>(
-        context.queryKey,
-        (current) =>
-          reconcileOptimisticItem(current, context.optimisticId, saved)
-      );
-    },
+/** Task counts feed the project cards on the list page, and are server-derived. */
+function invalidateTaskCounts(
+  queryClient: ReturnType<typeof useQueryClient>
+): void {
+  void queryClient.invalidateQueries({
+    queryKey: [...projectKeys.all, "tasks", "counts"],
   });
 }
 
@@ -167,57 +109,386 @@ export function useDeleteProjectMutation(
   });
 }
 
-export function useUpdateProjectTaskMutation(
-  _listParams?: ProjectTasksQueryParams
-) {
+/**
+ * Entity-guarded recovery: a failure removes only this create's temporary row,
+ * then invalidates so a concurrent writer's rows are recovered authoritatively.
+ */
+export function useCreateProjectTaskMutation(projectId: string) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: (input: ProjectTaskCreateInput) => createTask(projectId, input),
+    onMutate: async (input) => {
+      const optimisticId = createOptimisticId();
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) =>
+            insertTask(
+              current,
+              optimisticPhaseTask(input, projectId, optimisticId)
+            ),
+        });
+      return { optimisticId, transaction };
+    },
+    onError: (_error, _input, context) => {
+      if (context) {
+        queryClient.setQueryData<ProjectWithPhasesAndTasks>(
+          queryKey,
+          (current) => removeTask(current, context.optimisticId)
+        );
+        void context.transaction.invalidate();
+      }
+      toast.error(t("tasks.createFailed"));
+    },
+    onSuccess: (saved, _input, context) => {
+      if (!context) {
+        return;
+      }
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        reconcileTask(current, context.optimisticId, saved)
+      );
+      invalidateTaskCounts(queryClient);
+    },
+  });
+}
+
+/**
+ * Serialized recovery: one write per task at a time, so restoring the snapshot
+ * is safe. `rollback` keeps a newer value when a refetch beat the failure.
+ */
+export function useUpdateProjectTaskMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
   return useMutation({
     mutationFn: ({
-      projectId,
       taskId,
       patch,
     }: {
-      projectId: string;
       taskId: string;
-      patch: Parameters<typeof updateTask>[2];
+      patch: ProjectTaskPatch;
     }) => updateTask(projectId, taskId, patch),
     onMutate: async ({ taskId, patch }) => {
-      await queryClient.cancelQueries({
-        queryKey: [...projectKeys.all, "tasks"],
-      });
-      for (const [
-        key,
-        current,
-      ] of queryClient.getQueriesData<ProjectTasksPaginatedResponse>({
-        queryKey: [...projectKeys.all, "tasks", "list"],
-      })) {
-        const params = key.at(-1) as ProjectTasksQueryParams;
-        queryClient.setQueryData(
-          key,
-          patchOptimisticItems(current, new Set([taskId]), patch, (task) =>
-            taskMatches(task, params)
-          )
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => patchTask(current, taskId, patch),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      context?.transaction.rollback();
+      toast.error(t("tasks.updateFailed"));
+    },
+    onSuccess: (saved: PhaseTask) => {
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        patchTask(current, saved.id, saved)
+      );
+      invalidateTaskCounts(queryClient);
+    },
+  });
+}
+
+/**
+ * Portal visibility has its own endpoint, so it cannot ride the generic patch,
+ * but the cache effect is the same single field.
+ */
+export function useSetProjectTaskVisibilityMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: ({ taskId, isPublic }: { taskId: string; isPublic: boolean }) =>
+      updateTaskVisibility(projectId, taskId, isPublic),
+    onMutate: async ({ taskId, isPublic }) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) =>
+            patchTask(current, taskId, { is_public: isPublic }),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      context?.transaction.rollback();
+      toast.error(t("tasks.updateFailed"));
+    },
+    onSuccess: (saved: PhaseTask) => {
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        patchTask(current, saved.id, saved)
+      );
+    },
+  });
+}
+
+export function useDeleteProjectTaskMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: (taskId: string) => deleteTask(projectId, taskId),
+    onMutate: async (taskId) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => removeTask(current, taskId),
+        });
+      return { transaction };
+    },
+    onError: (_error, _taskId, context) => {
+      void context?.transaction.invalidate();
+      toast.error(t("tasks.deleteFailed"));
+    },
+    onSuccess: (_result, taskId) => {
+      // A refetch can land between the optimistic removal and the commit, and
+      // a realtime DELETE is not reliably delivered, so re-assert the removal
+      // now that the server has confirmed it.
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        removeTask(current, taskId)
+      );
+      invalidateTaskCounts(queryClient);
+    },
+  });
+}
+
+/**
+ * Overlapping recovery: a reorder writes several rows, so a partial failure can
+ * leave the document holding another write's rows. Recover by refetching rather
+ * than restoring a snapshot that predates it.
+ */
+export function useReorderProjectTasksMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: async ({
+      orderedIds,
+      previousIds,
+    }: {
+      orderedIds: readonly string[];
+      phaseId: string | null;
+      previousIds: readonly string[];
+    }) => {
+      for (const [index, taskId] of orderedIds.entries()) {
+        if (previousIds[index] !== taskId) {
+          await updateTask(projectId, taskId, { order_index: index });
+        }
+      }
+    },
+    onMutate: async ({ orderedIds, phaseId }) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => reorderTasks(current, phaseId, orderedIds),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      void context?.transaction.invalidate();
+      toast.error(t("tasks.reorderFailed"));
+    },
+  });
+}
+
+/**
+ * Phase creates carry a temporary id like task creates, and recover the same
+ * way: drop only this create's row, then invalidate for the authoritative view.
+ */
+export function useCreateProjectPhaseMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: (input: ProjectPhaseCreateInput) =>
+      createPhase(projectId, input),
+    onMutate: async (input) => {
+      const optimisticId = createOptimisticId();
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) =>
+            insertPhase(
+              current,
+              optimisticPhase(input, projectId, optimisticId)
+            ),
+        });
+      return { optimisticId, transaction };
+    },
+    onError: (_error, _input, context) => {
+      if (context) {
+        queryClient.setQueryData<ProjectWithPhasesAndTasks>(
+          queryKey,
+          (current) =>
+            removePhase(current, context.optimisticId, {
+              kind: "delete",
+            })
+        );
+        void context.transaction.invalidate();
+      }
+      toast.error(t("phases.createFailed"));
+    },
+    onSuccess: (saved, _input, context) => {
+      if (context) {
+        queryClient.setQueryData<ProjectWithPhasesAndTasks>(
+          queryKey,
+          (current) => reconcilePhase(current, context.optimisticId, saved)
         );
       }
     },
-    onError: () => {
+  });
+}
+
+export function useUpdateProjectPhaseMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: ({
+      phaseId,
+      patch,
+    }: {
+      phaseId: string;
+      patch: ProjectPhasePatch;
+    }) => updatePhase(projectId, phaseId, patch),
+    onMutate: async ({ phaseId, patch }) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => patchPhase(current, phaseId, patch),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      context?.transaction.rollback();
+      toast.error(t("phases.updateFailed"));
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        patchPhase(current, saved.id, saved)
+      );
+    },
+  });
+}
+
+/** Portal visibility for a phase — its own endpoint, one field in the cache. */
+export function useSetProjectPhaseVisibilityMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: ({
+      phaseId,
+      isPublic,
+    }: {
+      phaseId: string;
+      isPublic: boolean;
+    }) => updatePhaseVisibility(projectId, phaseId, isPublic),
+    onMutate: async ({ phaseId, isPublic }) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) =>
+            patchPhase(current, phaseId, { is_public: isPublic }),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      context?.transaction.rollback();
+      toast.error(t("phases.updateFailed"));
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        patchPhase(current, saved.id, saved)
+      );
+    },
+  });
+}
+
+/**
+ * Deleting a phase settles its tasks first — moved or deleted, one write each —
+ * then removes the phase. Several writes can half-succeed, so recovery is a
+ * refetch rather than a snapshot restore.
+ */
+export function useDeleteProjectPhaseMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: async ({
+      phaseId,
+      taskIds,
+      taskAction,
+    }: {
+      phaseId: string;
+      taskAction:
+        | { kind: "delete" }
+        | { kind: "move"; targetPhaseId: string | null };
+      taskIds: readonly string[];
+    }) => {
+      for (const taskId of taskIds) {
+        if (taskAction.kind === "move") {
+          await updateTask(projectId, taskId, {
+            phase_id: taskAction.targetPhaseId,
+          });
+        } else {
+          await deleteTask(projectId, taskId);
+        }
+      }
+      return await deletePhase(projectId, phaseId);
+    },
+    onMutate: async ({ phaseId, taskAction }) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => removePhase(current, phaseId, taskAction),
+        });
+      return { transaction };
+    },
+    onError: (_error, _variables, context) => {
+      void context?.transaction.invalidate();
+      toast.error(t("phases.deleteFailed"));
+    },
+    onSuccess: (_result, { phaseId, taskAction }) => {
+      // The task writes that precede the delete each trigger a realtime
+      // refetch, which can restore the phase mid-sequence, and a realtime
+      // DELETE on `project_phases` is not reliably delivered. Re-assert the
+      // removal against the confirmed server state.
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        removePhase(current, phaseId, taskAction)
+      );
+      invalidateTaskCounts(queryClient);
+    },
+  });
+}
+
+/** Project-level field edits from the settings panel and the briefing editor. */
+export function useUpdateProjectDetailMutation(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation("projects");
+  const queryKey = projectKeys.detail(projectId);
+  return useMutation({
+    mutationFn: (patch: ProjectUpdateInput) => updateProject(projectId, patch),
+    onMutate: async (patch) => {
+      const transaction =
+        await beginOptimisticUpdate<ProjectWithPhasesAndTasks>(queryClient, {
+          queryKey,
+          update: (current) => patchProject(current, patch),
+        });
+      return { transaction };
+    },
+    onError: (_error, _patch, context) => {
+      context?.transaction.rollback();
+      toast.error(t("detail.saveFailed"));
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<ProjectWithPhasesAndTasks>(queryKey, (current) =>
+        patchProject(current, saved)
+      );
       void queryClient.invalidateQueries({
-        queryKey: [...projectKeys.all, "tasks"],
+        queryKey: [...projectKeys.all, "list"],
       });
-      toast.error("Could not move the task. The board is refreshing.");
-    },
-    onSuccess: (saved, { taskId }) => {
-      for (const [
-        key,
-        current,
-      ] of queryClient.getQueriesData<ProjectTasksPaginatedResponse>({
-        queryKey: [...projectKeys.all, "tasks", "list"],
-      })) {
-        queryClient.setQueryData(
-          key,
-          patchOptimisticItems(current, new Set([taskId]), saved)
-        );
-      }
     },
   });
 }

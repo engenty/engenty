@@ -91,6 +91,11 @@ import {
   createDevGatewayHooks,
   shouldRegisterDevGateway,
 } from "./dev-gateway.js";
+import {
+  createMcpAuthorityResolver,
+  createStaticMcpAuthorityResolver,
+} from "./mcp/authority.js";
+import { registerMcpRoutes } from "./mcp/routes.js";
 import { registerOpenApiEndpoints } from "./openapi.js";
 import {
   createProdGatewayHooks,
@@ -163,6 +168,9 @@ export interface CreateApiAppParams {
    */
   grantsService?: GrantsService;
   logger?: ApiLogger;
+  /** Inject MCP OAuth client grants (tests use the in-memory store). */
+  mcpGrants?: import("./mcp/grants.js").McpGrantStore;
+  mcpTasks?: import("./mcp/tasks.js").McpTaskStore;
   readiness?: {
     checkDatabase?: () => Promise<boolean>;
     databaseConfigured: boolean;
@@ -218,7 +226,14 @@ export function createApiApp(params: CreateApiAppParams) {
               ? origin
               : null,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["authorization", "content-type"],
+      allowHeaders: [
+        "authorization",
+        "content-type",
+        "mcp-protocol-version",
+        "mcp-method",
+        "mcp-name",
+        "last-event-id",
+      ],
     })
   );
 
@@ -586,6 +601,31 @@ export function createApiApp(params: CreateApiAppParams) {
     auditLog: securityAuditLog,
     tenantPluginOverrides,
     resolveAgentApproval,
+  });
+  const mcpAuthority = getDbForPolicy
+    ? createMcpAuthorityResolver({
+        getDb: getDbForPolicy,
+        grants: grantsService,
+      })
+    : params.grantsService
+      ? createStaticMcpAuthorityResolver()
+      : null;
+  if (!mcpAuthority) {
+    throw new Error("MCP requires a tenant database authority resolver.");
+  }
+  registerMcpRoutes({
+    app,
+    approvalService,
+    auditLog: securityAuditLog,
+    authProvider,
+    authority: mcpAuthority,
+    config,
+    dataDir: params.dataDir,
+    registry: params.registry,
+    resolveAgentApproval,
+    resolvePath: params.resolvePath,
+    ...(params.mcpGrants ? { grants: params.mcpGrants } : {}),
+    ...(params.mcpTasks ? { tasks: params.mcpTasks } : {}),
   });
   registerAiModuleCapabilityRoutes(app, config);
   registerApprovalRoutes({

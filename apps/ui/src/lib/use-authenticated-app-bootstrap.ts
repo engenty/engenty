@@ -157,6 +157,16 @@ export function useAuthenticatedAppBootstrap(isAuthenticated: boolean) {
           await supabase.auth.signOut({ scope: "local" });
           return;
         }
+        // 401 / unauthorized from ensure-current-user means the JWT is dead —
+        // bounce to login instead of a dead-end setup card with `{}`.
+        if (
+          /unauthorized|not authenticated|401/i.test(msg) ||
+          msg.trim() === "{}" ||
+          msg.trim() === "[object Object]"
+        ) {
+          await supabase.auth.signOut({ scope: "local" });
+          return;
+        }
         if (isEngentyServiceAvailabilityError(ensureError)) {
           setServiceAvailabilityFailure(ensureError.failure);
           return;

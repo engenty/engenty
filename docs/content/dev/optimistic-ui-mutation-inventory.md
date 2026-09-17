@@ -13,16 +13,16 @@ same write appears on list, detail, and embedded space surfaces.
 ## Summary
 
 - **A — simple optimistic: 12**
-- **B — temporary-ID create: 15**
-- **C — bespoke/multi-key: 18**
+- **B — temporary-ID create: 17**
+- **C — bespoke/multi-key: 19**
 - **D — remain pessimistic: 12**
-- **Total: 57 mutation families**
+- **Total: 60 mutation families**
 
 Current rollout status:
 
 - **A: 12 migrated**
-- **B: 6 migrated, 1 partially migrated, 8 retained**
-- **C: 0 fully migrated, 9 partially migrated, 9 retained**
+- **B: 8 migrated, 1 partially migrated, 8 retained**
+- **C: 1 fully migrated, 9 partially migrated, 9 retained**
 - **D: 12 intentionally pessimistic**
 
 `[x]` means every safely projectable interaction in the family is migrated.
@@ -57,10 +57,11 @@ Recovery abbreviations:
 - [x] **A07 Contact detail fields and roles** —
   `["contacts","detail",id]`; guarded rollback; reconcile the complete returned
   contact. Paginated lists remain C.
-- [x] **A08 Contact settings and role-menu documents** —
-  `["contacts","settings"]`, `["contacts","role-menu"]`,
-  `["contacts","settings-page"]`; rollback; acknowledgement-only role-menu
-  writes reconcile the normalized submitted document.
+- [x] **A08 Contact settings and role-menu documents** — one page mutation
+  saves both documents across `["contacts","settings"]`,
+  `["contacts","role-menu"]` and `["contacts","settings-page"]`; rollback;
+  acknowledgement-only role-menu writes reconcile the normalized submitted
+  document.
 - [x] **A09 Team-member detail fields** —
   `["team","members","detail",id]` and `detail-page`; guarded rollback;
   reconcile the complete returned member. Filtered lists remain C.
@@ -121,15 +122,30 @@ success refetch.
 - [ ] **B15 Time-tracking report snapshots and saved reports** — report/list
   keys; retained because snapshot totals and report definitions are normalized
   and computed by the server.
+- [x] **B17 Project phases** — the project-detail document
+  `["projects","detail",id]`; `opt_<uuid>`; guarded temporary-row removal and
+  authoritative replacement, keeping any task added to the phase meanwhile.
+- [x] **B16 Project tasks** — the project-detail document
+  `["projects","detail",id]`; `opt_<uuid>`; guarded temporary-row removal and
+  authoritative replacement through `lib/project-detail-task-cache.ts`. Derived
+  task counts refetch after the create completes.
 
 ## C — bespoke optimistic reducers
 
 - [~] **C01 Project deletes (optional task cascade)** — project rows remove
   immediately; optional cascades target-refetch task lists/counts after success
   and refetch all project keys on partial failure.
-- [~] **C02 Project task edits/Kanban moves** — matching filtered/paginated
-  task lists and cross-column membership patch immediately. Server-derived
-  counts remain authoritative.
+- [x] **C19 Project phase and project-level edits** — the project-detail
+  document. Phase title/date edits and portal visibility roll back; a phase
+  delete settles its tasks first (move or delete, one write each) so it
+  recovers by refetch. Project settings, briefing, title and tab configuration
+  roll back and refresh the project lists. Phase dates re-derive the project's
+  own start/end the way `fetchProjectWithDateSync` does on a fetch.
+- [~] **C02 Project task edits, phase moves, reorders, and deletes** — the
+  project-detail document patches immediately for field edits (rollback),
+  portal visibility (rollback), phase moves and same-phase reorders (refetch,
+  because a reorder writes several rows), and deletes (refetch). Server-derived
+  task counts remain authoritative and are refetched after a create or delete.
 - [~] **C03 Task list edits, bulk updates, and bulk deletes** — matching scoped
   filtered lists and detail rows patch immediately. Briefing reasons, activity,
   and derived project counts remain authoritative.

@@ -4,6 +4,7 @@ import { CallbackPage } from "./routes/callback-page";
 import { DevLoginPage } from "./routes/dev-login-page";
 import { InitialSetupPage } from "./routes/initial-setup-page";
 import { LoginPage } from "./routes/login-page";
+import { OAuthConsentPage } from "./routes/oauth-consent-page";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.i18n.registerNamespace({
@@ -49,5 +50,13 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: "/auth/callback",
     component: CallbackPage,
     order: 11,
+  });
+
+  engenty.UI.registerRoute({
+    id: "auth_oauth_consent",
+    path: "/oauth/consent",
+    component: OAuthConsentPage,
+    order: 8,
+    scope: "public",
   });
 }

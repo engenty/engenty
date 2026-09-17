@@ -19,12 +19,12 @@
   },
   "dependencies": {
     "@engenty/secrets-sdk": "workspace:*",
-    "@supabase/supabase-js": "^2.108.2"
+    "@supabase/supabase-js": "^2.116.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.13.5",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

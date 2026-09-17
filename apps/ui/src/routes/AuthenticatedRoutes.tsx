@@ -57,6 +57,7 @@ import { SpacesSettingsPage } from "@/pages/SpacesSettingsPage";
 import { SpaceWorkHome } from "@/pages/SpaceWorkHome";
 import { TenantSettingsPage } from "@/pages/TenantSettingsPage";
 import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
+import { DefaultPlaceRedirect } from "@/routes/DefaultPlaceRedirect";
 import { LegacyModuleRedirect } from "@/routes/LegacyModuleRedirect";
 import { LegacySpaceSettingsRedirect } from "@/routes/LegacySpaceSettingsRedirect";
 import { PersonalSpaceRedirect } from "@/routes/PersonalSpaceRedirect";
@@ -170,7 +171,7 @@ export function AuthenticatedRoutes({
   return (
     <UiContributionsProvider contributions={contributions}>
       <Routes>
-        <Route element={<Navigate replace to={COPILOT_CHAT_ROOT} />} path="/" />
+        <Route element={<DefaultPlaceRedirect />} path="/" />
         <Route
           element={<Navigate replace to="/mdl/dashboard" />}
           path="/dashboard"
@@ -197,22 +198,12 @@ export function AuthenticatedRoutes({
           path="/settings/notifications"
         />
         <Route
-          element={
-            isAdmin ? (
-              <SetupPage />
-            ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
-            )
-          }
+          element={isAdmin ? <SetupPage /> : <DefaultPlaceRedirect />}
           path="/setup"
         />
         <Route
           element={
-            isSuperAdmin ? (
-              <SetupPluginsPage />
-            ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
-            )
+            isSuperAdmin ? <SetupPluginsPage /> : <DefaultPlaceRedirect />
           }
           path="/setup/plugins"
         />
@@ -281,11 +272,7 @@ export function AuthenticatedRoutes({
         />
         <Route
           element={
-            isSuperAdmin ? (
-              <RolesSettingsPage />
-            ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
-            )
+            isSuperAdmin ? <RolesSettingsPage /> : <DefaultPlaceRedirect />
           }
           path="/setup/roles"
         />
@@ -320,11 +307,7 @@ export function AuthenticatedRoutes({
         />
         <Route
           element={
-            isSuperAdmin ? (
-              <PlatformSettingsPage />
-            ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
-            )
+            isSuperAdmin ? <PlatformSettingsPage /> : <DefaultPlaceRedirect />
           }
           path="/setup/platform"
         />
@@ -371,7 +354,7 @@ export function AuthenticatedRoutes({
             developerModeEnabled && isSuperAdmin ? (
               <FeatureFlagsPage />
             ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
+              <DefaultPlaceRedirect />
             )
           }
           path="/setup/features"
@@ -385,7 +368,7 @@ export function AuthenticatedRoutes({
             developerModeEnabled && isSuperAdmin ? (
               <SearchIndexSettingsPage />
             ) : (
-              <Navigate replace to={COPILOT_CHAT_ROOT} />
+              <DefaultPlaceRedirect />
             )
           }
           path="/setup/search-index"
@@ -394,18 +377,9 @@ export function AuthenticatedRoutes({
           element={<RedirectPreserveSearch to="/setup/search-index" />}
           path="/settings/search-index"
         />
-        <Route
-          element={<Navigate replace to={COPILOT_CHAT_ROOT} />}
-          path="/initial_setup"
-        />
-        <Route
-          element={<Navigate replace to={COPILOT_CHAT_ROOT} />}
-          path="/auth/login"
-        />
-        <Route
-          element={<Navigate replace to={COPILOT_CHAT_ROOT} />}
-          path="/auth/callback"
-        />
+        <Route element={<DefaultPlaceRedirect />} path="/initial_setup" />
+        <Route element={<DefaultPlaceRedirect />} path="/auth/login" />
+        <Route element={<DefaultPlaceRedirect />} path="/auth/callback" />
         {contributions.routes.map((pluginRoute) => {
           const PluginPage = pluginRoute.component;
           // Admin surfaces: any /admin/* console (agents workspace, users,
@@ -429,11 +403,7 @@ export function AuthenticatedRoutes({
           const blocked = isSetupPath
             ? isBlockedSetupPath(pluginRoute.path, { isAdmin, isSuperAdmin })
             : adminOnly && !isAdmin;
-          const element = blocked ? (
-            <Navigate replace to={COPILOT_CHAT_ROOT} />
-          ) : (
-            <PluginPage />
-          );
+          const element = blocked ? <DefaultPlaceRedirect /> : <PluginPage />;
           // A space-placed module's legacy path redirects into its space; a
           // global one keeps `/mdl/` as canonical. Copilot is space-placed
           // for mounts but its `/mdl/` path is the personal desk — do not
@@ -537,7 +507,7 @@ export function AuthenticatedRoutes({
               ];
             })}
         </Route>
-        <Route element={<Navigate replace to={COPILOT_CHAT_ROOT} />} path="*" />
+        <Route element={<DefaultPlaceRedirect />} path="*" />
       </Routes>
     </UiContributionsProvider>
   );

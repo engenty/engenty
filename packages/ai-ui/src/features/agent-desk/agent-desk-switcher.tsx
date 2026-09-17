@@ -55,8 +55,9 @@ export function AgentDeskSwitcher({
   /** The Space's roster, the current agent included. */
   agents: readonly AgentDeskSwitchAgent[];
   current: AgentDeskSwitchCurrent;
-  /** The crumb itself — the desk's link, the room's info button. */
-  label: ReactNode;
+  /** The crumb itself — the desk's link, the room's info button. Omitted
+   * when the chevron hangs on another crumb (the desk puts it on the Space). */
+  label?: ReactNode;
   /** The rooms the viewer is in, the current one included. */
   rooms?: readonly AgentDeskSwitchRoom[];
   spaceKey: string;

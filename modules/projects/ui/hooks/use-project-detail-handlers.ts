@@ -1,28 +1,31 @@
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { useCallback, useState } from "react";
-import {
-  createPhase,
-  createTask,
-  deletePhase,
-  deleteTask,
-  type PhaseTask,
-  type ProjectPhase,
-  type ProjectWithPhasesAndTasks,
-  updatePhase,
-  updatePhaseVisibility,
-  updateProject,
-  updateTask,
-  updateTaskVisibility,
+import type {
+  PhaseTask,
+  ProjectPhase,
+  ProjectWithPhasesAndTasks,
 } from "../api.js";
 import type { PhaseDeleteConfirm } from "../components/phase-delete-dialog.js";
 import type { ProjectSettingsValues } from "../components/project-settings-panel.js";
+import {
+  useCreateProjectPhaseMutation,
+  useCreateProjectTaskMutation,
+  useDeleteProjectPhaseMutation,
+  useDeleteProjectTaskMutation,
+  useReorderProjectTasksMutation,
+  useSetProjectPhaseVisibilityMutation,
+  useSetProjectTaskVisibilityMutation,
+  useUpdateProjectDetailMutation,
+  useUpdateProjectPhaseMutation,
+  useUpdateProjectTaskMutation,
+} from "../optimistic-mutations.js";
 
 export interface UseProjectDetailHandlersParams {
   addTaskPhaseId: string | null;
   editingPhase: ProjectPhase | null;
   editingTask: PhaseTask | null;
   id: string | undefined;
-  loadProject: () => Promise<void>;
   project: ProjectWithPhasesAndTasks | null;
   setAddTaskPhaseId: (id: string | null) => void;
   setEditingPhase: (phase: ProjectPhase | null) => void;
@@ -34,7 +37,6 @@ export interface UseProjectDetailHandlersParams {
 export function useProjectDetailHandlers({
   id,
   project,
-  loadProject,
   editingPhase,
   editingTask,
   addTaskPhaseId,
@@ -45,6 +47,19 @@ export function useProjectDetailHandlers({
   setAddTaskPhaseId,
 }: UseProjectDetailHandlersParams) {
   const [activeTask, setActiveTask] = useState<PhaseTask | null>(null);
+  // Every write on this page patches the project-detail document in place.
+  const projectId = id ?? "";
+  const createTaskMutation = useCreateProjectTaskMutation(projectId);
+  const updateTaskMutation = useUpdateProjectTaskMutation(projectId);
+  const deleteTaskMutation = useDeleteProjectTaskMutation(projectId);
+  const reorderTasksMutation = useReorderProjectTasksMutation(projectId);
+  const taskVisibilityMutation = useSetProjectTaskVisibilityMutation(projectId);
+  const createPhaseMutation = useCreateProjectPhaseMutation(projectId);
+  const updatePhaseMutation = useUpdateProjectPhaseMutation(projectId);
+  const deletePhaseMutation = useDeleteProjectPhaseMutation(projectId);
+  const phaseVisibilityMutation =
+    useSetProjectPhaseVisibilityMutation(projectId);
+  const updateProjectMutation = useUpdateProjectDetailMutation(projectId);
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -119,37 +134,29 @@ export function useProjectDetailHandlers({
         const oldIndex = taskList.findIndex((t) => t.id === activeId);
         const newIndex = taskList.findIndex((t) => t.id === overId);
 
-        if (oldIndex !== newIndex) {
-          const start = Math.min(oldIndex, newIndex);
-          const end = Math.max(oldIndex, newIndex);
-
-          for (let i = start; i <= end; i++) {
-            const task = taskList[i];
-            let newOrderIndex = i;
-
-            if (i === oldIndex) {
-              newOrderIndex = newIndex;
-            } else if (oldIndex < newIndex && i > oldIndex && i <= newIndex) {
-              newOrderIndex = i - 1;
-            } else if (oldIndex > newIndex && i >= newIndex && i < oldIndex) {
-              newOrderIndex = i + 1;
-            }
-
-            await updateTask(id, task.id, { order_index: newOrderIndex });
-          }
+        // Dropping on the phase container itself has no position to move to.
+        if (newIndex >= 0 && oldIndex !== newIndex) {
+          const previousIds = taskList.map((t) => t.id);
+          reorderTasksMutation.mutate({
+            orderedIds: arrayMove(previousIds, oldIndex, newIndex),
+            phaseId: targetPhaseId,
+            previousIds,
+          });
         }
       } else {
         const targetList = targetPhaseId
           ? project.phases.find((p) => p.id === targetPhaseId)?.tasks || []
           : project.general_tasks;
-        await updateTask(id, activeId, {
-          phase_id: targetPhaseId,
-          order_index: targetList.length,
+        updateTaskMutation.mutate({
+          patch: {
+            order_index: targetList.length,
+            phase_id: targetPhaseId,
+          },
+          taskId: activeId,
         });
       }
-      await loadProject();
     },
-    [id, project, loadProject]
+    [id, project, reorderTasksMutation, updateTaskMutation]
   );
 
   const handlePhaseSubmit = useCallback(
@@ -164,46 +171,50 @@ export function useProjectDetailHandlers({
         return;
       }
       if (editingPhase) {
-        await updatePhase(id, editingPhase.id, data);
+        updatePhaseMutation.mutate({ patch: data, phaseId: editingPhase.id });
       } else {
-        await createPhase(id, {
+        createPhaseMutation.mutate({
           ...data,
           order_index: project?.phases?.length ?? 0,
         });
       }
       setPhaseFormOpen(false);
       setEditingPhase(null);
-      await loadProject();
     },
-    [id, editingPhase, project?.phases?.length, loadProject]
+    [
+      id,
+      editingPhase,
+      project?.phases?.length,
+      createPhaseMutation,
+      updatePhaseMutation,
+      setPhaseFormOpen,
+      setEditingPhase,
+    ]
   );
 
   const handlePhaseDelete = useCallback(
-    async ({ taskAction, targetPhaseId }: PhaseDeleteConfirm) => {
+    ({ taskAction, targetPhaseId }: PhaseDeleteConfirm) => {
       if (!(id && editingPhase)) {
         return;
       }
       const phaseTasks =
         project?.phases.find((p) => p.id === editingPhase.id)?.tasks ?? [];
-      if (taskAction === "move") {
-        for (const task of phaseTasks) {
-          await updateTask(id, task.id, { phase_id: targetPhaseId });
-        }
-      } else {
-        for (const task of phaseTasks) {
-          await deleteTask(id, task.id);
-        }
-      }
-      await deletePhase(id, editingPhase.id);
+      deletePhaseMutation.mutate({
+        phaseId: editingPhase.id,
+        taskAction:
+          taskAction === "move"
+            ? { kind: "move", targetPhaseId }
+            : { kind: "delete" },
+        taskIds: phaseTasks.map((task) => task.id),
+      });
       setPhaseFormOpen(false);
       setEditingPhase(null);
-      await loadProject();
     },
     [
       id,
       editingPhase,
       project?.phases,
-      loadProject,
+      deletePhaseMutation,
       setPhaseFormOpen,
       setEditingPhase,
     ]
@@ -224,89 +235,91 @@ export function useProjectDetailHandlers({
         return;
       }
       if (editingTask) {
-        await updateTask(id, editingTask.id, data);
+        updateTaskMutation.mutate({ patch: data, taskId: editingTask.id });
       } else {
-        await createTask(id, {
+        createTaskMutation.mutate({
           ...data,
-          phase_id: data.phase_id ?? addTaskPhaseId ?? null,
           discipline: data.discipline ?? null,
           hours: data.hours ?? null,
-          team_member_ids: data.team_member_ids ?? [],
           order_index: 0,
+          phase_id: data.phase_id ?? addTaskPhaseId ?? null,
+          team_member_ids: data.team_member_ids ?? [],
         });
       }
       setTaskFormOpen(false);
       setEditingTask(null);
       setAddTaskPhaseId(null);
-      await loadProject();
     },
-    [id, editingTask, addTaskPhaseId, loadProject]
+    [
+      id,
+      editingTask,
+      addTaskPhaseId,
+      createTaskMutation,
+      updateTaskMutation,
+      setTaskFormOpen,
+      setEditingTask,
+      setAddTaskPhaseId,
+    ]
   );
 
   const handleTaskStatusChange = useCallback(
-    async (taskId: string, status: string) => {
+    (taskId: string, status: string) => {
       if (!id) {
         return;
       }
-      await updateTask(id, taskId, { status });
-      await loadProject();
+      updateTaskMutation.mutate({ patch: { status }, taskId });
     },
-    [id, loadProject]
+    [id, updateTaskMutation]
   );
 
   const handleTaskDelete = useCallback(
-    async (taskId: string) => {
+    (taskId: string) => {
       if (!id) {
         return;
       }
-      await deleteTask(id, taskId);
-      await loadProject();
+      deleteTaskMutation.mutate(taskId);
     },
-    [id, loadProject]
+    [id, deleteTaskMutation]
   );
 
   const handlePhaseVisibilityToggle = useCallback(
-    async (phaseId: string, is_public: boolean) => {
+    (phaseId: string, is_public: boolean) => {
       if (!id) {
         return;
       }
-      await updatePhaseVisibility(id, phaseId, is_public);
-      await loadProject();
+      phaseVisibilityMutation.mutate({ isPublic: is_public, phaseId });
     },
-    [id, loadProject]
+    [id, phaseVisibilityMutation]
   );
 
   const handleTaskVisibilityToggle = useCallback(
-    async (taskId: string, is_public: boolean) => {
+    (taskId: string, is_public: boolean) => {
       if (!id) {
         return;
       }
-      await updateTaskVisibility(id, taskId, is_public);
-      await loadProject();
+      taskVisibilityMutation.mutate({ isPublic: is_public, taskId });
     },
-    [id, loadProject]
+    [id, taskVisibilityMutation]
   );
 
   const handleProjectSettingsSave = useCallback(
-    async (values: ProjectSettingsValues) => {
+    (values: ProjectSettingsValues) => {
       if (!id) {
         return;
       }
-      await updateProject(id, values);
-      await loadProject();
+      updateProjectMutation.mutate(values);
     },
-    [id, loadProject]
+    [id, updateProjectMutation]
   );
 
   const handleBriefingSave = useCallback(
-    async (briefing: string | null) => {
+    (briefing: string | null) => {
       if (!id) {
         return;
       }
-      await updateProject(id, { briefing: briefing ?? null });
-      await loadProject();
+      updateProjectMutation.mutate({ briefing: briefing ?? null });
     },
-    [id, loadProject]
+    [id, updateProjectMutation]
   );
 
   return {

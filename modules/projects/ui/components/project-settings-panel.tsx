@@ -33,7 +33,7 @@ interface ProjectSettingsPanelProps {
   clientName: string | null;
   endDate: string | null;
   onClose: () => void;
-  onSave: (values: ProjectSettingsValues) => Promise<void>;
+  onSave: (values: ProjectSettingsValues) => void | Promise<void>;
   open: boolean;
   portalEnabled: boolean;
   portalPassword: string | null;

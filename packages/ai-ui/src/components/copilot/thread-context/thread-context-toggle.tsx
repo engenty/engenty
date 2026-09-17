@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
-import { Layers } from "lucide-react";
+import { List } from "lucide-react";
 import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
 import { useArtifacts } from "../../../artifacts/artifact-store.js";
 import { ThreadContextBox } from "./thread-context-box.js";
@@ -61,7 +61,7 @@ export function ThreadContextToggle({
           type="button"
           variant="ghost"
         >
-          <Layers className="size-4" />
+          <List className="size-4" />
           {badgeLabel ? (
             <span
               aria-hidden

@@ -4,9 +4,11 @@
 // This block used to live inside the chat, as the empty state's landing card —
 // so it vanished the moment you sent a message. Who this agent is does not
 // depend on how long you have talked to it, so it is the identity at the top
-// of the transcript and scrolls with it. A compact overlay in the topbar band
+// of the transcript and scrolls with it. A compact band in the topbar row
 // names the desk once that block has scrolled away — it does not replace the
-// large block in flow (that swap used to jitter the scroller).
+// large block in flow (that swap used to jitter the scroller). The band is
+// two lines and opaque: name on the first, kind / readers / standing on the
+// second, and nothing scrolling underneath shows through it.
 //
 // The only pill is the module a module agent ships with, after the name:
 // "Specialist" and "Custom" said nothing the name and the mandate do not, and
@@ -14,7 +16,7 @@
 import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn, DetailPageHeader, Engenty } from "@engenty/ui-core";
-import { CornerDownRight, Crown, Users } from "lucide-react";
+import { CornerDownRight, Crown, Lock, Users } from "lucide-react";
 import { useOptionalAgentHostByKey } from "../../agent-provider/engenty-agent.js";
 import {
   type ChatKind,
@@ -32,6 +34,12 @@ export interface AgentDeskRelation {
   reportsToName?: string | null;
 }
 
+/** Who reads the open conversation, as the header states it. */
+export interface AgentDeskReaders {
+  kind: "dm" | "shared";
+  text: string;
+}
+
 export interface AgentDeskHeaderProps {
   agent: AgentDeskAgent;
   /** What the open conversation is; absent while no thread is bound. */
@@ -43,31 +51,70 @@ export interface AgentDeskHeaderProps {
   memberCount?: number | null;
   /** Display name of `agent.managed_by_module`, as the sidebar labels it. */
   moduleLabel?: string;
+  readers?: AgentDeskReaders | null;
   relation?: AgentDeskRelation | null;
   spaceName?: string | null;
 }
 
+function ReadersLine({ readers }: { readers: AgentDeskReaders | null }) {
+  if (!readers) {
+    return null;
+  }
+  const Icon = readers.kind === "dm" ? Lock : Users;
+  return (
+    <span
+      className="inline-flex min-w-0 items-center gap-1 text-muted-foreground text-xs"
+      data-testid={
+        readers.kind === "dm" ? "agent-desk-dm-bar" : "agent-desk-readers-bar"
+      }
+    >
+      <Icon
+        aria-hidden
+        className={cn(
+          "size-3 shrink-0",
+          // Same colour the kind badge uses for the same fact: locked to you
+          // is amber, a Space that reads along is teal.
+          readers.kind === "dm"
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-teal-600 dark:text-teal-400"
+        )}
+      />
+      <span className="min-w-0 truncate">{readers.text}</span>
+    </span>
+  );
+}
+
 function RelationLine({
+  className,
   relation,
 }: {
+  className?: string;
   relation: AgentDeskRelation | null | undefined;
 }) {
   const { t } = useTranslation("ai-ui");
   if (!relation) {
     return null;
   }
-  const lines: { icon: typeof Crown; text: string }[] = [];
+  // Standing is colour-coded the way the rest of the desk codes it: amber for
+  // "answers to nobody", sky for a reporting line either way.
+  const lines: { icon: typeof Crown; iconClass: string; text: string }[] = [];
   if (relation.reportsToName) {
     lines.push({
       icon: CornerDownRight,
+      iconClass: "text-sky-600 dark:text-sky-400",
       text: `${t("agentDesk.reportsTo")} ${relation.reportsToName}`,
     });
   } else if (relation.coordinator) {
-    lines.push({ icon: Crown, text: t("agentDesk.relation.coordinator") });
+    lines.push({
+      icon: Crown,
+      iconClass: "text-amber-600 dark:text-amber-400",
+      text: t("agentDesk.relation.coordinator"),
+    });
   }
   if (relation.reportNames.length > 0) {
     lines.push({
       icon: Users,
+      iconClass: "text-sky-600 dark:text-sky-400",
       text: t("agentDesk.relation.reports", {
         names: relation.reportNames.join(", "),
       }),
@@ -77,10 +124,15 @@ function RelationLine({
     return null;
   }
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-      {lines.map(({ icon: Icon, text }) => (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs",
+        className
+      )}
+    >
+      {lines.map(({ icon: Icon, iconClass, text }) => (
         <span className="inline-flex items-center gap-1" key={text}>
-          <Icon aria-hidden className="size-3" />
+          <Icon aria-hidden className={cn("size-3", iconClass)} />
           {text}
         </span>
       ))}
@@ -120,39 +172,41 @@ function StatusDot({ hostKey }: { hostKey?: string }) {
 }
 
 function CompactHeader(props: AgentDeskHeaderProps) {
-  const { t } = useTranslation("ai-ui");
   const { agent } = props;
-  // Same height as the transparent topbar (h-11) that floats over it: the
-  // breadcrumb sits left, the actions right — this row is centred between
-  // them and steps aside on narrow screens, where the breadcrumb already
-  // names the agent.
+  // Two lines, opaque, UNDER the transparent topbar (z-10 against its z-20).
+  // The first line is the topbar's own row — breadcrumb left, actions right
+  // — so this only paints the ground it floats on. The second carries what
+  // the large block said under the name: the conversation's kind, who reads
+  // it, where the agent stands, and whether it is working. Steps aside on
+  // narrow screens, where the topbar already fills the band.
   return (
-    <header className="relative h-11 w-full shrink-0" data-collapsed="true">
-      <div className="pointer-events-none absolute inset-0 hidden items-center justify-center md:flex">
-        <div className="pointer-events-auto flex min-w-0 max-w-[50%] items-center gap-2 rounded-full border border-border-soft bg-background/80 px-2.5 py-1 shadow-xs backdrop-blur">
-          <span
-            aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
-            role="img"
-          >
-            <Engenty
-              className="[&_.e-shadow]:hidden"
-              kind={agent.engenty}
-              size={24}
-            />
-          </span>
-          <span className="min-w-0 truncate font-medium text-sm">
-            {agent.name}
-          </span>
-          {props.chatKind ? (
-            <ChatKindBadge
-              kind={props.chatKind}
-              memberCount={props.memberCount}
-              name={agent.name}
-              spaceName={props.spaceName}
-            />
-          ) : null}
-          <StatusDot hostKey={props.hostKey} />
-        </div>
+    <header
+      className="pointer-events-auto hidden w-full shrink-0 border-border-soft border-b bg-background md:block"
+      data-collapsed="true"
+    >
+      <div aria-hidden className="h-11" />
+      <div
+        // `pl-5` = the transcript's own gutter (`px-3` on the scroller plus
+        // `pl-2` on the stack), so the band's info starts on the message edge.
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 pr-3 pb-2 pl-5 text-muted-foreground text-xs"
+      >
+        {agent.source === "module" && agent.managed_by_module ? (
+          <AgentModuleBadge
+            label={props.moduleLabel}
+            moduleId={agent.managed_by_module}
+          />
+        ) : null}
+        {props.chatKind ? (
+          <ChatKindBadge
+            kind={props.chatKind}
+            memberCount={props.memberCount}
+            name={agent.name}
+            spaceName={props.spaceName}
+          />
+        ) : null}
+        <ReadersLine readers={props.readers ?? null} />
+        <RelationLine className="contents" relation={props.relation} />
+        <StatusDot hostKey={props.hostKey} />
       </div>
     </header>
   );
@@ -168,55 +222,54 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
   }
 
   return (
-    <div className="w-full shrink-0">
+    // No column of its own: the header is the transcript's first row, so it
+    // already sits in the lane (`CHAT_LANE_TRANSCRIPT_CLASS`). Name, mandate
+    // and every message below share one left edge — a second centred `max-w`
+    // here only pushed the identity off that edge.
+    <div className="relative w-full shrink-0 pt-20 pb-4">
+      {/* The engenty hangs in the margin beside the lane, so it does not
+          indent the name out of the message column. That margin only exists
+          on a wide window; below `xl` it stands above the name instead. */}
+      <span
+        aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
+        className="mb-2 block xl:absolute xl:top-20 xl:left-[-5.5rem] xl:mb-0"
+        role="img"
+      >
+        <Engenty kind={agent.engenty} size={60} />
+      </span>
       <DetailPageHeader
-        // The chat's own gutter, so the identity column can be centred inside
-        // exactly the space the transcript is centred in.
-        className="px-3"
-        // Same column as the chat: `max-w-[42rem]`, centred, no gutter of its
-        // own (the root carries it) — otherwise the name starts left of every
-        // message. `pb-4` because there is no strip under the title to space it.
-        // `pt-20` rather than the variant's `pt-14`: the extra clearance keeps
-        // the name off the floating topbar instead of just below it.
-        containerClassName="max-w-[42rem] px-0 pt-20 pb-4 sm:px-0 md:px-0 md:pb-4"
+        containerClassName="max-w-none px-0 pt-0 pb-0 sm:px-0 md:px-0 md:pb-0"
         description={
-          <div className="max-w-xl space-y-1.5">
+          <div className="max-w-2xl space-y-1.5">
             {description ? (
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {description}
               </p>
             ) : null}
+            {/* The badges read with the standing lines, not with the name:
+                beside a long name they hung off the end of the title. */}
+            <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
+              {agent.source === "module" && agent.managed_by_module ? (
+                <AgentModuleBadge
+                  label={moduleLabel}
+                  moduleId={agent.managed_by_module}
+                />
+              ) : null}
+              {props.chatKind ? (
+                <ChatKindBadge
+                  kind={props.chatKind}
+                  memberCount={props.memberCount}
+                  name={agent.name}
+                  spaceName={props.spaceName}
+                />
+              ) : null}
+            </div>
             <RelationLine relation={relation} />
+            <ReadersLine readers={props.readers ?? null} />
           </div>
         }
-        maxWidth="5xl"
-        media={
-          <span
-            aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
-            role="img"
-          >
-            <Engenty kind={agent.engenty} size={60} />
-          </span>
-        }
-        title={
-          <span className="flex min-w-0 flex-nowrap items-center gap-1.5">
-            <span className="min-w-0 truncate">{agent.name}</span>
-            {agent.source === "module" && agent.managed_by_module ? (
-              <AgentModuleBadge
-                label={moduleLabel}
-                moduleId={agent.managed_by_module}
-              />
-            ) : null}
-            {props.chatKind ? (
-              <ChatKindBadge
-                kind={props.chatKind}
-                memberCount={props.memberCount}
-                name={agent.name}
-                spaceName={props.spaceName}
-              />
-            ) : null}
-          </span>
-        }
+        // Wraps rather than truncates — the name owns the whole measure now.
+        title={<span className="break-words">{agent.name}</span>}
         // No card surface: the identity reads on the page canvas, the same
         // treatment the Agents roster gives its own header.
         variant="canvas"

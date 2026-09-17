@@ -143,6 +143,7 @@ export function AppTopbar({
     actions,
     agentsWorkspaceNav,
     breadcrumbs,
+    routeBreadcrumbAction,
     secondaryNavHeaderSlot,
     topbarChrome,
     topbarOverlap,
@@ -178,7 +179,20 @@ export function AppTopbar({
     // Prepended AFTER enrichment: the icon lookup decorates the FIRST crumb
     // with the module's nav icon, and the space is not that module.
     if (routeBreadcrumb && !(hasSecondaryNav && secondaryNavOpen)) {
-      return [routeBreadcrumb, ...enriched];
+      // The page's control on the space crumb (a desk's conversation
+      // switcher) sits after the name, inside the same crumb.
+      const root = routeBreadcrumbAction
+        ? {
+            ...routeBreadcrumb,
+            label: (
+              <span className="flex min-w-0 items-center gap-0.5">
+                {routeBreadcrumb.label}
+                {routeBreadcrumbAction}
+              </span>
+            ),
+          }
+        : routeBreadcrumb;
+      return [root, ...enriched];
     }
     return enriched;
   }, [
@@ -187,6 +201,7 @@ export function AppTopbar({
     hasSecondaryNav,
     location.pathname,
     routeBreadcrumb,
+    routeBreadcrumbAction,
     secondaryNavHeaderSlot,
     secondaryNavOpen,
     sections,

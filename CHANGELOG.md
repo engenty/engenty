@@ -4,6 +4,22 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.5] - 2026-09-17
+- ADDED **[projects]** Phase and project edits land immediately too
+- ADDED **[projects]** Project task edits land immediately
+- ADDED **[desk]** Hold `report: ask` routines for review, rebuild the desk identity
+- ADDED **[ai]** Run guards, adaptive history budget, real window occupancy
+- ADDED **[mcp]** Space and risk grants with shared auth enforcement
+- ADDED **[core]** Add a first-party MCP resource server
+- CHANGED **[core]** One execution path for module operations
+- DOCS Fix internal links that 404 on the site
+- DOCS **[apps]** The internal Apps page and the user-guide stub
+- DOCS **[apps]** Document where Apps run, with the architecture figures
+- FIXED **[scripts]** A new file under patches/ is an open path
+- FIXED **[ai]** Name silent finishes on the headless lane too
+- FIXED **[ui]** Land unknown routes on last space, not Copilot
+- FIXED **[ci]** Make engenty npm publish fail on bad auth, not a 404
+
 ## [0.2.4] - 2026-09-15
 - ADDED **[manage]** Activate AI models in filtered cohorts
 - ADDED **[ui]** Let ListFilterChip keep several values selected

@@ -265,3 +265,80 @@ describe("interceptMastraStream", () => {
     expect(lines[0]?.[0]).toBe("d1");
   });
 });
+
+describe("run guards ride the intercepted call", () => {
+  it("hands agent.stream() a time budget and the empty-reply completion check", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { proxied } = interceptMastraStream(
+      {
+        stream: async (_m: unknown, o: Record<string, unknown>) => {
+          seen.push(o);
+          return mastraShapedStream([]);
+        },
+      },
+      "stream",
+      { maxSteps: 7 }
+    );
+    await (
+      proxied as { stream: (a: unknown, b: unknown) => Promise<unknown> }
+    ).stream([], { modelSettings: { temperature: 0.1 } });
+
+    const options = seen[0] as {
+      isTaskComplete?: { scorers?: unknown[] };
+      maxSteps?: number;
+      modelSettings?: {
+        temperature?: number;
+        timeout?: Record<string, number>;
+      };
+    };
+    expect(options.maxSteps).toBe(7);
+    expect(options.modelSettings?.temperature).toBe(0.1);
+    expect(options.modelSettings?.timeout?.stepMs).toBeGreaterThan(0);
+    expect(options.modelSettings?.timeout?.totalMs).toBeGreaterThan(0);
+    expect(options.isTaskComplete?.scorers).toHaveLength(1);
+  });
+
+  it("stays out of the call when a caller opts out", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { proxied } = interceptMastraStream(
+      {
+        stream: async (_m: unknown, o: Record<string, unknown>) => {
+          seen.push(o);
+          return mastraShapedStream([]);
+        },
+      },
+      "stream",
+      { runGuards: false }
+    );
+    await (
+      proxied as { stream: (a: unknown, b: unknown) => Promise<unknown> }
+    ).stream([], {});
+
+    expect(seen[0]).not.toHaveProperty("modelSettings");
+    expect(seen[0]).not.toHaveProperty("isTaskComplete");
+  });
+
+  it("reads the tripwire chunk upstream drops", async () => {
+    const { proxied, readTripwireChunk } = interceptMastraStream(
+      {
+        stream: async () =>
+          mastraShapedStream([
+            {
+              payload: { processorId: "moderation", reason: "blocked" },
+              type: "tripwire",
+            },
+          ]),
+      },
+      "stream"
+    );
+    const returned = await (
+      proxied as { stream: (a: unknown, b: unknown) => Promise<unknown> }
+    ).stream([], {});
+    await drain(returned);
+
+    expect(readTripwireChunk()).toEqual({
+      processorId: "moderation",
+      reason: "blocked",
+    });
+  });
+});

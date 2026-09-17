@@ -69,7 +69,7 @@ function suggestRoutes(pathname: string, patterns: string[]): string[] {
 /**
  * Decides where `to` actually goes. A module's route prefix is NOT a route:
  * `/mdl/commercial-settings` registers nothing, so it fell through to the
- * `path="*"` catch-all, which redirects to the copilot chat root. A prefix
+ * `path="*"` catch-all, which redirects to the last Space home. A prefix
  * owning exactly one static child resolves to it; anything else fails loudly
  * with the real routes listed, because the tool returning `{ok:true}` for a path
  * that went nowhere is what let the agent claim it had opened the page.

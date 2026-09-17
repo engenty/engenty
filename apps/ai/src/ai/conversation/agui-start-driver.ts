@@ -158,9 +158,8 @@ export async function runInteractiveViaMastraAgent(params: {
   threadId: string;
 }): Promise<AgUiStartOutcome> {
   const { MastraAgent } = await import("@ag-ui/mastra");
-  const { readMastraStreamFailure } = await import(
-    "../sessions/mastra-stream-failure.js"
-  );
+  const { formatAgentStreamFailureMessage, readMastraStreamFailure } =
+    await import("../sessions/mastra-stream-failure.js");
   const outcome: AgUiStartOutcome = { runError: null };
 
   // One controller serves both: the route's Stop and our own
@@ -175,10 +174,8 @@ export async function runInteractiveViaMastraAgent(params: {
     });
   }
 
-  const { proxied, readErrorChunk, readStream } = interceptMastraStream(
-    params.agent,
-    "stream",
-    {
+  const { proxied, readErrorChunk, readStream, readTripwireChunk } =
+    interceptMastraStream(params.agent, "stream", {
       abortSignal: cancel.signal,
       ...(params.attachments?.length
         ? { attachments: params.attachments }
@@ -196,8 +193,7 @@ export async function runInteractiveViaMastraAgent(params: {
           },
         } as AGUIEvent);
       },
-    }
-  );
+    });
 
   const agUiAgent = new (
     MastraAgent as never as new (
@@ -320,11 +316,14 @@ export async function runInteractiveViaMastraAgent(params: {
   // error says "[object Object]", which tells nobody anything.
   const rawError = readErrorChunk();
   if (rawError) {
-    outcome.runError = rawError.message;
+    // Named where the harness knows the shape (timeout budget, provider
+    // moderation, context overflow); every other message passes as-is.
+    outcome.runError = formatAgentStreamFailureMessage(rawError);
   }
   if (!outcome.runError) {
     const failure = await readMastraStreamFailure(readStream(), {
       hasAssistantText: params.accumulator.hasAssistantText,
+      tripwire: readTripwireChunk(),
     });
     if (failure) {
       outcome.runError = failure.message;

@@ -5,14 +5,16 @@ description: What the copilot can do beyond any single module — search, connec
 
 # Agent operations
 
-Most of what the copilot does belongs to a [module](/user/modules). The rest is
+Most of what the copilot does belongs to a [module](/docs/user/modules). The rest is
 here: the capabilities it has everywhere, regardless of which screen you are on.
 
-- **[Workspace search](/user/agent-operations/search)** — one search across everything indexed, plus the catalog the copilot uses to find its own tools.
-- **[Connections](/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, and setting what agents may do with them.
-- **[Connected services](/user/agent-operations/connected-services)** — what agents can actually do inside those accounts.
-- **[Secrets](/user/agent-operations/secrets)** — credentials agents can use without you pasting them into chat.
-- **[Browser](/user/agent-operations/browser)** — driving a real browser for things with no API.
+- **[Workspace search](/docs/user/agent-operations/search)** — one search across everything indexed, plus the catalog the copilot uses to find its own tools.
+- **[Connections](/docs/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, and setting what agents may do with them.
+- **[Connected services](/docs/user/agent-operations/connected-services)** — what agents can actually do inside those accounts.
+- **[Secrets](/docs/user/agent-operations/secrets)** — credentials agents can use without you pasting them into chat.
+- **[Apps](/docs/user/agent-operations/apps)** — small tools an agent can build, release and run.
+- **[Remote channels](/docs/user/agent-operations/remote-channels)** — reaching your agents from a messenger.
+- **[Browser](/docs/user/agent-operations/browser)** — driving a real browser for things with no API.
 
 ## Reads, writes and approvals
 

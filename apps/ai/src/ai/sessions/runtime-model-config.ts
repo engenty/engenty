@@ -9,6 +9,7 @@ import {
   resolveSafeguardModelId,
 } from "@engenty/ai-core";
 import type { AiGatewayModelStore } from "../../gateway-models.js";
+import { createContextTokensResolver } from "../registry/history-token-budget.js";
 import type { RuntimeModelConfig } from "../registry/index.js";
 import type { AiSessionScope, ThreadServiceOptions } from "./types.js";
 
@@ -196,5 +197,27 @@ export async function resolveRuntimeModelConfig(
       devMode,
       tenantDefault: tenantConfig?.safeguardModelId?.trim() || null,
     }),
+    // The catalog's window for whichever model an agent lands on — read at
+    // assembly per agent, since pins and tiers are decided there.
+    resolveContextTokens: contextTokensResolverFor(opts),
   };
+}
+
+// One cached resolver per store instance: catalog rows do not change per
+// tenant or per run, so a lookup per model id per process is enough.
+const contextTokensResolvers = new WeakMap<
+  object,
+  ReturnType<typeof createContextTokensResolver>
+>();
+function contextTokensResolverFor(opts: RuntimeModelConfigDeps) {
+  const store = opts.getUsageStore();
+  if (!store) {
+    return createContextTokensResolver(() => null);
+  }
+  let resolver = contextTokensResolvers.get(store);
+  if (!resolver) {
+    resolver = createContextTokensResolver(() => store);
+    contextTokensResolvers.set(store, resolver);
+  }
+  return resolver;
 }

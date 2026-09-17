@@ -21,30 +21,30 @@
     "appPort": 3002
   },
   "dependencies": {
-    "fumadocs-core": "16.10.5",
-    "fumadocs-mdx": "15.0.12",
-    "fumadocs-twoslash": "^3.2.0",
-    "fumadocs-ui": "16.10.5",
-    "lucide-react": "^1.21.0",
-    "mermaid": "^11.15.0",
-    "next": "16.2.9",
+    "fumadocs-core": "16.15.11",
+    "fumadocs-mdx": "15.4.1",
+    "fumadocs-twoslash": "^3.3.1",
+    "fumadocs-ui": "16.15.11",
+    "lucide-react": "^1.46.0",
+    "mermaid": "^11.17.2",
+    "next": "16.3.5",
     "next-themes": "^0.4.6",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "tailwind-merge": "^3.6.0",
-    "twoslash": "^0.3.8",
-    "zod": "4.4.3"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0",
+    "twoslash": "^0.3.9",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
     "@engenty/environment": "workspace:*",
-    "@tailwindcss/postcss": "^4.3.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/mdx": "^2.0.14",
-    "@types/node": "^26.0.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "postcss": "^8.5.15",
-    "tailwindcss": "^4.3.1",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"
   }
 }
