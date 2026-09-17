@@ -36,8 +36,8 @@ jobs:
       - name: Enable workspace plugins
         run: pnpm engenty plugins install --all
 
-      - name: Setup generated local artifacts
-        run: pnpm run setup
+      - name: Generate derived local artifacts
+        run: pnpm engenty generate
 
       - name: Validate engenty.plugins
         run: pnpm plugins:check
