@@ -19,19 +19,29 @@ describe("getConfigurableSettings", () => {
     expect(s?.type).toBe("string");
   });
 
-  it("treats SLACK_BOT_TOKEN as a platform secret", () => {
-    // Bot tokens are read at boot with no tenant context, so they are
-    // platform-scoped (hydrated into process.env), not tenant-overridable.
-    const s = byKey.get("SLACK_BOT_TOKEN");
-    expect(s?.configurable).toBe("platform");
-    expect(s?.type).toBe("secret");
-  });
+  // Both keys are contributed by the closed `engenty-remote` module's plugin
+  // manifest, so the catalog has neither on the public snapshot.
+  const hasRemoteChannels = byKey.has("SLACK_BOT_TOKEN");
 
-  it("maps boolean toggles to the boolean type", () => {
-    const s = byKey.get("ENGENTY_REMOTE_CHANNELS_ENABLED");
-    expect(s?.configurable).toBe("platform");
-    expect(s?.type).toBe("boolean");
-  });
+  it.skipIf(!hasRemoteChannels)(
+    "treats SLACK_BOT_TOKEN as a platform secret",
+    () => {
+      // Bot tokens are read at boot with no tenant context, so they are
+      // platform-scoped (hydrated into process.env), not tenant-overridable.
+      const s = byKey.get("SLACK_BOT_TOKEN");
+      expect(s?.configurable).toBe("platform");
+      expect(s?.type).toBe("secret");
+    }
+  );
+
+  it.skipIf(!hasRemoteChannels)(
+    "maps boolean toggles to the boolean type",
+    () => {
+      const s = byKey.get("ENGENTY_REMOTE_CHANNELS_ENABLED");
+      expect(s?.configurable).toBe("platform");
+      expect(s?.type).toBe("boolean");
+    }
+  );
 
   it("never exposes a bootstrap secret as configurable", () => {
     for (const key of NON_CONFIGURABLE_ENV_KEYS) {

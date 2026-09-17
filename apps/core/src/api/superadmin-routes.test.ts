@@ -11,6 +11,7 @@ import type {
   TenantMember,
   TenantRole,
 } from "../dal/superadmin.js";
+import { entitlements } from "../lib/entitlements-runtime.js";
 import { registerSuperadminRoutes } from "./routes/superadmin-routes.js";
 
 async function signToken(capabilities: string[]) {
@@ -310,75 +311,80 @@ describe("superadmin routes — tenant membership", () => {
   });
 });
 
-describe("superadmin routes — seat limit (maxUsers)", () => {
-  async function seedTenantAtCap(
-    app: ReturnType<typeof createApp>,
-    headers: Record<string, string>,
-    slug: string
-  ) {
-    const created = await app.request("/api/superadmin/tenants", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ slug, name: slug }),
+// Seat caps are enforced by the closed `@engenty/entitlements` package, which
+// the public snapshot excludes — without it every request is unmetered.
+describe.skipIf(!entitlements)(
+  "superadmin routes — seat limit (maxUsers)",
+  () => {
+    async function seedTenantAtCap(
+      app: ReturnType<typeof createApp>,
+      headers: Record<string, string>,
+      slug: string
+    ) {
+      const created = await app.request("/api/superadmin/tenants", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ slug, name: slug }),
+      });
+      const tenantId = ((await created.json()) as { data: CoreTenant }).data.id;
+      // Create a real user, then assign it so the single seat is filled.
+      const userRes = await app.request("/api/superadmin/users", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email: `a@${slug}.z`, tenant_id: tenantId }),
+      });
+      const userId = ((await userRes.json()) as { data: TenantMember }).data.id;
+      await app.request(`/api/superadmin/tenants/${tenantId}/users`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ userId }),
+      });
+      return tenantId;
+    }
+
+    it("blocks assign + create once the enforced seat cap is reached", async () => {
+      const app = createApp(async () => ({
+        maxUsers: 1,
+        enforcement_mode: "enforce",
+      }));
+      const headers = await superadminHeaders();
+      const tenantId = await seedTenantAtCap(app, headers, "cap");
+
+      // Assigning another member is at the cap (1 >= 1) -> blocked.
+      const assign = await app.request(
+        `/api/superadmin/tenants/${tenantId}/users`,
+        { method: "POST", headers, body: JSON.stringify({ userId: "u2" }) }
+      );
+      expect(assign.status).toBe(403);
+      expect(
+        ((await assign.json()) as { error: { code: string } }).error.code
+      ).toBe("seat_limit_reached");
+
+      // Creating a user in the tenant is likewise blocked at the cap.
+      const create = await app.request("/api/superadmin/users", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
+      });
+      expect(create.status).toBe(403);
     });
-    const tenantId = ((await created.json()) as { data: CoreTenant }).data.id;
-    // Create a real user, then assign it so the single seat is filled.
-    const userRes = await app.request("/api/superadmin/users", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email: `a@${slug}.z`, tenant_id: tenantId }),
+
+    it("allows adds in observe mode even past the cap", async () => {
+      const app = createApp(async () => ({
+        maxUsers: 1,
+        enforcement_mode: "observe",
+      }));
+      const headers = await superadminHeaders();
+      const tenantId = await seedTenantAtCap(app, headers, "obs");
+      const create = await app.request("/api/superadmin/users", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
+      });
+      expect(create.status).toBe(200);
     });
-    const userId = ((await userRes.json()) as { data: TenantMember }).data.id;
-    await app.request(`/api/superadmin/tenants/${tenantId}/users`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ userId }),
-    });
-    return tenantId;
   }
-
-  it("blocks assign + create once the enforced seat cap is reached", async () => {
-    const app = createApp(async () => ({
-      maxUsers: 1,
-      enforcement_mode: "enforce",
-    }));
-    const headers = await superadminHeaders();
-    const tenantId = await seedTenantAtCap(app, headers, "cap");
-
-    // Assigning another member is at the cap (1 >= 1) -> blocked.
-    const assign = await app.request(
-      `/api/superadmin/tenants/${tenantId}/users`,
-      { method: "POST", headers, body: JSON.stringify({ userId: "u2" }) }
-    );
-    expect(assign.status).toBe(403);
-    expect(
-      ((await assign.json()) as { error: { code: string } }).error.code
-    ).toBe("seat_limit_reached");
-
-    // Creating a user in the tenant is likewise blocked at the cap.
-    const create = await app.request("/api/superadmin/users", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
-    });
-    expect(create.status).toBe(403);
-  });
-
-  it("allows adds in observe mode even past the cap", async () => {
-    const app = createApp(async () => ({
-      maxUsers: 1,
-      enforcement_mode: "observe",
-    }));
-    const headers = await superadminHeaders();
-    const tenantId = await seedTenantAtCap(app, headers, "obs");
-    const create = await app.request("/api/superadmin/users", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
-    });
-    expect(create.status).toBe(200);
-  });
-});
+);
 
 describe("superadmin routes — cross-tenant approvals", () => {
   function createAppWithApprovals() {
