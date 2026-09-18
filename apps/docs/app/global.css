@@ -1,4 +1,1805 @@
+/*
+ * Engenty docs theme.
+ *
+ * Fumadocs supplies the layout (sidebar, search, TOC, MDX components) and
+ * reads its colours from `--color-fd-*`. Those are mapped onto the Ember
+ * primitives the apps and the www landing use, so the docs are the same
+ * house: warm paper, ink, ember, and the founding-five band colours.
+ *
+ * On top of that sits the docs' own dialect: a faint pixel grid on the paper,
+ * chunky blocks with a 2px ink edge and a hard offset shadow in the section's
+ * colour, mono uppercase kickers, and the flat engenties standing on titles.
+ * Every section (User Guide, Installation, Developer, Roadmap, WIP) has a tone,
+ * set as `data-tone` on the docs layout container, and the whole page follows.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Jersey+20&family=Jersey+25&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap");
 @import "tailwindcss";
-@import "fumadocs-ui/css/neutral.css";
+@import "../../../packages/design-tokens/src/ember-primitives.css";
 @import "fumadocs-ui/css/preset.css";
 @import "fumadocs-twoslash/twoslash.css";
+
+@source "../../../packages/ui-core/src/components/engenty";
+
+/* ---------------------------------------------------------------------------
+ * Fumadocs semantic colours → Ember primitives (both themes via `.dark`).
+ * `inline` so utilities keep the var() reference and follow the theme flip.
+ * ------------------------------------------------------------------------- */
+@theme inline {
+  --color-fd-background: var(--paper);
+  --color-fd-foreground: var(--ink);
+  --color-fd-muted: var(--paper-2);
+  --color-fd-muted-foreground: var(--ink-3);
+  --color-fd-popover: var(--card);
+  --color-fd-popover-foreground: var(--ink);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--ink);
+  --color-fd-border: var(--docs-rule);
+  --color-fd-primary: var(--tone);
+  --color-fd-primary-foreground: oklch(99% 0 0);
+  --color-fd-secondary: var(--paper-2);
+  --color-fd-secondary-foreground: var(--ink-2);
+  --color-fd-accent: var(--tone-tint);
+  --color-fd-accent-foreground: var(--ink);
+  --color-fd-ring: var(--tone);
+  --color-fd-overlay: oklch(20% 0.02 60 / 0.4);
+
+  --color-fd-info: var(--info);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--danger);
+  --color-fd-success: var(--success);
+  --color-fd-idea: var(--amber);
+  --color-fd-diff-remove: oklch(from var(--danger) l c h / 0.12);
+  --color-fd-diff-remove-symbol: var(--danger);
+  --color-fd-diff-add: oklch(from var(--success) l c h / 0.12);
+  --color-fd-diff-add-symbol: var(--success);
+
+  --font-sans: var(--f-ui);
+  --font-heading: var(--f-display);
+  --font-mono: var(--f-mono);
+}
+
+/* ---------------------------------------------------------------------------
+ * Section tones. Deep band fills from the www landing; `--tone` is the strong
+ * colour for edges, marks and active rows, `--tone-band` the deep fill for
+ * chrome (nav, hero, banners), `--tone-tint` the wash behind hovers and code.
+ * ------------------------------------------------------------------------- */
+:root {
+  --band-ember: oklch(44% 0.16 30);
+  --band-cobalt: oklch(38% 0.16 264);
+  --band-moss: oklch(36% 0.12 150);
+  --band-amber: oklch(48% 0.14 68);
+  --band-plum: oklch(36% 0.13 310);
+  --band-slate: oklch(30% 0.04 250);
+  --band-night: oklch(26% 0.04 275);
+  --band-cream: oklch(88% 0.11 75);
+
+  --tone: var(--ember);
+  --tone-band: var(--band-ember);
+  --tone-tint: var(--ember-tint);
+
+  /* Rules are ink, not grey: the docs draw with a pen. */
+  --docs-rule: color-mix(in oklch, var(--ink) 14%, transparent);
+  --docs-edge: color-mix(in oklch, var(--ink) 82%, var(--paper));
+  /* Window drop shadow: a stepped pixel shadow in two greys, the inner two
+     pixels darker (20% ink) and the outer two lighter (10%). */
+  --docs-shade: color-mix(in oklch, var(--ink) 20%, transparent);
+  --docs-shade-out: color-mix(in oklch, var(--ink) 10%, transparent);
+  /* The inner tone composes over the outer one, so it is set to land on 20%. */
+  --docs-shade-in: color-mix(in oklch, var(--ink) 11.1%, transparent);
+  /* Window shadows are drop-shadow filters, not box-shadows: the filter copies
+     the frame's silhouette pixel for pixel, chamfered corners included. The
+     second filter also casts a faint copy of the first shadow two pixels
+     further out; `--docs-block-clip` cuts that off. */
+  --docs-block-shadow: drop-shadow(4px 4px 0 var(--docs-shade-out))
+    drop-shadow(2px 2px 0 var(--docs-shade-in));
+  --docs-block-shadow-sm: drop-shadow(2px 2px 0 var(--docs-shade));
+  --docs-block-clip: inset(0 -4px -4px 0);
+  /* Bevel highlight on buttons: a 1px light line under the top edge. */
+  --docs-bevel-hi: oklch(100% 0 0 / 0.6);
+
+  /* One pixel family for headlines and chrome: Jersey 25 for the page and
+     hero titles, Jersey 20 for buttons, nav, sidebar rows. Both are single
+     weight (400). Section headings and body copy are Geist. */
+  --f-display: "Jersey 25", "Jersey 20", ui-sans-serif, system-ui, sans-serif;
+  --f-chrome: "Jersey 20", "Silkscreen", ui-monospace, monospace;
+  --f-pixel: "Silkscreen", "Jersey 20", ui-monospace, monospace;
+  --f-ui: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --f-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* The Habbo window frame: a 12×12 pixel 9-slice — 1px ink outline with
+     stepped corners, 1px light bevel top-left, 1px shade bottom-right —
+     drawn at 2× so every pixel is 2 CSS px. */
+  --hb-frame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' shape-rendering='crispEdges'%3E%3Cpath fill='%23221b17' d='M2 0h8v1H2zM1 1h1v1H1zM10 1h1v1h-1zM0 2h1v8H0zM11 2h1v8h-1zM1 10h1v1H1zM10 10h1v1h-1zM2 11h8v1H2z'/%3E%3Cpath fill='%23fff' fill-opacity='.8' d='M2 1h8v1H2zM1 2h1v8H1z'/%3E%3Cpath fill='%23000' fill-opacity='.25' d='M10 2h1v8h-1zM2 10h8v1H2z'/%3E%3C/svg%3E");
+  --hb-px: 2px;
+}
+
+.dark {
+  --docs-shade: oklch(0% 0 0 / 0.45);
+  --docs-shade-out: oklch(0% 0 0 / 0.25);
+  --docs-shade-in: oklch(0% 0 0 / 0.267);
+  --docs-bevel-hi: oklch(100% 0 0 / 0.1);
+  --docs-rule: color-mix(in oklch, var(--ink) 18%, transparent);
+  --docs-edge: color-mix(in oklch, var(--ink) 55%, var(--paper));
+}
+
+[data-tone="ember"] {
+  --tone: var(--ember);
+  --tone-band: var(--band-ember);
+  --tone-tint: var(--ember-tint);
+}
+[data-tone="cobalt"] {
+  --tone: var(--cobalt);
+  --tone-band: var(--band-cobalt);
+  --tone-tint: var(--cobalt-tint);
+}
+[data-tone="moss"] {
+  --tone: var(--moss);
+  --tone-band: var(--band-moss);
+  --tone-tint: var(--moss-tint);
+}
+[data-tone="amber"] {
+  /* Amber is too light to carry a 2px edge or white text; deepen it. */
+  --tone: oklch(from var(--amber) calc(l - 0.14) c h);
+  --tone-band: var(--band-amber);
+  --tone-tint: var(--amber-tint);
+}
+[data-tone="plum"] {
+  --tone: oklch(52% 0.16 310);
+  --tone-band: var(--band-plum);
+  --tone-tint: oklch(96% 0.02 310);
+}
+[data-tone="slate"] {
+  --tone: oklch(48% 0.05 250);
+  --tone-band: var(--band-slate);
+  --tone-tint: oklch(96% 0.01 250);
+}
+.dark [data-tone="plum"] {
+  --tone: oklch(72% 0.14 310);
+  --tone-tint: oklch(24% 0.04 310);
+}
+.dark [data-tone="slate"] {
+  --tone: oklch(72% 0.05 250);
+  --tone-tint: oklch(24% 0.02 250);
+}
+.dark [data-tone="amber"] {
+  --tone: var(--amber);
+}
+
+/* ===========================================================================
+ * THE HOTEL. Everything below is the Habbo dialect.
+ *
+ *   .hb-window   a bevelled pixel window (9-slice frame) with a hard shadow
+ *   .hb-bar      its title bar: tone gradient, pixel caps, a close button
+ *   .hb-floor    isometric tiled floor (conic diamonds, 2:1)
+ *   .hb-bubble   a chat bubble with a tail, the way avatars talk
+ *   .hb-btn      a gradient bevel button that presses down
+ *   .docs-kicker pixel caps label
+ * ========================================================================= */
+
+html {
+  font-size: 16px;
+  /* Pixel faces have one weight; never smear them with synthetic bold. */
+  font-synthesis-weight: none;
+}
+
+body {
+  font-family: var(--f-ui);
+  background-color: var(--paper);
+  /* The hotel floor: 2:1 isometric tiles (32×16 pixel-art units at 2px per
+     unit) with a one-unit stepped seam and a checker of two faint shades, the
+     way Habbo paves a room. Dot sizes vary for depth: the vertex block where
+     four seams meet is a shade darker, a 1-unit dot at each tile centre, the seams lightest. */
+  background-image: var(--docs-floor);
+  background-size: 64px 32px;
+  /* The floor stays put; the content scrolls over it. */
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  /* Floor tiles as SVG data URIs (they cannot read CSS variables): ink seams
+     on light paper, white seams on dark paper and on coloured bands. */
+  --docs-floor-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='32' shape-rendering='crispEdges'%3E%3Cpath fill='%23000' fill-opacity='0.006' d='M28 2h8v2h-8zM24 4h16v2h-16zM20 6h24v2h-24zM16 8h32v2h-32zM12 10h40v2h-40zM8 12h48v2h-48zM4 14h56v2h-56zM4 16h56v2h-56zM8 18h48v2h-48zM12 20h40v2h-40zM16 22h32v2h-32zM20 24h24v2h-24zM24 26h16v2h-16zM28 28h8v2h-8z'/%3E%3Cpath fill='%23000' fill-opacity='0.015' d='M28 0h4v2h-4zM32 0h4v2h-4zM24 2h4v2h-4zM36 2h4v2h-4zM20 4h4v2h-4zM40 4h4v2h-4zM16 6h4v2h-4zM44 6h4v2h-4zM12 8h4v2h-4zM48 8h4v2h-4zM8 10h4v2h-4zM52 10h4v2h-4zM4 12h4v2h-4zM56 12h4v2h-4zM0 14h4v2h-4zM60 14h4v2h-4zM0 16h4v2h-4zM60 16h4v2h-4zM4 18h4v2h-4zM56 18h4v2h-4zM8 20h4v2h-4zM52 20h4v2h-4zM12 22h4v2h-4zM48 22h4v2h-4zM16 24h4v2h-4zM44 24h4v2h-4zM20 26h4v2h-4zM40 26h4v2h-4zM24 28h4v2h-4zM36 28h4v2h-4zM28 30h4v2h-4zM32 30h4v2h-4z'/%3E%3Cpath fill='%23000' fill-opacity='0.0125' d='M30 14h2v2h-2z'/%3E%3Cpath fill='%23000' fill-opacity='0.01' d='M28 -2h8v4h-8zM28 30h8v4h-8zM-4 14h8v4h-8zM60 14h8v4h-8z'/%3E%3C/svg%3E");
+  --docs-floor-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='32' shape-rendering='crispEdges'%3E%3Cpath fill='%23fff' fill-opacity='0.009' d='M28 2h8v2h-8zM24 4h16v2h-16zM20 6h24v2h-24zM16 8h32v2h-32zM12 10h40v2h-40zM8 12h48v2h-48zM4 14h56v2h-56zM4 16h56v2h-56zM8 18h48v2h-48zM12 20h40v2h-40zM16 22h32v2h-32zM20 24h24v2h-24zM24 26h16v2h-16zM28 28h8v2h-8z'/%3E%3Cpath fill='%23fff' fill-opacity='0.025' d='M28 0h4v2h-4zM32 0h4v2h-4zM24 2h4v2h-4zM36 2h4v2h-4zM20 4h4v2h-4zM40 4h4v2h-4zM16 6h4v2h-4zM44 6h4v2h-4zM12 8h4v2h-4zM48 8h4v2h-4zM8 10h4v2h-4zM52 10h4v2h-4zM4 12h4v2h-4zM56 12h4v2h-4zM0 14h4v2h-4zM60 14h4v2h-4zM0 16h4v2h-4zM60 16h4v2h-4zM4 18h4v2h-4zM56 18h4v2h-4zM8 20h4v2h-4zM52 20h4v2h-4zM12 22h4v2h-4zM48 22h4v2h-4zM16 24h4v2h-4zM44 24h4v2h-4zM20 26h4v2h-4zM40 26h4v2h-4zM24 28h4v2h-4zM36 28h4v2h-4zM28 30h4v2h-4zM32 30h4v2h-4z'/%3E%3Cpath fill='%23fff' fill-opacity='0.02' d='M30 14h2v2h-2z'/%3E%3Cpath fill='%23fff' fill-opacity='0.015' d='M28 -2h8v4h-8zM28 30h8v4h-8zM-4 14h8v4h-8zM60 14h8v4h-8z'/%3E%3C/svg%3E");
+  --docs-floor: var(--docs-floor-ink);
+  /* `--card` lives in shadcn-ember.css, which the docs do not import. */
+  --card: oklch(100% 0 0);
+}
+
+.dark {
+  --docs-floor: var(--docs-floor-white);
+  --card: var(--paper-2);
+}
+
+::selection {
+  color: oklch(99% 0 0);
+  background: var(--tone);
+}
+
+/* Pixel caps label. */
+.docs-kicker {
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.docs-kicker-on-dark {
+  color: oklch(100% 0 0 / 0.7);
+}
+
+/* --- window ---------------------------------------------------------------- */
+.hb-window {
+  position: relative;
+  --hb-fill: var(--card);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  image-rendering: pixelated;
+  filter: var(--docs-block-shadow);
+  color: var(--ink);
+}
+
+/*
+ * Every framed element paints its fill as a gradient inset by one frame pixel
+ * instead of a plain background: the frame's chamfered corner pixels (the
+ * outer ring's corners) stay transparent, so the drop-shadow filter and the
+ * page behind follow the stepped corner exactly. `--hb-fill` is the colour.
+ */
+.hb-window,
+#nd-sidebar,
+#nd-page .prose table,
+#nd-page .prose figure.shiki,
+#nd-page .prose pre:not(figure.shiki pre),
+#nd-page .prose a[data-card]:not(:where(h1, h2, h3, h4, h5, h6) > a),
+#nd-page .prose div[data-card],
+#nd-page .prose div[class*="my-4"][class*="rounded-xl"][class*="border"],
+#nd-page a[href][class*="rounded"][class*="border"]:has(> p, > span, > div),
+html body [data-radix-popper-content-wrapper] > div,
+html body [role="dialog"],
+html body .twoslash-popup-container {
+  background:
+    linear-gradient(var(--hb-fill), var(--hb-fill)) var(--hb-px) var(--hb-px) /
+    calc(100% - var(--hb-px) * 2) calc(100% - var(--hb-px) * 2) no-repeat
+    border-box border-box;
+  image-rendering: pixelated;
+  clip-path: var(--docs-block-clip);
+}
+
+.hb-window-flat {
+  filter: none;
+}
+
+/* Title bar sits inside the bevel, over the frame's inner transparent rows. */
+.hb-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: calc(var(--hb-px) * -2) calc(var(--hb-px) * -2) 0;
+  min-height: 26px;
+  padding: 4px 8px 4px 10px;
+  /* Two-step gradient with a hard stop: the 2000s dithered bar. */
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone-band) calc(l + 0.14) c h) 0 50%,
+    var(--tone-band) 50%
+  );
+  border-bottom: var(--hb-px) solid
+    oklch(from var(--tone-band) calc(l - 0.14) c h);
+  color: oklch(100% 0 0);
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.45);
+}
+
+.hb-bar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Close button: a bevelled square with an × the pixel way. */
+.hb-bar::after {
+  content: "×";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper-2);
+  box-shadow:
+    inset 1px 1px 0 oklch(100% 0 0),
+    inset -1px -1px 0 oklch(0% 0 0 / 0.35),
+    0 0 0 1px oklch(from var(--tone-band) calc(l - 0.14) c h);
+  text-shadow: none;
+}
+
+.hb-body {
+  padding: 12px 14px 14px;
+}
+
+/* --- floor ----------------------------------------------------------------- */
+.hb-floor {
+  --floor-a: color-mix(in oklch, var(--tone-band) 84%, black);
+  --floor-b: color-mix(in oklch, var(--tone-band) 92%, white);
+  /* Diamonds: four sectors meeting at the tile centre; the angles are the
+     corners of a 2:1 box, so the tiles read as an isometric floor. */
+  background-image: conic-gradient(
+    from 63.43deg,
+    var(--floor-a) 53.13deg,
+    var(--floor-b) 0 180deg,
+    var(--floor-a) 0 233.13deg,
+    var(--floor-b) 0
+  );
+  background-size: 64px 32px;
+}
+
+/* --- bubble ---------------------------------------------------------------- */
+.hb-bubble {
+  position: relative;
+  background: oklch(100% 0 0);
+  color: var(--ink);
+  border: 2px solid var(--docs-edge);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 2px 2px 0 oklch(0% 0 0 / 0.22);
+}
+
+.hb-bubble::before,
+.hb-bubble::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  bottom: -12px;
+  border: 6px solid transparent;
+  border-top-color: var(--docs-edge);
+  border-bottom: 0;
+}
+
+.hb-bubble::after {
+  bottom: -9px;
+  border-top-color: oklch(100% 0 0);
+}
+
+.hb-bubble-name {
+  display: block;
+  font-family: var(--f-chrome);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--tone);
+  margin-bottom: 2px;
+}
+
+.dark .hb-bubble {
+  background: var(--paper-2);
+}
+.dark .hb-bubble::after {
+  border-top-color: var(--paper-2);
+}
+
+/* --- button ---------------------------------------------------------------- */
+.hb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px 2px;
+  font-family: var(--f-chrome);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ink);
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  border: 2px solid var(--docs-edge);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    3px 3px 0 var(--docs-edge);
+  text-decoration: none;
+  transition:
+    transform 0.05s steps(2),
+    box-shadow 0.05s steps(2);
+}
+
+.hb-btn:hover {
+  background: linear-gradient(
+    to bottom,
+    var(--card) 0 50%,
+    var(--tone-tint) 50%
+  );
+}
+
+/* On the ember band the plain button stays a white button in both themes. */
+.docs-hero .hb-btn:not(.hb-btn-tone) {
+  color: oklch(22% 0.02 60);
+  border-color: oklch(18% 0.06 30);
+  background: linear-gradient(
+    to bottom,
+    oklch(100% 0 0) 0 50%,
+    oklch(92% 0.02 70) 50%
+  );
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0),
+    3px 3px 0 oklch(18% 0.06 30);
+}
+
+.hb-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0),
+    0 0 0 var(--docs-edge);
+}
+
+.hb-btn-tone {
+  color: oklch(100% 0 0);
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.4);
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone) calc(l + 0.12) c h) 0 50%,
+    var(--tone) 50%
+  );
+}
+
+.hb-btn-tone:hover {
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone) calc(l + 0.18) c h) 0 50%,
+    oklch(from var(--tone) calc(l + 0.04) c h) 50%
+  );
+}
+
+/* Theme switch: a square pixel switch. The lit half is the active mode. */
+html body [data-theme-toggle] {
+  gap: 2px;
+  padding: 2px;
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-shade-in),
+    4px 4px 0 var(--docs-shade-out);
+  color: var(--ink-3);
+}
+
+html body [data-theme-toggle] > * {
+  border-radius: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+}
+
+html body [data-theme-toggle] > .text-fd-accent-foreground,
+html body [data-theme-toggle] > [class*="bg-fd-accent"] {
+  background: var(--tone);
+  color: oklch(100% 0 0);
+}
+
+/* On the ember band it is the same switch in white on ink. */
+#nd-nav [data-theme-toggle] {
+  border-color: oklch(18% 0.06 30);
+  background: linear-gradient(
+    to bottom,
+    oklch(100% 0 0) 0 50%,
+    oklch(92% 0.02 70) 50%
+  );
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0),
+    2px 2px 0 oklch(18% 0.06 30);
+  color: oklch(45% 0.02 60);
+}
+
+#nd-nav [data-theme-toggle] > .text-fd-accent-foreground,
+#nd-nav [data-theme-toggle] > [class*="bg-fd-accent"] {
+  background: var(--band-ember);
+  color: oklch(100% 0 0);
+}
+
+/* --- top bar ---------------------------------------------------------------- */
+#nd-nav,
+#nd-subnav {
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--band-ember) calc(l + 0.1) c h) 0 50%,
+    var(--band-ember) 50%
+  );
+  border-bottom: 2px solid oklch(18% 0.06 30);
+  box-shadow: inset 0 2px 0 oklch(100% 0 0 / 0.22);
+  color: oklch(100% 0 0);
+}
+
+/* Fumadocs paints a translucent paper layer inside the nav once the page is
+   scrolled or off the home route; the band stays solid ember everywhere. */
+#nd-nav > div,
+#nd-subnav > div {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: 0;
+}
+
+#nd-nav a,
+#nd-nav button,
+#nd-subnav a,
+#nd-subnav button {
+  color: oklch(100% 0 0 / 0.78);
+}
+
+#nd-nav a:hover,
+#nd-nav button:hover,
+#nd-subnav a:hover,
+#nd-subnav button:hover {
+  color: oklch(100% 0 0);
+  background: oklch(0% 0 0 / 0.18);
+}
+
+/* Brand link: even padding so its hover wash clears the DOCS tag. */
+#nd-nav a:has(.docs-wordmark) {
+  padding: 3px 8px;
+  margin-inline-start: -8px;
+  border-radius: 3px;
+}
+
+/* Menu items on the band: chrome face; the active one is a pressed-in
+   white bevel button with an ink pixel shadow, like the hero button. */
+#nd-nav nav a[href^="/docs"],
+#nd-nav nav a[href="/changelog"] {
+  font-family: var(--f-chrome);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1;
+  padding: 7px 12px 8px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.4);
+}
+
+#nd-nav nav a[href^="/docs"]:hover,
+#nd-nav nav a[href="/changelog"]:hover {
+  background: oklch(0% 0 0 / 0.18);
+  border-color: oklch(0% 0 0 / 0.25);
+}
+
+#nd-nav nav a[href^="/docs"][data-active="true"],
+#nd-nav nav a[href="/changelog"][data-active="true"] {
+  color: oklch(22% 0.02 60);
+  background: linear-gradient(
+    to bottom,
+    oklch(100% 0 0) 0 50%,
+    oklch(92% 0.02 70) 50%
+  );
+  border-color: oklch(18% 0.06 30);
+  box-shadow:
+    inset 0 1px 0 oklch(100% 0 0),
+    2px 2px 0 oklch(18% 0.06 30);
+  text-shadow: none;
+}
+
+#nd-nav [data-search-full],
+#nd-nav button[aria-label*="earch"],
+#nd-subnav [data-search-full] {
+  background: oklch(0% 0 0 / 0.3);
+  border: 2px solid oklch(0% 0 0 / 0.45);
+  box-shadow:
+    inset 1px 1px 0 oklch(0% 0 0 / 0.3),
+    0 1px 0 oklch(100% 0 0 / 0.2);
+  border-radius: 4px;
+  color: oklch(100% 0 0 / 0.85);
+  font-family: var(--f-chrome);
+  font-size: 14px;
+}
+
+#nd-nav [data-search-full] kbd,
+#nd-subnav [data-search-full] kbd {
+  font-family: var(--f-chrome);
+  font-size: 12px;
+  line-height: 1;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: oklch(100% 0 0 / 0.9);
+  background: oklch(0% 0 0 / 0.35);
+  border: 1px solid oklch(0% 0 0 / 0.5);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.15);
+}
+
+.docs-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: oklch(100% 0 0);
+}
+
+.docs-wordmark-text {
+  font-family: var(--f-chrome);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  text-shadow: 2px 2px 0 oklch(0% 0 0 / 0.4);
+}
+
+.docs-wordmark-dot {
+  color: var(--band-cream);
+}
+
+.docs-wordmark-tag {
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 5px 2px;
+  border-radius: 2px;
+  color: var(--band-ember);
+  background: var(--band-cream);
+  box-shadow: 1px 1px 0 oklch(0% 0 0 / 0.4);
+  line-height: 1;
+}
+
+#nd-sidebar .docs-wordmark {
+  color: var(--ink);
+}
+#nd-sidebar .docs-wordmark-text {
+  text-shadow: 2px 2px 0 var(--tone-tint);
+}
+#nd-sidebar .docs-wordmark-dot {
+  color: var(--ember);
+}
+
+/* --- sidebar: the Navigator ----------------------------------------------- */
+/* The sidebar is a floating window: framed, shadowed, set off the page edge
+   and the top row, over the floor. It is in the framed-elements rule below. */
+#nd-docs-layout {
+  --fd-sidebar-width: 300px;
+}
+
+#nd-sidebar {
+  /* The section's tint (blue, green, red, amber…), slightly see-through. */
+  --hb-fill: oklch(
+    from var(--tone-tint) calc(l + 0.02) calc(c * 0.25) h /
+    0.87
+  );
+  border-inline-end: 0;
+}
+
+#nd-sidebar > * {
+  width: 100%;
+}
+
+#nd-sidebar {
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  filter: var(--docs-block-shadow);
+}
+
+@media (min-width: 768px) {
+  #nd-sidebar {
+    inset: 14px 0 14px 14px;
+    width: auto;
+  }
+}
+
+/* Small desktop: the on-this-page bar floats as a bevel window with the
+   chrome face, instead of a full-width translucent strip. */
+html body [data-toc-popover] {
+  --fd-toc-popover-height: 64px;
+}
+
+html body [data-toc-popover] > header {
+  --hb-fill: var(--card);
+  margin: 14px 14px 0;
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-shade-in),
+    4px 4px 0 var(--docs-shade-out);
+  backdrop-filter: none;
+  overflow: hidden;
+}
+
+html body [data-toc-popover-trigger] {
+  height: 36px;
+  padding-inline: 12px;
+  font-family: var(--f-chrome);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+html body [data-toc-popover-trigger] svg:first-child {
+  color: var(--tone);
+}
+
+html body [data-toc-popover-content] {
+  background: var(--card);
+  border-top: 2px solid var(--docs-edge);
+  font-family: var(--f-chrome);
+  font-size: 16px;
+}
+
+/* Collapsed sidebar: the open/search toggle is a bevel button pair. */
+html body [data-sidebar-panel] {
+  inset-inline-start: 14px;
+  padding: 2px;
+  gap: 2px;
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-shade-in),
+    4px 4px 0 var(--docs-shade-out);
+}
+
+html body [data-sidebar-panel] button {
+  border-radius: 2px;
+  color: var(--ink);
+}
+
+html body [data-sidebar-panel] button:hover {
+  background: var(--tone-tint);
+  color: var(--tone);
+}
+
+.docs-sidebar-banner {
+  margin: 2px 0 10px;
+}
+
+.docs-sidebar-banner .hb-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 6px;
+}
+
+.docs-sidebar-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.docs-sidebar-banner-name {
+  font-family: var(--f-chrome);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--tone);
+}
+
+/* Section chooser: the same bevel button as `.hb-btn`, in the chrome face. */
+#nd-sidebar button[aria-haspopup="dialog"]:not(:has(kbd)),
+#nd-sidebar [role="combobox"] {
+  font-family: var(--f-chrome);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  border: 2px solid var(--docs-edge);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-shade-in),
+    4px 4px 0 var(--docs-shade-out);
+  transition:
+    transform 0.05s steps(2),
+    box-shadow 0.05s steps(2);
+}
+
+#nd-sidebar button[aria-haspopup="dialog"]:not(:has(kbd)):hover {
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-2) 50%);
+  color: var(--ink);
+}
+
+#nd-sidebar button[aria-haspopup="dialog"]:not(:has(kbd)):active,
+#nd-sidebar button[aria-haspopup="dialog"][data-state="open"]:not(:has(kbd)) {
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-shade-out);
+  background: linear-gradient(to bottom, var(--paper-3) 0 50%, var(--card) 50%);
+}
+
+#nd-sidebar button[aria-haspopup="dialog"]:not(:has(kbd)):focus-visible {
+  outline: 2px solid var(--tone);
+  outline-offset: 2px;
+}
+
+/* Rows: pixel font, tone fill when active with a hard shadow. */
+#nd-sidebar a[href^="/docs"],
+#nd-sidebar a[href="/changelog"],
+#nd-sidebar button[data-active] {
+  font-family: var(--f-chrome);
+  font-weight: 500;
+  font-size: 16px;
+  border-radius: 3px;
+}
+
+#nd-sidebar a[data-active="true"],
+#nd-sidebar button[data-active="true"] {
+  /* A translucent tone wash, two hard steps, with the same grey pixel shadow
+     as the windows; the floor shows through. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--tone) 22%, transparent) 0 50%,
+    color-mix(in oklch, var(--tone) 16%, transparent) 50%
+  );
+  color: var(--tone);
+  font-weight: 600;
+  box-shadow:
+    2px 2px 0 var(--docs-shade-in),
+    4px 4px 0 var(--docs-shade-out);
+}
+
+#nd-sidebar a[data-active="true"] svg {
+  color: var(--tone);
+}
+
+#nd-sidebar a:not([data-active="true"]):hover {
+  background: var(--tone-tint);
+  color: var(--ink);
+}
+
+#nd-sidebar p:not(button p) {
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Section chooser label, and the section titles in its popover: chrome face. */
+#nd-sidebar button[aria-haspopup="dialog"]:not(:has(kbd)) p:first-child,
+html body [data-radix-popper-content-wrapper] a[data-tone] p:first-child {
+  font-family: var(--f-chrome);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+html body [data-radix-popper-content-wrapper] a[data-tone] {
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+html body [data-radix-popper-content-wrapper] a[data-tone] p + p {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 3px;
+}
+
+#nd-sidebar [data-search-full],
+#nd-sidebar button:has(kbd) {
+  background: var(--card);
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  font-family: var(--f-chrome);
+  font-size: 18px;
+  color: var(--ink-3);
+  box-shadow: inset 2px 2px 0 var(--paper-3);
+}
+
+#nd-sidebar kbd {
+  font-family: var(--f-chrome);
+  font-size: 13px;
+  line-height: 1;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  border: 1px solid var(--docs-edge);
+  border-radius: 2px;
+  box-shadow: 1px 1px 0 var(--docs-edge);
+  background: var(--card);
+}
+
+/* Changelog: version numbers in the chrome face. */
+.docs-changelog-version {
+  font-family: var(--f-chrome);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* --- page ------------------------------------------------------------------ */
+#nd-page {
+  --fd-toc-width: 240px;
+}
+
+.docs-title {
+  position: relative;
+  display: inline-block;
+  font-family: var(--f-display);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.05;
+  font-size: clamp(32px, 3.2vw, 38px);
+  padding-inline-end: 52px;
+  color: var(--ink);
+}
+
+.docs-title-mascot {
+  position: absolute;
+  right: -8px;
+  bottom: 0.1em;
+  line-height: 0;
+  pointer-events: none;
+  animation: docs-sit 4.4s steps(4) infinite;
+}
+
+@keyframes docs-sit {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+#nd-page .prose {
+  --tw-prose-body: var(--ink-2);
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+/* Section headings stay in the content face, small and heavy. */
+#nd-page .prose :is(h1, h2, h3, h4) {
+  font-family: var(--f-ui);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+/* Heading anchors: no link underline, the heading colour. */
+#nd-page .prose :is(h1, h2, h3, h4, h5, h6) a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+#nd-page .prose h2 {
+  font-size: 18px;
+  margin-top: 2.4em;
+}
+
+/* Heading pixel: one tile of the floor, in tone, with its shadow. */
+#nd-page .prose h2::before,
+#nd-page .prose h3::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-inline-end: 8px;
+  background: var(--tone);
+  box-shadow:
+    inset 2px 2px 0 oklch(100% 0 0 / 0.5),
+    2px 2px 0 var(--docs-edge);
+  vertical-align: 0.02em;
+}
+
+#nd-page .prose h3 {
+  font-size: 15px;
+}
+
+#nd-page .prose h3::before {
+  width: 8px;
+  height: 8px;
+  box-shadow: 2px 2px 0 var(--docs-edge);
+}
+
+#nd-page .prose a:not(:where(.not-prose, .not-prose *)) {
+  color: var(--tone);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in oklch, var(--tone) 40%, transparent);
+}
+
+#nd-page .prose a:not(:where(.not-prose, .not-prose *)):hover {
+  text-decoration-color: var(--tone);
+  background: var(--tone-tint);
+}
+
+#nd-page .prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#nd-page .prose :not(pre) > code {
+  font-family: var(--f-mono);
+  font-size: 0.86em;
+  font-weight: 500;
+  padding: 0.1em 0.4em;
+  border: 1px solid color-mix(in oklch, var(--tone) 35%, transparent);
+  border-radius: 3px;
+  background: var(--tone-tint);
+  box-shadow: 1px 1px 0 color-mix(in oklch, var(--tone) 35%, transparent);
+  color: var(--ink);
+}
+
+#nd-page .prose ul > li::marker {
+  color: var(--tone);
+  content: "■  ";
+  font-size: 0.7em;
+}
+
+#nd-page .prose ol > li::marker {
+  font-family: var(--f-chrome);
+  color: var(--tone);
+  font-weight: 700;
+}
+
+/* Blockquote = the section's engenty talking (mdx-components wraps it). */
+#nd-page .prose .docs-quote {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+  align-items: end;
+  margin: 1.8em 0;
+}
+
+#nd-page .prose .docs-quote-mascot {
+  line-height: 0;
+  padding-bottom: 0;
+}
+
+#nd-page .prose .docs-quote .hb-bubble {
+  margin-bottom: 14px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+#nd-page .prose .docs-quote .hb-bubble::before,
+#nd-page .prose .docs-quote .hb-bubble::after {
+  left: -9px;
+  bottom: 10px;
+  transform: rotate(90deg);
+  border: 6px solid transparent;
+  border-top-color: var(--docs-edge);
+  border-bottom: 0;
+}
+
+#nd-page .prose .docs-quote .hb-bubble::after {
+  left: -6px;
+  border-top-color: oklch(100% 0 0);
+}
+
+.dark #nd-page .prose .docs-quote .hb-bubble::after {
+  border-top-color: var(--paper-2);
+}
+
+#nd-page .prose .docs-quote .hb-bubble p {
+  margin: 0;
+}
+
+#nd-page .prose .docs-quote .hb-bubble p + p {
+  margin-top: 0.6em;
+}
+
+/* Tables: a window with a title-bar-coloured header. */
+#nd-page .prose table {
+  font-size: 14px;
+  --hb-fill: var(--card);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  filter: var(--docs-block-shadow);
+  border-collapse: collapse;
+}
+
+#nd-page .prose thead th {
+  font-family: var(--f-chrome);
+  font-weight: 600;
+  font-size: 15px;
+  color: oklch(100% 0 0);
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.4);
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone-band) calc(l + 0.14) c h) 0 50%,
+    var(--tone-band) 50%
+  );
+  border-bottom: 2px solid oklch(from var(--tone-band) calc(l - 0.14) c h);
+  padding: 8px 12px;
+  text-align: start;
+}
+
+#nd-page .prose tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--docs-rule);
+}
+
+#nd-page .prose tbody tr:nth-child(even) td {
+  background: color-mix(in oklch, var(--paper-2) 60%, var(--card));
+}
+
+#nd-page .prose tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#nd-page .prose hr {
+  border: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--tone) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+/* --- code: the console window ---------------------------------------------- */
+#nd-page .prose figure.shiki,
+#nd-page .prose .shiki,
+#nd-page .prose pre {
+  --shiki-light-bg: var(--band-night);
+  --shiki-dark-bg: var(--band-night);
+}
+
+#nd-page .prose figure.shiki {
+  --hb-fill: var(--band-night);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow);
+  overflow: visible;
+  margin: 1.8em 0;
+  padding-top: 26px;
+}
+
+/* Title bar drawn by the figure itself; a figcaption replaces its text. */
+#nd-page .prose figure.shiki::before {
+  content: "console";
+  position: absolute;
+  inset: calc(var(--hb-px) * -2) calc(var(--hb-px) * -2) auto;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  padding-inline: 34px 10px;
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(100% 0 0 / 0.85);
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.5);
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone-band) calc(l + 0.14) c h) 0 50%,
+    var(--tone-band) 50%
+  );
+  border-bottom: 2px solid oklch(from var(--tone-band) calc(l - 0.14) c h);
+}
+
+/* Three pixel lamps at the left of the bar. */
+#nd-page .prose figure.shiki::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--band-cream);
+  box-shadow:
+    0 0 0 1px oklch(0% 0 0 / 0.5),
+    9px 0 0 var(--amber),
+    9px 0 0 1px oklch(0% 0 0 / 0.5);
+}
+
+#nd-page .prose figure.shiki figcaption {
+  position: absolute;
+  top: calc(var(--hb-px) * -2);
+  left: 30px;
+  right: 40px;
+  height: 26px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: oklch(100% 0 0 / 0.85);
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.5);
+  z-index: 1;
+}
+
+#nd-page .prose figure.shiki:has(figcaption)::before {
+  content: "";
+}
+
+#nd-page .prose figure.shiki pre {
+  background: var(--band-night);
+  font-family: var(--f-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 12px 0;
+  border-radius: 0;
+}
+
+#nd-page .prose pre:not(figure.shiki pre) {
+  --hb-fill: var(--band-night);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  filter: var(--docs-block-shadow);
+}
+
+html:not(.dark) #nd-page .prose figure.shiki code span,
+html:not(.dark) #nd-page .prose pre code span {
+  color: var(--shiki-dark, inherit);
+}
+
+/* Copy button lives in the title bar. */
+#nd-page .prose figure.shiki > div:has(> button) {
+  top: -4px;
+  right: 6px;
+  backdrop-filter: none;
+  z-index: 2;
+}
+
+/* The copy button sits on the console's coloured bar: white in both themes. */
+#nd-page .prose figure.shiki button {
+  width: 22px;
+  height: 18px;
+  color: oklch(22% 0.02 60);
+  background: linear-gradient(
+    to bottom,
+    oklch(100% 0 0) 0 50%,
+    var(--paper-3) 50%
+  );
+  border: 1px solid oklch(0% 0 0 / 0.6);
+  border-radius: 2px;
+  box-shadow: 1px 1px 0 oklch(0% 0 0 / 0.5);
+}
+
+#nd-page .prose figure.shiki button:hover {
+  background: linear-gradient(
+    to bottom,
+    oklch(100% 0 0) 0 50%,
+    var(--band-cream) 50%
+  );
+}
+
+/* --- fumadocs pieces --------------------------------------------------------- */
+#nd-page .prose a[data-card]:not(:where(h1, h2, h3, h4, h5, h6) > a),
+#nd-page .prose div[data-card] {
+  --hb-fill: var(--card);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow-sm);
+  transition: filter 0.05s steps(2);
+}
+
+#nd-page .prose a[data-card]:not(:where(h1, h2, h3, h4, h5, h6) > a):hover {
+  filter: var(--docs-block-shadow);
+}
+
+#nd-page .prose [data-card] h3,
+#nd-page .prose a[data-card] > p:first-child {
+  font-family: var(--f-display);
+  font-weight: 600;
+}
+
+/* Callouts: a small window with the callout colour as its shadow. */
+#nd-page .prose div[class*="my-4"][class*="rounded-xl"][class*="border"] {
+  --hb-fill: var(--card);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow);
+}
+
+.fd-steps {
+  border-inline-start: 2px solid var(--docs-edge);
+}
+
+.fd-step::before {
+  font-family: var(--f-chrome);
+  font-weight: 700;
+  color: oklch(99% 0 0);
+  text-shadow: 1px 1px 0 oklch(0% 0 0 / 0.4);
+  background: linear-gradient(
+    to bottom,
+    oklch(from var(--tone) calc(l + 0.12) c h) 0 50%,
+    var(--tone) 50%
+  );
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 var(--docs-edge);
+}
+
+/* Prev / next: two windows. */
+#nd-page a[href][class*="rounded"][class*="border"]:has(> p, > span, > div) {
+  --hb-fill: var(--card);
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow-sm);
+}
+
+/* Title in the chrome face; the description stays in the content face. */
+#nd-page a[href][class*="rounded"][class*="border"] > div > p {
+  font-family: var(--f-chrome);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+#nd-page
+  a[href][class*="rounded"][class*="border"]:has(> p, > span, > div):hover {
+  filter: var(--docs-block-shadow);
+}
+
+/* TOC */
+#nd-toc h3,
+#nd-toc-title,
+#toc-title {
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+#nd-toc a {
+  font-family: var(--f-chrome);
+  font-size: 14px;
+}
+
+#nd-toc a[data-active="true"] {
+  color: var(--tone);
+  font-weight: 600;
+}
+
+#nd-toc .bg-fd-primary {
+  background: var(--tone);
+}
+
+/* Page action buttons: bevel buttons. */
+#nd-page .border-b > button,
+#nd-page .border-b > [role="button"] {
+  font-family: var(--f-chrome);
+  font-weight: 600;
+  font-size: 15px;
+  height: 30px;
+  color: var(--ink);
+  background: linear-gradient(to bottom, var(--card) 0 50%, var(--paper-3) 50%);
+  border: 2px solid var(--docs-edge);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    2px 2px 0 var(--docs-edge);
+}
+
+#nd-page .border-b > button:hover,
+#nd-page .border-b > [role="button"]:hover {
+  color: var(--ink);
+  background: linear-gradient(
+    to bottom,
+    var(--card) 0 50%,
+    var(--tone-tint) 50%
+  );
+}
+
+#nd-page .border-b > button:active {
+  transform: translate(2px, 2px);
+  box-shadow:
+    inset 0 1px 0 var(--docs-bevel-hi),
+    0 0 0 var(--docs-edge);
+}
+
+#nd-page .border-b {
+  border-bottom: 2px solid var(--docs-edge);
+  border-image: none;
+}
+
+#nd-page p.text-fd-muted-foreground,
+#nd-page [class*="text-fd-muted-foreground"][class*="text-lg"] {
+  color: var(--ink-2);
+}
+
+/* Popovers and the search dialog: windows too. */
+html body [data-radix-popper-content-wrapper] > div,
+html body [role="dialog"] {
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow);
+  --hb-fill: var(--card);
+}
+
+/* --- home: the hotel lobby --------------------------------------------------- */
+.docs-home {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.docs-hero {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--band-ember);
+  /* Soft highlight in one corner, like the www bands, over the floor. */
+  background-image:
+    radial-gradient(
+      circle 340px at 100px 80px,
+      oklch(100% 0 0 / 0.1),
+      oklch(100% 0 0 / 0) 100%
+    ),
+    var(--docs-floor-white);
+  background-size:
+    auto,
+    64px 32px;
+  background-repeat: no-repeat, repeat;
+  color: oklch(100% 0 0);
+  border-bottom: 2px solid oklch(18% 0.06 30);
+}
+
+.docs-hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 84rem;
+  margin-inline: auto;
+  padding: 48px 24px 0;
+}
+
+.docs-hero-title {
+  margin-top: 16px;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: clamp(38px, 4.4vw, 58px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.docs-hero-title em {
+  font-style: normal;
+  color: var(--band-cream);
+}
+
+.docs-hero-actions {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.docs-hero .hb-btn {
+  height: 42px;
+  font-size: 19px;
+}
+
+.docs-hero-cmd {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--band-cream);
+  background: var(--band-night);
+  border: 2px solid oklch(0% 0 0 / 0.6);
+  box-shadow:
+    inset 1px 1px 0 oklch(100% 0 0 / 0.12),
+    3px 3px 0 oklch(0% 0 0 / 0.35);
+}
+
+.docs-hero-cmd-prompt {
+  color: oklch(100% 0 0 / 0.45);
+}
+
+/* The lobby: the pixel room on the right, the cast standing on its tiles. */
+.docs-hero-inner {
+  display: grid;
+  gap: 32px;
+  align-items: end;
+  padding-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .docs-hero-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 792px);
+    gap: 48px;
+    padding-top: 16px;
+  }
+
+  /* The canvas carries a few transparent pixels above the walls and below
+     the lip; tuck them under the band's edges. */
+  .docs-hero .docs-lobby {
+    margin-top: -8px;
+    margin-bottom: -12px;
+  }
+}
+
+.docs-hero-copy {
+  padding-bottom: 40px;
+}
+
+.docs-hero-sub {
+  margin-top: 18px;
+  max-width: 30rem;
+  font-size: 17px;
+  line-height: 1.6;
+  color: oklch(92% 0.03 40);
+}
+
+.docs-lobby {
+  position: relative;
+  width: 100%;
+  max-width: 792px;
+  margin-inline: auto;
+  margin-bottom: -2px;
+}
+
+/* Ambient shadow under the room: the box sits on the band. Only the room
+   itself; the cast and their name tags float above it unshadowed. */
+.docs-lobby > canvas {
+  filter: drop-shadow(0 18px 0 oklch(0% 0 0 / 0.25));
+}
+
+.docs-avatar {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  color: oklch(100% 0 0);
+  text-decoration: none;
+  pointer-events: none;
+}
+
+.docs-avatar-body {
+  position: relative;
+  width: 100%;
+  line-height: 0;
+}
+
+.docs-avatar-mark {
+  line-height: 0;
+  width: 100%;
+  animation: docs-float 6.5s steps(6) infinite;
+}
+
+/* The mark scales with the room, not with its `size` prop. */
+.docs-avatar svg {
+  width: 100%;
+  height: auto;
+}
+
+.docs-avatar:nth-child(3) .docs-avatar-mark {
+  animation-delay: -1.3s;
+}
+.docs-avatar:nth-child(4) .docs-avatar-mark {
+  animation-delay: -2.6s;
+}
+.docs-avatar:nth-child(5) .docs-avatar-mark {
+  animation-delay: -3.9s;
+}
+.docs-avatar:nth-child(6) .docs-avatar-mark {
+  animation-delay: -5.2s;
+}
+
+@keyframes docs-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Contact shadow on the tiles under the feet: a pixel ellipse at the
+   floor's 2:1 angle, nudged back-right where the room's light throws it. */
+.docs-avatar-shadow {
+  position: absolute;
+  left: 53%;
+  top: 88%;
+  width: 60%;
+  height: 22%;
+  transform: translate(-50%, -50%);
+  background:
+    url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAMCAYAAAB4MH11AAAAXklEQVR42mNkwANkhfjcGIgAj9992oVLjpFcQ4m1jJEIgzUImHkDn0WMeAzXINHxN7BZwkglw3FawkRFw7HqZWKgMWAiNtLIDiIcafgGNQx//O7TLvokU7pkNFoVFQDA9Cs+6v9M5QAAAABJRU5ErkJggg==")
+    center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* Name tag, the Habbo way: white pill, ink text, under the feet. Layered
+   above the contact shadow, which is positioned and would paint over it. */
+.docs-avatar-tag {
+  position: relative;
+  z-index: 1;
+  margin-top: -6px;
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: oklch(100% 0 0);
+  border: 1px solid oklch(0% 0 0 / 0.7);
+  border-radius: 3px;
+  padding: 3px 6px 2px;
+  box-shadow: 1px 1px 0 oklch(0% 0 0 / 0.5);
+  white-space: nowrap;
+}
+
+/* Greeting bubble hanging in the room's top-left, over the wall. */
+.docs-lobby-bubble {
+  position: absolute;
+  max-width: 230px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  /* Above every avatar (they stack by tile depth, up to ~120). */
+  z-index: 200;
+  transform-origin: 28px 100%;
+  transition:
+    opacity 0.16s steps(2),
+    transform 0.16s steps(2);
+}
+
+.docs-lobby-bubble[data-up="false"] {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.docs-lobby-bubble kbd {
+  font-family: var(--f-pixel);
+  font-size: 7px;
+  border: 1px solid var(--docs-edge);
+  border-radius: 2px;
+  padding: 1px 4px;
+  box-shadow: 1px 1px 0 var(--docs-edge);
+}
+
+/* Rooms: four windows on the paper. */
+.docs-rooms {
+  max-width: 84rem;
+  width: 100%;
+  margin-inline: auto;
+  padding: 52px 24px 24px;
+}
+
+.docs-rooms-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.docs-room {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  transition:
+    filter 0.05s steps(2),
+    transform 0.05s steps(2);
+}
+
+.docs-room:hover {
+  filter: drop-shadow(6px 6px 0 var(--docs-shade-out))
+    drop-shadow(2px 2px 0 var(--docs-shade-in));
+  clip-path: inset(0 -6px -6px 0);
+}
+
+.docs-room:active {
+  transform: translate(2px, 2px);
+  filter: var(--docs-block-shadow-sm);
+}
+
+.docs-room .hb-body {
+  flex: 1;
+  padding: 12px 14px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docs-room-title {
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.docs-room-body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* Each room has its own floor tile, with the engenty standing on it. */
+.docs-room-floor {
+  margin: 10px calc(var(--hb-px) * -2) calc(var(--hb-px) * -2);
+  height: 78px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-top: 2px solid oklch(0% 0 0 / 0.5);
+  box-shadow: inset 0 2px 0 oklch(100% 0 0 / 0.25);
+}
+
+.docs-room-floor > span {
+  line-height: 0;
+  margin-bottom: 6px;
+}
+
+.docs-room-arrow {
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  font-family: var(--f-pixel);
+  font-size: 8px;
+  color: oklch(100% 0 0);
+}
+
+.docs-strip {
+  max-width: 84rem;
+  width: 100%;
+  margin: 24px auto 64px;
+  padding: 18px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 40px;
+}
+
+.docs-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--f-chrome);
+  font-size: 15px;
+}
+
+.docs-strip-item a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--ember);
+  text-underline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-title-mascot,
+  .docs-avatar-mark {
+    animation: none;
+  }
+}
+
+html body .twoslash-popup-container {
+  border: calc(var(--hb-px) * 4) solid transparent;
+  border-image: var(--hb-frame) 4 / calc(var(--hb-px) * 4) repeat;
+  border-radius: 0;
+  filter: var(--docs-block-shadow-sm);
+}
+
+/* Layout debugging: add `debug` to any element to outline it and its tree. */
+.debug,
+.debug * {
+  outline: 1px solid oklch(70% 0.25 145 / 0.9);
+  outline-offset: -1px;
+}

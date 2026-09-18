@@ -1,8 +1,8 @@
-// The bell, in the app rail under the main nav: the tenant-wide unseen count, and
-// the aggregate list in a popover (opening beside the rail) or a drawer.
-// Deliberately not narrowed by the space the user is standing in — a decision
-// waiting elsewhere is still waiting. Mounts the client-channel watcher and
-// the realtime subscription, so both run exactly once per shell.
+// The bell, in the app rail just above the personal avatar: the tenant-wide
+// unseen count, and the aggregate list in a popover (opening beside the rail)
+// or a drawer. Deliberately not narrowed by the space the user is standing in
+// — a decision waiting elsewhere is still waiting. Mounts the client-channel
+// watcher and the realtime subscription, so both run exactly once per shell.
 
 import { currentRequestSpaceId } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -31,8 +31,8 @@ import { useNotificationsRealtime } from "./realtime.js";
 export { NOTIFICATIONS_PATH } from "./notification-paths.js";
 
 /**
- * Styled as a rail item (same box and hover treatment as the app tiles
- * above it) rather than a toolbar button: the bell lives in the app rail.
+ * Styled as a rail item (same box and hover treatment as the app tiles)
+ * rather than a toolbar button: the bell lives in the app rail.
  */
 function BellButton({ count, open }: { count: number; open: boolean }) {
   const { t } = useTranslation("common");
@@ -94,7 +94,7 @@ export function NotificationBell({
             <BellButton count={count} open={open} />
           </span>
         </SheetTrigger>
-        <SheetContent className="w-[420px] max-w-full p-0" side="left">
+        <SheetContent className="w-[32rem] max-w-full p-0" side="left">
           <SheetHeader className="sr-only">
             <SheetTitle>Notifications</SheetTitle>
           </SheetHeader>
@@ -113,8 +113,10 @@ export function NotificationBell({
       <PopoverContent
         align="end"
         className={notificationInboxPopoverClassName}
+        collisionPadding={12}
         side="right"
-        sideOffset={8}
+        sideOffset={12}
+        style={{ height: "min(40rem, calc(100vh - 1.5rem))" }}
       >
         {panel}
       </PopoverContent>

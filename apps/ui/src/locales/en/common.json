@@ -1634,9 +1634,9 @@
       "renamed": "Renamed"
     },
     "conversations": {
-      "agents": "Agents",
+      "agents": "Engenties",
       "rooms": "Rooms",
-      "dms": "Direct messages",
+      "dms": "Direct",
       "list": "Conversations",
       "pin": "Pin",
       "unpin": "Unpin",
@@ -1699,13 +1699,16 @@
     },
     "approval": {
       "allowAlways": "Always allow for this agent",
+      "allowAlwaysInbox": "For agent",
       "alreadyDecided": "Already handled by someone else.",
       "allowOnce": "Allow once",
+      "allowOnceInbox": "Once",
       "decided": "Decided: {{decision}}",
       "deny": "Deny",
       "failed": "Could not record the decision.",
       "risk": "{{level}} risk",
       "summary": "{{actor}} wants to run {{operation}} in {{space}}",
+      "summaryCompact": "{{operation}}",
       "summaryGlobal": "{{actor}} wants to run {{operation}}"
     },
     "bell": "Notifications",
@@ -1721,7 +1724,16 @@
       "hitl": "Needs your input",
       "updates": "Updates"
     },
+    "inboxTitle": {
+      "errors_one": "{{count}} error",
+      "errors_other": "{{count}} errors",
+      "hitl_one": "{{count}} open approval",
+      "hitl_other": "{{count}} open approvals",
+      "updates_one": "{{count}} update",
+      "updates_other": "{{count}} updates"
+    },
     "lane": {
+      "approvals": "Approvals",
       "errors": "Errors",
       "needsYou": "Needs your input",
       "updates": "Updates"
@@ -1732,6 +1744,7 @@
     "markSeen": "Mark as seen",
     "scope": {
       "all": "All",
+      "space": "Space",
       "thisSpace": "This space"
     },
     "searchPlaceholder": "Search notifications…",

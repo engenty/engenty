@@ -8,6 +8,9 @@ import { createRelativeLink } from "fumadocs-ui/mdx";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
+import { DocsQuote } from "@/components/brand/docs-quote";
+import { Mascot } from "@/components/brand/mascot";
+import { sectionBrand } from "@/components/brand/section-tone";
 import { githubUrlForPage } from "@/lib/docs-github-path";
 import { getPageImage, source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
@@ -61,6 +64,7 @@ export default async function Page(props: PageProps<"/docs/[...slug]">) {
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const brand = sectionBrand(page.url);
 
   return (
     <DocsPage
@@ -70,7 +74,11 @@ export default async function Page(props: PageProps<"/docs/[...slug]">) {
       }}
     >
       <div className="flex flex-wrap items-center gap-3">
-        <DocsTitle className="mb-0">{page.data.title}</DocsTitle>
+        <DocsTitle className="docs-title mb-0">
+          {page.data.title}
+          {/* The section's engenty stands on the end of the title. */}
+          <Mascot className="docs-title-mascot" kind={brand.kind} size={56} />
+        </DocsTitle>
         {page.data.status && (
           <StatusBadge
             status={
@@ -98,6 +106,10 @@ export default async function Page(props: PageProps<"/docs/[...slug]">) {
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
             a: createRelativeLink(source, page),
+            blockquote: (props) => <DocsQuote kind={brand.kind} {...props} />,
+            // Every doc opens with an h1 that repeats the frontmatter title,
+            // which DocsTitle already renders above the body.
+            h1: () => null,
           })}
         />
       </DocsBody>

@@ -18,6 +18,9 @@
     "incremental": true,
     "paths": {
       "@/*": ["./*"],
+      "@engenty/ui-core/components/engenty": [
+        "../../packages/ui-core/src/components/engenty/index.ts"
+      ],
       "fumadocs-mdx:collections/*": [".source/*"]
     },
     "plugins": [

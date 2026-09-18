@@ -413,6 +413,7 @@ export function AppLayoutFrame({
           onMobileOpenChange={setMobileOpen}
           onOpenAppMenu={() => setAppMenuOpen(true)}
           pathname={pathname}
+          railEndSlot={railEndSlot}
           search={search}
           secondaryItems={shellSecondaryLinks}
           sections={sections}

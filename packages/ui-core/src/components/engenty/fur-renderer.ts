@@ -14,6 +14,8 @@ import {
 export interface FurUniforms {
   blobs: Float32Array;
   body: [number, number, number];
+  /** How see-through the jelly coat is: 1 as designed, 0 opaque. */
+  clarity: number;
   deep: [number, number, number];
   density: number;
   extraMeta: Float32Array;
@@ -67,6 +69,7 @@ const UNIFORM_NAMES = [
   "uExtras",
   "uExtraMeta",
   "uWobble",
+  "uClarity",
 ] as const;
 
 type UniformName = (typeof UNIFORM_NAMES)[number];
@@ -196,6 +199,7 @@ export function createFurRenderer(
         gl.uniform1f(loc.uInflate, u.inflate);
         gl.uniform1f(loc.uDensity, u.density);
         gl.uniform1f(loc.uThick, u.thick);
+        gl.uniform1f(loc.uClarity, u.clarity);
         gl.uniform1i(loc.uShells, Math.min(u.shells, FUR_SHELL_MAX));
         gl.uniform2fv(loc.uLean, u.lean);
         gl.uniform3fv(loc.uLight, u.light);

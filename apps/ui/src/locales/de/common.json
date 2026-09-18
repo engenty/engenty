@@ -1640,9 +1640,9 @@
       }
     },
     "conversations": {
-      "agents": "Agenten",
+      "agents": "Engenties",
       "rooms": "Räume",
-      "dms": "Direktnachrichten",
+      "dms": "Direkt",
       "list": "Unterhaltungen",
       "pin": "Anheften",
       "unpin": "Lösen",
@@ -1705,13 +1705,16 @@
     },
     "approval": {
       "allowAlways": "Für diesen Agenten immer erlauben",
+      "allowAlwaysInbox": "Für Agenten",
       "alreadyDecided": "Wurde bereits von jemand anderem erledigt.",
       "allowOnce": "Einmal erlauben",
+      "allowOnceInbox": "Einmalig",
       "decided": "Entschieden: {{decision}}",
       "deny": "Ablehnen",
       "failed": "Entscheidung konnte nicht gespeichert werden.",
       "risk": "Risiko {{level}}",
       "summary": "{{actor}} möchte {{operation}} in {{space}} ausführen",
+      "summaryCompact": "{{operation}} ausführen",
       "summaryGlobal": "{{actor}} möchte {{operation}} ausführen"
     },
     "bell": "Benachrichtigungen",
@@ -1727,7 +1730,16 @@
       "hitl": "Braucht deine Antwort",
       "updates": "Updates"
     },
+    "inboxTitle": {
+      "errors_one": "{{count}} Fehler",
+      "errors_other": "{{count}} Fehler",
+      "hitl_one": "{{count}} offene Freigabe",
+      "hitl_other": "{{count}} offene Freigaben",
+      "updates_one": "{{count}} Update",
+      "updates_other": "{{count}} Updates"
+    },
     "lane": {
+      "approvals": "Freigaben",
       "errors": "Fehler",
       "needsYou": "Braucht deine Antwort",
       "updates": "Updates"
@@ -1738,6 +1750,7 @@
     "markSeen": "Als gesehen markieren",
     "scope": {
       "all": "Alle",
+      "space": "Space",
       "thisSpace": "Dieser Space"
     },
     "searchPlaceholder": "Benachrichtigungen durchsuchen…",

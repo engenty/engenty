@@ -4,6 +4,65 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.6] - 2026-09-18
+- ADDED **[notifications]** Tabbed rail inbox with the bell above the avatar
+- DOCS Shorter hero lede
+- DOCS Nav search keycaps in the band's dark chip style
+- DOCS Less headroom above and below the lobby
+- DOCS Lobby camera at the right scale, plus a .debug outline helper
+- DOCS Name tags above the cast's contact shadows
+- DOCS The room's drop shadow no longer falls under the cast's name tags
+- DOCS Contact shadows under the lobby cast, room 10% larger than them
+- DOCS Remove the pixel guests from the lobby
+- DOCS Guests in the Habbo three-quarter view, cast kept on the inner tiles
+- DOCS Redraw the lobby guests as contoured Habbo-style sprites
+- DOCS Lobby 10% larger, the band grows with it
+- DOCS Lobby back to its original 720px column
+- DOCS Paint the hero glow as a gradient instead of a clipped blur
+- DOCS Size the lobby from the viewport, hanging over the band
+- DOCS Live 3D pixel lobby with sprite guests
+- DOCS Correct box faces on the lobby counter and crate
+- DOCS Regenerate the pixel lobby room
+- DOCS Lobby cast keeps apart and chats in turns
+- DOCS The lobby cast drifts slowly around their spots
+- DOCS Jelly-coated cast in the lobby, named like agents
+- DOCS Floor at half intensity
+- DOCS Fainter sidebar tint, 13% transparent
+- DOCS Lighter sidebar tint
+- DOCS Sidebar fill is the section tint token
+- DOCS Lighter section tint on the sidebar
+- DOCS Sidebar fill tinted with the section tone
+- DOCS Prev/next description in the content face
+- DOCS Align the on-this-page bar with the sidebar top
+- DOCS Floating bevel on-this-page bar for small desktop
+- DOCS Even padding on the brand link
+- DOCS Solid nav band on every route, bevel menu tabs, pixel theme switch
+- DOCS Changelog title and version headings in the pixel faces
+- DOCS Larger search label and key caps in the chrome face
+- DOCS Chrome face for the section chooser and its popover titles
+- DOCS Bevel button pair for the collapsed sidebar toggle
+- DOCS Floating framed sidebar window
+- DOCS Jersey pixel family for titles and chrome, Geist section headings
+- DOCS Readable bevel buttons in dark mode
+- DOCS Lighter floor nodes, two-grey window shadows, bevel area chooser
+- DOCS Translucent white sidebar with grey edge shadow
+- DOCS Floor nodes as mini diamonds on the grid angle, lighter
+- DOCS Translucent tone highlight for the active sidebar row
+- DOCS Lighter floor nodes
+- DOCS Floor nodes and centre dots for depth
+- DOCS Geist 800 headlines, smaller; no anchor underline; lighter floor
+- DOCS Isometric tiled floor under page and sidebar
+- DOCS Window shadows follow the frame's chamfered corners
+- DOCS Fix the dot lattice to the viewport
+- DOCS Axonometric dot lattice background
+- DOCS 2x2 pixel dot grid, ink pixel drop shadows on windows
+- DOCS Subtle pixel dot grid, define --card token
+- DOCS Habbo-style theme for the docs site
+- FIXED **[manage]** Map destructive-foreground so red badges keep white type
+- FIXED **[core]** Skip closed-module tests on the public snapshot
+- FIXED **[deps]** Put the Supabase CLI back on the one pin
+- OTHER Calm the space Work sidebar until a heading is hovered
+
 ## [0.2.5] - 2026-09-17
 - ADDED **[projects]** Phase and project edits land immediately too
 - ADDED **[projects]** Project task edits land immediately

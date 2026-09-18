@@ -47,6 +47,7 @@ export {
 export {
   NotificationList,
   type NotificationListProps,
+  type NotificationListVariant,
 } from "./notification-list.js";
 export { spaceInboxPath } from "./notification-paths.js";
 export { NotificationPreferencesSection } from "./notification-preferences-section.js";
@@ -66,8 +67,11 @@ export {
   NotificationBody,
   type NotificationRenderer,
   type NotificationRendererProps,
+  type NotificationSurface,
+  NotificationSurfaceContext,
   registerNotificationRenderer,
   useNotificationRenderer,
+  useNotificationSurface,
 } from "./renderers.js";
 export {
   type RouteInput,

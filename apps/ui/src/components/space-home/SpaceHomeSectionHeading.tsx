@@ -6,7 +6,7 @@
  * at the same y because they are the same element.
  *
  * Modules and Extensions also get the Work sidebar's hover chrome: a chevron
- * to fold the card, and a "+" to add. Those live on `group/section`.
+ * to fold the card, and a "+" to add. Those live on `group/heading`.
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
@@ -35,7 +35,7 @@ export function SpaceHomeSectionHeading({
   }
 
   return (
-    <div className="flex items-center justify-between gap-1 px-1 pt-5 pb-2 first:pt-0">
+    <div className="group/heading flex items-center justify-between gap-1 px-1 pt-5 pb-2 first:pt-0">
       <div className="flex min-w-0 flex-1 items-center gap-0.5">
         <h2 className="min-w-0 truncate font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
           {children}

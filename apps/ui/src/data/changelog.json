@@ -1,7 +1,355 @@
 [
   {
+    "version": "v0.2.6",
+    "timestamp": 1789736570,
+    "commits": [
+      {
+        "id": "432b47e",
+        "message": "Calm the space Work sidebar until a heading is hovered",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "ade1315",
+        "message": "map destructive-foreground so red badges keep white type",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "290db53",
+        "message": "tabbed rail inbox with the bell above the avatar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "835344f",
+        "message": "shorter hero lede",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "92ada3d",
+        "message": "nav search keycaps in the band's dark chip style",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ac4efbe",
+        "message": "less headroom above and below the lobby",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "0189059",
+        "message": "lobby camera at the right scale, plus a .debug outline helper",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "54e0a5c",
+        "message": "name tags above the cast's contact shadows",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "84b402c",
+        "message": "the room's drop shadow no longer falls under the cast's name tags",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6abc475",
+        "message": "contact shadows under the lobby cast, room 10% larger than them",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "87c9bd7",
+        "message": "remove the pixel guests from the lobby",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "7735b27",
+        "message": "guests in the Habbo three-quarter view, cast kept on the inner tiles",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "d3ffa90",
+        "message": "redraw the lobby guests as contoured Habbo-style sprites",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9754c87",
+        "message": "lobby 10% larger, the band grows with it",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "154d02d",
+        "message": "lobby back to its original 720px column",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "5f87af0",
+        "message": "paint the hero glow as a gradient instead of a clipped blur",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "7bd034d",
+        "message": "size the lobby from the viewport, hanging over the band",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "cbc2e09",
+        "message": "live 3D pixel lobby with sprite guests",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "775d99e",
+        "message": "correct box faces on the lobby counter and crate",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ffef899",
+        "message": "regenerate the pixel lobby room",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "c72e160",
+        "message": "lobby cast keeps apart and chats in turns",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9866ab0",
+        "message": "the lobby cast drifts slowly around their spots",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6d4bc76",
+        "message": "jelly-coated cast in the lobby, named like agents",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6100dd1",
+        "message": "floor at half intensity",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "646e3c6",
+        "message": "fainter sidebar tint, 13% transparent",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "115c444",
+        "message": "lighter sidebar tint",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "c7a7fb0",
+        "message": "sidebar fill is the section tint token",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "8941452",
+        "message": "lighter section tint on the sidebar",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "722759b",
+        "message": "sidebar fill tinted with the section tone",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "b0fa5fa",
+        "message": "prev/next description in the content face",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "0612348",
+        "message": "align the on-this-page bar with the sidebar top",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "cca71f5",
+        "message": "floating bevel on-this-page bar for small desktop",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ae03d2d",
+        "message": "even padding on the brand link",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "26964f4",
+        "message": "solid nav band on every route, bevel menu tabs, pixel theme switch",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ad07abd",
+        "message": "changelog title and version headings in the pixel faces",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "46f5613",
+        "message": "larger search label and key caps in the chrome face",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "fd7b006",
+        "message": "chrome face for the section chooser and its popover titles",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "a42b975",
+        "message": "bevel button pair for the collapsed sidebar toggle",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "788aac1",
+        "message": "floating framed sidebar window",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "8a6018b",
+        "message": "Jersey pixel family for titles and chrome, Geist section headings",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "df02eff",
+        "message": "readable bevel buttons in dark mode",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "d50e72a",
+        "message": "lighter floor nodes, two-grey window shadows, bevel area chooser",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "219da64",
+        "message": "translucent white sidebar with grey edge shadow",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "27974c6",
+        "message": "floor nodes as mini diamonds on the grid angle, lighter",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "99b7777",
+        "message": "translucent tone highlight for the active sidebar row",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "0d26b1d",
+        "message": "lighter floor nodes",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "24244b8",
+        "message": "floor nodes and centre dots for depth",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "15c8b75",
+        "message": "Geist 800 headlines, smaller; no anchor underline; lighter floor",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "b3aff8e",
+        "message": "isometric tiled floor under page and sidebar",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "6c6dbae",
+        "message": "window shadows follow the frame's chamfered corners",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "ae1a9f0",
+        "message": "fix the dot lattice to the viewport",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "46b371a",
+        "message": "axonometric dot lattice background",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "3fb96a6",
+        "message": "2x2 pixel dot grid, ink pixel drop shadows on windows",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "03caea6",
+        "message": "subtle pixel dot grid, define --card token",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "c862957",
+        "message": "Habbo-style theme for the docs site",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "195147f",
+        "message": "skip closed-module tests on the public snapshot",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "4b4f3dd",
+        "message": "put the Supabase CLI back on the one pin",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.5",
-    "timestamp": 1789667868,
+    "timestamp": 1789667871,
     "commits": [
       {
         "id": "ac8c355",

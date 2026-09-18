@@ -24,6 +24,8 @@ const config = {
   allowedDevOrigins: [docsAllowedDevOrigin(), "engenty.localhost"],
   /** Mermaid is large ESM; transpilation avoids subtle Turbopack/webpack issues. */
   transpilePackages: ["mermaid"],
+  /** The flat engenty mascots come straight from ui-core source (tsconfig paths). */
+  experimental: { externalDir: true },
   serverExternalPackages: ["typescript", "twoslash"],
   async rewrites() {
     return [

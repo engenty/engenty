@@ -1,17 +1,20 @@
 /**
- * Shared chrome for the Work tab's lists (Modules, Agents, People) and the
+ * Shared chrome for the Work tab's lists (Modules, Engenties, People) and the
  * Data tab's root types (Contacts, Files, …).
  *
  * The heading is the label; the optional action is the hover "+" that adds
- * to that list. Hovering ANYWHERE in the section reveals it (`group/section`
- * lives on the section wrapper, not on this row), and keyboard users still
- * reach it: the control stays in the tab order and `focus-visible` brings it
- * back. Named so nested row `group/row` hovers do not light every ⋮.
- * A picker that is open also keeps it painted (`data-open` /
- * `data-popup-open`), so the trigger does not vanish under the pointer the
- * moment the popover appears.
+ * to that list. Hovering THIS ROW reveals the chevron and the "+" (`group/heading`
+ * lives on the title, not the section), so sweeping the list does not light
+ * every control. Keyboard users still reach them: the controls stay in the
+ * tab order and `focus-visible` brings them back. A picker that is open also
+ * keeps the "+" painted (`data-open` / `data-popup-open`), so the trigger
+ * does not vanish under the pointer the moment the popover appears.
  *
- * When `to` is set the label is a link (Agents → `/s/<key>/agents`). Collapse
+ * A closed section puts its item count in the "+" slot. Hovering the title
+ * swaps that number for the action, so the chrome stays quiet until you
+ * need it.
+ *
+ * When `to` is set the label is a link (Engenties → `/s/<key>/agents`). Collapse
  * is a separate chevron so the two gestures cannot fight — same split the
  * knowledge-base tree uses (`SidebarExpandChevronButton` vs the row link).
  */
@@ -28,25 +31,31 @@ import {
 import { ChevronDown, Plus } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { formatNavCount } from "@/components/spaces/space-nav-row";
 
 export function SpaceSectionHeading({
   action,
   active = false,
   children,
+  count = 0,
   onOpenChange,
   open,
   to,
 }: {
   action?: ReactNode;
-  /** The linked heading is the current page (the Agents roster). */
+  /** The linked heading is the current page (the Engenties roster). */
   active?: boolean;
   children: ReactNode;
+  /** Item count; shown in the "+" slot while the section is closed. */
+  count?: number;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   to?: string;
 }) {
   const { t } = useTranslation("common");
   const collapsible = onOpenChange != null && open != null;
+  const hasAction = Boolean(action);
+  const showCount = collapsible && open === false && count > 0;
   const labelClassName = cn(
     "min-w-0 truncate font-medium text-xs uppercase tracking-wide",
     active ? "text-foreground" : "text-muted-foreground",
@@ -56,7 +65,7 @@ export function SpaceSectionHeading({
   );
 
   return (
-    <div className="flex items-center justify-between gap-2 px-2 pb-1">
+    <div className="group/heading flex items-center justify-between gap-2 px-2 pb-1">
       <div className="flex min-w-0 flex-1 items-center gap-1">
         {to ? (
           <Link
@@ -79,8 +88,10 @@ export function SpaceSectionHeading({
             }
             className={cn(
               "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground",
+              "opacity-0 transition-opacity",
               "hover:bg-muted hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary",
+              "group-hover/heading:opacity-100"
             )}
             onClick={() => onOpenChange(!open)}
             type="button"
@@ -95,7 +106,34 @@ export function SpaceSectionHeading({
           </button>
         ) : null}
       </div>
-      {action}
+      {showCount || hasAction ? (
+        <div className="group/trail relative grid min-h-5 min-w-5 shrink-0 place-items-center">
+          {showCount ? (
+            <span
+              aria-hidden
+              className={cn(
+                "font-medium text-muted-foreground text-xs tabular-nums leading-none",
+                "transition-opacity",
+                hasAction
+                  ? "group-focus-within/trail:opacity-0 group-hover/heading:opacity-0 group-has-[[data-open]]/trail:opacity-0 group-has-[[data-popup-open]]/trail:opacity-0 group-has-[[data-state=open]]/trail:opacity-0"
+                  : null
+              )}
+            >
+              {formatNavCount(count)}
+            </span>
+          ) : null}
+          {hasAction ? (
+            <div
+              className={cn(
+                "grid place-items-center",
+                showCount ? "absolute inset-0" : null
+              )}
+            >
+              {action}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -116,7 +154,7 @@ export function SpaceSectionAddButton({
       className={cn(
         "size-5 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity",
         "hover:text-foreground focus-visible:opacity-100",
-        "group-focus-within/section:opacity-100 group-hover/section:opacity-100",
+        "group-hover/heading:opacity-100",
         "data-[state=open]:opacity-100 data-open:opacity-100 data-popup-open:opacity-100",
         className
       )}

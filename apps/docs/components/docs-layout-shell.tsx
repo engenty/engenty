@@ -6,6 +6,8 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useMemo } from "react";
+import { Mascot } from "@/components/brand/mascot";
+import { sectionBrand } from "@/components/brand/section-tone";
 import { baseOptions } from "@/lib/layout.shared";
 
 const ROOT_HUB_PATHS = new Set(["/docs/README", "/docs/AGENTS"]);
@@ -88,13 +90,18 @@ function createTabs(rootFolders: Folder[]): LayoutTab[] {
       }
     }
 
+    // The tab's mascot replaces the lucide icon from meta.json: each section is
+    // a room with its own engenty, in the sidebar chooser as on the page title.
+    const brand = sectionBrand(url);
+
     return [
       {
         url,
         title: folder.name,
-        icon: folder.icon,
+        icon: <Mascot animated={false} kind={brand.kind} size={22} />,
         description: folder.description,
         urls,
+        props: { "data-tone": brand.tone } as LayoutTab["props"],
       },
     ];
   });
@@ -139,12 +146,42 @@ export function DocsLayoutShell({
     () => treeForPath(baseTree, rootFolders, pathname),
     [pathname, rootFolders, baseTree],
   );
+  const brand = sectionBrand(pathname);
+  const sectionName =
+    tabs.find((tab) => tab.urls?.has(pathname))?.title ??
+    rootFolders[0]?.name ??
+    "Docs";
   const DocsLayoutWithChildren = DocsLayout as React.ComponentType<
     DocsLayoutProps & { children: ReactNode }
   >;
 
   return (
-    <DocsLayoutWithChildren tree={activeTree} tabs={tabs} {...baseOptions()}>
+    <DocsLayoutWithChildren
+      tree={activeTree}
+      tabs={tabs}
+      // `data-tone` drives the section colour (global.css): links, active rows,
+      // heading markers, the hard block shadows.
+      containerProps={
+        { "data-tone": brand.tone } as DocsLayoutProps["containerProps"]
+      }
+      sidebar={{
+        banner: (
+          <div className="docs-sidebar-banner hb-window">
+            <div className="hb-bar">
+              <span className="hb-bar-title">navigator</span>
+            </div>
+            <div className="hb-body">
+              <Mascot kind={brand.kind} size={44} />
+              <span className="docs-sidebar-banner-text">
+                <span className="docs-kicker">you are in</span>
+                <span className="docs-sidebar-banner-name">{sectionName}</span>
+              </span>
+            </div>
+          </div>
+        ),
+      }}
+      {...baseOptions()}
+    >
       {children}
     </DocsLayoutWithChildren>
   );

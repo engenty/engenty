@@ -59,6 +59,7 @@ export function SpaceModulesSection({
             />
           ) : null
         }
+        count={modules.length}
         onOpenChange={setOpen}
         open={open}
       >

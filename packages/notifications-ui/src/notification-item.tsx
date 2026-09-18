@@ -28,6 +28,34 @@ import { spaceInboxPath } from "./notification-paths.js";
 import { useMarkNotificationMutation } from "./queries.js";
 import { NotificationBody, useNotificationRenderer } from "./renderers.js";
 
+function compactTime(iso: string, locale: string): string {
+  const then = new Date(iso);
+  const thenMs = then.getTime();
+  if (!Number.isFinite(thenMs)) {
+    return "";
+  }
+  const deltaMinutes = Math.round((thenMs - Date.now()) / 60_000);
+  const absMinutes = Math.abs(deltaMinutes);
+  if (absMinutes < 1) {
+    return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
+      0,
+      "second"
+    );
+  }
+  if (absMinutes < 60) {
+    return `${absMinutes}m`;
+  }
+  const absHours = Math.round(absMinutes / 60);
+  if (absHours < 24) {
+    return `${absHours}h`;
+  }
+  const absDays = Math.round(absHours / 24);
+  if (absDays < 7) {
+    return `${absDays}d`;
+  }
+  return then.toLocaleDateString(locale, { day: "numeric", month: "short" });
+}
+
 function relativeTime(iso: string, locale: string): string {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) {
@@ -85,6 +113,56 @@ function localizedSummary(
     }
   }
   return notification.summary;
+}
+
+function compactInboxSummary(
+  notification: NotificationDto,
+  t: (key: string, options: Record<string, unknown>) => string
+): string {
+  if (
+    notification.kind === "approval_requested" ||
+    notification.kind === "connection_approval_requested"
+  ) {
+    const operationId = notification.metadata?.operation_id;
+    if (typeof operationId === "string") {
+      return t("notifications.approval.summaryCompact", {
+        defaultValue: "{{operation}}",
+        operation: humanizeOperationId(operationId),
+      });
+    }
+  }
+  if (notification.class === "alert") {
+    const err = alertDetail(notification);
+    if (alertSubjectName(notification) || err) {
+      return err ?? "";
+    }
+  }
+  return localizedSummary(notification, t);
+}
+
+const ROUTINE_FAILED_NAME = /^Routine "([^"]+)" failed/;
+const FAILED_REASON = /failed:\s*(.+)$/i;
+
+/** Routine name from the English summary, when the producer left no actor. */
+function alertSubjectName(notification: NotificationDto): string | null {
+  if (notification.class !== "alert") {
+    return null;
+  }
+  const name = notification.summary.match(ROUTINE_FAILED_NAME)?.[1]?.trim();
+  return name ? name : null;
+}
+
+function alertDetail(notification: NotificationDto): string | null {
+  const raw = notification.payload?.error;
+  if (typeof raw === "string") {
+    const trimmed = raw.replace(/\s+/g, " ").trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  const fromSummary = notification.summary.match(FAILED_REASON)?.[1];
+  const trimmed = fromSummary?.replace(/\s+/g, " ").trim();
+  return trimmed ? trimmed : null;
 }
 
 /** The agent's result text captured on the payload, if any. */
@@ -174,9 +252,11 @@ function actionVerb(
 export function NotificationItem({
   notification,
   locale,
+  variant = "page",
 }: {
   notification: NotificationDto;
   locale: string;
+  variant?: "page" | "inbox";
 }) {
   const { t } = useTranslation("common");
   const { spaceKey } = useParams<{ spaceKey?: string }>();
@@ -195,24 +275,48 @@ export function NotificationItem({
   const Icon = iconForKind(notification);
   const detail = resultText(notification);
   const verb = actionVerb(notification, t);
+  const inbox = variant === "inbox";
+  const titleText = inbox
+    ? compactInboxSummary(notification, t)
+    : localizedSummary(notification, t);
+  const contextLabel = inbox
+    ? (origin.actorLabel ??
+      (showSpace ? (origin.spaceName ?? origin.spaceKey) : null) ??
+      alertSubjectName(notification))
+    : null;
+  const alertErr = inbox && failure ? alertDetail(notification) : null;
+  const inboxDetails = inbox
+    ? [
+        showSpace && origin.actorLabel
+          ? (origin.spaceName ?? origin.spaceKey)
+          : null,
+        alertErr ? null : detail,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
   const summaryNode = (
     <span
       className={cn(
-        "font-medium text-sm leading-tight",
-        unseen ? "text-foreground" : "text-muted-foreground"
+        "text-sm leading-snug",
+        unseen ? "font-medium text-foreground" : "text-muted-foreground"
       )}
     >
       {verb ? (
         <span
           className={cn(
             "font-semibold",
-            failure ? "text-destructive" : "text-primary"
+            failure
+              ? "text-destructive"
+              : inbox
+                ? "text-foreground"
+                : "text-primary"
           )}
         >
           {verb}{" "}
         </span>
       ) : null}
-      {localizedSummary(notification, t)}
+      {titleText}
       {notification.coalesced_count > 1 ? (
         <span className="ml-1 text-muted-foreground text-xs tabular-nums">
           ×{notification.coalesced_count}
@@ -223,13 +327,73 @@ export function NotificationItem({
   const markLabel = failure
     ? t("notifications.dismiss", { defaultValue: "Dismiss" })
     : t("notifications.markSeen", { defaultValue: "Mark as seen" });
+  const originMeta = (
+    <>
+      {origin.actorLabel ? origin.actorLabel : null}
+      {showSpace && origin.spaceKey ? (
+        <>
+          {origin.actorLabel ? " · " : null}
+          <Link
+            className="hover:underline"
+            to={spaceInboxPath(origin.spaceKey)}
+          >
+            {origin.spaceName ?? origin.spaceKey}
+          </Link>
+        </>
+      ) : null}
+    </>
+  );
+  const hasOriginMeta = Boolean(origin.actorLabel || showSpace);
+  // Inbox rows do not grow a hover check — that extra column is what made
+  // the unread dot jump. Mark-all lives on the lane title bar instead.
+  const showMark = !(inbox || decidesInPlace);
+  const markButton = showMark ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          aria-label={markLabel}
+          className="group h-6 w-6 shrink-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
+          disabled={markMutation.isPending}
+          onClick={() =>
+            markMutation.mutate({
+              // Errors are announcements to clear; mark-seen would leave
+              // them in the open inbox forever. HITL / updates stay seen.
+              action: failure ? "dismiss" : "seen",
+              id: notification.id,
+            })
+          }
+          size="icon"
+          variant="ghost"
+        >
+          <AnimatedCheckIcon aria-hidden play="hover" size="sm" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left">{markLabel}</TooltipContent>
+    </Tooltip>
+  ) : null;
+  const timeCue = (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {compactTime(notification.created_at, locale)}
+      </span>
+      {inbox && unseen ? (
+        <span
+          aria-hidden
+          className="size-1.5 shrink-0 rounded-full bg-primary"
+        />
+      ) : null}
+    </span>
+  );
 
   return (
     <li
       className={cn(
-        "ui-card-raised flex items-start gap-2.5 px-3 py-2",
-        !unseen && "opacity-70",
-        failure && "ring-1 ring-destructive/25"
+        "group/notification flex items-start",
+        inbox
+          ? "ui-row-hover gap-3 px-4 py-3 [&_a]:no-underline"
+          : "ui-card-raised gap-2.5 px-3 py-2",
+        !(inbox || unseen) && "opacity-70",
+        !inbox && failure && "ring-1 ring-destructive/25"
       )}
     >
       <Icon
@@ -239,61 +403,77 @@ export function NotificationItem({
         )}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-          {href ? (
-            <Link className="min-w-0 truncate hover:underline" to={href}>
-              {summaryNode}
-            </Link>
-          ) : (
-            summaryNode
-          )}
-          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-            {origin.actorLabel ? <>{origin.actorLabel} · </> : null}
-            {showSpace && origin.spaceKey ? (
-              <>
-                <Link
-                  className="hover:underline"
-                  to={spaceInboxPath(origin.spaceKey)}
-                >
-                  {origin.spaceName ?? origin.spaceKey}
-                </Link>
-                {" · "}
-              </>
+        {inbox ? (
+          <>
+            {contextLabel ? (
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <p className="truncate text-muted-foreground text-xs">
+                  {contextLabel}
+                </p>
+                {timeCue}
+              </div>
             ) : null}
-            {relativeTime(notification.created_at, locale)}
-          </span>
-        </div>
-        {detail ? (
-          <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
-            {detail}
-          </p>
-        ) : null}
-        <NotificationBody notification={notification} />
-      </div>
-      {decidesInPlace ? null : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label={markLabel}
-              className="group h-6 w-6 shrink-0 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400"
-              disabled={markMutation.isPending}
-              onClick={() =>
-                markMutation.mutate({
-                  // Errors are announcements to clear; mark-seen would leave
-                  // them in the open inbox forever. HITL / updates stay seen.
-                  action: failure ? "dismiss" : "seen",
-                  id: notification.id,
-                })
-              }
-              size="icon"
-              variant="ghost"
+            <div
+              className={cn(
+                "flex min-w-0 items-start justify-between gap-3",
+                contextLabel && "mt-0.5"
+              )}
             >
-              <AnimatedCheckIcon aria-hidden play="hover" size="sm" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">{markLabel}</TooltipContent>
-        </Tooltip>
-      )}
+              {href ? (
+                <Link className="min-w-0 no-underline" to={href}>
+                  {summaryNode}
+                </Link>
+              ) : (
+                <div className="min-w-0">{summaryNode}</div>
+              )}
+              {contextLabel ? null : timeCue}
+            </div>
+            {inboxDetails ? (
+              <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
+                {showSpace && origin.actorLabel && origin.spaceKey ? (
+                  <Link
+                    className="no-underline"
+                    to={spaceInboxPath(origin.spaceKey)}
+                  >
+                    {origin.spaceName ?? origin.spaceKey}
+                  </Link>
+                ) : null}
+                {showSpace && origin.actorLabel && detail ? " · " : null}
+                {alertErr ? null : detail}
+              </p>
+            ) : null}
+            <NotificationBody notification={notification} />
+          </>
+        ) : (
+          <>
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+              {href ? (
+                <Link className="min-w-0 truncate no-underline" to={href}>
+                  {summaryNode}
+                </Link>
+              ) : (
+                summaryNode
+              )}
+              <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+                {hasOriginMeta ? (
+                  <>
+                    {originMeta}
+                    {" · "}
+                  </>
+                ) : null}
+                {relativeTime(notification.created_at, locale)}
+              </span>
+            </div>
+            {detail ? (
+              <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
+                {detail}
+              </p>
+            ) : null}
+            <NotificationBody notification={notification} />
+          </>
+        )}
+      </div>
+      {inbox ? null : markButton}
     </li>
   );
 }

@@ -1,6 +1,7 @@
 /**
  * The artifacts this person pinned in the space — the Work-tab list beside
- * its conversations.
+ * its conversations. An empty list stays off the sidebar until something is
+ * pinned, the same way empty Räume and Direkt do.
  *
  * Pinning is personal nav, not ownership: an artifact still lives in Data
  * (`scope_type: 'space'`). The pin is what puts it on this list and on the
@@ -84,7 +85,7 @@ export function SpaceArtifactsSection({
     });
   }, [artifactsQuery.data, pins.pinned, spaceId]);
 
-  if (!spaceId) {
+  if (!spaceId || nodes.length === 0) {
     return null;
   }
 
@@ -95,6 +96,7 @@ export function SpaceArtifactsSection({
       open={open}
     >
       <SpaceSectionHeading
+        count={nodes.length}
         onOpenChange={setOpen}
         open={open}
         to={spaceDataPath(spaceKey)}
@@ -103,23 +105,6 @@ export function SpaceArtifactsSection({
       </SpaceSectionHeading>
 
       <CollapsibleContent>
-        {artifactsQuery.isPending ? (
-          <div className="flex flex-col gap-1">
-            {[0, 1].map((index) => (
-              <div
-                className="h-7 animate-pulse rounded-[8px] bg-muted"
-                key={index}
-              />
-            ))}
-          </div>
-        ) : null}
-        {!artifactsQuery.isPending && nodes.length === 0 ? (
-          <p className="px-2 text-muted-foreground text-xs">
-            {t("spaces.artifacts.empty", {
-              defaultValue: "Pin artifacts from Data to keep them here.",
-            })}
-          </p>
-        ) : null}
         {nodes.map((node) => {
           const Icon = driveNodeIcon(node);
           const active = openArtifactId === node.sourceId;

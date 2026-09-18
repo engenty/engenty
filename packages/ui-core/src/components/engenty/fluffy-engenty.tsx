@@ -69,6 +69,8 @@ const DEFAULT_INFLATE = 30;
 const DEFAULT_WIND = 0.5;
 
 export interface FluffyEngentyOverrides {
+  /** Jelly only: how see-through the gel is, 1 as designed down to 0 opaque. */
+  clarity?: number;
   density?: number;
   fur?: number;
   inflate?: number;
@@ -238,6 +240,7 @@ export function FluffyEngenty({
       const palette = furPalette(wrap, current.kind);
       stage.drawInto(context, px, {
         blobs: current.blobs,
+        clarity: current.overrides?.clarity ?? 1,
         body: palette.body,
         deep: palette.deep,
         density: Math.min(

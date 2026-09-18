@@ -66,9 +66,8 @@ interface AppSidebarProps {
   /** Desktop rail-edge Open/Close. Omit on mobile — the sheet has its own close. */
   onToggleSecondaryNav?: () => void;
   /**
-   * Rendered in the compact rail directly below the main nav (apps), above
-   * the admin cluster — the notification bell. Passed in like `spacesZone`:
-   * the app owns the data.
+   * Rendered in the compact rail immediately above the personal avatar —
+   * the notification bell. Passed in like `spacesZone`: the app owns the data.
    */
   railEndSlot?: ReactNode;
   /**
@@ -420,83 +419,88 @@ export function AppSidebar({
               </div>
             );
           })}
-          {railEndSlot ? (
-            <div className="mt-1 flex w-full justify-center">{railEndSlot}</div>
-          ) : null}
         </nav>
 
-        {adminSection && (
-          <div
-            className={cn(
-              "mt-auto pb-2",
-              compact ? "px-1.5 pt-3" : "px-2 py-2"
-            )}
-          >
-            {compact ? (
-              <div
-                aria-label={adminSection.label || "Admin"}
-                className="flex flex-col-reverse gap-1"
-                onBlurCapture={(e) => {
-                  if (
-                    !e.currentTarget.contains(e.relatedTarget as Node | null)
-                  ) {
-                    setAdminRailExpanded(false);
-                  }
-                }}
-                onFocusCapture={() => setAdminRailExpanded(true)}
-                onMouseEnter={() => setAdminRailExpanded(true)}
-                onMouseLeave={() => setAdminRailExpanded(false)}
-                role="group"
-              >
-                {/* column-reverse: first in DOM sits lowest, under Settings. */}
-                {settingsItem && renderItem(settingsItem, false)}
-                {engentyAdminItem && renderItem(engentyAdminItem, false)}
-                {otherAdminItems.length > 0 ? (
-                  <div
-                    aria-hidden={!adminRailExpanded}
-                    className={cn(
-                      "flex flex-col gap-1 overflow-hidden transition-[max-height,opacity] duration-200 ease-out",
-                      adminRailExpanded
-                        ? "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
-                        : "max-h-0 opacity-0"
-                    )}
-                    inert={adminRailExpanded ? undefined : true}
-                  >
-                    {otherAdminItems.map((item) => renderItem(item, false))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {adminSection.label && (
-                  <p
-                    className={cn(
-                      "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
-                      isPanel
-                        ? "text-muted-foreground"
-                        : "text-sidebar-foreground/55"
-                    )}
-                  >
-                    {adminSection.label}
-                  </p>
-                )}
-                {adminSection.items.map((item) => renderItem(item, false))}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="mt-auto shrink-0">
+          {adminSection && (
+            <div className={cn("pb-1", compact ? "px-1.5 pt-3" : "px-2 py-2")}>
+              {compact ? (
+                <div
+                  aria-label={adminSection.label || "Admin"}
+                  className="flex flex-col-reverse gap-1"
+                  onBlurCapture={(e) => {
+                    if (
+                      !e.currentTarget.contains(e.relatedTarget as Node | null)
+                    ) {
+                      setAdminRailExpanded(false);
+                    }
+                  }}
+                  onFocusCapture={() => setAdminRailExpanded(true)}
+                  onMouseEnter={() => setAdminRailExpanded(true)}
+                  onMouseLeave={() => setAdminRailExpanded(false)}
+                  role="group"
+                >
+                  {/* column-reverse: first in DOM sits lowest, under Settings. */}
+                  {settingsItem && renderItem(settingsItem, false)}
+                  {engentyAdminItem && renderItem(engentyAdminItem, false)}
+                  {otherAdminItems.length > 0 ? (
+                    <div
+                      aria-hidden={!adminRailExpanded}
+                      className={cn(
+                        "flex flex-col gap-1 overflow-hidden transition-[max-height,opacity] duration-200 ease-out",
+                        adminRailExpanded
+                          ? "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
+                          : "max-h-0 opacity-0"
+                      )}
+                      inert={adminRailExpanded ? undefined : true}
+                    >
+                      {otherAdminItems.map((item) => renderItem(item, false))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {adminSection.label && (
+                    <p
+                      className={cn(
+                        "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
+                        isPanel
+                          ? "text-muted-foreground"
+                          : "text-sidebar-foreground/55"
+                      )}
+                    >
+                      {adminSection.label}
+                    </p>
+                  )}
+                  {adminSection.items.map((item) => renderItem(item, false))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* One `--shell-footer` row, no rule above it: the column's Settings
-            footer is the same row, so the two sit on one baseline. */}
-        <div className="flex h-(--shell-footer) shrink-0 items-center px-2">
-          <div
-            className="w-full"
-            style={{
-              transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
-              transformOrigin: "center",
-            }}
-          >
-            {footer ?? shell.userMenu(compact)}
+          {railEndSlot ? (
+            <div
+              className={cn(
+                "flex w-full justify-center",
+                compact ? "px-1.5 pb-1" : "px-2 pb-1"
+              )}
+            >
+              {railEndSlot}
+            </div>
+          ) : null}
+
+          {/* One `--shell-footer` row, no rule above it: the bell sits just
+            above the avatar so both read as personal chrome. */}
+          <div className="flex h-(--shell-footer) shrink-0 items-center px-2">
+            <div
+              className="w-full"
+              style={{
+                transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
+                transformOrigin: "center",
+              }}
+            >
+              {footer ?? shell.userMenu(compact)}
+            </div>
           </div>
         </div>
       </aside>

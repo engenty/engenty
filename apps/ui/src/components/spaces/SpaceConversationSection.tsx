@@ -1,8 +1,9 @@
 /**
  * One section of the conversation list: a personal one, or a built-in
- * (Agenten · Räume · Direktnachrichten). The heading collapses it, links
- * the Agents roster page for the agents built-in, and carries the section's
- * "+" or ⋮. The body is a drop zone of rows.
+ * (Engenties · Räume · Direkt). The heading collapses it, links
+ * the Engenties roster page for the agents built-in, and carries the section's
+ * "+" or ⋮. The body is a drop zone of rows. Empty Räume and Direkt stay
+ * off the list until they have a chat.
  */
 import { conversationEngagement } from "@engenty/ai-core/browser";
 import { useAgentLiveActivityMap } from "@engenty/ai-ui";
@@ -46,6 +47,12 @@ import {
   SpaceSectionAddButton,
   SpaceSectionHeading,
 } from "./space-section-heading";
+
+const BUILT_IN_SECTION_LABELS = {
+  agents: "Engenties",
+  dms: "Direct",
+  rooms: "Rooms",
+} as const;
 
 /** One row of any kind, with its menu, for a section or for Favoriten. */
 export function SpaceConversationRow({
@@ -150,7 +157,7 @@ export function SpaceConversationSection({
     section.kind === "personal"
       ? (section.name ?? "")
       : t(`spaces.conversations.${section.kind}`, {
-          defaultValue: section.kind,
+          defaultValue: BUILT_IN_SECTION_LABELS[section.kind],
         });
 
   let action: ReactNode = null;
@@ -255,6 +262,13 @@ export function SpaceConversationSection({
         }
       : {};
 
+  if (
+    (section.kind === "rooms" || section.kind === "dms") &&
+    section.items.length === 0
+  ) {
+    return null;
+  }
+
   return (
     <Collapsible
       className="group/section flex flex-col"
@@ -264,6 +278,7 @@ export function SpaceConversationSection({
     >
       <SpaceSectionHeading
         action={action}
+        count={section.items.length}
         onOpenChange={setOpen}
         open={open}
         {...headingProps}

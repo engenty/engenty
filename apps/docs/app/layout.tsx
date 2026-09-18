@@ -1,12 +1,7 @@
 import { RootProvider } from "fumadocs-ui/provider/next";
 import "./global.css";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
-
-const inter = Inter({
-  subsets: ["latin"],
-});
 
 function resolveDocsSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_DOCS_SITE_URL?.trim();
@@ -48,7 +43,7 @@ export default function Layout({ children }: LayoutProps<"/">) {
   }>;
 
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
         <RootProviderWithChildren>{children}</RootProviderWithChildren>
       </body>

@@ -70,7 +70,7 @@ export default function ChangelogPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="text-2xl font-bold">Changelog</h1>
+      <h1 className="docs-title">Changelog</h1>
       <p className="mt-2 text-fd-muted-foreground">
         Release history for Engenty, generated from{" "}
         <a
@@ -92,7 +92,7 @@ export default function ChangelogPage() {
         <div className="mt-8 flex flex-col gap-10">
           {releases.map((release) => (
             <section key={release.version ?? "unreleased"}>
-              <h2 className="flex items-baseline gap-3 text-lg font-semibold">
+              <h2 className="docs-changelog-version flex items-baseline gap-3">
                 {release.version
                   ? release.version.replace(/^v/, "")
                   : "Unreleased"}

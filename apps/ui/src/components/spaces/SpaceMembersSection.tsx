@@ -75,6 +75,7 @@ export function SpaceMembersSection({
             />
           ) : null
         }
+        count={isPersonal ? 1 : roster.members.length}
         onOpenChange={setOpen}
         open={open}
       >

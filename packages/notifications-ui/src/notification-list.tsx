@@ -15,6 +15,7 @@ import {
 } from "./classification.js";
 import { NotificationItem } from "./notification-item.js";
 import { useMarkNotificationMutation } from "./queries.js";
+import { NotificationSurfaceContext } from "./renderers.js";
 
 export {
   notificationHref,
@@ -36,6 +37,8 @@ function ClearAllButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+export type NotificationListVariant = "page" | "inbox";
+
 function Section({
   icon: Icon,
   title,
@@ -43,6 +46,7 @@ function Section({
   locale,
   tone,
   onClearAll,
+  variant,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
@@ -50,14 +54,26 @@ function Section({
   locale: string;
   tone?: "primary" | "destructive";
   onClearAll?: (notifications: NotificationDto[]) => void;
+  variant: NotificationListVariant;
 }) {
   if (notifications.length === 0) {
     return null;
   }
+  const inbox = variant === "inbox";
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-medium text-muted-foreground text-sm">
+    <section className={inbox ? undefined : "space-y-2"}>
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2",
+          inbox ? "px-4 pt-3 pb-1" : undefined
+        )}
+      >
+        <h2
+          className={cn(
+            "flex items-center gap-2 font-medium text-muted-foreground",
+            inbox ? "text-xs" : "text-sm"
+          )}
+        >
           <Icon
             className={cn(
               "h-3.5 w-3.5",
@@ -74,12 +90,13 @@ function Section({
           <ClearAllButton onClick={() => onClearAll(notifications)} />
         ) : null}
       </div>
-      <ul className="flex flex-col gap-1.5">
+      <ul className={cn("flex flex-col", inbox ? undefined : "gap-1.5")}>
         {notifications.map((notification) => (
           <NotificationItem
             key={notification.id}
             locale={locale}
             notification={notification}
+            variant={variant}
           />
         ))}
       </ul>
@@ -97,6 +114,8 @@ export interface NotificationListProps {
   laneFilter?: NotificationLaneFilter;
   locale: string;
   notifications: NotificationDto[];
+  /** Inbox popover uses flat rows; the full page keeps raised cards. */
+  variant?: NotificationListVariant;
 }
 
 export function NotificationList({
@@ -106,6 +125,7 @@ export function NotificationList({
   laneFilter = "all",
   locale,
   notifications,
+  variant = "page",
 }: NotificationListProps) {
   const { t } = useTranslation("common");
   const markMutation = useMarkNotificationMutation();
@@ -139,72 +159,88 @@ export function NotificationList({
       laneFilter === "errors" ||
       laneFilter === "hitl" ||
       filtered.every((n) => isError(n) || isHitl(n));
-    const showTopClear = canClear && clearAllPlacement === "top";
+    const showTopClear =
+      canClear && clearAllPlacement === "top" && variant !== "inbox";
     const showBottomBar = Boolean(
       footerStart || (canClear && clearAllPlacement === "bottom")
     );
     return (
-      <TooltipProvider delayDuration={300}>
-        <div className="space-y-1.5">
-          {showTopClear ? (
-            <div className="flex justify-end">
-              <ClearAllButton onClick={() => clearAll(filtered)} />
-            </div>
-          ) : null}
-          <ul className="flex flex-col gap-1.5">
-            {filtered.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                locale={locale}
-                notification={notification}
-              />
-            ))}
-          </ul>
-          {showBottomBar ? (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1">
-              <div className="min-w-0">{footerStart}</div>
-              {canClear && clearAllPlacement === "bottom" ? (
+      <NotificationSurfaceContext.Provider value={variant}>
+        <TooltipProvider delayDuration={300}>
+          <div className="space-y-1.5">
+            {showTopClear ? (
+              <div className="flex justify-end">
                 <ClearAllButton onClick={() => clearAll(filtered)} />
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </TooltipProvider>
+              </div>
+            ) : null}
+            <ul
+              className={cn(
+                "flex flex-col",
+                variant === "inbox" ? undefined : "gap-1.5"
+              )}
+            >
+              {filtered.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  locale={locale}
+                  notification={notification}
+                  variant={variant}
+                />
+              ))}
+            </ul>
+            {showBottomBar ? (
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1">
+                <div className="min-w-0">{footerStart}</div>
+                {canClear && clearAllPlacement === "bottom" ? (
+                  <ClearAllButton onClick={() => clearAll(filtered)} />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </TooltipProvider>
+      </NotificationSurfaceContext.Provider>
     );
   }
 
   const hitl = filtered.filter(isHitl);
   const errors = filtered.filter(isError);
   const updates = filtered.filter((n) => !isNeedsInput(n));
+  const canClearLane = (items: NotificationDto[]) =>
+    items.some((item) => item.class !== "decision");
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="space-y-4">
-        <Section
-          icon={ShieldCheck}
-          locale={locale}
-          notifications={hitl}
-          onClearAll={clearAll}
-          title={t("notifications.lane.needsYou", {
-            defaultValue: "Needs your input",
-          })}
-          tone="primary"
-        />
-        <Section
-          icon={AlertTriangle}
-          locale={locale}
-          notifications={errors}
-          onClearAll={clearAll}
-          title={t("notifications.lane.errors", { defaultValue: "Errors" })}
-          tone="destructive"
-        />
-        <Section
-          icon={CheckCheck}
-          locale={locale}
-          notifications={updates}
-          onClearAll={clearAll}
-          title={t("notifications.lane.updates", { defaultValue: "Updates" })}
-        />
-      </div>
-    </TooltipProvider>
+    <NotificationSurfaceContext.Provider value={variant}>
+      <TooltipProvider delayDuration={300}>
+        <div className={variant === "inbox" ? "pb-1" : "space-y-4"}>
+          <Section
+            icon={ShieldCheck}
+            locale={locale}
+            notifications={hitl}
+            onClearAll={canClearLane(hitl) ? clearAll : undefined}
+            title={t("notifications.lane.needsYou", {
+              defaultValue: "Needs your input",
+            })}
+            tone="primary"
+            variant={variant}
+          />
+          <Section
+            icon={AlertTriangle}
+            locale={locale}
+            notifications={errors}
+            onClearAll={canClearLane(errors) ? clearAll : undefined}
+            title={t("notifications.lane.errors", { defaultValue: "Errors" })}
+            tone="destructive"
+            variant={variant}
+          />
+          <Section
+            icon={CheckCheck}
+            locale={locale}
+            notifications={updates}
+            onClearAll={canClearLane(updates) ? clearAll : undefined}
+            title={t("notifications.lane.updates", { defaultValue: "Updates" })}
+            variant={variant}
+          />
+        </div>
+      </TooltipProvider>
+    </NotificationSurfaceContext.Provider>
   );
 }

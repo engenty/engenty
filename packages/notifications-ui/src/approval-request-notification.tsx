@@ -14,6 +14,7 @@ import { useDecideApprovalMutation } from "./queries.js";
 import {
   type NotificationRendererProps,
   registerNotificationRenderer,
+  useNotificationSurface,
 } from "./renderers.js";
 
 /** The request id: on the subject (canonical) or, for older rows, metadata. */
@@ -38,6 +39,7 @@ export function ApprovalRequestNotification({
   notification,
 }: NotificationRendererProps) {
   const { t } = useTranslation("common");
+  const inbox = useNotificationSurface() === "inbox";
   const decide = useDecideApprovalMutation();
   const [chosen, setChosen] = useState<ApprovalDecision | null>(null);
   const requestId = approvalRequestId(notification);
@@ -58,15 +60,23 @@ export function ApprovalRequestNotification({
   const choices: { decision: ApprovalDecision; label: string }[] = [
     {
       decision: "allow_once",
-      label: t("notifications.approval.allowOnce", {
-        defaultValue: "Allow once",
-      }),
+      label: inbox
+        ? t("notifications.approval.allowOnceInbox", {
+            defaultValue: "Once",
+          })
+        : t("notifications.approval.allowOnce", {
+            defaultValue: "Allow once",
+          }),
     },
     {
       decision: "allow_policy",
-      label: t("notifications.approval.allowAlways", {
-        defaultValue: "Always allow for this agent",
-      }),
+      label: inbox
+        ? t("notifications.approval.allowAlwaysInbox", {
+            defaultValue: "For agent",
+          })
+        : t("notifications.approval.allowAlways", {
+            defaultValue: "Always allow for this agent",
+          }),
     },
     {
       decision: "deny",
@@ -76,31 +86,39 @@ export function ApprovalRequestNotification({
   // The row stays until the resolve event lands; once decided it reads as
   // answered rather than still asking.
   const decided = decide.isSuccess && chosen;
+  const showMeta = inbox
+    ? Boolean(riskLevel)
+    : Boolean(moduleId || operationId || riskLevel);
   return (
     <div className="mt-1.5 space-y-1.5">
-      {moduleId || operationId || riskLevel ? (
-        <p className="text-muted-foreground text-xs">
-          {[
-            moduleId,
-            operationId ? (
-              <code className="font-mono" key="op">
-                {operationId}
-              </code>
-            ) : null,
-            riskLevel
-              ? t("notifications.approval.risk", {
-                  defaultValue: "{{level}} risk",
-                  level: riskLevel,
-                })
-              : null,
-          ]
-            .filter(Boolean)
-            .map((part, index) => (
-              <span key={typeof part === "string" ? part : index}>
-                {index > 0 ? " · " : null}
-                {part}
-              </span>
-            ))}
+      {showMeta ? (
+        <p className="line-clamp-2 text-muted-foreground text-xs">
+          {inbox
+            ? t("notifications.approval.risk", {
+                defaultValue: "{{level}} risk",
+                level: riskLevel,
+              })
+            : [
+                moduleId,
+                operationId ? (
+                  <code className="font-mono" key="op">
+                    {operationId}
+                  </code>
+                ) : null,
+                riskLevel
+                  ? t("notifications.approval.risk", {
+                      defaultValue: "{{level}} risk",
+                      level: riskLevel,
+                    })
+                  : null,
+              ]
+                .filter(Boolean)
+                .map((part, index) => (
+                  <span key={typeof part === "string" ? part : index}>
+                    {index > 0 ? " · " : null}
+                    {part}
+                  </span>
+                ))}
         </p>
       ) : null}
       {decided ? (
@@ -122,7 +140,7 @@ export function ApprovalRequestNotification({
               key={choice.decision}
               onClick={() => choose(choice.decision)}
               size="sm"
-              variant={choice.decision === "allow_once" ? "default" : "outline"}
+              variant={choice.decision === "allow_once" ? "default" : "ghost"}
             >
               {busy && chosen === choice.decision ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

@@ -31,6 +31,8 @@ export function MobileNavSheet(props: {
    * `sections`, so omitting it leaves Settings as the only reachable route.
    */
   spacesZone?: ReactNode;
+  /** Same slot as the desktop rail — the notification bell above the avatar. */
+  railEndSlot?: ReactNode;
 }) {
   const {
     hasSecondaryNav,
@@ -39,6 +41,7 @@ export function MobileNavSheet(props: {
     onOpenAppMenu,
     pathname,
     search,
+    railEndSlot,
     sections,
     secondaryItems,
     shell,
@@ -75,6 +78,7 @@ export function MobileNavSheet(props: {
             compact
             onNavigate={() => onMobileOpenChange(false)}
             onOpenAppMenu={onOpenAppMenu}
+            railEndSlot={railEndSlot}
             sections={sections}
             shell={shell}
             spacesZone={spacesZone}

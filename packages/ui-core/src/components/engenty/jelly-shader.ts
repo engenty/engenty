@@ -146,7 +146,7 @@ void main() {
   // rim. One alpha cannot filter per channel, so this is a tinted mix rather
   // than true transmission, but it is what makes it read as gel and not paint.
   float edge = smoothstep(0.9, -0.9, d0);
-  float clarity = mix(0.5, 0.14, smoothstep(0.0, 0.7, ndv));
+  float clarity = mix(0.5, 0.14, smoothstep(0.0, 0.7, ndv)) * uClarity;
   float alpha = edge * min(1.0, (1.0 - clarity) + lum(reflection));
   vec4 acc = vec4(min(col, vec3(1.0)) * alpha, alpha);
 

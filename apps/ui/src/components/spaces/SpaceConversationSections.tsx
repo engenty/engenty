@@ -1,8 +1,8 @@
 /**
  * The conversation list of the Work tab (PLAN-agent-rooms.md §10): Favoriten
- * on top, then this person's sections, then the built-ins — Agenten (the
+ * on top, then this person's sections, then the built-ins — Engenties (the
  * desks, which are the roster), Räume (the rooms they are in),
- * Direktnachrichten (their DMs). Every row is a conversation; an agent is
+ * Direkt (their DMs). Every row is a conversation; an agent is
  * here through its desk.
  *
  * Owns what the rows share: the actions context, the drag context, the
@@ -48,7 +48,7 @@ export function SpaceConversationSections({
   spaceId,
   spaceKey,
 }: {
-  /** The "+" on Agenten and Räume. Absent when the viewer cannot hire. */
+  /** The "+" on Engenties and Räume. Absent when the viewer cannot hire. */
   canAdd: boolean;
   /** Hired-agent removal and room management beyond one's own rooms. */
   canManage: boolean;

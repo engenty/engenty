@@ -7,10 +7,21 @@
 // the record.
 import {
   type ComponentType,
+  createContext,
   type ReactNode,
+  useContext,
   useSyncExternalStore,
 } from "react";
 import type { NotificationDto } from "./api.js";
+
+export type NotificationSurface = "page" | "inbox";
+
+export const NotificationSurfaceContext =
+  createContext<NotificationSurface>("page");
+
+export function useNotificationSurface(): NotificationSurface {
+  return useContext(NotificationSurfaceContext);
+}
 
 export interface NotificationRendererProps {
   notification: NotificationDto;

@@ -141,6 +141,7 @@ export function SpaceFilesSection({
       open={open}
     >
       <SpaceSectionHeading
+        count={shortcuts.pinned.length + shortcuts.recent.length}
         onOpenChange={setOpen}
         open={open}
         to={spaceDataPath(spaceKey, FILES_DATA_ROOT)}

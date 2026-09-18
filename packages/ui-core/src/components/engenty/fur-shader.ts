@@ -72,6 +72,7 @@ uniform vec2  uGaze;            // -1..1 pointer direction for the pupil
 uniform vec4  uExtras[EXTRAS];     // decal geometry (x, y, a, b)
 uniform vec4  uExtraMeta[EXTRAS];  // decal meta (kind, alpha, width, flag)
 uniform vec2  uWobble;             // spring overshoot past the lean (jelly)
+uniform float uClarity;            // jelly: 1 = clear gel, 0 = opaque paint
 
 // ─── field ───────────────────────────────────────────────────────────────────
 
