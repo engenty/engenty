@@ -47,7 +47,7 @@ sheet; position is desktop-only.
 
 | Column | Component | When visible |
 |--------|-----------|--------------|
-| App bar | `AppSidebar` in `AppBarRail` | Desktop on the chosen edge (56px compact; 220px extended on left/right only). Top is a 56px icon strip — brand + spaces at the start, modules flex-1, admin / bell / avatar / **Copilot blob** at the end. Bottom reverses that strip (blob + avatar left, spaces + brand right). The blob is slightly larger than the rail and overlaps the canvas. |
+| App bar | `AppSidebar` in `AppBarRail` | Desktop on the chosen edge (56px compact; 220px extended on left/right only, and only on viewports ≥1400px — narrower windows render the compact rail regardless of the setting). Extended lists spaces, bell and Copilot as labelled rows; the brand row shows mark, app name and the ⌘K hint; admin items beyond Settings / Engenty still unfold on hover. Top and bottom are a 56px icon strip — brand + spaces at the start, modules flex-1, admin / bell / avatar / **Copilot blob** at the end. The blob is slightly larger than the rail and overlaps the canvas. |
 | Secondary | `AppLayout` inner panel | Module registers secondary nav items via page header |
 | Main | `CopilotShellMain` | Route outlet |
 | Copilot | Host-injected slot | `shellUiHost` / copilot provider children |

@@ -4066,6 +4066,9 @@ importers:
       '@engenty/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@engenty/app-shell':
+        specifier: workspace:*
+        version: link:../app-shell
       '@engenty/auth-ui':
         specifier: workspace:*
         version: link:../auth-ui

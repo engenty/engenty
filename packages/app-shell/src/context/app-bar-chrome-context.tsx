@@ -7,12 +7,18 @@ import type {
 export type AppBarOrientation = "vertical" | "horizontal";
 
 export interface AppBarChromeContextValue {
+  /**
+   * Labelled 220px rail (left / right only, wide viewports). Tiles that
+   * live on the rail — spaces, bell, Copilot — render as rows with a name.
+   */
+  extended: boolean;
   orientation: AppBarOrientation;
   position: AppBarPosition;
   tooltipSide: AppBarTooltipSide;
 }
 
 const DEFAULT_APP_BAR_CHROME: AppBarChromeContextValue = {
+  extended: false,
   orientation: "vertical",
   position: "left",
   tooltipSide: "right",

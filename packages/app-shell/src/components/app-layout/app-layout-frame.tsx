@@ -69,6 +69,7 @@ export function AppLayoutFrame({
   secondaryNavRouteTransition,
   secondaryNavPersistence,
   appBarPositionPersistence = SHELL_APP_BAR_POSITION_NOOP,
+  appBarThemes,
   railCopilotSlot,
   railEndSlot,
   spacesZone,
@@ -91,6 +92,7 @@ export function AppLayoutFrame({
   const {
     closeContextMenu,
     contextMenu,
+    extendedAvailable,
     handleContextMenu,
     handleMouseEnter,
     handleMouseLeave,
@@ -99,7 +101,9 @@ export function AppLayoutFrame({
     isSidebarHidden,
     position,
     setAppBarPosition,
+    setSidebarMode,
     sidebarMode,
+    storedSidebarMode,
     thickness,
     updateSidebarHidden,
   } = useAppBarChrome(appBarPositionPersistence);
@@ -220,6 +224,7 @@ export function AppLayoutFrame({
         <AppBarRail
           compact={sidebarMode === "compact" || horizontal}
           contextMenu={contextMenu}
+          extendedAvailable={extendedAvailable}
           hidden={isSidebarHidden}
           hovering={isHoveringSidebar}
           modulesReorderable={modulesReorderable}
@@ -233,12 +238,15 @@ export function AppLayoutFrame({
           onMouseLeave={handleMouseLeave}
           onOpenAppMenu={() => setAppMenuOpen(true)}
           onPositionChange={setAppBarPosition}
+          onSidebarModeChange={setSidebarMode}
           position={position}
           railCopilotSlot={railCopilotSlot}
           railEndSlot={railEndSlot}
           sections={sections}
           shell={shell}
+          sidebarMode={storedSidebarMode}
           spacesZone={spacesZone}
+          themes={appBarThemes}
           thickness={thickness}
         />
 

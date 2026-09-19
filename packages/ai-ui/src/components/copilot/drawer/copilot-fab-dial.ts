@@ -30,8 +30,11 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Place speed-dial buttons in the canvas, not on the app bar.
  * `dock` is the app-bar edge when the blob is docked; `null` is the mobile corner FAB.
+ * `bar` is the app bar's own box: on the extended rail the blob sits at the
+ * row's start, so clearing the blob alone would still land on the bar.
  */
 export function computeDialPositions(input: {
+  bar?: FabRect | null;
   count: number;
   dock: AppBarPosition | null;
   fab: FabRect;
@@ -40,6 +43,7 @@ export function computeDialPositions(input: {
   const vw = input.viewport?.width ?? 1200;
   const vh = input.viewport?.height ?? 800;
   const { count, dock, fab } = input;
+  const bar = input.bar ?? fab;
   const margin = 8;
   const itemStep = DIAL_BUTTON_SIZE + DIAL_GAP;
   const fabCenterX = fab.left + fab.width / 2;
@@ -56,20 +60,21 @@ export function computeDialPositions(input: {
   let stackAbove = true;
 
   if (dock === "left") {
-    originX = fab.right + DIAL_CLEARANCE_PX;
+    originX = Math.max(fab.right, bar.right) + DIAL_CLEARANCE_PX;
     originY = fab.top - DIAL_STACK_GAP_PX - DIAL_BUTTON_SIZE;
     stackAbove = true;
   } else if (dock === "right") {
-    originX = fab.left - DIAL_CLEARANCE_PX - DIAL_BUTTON_SIZE;
+    originX =
+      Math.min(fab.left, bar.left) - DIAL_CLEARANCE_PX - DIAL_BUTTON_SIZE;
     originY = fab.top - DIAL_STACK_GAP_PX - DIAL_BUTTON_SIZE;
     stackAbove = true;
   } else if (dock === "top") {
     originX = fabCenterX - DIAL_BUTTON_SIZE / 2;
-    originY = fab.bottom + DIAL_CLEARANCE_PX;
+    originY = Math.max(fab.bottom, bar.bottom) + DIAL_CLEARANCE_PX;
     stackAbove = false;
   } else if (dock === "bottom") {
     originX = fabCenterX - DIAL_BUTTON_SIZE / 2;
-    originY = fab.top - DIAL_CLEARANCE_PX - DIAL_BUTTON_SIZE;
+    originY = Math.min(fab.top, bar.top) - DIAL_CLEARANCE_PX - DIAL_BUTTON_SIZE;
     stackAbove = true;
   } else {
     const fabMargin = 24;

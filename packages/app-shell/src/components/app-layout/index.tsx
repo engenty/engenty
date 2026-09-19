@@ -22,6 +22,8 @@ function AppBarChromeRoot({ children }: { children: ReactNode }) {
   return (
     <AppBarChromeProvider
       value={{
+        // Shell-tree default; the rail's own provider sets the real value.
+        extended: false,
         orientation: horizontal ? "horizontal" : "vertical",
         position,
         tooltipSide: appBarTooltipSide(position),
@@ -54,6 +56,7 @@ export function AppLayout({
   secondaryNavRouteTransition,
   secondaryNavPersistence,
   appBarPositionPersistence,
+  appBarThemes,
   railCopilotSlot,
   railEndSlot,
   spacesZone,
@@ -71,6 +74,7 @@ export function AppLayout({
           <AppBarChromeRoot>
             <AppLayoutFrame
               appBarPositionPersistence={appBarPositionPersistence}
+              appBarThemes={appBarThemes}
               appMenuActions={appMenuActions}
               defaultTopbarTitle={defaultTopbarTitle}
               fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}

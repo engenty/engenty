@@ -6,6 +6,7 @@ import type {
 import type { ReactNode } from "react";
 import type { NavigationSection, ShellSidebarConfig } from "../../types/shell";
 import type { ShellAppBarPositionPersistence } from "../../types/shell-app-bar-position";
+import type { AppBarThemeMenu } from "../../types/shell-app-bar-theme";
 import type { ShellSecondaryNavPinnedPersistence } from "../../types/shell-secondary-nav-pinned";
 import type { AppMenuActions } from "../app-topbar";
 
@@ -17,6 +18,8 @@ export interface SecondaryNavRouteTransition {
 export interface AppLayoutProps {
   /** User-settings persistence for desktop app-bar edge. */
   appBarPositionPersistence?: ShellAppBarPositionPersistence;
+  /** "Theme ›" on the app-bar context menu. Omit to hide the submenu. */
+  appBarThemes?: AppBarThemeMenu;
   /** Quick-action callbacks for the ⌘K command menu. */
   appMenuActions?: AppMenuActions;
   children: ReactNode;

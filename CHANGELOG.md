@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.8] - 2026-09-19
+- ADDED **[app-bar]** Integrate theme selection into app bar context menu
+- ADDED **[shell]** Make the extended app bar usable again
+- DOCS **[readme]** Add an Apps section before Modules
+- FIXED **[shell]** Round avatar tile, user menu clear of the bar, centred brand mark
+- FIXED **[shell]** Keep the bottom app bar in top order, space the copilot blob
+
 ## [0.2.7] - 2026-09-19
 - ADDED **[chat]** Who-glyph chip, tidy sidebar, phone actions in the menu
 - ADDED **[chat]** State who reads a chat in a header band and sidebar markers

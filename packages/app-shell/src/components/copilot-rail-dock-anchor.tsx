@@ -12,9 +12,9 @@ import { isHorizontalAppBarPosition } from "../types/shell-app-bar-position";
  * portals its blob here. Hidden on mobile (the sheet keeps the old FAB) and
  * on dedicated full-page chat (that page owns the surface).
  */
-export function CopilotRailDockAnchor() {
+export function CopilotRailDockAnchor({ label }: { label?: string }) {
   const ctx = useCopilotShellOrNull();
-  const { position } = useAppBarChromeContext();
+  const { extended, position } = useAppBarChromeContext();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const horizontal = isHorizontalAppBarPosition(position);
 
@@ -35,6 +35,33 @@ export function CopilotRailDockAnchor() {
 
   if (!ctx || ctx.chromeHidden || !isDesktop) {
     return null;
+  }
+
+  if (extended) {
+    // Labelled rail: the blob keeps its mount target at the row's start; the
+    // name beside it toggles the same surface the blob does.
+    return (
+      <div className="flex h-14 w-full items-center gap-1 px-2">
+        <div
+          className="relative z-10 size-14 shrink-0 overflow-visible"
+          data-copilot-rail-dock
+          onContextMenu={(event) => {
+            event.stopPropagation();
+          }}
+          ref={setRef}
+        />
+        {label ? (
+          <button
+            aria-pressed={ctx.open}
+            className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
+            onClick={() => ctx.setOpen(!ctx.open)}
+            type="button"
+          >
+            {label}
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (

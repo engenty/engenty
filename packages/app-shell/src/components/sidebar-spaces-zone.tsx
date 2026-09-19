@@ -42,6 +42,13 @@ import {
 } from "../lib/rail-tile-chrome";
 import { SpaceIconFace } from "./space-icon-face";
 
+/** Extended rail: a labelled row, same box as a module row. */
+const ROW_BASE =
+  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors";
+const ROW_REST = "text-sidebar-foreground hover:bg-sidebar-accent";
+const ROW_CURRENT =
+  "bg-sidebar-accent font-medium text-sidebar-accent-foreground";
+
 /** Show `⋯` only when at least this many spaces sit past the visible budget. */
 const RAIL_OVERFLOW_MIN_HIDDEN = 2;
 
@@ -400,6 +407,157 @@ function SpaceOverflowChooser({
   );
 }
 
+/**
+ * Small filled tile for a row: the space's colour and face at 28px, with the
+ * same rest halo / hover shadow / active ring as the compact tiles.
+ */
+function SpaceRowTile({ space }: { space: RailSpaceTile }) {
+  return (
+    <span
+      className={cn(
+        "relative shrink-0 rounded-md transition-shadow",
+        space.isCurrent
+          ? RAIL_TILE_ACTIVE_RING_CLASSNAME
+          : RAIL_TILE_SPACE_REST_CLASSNAME
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "grid size-7 place-items-center overflow-hidden rounded-md font-semibold text-[10px]",
+          space.color
+            ? "text-white"
+            : "bg-sidebar-accent text-sidebar-foreground"
+        )}
+        style={tileStyle(space.color)}
+      >
+        <SpaceTileFace space={space} />
+      </span>
+      <SpaceIndicator indicator={space.indicator} />
+    </span>
+  );
+}
+
+function SpaceRow({
+  href,
+  onNavigate,
+  space,
+}: {
+  href: string;
+  onNavigate?: () => void;
+  space: RailSpaceTile;
+}) {
+  return (
+    <Link
+      aria-current={space.isCurrent ? "page" : undefined}
+      className={cn(
+        "group/space",
+        ROW_BASE,
+        space.isCurrent ? ROW_CURRENT : ROW_REST
+      )}
+      onClick={onNavigate}
+      to={href}
+    >
+      <SpaceRowTile space={space} />
+      <span className="min-w-0 flex-1 truncate">{space.name}</span>
+    </Link>
+  );
+}
+
+/**
+ * Extended rail: every space that fits the budget as a row with its name,
+ * then the overflow chooser and `＋ New space` as rows of the same shape.
+ */
+function SidebarSpacesList({
+  canCreate,
+  chooserSpaces,
+  extraTiles,
+  hiddenTotal,
+  labels,
+  onCreateSpace,
+  onNavigate,
+  onOpenSwitcher,
+  showChooser,
+  spaceHref,
+  stackIndicator,
+  visible,
+}: {
+  canCreate: boolean;
+  chooserSpaces: readonly RailSpaceTile[];
+  extraTiles: readonly RailSpaceTile[];
+  hiddenTotal: number;
+  labels: SidebarSpacesZoneLabels;
+  onCreateSpace?: () => void;
+  onNavigate?: () => void;
+  onOpenSwitcher?: () => void;
+  showChooser: boolean;
+  spaceHref: (space: { id: string; key: string }) => string;
+  stackIndicator: RailSpaceIndicator;
+  visible: readonly RailSpaceTile[];
+}) {
+  const { tooltipSide } = useAppBarChromeContext();
+  return (
+    <div aria-label={labels.spaces} className="space-y-1" role="group">
+      <p className="mb-1 px-2 text-sidebar-foreground/55 text-xxs uppercase tracking-[0.1em]">
+        {labels.spaces}
+      </p>
+      {[...visible, ...extraTiles].map((space) => (
+        <SpaceRow
+          href={spaceHref(space)}
+          key={space.id}
+          onNavigate={onNavigate}
+          space={space}
+        />
+      ))}
+      {showChooser ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger className={cn(ROW_BASE, ROW_REST)}>
+            <span className="relative grid size-7 shrink-0 place-items-center rounded-md text-sidebar-foreground/70">
+              <MoreHorizontal aria-hidden className="size-4" />
+              <SpaceIndicator indicator={stackIndicator} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-left">
+              {labels.stack(hiddenTotal)}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="w-56"
+            side={tooltipSide}
+          >
+            <SpaceChooserMenuItems
+              canCreate={canCreate}
+              labels={labels}
+              onCreateSpace={onCreateSpace}
+              onNavigate={onNavigate}
+              onOpenSwitcher={onOpenSwitcher}
+              spaceHref={spaceHref}
+              spaces={chooserSpaces}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {canCreate ? (
+        <button
+          className={cn(
+            ROW_BASE,
+            "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          )}
+          onClick={onCreateSpace}
+          type="button"
+        >
+          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-sidebar-border border-dashed">
+            <Plus aria-hidden className="size-4" />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left">
+            {labels.newSpace}
+          </span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function SidebarSpacesZone({
   canCreate = false,
   emptyHint,
@@ -411,10 +569,8 @@ export function SidebarSpacesZone({
   resolved,
   spaceHref,
 }: SidebarSpacesZoneProps) {
-  const { orientation, position, tooltipSide } = useAppBarChromeContext();
+  const { extended, orientation, tooltipSide } = useAppBarChromeContext();
   const horizontal = orientation === "horizontal";
-  /** Bottom strip: + and overflow sit toward the modules; tiles toward the brand. */
-  const reverseChrome = position === "bottom";
   const { hidden, hiddenTotal, stackIndicator, visible } = resolved;
   const showChooser = hiddenTotal >= RAIL_OVERFLOW_MIN_HIDDEN;
   const extraTiles = showChooser ? [] : hidden;
@@ -426,10 +582,13 @@ export function SidebarSpacesZone({
 
   if (pending) {
     return (
-      <div className={stripClass}>
+      <div className={extended ? "space-y-1 py-1" : stripClass}>
         {[0, 1, 2].map((index) => (
           <div
-            className="size-9 shrink-0 animate-pulse rounded-lg bg-sidebar-accent/60"
+            className={cn(
+              "shrink-0 animate-pulse rounded-lg bg-sidebar-accent/60",
+              extended ? "h-9 w-full" : "size-9"
+            )}
             key={index}
           />
         ))}
@@ -440,10 +599,34 @@ export function SidebarSpacesZone({
   if (visible.length === 0 && !canCreate) {
     // Never an empty group with a separator above it: say why it is empty.
     return emptyHint ? (
-      <p className="px-1 py-2 text-center text-[10px] text-sidebar-foreground/55 leading-tight">
+      <p
+        className={cn(
+          "px-1 py-2 text-sidebar-foreground/55 leading-tight",
+          extended ? "text-xs" : "text-center text-[10px]"
+        )}
+      >
         {emptyHint}
       </p>
     ) : null;
+  }
+
+  if (extended) {
+    return (
+      <SidebarSpacesList
+        canCreate={canCreate}
+        chooserSpaces={chooserSpaces}
+        extraTiles={extraTiles}
+        hiddenTotal={hiddenTotal}
+        labels={labels}
+        onCreateSpace={onCreateSpace}
+        onNavigate={onNavigate}
+        onOpenSwitcher={onOpenSwitcher}
+        showChooser={showChooser}
+        spaceHref={spaceHref}
+        stackIndicator={stackIndicator}
+        visible={visible}
+      />
+    );
   }
 
   const spaceTiles = (
@@ -514,19 +697,9 @@ export function SidebarSpacesZone({
 
   return (
     <div aria-label={labels.spaces} className={stripClass} role="group">
-      {reverseChrome ? (
-        <>
-          {addSpaceButton}
-          {overflowChooser}
-          {spaceTiles}
-        </>
-      ) : (
-        <>
-          {spaceTiles}
-          {overflowChooser}
-          {addSpaceButton}
-        </>
-      )}
+      {spaceTiles}
+      {overflowChooser}
+      {addSpaceButton}
     </div>
   );
 }

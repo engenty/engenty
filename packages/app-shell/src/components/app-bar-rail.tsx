@@ -11,6 +11,7 @@ import {
   appBarTooltipSide,
   isHorizontalAppBarPosition,
 } from "../types/shell-app-bar-position";
+import type { AppBarThemeMenu } from "../types/shell-app-bar-theme";
 import { AppBarContextMenu } from "./app-bar-context-menu";
 import { AppSidebar } from "./app-sidebar";
 
@@ -56,6 +57,7 @@ function appBarHiddenIndicatorClass(position: AppBarPosition): string {
 export function AppBarRail({
   compact,
   contextMenu,
+  extendedAvailable,
   hidden,
   hovering,
   modulesReorderable,
@@ -69,16 +71,21 @@ export function AppBarRail({
   onMouseLeave,
   onOpenAppMenu,
   onPositionChange,
+  onSidebarModeChange,
   position,
   railCopilotSlot,
   railEndSlot,
   sections,
   shell,
+  sidebarMode,
   spacesZone,
+  themes,
   thickness,
 }: {
   compact: boolean;
   contextMenu: { x: number; y: number } | null;
+  /** Left/right on a wide viewport: the extended rail can actually render. */
+  extendedAvailable: boolean;
   hidden: boolean;
   hovering: boolean;
   modulesReorderable?: boolean;
@@ -92,12 +99,16 @@ export function AppBarRail({
   onMouseLeave: () => void;
   onOpenAppMenu: () => void;
   onPositionChange: (position: AppBarPosition) => void;
+  onSidebarModeChange: (mode: "compact" | "extended") => void;
   position: AppBarPosition;
   railCopilotSlot?: ReactNode;
   railEndSlot?: ReactNode;
   sections: NavigationSection[];
   shell: ShellSidebarConfig;
+  /** The stored preference, not the effective one — the menu shows the choice. */
+  sidebarMode: "compact" | "extended";
   spacesZone?: ReactNode;
+  themes?: AppBarThemeMenu;
   thickness: number;
 }) {
   const horizontal = isHorizontalAppBarPosition(position);
@@ -168,6 +179,7 @@ export function AppBarRail({
 
       {contextMenu ? (
         <AppBarContextMenu
+          extendedAvailable={extendedAvailable}
           hidden={hidden}
           onHiddenChange={onHiddenChange}
           onOpenChange={(open) => {
@@ -176,9 +188,12 @@ export function AppBarRail({
             }
           }}
           onPositionChange={onPositionChange}
+          onSidebarModeChange={onSidebarModeChange}
           open
           position={position}
+          sidebarMode={sidebarMode}
           submenuSide={appBarTooltipSide(position)}
+          themes={themes}
           x={contextMenu.x}
           y={contextMenu.y}
         />

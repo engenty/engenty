@@ -4,6 +4,7 @@
 // client-channel watcher and the realtime subscription, so both run exactly
 // once per shell.
 
+import { useAppBarChromeContext } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   cn,
@@ -37,9 +38,45 @@ export { NOTIFICATIONS_PATH } from "./notification-paths.js";
  */
 function BellButton({ count, open }: { count: number; open: boolean }) {
   const { t } = useTranslation("common");
+  const { extended } = useAppBarChromeContext();
+  const label = t("notifications.bell", { defaultValue: "Notifications" });
+  const badge =
+    count > 0 ? (
+      <span
+        className={cn(
+          "flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-semibold text-[10px] text-primary-foreground tabular-nums leading-none",
+          extended ? "shrink-0" : "absolute top-0.5 right-0.5"
+        )}
+      >
+        {count > 99 ? "99+" : count}
+      </span>
+    ) : null;
+
+  if (extended) {
+    // Labelled rail: same row as a module item, the count at the row's end.
+    return (
+      <button
+        aria-label={label}
+        className={cn(
+          "group/item flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-foreground text-sm transition-colors",
+          open
+            ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+            : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        type="button"
+      >
+        <span className="flex size-6 shrink-0 items-center justify-center transition-transform duration-200 ease-out group-hover/item:scale-110">
+          <Bell className="size-full" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+        {badge}
+      </button>
+    );
+  }
+
   return (
     <button
-      aria-label={t("notifications.bell", { defaultValue: "Notifications" })}
+      aria-label={label}
       className={cn(
         "group/item relative mx-auto flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground transition-shadow",
         // Match app-shell rail-tile chrome (chat / tasks / spaces).
@@ -50,11 +87,7 @@ function BellButton({ count, open }: { count: number; open: boolean }) {
       type="button"
     >
       <Bell className="size-5 transition-transform duration-200 ease-out group-hover/item:scale-110" />
-      {count > 0 ? (
-        <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-semibold text-[10px] text-primary-foreground tabular-nums leading-none">
-          {count > 99 ? "99+" : count}
-        </span>
-      ) : null}
+      {badge}
     </button>
   );
 }
@@ -71,6 +104,7 @@ export function NotificationBell({
 }: NotificationBellProps) {
   const { currentTenant } = useWorkspaceContext();
   const { pathname } = useLocation();
+  const { extended, tooltipSide } = useAppBarChromeContext();
   const [open, setOpen] = useState(false);
   useNotificationsRealtime(currentTenant?.id ?? null);
   useClientChannels();
@@ -91,7 +125,13 @@ export function NotificationBell({
     return (
       <Sheet onOpenChange={setOpen} open={open}>
         <SheetTrigger asChild>
-          <span className={cn("flex w-full justify-center", className)}>
+          <span
+            className={cn(
+              "flex w-full",
+              extended ? "" : "justify-center",
+              className
+            )}
+          >
             <BellButton count={count} open={open} />
           </span>
         </SheetTrigger>
@@ -107,7 +147,13 @@ export function NotificationBell({
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
-        <span className={cn("flex w-full justify-center", className)}>
+        <span
+          className={cn(
+            "flex w-full",
+            extended ? "" : "justify-center",
+            className
+          )}
+        >
           <BellButton count={count} open={open} />
         </span>
       </PopoverTrigger>
@@ -115,7 +161,8 @@ export function NotificationBell({
         align="end"
         className={notificationInboxPopoverClassName}
         collisionPadding={12}
-        side="right"
+        // Away from the app bar, whichever edge it is docked on.
+        side={tooltipSide}
         sideOffset={12}
         style={{ height: "min(40rem, calc(100vh - 1.5rem))" }}
       >

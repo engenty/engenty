@@ -201,10 +201,18 @@ export function CopilotFabTrigger({
   };
 
   const rect = menuOpen ? buttonRef.current?.getBoundingClientRect() : null;
+  // The bar the blob is docked on; the dial clears its edge, not just the blob.
+  const barRect =
+    menuOpen && docked
+      ? (buttonRef.current
+          ?.closest('[data-engenty-region="app-bar"]')
+          ?.getBoundingClientRect() ?? null)
+      : null;
   const flyoutCount = whoOptions.length + actionItems.length;
   const dialPositions =
     menuOpen && rect
       ? computeDialPositions({
+          bar: barRect,
           count: flyoutCount,
           dock: docked ? position : null,
           fab: rect,

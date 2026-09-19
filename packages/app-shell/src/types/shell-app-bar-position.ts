@@ -19,6 +19,12 @@ export const APP_BAR_COMPACT_THICKNESS_PX = 56;
 
 /** Extended vertical rail width (px). Not used on top/bottom. */
 export const APP_BAR_EXTENDED_WIDTH_PX = 220;
+/**
+ * The extended (labelled) rail only makes sense with room to spare. Below
+ * this viewport width the "extended" preference still renders compact.
+ */
+export const APP_BAR_EXTENDED_MIN_VIEWPORT_PX = 1400;
+export const APP_BAR_EXTENDED_MEDIA_QUERY = `(min-width: ${APP_BAR_EXTENDED_MIN_VIEWPORT_PX}px)`;
 
 export interface ShellAppBarPositionSnapshotV1 {
   position: AppBarPosition;

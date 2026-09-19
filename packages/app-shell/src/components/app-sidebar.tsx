@@ -5,7 +5,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@engenty/ui-core";
-import { Search } from "lucide-react";
 import { type CSSProperties, type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -125,7 +124,8 @@ export function AppSidebar({
   const isPanel = surface === "panel";
   const iconScale = sidebarWidth && sidebarWidth < 64 ? sidebarWidth / 64 : 1;
   const isHorizontal = orientation === "horizontal";
-  const reverseStrip = isHorizontal && position === "bottom";
+  // Labelled 220px rail. The mobile sheet and the light panel never are.
+  const extended = !(compact || isHorizontal || isPanel);
 
   function isExternal(to: string, explicit?: boolean) {
     return (
@@ -329,7 +329,9 @@ export function AppSidebar({
   };
 
   return (
-    <AppBarChromeProvider value={{ orientation, position, tooltipSide }}>
+    <AppBarChromeProvider
+      value={{ extended, orientation, position, tooltipSide }}
+    >
       <TooltipProvider>
         <aside
           className={cn(
@@ -338,8 +340,7 @@ export function AppSidebar({
               ? cn(
                   // Inset from the window left/right; the bar itself still
                   // paints edge-to-edge. Vertical rails keep flush sides.
-                  "flex h-full w-full items-stretch px-3",
-                  reverseStrip ? "flex-row-reverse" : "flex-row"
+                  "flex h-full w-full flex-row items-stretch px-3"
                 )
               : "flex h-full flex-col",
             // No line on the rail's edge: the rail is the canvas-family frame and
@@ -355,31 +356,11 @@ export function AppSidebar({
           data-engenty-region="app-bar"
           style={style}
         >
-          {compact ? (
-            <AppBarBrand onOpenAppMenu={onOpenAppMenu} />
-          ) : (
-            <div className="flex flex-col gap-2 px-3 py-2">
-              <button
-                className={cn(
-                  "flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm shadow-sm",
-                  isPanel
-                    ? "border-border bg-muted/40 text-muted-foreground"
-                    : "border-sidebar-border bg-card/90 text-sidebar-foreground/85 backdrop-blur-[2px]"
-                )}
-                type="button"
-              >
-                <Search className="size-3.5" />
-                <span className="flex-1 text-left">
-                  {shell.searchPlaceholder}
-                </span>
-                {shell.searchShortcut ? (
-                  <kbd className="rounded border px-1.5 text-xxs">
-                    {shell.searchShortcut}
-                  </kbd>
-                ) : null}
-              </button>
-            </div>
-          )}
+          <AppBarBrand
+            onOpenAppMenu={onOpenAppMenu}
+            shortcut={shell.searchShortcut}
+            title={shell.appTitle}
+          />
 
           <div
             className={
@@ -388,16 +369,20 @@ export function AppSidebar({
                 : "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
             }
           >
-            {spacesZone && compact ? (
+            {spacesZone && (compact || extended) ? (
               // Brand + spaces sit at the start. Even side margins (10px in the
               // 56px rail); a little air so the first place is not cramped
               // against the Engenty icon. Horizontal `py-1.5` is the same gutter
-              // the space pill cancels so it can sit on the outer edge.
+              // the space pill cancels so it can sit on the outer edge. The
+              // extended rail lists spaces as rows under the same gutter as
+              // the module sections.
               <div
                 className={
                   isHorizontal
                     ? "flex h-full items-stretch px-1.5 py-1.5"
-                    : "px-1.5 pt-1.5 pb-2"
+                    : extended
+                      ? "px-2 pt-1 pb-2"
+                      : "px-1.5 pt-1.5 pb-2"
                 }
               >
                 {spacesZone}
@@ -479,9 +464,7 @@ export function AppSidebar({
             className={cn(
               "shrink-0 overflow-visible",
               isHorizontal
-                ? reverseStrip
-                  ? "flex flex-row-reverse items-center"
-                  : "ml-auto flex flex-row items-center"
+                ? "ml-auto flex flex-row items-center"
                 : "mt-auto flex flex-col pb-2"
             )}
           >
@@ -494,16 +477,18 @@ export function AppSidebar({
                     : cn(compact ? "px-1.5 pt-3 pb-1" : "px-2 py-2")
                 )}
               >
-                {compact ? (
+                {compact || extended ? (
                   <div
                     aria-label={adminSection.label || "Admin"}
                     className={cn(
-                      "flex h-full items-center gap-1 overflow-visible",
+                      "flex h-full gap-1 overflow-visible",
+                      // Vertical: span the rail so the tiles centre on it,
+                      // like the bell and the avatar below.
                       isHorizontal
-                        ? reverseStrip
-                          ? "flex-row"
-                          : "flex-row-reverse"
-                        : "flex-col-reverse"
+                        ? "flex-row-reverse items-center"
+                        : extended
+                          ? "w-full flex-col-reverse items-stretch"
+                          : "w-full flex-col-reverse items-center"
                     )}
                     onBlurCapture={(e) => {
                       if (
@@ -527,15 +512,15 @@ export function AppSidebar({
                       <div
                         aria-hidden={!adminRailExpanded}
                         className={cn(
-                          "flex items-center duration-200 ease-out",
+                          "flex duration-200 ease-out",
                           isHorizontal
-                            ? "h-full flex-row gap-1 transition-[max-width,opacity]"
-                            : "flex-col gap-1 transition-[max-height,opacity]",
+                            ? "h-full flex-row items-center gap-1 transition-[max-width,opacity]"
+                            : extended
+                              ? "flex-col items-stretch gap-1 transition-[max-height,opacity]"
+                              : "flex-col items-center gap-1 transition-[max-height,opacity]",
                           adminRailExpanded
                             ? isHorizontal
-                              ? reverseStrip
-                                ? "max-w-[min(70vw,24rem)] pl-1.5 opacity-100"
-                                : "max-w-[min(70vw,24rem)] pr-1.5 opacity-100"
+                              ? "max-w-[min(70vw,24rem)] pr-1.5 opacity-100"
                               : "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
                             : isHorizontal
                               ? "max-w-0 overflow-x-clip opacity-0"
@@ -550,6 +535,13 @@ export function AppSidebar({
                       >
                         {otherAdminItems.map((item) => renderItem(item, false))}
                       </div>
+                    ) : null}
+                    {extended && adminSection.label ? (
+                      // Reverse column: last in DOM sits on top, so the
+                      // section heading goes here.
+                      <p className="mb-1 px-2 text-sidebar-foreground/55 text-xxs uppercase tracking-[0.1em]">
+                        {adminSection.label}
+                      </p>
                     ) : null}
                   </div>
                 ) : (
@@ -575,7 +567,8 @@ export function AppSidebar({
             {railEndSlot ? (
               <div
                 className={cn(
-                  "flex justify-center",
+                  "flex",
+                  extended ? "justify-stretch" : "justify-center",
                   isHorizontal ? "px-1.5" : "w-full",
                   compact ? (isHorizontal ? "" : "px-1.5 pb-1") : "px-2 pb-1"
                 )}
@@ -606,7 +599,11 @@ export function AppSidebar({
               <div
                 className={cn(
                   "relative z-10 flex shrink-0 items-center justify-center overflow-visible",
-                  isHorizontal ? "h-full w-16" : "h-14 w-full"
+                  isHorizontal
+                    ? "ml-2 h-full w-16"
+                    : extended
+                      ? "mt-2 h-14 w-full"
+                      : "h-14 w-full"
                 )}
               >
                 {railCopilotSlot}

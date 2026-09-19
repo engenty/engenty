@@ -55,6 +55,7 @@ import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
 import { GuideOverlayHostWithBridge } from "@/copilot/guide-overlay-host-with-bridge";
 import { useCopilotSpaceId } from "@/copilot/use-copilot-space-id";
 import { DesktopBridge } from "@/desktop/DesktopBridge";
+import { useAppBarThemeMenu } from "@/hooks/use-app-bar-theme-menu";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
 import { buildLiveBindingMaps } from "@/lib/live-bindings";
@@ -216,6 +217,15 @@ function App() {
 
   const appBarPositionPersistence = useShellAppBarPositionPersistence({
     enabled: shellPersistenceEnabled,
+  });
+
+  // Tenant colours: admins only, like the Appearance page that owns them.
+  const appBarThemes = useAppBarThemeMenu({
+    enabled:
+      shellPersistenceEnabled &&
+      Boolean(
+        workspaceContext?.isTenantAdmin || workspaceContext?.isSuperAdmin
+      ),
   });
 
   const dockModuleOrderPersistence = useShellDockModuleOrderPersistence({
@@ -470,6 +480,7 @@ function App() {
             <UiContributionsProvider contributions={contributions}>
               <AppLayout
                 appBarPositionPersistence={appBarPositionPersistence}
+                appBarThemes={appBarThemes}
                 appMenuActions={appMenuActions}
                 currentSpace={routeSpace}
                 currentTenant={workspaceContext.currentTenant}
@@ -480,7 +491,9 @@ function App() {
                 isTenantAdmin={isTenantAdmin}
                 modulesReorderable={isTenantAdmin || isSuperAdmin}
                 onModulesReorder={dockModuleOrderPersistence.setOrder}
-                railCopilotSlot={<CopilotRailDockAnchor />}
+                railCopilotSlot={
+                  <CopilotRailDockAnchor label={t("copilot.title")} />
+                }
                 railEndSlot={<NotificationBell />}
                 secondaryNavFooterSlot={
                   spaceNav ? (

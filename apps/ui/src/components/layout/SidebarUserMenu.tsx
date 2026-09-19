@@ -1,5 +1,9 @@
 import { openAgUiAgentInspector } from "@engenty/ai-ui";
 import {
+  RAIL_TILE_GLYPH_HOVER_CLASSNAME,
+  useAppBarChromeContext,
+} from "@engenty/app-shell";
+import {
   getImpersonationState,
   signOutClearingImpersonation,
   stopImpersonation,
@@ -144,6 +148,9 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
     });
   }, [showDeveloperMenu]);
 
+  // Open the menu away from the app bar, whichever edge it is docked on.
+  const { tooltipSide: awayFromBar } = useAppBarChromeContext();
+
   const actorLabel =
     impersonation?.actor.display_name?.trim() ||
     impersonation?.actor.email ||
@@ -157,9 +164,16 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
             isSimulating ? t("userMenu.impersonationBadge") : undefined
           }
           className={cn(
-            "flex w-full items-center gap-2 rounded-md text-sm outline-none transition-colors",
-            "hover:bg-background/80 data-[state=open]:bg-background/80",
-            compact ? "justify-center p-0" : "justify-start p-2"
+            "flex items-center gap-2 text-sm outline-none",
+            compact
+              ? cn(
+                  // Round tile with the same hover / active chrome as the
+                  // rail's line-glyph apps; open state wears the active ring.
+                  "mx-auto size-9 justify-center rounded-full p-0 transition-shadow",
+                  RAIL_TILE_GLYPH_HOVER_CLASSNAME,
+                  "aria-expanded:shadow-[0_2px_8px_rgb(0_0_0/0.35)] aria-expanded:ring-2 aria-expanded:ring-sidebar-foreground/90"
+                )
+              : "w-full justify-start rounded-md p-2 transition-colors hover:bg-background/80 aria-expanded:bg-background/80"
           )}
           data-agent-user-menu-trigger
           ref={triggerRef}
@@ -194,8 +208,10 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
         align={compact ? "end" : "start"}
         className="w-56"
         data-agent-user-menu-content
-        side={compact ? "right" : "top"}
-        sideOffset={6}
+        side={compact ? awayFromBar : "top"}
+        // Compact: the avatar sits centred in the 56px rail, so clear the
+        // rail's edge (14px of bar beyond the tile) plus the usual 6px gap.
+        sideOffset={compact ? 20 : 6}
       >
         <DropdownMenuLabel className="p-2 pt-1 font-normal">
           <div className="flex items-center gap-3">

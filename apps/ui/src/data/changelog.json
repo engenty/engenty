@@ -1,7 +1,43 @@
 [
   {
+    "version": "v0.2.8",
+    "timestamp": 1789840646,
+    "commits": [
+      {
+        "id": "cf07428",
+        "message": "integrate theme selection into app bar context menu",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "50e5ff0",
+        "message": "add an Apps section before Modules",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "a7b0d3c",
+        "message": "make the extended app bar usable again",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5e487a2",
+        "message": "round avatar tile, user menu clear of the bar, centred brand mark",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fd596ba",
+        "message": "keep the bottom app bar in top order, space the copilot blob",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.7",
-    "timestamp": 1789821267,
+    "timestamp": 1789821268,
     "commits": [
       {
         "id": "88c8c17",

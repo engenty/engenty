@@ -201,6 +201,8 @@ export type {
 } from "./types/shell";
 export {
   APP_BAR_COMPACT_THICKNESS_PX,
+  APP_BAR_EXTENDED_MEDIA_QUERY,
+  APP_BAR_EXTENDED_MIN_VIEWPORT_PX,
   APP_BAR_EXTENDED_WIDTH_PX,
   APP_BAR_POSITIONS,
   type AppBarPosition,
@@ -225,6 +227,10 @@ export {
   shellRootFlexClass,
   writeAppBarPositionToStorage,
 } from "./types/shell-app-bar-position";
+export type {
+  AppBarThemeMenu,
+  AppBarThemeOption,
+} from "./types/shell-app-bar-theme";
 export {
   createDefaultShellDockModuleOrderSnapshot,
   parseShellDockModuleOrderSnapshot,

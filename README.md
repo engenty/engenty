@@ -119,6 +119,25 @@ Deeper: [Local development](docs/content/dev/local-development/index.md) and
   **[Hono](https://hono.dev/)**, with **[Vercel AI Gateway](https://vercel.com/docs/ai-gateway)**
   as the LLM router
 
+## Apps
+
+An App is a small program a space owns: a frontend, an optional backend, and
+its own files. Agents write them, humans approve a release, and the App runs
+alongside the space's agents on the same data.
+
+* **Source is a folder with a history.** Each App is a git work tree on the
+  spaces tree, bound into the space's computer at `/sandbox/apps/<slug>`, so
+  an agent edits it with ordinary tools. A release is a commit.
+* **The backend runs in an [agentOS](https://rivet.dev/agentos) isolate** on
+  `apps/app-host`, a service with no public port that only `apps/ai` talks to.
+  The frontend runs in a sandboxed iframe in the viewer's browser.
+* **One door out.** An App reaches engenty only through operations it declares
+  in its manifest — module, core, connector and MCP operations, always invoked
+  as the viewing user, with the same approvals and audit as an agent.
+
+Apps ship in the `apps` compose profile; see [Apps](docs/content/dev/apps.mdx)
+for the mechanics and [DEPLOY.md](deploy/DEPLOY.md) for enabling them.
+
 ## Modules
 
 engenty ships a basic set of modules, each an installable plugin. Use them as
