@@ -155,6 +155,87 @@ describe("buildSessionRuntimeInstructions", () => {
     expect(result).not.toContain("active_modules");
   });
 
+  it("loads the agent's own routines into the block — not the copilot's, not on an unresolved Space", async () => {
+    const scope = stubCoreFetch();
+    const routineStores = () =>
+      ({
+        routines: {
+          list: async (input: { agentId?: string; spaceId?: string }) =>
+            input.agentId === "news.friday-report" && input.spaceId === SPACE_ID
+              ? [
+                  {
+                    created_at: "2026-09-01T00:00:00Z",
+                    enabled: true,
+                    id: "routine-1",
+                    last_result: "started",
+                    name: "Friday report",
+                    outcome: "The report page is updated in place.",
+                  },
+                  {
+                    created_at: "2026-09-02T00:00:00Z",
+                    enabled: false,
+                    id: "routine-2",
+                    last_result: null,
+                    name: "Contact welcome",
+                    outcome: null,
+                  },
+                ]
+              : [],
+        },
+        triggers: {
+          list: async () => [
+            {
+              cron: "0 8 * * 5",
+              kind: "schedule",
+              resource: null,
+              routine_id: "routine-1",
+              timezone: "Europe/Vienna",
+            },
+            {
+              cron: null,
+              kind: "event",
+              resource: "contacts.contact.created",
+              routine_id: "routine-2",
+              timezone: null,
+            },
+          ],
+        },
+      }) as never;
+
+    const own = await buildSessionRuntimeInstructions({
+      agentId: "news.friday-report",
+      routineStores,
+      scope,
+      spaceResolution: resolved(),
+      threadId: "session-1",
+    });
+    expect(own).toContain("## Your routines");
+    expect(own).toContain(
+      "- Friday report (routine_id: routine-1) — `0 8 * * 5` Europe/Vienna — done means: The report page is updated in place. — last: started"
+    );
+    expect(own).toContain(
+      "- Contact welcome (routine_id: routine-2) — on `contacts.contact.created` — DISABLED"
+    );
+
+    const copilot = await buildSessionRuntimeInstructions({
+      agentId: "engenty.copilot",
+      routineStores,
+      scope,
+      spaceResolution: resolved(),
+      threadId: "session-1",
+    });
+    expect(copilot).not.toContain("## Your routines");
+
+    const unresolved = await buildSessionRuntimeInstructions({
+      agentId: "news.friday-report",
+      routineStores,
+      scope,
+      spaceResolution: { kind: "unresolved", reason: "missing" } as never,
+      threadId: "session-1",
+    });
+    expect(unresolved).not.toContain("## Your routines");
+  });
+
   it("keeps unresolved fail-closed even when route context names a Space", async () => {
     const scope = stubCoreFetch();
     const result = await buildSessionRuntimeInstructions({

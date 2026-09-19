@@ -159,6 +159,16 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
     "workflows_list",
     "invoke_workflow",
   ],
+  // The routine fields themselves — the playbook every hired engenty shares
+  // for its own routines; here it carries the same verbs as durable-work.
+  routines: [
+    "routines_create",
+    "routines_update",
+    "routines_list",
+    "workflow_propose",
+    "workflows_list",
+    "invoke_workflow",
+  ],
   // Pages, tables and Apps in the active Space. `table_write` alone is the
   // single heaviest tool the copilot carries.
   "space-data": [

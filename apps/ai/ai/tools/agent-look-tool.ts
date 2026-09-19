@@ -31,79 +31,122 @@ export { AGENT_LOOK_TOOL_ID } from "./agent-look-wear.js";
 
 const kindSchema = z.enum(AGENT_ENGENTY_KINDS);
 
-const inputSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("catalog") }),
-  z.object({
-    action: z.literal("suggest"),
-    description: z
-      .string()
-      .max(500)
-      .optional()
-      .describe("Mandate summary to match a look to, if you already have one."),
-    job: z
-      .string()
-      .min(3)
-      .max(2000)
-      .describe("What this Engenty is for — job, tone, who it talks to."),
-    name: z.string().max(80).optional(),
-  }),
-  z.object({
-    action: z.literal("generate"),
+// One flat object, not a discriminated union: OpenAI-family providers refuse
+// a function whose parameters are a top-level `anyOf` ("schema must be a
+// JSON Schema of type object, got None") — a hired engenty carries this tool
+// on every turn, so that refusal took whole resumes down. The per-action
+// requirements live in the refinement below instead of in branch shapes.
+const inputSchema = z
+  .object({
+    action: z
+      .enum(["catalog", "suggest", "generate", "wear"])
+      .describe(
+        "`catalog` lists the blobs; `suggest` needs `job`; `generate` needs `brief`; `wear` needs `summary` plus what to wear."
+      ),
     brief: z
       .string()
-      .min(3)
       .max(1000)
+      .optional()
       .describe(
-        "What to draw, in the person's words. Agree the brief in chat first."
+        "generate: what to draw, in the person's words. Agree the brief in chat first."
       ),
+    clear_avatar: z
+      .boolean()
+      .optional()
+      .describe("wear: drop a generated portrait and go back to the blob."),
     color: z
       .string()
       .max(40)
       .optional()
       .describe(
-        "Color name or hex if they asked for one off the blob palette."
+        "generate: color name or hex if they asked for one off the blob palette."
       ),
-    format: z.enum(["png", "svg"]).default("png"),
+    description: z
+      .string()
+      .max(500)
+      .optional()
+      .describe(
+        "suggest: mandate summary to match a look to, if you already have one. wear: the new mandate summary (10+ chars)."
+      ),
+    engenty: kindSchema.optional().describe("wear: the blob to put on."),
+    format: z
+      .enum(["png", "svg"])
+      .default("png")
+      .describe("generate: png (default) or svg."),
+    job: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe(
+        "suggest: what this Engenty is for — job, tone, who it talks to."
+      ),
     kind: kindSchema
       .optional()
-      .describe("Start from this blob silhouette when they picked one."),
-  }),
-  z
-    .object({
-      action: z.literal("wear"),
-      clear_avatar: z
-        .boolean()
-        .optional()
-        .describe("Drop a generated portrait and go back to the blob."),
-      description: z.string().min(10).max(500).optional(),
-      engenty: kindSchema.optional(),
-      name: z.string().min(1).max(80).optional(),
-      preview_id: z
-        .string()
-        .uuid()
-        .optional()
-        .describe("Id returned by a generate call in this conversation."),
-      summary: z
-        .string()
-        .min(1)
-        .max(200)
-        .describe("One line for the person approving: what changes and why."),
-    })
-    .refine(
-      (value) =>
-        Boolean(
-          value.engenty ||
-            value.preview_id ||
-            value.name ||
-            value.description ||
-            value.clear_avatar
-        ),
-      {
-        message:
-          "Pass a blob kind, a generate preview_id, a name, a description, or clear_avatar.",
+      .describe(
+        "generate: start from this blob silhouette when they picked one."
+      ),
+    name: z.string().max(80).optional().describe("suggest / wear: a name."),
+    preview_id: z
+      .string()
+      .uuid()
+      .optional()
+      .describe("wear: id returned by a generate call in this conversation."),
+    summary: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        "wear: one line for the person approving — what changes and why."
+      ),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action === "suggest" && (value.job ?? "").trim().length < 3) {
+      ctx.addIssue({
+        code: "custom",
+        message: "suggest needs `job` (3+ chars).",
+        path: ["job"],
+      });
+    }
+    if (value.action === "generate" && (value.brief ?? "").trim().length < 3) {
+      ctx.addIssue({
+        code: "custom",
+        message: "generate needs `brief` (3+ chars).",
+        path: ["brief"],
+      });
+    }
+    if (value.action === "wear") {
+      if (!value.summary?.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          message: "wear needs `summary`.",
+          path: ["summary"],
+        });
       }
-    ),
-]);
+      if (value.description !== undefined && value.description.length < 10) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "wear: `description` is the new mandate summary (10+ chars).",
+          path: ["description"],
+        });
+      }
+      if (
+        !(
+          value.engenty ||
+          value.preview_id ||
+          value.name ||
+          value.description ||
+          value.clear_avatar
+        )
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Pass a blob kind, a generate preview_id, a name, a description, or clear_avatar.",
+        });
+      }
+    }
+  });
 
 export type AgentLookGenerateFn = typeof generateAgentLookPng;
 
@@ -139,7 +182,7 @@ export function createAgentLookTools(deps?: {
         const suggested = suggestAgentLook({
           description: input.description,
           name: input.name,
-          instructions: input.job,
+          instructions: input.job ?? "",
         });
         return {
           ok: true as const,
@@ -152,12 +195,21 @@ export function createAgentLookTools(deps?: {
         };
       }
       if (input.action === "generate") {
-        return runGenerate({ generatePng, generateSvg, input });
+        return runGenerate({
+          generatePng,
+          generateSvg,
+          input: {
+            brief: input.brief ?? "",
+            color: input.color,
+            format: input.format,
+            kind: input.kind,
+          },
+        });
       }
       return wearAgentLook({
         ctx,
         request: {
-          summary: input.summary,
+          summary: input.summary ?? "",
           ...(input.clear_avatar ? { clear_avatar: true } : {}),
           ...(input.description ? { description: input.description } : {}),
           ...(input.engenty ? { engenty: input.engenty } : {}),
@@ -183,7 +235,12 @@ export function createAgentLookTools(deps?: {
 async function runGenerate(input: {
   generatePng: AgentLookGenerateFn;
   generateSvg: AgentLookGenerateFn;
-  input: Extract<z.infer<typeof inputSchema>, { action: "generate" }>;
+  input: {
+    brief: string;
+    color?: string;
+    format: "png" | "svg";
+    kind?: z.infer<typeof kindSchema>;
+  };
 }) {
   const run = resolveEngentyToolsRunContext();
   const agentId = run.agentTypeKey?.trim();

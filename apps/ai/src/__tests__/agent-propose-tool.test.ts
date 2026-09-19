@@ -2,6 +2,7 @@
 // revisions/missing space stay proposed; the propose HTTP route files the
 // inbox row; interactive runs suspend a hire widget.
 
+import { LIVE_HIRE_TOOL_IDS } from "@engenty/ai-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetFrontendToolSuspendSlotsForTests } from "../../ai/frontend-tools/frontend-tool-suspend-lock.js";
 import { agentProposeTool } from "../../ai/tools/agent-propose-tool.js";
@@ -29,7 +30,7 @@ const input = {
 
 const gatedInput = {
   ...input,
-  tool_ids: ["engenty_tools_search", "routines_create"],
+  tool_ids: ["engenty_tools_search", "space_setup"],
 };
 
 const SPACE_ID = "00000000-0000-4000-8000-000000000010";
@@ -226,28 +227,7 @@ describe("agentProposeTool", () => {
     // that cannot reach engenty_tool_execute cannot do module work at all.
     // Approvals remain the boundary — the floor only restores the path.
     expect(body.toolIds).toEqual([
-      "engenty_tools_search",
-      "engenty_tools_discover",
-      "engenty_tool_execute",
-      "artifact_write",
-      "artifact_read",
-      "table_write",
-      "table_read",
-      "app_build",
-      "routines_list",
-      "routines_run",
-      "routines_update",
-      "workflows_list",
-      "invoke_workflow",
-      "message_agent",
-      "agent_status",
-      "desk_post",
-      "web_search",
-      "show_ui",
-      "thread_state_set",
-      "agent_self_revise",
-      "workflow_self_revise",
-      "agent_look",
+      ...LIVE_HIRE_TOOL_IDS,
       "show_objects",
       "show_artifact",
     ]);
@@ -255,6 +235,7 @@ describe("agentProposeTool", () => {
       "space-data",
       "app-authoring",
       "engenty-bridge",
+      "routines",
     ]);
     expect(typeof body.engenty).toBe("string");
   });

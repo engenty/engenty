@@ -59,9 +59,13 @@ const TOOL_ADMIN_DESCRIPTIONS: Record<string, string> = {
   table_read: "Read rows from a Space Data table.",
   app_build: "Build an App version from a manifest for a person to activate.",
   routines_list: "List the routines this agent owns.",
+  routines_create:
+    "Give itself a standing job — a prompt or a Workflow plus a wake source; the Space's approval mode decides whether a person confirms first.",
   routines_run: "Fire one of its own routines now.",
   routines_update: "Adjust an owned routine's schedule or brief.",
   workflows_list: "Look up published Workflows by name.",
+  workflow_propose:
+    "Draft a multi-step Workflow for its own routines, for a person to publish.",
   invoke_workflow: "Run a published Workflow as one governed step.",
   message_agent: "Ask or hand work to a colleague in the Space.",
   agent_status: "See what a colleague is doing — read-only.",

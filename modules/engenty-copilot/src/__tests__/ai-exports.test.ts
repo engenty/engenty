@@ -8,7 +8,6 @@ import {
 import {
   ENGENTY_CATALOG_TOOL_IDS,
   ENGENTY_COPILOT_AGENT_ID,
-  ENGENTY_COPILOT_MANAGED_SKILLS,
   ENGENTY_COPILOT_TOOL_IDS,
   ENGENTY_INSTRUCTIONS,
   ENGENTY_VAULT_TOOL_IDS,
@@ -76,16 +75,6 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(useRegisterCopilotFrontendTools).toEqual(expect.any(Function));
   });
 
-  it("registers copilot product playbooks, not platform runtime skills", () => {
-    expect(Object.keys(ENGENTY_COPILOT_MANAGED_SKILLS).sort()).toEqual([
-      "durable-work",
-      "hire-agent",
-      "space-data",
-      "space-setup",
-      "work-routing",
-    ]);
-  });
-
   it("does not expose a working-memory write tool", () => {
     // The profile is read-only to the model (`agentManaged: false` drops
     // `updateWorkingMemory`). The Observer maintains it outside the tool loop.
@@ -94,7 +83,7 @@ describe("@engenty/engenty-copilot AI exports", () => {
     );
   });
 
-  it("attaches the Copilot-owned work skills consistently", () => {
+  it("prefers the Space playbooks from the skill library by name", () => {
     const manifest = JSON.parse(
       readFileSync(
         new URL("../../ai/agents/engenty.copilot/agent.json", import.meta.url),
@@ -105,37 +94,17 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "work-routing",
       "hire-agent",
       "durable-work",
+      "routines",
       "space-data",
       "space-setup",
     ]);
     expect(manifest.skills).toEqual(engentyCopilotAgentConfig.skillIds);
-
-    const router = ENGENTY_COPILOT_MANAGED_SKILLS["work-routing"];
-    expect(router).toContain("`message_agent` to a mounted Engenty");
-    expect(router).toContain("Load **hire-agent**");
-    expect(router).toContain("Load **durable-work**");
-
-    const hire = ENGENTY_COPILOT_MANAGED_SKILLS["hire-agent"];
-    expect(hire).toContain("Call `registry_agents_list` in this turn");
-    expect(hire).toContain("`for_work`: `routine`");
-    expect(hire).toContain("`routines_create`");
-    expect(hire).toContain("reusing an existing id make it a gated proposal");
-
-    const durable = ENGENTY_COPILOT_MANAGED_SKILLS["durable-work"];
-    expect(durable).toContain("Call `registry_agents_list` in this turn");
-    expect(durable).toContain('Default `status: "todo"` IS the kickoff');
-    expect(durable).toContain("invent `tasks_dispatch`");
   });
 
   it("routes durable multi-Task work through Tasks, not a planning record", () => {
-    // An outcome too big for one Task becomes several Tasks with real
-    // dependencies; nothing plans on the Copilot's behalf.
-    const durable = ENGENTY_COPILOT_MANAGED_SKILLS["durable-work"];
-    expect(durable).toContain("blocked_by_task_ids");
-    expect(durable).not.toMatch(/goals?_\w+/);
-    expect(ENGENTY_COPILOT_MANAGED_SKILLS["work-routing"]).not.toMatch(
-      /goals?_\w+/
-    );
+    // The lane skills live in @engenty/ai-skills (spaces category) and are
+    // asserted there; the copilot's own instructions must not reintroduce a
+    // planning noun on their side.
     expect(ENGENTY_INSTRUCTIONS).not.toMatch(/goals?_\w+/);
   });
 
@@ -172,11 +141,6 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(ENGENTY_INSTRUCTIONS).not.toMatch(
       /engenty_tools_modules.*return catalog contracts, not records/
     );
-  });
-
-  it("documents Space-confined sandbox mount semantics in the copilot space-data skill", () => {
-    const skill = ENGENTY_COPILOT_MANAGED_SKILLS["space-data"];
-    expect(skill).toContain("Artifacts");
   });
 });
 

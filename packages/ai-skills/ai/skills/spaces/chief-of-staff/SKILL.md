@@ -41,8 +41,11 @@ Adding an app is admin work — on a 403 say so plainly and stop.
 
 - A one-off request you can do: do it.
 - A recurring job: give it a routine (`routines_list` first — extend, do not
-  duplicate; then `routines_create`). A routine on yourself is fine while the
-  job is small.
+  duplicate; then `routines_create` with `prompt` for a single-step job or
+  `workflow_id` for more; the **routines** skill has the fields). A routine on
+  yourself is fine while the job is small; a teammate's routine names it in
+  `agent_id`. The Space's approval setting decides whether a person confirms
+  on a card first — report what they answered.
 - A job that deserves its own owner — a standing mandate, its own account, or
   work that would crowd out yours — hire a teammate with `agent_propose`:
   `id` named for the job (`inbox.triage`), a one-line `description`, the

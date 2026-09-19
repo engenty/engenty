@@ -19,16 +19,21 @@ export const LIVE_HIRE_TOOL_IDS = [
   "table_write",
   "table_read",
   "app_build",
-  // Its own jobs: list, run now, adjust the schedule. Self-scoped inside the
-  // tools — a specialist sees and steers only routines it owns. Creating a
-  // routine stays a management act (copilot/coordinator), so routines_create
-  // is deliberately absent.
+  // Its own jobs: list, create, run now, adjust. Self-scoped inside the
+  // tools — a specialist sees, steers and creates only routines it owns.
+  // "Do this every Friday" said to the engenty that owns the job used to
+  // fail silently because only a manager held routines_create; whether a
+  // person confirms first is the Space's approval mode, not the tool list.
   "routines_list",
+  "routines_create",
   "routines_run",
   "routines_update",
   // Governed deterministic work as one step: a specialist may run a PUBLISHED
-  // action (human gates intact) instead of improvising the sequence.
+  // action (human gates intact) instead of improvising the sequence — and
+  // write the multi-step body of its own routine (workflow_propose is
+  // self-scoped: a specialist proposes Workflows for its own page only).
   "workflows_list",
+  "workflow_propose",
   "invoke_workflow",
   // A colleague one message away. Space allow-list and self-refusal live in
   // the tool; leaf depth is budgeted in the delegation layer.
@@ -83,4 +88,42 @@ export const LIVE_HIRE_SKILL_IDS = [
   "space-data",
   "app-authoring",
   "engenty-bridge",
+  // Its own standing jobs: prompt or Workflow, the wake sources, the
+  // promise, and who says yes. The routine verbs ride with it (below).
+  "routines",
 ] as const;
+
+/**
+ * Which floor tools ride with which floor skill. A tool named here is
+ * withheld from the tool block until its skill is active and appears in
+ * the same turn (skill-gated-tools-processor); everything else on the floor
+ * is always offered. Visibility only — attachment, the Space gate and the
+ * approval gate are untouched.
+ *
+ * The point is the prompt: every schema a specialist carries rides in every
+ * call, and the floor grows one lane at a time. Gated, a new lane costs the
+ * standing prompt its skill's name and nothing else. Same mechanism the
+ * copilot went from ~22k tokens of tools to its lanes with.
+ *
+ * Kept short of what a specialist does without a lane: the catalog path,
+ * artifact_read, colleagues, the desk note, web search, invoke_workflow,
+ * show_ui, thread state, the self-revise pair and its own look.
+ */
+export const SPECIALIST_TOOL_GATING: Readonly<
+  Record<string, readonly string[]>
+> = {
+  // Loading the app playbook must not leave app_build behind: a tool under
+  // two skills appears when either is active.
+  "app-authoring": ["app_build"],
+  routines: [
+    "routines_create",
+    "routines_update",
+    "routines_list",
+    "routines_run",
+    "workflow_propose",
+    "workflows_list",
+  ],
+  // Pages, tables and Apps in the Space. table_write alone is the single
+  // heaviest schema on the floor.
+  "space-data": ["table_write", "table_read", "artifact_write", "app_build"],
+};

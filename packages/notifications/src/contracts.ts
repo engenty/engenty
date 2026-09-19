@@ -71,6 +71,9 @@ export const BUILTIN_NOTIFICATION_KINDS = {
   // older name is kept for rows written before the rename.
   approval_requested: "decision",
   connection_approval_requested: "decision",
+  // An agent gave itself (or a colleague) a standing job without a card —
+  // the mode allowed it; the people in the Space still get to know.
+  routine_created: "update",
   routine_failed: "alert",
   // A routine with `report: ask` finished and holds until someone has looked.
   routine_review: "decision",

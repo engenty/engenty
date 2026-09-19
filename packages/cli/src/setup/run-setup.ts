@@ -16,6 +16,10 @@ import {
   readLocalStackApiPort,
 } from "../env-setup/local-stack-port.js";
 import { isInteractiveTerminal } from "../select-loop.js";
+import {
+  defaultLocalServiceCredentialStepDeps,
+  runLocalServiceCredentialStep,
+} from "./local-service-credential-step.js";
 import { promptLocalStackIdentity } from "./local-stack-prompt.js";
 import { generateDerivedArtifacts } from "./run-generate-script.js";
 
@@ -249,6 +253,16 @@ Run: pnpm engenty env init
   } else {
     console.log("Applying pending migrations…");
     applyLocalDbMigrations();
+  }
+
+  // The AI service's credential lives in the database that was just
+  // migrated or reset: keep .env.local's ENGENTY_AI_SERVICE_SECRET backed by
+  // a live row, or the scheduler boots disabled and routines never fire.
+  if (fs.existsSync(envPath)) {
+    runLocalServiceCredentialStep({
+      deps: defaultLocalServiceCredentialStepDeps(params.repoRoot),
+      workspaceRoot: params.repoRoot,
+    });
   }
 
   if (envExitCode !== 0 && !params.allowGaps) {

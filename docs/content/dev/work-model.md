@@ -94,6 +94,33 @@ trigger recorded on the run. A press is still a routine fire: publishing an
 owned workflow wraps it with `manual` and `agent` trigger rows so it is
 pressable and invokable.
 
+## Who creates a routine
+
+Every Engenty may create and change **its own** routines; a coordinator (an
+Engenty that reports to nobody in the Space) may give one to any mounted
+teammate; the copilot manages all of them. The verbs are the same tools
+(`routines_create` / `routines_update` / `routines_list` / `routines_run`),
+scoped from the run's identity — not from which agent declared them.
+
+The body is a **prompt** (one step; the server keeps a published one-node
+workflow for it) or a **workflow id** (more than one step, an approval, or a
+wait — `workflow_propose` first). Creating the routine publishes a draft
+workflow it targets.
+
+Whether a person confirms first is the Space's agent-approval mode, the same
+dial the task lane reads:
+
+| Situation | `manual` | `auto` | `pass-all` |
+|---|---|---|---|
+| prompt routine, no grants | one inline card | the agent decides (`ask_first` asks anyway) | created |
+| workflow-backed | one card: publish **as that person** + create | created; the run publishes the draft with its own capabilities | same |
+| any `approval_grants` | card | card | card |
+| run that cannot park (task job, routine fire, delegate) | refused, naming the coordinator | created + inbox notice | created |
+
+Every creation leaves a note on the owner's desk and a `routine_created`
+inbox row. A workflow the run cannot validate for itself stays a draft and
+the routine is created **disabled** until a person publishes on the canvas.
+
 ## When a run needs a person
 
 A run can stop for an approval, a capability the Engenty may not yet use, or

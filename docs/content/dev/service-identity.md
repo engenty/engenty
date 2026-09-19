@@ -43,9 +43,26 @@ you revoke.
 pnpm engenty service-token create --name ai-service
 ```
 
+The command needs a **core principal token** — `pnpm engenty auth login`
+(device flow). The `--dev` login stores a Supabase user token, which core's
+own routes reject with a 401; the CLI says so.
+
 The secret is printed **once** — only its sha256 is stored. Capabilities are
 clamped to your own, so you cannot mint a credential more powerful than the
 account you ran the command with, and the credential lands in your tenant.
+
+### Locally, `engenty setup` does it
+
+`core.service_credential` lives in the local Supabase, so a `db reset` drops
+the row every `.env.local` names and apps/ai boots with `invalid_client`
+— scheduler off, routines silent. `pnpm engenty setup` therefore ends by
+checking `ENGENTY_AI_SERVICE_SECRET` against the database and, when the row
+is missing, revoked or the secret no longer matches, mints a **platform**
+credential (`tenant_id NULL`, name `ai-service (local)`, the locked-down AI
+set) and rewrites the variable. `pnpm engenty service-token ensure-local`
+runs the same check by hand; it refuses any `SUPABASE_URL` that is not
+loopback. One local stack serves every worktree, so after a reset run it once
+and copy the value into each checkout's `.env.local`.
 
 Grant only what the service calls. For the AI service that is module
 invocation, the Plan module facets (`module.tasks.*` — `module.read` does

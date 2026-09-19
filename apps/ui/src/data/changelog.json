@@ -1,7 +1,55 @@
 [
   {
+    "version": "v0.2.9",
+    "timestamp": 1789841124,
+    "commits": [
+      {
+        "id": "c3fa094",
+        "message": "engenty setup keeps the local AI service credential alive",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "176e2c4",
+        "message": "agent_look takes one object schema, not a top-level union",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d7cd162",
+        "message": "an engenty sees its own routines in the runtime block",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0e26904",
+        "message": "routines on the specialist floor, lane-gated; the report knows its coordinator",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1b052a3",
+        "message": "a shared routines playbook; durable-work keeps the Tasks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "70f2cbe",
+        "message": "let a hired engenty create and edit its own routines",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "446c5e1",
+        "message": "move the Space playbooks off the copilot module into @engenty/ai-skills",
+        "group": "Changed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.8",
-    "timestamp": 1789840646,
+    "timestamp": 1789840647,
     "commits": [
       {
         "id": "cf07428",

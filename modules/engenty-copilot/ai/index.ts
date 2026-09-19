@@ -17,4 +17,3 @@ export {
   type EngentyCopilotRuntimeTools,
   engentyCopilotAgentConfig,
 } from "./agents/engenty.copilot/index.js";
-export { ENGENTY_COPILOT_MANAGED_SKILLS } from "./skills/index.js";

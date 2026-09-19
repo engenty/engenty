@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.9] - 2026-09-19
+- ADDED **[cli]** Engenty setup keeps the local AI service credential alive
+- ADDED **[ai]** An engenty sees its own routines in the runtime block
+- ADDED **[ai]** Routines on the specialist floor, lane-gated; the report knows its coordinator
+- ADDED **[skills]** A shared routines playbook; durable-work keeps the Tasks
+- ADDED **[routines]** Let a hired engenty create and edit its own routines
+- CHANGED **[skills]** Move the Space playbooks off the copilot module into @engenty/ai-skills
+- FIXED **[ai]** Agent_look takes one object schema, not a top-level union
+
 ## [0.2.8] - 2026-09-19
 - ADDED **[app-bar]** Integrate theme selection into app bar context menu
 - ADDED **[shell]** Make the extended app bar usable again

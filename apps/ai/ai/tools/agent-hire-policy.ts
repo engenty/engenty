@@ -1,10 +1,12 @@
 // Server-side go-live gate for coordinator-created agents.
 import {
+  type AgentToolGatingConfig,
   FIRST_ENGENTY_SKILL_ID,
   FIRST_ENGENTY_TOOL_IDS,
   LIVE_HIRE_ATTACHED_TOOL_IDS,
   LIVE_HIRE_SKILL_IDS,
   LIVE_HIRE_TOOL_IDS,
+  SPECIALIST_TOOL_GATING,
 } from "@engenty/ai-core";
 
 // Axis is the specialist's declared tools/skills + whether this is a NEW
@@ -115,6 +117,29 @@ export function withLiveHireSkills(skillIds: readonly string[]): string[] {
     next.add(id);
   }
   return [...next];
+}
+
+/**
+ * The tool gating a run assembles with: the row's own `toolGating` plus, for
+ * every specialist that carries the catalog floor, the floor's lanes
+ * (`SPECIALIST_TOOL_GATING`). A skill named on both sides gates the union.
+ * Undefined when nothing gates — the processor and its prompt section are
+ * then left out entirely, as before.
+ */
+export function effectiveToolGating(config: {
+  kind?: string | null;
+  source?: string | null;
+  toolGating?: AgentToolGatingConfig | null;
+}): AgentToolGatingConfig | undefined {
+  const own = config.toolGating?.bySkill ?? {};
+  const floor = agentCarriesCatalogFloor(config) ? SPECIALIST_TOOL_GATING : {};
+  const bySkill: Record<string, string[]> = {};
+  for (const source of [own, floor]) {
+    for (const [skill, toolIds] of Object.entries(source)) {
+      bySkill[skill] = [...new Set([...(bySkill[skill] ?? []), ...toolIds])];
+    }
+  }
+  return Object.keys(bySkill).length > 0 ? { bySkill } : undefined;
 }
 
 const LIVE_HIRE_TOOL_ID_SET = new Set<string>(LIVE_HIRE_TOOL_IDS);

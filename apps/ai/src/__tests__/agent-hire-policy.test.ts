@@ -1,6 +1,8 @@
+import { LIVE_HIRE_TOOL_IDS } from "@engenty/ai-core";
 import { describe, expect, it } from "vitest";
 import {
   agentCarriesCatalogFloor,
+  effectiveToolGating,
   hirePolicyGateReason,
   isLiveHireEligible,
   preferredSkillIdsForRun,
@@ -55,7 +57,7 @@ describe("isLiveHireEligible", () => {
         existingActive: false,
         skillIds: [],
         spaceId,
-        toolIds: ["engenty_tools_search", "routines_create"],
+        toolIds: ["engenty_tools_search", "space_setup"],
       })
     ).toBe(false);
     expect(
@@ -79,9 +81,9 @@ describe("isLiveHireEligible", () => {
         existingActive: false,
         skillIds: [],
         spaceId,
-        toolIds: ["routines_create"],
+        toolIds: ["space_setup"],
       })
-    ).toBe("tools:routines_create");
+    ).toBe("tools:space_setup");
   });
 
   it("attaches presentation tools after a live hire without gating the hire", () => {
@@ -108,56 +110,12 @@ describe("withCatalogFloor", () => {
   it("restores the catalog path a narrower declaration would drop", () => {
     expect(withCatalogFloor(["inbox_threads_list"])).toEqual([
       "inbox_threads_list",
-      "engenty_tools_search",
-      "engenty_tools_discover",
-      "engenty_tool_execute",
-      "artifact_write",
-      "artifact_read",
-      "table_write",
-      "table_read",
-      "app_build",
-      "routines_list",
-      "routines_run",
-      "routines_update",
-      "workflows_list",
-      "invoke_workflow",
-      "message_agent",
-      "agent_status",
-      "desk_post",
-      "web_search",
-      "show_ui",
-      "thread_state_set",
-      "agent_self_revise",
-      "workflow_self_revise",
-      "agent_look",
+      ...LIVE_HIRE_TOOL_IDS,
     ]);
   });
 
   it("adds the floor to a hire that declared nothing", () => {
-    expect(withCatalogFloor([])).toEqual([
-      "engenty_tools_search",
-      "engenty_tools_discover",
-      "engenty_tool_execute",
-      "artifact_write",
-      "artifact_read",
-      "table_write",
-      "table_read",
-      "app_build",
-      "routines_list",
-      "routines_run",
-      "routines_update",
-      "workflows_list",
-      "invoke_workflow",
-      "message_agent",
-      "agent_status",
-      "desk_post",
-      "web_search",
-      "show_ui",
-      "thread_state_set",
-      "agent_self_revise",
-      "workflow_self_revise",
-      "agent_look",
-    ]);
+    expect(withCatalogFloor([])).toEqual([...LIVE_HIRE_TOOL_IDS]);
   });
 
   it("keeps the go-live gate reading the REQUESTED tools", () => {
@@ -176,27 +134,7 @@ describe("withCatalogFloor", () => {
   it("does not duplicate a floor tool the hire already named", () => {
     expect(withCatalogFloor(["engenty_tool_execute"])).toEqual([
       "engenty_tool_execute",
-      "engenty_tools_search",
-      "engenty_tools_discover",
-      "artifact_write",
-      "artifact_read",
-      "table_write",
-      "table_read",
-      "app_build",
-      "routines_list",
-      "routines_run",
-      "routines_update",
-      "workflows_list",
-      "invoke_workflow",
-      "message_agent",
-      "agent_status",
-      "desk_post",
-      "web_search",
-      "show_ui",
-      "thread_state_set",
-      "agent_self_revise",
-      "workflow_self_revise",
-      "agent_look",
+      ...LIVE_HIRE_TOOL_IDS.filter((id) => id !== "engenty_tool_execute"),
     ]);
   });
 });
@@ -207,19 +145,21 @@ describe("withLiveHireSkills", () => {
       "space-data",
       "app-authoring",
       "engenty-bridge",
+      "routines",
     ]);
     expect(withLiveHireSkills(["space-data", "contacts-search"])).toEqual([
       "space-data",
       "contacts-search",
       "app-authoring",
       "engenty-bridge",
+      "routines",
     ]);
   });
 
   it("gives the prompt hint and the workspace filter one list", () => {
     expect(
       preferredSkillIdsForRun({ skillIds: [], source: "database" }, false)
-    ).toEqual(["space-data", "app-authoring", "engenty-bridge"]);
+    ).toEqual(["space-data", "app-authoring", "engenty-bridge", "routines"]);
     expect(
       preferredSkillIdsForRun({ skillIds: [], source: "database" }, true)
     ).toContain("chief-of-staff");
@@ -229,7 +169,13 @@ describe("withLiveHireSkills", () => {
         { skillIds: ["kb-ingest"], source: "module" },
         false
       )
-    ).toEqual(["kb-ingest", "space-data", "app-authoring", "engenty-bridge"]);
+    ).toEqual([
+      "kb-ingest",
+      "space-data",
+      "app-authoring",
+      "engenty-bridge",
+      "routines",
+    ]);
     // … but a module's interface, delegate or chat surface keeps its list.
     expect(
       preferredSkillIdsForRun(
@@ -263,6 +209,42 @@ describe("agentCarriesCatalogFloor", () => {
       agentCarriesCatalogFloor({ kind: "chat_surface", source: "module" })
     ).toBe(false);
     expect(agentCarriesCatalogFloor({ source: "builtin" })).toBe(false);
+  });
+});
+
+describe("effectiveToolGating", () => {
+  it("gates the floor's lanes for every specialist, on top of the row's own", () => {
+    const hired = effectiveToolGating({ source: "database" });
+    expect(hired?.bySkill.routines).toContain("routines_create");
+    expect(hired?.bySkill.routines).toContain("workflow_propose");
+    expect(hired?.bySkill["space-data"]).toContain("table_write");
+    // app_build rides with either playbook that needs it.
+    expect(hired?.bySkill["app-authoring"]).toEqual(["app_build"]);
+    expect(hired?.bySkill["space-data"]).toContain("app_build");
+
+    const own = effectiveToolGating({
+      source: "module",
+      toolGating: {
+        bySkill: { routines: ["kb_reindex"], "kb-ingest": ["kb_import"] },
+      },
+    });
+    expect(own?.bySkill["kb-ingest"]).toEqual(["kb_import"]);
+    expect(own?.bySkill.routines).toEqual(
+      expect.arrayContaining(["kb_reindex", "routines_create"])
+    );
+  });
+
+  it("leaves an interface or a delegate exactly as its row says", () => {
+    expect(
+      effectiveToolGating({ kind: "interface", source: "builtin" })
+    ).toBeUndefined();
+    expect(
+      effectiveToolGating({
+        kind: "delegated",
+        source: "module",
+        toolGating: { bySkill: { lane: ["x"] } },
+      })
+    ).toEqual({ bySkill: { lane: ["x"] } });
   });
 });
 

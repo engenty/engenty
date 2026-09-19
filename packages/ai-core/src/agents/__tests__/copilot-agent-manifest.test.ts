@@ -32,6 +32,7 @@ describe("getEngentyCopilotAgentManifest", () => {
       "work-routing",
       "hire-agent",
       "durable-work",
+      "routines",
       "space-data",
       "space-setup",
     ]);

@@ -25,6 +25,7 @@ import {
 import type { Workspace } from "@mastra/core/workspace";
 import {
   agentCarriesCatalogFloor,
+  effectiveToolGating,
   preferredSkillIdsForRun,
   withCatalogFloor,
   withTopLevelHireTools,
@@ -52,7 +53,10 @@ import { workspaceTransferTools } from "../../../ai/tools/workspace-move/index.j
 import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 import { AiSessionError } from "../errors.js";
 import { REPLY_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
-import { SPECIALIST_INSTRUCTIONS } from "../instructions/specialist-instructions.js";
+import {
+  SPECIALIST_INSTRUCTIONS,
+  SPECIALIST_REPORT_INSTRUCTIONS,
+} from "../instructions/specialist-instructions.js";
 import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
 import { nativeModuleToolMeta } from "../native-module-tool-meta.js";
@@ -421,14 +425,14 @@ async function assembleDynamicAgentWithAncestors(
       (await options.modelConfig?.resolveContextTokens?.(modelId)) ?? null,
     toolTokens: estimateToolBlockTokens(agentTools),
   });
+  const toolGating = effectiveToolGating(config);
   const inputProcessors: Processor[] = [
-    // Lane tools ride with their lane skill (`AgentConfig.toolGating`): withheld
-    // from the tool block until the skill is activated, which Mastra lets us do
-    // per STEP, so they arrive in the same turn. Visibility only — every tool
-    // stays attached and stays gated.
-    ...(config.toolGating
-      ? [createSkillGatedToolsProcessor(config.toolGating)]
-      : []),
+    // Lane tools ride with their lane skill (`AgentConfig.toolGating`, plus
+    // the floor's own lanes for every specialist): withheld from the tool
+    // block until the skill is activated, which Mastra lets us do per STEP,
+    // so they arrive in the same turn. Visibility only — every tool stays
+    // attached and stays gated.
+    ...(toolGating ? [createSkillGatedToolsProcessor(toolGating)] : []),
     new ToolCallFilter({
       exclude: [ENGENTY_TOOL_EXECUTE_TOOL_ID],
       filterAfterToolSteps: 2,
@@ -627,13 +631,19 @@ export function buildAgentInstructions(
   }
   // A gated agent must be told the gate exists, or it reads a missing tool as a
   // missing capability and says the product cannot do the thing.
-  if (config.toolGating) {
+  if (effectiveToolGating(config)) {
     parts.push(SKILL_GATED_TOOLS_INSTRUCTIONS);
   }
   if (agentCarriesCatalogFloor(config)) {
     // The floor's own manual: hired or module-shipped, a specialist that has
     // the catalog, Space Data and colleagues must be told how they work.
     parts.push(SPECIALIST_INSTRUCTIONS);
+    // And a report told where the management verbs live: without this, a
+    // specialist asked to hire, add an app or open a Task answers that it
+    // cannot be done, instead of handing it to its coordinator.
+    if (!extras?.topLevel) {
+      parts.push(SPECIALIST_REPORT_INSTRUCTIONS);
+    }
   } else if (config.agentScope) {
     // Specialists carry these inside SPECIALIST_INSTRUCTIONS. Any other agent
     // with an audience — the personal copilot, an interface declaring

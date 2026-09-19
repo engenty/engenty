@@ -30,6 +30,7 @@ import {
   acquireFrontendToolSuspendSlot,
   releaseFrontendToolSuspendSlot,
 } from "../frontend-tools/frontend-tool-suspend-lock.js";
+import { callerScope } from "./engenty-tools/lib/caller-scope.js";
 import { resolveRegistryAgent } from "./engenty-tools/lib/registry-agent.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
@@ -430,10 +431,26 @@ export const actionProposeTool = createTool({
       };
     }
 
+    // A specialist writes Workflows for its own page only: the owner is
+    // itself, whatever the call named. A coordinator and the copilot may
+    // name any mounted specialist (the hire flow does).
+    const caller = callerScope();
+    let ownerAgentId = params.owner_agent_id?.trim() || null;
+    if (caller.kind === "specialist") {
+      if (ownerAgentId && ownerAgentId !== caller.id) {
+        return {
+          ok: false as const,
+          code: "not_owner",
+          message:
+            `You can propose Workflows for yourself only, not for '${ownerAgentId}'. ` +
+            "Omit owner_agent_id, or ask a coordinator to write it for them.",
+        };
+      }
+      ownerAgentId = caller.id;
+    }
     // The owner must exist in the registry — a typo here would save a
     // workflow onto a page nobody can ever open. An unreachable registry
     // does not refuse: the draft is inert until a human publishes it.
-    const ownerAgentId = params.owner_agent_id?.trim() || null;
     if (ownerAgentId) {
       const owner = await resolveRegistryAgent(ownerAgentId);
       if (owner === null) {
@@ -499,7 +516,16 @@ export const actionProposeTool = createTool({
       // (no bespoke widget); the resume above performs the publish AS THE
       // HUMAN. Headless and delegated runs cannot park — they keep the
       // review-on-canvas result below.
-      if (ctx.canSuspendForInteraction && executionContext?.agent?.suspend) {
+      //
+      // A routine's body is the exception: routines_create publishes it as
+      // it creates the routine — on ONE card where the Space asks a person,
+      // on its own where the mode lets the agent decide — so a second card
+      // here would ask the same person twice for the same job.
+      if (
+        runBy !== "routine" &&
+        ctx.canSuspendForInteraction &&
+        executionContext?.agent?.suspend
+      ) {
         const artifactId = buildFlowPublishArtifactId(graphId, version.id);
         const stepCount = input.graph.length;
         const lockKey = publishSuspendLockKey();
@@ -541,20 +567,21 @@ export const actionProposeTool = createTool({
         workflow_id: graphId,
         version: version.version,
         note: [
-          "Saved unapproved. It cannot run until a human reviews the steps " +
-            "on the canvas and publishes the Workflow — you cannot publish it " +
-            "yourself.",
-          ownerAgentId
+          runBy === "routine"
+            ? "Saved as a draft. This Workflow runs nothing on its own: " +
+              "create the routine now (routines_create with this workflow_id" +
+              (ownerAgentId ? ` and agent_id ${ownerAgentId}` : "") +
+              ") — that call publishes the Workflow as it creates the " +
+              "routine, on a card for the person where this Space asks one. " +
+              "Tell the user who owns it."
+            : "Saved unapproved. It cannot run until a human reviews the steps " +
+              "on the canvas and publishes the Workflow — you cannot publish it " +
+              "yourself.",
+          ownerAgentId && runBy !== "routine"
             ? `It is listed in ${ownerAgentId}'s settings drawer as awaiting publish. ` +
               `In a Space run, link it as /s/<space key>/agents/${ownerAgentId}?panel=manage ` +
               "(the key is on current_space) — never an /admin/… link, which " +
               "leaves the user's Space."
-            : null,
-          runBy === "routine"
-            ? "This Workflow runs nothing on its own. Make sure the owning " +
-              "specialist exists (agent_propose, if not already hired), then " +
-              "create the routine (routines_create with workflow_id plus the " +
-              "owning agent_id). Tell the user who owns it."
             : null,
           requiredInput.length > 0
             ? `Every call must carry: ${requiredInput.join(", ")}. A schedule ` +

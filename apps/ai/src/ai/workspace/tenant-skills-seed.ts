@@ -12,7 +12,6 @@
 import { createHash } from "node:crypto";
 
 import { listLibrarySkills } from "@engenty/ai-skills";
-import { ENGENTY_COPILOT_MANAGED_SKILLS } from "@engenty/engenty-copilot/ai";
 
 import { loadRuntimeManagedSkills } from "../../../ai/skills/index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
@@ -42,7 +41,7 @@ export interface ManagedSkillPack {
   name: string;
   // Raw SKILL.md content (with frontmatter) as authored in code.
   skillMarkdown: string;
-  // `builtin` | `library` | `engenty-copilot` | concrete module id.
+  // `builtin` | `library` | concrete module id.
   source: string;
 }
 
@@ -140,10 +139,11 @@ function rememberSyncedCatalog(tenantId: string, packs: ManagedSkillPack[]) {
 }
 
 // Collect code-provided skills from three authoring roots into one flat
-// managed catalog. Runtime (`builtin`) and copilot product skills ship from
-// this repo; module markdown arrives over the capability HTTP channel;
-// library skills live in `@engenty/ai-skills` and stay hidden until a Space
-// mounts them.
+// managed catalog. Runtime (`builtin`) skills ship from this repo; module
+// markdown arrives over the capability HTTP channel; library skills live in
+// `@engenty/ai-skills` (the Space playbooks the copilot and hired engenties
+// share among them) and are visible to a run only when preferred by name or
+// mounted on its Space.
 export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
   const loader = createDefaultModuleCapabilityLoader();
   const capabilities = await loader.listModuleCapabilities();
@@ -152,11 +152,6 @@ export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
     loadRuntimeManagedSkills()
   )) {
     packs.push({ name, skillMarkdown, source: "builtin" });
-  }
-  for (const [name, skillMarkdown] of Object.entries(
-    ENGENTY_COPILOT_MANAGED_SKILLS
-  )) {
-    packs.push({ name, skillMarkdown, source: "engenty-copilot" });
   }
   for (const capability of capabilities) {
     for (const [name, skillMarkdown] of Object.entries(

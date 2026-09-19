@@ -1,8 +1,12 @@
 ---
 name: durable-work
-title: Create Routines and Tasks
+title: Give existing engenties Routines and Tasks
 description: Durable work for EXISTING mounted engenties — a Routine when it repeats, a Task when someone must own it, several linked Tasks when one outcome needs more than one. Complete on its own; a job with no owner switches to hire-agent instead.
-allowed-tools: engenty_tools_search engenty_tool_execute registry_agents_list workflows_list requestDecision
+license: MIT
+allowed-tools: engenty_tools_search engenty_tool_execute registry_agents_list routines_list routines_create routines_update workflows_list workflow_propose requestDecision
+metadata:
+  engenty:
+    category: spaces
 ---
 
 # Durable work
@@ -27,33 +31,38 @@ work item someone owns) → several linked Tasks (one outcome, real dependencies
 3. List before creating: Task → `tasks_list`; Routine → `routines_list`.
    Reuse or update a real match; never invent an id.
 4. If a Workflow may be used, `workflows_list` in this turn — it must be
-   published, runnable, and suitable here.
+   runnable and suitable here.
 
-`tasks_*` and `routines_*` are catalog operations: `engenty_tools_search`
-finds them, `engenty_tool_execute` runs them. They are Space-owned — the
-catalog injects `current_space`; never pass a different `space_id` or report a
-record without a successful execute result.
+`tasks_*` are catalog operations: `engenty_tools_search` finds them,
+`engenty_tool_execute` runs them. `routines_*` are your own tools. Both are
+Space-owned — the catalog injects `current_space`; never pass a different
+`space_id` or report a record without a successful result.
 
 ## Routine for an existing Engenty
 
-A Routine is a job on a mounted Engenty: what to run plus a wake source.
-After `routines_list`: update a match with `routines_update`, else execute
+A Routine is a job on a mounted Engenty: what to run plus a wake source. The
+rules are the ones every engenty follows for its own routines (the
+**routines** skill); the only difference here is `agent_id`: the mounted
+owner, an exact id from this turn's `registry_agents_list`. After
+`routines_list`: change a match with `routines_update`, else
 `routines_create` — every field flat on the Routine, no nested body:
 
-- `name`; `kind: "schedule"` or `"event"`; `agent_id`: the mounted owner;
-- `instructions`: this job's own procedure (not the mandate restated) — OR
-  `workflow_id` of a published Workflow, exactly one of the two. More than one
-  step, an approval, or a wait belongs in a Workflow (propose one), not prose;
-- schedule: `cron` + IANA `timezone` in the user's local clock; event:
-  `provider_id` + `resource`;
-- `approval_grants`: only gated operation ids the procedure actually uses,
-  named to the user before creation.
+- `name`; `agent_id`; `outcome` (what a run must have achieved); `report`;
+- **`prompt`** for a single-step job, written to the owner — OR
+  **`workflow_id`** when the job has more than one step, an approval, or a
+  wait: `workflow_propose` the graph first (`run_by: "routine"`,
+  `owner_agent_id` the owner) and target its id; creating the routine
+  publishes it. Exactly one of the two;
+- `kind: "schedule"`: `cron` + IANA `timezone` in the user's local clock;
+  `"event"`: `provider_id` + `resource`; `"manual"` / `"agent"` for a job
+  that must not run by itself;
+- `approval_grants`: only gated operation ids the procedure actually uses.
 
-Every occurrence is its own Run; an overlap with the previous run is skipped —
-nothing to configure. Copilot cannot own Routines
-(`routines.agentCannotOwn`). `duplicate` → update the named Routine. To edit,
-patch the row: wake fields (`cron`, `timezone`, `quiet_hours`, `enabled`) and
-target fields (`instructions` or `workflow_id`, `outcome`, `report`) live on it.
+Depending on the Space's approval setting the call pauses on a card for the
+person — report their answer, never assume it. Grants always take a card.
+Only an Engenty can own a Routine — Copilot is refused
+(`routines.agentCannotOwn`). `duplicate` → change the Routine it names,
+never rename-and-retry.
 
 ## One Task someone owns
 

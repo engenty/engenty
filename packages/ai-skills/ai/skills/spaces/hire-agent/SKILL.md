@@ -54,31 +54,35 @@ there is no `agents_create` / `agents_update` / `space_agents_mount`.
 ## Give the job its Routine
 
 After a successful live hire (or immediately when an approval resumes
-approved), search for `routines_create` and execute it — every field flat on
-the Routine, no nested body:
+approved), call `routines_create` — every field flat on the Routine, no
+nested body:
 
 - `name`; `kind`: `schedule` | `event`; `agent_id`: the exact hired id;
-- `instructions`: the full operating procedure — OR `workflow_id` of a published
-  Workflow, exactly one of the two. A job of more than one step, an approval, or
-  a wait belongs in a Workflow: `workflow_propose` the multi-step graph first (it
-  awaits human review on the canvas — never publish it yourself) and target its
-  id. Prose is only for a genuinely single-step job;
+  `outcome`: what a run must have achieved; `report`;
+- `prompt`: the full operating procedure for a single-step job, written to
+  the hire — OR `workflow_id`, exactly one of the two. A job of more than one
+  step, an approval, or a wait belongs in a Workflow: `workflow_propose` the
+  graph first (`run_by: "routine"`, `owner_agent_id` the hire) and target its
+  id; creating the routine publishes it. Prose is only for a genuinely
+  single-step job;
 - schedule: `cron` + IANA `timezone` in the user's local clock ("07:00 Vienna"
   = `cron: "0 7 * * *", timezone: "Europe/Vienna"`) — never convert to UTC;
 - event: real `provider_id` and `resource`;
-- `approval_grants`: only the gated operation ids the procedure actually uses,
-  named to the user before creation.
+- `approval_grants`: only the gated operation ids the procedure actually uses.
 
-Only an Engenty can own a Routine — Copilot is refused
-(`routines.agentCannotOwn`). `duplicate` → update the Routine it names, never
-rename-and-retry. The hire is not the deliverable: stop only after
-`routines_create` succeeds, then report owner, job, and schedule. Even when a
-Workflow is the target, the Space still gets a visible owner and Routine.
+Depending on the Space's approval setting the call pauses on ONE card for the
+person (it publishes the Workflow and creates the routine together) — report
+their answer, never assume it. Grants always take a card. Only an Engenty can
+own a Routine — Copilot is refused (`routines.agentCannotOwn`). `duplicate` →
+update the Routine it names, never rename-and-retry. The hire is not the
+deliverable: stop only after `routines_create` returns `created`, then report
+owner, job, and schedule. Even when a Workflow is the target, the Space still
+gets a visible owner and Routine.
 
 Links in your report stay inside this Space: the Engenty's page is
-`/s/<current_space key>/agents/<agent_id>`, and a draft Workflow awaiting
-publish sits on its Manage tab — `/s/<key>/agents/<agent_id>?tab=manage`.
-Never link `/admin/...`; that navigates the user out of their Space.
+`/s/<current_space key>/agents/<agent_id>`; its routines and Workflows sit on
+its Manage tab — `/s/<key>/agents/<agent_id>?tab=manage`. Never link
+`/admin/...`; that navigates the user out of their Space.
 
 ## Revise an existing custom agent
 
@@ -86,6 +90,6 @@ Never link `/admin/...`; that navigates the user out of their Space.
 configuration — always a gated revision; the approved config keeps running
 meanwhile. If the change affects a recurring job, patch the Routine row via
 `routines_list` → `routines_update`: wake fields (`cron`, `timezone`,
-`quiet_hours`, `enabled`) and target fields (`instructions` or `workflow_id`,
+`quiet_hours`, `enabled`) and target fields (`prompt` or `workflow_id`,
 `name`, `description`, `outcome`, `report`) all live flat on it. Moving a job
-to another Engenty = create on the new owner, delete the old.
+to another Engenty = `routines_update` with the new `agent_id`.

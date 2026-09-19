@@ -40,6 +40,7 @@ export const engentyCopilotAgentConfig: AgentConfig = {
     "work-routing",
     "hire-agent",
     "durable-work",
+    "routines",
     "space-data",
     "space-setup",
   ],

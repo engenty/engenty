@@ -8,9 +8,13 @@
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { SPACE_CONTRACT_PROMPT } from "@engenty/ai-core";
 import type { FrontendToolGrant } from "../../../ai/frontend-tools/catalog.js";
+import type { RoutineStore } from "../../dal/routines/routine-store.js";
+import type { RoutineTriggerStore } from "../../dal/routines/routine-trigger-store.js";
 import type { ThreadKind } from "../../dal/threads/types.js";
 import {
   type AgentStateSessionStore,
+  createRoutineStoreFromEnv,
+  createRoutineTriggerStoreFromEnv,
   createThreadStoreFromEnv,
 } from "../index.js";
 import { SHARED_DESK_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
@@ -92,6 +96,103 @@ export async function buildThreadStateInstructions(input: {
   }
 }
 
+export interface OwnRoutinesStores {
+  routines: RoutineStore;
+  triggers: RoutineTriggerStore;
+}
+
+function ownRoutinesStoresFromEnv(): OwnRoutinesStores | null {
+  const routines = createRoutineStoreFromEnv();
+  const triggers = createRoutineTriggerStoreFromEnv();
+  return routines && triggers ? { routines, triggers } : null;
+}
+
+/** The copilot owns no routines (`routines.agentCannotOwn`); it lists. */
+const NO_OWN_ROUTINES_AGENT_IDS = new Set(["engenty.copilot"]);
+
+function wakeSummary(
+  triggers: readonly {
+    cron: string | null;
+    kind: string;
+    resource: string | null;
+    timezone: string | null;
+  }[]
+): string {
+  const schedule = triggers.find((t) => t.kind === "schedule");
+  if (schedule?.cron) {
+    return `\`${schedule.cron}\` ${schedule.timezone ?? "UTC"}`;
+  }
+  const event = triggers.find((t) => t.kind === "event");
+  if (event?.resource) {
+    return `on \`${event.resource}\``;
+  }
+  return "when pressed or asked";
+}
+
+/**
+ * The agent's OWN routines, in the volatile runtime block: usually one or
+ * two, and the model must know them to answer "what do you do on Fridays?",
+ * to change one on request, and not to create a second one for the same
+ * job. Loaded here, not listed — a `routines_list` call the model may or
+ * may not make is not knowledge. Nothing for the copilot (it owns none)
+ * and nothing on an unresolved Space (fail closed, like the rest of the
+ * block). Empty when the agent has no routine: the appendix already says
+ * how one comes to be.
+ */
+export async function buildOwnRoutinesInstructions(input: {
+  agentId: string;
+  /** Overrides the env stores; the run lane always takes the default. */
+  getStores?: () => OwnRoutinesStores | null;
+  spaceResolution?: RunSpaceResolution;
+  tenantId: string;
+}): Promise<string> {
+  const agentId = input.agentId.trim();
+  if (!agentId || NO_OWN_ROUTINES_AGENT_IDS.has(agentId)) {
+    return "";
+  }
+  const resolution = input.spaceResolution;
+  if (resolution?.kind === "unresolved") {
+    return "";
+  }
+  try {
+    const stores = (input.getStores ?? ownRoutinesStoresFromEnv)();
+    if (!stores) {
+      return "";
+    }
+    const spaceId =
+      resolution?.kind === "resolved" ? resolution.space.spaceId : undefined;
+    const rows = await stores.routines.list({
+      agentId,
+      tenantId: input.tenantId,
+      ...(spaceId ? { spaceId } : {}),
+    });
+    if (rows.length === 0) {
+      return "";
+    }
+    const triggers = await stores.triggers.list({ tenantId: input.tenantId });
+    const lines = rows
+      .toSorted((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((row) => {
+        const own = triggers.filter((t) => t.routine_id === row.id);
+        const parts = [
+          `${row.name} (routine_id: ${row.id}) — ${wakeSummary(own)}`,
+          row.enabled ? null : "DISABLED",
+          row.outcome ? `done means: ${row.outcome}` : null,
+          row.last_result ? `last: ${row.last_result}` : null,
+        ].filter((part): part is string => part !== null);
+        return `- ${parts.join(" — ")}`;
+      });
+    return [
+      "## Your routines",
+      "The standing jobs you own here; they run on their own. Change one with `routines_update`, add one with `routines_create` (load **routines** first). Do not recite them unless asked.",
+      ...lines,
+    ].join("\n");
+  } catch {
+    // A run whose routine rows are unreadable still has a conversation to hold.
+    return "";
+  }
+}
+
 export interface SessionRuntimeInstructionsInput {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
@@ -108,6 +209,8 @@ export interface SessionRuntimeInstructionsInput {
    */
   frontendToolGrant?: FrontendToolGrant | null;
   routeContext?: Record<string, unknown> | null;
+  /** Test seam for the agent's own-routines block; the run lane takes env. */
+  routineStores?: () => OwnRoutinesStores | null;
   runContext?: RunAgentInput["context"];
   scope: AiSessionScope;
   /** Engentys the run's space mounts (Phase C3b). Legacy identity fallback. */
@@ -135,36 +238,45 @@ export interface SessionRuntimeInstructionsInput {
 export async function buildSessionRuntimeInstructions(
   input: SessionRuntimeInstructionsInput
 ): Promise<string> {
-  const [runtimeContext, agentUiContext, threadState] = await Promise.all([
-    buildRuntimeContextInstructions({
-      scope: input.scope,
-      threadId: input.threadId,
-      ...(input.spaceResolution
-        ? { spaceResolution: input.spaceResolution }
-        : {
-            // Legacy identity-only fallback for callers that have not yet
-            // passed the discriminated resolution. A uuid here is not a
-            // resolved surface.
-            spaceId:
-              input.spaceId ??
-              spaceIdFromRouteContext(input.routeContext ?? undefined),
-            ...(input.spaceAgentIds
-              ? { spaceAgentIds: input.spaceAgentIds }
-              : {}),
-          }),
-    }),
-    buildAgentUiContextInstructions({
-      agentId: input.agentId,
-      agentUi: input.agentUi,
-      frontendToolGrant: input.frontendToolGrant ?? null,
-      runContext: input.runContext,
-      scope: input.scope,
-    }),
-    buildThreadStateInstructions({
-      scope: input.scope,
-      threadId: input.threadId,
-    }),
-  ]);
+  const [runtimeContext, agentUiContext, threadState, ownRoutines] =
+    await Promise.all([
+      buildRuntimeContextInstructions({
+        scope: input.scope,
+        threadId: input.threadId,
+        ...(input.spaceResolution
+          ? { spaceResolution: input.spaceResolution }
+          : {
+              // Legacy identity-only fallback for callers that have not yet
+              // passed the discriminated resolution. A uuid here is not a
+              // resolved surface.
+              spaceId:
+                input.spaceId ??
+                spaceIdFromRouteContext(input.routeContext ?? undefined),
+              ...(input.spaceAgentIds
+                ? { spaceAgentIds: input.spaceAgentIds }
+                : {}),
+            }),
+      }),
+      buildAgentUiContextInstructions({
+        agentId: input.agentId,
+        agentUi: input.agentUi,
+        frontendToolGrant: input.frontendToolGrant ?? null,
+        runContext: input.runContext,
+        scope: input.scope,
+      }),
+      buildThreadStateInstructions({
+        scope: input.scope,
+        threadId: input.threadId,
+      }),
+      buildOwnRoutinesInstructions({
+        agentId: input.agentId,
+        ...(input.routineStores ? { getStores: input.routineStores } : {}),
+        ...(input.spaceResolution
+          ? { spaceResolution: input.spaceResolution }
+          : {}),
+        tenantId: input.scope.tenantId,
+      }),
+    ]);
 
   let languageInstruction = "";
   const lang = resolveUiLanguage(input.routeContext);
@@ -188,6 +300,7 @@ export async function buildSessionRuntimeInstructions(
     workspaceNote ? `${runtimeContext}\n${workspaceNote}` : runtimeContext,
     sharedStyle,
     agentUiContext,
+    ownRoutines,
     threadState,
     languageInstruction,
   ]

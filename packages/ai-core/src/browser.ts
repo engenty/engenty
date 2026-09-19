@@ -105,6 +105,7 @@ export {
   LIVE_HIRE_ATTACHED_TOOL_IDS,
   LIVE_HIRE_SKILL_IDS,
   LIVE_HIRE_TOOL_IDS,
+  SPECIALIST_TOOL_GATING,
 } from "./agents/hire-floor.js";
 export {
   createFieldSuggestionsArtifact,

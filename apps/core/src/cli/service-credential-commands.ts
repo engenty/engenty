@@ -1,7 +1,12 @@
 import { runCliAction } from "@engenty/cli";
 import { AI_SERVICE_PLAN_CAPABILITIES } from "@engenty/plugin-sdk";
 import type { Command } from "commander";
+import { createAuthStores } from "../security/auth-stores/index.js";
 import { callCoreApi, defaultApiUrl } from "./core-api.js";
+import {
+  ensureLocalServiceCredential,
+  isLocalSupabaseUrl,
+} from "./local-service-credential.js";
 
 interface CommonOpts {
   apiUrl?: string;
@@ -87,6 +92,48 @@ export function registerServiceCredentialCommands(program: Command): void {
           }
         }
       )
+    );
+
+  // The local stack's AI credential, kept in step by `engenty setup`: no
+  // bearer, no API — straight into the developer's own Supabase, refused for
+  // anything that is not localhost. `--json` is the contract setup reads.
+  credentials
+    .command("ensure-local")
+    .description(
+      "Local dev only: keep ENGENTY_AI_SERVICE_SECRET backed by a live row in the local Supabase, minting a platform credential when it is missing, revoked or stale"
+    )
+    .option("--json", "Print the result as JSON (what `engenty setup` reads)")
+    .action(
+      runCliAction(async (opts: { json?: boolean }) => {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        if (!isLocalSupabaseUrl(supabaseUrl)) {
+          throw new Error(
+            `service-token ensure-local only writes to a local Supabase (SUPABASE_URL is ${supabaseUrl ?? "unset"}). Use \`engenty service-token create\` against a deployment.`
+          );
+        }
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          throw new Error(
+            "SUPABASE_SERVICE_ROLE_KEY is unset — run `engenty env init` first."
+          );
+        }
+        const result = await ensureLocalServiceCredential({
+          configured: process.env.ENGENTY_AI_SERVICE_SECRET,
+          stores: createAuthStores({}).serviceCredentials,
+        });
+        if (opts.json) {
+          console.log(JSON.stringify(result));
+          return;
+        }
+        if (result.status === "kept") {
+          console.log(
+            `ENGENTY_AI_SERVICE_SECRET is backed by credential ${result.credentialId}.`
+          );
+          return;
+        }
+        console.log(
+          `Minted local credential ${result.credentialId} (${result.reason === "missing" ? "none was configured" : `the configured one was ${result.reason.replace("_", " ")}`}).\nSet it on apps/ai:\n  ENGENTY_AI_SERVICE_SECRET=${result.secret}`
+        );
+      })
     );
 
   credentials
