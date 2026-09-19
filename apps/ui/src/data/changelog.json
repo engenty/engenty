@@ -1,11 +1,77 @@
 [
   {
+    "version": "v0.2.7",
+    "timestamp": 1789821267,
+    "commits": [
+      {
+        "id": "88c8c17",
+        "message": "show app-release approvals in the space inbox",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ba63709",
+        "message": "who-glyph chip, tidy sidebar, phone actions in the menu",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6a8fe15",
+        "message": "state who reads a chat in a header band and sidebar markers",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "116edc2",
+        "message": "cut Talk, Work, and Window over to one conversation chrome",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2f02d3f",
+        "message": "file gated hire proposals in the inbox",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ae8d4dd",
+        "message": "dock the Engenty in the personal app-bar cluster",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b6569e0",
+        "message": "inset the top and bottom app bar from the window edge",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1a5d2c4",
+        "message": "tint the native title bar to match the AppBar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c2d2a96",
+        "message": "dock the app bar on any screen edge",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "270afa8",
+        "message": "count open decisions per space, not the tenant mix",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.6",
-    "timestamp": 1789736570,
+    "timestamp": 1789736622,
     "commits": [
       {
         "id": "432b47e",
-        "message": "Calm the space Work sidebar until a heading is hovered",
+        "message": "Calm the space Work sidebar until a heading is hovered\n\nChevrons and \"+\" wait on the title row; a closed section shows its count\nthere instead. Empty Räume, Direkt and Artefakte stay off the list.\n\nCo-authored-by: Cursor <cursoragent@cursor.com>",
         "group": "Other",
         "breaking": false
       },

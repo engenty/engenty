@@ -19,7 +19,6 @@ import {
   Button,
   CardSection,
   EditableText,
-  Engenty,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -27,6 +26,7 @@ import {
 import { Cable, ExternalLink, Sparkles } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { AgentFace } from "../../components/agent-face.js";
 import { useUpdateCustomAgentMutation } from "../../lib/admin/ai-runtime-queries.js";
 import {
   useAiInstructionResolutionQuery,
@@ -128,7 +128,12 @@ export function AgentManagePanel({
                     className="shrink-0 rounded-lg transition-colors hover:bg-muted/50"
                     type="button"
                   >
-                    <Engenty kind={agent.engenty} size={40} />
+                    <AgentFace
+                      avatarUrl={agent.avatarUrl}
+                      kind={agent.engenty}
+                      name={agent.name}
+                      size={40}
+                    />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-auto max-w-md">
@@ -152,7 +157,12 @@ export function AgentManagePanel({
                 className="shrink-0"
                 role="img"
               >
-                <Engenty kind={agent.engenty} size={40} />
+                <AgentFace
+                  avatarUrl={agent.avatarUrl}
+                  kind={agent.engenty}
+                  name={agent.name}
+                  size={40}
+                />
               </span>
             )}
             <div className="min-w-0 flex-1 space-y-1">

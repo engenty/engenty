@@ -5,7 +5,6 @@
 
 import { useEngentyFrontendTool } from "@engenty/ai-ui";
 import {
-  COPILOT_BOTTOM_DOCK_CLEARANCE,
   createFrontendToolDefinition,
   PaneResizeHandle,
   useCopilotShell,
@@ -132,16 +131,7 @@ const INBOX_OPEN_THREAD_TOOL = createFrontendToolDefinition({
 export function InboxClientPage() {
   const { t } = useTranslation("inbox");
   const navigate = useNavigate();
-  const { dockMode, open: copilotOpen, setCopilotContext } = useCopilotShell();
-  // The shell keeps the bottom dock clear of content by padding the main
-  // column, which leaves a strip of empty page below both panes. The dock now
-  // sits over the thread pane only (see `--copilot-dock-inset-left`), so the
-  // list has no reason to stop short: the split grows into that strip and the
-  // thread pane alone pads itself back out, keeping its pinned zone clear.
-  const dockInset =
-    copilotOpen && dockMode === "bottom"
-      ? COPILOT_BOTTOM_DOCK_CLEARANCE
-      : "0px";
+  const { setCopilotContext } = useCopilotShell();
   const { threadId } = useParams<{ threadId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const lane = searchParams.get("lane") ?? "all";
@@ -787,10 +777,7 @@ export function InboxClientPage() {
   }
 
   return (
-    <div
-      className="flex min-h-0 w-full flex-row overflow-hidden"
-      style={{ height: `calc(100% + ${dockInset})` }}
-    >
+    <div className="flex min-h-0 w-full flex-row overflow-hidden">
       {/* List pane — hidden on mobile when a thread is open */}
       <div
         className={cn(
@@ -833,9 +820,6 @@ export function InboxClientPage() {
           threadId ? "flex flex-col" : "hidden md:flex md:flex-col"
         )}
         data-engenty-region="detail"
-        // Hands back the space the split just took, so the thread's pinned
-        // assistant zone stays above the dock hovering over this pane.
-        style={{ paddingBottom: dockInset }}
       >
         {/* Mobile has no list pane to toggle — the thread is the whole screen,
             so it gets an explicit way back instead of the tab strip's toggle. */}

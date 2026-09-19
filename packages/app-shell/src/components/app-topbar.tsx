@@ -86,8 +86,6 @@ interface AppTopbarProps {
   onToggleSecondaryNav?: () => void;
   /** Toggle dock (primary sidebar) between pinned and auto-hide. */
   onToggleSidebarHidden?: () => void;
-  /** App bar is on screen (pinned or hovered) — Open/Close lives on its edge. */
-  railVisible?: boolean;
   /**
    * A crumb the ROUTE contributes ahead of the page's own — the space a module
    * is open in. Shown only while the secondary column is collapsed: when it is
@@ -113,7 +111,6 @@ export function AppTopbar({
   isSidebarHovering,
   secondaryNavOpen,
   moduleRootNavItem,
-  railVisible,
   routeBreadcrumb,
   onToggleSecondaryNav,
   onToggleSidebarHidden,
@@ -147,6 +144,7 @@ export function AppTopbar({
     secondaryNavHeaderSlot,
     topbarChrome,
     topbarOverlap,
+    topbarTone,
   } = usePageHeader();
   // Blended is the default: transparent on the page's own surface, compact
   // density. `"band"` is the page's opt-in for a distinct card-coloured strip.
@@ -210,10 +208,9 @@ export function AppTopbar({
   // Show Engenty icon trigger: only when the app bar is auto-hidden AND not
   // currently hovering in (the rail itself owns the mark while it is visible).
   const showAppMenuTrigger = isSidebarHidden && !isSidebarHovering;
-  // Open/Close sits on the app-bar edge while the rail is on screen. Fall
-  // back to the topbar only when the bar is gone.
-  const showSecondaryNavToggleInTopbar =
-    !!hasSecondaryNav && !secondaryNavOpen && !railVisible;
+  // Open lives in this bar while the module column is closed. Close/pin stay
+  // on the column’s right seam.
+  const showSecondaryNavToggleInTopbar = !!hasSecondaryNav && !secondaryNavOpen;
 
   const suppressEmptyTopbar =
     !topbarOverlap &&
@@ -279,12 +276,9 @@ export function AppTopbar({
         contentBlend
           ? "h-(--shell-row) gap-1 bg-transparent px-2 py-0"
           : "h-(--shell-row) gap-2 bg-card/85 px-3 backdrop-blur",
-        // Seam Open is size-6 centred on the app-bar edge while collapsed.
         // Seam Close/Pin is size-6 centred on the column’s right edge while
-        // open. Either way half of it sits on this row — clear it on md+.
-        hasSecondaryNav &&
-          (secondaryNavOpen || railVisible) &&
-          "max-md:pl-2 md:pl-6"
+        // open — half of it sits on this row, so clear it on md+.
+        hasSecondaryNav && secondaryNavOpen && "max-md:pl-2 md:pl-6"
       )}
       data-engenty-region="topbar"
       data-topbar-chrome={contentBlend ? "content-blend" : undefined}
@@ -304,7 +298,11 @@ export function AppTopbar({
         className={cn(
           "flex min-w-0 flex-1 items-center",
           // gap-1 (not gap-0) keeps the leading breadcrumb slash off the first crumb.
-          contentBlend ? "gap-1" : "gap-2"
+          contentBlend ? "gap-1" : "gap-2",
+          // The page's band under this row is flipped to the other theme, so
+          // the crumbs and actions flip with it (not the bar itself: the
+          // sidebar extension beside them keeps the sidebar's surface).
+          topbarTone === "flip" && "tone-flip"
         )}
       >
         {/* Mobile hamburger — hidden md+ since primary sidebar is always visible */}
@@ -319,11 +317,12 @@ export function AppTopbar({
           <span className="sr-only">Open navigation</span>
         </Button>
 
-        {/* 1) Secondary nav open trigger — only when the app bar is hidden */}
+        {/* 1) Secondary nav open trigger — closed column, desktop topbar */}
         {showSecondaryNavToggleInTopbar ? (
           <Button
             aria-label="Open module navigation"
             className={cn("hidden shrink-0 md:flex", contentBlend && "size-8")}
+            data-sidebar-toggle
             onClick={onToggleSecondaryNav}
             onMouseEnter={onSecondaryNavHoverEnter}
             onMouseLeave={onSecondaryNavHoverLeave}
@@ -433,6 +432,7 @@ export function AppTopbar({
         className={cn(
           "app-topbar-actions flex shrink-0 items-center",
           contentBlend ? "gap-1" : "gap-2",
+          topbarTone === "flip" && "tone-flip",
           "max-md:[&_[data-slot=button]_svg]:m-0",
           contentBlend &&
             cn(

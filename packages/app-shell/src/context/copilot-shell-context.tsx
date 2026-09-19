@@ -15,8 +15,12 @@ import {
   useState,
 } from "react";
 import { useMediaQuery } from "../hooks/use-media-query";
-import { reconcileCopilotLayoutSnapshot } from "../types/copilot-layout";
+import {
+  reconcileCopilotLayoutSnapshot,
+  remapPersistedDockMode,
+} from "../types/copilot-layout";
 import type {
+  CopilotCompanionWho,
   CopilotDockMode,
   CopilotLayoutPersistence,
   CopilotRouteContext,
@@ -34,30 +38,20 @@ function resolveEffectiveMode(
   isMobile: boolean,
   isTablet: boolean
 ): CopilotDockMode {
-  if (preferred != null) {
-    // The bottom dock is a centered, max-width card that clamps to the
-    // viewport, so it works at any width — honor an explicit `bottom`
-    // preference on tablet and mobile instead of forcing the side drawer.
-    if (preferred === "bottom") {
-      return "bottom";
-    }
-    if (isMobile && preferred !== "drawer") {
+  const live = remapPersistedDockMode(preferred);
+  if (live != null) {
+    if (isMobile && live !== "drawer") {
       return "drawer";
     }
-    // The inline `sidebar` needs horizontal room beside the main content;
-    // collapse it to the overlay drawer on tablet.
-    if (isTablet && preferred === "sidebar") {
+    if (isTablet && live === "sidebar") {
       return "drawer";
     }
-    return preferred;
+    return live;
   }
-  if (isMobile) {
+  if (isMobile || isTablet) {
     return "drawer";
   }
-  if (isTablet) {
-    return "drawer";
-  }
-  return "floating";
+  return "sidebar";
 }
 
 export function useCopilotShell(): CopilotShellContextValue {
@@ -92,8 +86,12 @@ export function CopilotShellProvider({
   hideCopilotChrome = false,
   pathname = "/",
 }: CopilotShellProviderProps) {
+  const copilotDockRef = useRef<HTMLDivElement | null>(null);
   const copilotSidebarRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [companionWho, setCompanionWho] = useState<CopilotCompanionWho>({
+    kind: "copilot",
+  });
   const [preferredDockMode, setPreferredDockMode] =
     useState<CopilotDockMode | null>(() => defaultDockMode ?? null);
   const [override, setOverride] = useState<Partial<CopilotRouteContext> | null>(
@@ -123,6 +121,7 @@ export function CopilotShellProvider({
   );
   const mainContentRef = useRef<HTMLElement | null>(null);
   const [mainContentReady, setMainContentReady] = useState(false);
+  const [copilotDockReady, setCopilotDockReady] = useState(false);
   const [copilotSidebarReady, setCopilotSidebarReady] = useState(false);
   const [copilotLayoutApplied, setCopilotLayoutApplied] = useState(false);
 
@@ -139,11 +138,22 @@ export function CopilotShellProvider({
   }, []);
 
   const setPreferredStable = useCallback((value: CopilotDockMode | null) => {
-    setPreferredDockMode(value);
+    setPreferredDockMode(remapPersistedDockMode(value) ?? value);
+  }, []);
+  const setCompanionWhoStable = useCallback((who: CopilotCompanionWho) => {
+    setCompanionWho(who);
   }, []);
 
   const notifyMainMounted = useCallback(() => {
     setMainContentReady((ready) => (ready ? ready : true));
+  }, []);
+
+  const notifyDockMounted = useCallback(() => {
+    setCopilotDockReady(true);
+  }, []);
+
+  const notifyDockUnmounted = useCallback(() => {
+    setCopilotDockReady(false);
   }, []);
 
   const notifySidebarMounted = useCallback(() => {
@@ -172,7 +182,7 @@ export function CopilotShellProvider({
       const snapshot = reconcileCopilotLayoutSnapshot(copilotLayout.snapshot);
       setOpen(snapshot.open);
       setPreferredDockMode(
-        (snapshot.preferredDockMode as CopilotDockMode | null) ??
+        remapPersistedDockMode(snapshot.preferredDockMode) ??
           defaultDockMode ??
           null
       );
@@ -199,13 +209,17 @@ export function CopilotShellProvider({
   const value: CopilotShellContextValue = useMemo(
     () => ({
       chromeHidden: hideCopilotChrome,
+      companionWho,
       copilotContext,
       copilotLayout,
+      copilotDockRef,
+      copilotDockReady,
       copilotSidebarRef,
       copilotSidebarReady,
       copilotLayoutApplied,
       open,
       setCopilotContext: setCopilotContextStable,
+      setCompanionWho: setCompanionWhoStable,
       setOpen: setOpenStable,
       dockMode,
       preferredDockMode,
@@ -214,12 +228,15 @@ export function CopilotShellProvider({
       mainContentReady,
     }),
     [
+      companionWho,
       copilotContext,
       copilotLayout,
+      copilotDockReady,
       copilotSidebarReady,
       copilotLayoutApplied,
       hideCopilotChrome,
       open,
+      setCompanionWhoStable,
       setCopilotContextStable,
       setOpenStable,
       dockMode,
@@ -232,11 +249,20 @@ export function CopilotShellProvider({
   const valueWithNotify = useMemo(
     () => ({
       ...value,
+      notifyDockMounted,
+      notifyDockUnmounted,
       notifyMainMounted,
       notifySidebarMounted,
       notifySidebarUnmounted,
     }),
-    [value, notifyMainMounted, notifySidebarMounted, notifySidebarUnmounted]
+    [
+      value,
+      notifyDockMounted,
+      notifyDockUnmounted,
+      notifyMainMounted,
+      notifySidebarMounted,
+      notifySidebarUnmounted,
+    ]
   );
   const agentUiBase = useMemo(
     () => ({

@@ -11,14 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { EngentyAvatarIcon } from "@engenty/ui-icons";
 import {
-  AppWindow,
   Copy,
   GripVertical,
   Maximize2,
   MoreVertical,
-  PanelBottom,
   PanelRight,
   PanelRightOpen,
   PictureInPicture2,
@@ -47,10 +44,7 @@ export interface CopilotDrawerPositionMenuProps {
   onSelectDockPosition?: (value: CopilotDockMode) => void;
   /** Navigate to full-page chat (`/mdl/engenty-copilot/chat`). */
   onSelectFullscreen?: () => void;
-  positionBottomLabel?: string;
-  positionButtonLabel?: string;
   positionDrawerLabel?: string;
-  positionFloatingLabel?: string;
   positionFullscreenLabel?: string;
   positionHeadingLabel?: string;
   positionMenuAriaLabel: string;
@@ -68,10 +62,7 @@ export function CopilotDrawerPositionMenu({
   onCopyThread,
   onSelectDockPosition,
   onSelectFullscreen,
-  positionBottomLabel = "Bottom dock",
-  positionButtonLabel = "Avatar",
   positionDrawerLabel = "Drawer",
-  positionFloatingLabel = "Modal",
   positionFullscreenLabel = "Full Screen",
   positionHeadingLabel = "Position",
   positionMenuAriaLabel,
@@ -190,26 +181,6 @@ export function CopilotDrawerPositionMenu({
               }}
               value={value}
             >
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="bottom"
-              >
-                <PanelBottom
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionBottomLabel}</span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="mini-floating"
-              >
-                <EngentyAvatarIcon
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionButtonLabel}</span>
-              </DropdownMenuRadioItem>
               {showDrawerOption ? (
                 <DropdownMenuRadioItem
                   className="flex items-center gap-2"
@@ -221,21 +192,7 @@ export function CopilotDrawerPositionMenu({
                   />
                   <span>{positionDrawerLabel}</span>
                 </DropdownMenuRadioItem>
-              ) : null}
-              <DropdownMenuRadioItem
-                className="flex items-center gap-2"
-                value="floating"
-              >
-                <AppWindow
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-                <span>{positionFloatingLabel}</span>
-              </DropdownMenuRadioItem>
-              {/* The full panel as a window over the page: the sidebar
-                  without the reserved column, the modal without the
-                  single-line composer. Needs room — not offered on phones. */}
-              {showDrawerOption ? null : (
+              ) : (
                 <DropdownMenuRadioItem
                   className="flex items-center gap-2"
                   value="window"

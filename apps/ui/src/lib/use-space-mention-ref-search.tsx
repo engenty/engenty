@@ -10,6 +10,7 @@
  * `artifact:<id>`) the agent can act on.
  */
 import {
+  AgentFace,
   agentIdToMentionHandle,
   iconForArtifactType,
   type MentionRefCandidate,
@@ -18,7 +19,7 @@ import {
   useSpaceConversationsQuery,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Engenty, type EngentyKind } from "@engenty/ui-core";
+import type { EngentyKind } from "@engenty/ui-core";
 import { MessagesSquare } from "lucide-react";
 import { type ComponentType, useCallback, useMemo } from "react";
 import type { Space } from "./api/spaces-client";
@@ -35,30 +36,33 @@ const ROOM_LIMIT = 12;
 const ARTIFACT_LIMIT = 12;
 
 /**
- * The picker draws an agent as its own Engenty, the same blob the sidebar and
- * the transcript use — a hash-derived stand-in would be a *different* creature
- * for the same colleague. Cached per kind so a keystroke does not mint a new
- * component and remount every row.
+ * The picker draws an agent as its own face — generated portrait when it
+ * has one, otherwise the blob the sidebar uses. Cached per agent so a
+ * keystroke does not remount every row.
  */
-const engentyIcons = new Map<
-  EngentyKind,
-  ComponentType<{ className?: string }>
->();
+const agentIcons = new Map<string, ComponentType<{ className?: string }>>();
 
-function engentyIcon(kind: EngentyKind): ComponentType<{ className?: string }> {
-  const cached = engentyIcons.get(kind);
+function agentMentionIcon(agent: {
+  avatarUrl?: string | null;
+  engenty: EngentyKind;
+  id: string;
+}): ComponentType<{ className?: string }> {
+  const cacheKey = `${agent.id}:${agent.avatarUrl ?? ""}:${agent.engenty}`;
+  const cached = agentIcons.get(cacheKey);
   if (cached) {
     return cached;
   }
   const Icon = ({ className }: { className?: string }) => (
-    <Engenty
+    <AgentFace
       animated={false}
+      avatarUrl={agent.avatarUrl}
       className={className ?? "[&_.e-shadow]:hidden"}
-      kind={kind}
+      kind={agent.engenty}
+      name={agent.id}
       size={18}
     />
   );
-  engentyIcons.set(kind, Icon);
+  agentIcons.set(cacheKey, Icon);
   return Icon;
 }
 
@@ -108,7 +112,7 @@ export function useSpaceMentionRefSearch(
           ({ agent, handle }): MentionRefCandidate => ({
             entity: AGENT_MENTION_ENTITY,
             group: agentsGroup,
-            icon: engentyIcon(agent.engenty),
+            icon: agentMentionIcon(agent),
             label: agent.name,
             ref: `${AGENT_MENTION_ENTITY}:${agent.id}`,
             sublabel: `@${handle}`,

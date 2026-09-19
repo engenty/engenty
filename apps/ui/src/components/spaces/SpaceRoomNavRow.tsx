@@ -1,16 +1,19 @@
 /**
  * A room row in the conversation list, the way Slack lists a channel next
- * to the people: its agents' engenties as one cluster, the room's name, a
- * lock when it is private, when it last moved, and what it is for. Opens
- * the room's own page.
+ * to the people: its agents' engenties as one cluster, the visibility marker
+ * before the name (a key when only its members read it, an open lock when
+ * the Space does), when it last moved, and what it is for. Opens the room's
+ * own page.
  */
 import {
+  type ChatSpaceAudience,
+  ChatVisibilityMarker,
+  chatVisibilityOf,
   EngentyCluster,
   formatRelativeDate,
   type SpaceRoomRow,
 } from "@engenty/ai-ui";
 import { cn, SidebarRowTitleMarquee } from "@engenty/ui-core";
-import { Lock } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { spaceRoomPath } from "@/lib/space-routes";
@@ -22,12 +25,15 @@ export function SpaceRoomNavRow({
   menu,
   room,
   rosterById,
+  spaceAudience,
   spaceKey,
 }: {
   active: boolean;
   menu: ReactNode;
   room: SpaceRoomRow;
   rosterById: ReadonlyMap<string, SpaceRosterAgent>;
+  /** How far the space reaches — what a room open to it amounts to. */
+  spaceAudience: ChatSpaceAudience | null;
   spaceKey: string;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -71,15 +77,17 @@ export function SpaceRoomNavRow({
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0 leading-none">
           <span className="flex min-w-0 items-center gap-1.5 leading-snug">
+            <ChatVisibilityMarker
+              kind="room"
+              visibility={chatVisibilityOf(
+                "room",
+                room.session.visibility,
+                spaceAudience
+              )}
+            />
             <span className="min-w-0 flex-1 truncate" title={title}>
               {title}
             </span>
-            {room.session.visibility === "private" ? (
-              <Lock
-                aria-hidden
-                className="size-3 shrink-0 text-muted-foreground"
-              />
-            ) : null}
             <span className="shrink-0 font-normal text-[11px] text-muted-foreground leading-none transition-opacity group-focus-within/item:opacity-0 group-hover/item:opacity-0 group-has-data-[state=open]/item:opacity-0">
               {formatRelativeDate(room.session.updated_at)}
             </span>

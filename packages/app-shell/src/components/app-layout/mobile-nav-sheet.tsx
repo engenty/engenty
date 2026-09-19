@@ -13,7 +13,10 @@ import type { NavigationSection, ShellSidebarConfig } from "../../types/shell";
 import { AppSidebar } from "../app-sidebar";
 import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./constants";
 import { ModuleSecondaryNavColumnShell } from "./module-secondary-nav-column-shell";
-import type { SecondaryNavLinkItem } from "./types";
+import type {
+  SecondaryNavLinkItem,
+  SecondaryNavRouteTransition,
+} from "./types";
 
 export function MobileNavSheet(props: {
   hasSecondaryNav: boolean;
@@ -21,6 +24,16 @@ export function MobileNavSheet(props: {
   onMobileOpenChange: (open: boolean) => void;
   onOpenAppMenu?: () => void;
   pathname: string;
+  /**
+   * The route's column content, the same slots the desktop column mounts —
+   * a space's name, its Work/Data tabs and its list, its Settings footer.
+   * Without them the sheet's column held only the module links, which on a
+   * space route is nothing.
+   */
+  routeFooterSlot?: ReactNode;
+  routeHeaderSlot?: ReactNode;
+  routeLeadingSlot?: ReactNode;
+  routeTransition?: SecondaryNavRouteTransition;
   search: string;
   sections: NavigationSection[];
   secondaryItems: SecondaryNavLinkItem[];
@@ -40,6 +53,10 @@ export function MobileNavSheet(props: {
     onMobileOpenChange,
     onOpenAppMenu,
     pathname,
+    routeFooterSlot,
+    routeHeaderSlot,
+    routeLeadingSlot,
+    routeTransition,
     search,
     railEndSlot,
     sections,
@@ -52,8 +69,13 @@ export function MobileNavSheet(props: {
     <Sheet onOpenChange={onMobileOpenChange} open={mobileOpen}>
       <SheetContent
         className={cn(
-          "flex max-w-[100vw] flex-row gap-0 border-none bg-transparent p-0 shadow-none md:hidden",
-          hasSecondaryNav ? "w-80 sm:max-w-none" : MOBILE_NAV_RAIL_WIDTH_CLASS
+          "flex flex-row gap-0 border-none bg-transparent p-0 shadow-none md:hidden",
+          // With a column: the whole phone width, capped at 500px so a
+          // tablet in portrait still sees the page beside it.
+          // The sheet's own width rules are side-scoped, so these must be too.
+          hasSecondaryNav
+            ? "max-w-[min(100vw,500px)] data-[side=left]:w-full data-[side=left]:sm:max-w-[min(100vw,500px)]"
+            : cn("max-w-[100vw]", MOBILE_NAV_RAIL_WIDTH_CLASS)
         )}
         showCloseButton={false}
         side="left"
@@ -94,8 +116,14 @@ export function MobileNavSheet(props: {
               bodyMinWidthPx={SHELL_SECONDARY_NAV_WIDTH_DEFAULT_PX}
               onNavigate={() => onMobileOpenChange(false)}
               pathname={pathname}
+              routeFooterSlot={routeFooterSlot}
+              routeHeaderSlot={routeHeaderSlot}
+              routeLeadingSlot={routeLeadingSlot}
+              routeTransition={routeTransition}
               search={search}
               secondaryItems={secondaryItems}
+              // A sheet over the page, but opaque: the column is the point.
+              surface="docked"
             />
           </div>
         ) : null}

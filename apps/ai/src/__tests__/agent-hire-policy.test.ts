@@ -129,6 +129,7 @@ describe("withCatalogFloor", () => {
       "thread_state_set",
       "agent_self_revise",
       "workflow_self_revise",
+      "agent_look",
     ]);
   });
 
@@ -155,6 +156,7 @@ describe("withCatalogFloor", () => {
       "thread_state_set",
       "agent_self_revise",
       "workflow_self_revise",
+      "agent_look",
     ]);
   });
 
@@ -194,6 +196,7 @@ describe("withCatalogFloor", () => {
       "thread_state_set",
       "agent_self_revise",
       "workflow_self_revise",
+      "agent_look",
     ]);
   });
 });

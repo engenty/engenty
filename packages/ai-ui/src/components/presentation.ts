@@ -99,12 +99,10 @@ export type {
   MentionRefSearch,
 } from "./copilot/composer/use-copilot-composer-mention.js";
 export {
-  COPILOT_BOTTOM_DOCK_HEIGHT,
   CopilotDrawer,
   type CopilotPanelMode,
   type CopilotRouteContext,
   formatCopilotRouteStatusLabel,
-  UI_SCROLL_SAFE_BOTTOM_PX,
 } from "./copilot/drawer/copilot-drawer.js";
 export type { CopilotDrawerInjectedSession } from "./copilot/drawer/copilot-drawer-injected-session.js";
 export {
@@ -112,10 +110,18 @@ export {
   type CopilotDrawerPositionMenuProps,
 } from "./copilot/drawer/copilot-drawer-position-menu.js";
 export {
+  type CopilotCompanionOpenTarget,
+  type CopilotCompanionPlacement,
+  isTalkConversationPathname,
   type OpenCopilotShellInput,
   openCopilotShell,
+  resolveCopilotCompanionOpen,
   resolveCopilotOpenDockMode,
 } from "./copilot/drawer/copilot-drawer-utils.js";
+export {
+  COPILOT_WHO_ID,
+  type CopilotWhoOption,
+} from "./copilot/drawer/copilot-fab-trigger.js";
 export { CopilotOpenInterruptBanner } from "./copilot/interrupts/copilot-open-interrupt-banner.js";
 export {
   type CopilotDecisionInterruptFeedback,
@@ -163,7 +169,6 @@ export {
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
-  type CopilotPersistedPanelMode,
   createEmptyCopilotLayoutSnapshot,
   mergeCopilotLayoutSnapshot,
   parseCopilotLayoutSnapshot,

@@ -36,6 +36,7 @@ Call `agent_propose` with:
   schedule or Copilot;
 - `name`: the visible job title;
 - `description`: a concise summary of the standing mandate;
+- `engenty`: one of the ten blobs that fits the job (`round` cobalt, `drop` amber, `dome` moss, `flame` rose, `oval` ember, `bean` teal, `pebble` slate, `sprout` citron, `tower` violet, `wedge` magenta). Omit only when you have no cue — the id is then hashed to a kind. After hire, the Engenty can change that look (and its name) on its own desk with `agent_look`;
 - `instructions`: what it owns, its boundaries, judgment calls — keep the
   Routine's step-by-step procedure out of the mandate;
 - `for_work`: `routine` | `tasks` | `chat` (the actual next lane);

@@ -16,7 +16,7 @@ import { isNeedsInput } from "./classification.js";
 // previous space's list from cache.
 /** How far back the badge looks. Open items that need a person are few; a
  * space with more than this many has a bigger problem than a badge. */
-const NEEDS_INPUT_SCAN_LIMIT = 100;
+export const NEEDS_INPUT_SCAN_LIMIT = 100;
 
 export const notificationKeys = {
   all: ["notifications"] as const,
@@ -35,7 +35,7 @@ const pollWhileHidden =
 export function useNotificationsQuery(input?: ListNotificationsInput) {
   const normalized: ListNotificationsInput = { status: "open", ...input };
   const spaceId =
-    normalized.scope === "global" ? null : currentRequestSpaceId();
+    normalized.scope === "tenant" ? null : currentRequestSpaceId();
   return useQuery({
     queryKey: notificationKeys.list(normalized, spaceId),
     queryFn: ({ signal }) => listNotifications(normalized, signal),
@@ -63,21 +63,28 @@ export function useUnseenCountQuery() {
 }
 
 /**
- * What waits for a PERSON in this space: open decisions, todos and alerts —
- * the "Braucht deine Antwort" group of the notifications page, counted.
- *
- * Not the unseen count: an approval you looked at yesterday and did not
- * answer is still waiting, so a badge built on `seen` reads zero exactly when
- * something is stuck. Shares the page's own query, so the badge and the list
- * cannot disagree and the sidebar adds no second poll.
+ * Open decisions, todos and alerts — Freigaben + Fehler. Updates never
+ * count: they are FYI. Not the unseen count: an approval you looked at
+ * yesterday and did not answer is still waiting. Shares the inbox list
+ * query, so the rail badge and the tab numbers cannot disagree. Space
+ * scope is that space's rows only — tenant-wide waits live under Tenant.
  */
-export function useSpaceNeedsInputCount(): number {
+export function useNeedsInputCount(scope: "space" | "tenant"): number {
   const query = useNotificationsQuery({
     limit: NEEDS_INPUT_SCAN_LIMIT,
-    scope: "space",
+    scope,
     status: "open",
   });
-  return (query.data?.notifications ?? []).filter(isNeedsInput).length;
+  const spaceId = currentRequestSpaceId();
+  const rows = (query.data?.notifications ?? []).filter((n) =>
+    scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true
+  );
+  return rows.filter(isNeedsInput).length;
+}
+
+/** `useNeedsInputCount("space")` — dashboard row and space-home bell. */
+export function useSpaceNeedsInputCount(): number {
+  return useNeedsInputCount("space");
 }
 
 export function useMarkNotificationMutation() {

@@ -90,7 +90,7 @@ export function ThreadContextToggle({
  * ⋯ menu entry — same open action as {@link ThreadContextToggle}.
  * Renders nothing when the context box is empty or already inline.
  */
-export function ThreadContextMenuItem() {
+export function ThreadContextMenuItem({ className }: { className?: string }) {
   const { t } = useTranslation("ai-ui");
   const { mode, openOverlay } = useThreadContextUi();
 
@@ -100,10 +100,12 @@ export function ThreadContextMenuItem() {
 
   return (
     <DropdownMenuItem
+      className={className}
       onClick={() => {
         openOverlay();
       }}
     >
+      <List className="mr-2 size-4" />
       {t("threadContext.open")}
     </DropdownMenuItem>
   );

@@ -4,9 +4,9 @@
  * it, description, and the skill and connector chips. Who reports to whom is
  * the page's tree, not a caption. The whole row opens that agent's Desk.
  */
-import { AgentModuleBadge } from "@engenty/ai-ui";
+import { AgentFace, AgentModuleBadge } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Badge, cn, Engenty, uiCardRaisedClassName } from "@engenty/ui-core";
+import { Badge, cn, uiCardRaisedClassName } from "@engenty/ui-core";
 import { Cable, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -71,9 +71,11 @@ export function SpaceAgentRosterRow({
         aria-hidden
         className="grid size-[60px] shrink-0 place-items-center overflow-visible"
       >
-        <Engenty
+        <AgentFace
+          avatarUrl={agent.avatarUrl}
           className="[&_.e-shadow]:hidden"
           kind={agent.engenty}
+          name={agent.name}
           size={60}
         />
       </span>

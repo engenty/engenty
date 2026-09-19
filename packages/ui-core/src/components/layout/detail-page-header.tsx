@@ -95,6 +95,12 @@ export interface DetailPageHeaderProps
   containerClassName?: string;
   /** Block under the title — lead paragraph or a meta-stat grid. */
   description?: ReactNode;
+  /**
+   * Override the description's clamp wrapper — `max-h-none` for a block
+   * that must never clip (a chip, a paragraph and a standing line stack past
+   * the default on a phone).
+   */
+  descriptionClassName?: string;
   /** Muted context line above the title (legal name, "person", "id · module"). */
   eyebrow?: ReactNode;
   /** Container max width; must match the page content column. Default `5xl`. */
@@ -131,6 +137,7 @@ export function DetailPageHeader({
   collapsed = false,
   containerClassName,
   description,
+  descriptionClassName,
   eyebrow,
   maxWidth = "5xl",
   media,
@@ -206,7 +213,8 @@ export function DetailPageHeader({
                     ? "max-h-0 opacity-0"
                     : resolvedVariant === "canvas"
                       ? "mt-2 max-h-32 opacity-100"
-                      : "mt-1 max-h-24 opacity-100"
+                      : "mt-1 max-h-24 opacity-100",
+                  collapsed ? null : descriptionClassName
                 )}
               >
                 <div

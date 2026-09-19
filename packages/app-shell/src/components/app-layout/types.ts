@@ -5,6 +5,7 @@ import type {
 } from "@engenty/ui-plugin-sdk";
 import type { ReactNode } from "react";
 import type { NavigationSection, ShellSidebarConfig } from "../../types/shell";
+import type { ShellAppBarPositionPersistence } from "../../types/shell-app-bar-position";
 import type { ShellSecondaryNavPinnedPersistence } from "../../types/shell-secondary-nav-pinned";
 import type { AppMenuActions } from "../app-topbar";
 
@@ -14,6 +15,8 @@ export interface SecondaryNavRouteTransition {
 }
 
 export interface AppLayoutProps {
+  /** User-settings persistence for desktop app-bar edge. */
+  appBarPositionPersistence?: ShellAppBarPositionPersistence;
   /** Quick-action callbacks for the ⌘K command menu. */
   appMenuActions?: AppMenuActions;
   children: ReactNode;
@@ -39,6 +42,11 @@ export interface AppLayoutProps {
    * notification bell. Passed in for the same reason as `spacesZone`: the
    * app owns the data, app-shell stays free of fetching.
    */
+  /**
+   * Outermost personal-cluster slot on the compact rail — the Copilot blob.
+   * Host-wired like `railEndSlot`. Desktop only; omit on the mobile sheet.
+   */
+  railCopilotSlot?: ReactNode;
   railEndSlot?: ReactNode;
   /**
    * Pinned to the FOOT of the secondary column — the space's Settings link.

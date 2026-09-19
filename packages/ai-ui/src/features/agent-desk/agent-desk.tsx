@@ -1,6 +1,6 @@
 import { spaceRoomPathname } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Engenty, uiPageScrollClassName } from "@engenty/ui-core";
+import { uiPageScrollClassName } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import {
   type CSSProperties,
@@ -19,10 +19,17 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { WorkspaceArtifactPane } from "../../artifacts/workspace-artifact-pane.js";
+import { AgentFace } from "../../components/agent-face.js";
 import {
   type ChatKind,
   useChatKindCopy,
 } from "../../components/copilot/chat-kind-badge.js";
+import {
+  type ChatSpaceAudience,
+  type ChatVisibility,
+  chatVisibilityOf,
+  useChatVisibilityCopy,
+} from "../../components/copilot/chat-visibility.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
 import {
@@ -52,7 +59,6 @@ import {
 import { AgentDeskEngagementList } from "./agent-desk-engagement-list.js";
 import {
   AgentDeskHeader,
-  type AgentDeskReaders,
   type AgentDeskRelation,
 } from "./agent-desk-header.js";
 import { AgentDeskNewRoomDialog } from "./agent-desk-new-room-dialog.js";
@@ -138,6 +144,8 @@ export function AgentDesk(props: {
    */
   relation?: AgentDeskRelation | null;
   rosterAgents?: readonly AgentDeskSwitchAgent[];
+  /** How far the Space itself reaches — what a desk "everyone reads" means. */
+  spaceAudience?: ChatSpaceAudience | null;
   spaceId: string;
   spaceKey: string;
   /** The Space's display name — the shared desk's badge says whose team reads. */
@@ -151,6 +159,7 @@ export function AgentDesk(props: {
     moduleLabel,
     relation,
     rosterAgents = NO_ROSTER,
+    spaceAudience,
     spaceId,
     spaceKey,
     spaceName,
@@ -266,7 +275,10 @@ export function AgentDesk(props: {
   const onTranscriptTopVisibility = useCallback((visible: boolean) => {
     setHeaderCollapsed(!visible);
   }, []);
-  useEffect(() => {
+  // A layout effect on purpose: the chat panel reports an empty transcript
+  // (identity in view, no band) in a plain effect, which runs after this —
+  // so on a switch to an empty thread its word is the last one.
+  useLayoutEffect(() => {
     setHeaderCollapsed(Boolean(threadId));
   }, [threadId]);
   // The band is opaque and sits over the top of the chat, so the floating
@@ -345,14 +357,26 @@ export function AgentDesk(props: {
         ? "dm"
         : "desk"
     : null;
+  // How far the conversation is visible — the header's chip and band, and
+  // the topbar's tone once the private band flips the theme under it.
+  const visibility: ChatVisibility | null = chatKind
+    ? chatVisibilityOf(chatKind, null, spaceAudience)
+    : null;
   const kindCopy = useChatKindCopy({
     kind: chatKind ?? "desk",
     name: feedQuery.data?.agent.name,
     spaceName,
   });
-  // The composer says who reads before the first word is typed.
+  const visibilityCopy = useChatVisibilityCopy({
+    memberCount: spaceAudience?.peopleCount,
+    name: visibility === "private" ? feedQuery.data?.agent.name : undefined,
+    spaceName,
+    visibility: visibility ?? "open",
+  });
+  // The composer says who reads before the first word is typed — the same
+  // sentence the header's tier states.
   const composerPlaceholder = feedQuery.data
-    ? `${t("agentDesk.composerPlaceholder", { name: feedQuery.data.agent.name })} · ${kindCopy.readers}`
+    ? `${t("agentDesk.composerPlaceholder", { name: feedQuery.data.agent.name })} · ${visibility ? visibilityCopy.readers : kindCopy.readers}`
     : undefined;
   const breadcrumbs = useMemo((): PageBreadcrumb[] => {
     if (!feedQuery.data) {
@@ -370,7 +394,12 @@ export function AgentDesk(props: {
             onClick={() => openPanel("manage")}
             type="button"
           >
-            <Engenty kind={current.engenty} size={20} />
+            <AgentFace
+              avatarUrl={current.avatarUrl}
+              kind={current.engenty}
+              name={current.name}
+              size={20}
+            />
             <span className="min-w-0 truncate">{current.name}</span>
           </button>
         ),
@@ -391,10 +420,17 @@ export function AgentDesk(props: {
             conversationsQuery.data?.rooms ?? [],
             rosterAgents
           )}
+          spaceAudience={spaceAudience}
           spaceKey={spaceKey}
         />
       ) : null,
-    [conversationsQuery.data?.rooms, feedQuery.data, rosterAgents, spaceKey]
+    [
+      conversationsQuery.data?.rooms,
+      feedQuery.data,
+      rosterAgents,
+      spaceAudience,
+      spaceKey,
+    ]
   );
 
   usePageConfig({
@@ -406,6 +442,12 @@ export function AgentDesk(props: {
     // and the two blend — as on the admin personnel file. The header's own top
     // clearance keeps the title clear of the topbar's controls.
     topbarOverlap: true,
+    // A private chat's band is the other theme; the crumbs and actions
+    // floating over it flip with it, and only while the band is up.
+    topbarTone:
+      chatIsConversation && headerCollapsed && visibility === "private"
+        ? "flip"
+        : "default",
   });
 
   useEffect(() => {
@@ -441,24 +483,18 @@ export function AgentDesk(props: {
   const { agent, engagements } = feedQuery.data;
   const defaultEngagementId =
     deskDefault?.kind === "desk" ? deskDefault.engagement?.id : undefined;
-  // Who reads the open conversation — part of the identity block, in its
-  // column, so it lines up with the mandate rather than with the avatar.
-  const readers: AgentDeskReaders | null =
-    threadId && chatSurface && chatKind
-      ? chatKind === "dm"
-        ? { kind: "dm", text: t("agentDesk.dm.onlyYou", { name: agent.name }) }
-        : { kind: "shared", text: kindCopy.readers }
-      : null;
   const scrollHeader = (
     <AgentDeskHeader
       agent={agent}
       chatKind={chatKind}
       collapsed={false}
       hostKey={hostKey}
+      lastActivityAt={openEngagement?.sort_at ?? null}
+      memberCount={spaceAudience?.peopleCount}
       moduleLabel={moduleLabel}
-      readers={readers}
       relation={relation}
       spaceName={spaceName}
+      visibility={chatSurface ? visibility : null}
     />
   );
   // Non-chat agents never had a chat to show; their Chat position falls back to
@@ -522,8 +558,11 @@ export function AgentDesk(props: {
       }
     >
       {chatIsConversation && headerCollapsed ? (
+        // Above the transcript's own top fade (z-10, a later sibling that
+        // would otherwise wash over the band's top edge), under the topbar
+        // (z-20).
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10"
+          className="pointer-events-none absolute inset-x-0 top-0 z-[15]"
           ref={bandRef}
         >
           <AgentDeskHeader
@@ -531,10 +570,12 @@ export function AgentDesk(props: {
             chatKind={chatKind}
             collapsed
             hostKey={hostKey}
+            lastActivityAt={openEngagement?.sort_at ?? null}
+            memberCount={spaceAudience?.peopleCount}
             moduleLabel={moduleLabel}
-            readers={readers}
             relation={relation}
             spaceName={spaceName}
+            visibility={visibility}
           />
         </div>
       ) : null}

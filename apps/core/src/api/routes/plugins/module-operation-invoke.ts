@@ -152,14 +152,23 @@ function assertOperationCapability(params: {
   );
 }
 
-/** The principal a handler runs as, carrying only ids that narrow its reach. */
-function handlerAuth(auth: PrincipalContext, approvedEdge: boolean) {
+/**
+ * The principal a handler runs as, carrying only ids that narrow its reach.
+ * Shared by module operations and plugin HTTP routes so a header like
+ * `x-engenty-space-id` cannot be kept on one edge and dropped on the other
+ * (`scope=space` notification lists came back empty when HTTP dropped it).
+ */
+export function handlerAuth(
+  auth: PrincipalContext,
+  approvedEdge: boolean,
+  scopeId = "default"
+) {
   return linkPrincipal(
     {
       capabilities: auth.capabilities,
       principalId: auth.principalId,
       principalType: auth.principalType,
-      scopeId: "default",
+      scopeId,
       tenantId: auth.tenantId,
       // Agent identity (x-engenty-agent-id / x-engenty-goal-id) so handlers
       // can audit the acting agent instead of the impersonated user.

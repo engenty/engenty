@@ -9,6 +9,7 @@ import { ApiClientResponseError } from "@engenty/api-client";
 import { ENGENTY_SERVICE_ERROR_CODES } from "@engenty/api-contracts";
 import {
   AppLayout,
+  CopilotRailDockAnchor,
   CopilotShellProvider,
   useAgentUiFrontendToolExecutor,
   useAgentUiFrontendTools,
@@ -58,6 +59,7 @@ import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
 import { buildLiveBindingMaps } from "@/lib/live-bindings";
 import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
+import { useShellAppBarPositionPersistence } from "@/lib/shell-app-bar-position-persistence";
 import { useShellDockModuleOrderPersistence } from "@/lib/shell-dock-module-order-persistence";
 import { useShellSecondaryNavPinnedPersistence } from "@/lib/shell-secondary-nav-pinned-persistence";
 import { spaceNavLevel } from "@/lib/space-nav";
@@ -209,6 +211,10 @@ function App() {
   });
 
   const secondaryNavPersistence = useShellSecondaryNavPinnedPersistence({
+    enabled: shellPersistenceEnabled,
+  });
+
+  const appBarPositionPersistence = useShellAppBarPositionPersistence({
     enabled: shellPersistenceEnabled,
   });
 
@@ -426,7 +432,6 @@ function App() {
       />
       <CopilotShellProvider
         copilotLayout={copilotLayoutPersistence}
-        defaultDockMode="mini-floating"
         hideCopilotChrome={
           isFullPageCopilotChatRoute(location.pathname) ||
           isModuleHubChatRoute(location.pathname)
@@ -464,6 +469,7 @@ function App() {
                 needs the route table to check paths against. */}
             <UiContributionsProvider contributions={contributions}>
               <AppLayout
+                appBarPositionPersistence={appBarPositionPersistence}
                 appMenuActions={appMenuActions}
                 currentSpace={routeSpace}
                 currentTenant={workspaceContext.currentTenant}
@@ -474,6 +480,7 @@ function App() {
                 isTenantAdmin={isTenantAdmin}
                 modulesReorderable={isTenantAdmin || isSuperAdmin}
                 onModulesReorder={dockModuleOrderPersistence.setOrder}
+                railCopilotSlot={<CopilotRailDockAnchor />}
                 railEndSlot={<NotificationBell />}
                 secondaryNavFooterSlot={
                   spaceNav ? (

@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveCompactPromptDockMode,
+  isTalkConversationPathname,
+  resolveCopilotCompanionOpen,
   resolveCopilotOpenDockMode,
   shouldShowCopilotFab,
 } from "./copilot-drawer-utils";
 
 describe("resolveCopilotOpenDockMode", () => {
-  it("restores real dock modes from shell preference", () => {
+  it("restores Work and Window from shell preference", () => {
     expect(resolveCopilotOpenDockMode("drawer")).toBe("drawer");
     expect(resolveCopilotOpenDockMode("sidebar")).toBe("sidebar");
-    expect(resolveCopilotOpenDockMode("bottom")).toBe("bottom");
-    expect(resolveCopilotOpenDockMode("floating")).toBe("floating");
+    expect(resolveCopilotOpenDockMode("window")).toBe("window");
   });
 
-  it("defaults to sidebar for collapsed icon state and missing preference", () => {
-    expect(resolveCopilotOpenDockMode("mini-floating")).toBe("sidebar");
+  it("defaults to sidebar for missing preference", () => {
     expect(resolveCopilotOpenDockMode(null)).toBe("sidebar");
     expect(resolveCopilotOpenDockMode(undefined)).toBe("sidebar");
   });
@@ -24,29 +23,105 @@ describe("resolveCopilotOpenDockMode", () => {
   });
 });
 
-describe("resolveCompactPromptDockMode", () => {
-  it("restores bottom dock when that was the last compact prompt mode", () => {
-    expect(resolveCompactPromptDockMode("bottom")).toBe("bottom");
+describe("resolveCopilotCompanionOpen", () => {
+  it("stays on Talk when the main area is already a conversation page", () => {
+    expect(
+      resolveCopilotCompanionOpen({
+        isTalkPage: true,
+        preferredDockMode: "window",
+      })
+    ).toEqual({ kind: "talk" });
   });
 
-  it("opens floating launcher for floating and other non-bottom modes", () => {
-    expect(resolveCompactPromptDockMode("floating")).toBe("floating");
-    expect(resolveCompactPromptDockMode("mini-floating")).toBe("floating");
-    expect(resolveCompactPromptDockMode("sidebar")).toBe("floating");
-    expect(resolveCompactPromptDockMode("drawer")).toBe("floating");
-    expect(resolveCompactPromptDockMode(null)).toBe("floating");
-    expect(resolveCompactPromptDockMode(undefined)).toBe("floating");
+  it("stays on Talk when dedicated chat chrome owns the page", () => {
+    expect(
+      resolveCopilotCompanionOpen({
+        chromeHidden: true,
+        isTalkPage: false,
+        preferredDockMode: "sidebar",
+      })
+    ).toEqual({ kind: "talk" });
+  });
+
+  it("opens Work as a drawer on mobile", () => {
+    expect(
+      resolveCopilotCompanionOpen({
+        isMobile: true,
+        isTalkPage: false,
+        preferredDockMode: "window",
+      })
+    ).toEqual({ kind: "work", dock: "drawer" });
+  });
+
+  it("restores Window when that was the last companion placement", () => {
+    expect(
+      resolveCopilotCompanionOpen({
+        isTalkPage: false,
+        preferredDockMode: "window",
+      })
+    ).toEqual({ kind: "work", dock: "window" });
+  });
+
+  it("defaults to Work (sidebar)", () => {
+    expect(
+      resolveCopilotCompanionOpen({
+        isTalkPage: false,
+        preferredDockMode: null,
+      })
+    ).toEqual({ kind: "work", dock: "sidebar" });
+  });
+});
+
+describe("isTalkConversationPathname", () => {
+  it("treats desks, rooms, and Copilot chat as Talk", () => {
+    expect(
+      isTalkConversationPathname("/s/company/agents/custom.researcher")
+    ).toBe(true);
+    expect(isTalkConversationPathname("/s/company/rooms/thread-1")).toBe(true);
+    expect(isTalkConversationPathname("/s/company/copilot/chat")).toBe(true);
+    expect(isTalkConversationPathname("/mdl/engenty-copilot/chat/abc")).toBe(
+      true
+    );
+  });
+
+  it("does not treat roster, hire, or app pages as Talk", () => {
+    expect(isTalkConversationPathname("/s/company/agents")).toBe(false);
+    expect(isTalkConversationPathname("/s/company/agents/new")).toBe(false);
+    expect(isTalkConversationPathname("/s/company")).toBe(false);
+    expect(isTalkConversationPathname("/s/company/tasks")).toBe(false);
   });
 });
 
 describe("shouldShowCopilotFab", () => {
-  it("shows only when collapsed to circle and copilot is closed", () => {
+  it("keeps the docked blob on the app bar even when the panel is open", () => {
+    expect(
+      shouldShowCopilotFab({
+        collapseToCircle: false,
+        docked: true,
+        isCollapsingToIcon: false,
+        open: true,
+      })
+    ).toBe(true);
+  });
+
+  it("hides the blob on dedicated chat chrome", () => {
+    expect(
+      shouldShowCopilotFab({
+        chromeHidden: true,
+        collapseToCircle: true,
+        docked: true,
+        isCollapsingToIcon: false,
+        open: false,
+      })
+    ).toBe(false);
+  });
+
+  it("shows the mobile corner blob when copilot is closed", () => {
     expect(
       shouldShowCopilotFab({
         collapseToCircle: true,
         isCollapsingToIcon: false,
         open: false,
-        showCompactLauncher: true,
       })
     ).toBe(true);
   });
@@ -57,18 +132,6 @@ describe("shouldShowCopilotFab", () => {
         collapseToCircle: true,
         isCollapsingToIcon: false,
         open: true,
-        showCompactLauncher: false,
-      })
-    ).toBe(false);
-  });
-
-  it("hides when compact launcher is expanded", () => {
-    expect(
-      shouldShowCopilotFab({
-        collapseToCircle: false,
-        isCollapsingToIcon: false,
-        open: false,
-        showCompactLauncher: true,
       })
     ).toBe(false);
   });
@@ -79,7 +142,6 @@ describe("shouldShowCopilotFab", () => {
         collapseToCircle: false,
         isCollapsingToIcon: true,
         open: true,
-        showCompactLauncher: true,
       })
     ).toBe(true);
   });

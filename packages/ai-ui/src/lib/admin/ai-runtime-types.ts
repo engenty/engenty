@@ -41,6 +41,8 @@ export interface AiRegisteredAgent {
    * the list queries do not provide.
    */
   agentScope?: "personal" | "shared" | null;
+  /** Generated portrait storage key; blob silhouette when absent. */
+  avatarUrl?: string | null;
   chat_triggers?: AiAgentChatTriggers;
   description: string | null;
   /**
@@ -386,6 +388,8 @@ export interface AiAdminThreadStats {
 
 export interface CustomAgentConfig {
   agentScope?: "personal" | "shared";
+  /** Generated portrait storage key; blob silhouette when absent. */
+  avatarUrl?: string | null;
   description?: string;
   engenty?: AgentEngentyKind;
   id: string;

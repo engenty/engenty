@@ -5,14 +5,9 @@
  * compact shell, the same pair the dock and every desk render: the pill, the
  * (+) menu, the mic, Enter to send. Not a text field shaped like one.
  *
- * It does not open a second chat. The message goes to the conversation from
- * HERE — the thread is opened if the desk has none, the run starts, and the
- * words sit in a bubble on the card the moment Enter is pressed — and only
- * then does the page follow it to the desk, which hydrates the turn and
- * attaches to the run already answering. The old handoff (park the text,
- * navigate, let the desk send once it is ready) stays as the fallback for a
- * send that fails before the server accepts it. The dock stays what it is:
- * the Space's assistant, not this row's.
+ * It does not leave the dashboard until you send. A desk send opens that
+ * Engenty's Talk page in the space; rooms and DMs follow their Talk page
+ * (they are already a conversation).
  */
 import {
   agentDeskHostKey,
@@ -22,6 +17,7 @@ import {
   conversationEngagement,
   HOST_MESSAGE_HANDOFF_STATE,
   PromptInputProvider,
+  registerInlineAskFocus,
   sendDeskMessageInPlace,
   spaceHomeQueryKey,
   useEngentyAIContext,
@@ -29,7 +25,7 @@ import {
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SpaceApprovalModeControl } from "@/components/spaces/SpaceApprovalModeControl";
 import type { Space } from "@/lib/api/spaces-client";
@@ -73,6 +69,22 @@ export function SpaceHomeComposer({
           : undefined,
     [agentId, kind, spaceId, threadId]
   );
+  const askRootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(
+    () =>
+      registerInlineAskFocus(() => {
+        const field = askRootRef.current?.querySelector<HTMLElement>(
+          "textarea, [contenteditable='true']"
+        );
+        if (!field) {
+          return false;
+        }
+        field.focus();
+        return true;
+      }),
+    []
+  );
 
   const follow = (search: string, state?: Record<string, string>) => {
     navigate(`${target}${search}`, state ? { state } : undefined);
@@ -105,8 +117,6 @@ export function SpaceHomeComposer({
       void queryClient.invalidateQueries({
         queryKey: spaceHomeQueryKey(spaceId, null).slice(0, 3),
       });
-      // A desk opens the conversation it was written into — the one just
-      // created when it had none. A room or a DM is always its own thread.
       follow(
         kind === "desk"
           ? `?engagement=${encodeURIComponent(conversationEngagement(result.threadId))}`
@@ -127,7 +137,7 @@ export function SpaceHomeComposer({
     // the card's text column, so the card reads as one stack of even blocks
     // rather than a wide quote over a short field. Tighter than the dock, but
     // no narrower than what it answers.
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3" ref={askRootRef}>
       {sent ? (
         <div
           className="ml-auto min-w-0 max-w-[min(100%,28rem)] rounded-2xl bg-primary/10 px-3 py-2"

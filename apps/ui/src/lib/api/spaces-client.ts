@@ -316,6 +316,8 @@ export function deleteSpaceSkillPack(spaceId: string, category: string) {
 }
 
 export interface SpaceCatalogAgent {
+  /** Generated portrait storage key; blob silhouette when absent. */
+  avatarUrl?: string | null;
   /** Declared a sandbox, so a compute placement is meaningful for it. */
   can_execute?: boolean;
   description?: string | null;

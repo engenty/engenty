@@ -1,3 +1,5 @@
+import { APP_BAR_COMPACT_THICKNESS_PX } from "../../types/shell-app-bar-position";
+
 /** Default width for docked copilot sidebar (px). */
 export const COPILOT_SIDEBAR_DEFAULT_WIDTH = 420;
 export const COPILOT_SIDEBAR_MIN_WIDTH = 320;
@@ -13,7 +15,7 @@ export const SECONDARY_NAV_HOVER_PREVIEW_SUPPRESS_MS = 400;
 export const SECONDARY_NAV_WIDTH_TRANSITION_MS = 300;
 
 /** Compact primary rail width (px). Matches desktop `AppSidebar` compact mode. */
-export const COMPACT_SIDEBAR_WIDTH_PX = 56;
+export const COMPACT_SIDEBAR_WIDTH_PX = APP_BAR_COMPACT_THICKNESS_PX;
 
 /** Compact primary rail (matches `COMPACT_SIDEBAR_WIDTH_PX`). */
 export const MOBILE_NAV_RAIL_WIDTH_CLASS = "w-14";

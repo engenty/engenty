@@ -217,9 +217,7 @@ export function createNotificationsStore(source: NotificationsDbSource) {
       const rows = open.filter((row) => !seenIds.has(row.id));
       const total = rows.length;
       const inSpace = input.spaceId
-        ? rows.filter(
-            (row) => row.space_id === input.spaceId || row.space_id === null
-          ).length
+        ? rows.filter((row) => row.space_id === input.spaceId).length
         : null;
       return { inSpace, total };
     },

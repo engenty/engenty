@@ -1,5 +1,10 @@
 import type { MutableRefObject, ReactNode } from "react";
-import type { CopilotLayoutPersistenceApi } from "./copilot-layout.js";
+import type {
+  CopilotDockMode,
+  CopilotLayoutPersistenceApi,
+} from "./copilot-layout.js";
+
+export type { CopilotDockMode } from "./copilot-layout.js";
 
 /** User-settings–backed copilot layout persistence (injected by host app). */
 export type CopilotLayoutPersistence = CopilotLayoutPersistenceApi;
@@ -10,25 +15,6 @@ export const COPILOT_LAYOUT_NOOP: CopilotLayoutPersistence = {
   layoutHydrated: true,
   mergeLayout: () => {},
 };
-
-/**
- * Shell-level copilot dock modes. Used for layout selection.
- *
- * - `floating`: the compact launcher (one input line + status flap).
- * - `mini-floating`: collapsed to the avatar.
- * - `window`: the full panel as a draggable, resizable window over the page —
- *   the conversation and the page side by side without a reserved column.
- * - `drawer`: overlay panel from the right edge (mobile / tablet fallback).
- * - `sidebar`: inline, resizable right-hand column.
- * - `bottom`: composer card docked to the bottom of the main area.
- */
-export type CopilotDockMode =
-  | "floating"
-  | "mini-floating"
-  | "window"
-  | "drawer"
-  | "sidebar"
-  | "bottom";
 
 /** Copilot route context (moduleId, routeKey, scope). */
 export interface CopilotRouteContext {
@@ -41,6 +27,11 @@ export interface CopilotRouteContext {
 /** Partial override for copilot context (e.g. when opening "Enhance" on contact detail). */
 export type CopilotContextOverride = Partial<CopilotRouteContext> | null;
 
+/** Who the Work / Window / Talk chrome is currently addressed to. */
+export type CopilotCompanionWho =
+  | { kind: "copilot" }
+  | { kind: "engenty"; agentId: string };
+
 /** Context provided by CopilotShellProvider for copilot placement and state. */
 export interface CopilotShellContextValue {
   /**
@@ -48,8 +39,14 @@ export interface CopilotShellContextValue {
    * without changing persisted `open`, so leaving the page restores chrome.
    */
   chromeHidden: boolean;
+  /** Who the shared conversation chrome is talking to. Not persisted. */
+  companionWho: CopilotCompanionWho;
   /** Copilot route context (from pathname or page override). */
   copilotContext: CopilotRouteContext;
+  /** True once the desktop app-bar blob mount target is attached. */
+  copilotDockReady: boolean;
+  /** Ref to the shell-owned app-bar blob slot (personal cluster, outermost). */
+  copilotDockRef: MutableRefObject<HTMLDivElement | null>;
   /** Copilot layout load/save (user-settings JSON). */
   copilotLayout: CopilotLayoutPersistence;
   /** True after persisted `copilot.layout` snapshot is applied to shell state. */
@@ -64,6 +61,10 @@ export interface CopilotShellContextValue {
   mainContentReady: boolean;
   /** Ref to main content area for bottom dock. */
   mainContentRef: MutableRefObject<HTMLElement | null>;
+  /** @internal Notify app-bar blob mount target attached. */
+  notifyDockMounted?: () => void;
+  /** @internal Notify app-bar blob mount target detached. */
+  notifyDockUnmounted?: () => void;
   /** @internal Notify main content mounted. Used by CopilotShellMain. */
   notifyMainMounted?: () => void;
   /** @internal Notify inline sidebar mount target attached. */
@@ -74,6 +75,8 @@ export interface CopilotShellContextValue {
   open: boolean;
   /** User preference; null = auto. */
   preferredDockMode: CopilotDockMode | null;
+  /** Switch who the shared chrome is addressed to. */
+  setCompanionWho: (who: CopilotCompanionWho) => void;
   /** Override copilot context (e.g. when opening "Enhance" on contact detail). Pass null to reset to pathname-derived. */
   setCopilotContext: (ctx: CopilotContextOverride) => void;
   /** Set open/closed. */

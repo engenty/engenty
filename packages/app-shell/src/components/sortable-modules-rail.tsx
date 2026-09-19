@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 import {
   arrayMove,
+  horizontalListSortingStrategy,
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
@@ -169,6 +170,7 @@ export interface SortableModulesRailProps {
   items: NavigationItem[];
   /** Persist when rearrange mode ends (outside click / Escape). */
   onReorder: (orderedIds: string[]) => void;
+  orientation?: "vertical" | "horizontal";
   renderItem: (
     item: NavigationItem,
     state: { rearranging: boolean }
@@ -183,6 +185,7 @@ export interface SortableModulesRailProps {
 export function SortableModulesRail({
   items,
   onReorder,
+  orientation = "vertical",
   renderItem,
 }: SortableModulesRailProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -287,9 +290,18 @@ export function SortableModulesRail({
     });
   }
 
+  const listClass =
+    orientation === "horizontal"
+      ? "flex flex-row items-center gap-1"
+      : "space-y-1";
+  const sortingStrategy =
+    orientation === "horizontal"
+      ? horizontalListSortingStrategy
+      : verticalListSortingStrategy;
+
   if (idsFromItems(items).length < 2 && !rearrangeMode) {
     return (
-      <div className="space-y-1">
+      <div className={listClass}>
         {items.map((item) => (
           <div key={item.id ?? item.to}>
             {renderItem(item, { rearranging: false })}
@@ -301,7 +313,7 @@ export function SortableModulesRail({
 
   if (!rearrangeMode) {
     return (
-      <div className="space-y-1" ref={rootRef}>
+      <div className={listClass} ref={rootRef}>
         {items.map((item) => (
           <LongPressGate
             key={item.id ?? item.to}
@@ -317,7 +329,7 @@ export function SortableModulesRail({
   return (
     <div
       aria-label="Rearrange modules"
-      className="space-y-1"
+      className={listClass}
       ref={rootRef}
       role="group"
     >
@@ -327,10 +339,7 @@ export function SortableModulesRail({
         onDragEnd={handleDragEnd}
         sensors={sensors}
       >
-        <SortableContext
-          items={sortableIds}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={sortableIds} strategy={sortingStrategy}>
           {orderedItems.map((item, index) => {
             const key = item.id ?? item.to;
             // Inert tiles: no <a>/<Link> in the DOM while rearranging.

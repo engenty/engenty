@@ -14,8 +14,10 @@ import {
   Check,
   Copy,
   History,
+  Layers,
   Lock,
   LogOut,
+  Monitor,
   MoreVertical,
   ScanSearch,
   Settings2,
@@ -27,16 +29,21 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useArtifacts } from "../../artifacts/artifact-store.js";
 import { ArtifactPaneToggle } from "../../artifacts/workspace-artifact-pane.js";
 import { useDeveloperModeEnabled } from "../../components/ag-ui-inspector/ag-ui-inspector-hooks.js";
 import { openAgUiAgentInspector } from "../../components/ag-ui-inspector/ag-ui-inspector-widget.js";
-import { ThreadContextToggle } from "../../components/copilot/thread-context/thread-context-toggle.js";
+import {
+  ThreadContextMenuItem,
+  ThreadContextToggle,
+} from "../../components/copilot/thread-context/thread-context-toggle.js";
 import {
   buildAgentCapabilitiesPath,
   buildAgentDetailPath,
   buildAgentEditPath,
 } from "../agents-workspace/agent-workspace-paths.js";
 import { UserBrowserPaneToggle } from "../browser/user-browser-pane.js";
+import { toggleUserBrowserPane } from "../browser/user-browser-pane-store.js";
 import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
 import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import {
@@ -74,6 +81,9 @@ export function AgentDeskActions(props: {
   const [removal, setRemoval] = useState<AgentRemovalMode | null>(null);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | null>(null);
+  // The phone's menu opens the artefact pane itself; the button does that on
+  // a wide window.
+  const { openPane: openArtifactPane } = useArtifacts(props.hostKey);
 
   useEffect(
     () => () => {
@@ -102,34 +112,40 @@ export function AgentDeskActions(props: {
   // other page. The desk is one long conversation with this agent; a private
   // word with it is the DM, and a job with members is a room — both in the
   // menu, neither a reset of the desk.
+  //
+  // On a phone the row is the ⋮ alone: four icon buttons beside the crumb
+  // left no room for the agent's name. The same four sit at the top of the
+  // menu there, and only there (`md:hidden`).
   return (
     <div className="flex items-center gap-0.5">
-      <Button
-        aria-label={t("agentDesk.actions.settings")}
-        className={cn(
-          topbarIconButtonClassName,
-          // Square hit-target: the contentBlend topbar forces `!px-2` on
-          // buttons, which leaves a wide empty gap on an icon-only one.
-          "!size-7 !w-7 !min-w-7 !px-0"
-        )}
-        onClick={() => props.onOpenPanel("manage")}
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        <Settings2 className="size-4" />
-      </Button>
-      <ThreadContextToggle hostKey={props.hostKey} />
-      {/* The person's browser beside the chat — its state, and the live
-          view with takeover while it runs (PLAN-user-browser.md §2.6). */}
-      <UserBrowserPaneToggle />
-      {/* The agent's own artefacts: the pane opens from here, and opens
-          itself when the agent shows one it is working on. */}
-      <ArtifactPaneToggle
-        extraScope={{ id: props.agentId, type: "agent" }}
-        hostKey={props.hostKey}
-        scope={{ id: props.threadId, type: "thread" }}
-      />
+      <span className="hidden items-center gap-0.5 md:flex">
+        <Button
+          aria-label={t("agentDesk.actions.settings")}
+          className={cn(
+            topbarIconButtonClassName,
+            // Square hit-target: the contentBlend topbar forces `!px-2` on
+            // buttons, which leaves a wide empty gap on an icon-only one.
+            "!size-7 !w-7 !min-w-7 !px-0"
+          )}
+          onClick={() => props.onOpenPanel("manage")}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <Settings2 className="size-4" />
+        </Button>
+        <ThreadContextToggle hostKey={props.hostKey} />
+        {/* The person's browser beside the chat — its state, and the live
+            view with takeover while it runs (PLAN-user-browser.md §2.6). */}
+        <UserBrowserPaneToggle />
+        {/* The agent's own artefacts: the pane opens from here, and opens
+            itself when the agent shows one it is working on. */}
+        <ArtifactPaneToggle
+          extraScope={{ id: props.agentId, type: "agent" }}
+          hostKey={props.hostKey}
+          scope={{ id: props.threadId, type: "thread" }}
+        />
+      </span>
       {/* TBD: Assign work (create a task for this agent) is disabled. The
           button — like everything task-shaped on the desk — must be
           contributed by the TASKS MODULE via a UI hook, not hardcoded here;
@@ -147,6 +163,29 @@ export function AgentDeskActions(props: {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem
+            className="md:hidden"
+            onSelect={() => props.onOpenPanel("manage")}
+          >
+            <Settings2 className="mr-2 size-4" />
+            {t("agentDesk.actions.settings")}
+          </DropdownMenuItem>
+          <ThreadContextMenuItem className="md:hidden" />
+          <DropdownMenuItem
+            className="md:hidden"
+            onSelect={toggleUserBrowserPane}
+          >
+            <Monitor className="mr-2 size-4" />
+            {t("browser.panel.toggle")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="md:hidden"
+            onSelect={() => openArtifactPane(null)}
+          >
+            <Layers className="mr-2 size-4" />
+            {t("artifacts.openPane")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="md:hidden" />
           {props.canAsk && (props.onOpenDm || props.onNewRoom) ? (
             <>
               {props.onOpenDm ? (

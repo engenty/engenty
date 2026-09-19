@@ -58,6 +58,7 @@ export {
   useDecideApprovalMutation,
   useMarkAllSeenMutation,
   useMarkNotificationMutation,
+  useNeedsInputCount,
   useNotificationsQuery,
   useSpaceNeedsInputCount,
   useUnseenCountQuery,

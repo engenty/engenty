@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
 import { ChevronDown } from "lucide-react";
-import type { CopilotCompactContextOption } from "./copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "./copilot-compact-context-option";
 
 export interface CopilotContextDropdownProps {
   className?: string;

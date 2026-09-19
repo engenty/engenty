@@ -55,9 +55,9 @@ async function noopAsync() {}
  * reply that is otherwise off-screen, and a lane always has the transcript right
  * above the composer.
  *
- * Note what is deliberately NOT here: `positionMenu`, `contextOptions`,
- * `headerVariant` — the drawer/sidebar/floating affordances. Those belong to the
- * copilot, which can be moved around the app. A specialist lives in its lane.
+ * Note what is deliberately NOT here: `contextOptions`,
+ * `headerVariant` — Talk vs Work vs Window is shared chrome now. The lane
+ * still does not own those widgets; the shell / drawer injects `positionMenu`.
  *
  * @param t The `common` namespace translator.
  */
@@ -76,7 +76,7 @@ export function chatLanePanelBaseProps(
     composerDockStyle: true,
     composerWrapperClassName: CHAT_LANE_COMPOSER_CLASS,
     contentBodyGutter: "flush",
-    detachLabel: t("copilot.position.floating"),
+    detachLabel: t("copilot.position.window"),
     enableStatusFlap: false,
     isApplying: false,
     latestSuggestions: EMPTY_SUGGESTIONS,

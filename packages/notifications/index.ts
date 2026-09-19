@@ -89,7 +89,7 @@ export {
   type SweepSubjectStates,
   sweepStaleDecisions,
 } from "./src/sweep.js";
-export { visibleInSpace } from "./src/visibility.js";
+export { notificationsInSpaceScope, visibleInSpace } from "./src/visibility.js";
 
 /** Where a desk thread keeps its one open interrupt (ag-ui-bridge). */
 const OPEN_INTERRUPT_KEY = "ag_ui_open_interrupt";

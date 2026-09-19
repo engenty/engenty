@@ -2,7 +2,11 @@
 // `CopilotShellUiHost`; `ActiveCopilotProvider` wraps layout in App.tsx so
 // full-page chat and the drawer share the same lane via `useAgentHost` + copilot hooks.
 
-import { ACTIVE_COPILOT_AGENT_ID, openCopilotShell } from "@engenty/ai-ui";
+import {
+  ACTIVE_COPILOT_AGENT_ID,
+  isTalkConversationPathname,
+  openCopilotShell,
+} from "@engenty/ai-ui";
 import {
   useAgentUiFrontendTools,
   useAgentUiStateSnapshot,
@@ -128,12 +132,16 @@ export function CopilotProviderContent() {
 
   const openCopilotShellAction = useCallback(() => {
     openCopilotShell({
+      chromeHidden: shell?.chromeHidden,
+      isTalkPage: isTalkConversationPathname(location.pathname),
       mergeLayout: shell?.copilotLayout.mergeLayout,
       preferredDockMode: shell?.preferredDockMode ?? null,
       setOpen,
       setPreferredDockMode,
     });
   }, [
+    location.pathname,
+    shell?.chromeHidden,
     shell?.copilotLayout.mergeLayout,
     shell?.preferredDockMode,
     setOpen,

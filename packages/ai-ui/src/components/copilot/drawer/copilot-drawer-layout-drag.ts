@@ -1,6 +1,5 @@
 "use client";
 
-import type { CopilotFabAnchor } from "@engenty/app-shell";
 import type {
   Dispatch,
   MutableRefObject,
@@ -11,9 +10,6 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   ATTACH_THRESHOLD,
   BOTTOM_DOCK_SNAP_THRESHOLD,
-  BUTTON_SNAP_FAB_INSET,
-  BUTTON_SNAP_FAB_SIZE,
-  BUTTON_SNAP_FAB_WIDTH,
   COMPACT_LAUNCHER_HEIGHT,
   COMPACT_LAUNCHER_WIDTH,
   FLOATING_MAX_HEIGHT,
@@ -23,9 +19,6 @@ import {
 } from "./copilot-drawer-constants";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import type { CopilotFloatingSnapTarget } from "./copilot-drawer-utils";
-import { resolveFabFreeDropAnchor } from "./copilot-fab-anchor";
-
-const FAB_SIZE = { width: BUTTON_SNAP_FAB_WIDTH, height: BUTTON_SNAP_FAB_SIZE };
 
 export function useCopilotDrawerFloatingDrag(input: {
   bottomDockCardRef: MutableRefObject<HTMLDivElement | null>;
@@ -37,10 +30,7 @@ export function useCopilotDrawerFloatingDrag(input: {
   floatingSize: { height: number; width: number };
   margin: number;
   onOpenChange: (open: boolean) => void;
-  resetFabAnchor: () => void;
   setCollapseToCircle: Dispatch<SetStateAction<boolean>>;
-  setFabAnchor: Dispatch<SetStateAction<CopilotFabAnchor>>;
-  setFabDragPosition: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setFloatingPosition: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setFloatingSize: Dispatch<SetStateAction<{ height: number; width: number }>>;
   setPanelMode: (mode: "docked" | "floating") => void;
@@ -57,14 +47,10 @@ export function useCopilotDrawerFloatingDrag(input: {
     startLeft: 0,
     startTop: 0,
   });
-  // Tracks the last computed position during any drag (FAB or panel)
+  // Tracks the last computed position during a panel drag
   const lastDragPositionRef = useRef({ x: 0, y: 0 });
-  const iconDragMovedRef = useRef(false);
-  const suppressFabTriggerClickRef = useRef(false);
-  // Which surface is being dragged — determines what finalizeFloatingDrag
-  // commits on drop. The FAB and the floating panel never share state, so a
-  // drag on one can never bleed a stale/foreign position into the other.
-  const dragKindRef = useRef<"fab" | "panel" | null>(null);
+  // Which surface is being dragged
+  const dragKindRef = useRef<"panel" | null>(null);
   const tearOffFromBottomDockRef = useRef(false);
   const tearOffDockCardBottomYRef = useRef(0);
   const bottomDockDragCommittedRef = useRef(false);
@@ -152,22 +138,12 @@ export function useCopilotDrawerFloatingDrag(input: {
           dragRef.current.startTop + dy
         )
       );
-      // Use a tighter snap threshold for small surfaces (FAB avatar)
-      const bottomThreshold =
-        surfH <= BUTTON_SNAP_FAB_SIZE ? 32 : BOTTOM_DOCK_SNAP_THRESHOLD;
+      // Use a tighter snap threshold for small surfaces
+      const bottomThreshold = BOTTOM_DOCK_SNAP_THRESHOLD;
       const panelBottom = nextY + surfH;
-      // For large panels, snap when the panel top (not bottom) is near the
-      // viewport bottom to avoid premature snapping from configured height.
-      // For the FAB, snap based on the FAB bottom as usual.
-      const distToBottom =
-        surfH <= BUTTON_SNAP_FAB_SIZE
-          ? h - panelBottom // FAB: distance from FAB bottom edge
-          : h - nextY - surfH * 0.5; // Panel: distance from panel midpoint
+      const distToBottom = h - nextY - surfH * 0.5;
       const nearViewportBottom = distToBottom <= bottomThreshold;
       const nearRightEdge = w - (nextX + surfW) <= ATTACH_THRESHOLD;
-      const fabHomeBottom = h - BUTTON_SNAP_FAB_INSET - BUTTON_SNAP_FAB_SIZE;
-      const nearFabHome =
-        panelBottom >= fabHomeBottom - ATTACH_THRESHOLD && nearRightEdge;
       // After tearing off from bottom dock, suppress bottom snap until the
       // panel is dragged well above the original dock position
       const clearedTearOffBand =
@@ -176,19 +152,13 @@ export function useCopilotDrawerFloatingDrag(input: {
           tearOffDockCardBottomYRef.current - bottomThreshold - surfH;
       const isBottomDockSnapCandidate =
         nearViewportBottom && clearedTearOffBand;
-      const isButtonSnapCandidate = nearFabHome;
-      const isSidebarSnapCandidate =
-        nearRightEdge && !nearViewportBottom && !nearFabHome;
+      const isSidebarSnapCandidate = nearRightEdge && !nearViewportBottom;
 
       setPosition({ x: nextX, y: nextY });
       lastDragPositionRef.current = { x: nextX, y: nextY };
-      const nextSnap: CopilotFloatingSnapTarget = isButtonSnapCandidate
-        ? "button"
-        : isBottomDockSnapCandidate
-          ? "bottom"
-          : isSidebarSnapCandidate
-            ? "sidebar"
-            : null;
+      const nextSnap: CopilotFloatingSnapTarget = isSidebarSnapCandidate
+        ? "sidebar"
+        : null;
       input.snapTargetRef.current = nextSnap;
       input.setSnapTarget(nextSnap);
     },
@@ -200,7 +170,6 @@ export function useCopilotDrawerFloatingDrag(input: {
       return;
     }
     dragRef.current.isDragging = false;
-    const wasFabDrag = dragKindRef.current === "fab";
     dragKindRef.current = null;
     const wasTornFromBottom = tearOffFromBottomDockRef.current;
     tearOffFromBottomDockRef.current = false;
@@ -210,72 +179,7 @@ export function useCopilotDrawerFloatingDrag(input: {
     input.setSnapTarget(null);
     restoreTextSelection();
 
-    if (wasFabDrag) {
-      // The avatar was dragged — its own anchor is the only thing that can be
-      // committed here; the floating panel's state is untouched throughout.
-      input.setFabDragPosition(null);
-      if (activeSnapTarget === "button") {
-        input.setPreferredDockMode?.("mini-floating");
-        input.setCollapseToCircle(true);
-        input.resetFabAnchor();
-        input.onOpenChange(false);
-      } else if (activeSnapTarget === "bottom") {
-        input.setPreferredDockMode?.("bottom");
-        input.resetFabAnchor();
-        input.onOpenChange(true);
-      } else if (activeSnapTarget === "sidebar") {
-        input.setPreferredDockMode?.("sidebar");
-        input.setCollapseToCircle(false);
-        input.resetFabAnchor();
-        if (input.copilotOpenRef.current) {
-          input.setPanelMode("docked");
-        } else {
-          input.onOpenChange(true);
-        }
-      } else {
-        // Free drop — commit the corner the avatar was dropped nearest to.
-        // Clicks (no move) must not rewrite the anchor; lastDragPositionRef
-        // starts at {0,0} and that is what parked the blob in the top-left.
-        const nextAnchor = resolveFabFreeDropAnchor({
-          lastPosition: lastDragPositionRef.current,
-          moved: iconDragMovedRef.current,
-          size: FAB_SIZE,
-          viewport: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-          },
-        });
-        if (nextAnchor) {
-          input.setFabAnchor(nextAnchor);
-        }
-      }
-      return;
-    }
-
-    // Panel/launcher drag (including a bottom-dock grip tear-off). Its live
-    // position already lives in floatingPosition — only the resulting dock
-    // mode (and, when the panel becomes the avatar, resetting the avatar to
-    // its default corner) needs to be applied here.
-    if (activeSnapTarget === "button") {
-      if (wasTornFromBottom) {
-        // Torn from bottom dock → land as floating modal, not collapsed avatar
-        input.setPreferredDockMode?.("floating");
-        input.setPanelMode("floating");
-        input.setCollapseToCircle(false);
-        input.onOpenChange(true);
-      } else {
-        input.setPreferredDockMode?.("mini-floating");
-        input.setCollapseToCircle(true);
-        input.resetFabAnchor();
-        input.onOpenChange(false);
-      }
-      return;
-    }
-    if (activeSnapTarget === "bottom") {
-      input.setPreferredDockMode?.("bottom");
-      input.onOpenChange(true);
-      return;
-    }
+    // Panel/launcher drag (including a bottom-dock grip tear-off).
     if (activeSnapTarget === "sidebar") {
       input.setPreferredDockMode?.("sidebar");
       input.setCollapseToCircle(false);
@@ -289,7 +193,7 @@ export function useCopilotDrawerFloatingDrag(input: {
     // No snap target — free drop. floatingPosition already holds the drop
     // coordinates from the last move; nothing else to commit.
     if (wasTornFromBottom) {
-      input.setPreferredDockMode?.("floating");
+      input.setPreferredDockMode?.("window");
       input.setPanelMode("floating");
       input.setFloatingPosition({
         x: lastDragPositionRef.current.x,
@@ -300,10 +204,7 @@ export function useCopilotDrawerFloatingDrag(input: {
   }, [
     input.copilotOpenRef,
     input.onOpenChange,
-    input.resetFabAnchor,
     input.setCollapseToCircle,
-    input.setFabAnchor,
-    input.setFabDragPosition,
     input.setFloatingPosition,
     input.setPanelMode,
     input.setPreferredDockMode,
@@ -405,7 +306,7 @@ export function useCopilotDrawerFloatingDrag(input: {
 
   const handleBottomDockGripPointerDown = useCallback(
     (e: PointerEvent<HTMLElement>) => {
-      if (!input.setPreferredDockMode || input.effectiveMode !== "bottom") {
+      if (!input.setPreferredDockMode || input.effectiveMode !== "window") {
         return;
       }
       e.preventDefault();
@@ -471,7 +372,7 @@ export function useCopilotDrawerFloatingDrag(input: {
           clearSnapTarget();
           // Tear off from bottom dock → transition to floating modal (keep open)
           dragKindRef.current = "panel";
-          input.setPreferredDockMode?.("floating");
+          input.setPreferredDockMode?.("window");
           input.setPanelMode("floating");
           input.setCollapseToCircle(false);
           input.setFloatingPosition({ x: fx, y: fy });
@@ -558,80 +459,11 @@ export function useCopilotDrawerFloatingDrag(input: {
     ]
   );
 
-  const handleFabTriggerPointerDown = useCallback(
-    (e: PointerEvent, anchor: { x: number; y: number }) => {
-      e.preventDefault();
-      iconDragMovedRef.current = false;
-      suppressFabTriggerClickRef.current = false;
-      clearSnapTarget();
-      suppressTextSelection();
-      dragKindRef.current = "fab";
-      lastDragPositionRef.current = { x: anchor.x, y: anchor.y };
-      input.setFabDragPosition(anchor);
-      dragRef.current = {
-        isDragging: true,
-        startX: e.clientX,
-        startY: e.clientY,
-        startLeft: anchor.x,
-        startTop: anchor.y,
-      };
-      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    },
-    [clearSnapTarget, input.setFabDragPosition, suppressTextSelection]
-  );
-
-  const handleFabTriggerPointerMove = useCallback(
-    (e: PointerEvent) => {
-      if (!dragRef.current.isDragging) {
-        return;
-      }
-      const dx = Math.abs(e.clientX - dragRef.current.startX);
-      const dy = Math.abs(e.clientY - dragRef.current.startY);
-      if (dx > 4 || dy > 4) {
-        iconDragMovedRef.current = true;
-      }
-      applyFloatingDragMove(
-        e.clientX,
-        e.clientY,
-        FAB_SIZE.width,
-        FAB_SIZE.height,
-        input.setFabDragPosition
-      );
-    },
-    [applyFloatingDragMove, input.setFabDragPosition]
-  );
-
-  const handleFabTriggerPointerUp = useCallback(
-    (e: PointerEvent) => {
-      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-      if (iconDragMovedRef.current) {
-        suppressFabTriggerClickRef.current = true;
-      }
-      finalizeFloatingDrag();
-      iconDragMovedRef.current = false;
-    },
-    [finalizeFloatingDrag]
-  );
-
-  const handleFabTriggerClick = useCallback((onOpen: () => void) => {
-    if (suppressFabTriggerClickRef.current) {
-      suppressFabTriggerClickRef.current = false;
-      return;
-    }
-    onOpen();
-  }, []);
-
   return {
     handleBottomDockGripPointerDown,
-    handleFabTriggerClick,
-    handleFabTriggerPointerDown,
-    handleFabTriggerPointerMove,
-    handleFabTriggerPointerUp,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
     handleResizePointerDown,
-    isIconDragging: () => dragRef.current.isDragging,
-    suppressFabTriggerClickRef,
   };
 }

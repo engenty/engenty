@@ -5,6 +5,8 @@
 
 import {
   approveCopilotOpenInterrupt,
+  COPILOT_WHO_ID,
+  CompanionWorkChat,
   type CopilotChatOnFinish,
   CopilotDrawer,
   type CopilotDrawerInjectedSession,
@@ -27,7 +29,10 @@ import {
 } from "@engenty/ai-ui";
 import { getCurrentAccessToken } from "@engenty/api-client";
 import type { CopilotDockMode } from "@engenty/app-shell";
-import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
+import {
+  useAgentUiFrontendToolExecutor,
+  useCopilotShellOrNull,
+} from "@engenty/app-shell";
 import { CopilotEffortControl } from "@engenty/engenty-copilot/ui/effort-control";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
@@ -35,8 +40,12 @@ import { usePageHeader } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Location } from "react-router-dom";
 import { CopilotSurfaceErrorBoundary } from "@/components/copilot-surface-error-boundary";
+import { parseSpacePath } from "@/lib/space-routes";
+import { useSpacesQuery } from "@/lib/spaces-queries";
+import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
 
 interface CopilotShellLike {
+  copilotDockRef?: { current: HTMLDivElement | null };
   copilotLayout?: unknown;
   copilotSidebarRef?: { current: HTMLDivElement | null };
   mainContentReady?: boolean;
@@ -266,6 +275,17 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
   const { topbarChrome } = usePageHeader();
   const binding = useCopilotThreadBinding();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
+  const shellCtx = useCopilotShellOrNull();
+  const spacePath = parseSpacePath(props.location.pathname);
+  const spacesQuery = useSpacesQuery();
+  const space = useMemo(
+    () =>
+      spacesQuery.data?.find(
+        (candidate) => candidate.key === spacePath?.spaceKey
+      ),
+    [spacePath?.spaceKey, spacesQuery.data]
+  );
+  const { agents: rosterAgents } = useSpaceRosterAgents(space?.id ?? null);
   const { selectSession, startNewChat } = useCopilotThreadActions();
   const { openInterruptFromSession } = useCopilotInitialMessages(
     binding.activeThreadId
@@ -325,6 +345,31 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     }),
     [t]
   );
+
+  const whoOptions = useMemo(
+    () => [
+      {
+        engenty: "round" as const,
+        id: COPILOT_WHO_ID,
+        name: t("copilot.title"),
+      },
+      ...rosterAgents.map((agent) => ({
+        ...(agent.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
+        engenty: agent.engenty,
+        id: agent.id,
+        name: agent.name,
+      })),
+    ],
+    [rosterAgents, t]
+  );
+
+  const workPanelContent =
+    shellCtx?.companionWho.kind === "engenty" && space?.id ? (
+      <CompanionWorkChat
+        agentId={shellCtx.companionWho.agentId}
+        spaceId={space.id}
+      />
+    ) : undefined;
 
   const onClose = useCallback(() => {
     props.setOpen(false);
@@ -390,6 +435,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         composerLeadingControl={<CopilotEffortControl />}
         composerPlaceholder={t("copilot.typeMessage")}
         copilotContext={props.copilotContext}
+        copilotDockRef={props.shell?.copilotDockRef as never}
         copilotLayout={(props.shell?.copilotLayout ?? null) as never}
         copilotSidebarRef={props.shell?.copilotSidebarRef as never}
         copyThreadCopiedLabel={t("copilot.copyThreadCopied")}
@@ -418,10 +464,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         onSandboxCommandInterruptReject={handleSandboxCommandReject}
         open={props.open}
         openInterruptFromSession={openInterruptFromSession}
-        positionBottomLabel={t("copilot.position.bottom")}
-        positionButtonLabel={t("copilot.position.button")}
         positionDrawerLabel={t("copilot.position.drawer")}
-        positionFloatingLabel={t("copilot.position.modal")}
         positionFullscreenLabel={t("copilot.position.fullscreen")}
         positionHeadingLabel={t("copilot.position.heading")}
         positionMenuAriaLabel={t("copilot.position.menu")}
@@ -445,6 +488,8 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
           boundThreadTitle ?? props.contribution?.title ?? t("copilot.title")
         }
         triggerType={props.triggerType}
+        whoOptions={whoOptions}
+        workPanelContent={workPanelContent}
       />
     </CopilotSurfaceErrorBoundary>
   );

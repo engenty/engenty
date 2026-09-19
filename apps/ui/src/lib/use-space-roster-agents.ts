@@ -28,6 +28,8 @@ export type SpaceRosterAgentRole =
 export type SpaceRosterAgentSource = "builtin" | "database" | "module";
 
 export interface SpaceRosterAgent {
+  /** Generated portrait storage key; blob silhouette when absent. */
+  avatarUrl?: string | null;
   description?: string | null;
   engenty: AgentEngentyKind;
   id: string;
@@ -104,6 +106,7 @@ export function useSpaceRosterAgents(spaceId: string | null): {
         const entry = catalog.get(id);
         const reportsTo = reportsToByAgent.get(id) ?? null;
         return {
+          avatarUrl: entry?.avatarUrl ?? null,
           description: entry?.description,
           engenty: resolveAgentEngenty(id, entry?.engenty),
           id,

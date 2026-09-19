@@ -5,6 +5,7 @@ import type {
   AgentDeskCapabilityChip,
   AgentDeskStarter,
 } from "@engenty/ai-core/browser";
+import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Eye } from "lucide-react";
@@ -12,6 +13,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 import { isAwaitingAgUiInitialHydrate } from "../../ag-ui/conversation.js";
 import { useAgentHost } from "../../agent-provider/index.js";
+import { CHAT_LANE_COLUMN_CLASS } from "../../components/copilot/chat-lane/chat-lane-layout.js";
 import {
   ChatLaneDock,
   chatLanePanelBaseProps,
@@ -19,6 +21,8 @@ import {
 } from "../../components/copilot/chat-lane/index.js";
 import type { ChatSlashCommand } from "../../components/copilot/composer/copilot-slash-command.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
+import { CopilotDrawerPositionMenu } from "../../components/copilot/drawer/copilot-drawer-position-menu.js";
+import { normalizeCopilotPositionMenuValue } from "../../components/copilot/drawer/copilot-drawer-utils.js";
 import { CopilotPanelContent } from "../../components/copilot/panel/copilot-panel-content.js";
 import type { CopilotPanelContentProps } from "../../components/copilot/panel/copilot-panel-content-types.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
@@ -34,22 +38,25 @@ import {
 } from "./agent-desk-empty-starters.js";
 import { AgentDeskRunActivity } from "./agent-desk-run-activity.js";
 import { TranscriptTopSentinel } from "./transcript-top-sentinel.js";
+
+/**
+ * The identity block's top: its topbar clearance (`pt-20`), the name and the
+ * tier row under it. The band replaces exactly these, so it comes up once
+ * they have scrolled away — not while the name is still half in view.
+ */
+const IDENTITY_TOP_SENTINEL_PX = 152;
+
 import { useAgentDeskGeneratedStarters } from "./use-agent-desk-feed.js";
 import type { useAgentDeskThread } from "./use-agent-desk-thread.js";
 
 /**
- * A specialist's chat, drawn as the same lane the copilot chat is.
+ * An Engenty's chat, drawn as the same lane the copilot chat is.
  *
  * Everything the composer does — the column measure, drafts, the queue, docked
  * approvals — comes from the shared chat-lane base, so the two surfaces cannot
- * drift. Two things are deliberately NOT shared:
- *
- * - Position chrome. A specialist has no drawer, no sidebar and no floating
- *   window; it lives in this lane. Hence the hidden `positionMenu` below rather
- *   than `CopilotDrawerPositionMenu`.
- * - Realtime voice. The voice session drives the app through the copilot's
- *   frontend tools, which a specialist does not carry — so no voice control
- *   here. (The composer's mic is dictation into the draft, which is local.)
+ * drift. Realtime voice stays Copilot-only for now (Engenties still have no
+ * voice tools). Position chrome is the same Work / Window / Talk menu the
+ * Copilot uses, so a hired Engenty can leave this Talk page for the side panel.
  *
  * Slash commands and @-mentions are shared, scoped to this desk: the command
  * catalog is narrowed to this agent and its own skills, and `@` offers the
@@ -76,6 +83,10 @@ export function AgentDeskChatPanel(props: {
    * above it — so the header cannot fight the chat scroller on height.
    */
   scrollHeader?: ReactNode;
+  /**
+   * Work / Window: bottom-docked composer, no desk empty-landing squeeze.
+   */
+  companion?: boolean;
   /** False when the surface around this chat lays the context card out itself. */
   contextPane?: boolean;
   hostKey: string;
@@ -102,6 +113,7 @@ export function AgentDeskChatPanel(props: {
   const { i18n, t: tc } = useTranslation("common");
   const { currentTenant, currentUserId } = useWorkspaceContext();
   const host = useAgentHost(props.hostKey);
+  const shell = useCopilotShellOrNull();
   const locale = i18n.language || "en";
   const slashBuiltins = useMemo<ChatSlashCommand[]>(
     () => [
@@ -203,6 +215,19 @@ export function AgentDeskChatPanel(props: {
       initialMessages: props.initialMessages,
       suppressHydration: host.status !== "ready",
     });
+  // An empty chat shows the landing instead of the transcript, so the top
+  // sentinel never mounts. The identity block is in view there (below), so
+  // the desk must hear "top visible" or the band from a bound thread stays up.
+  const transcriptEmpty =
+    host.copilotMessages.length === 0 && !transcriptLoading;
+  const onTranscriptTopVisibility = props.onTranscriptTopVisibility;
+  const boundThreadId = host.threadId;
+  useEffect(() => {
+    if (transcriptEmpty) {
+      onTranscriptTopVisibility?.(true);
+    }
+    // Re-said on every thread switch: the desk resets the band per thread.
+  }, [boundThreadId, onTranscriptTopVisibility, transcriptEmpty]);
   const panelProps: CopilotPanelContentProps = {
     ...chatLanePanelBaseProps(tc),
     autoScrollKey: host.threadId ?? host.threadResetKey,
@@ -219,11 +244,17 @@ export function AgentDeskChatPanel(props: {
     dockedInterruptSurface,
     dockedInterruptToolCallId: lane.dockInterrupt?.tool_call_id ?? null,
     draft: lane.draft,
-    emptyLandingAlign: "start",
-    // The agent's identity is the page header now (AgentDeskHeader), visible on
-    // every tab and after the first message — repeating it here would show the
-    // same block twice on an empty chat.
-    emptyStateHeader: undefined,
+    ...(props.companion
+      ? { centerEmptyLanding: false as const }
+      : { emptyLandingAlign: "start" as const }),
+    // The agent's identity heads the transcript (AgentDeskHeader) — but an
+    // empty chat hides the transcript for the landing, so the landing shows
+    // the same block at the top of the lane, where the transcript would put
+    // it. A companion pane has no room for it.
+    emptyStateHeader:
+      props.companion || !props.scrollHeader ? undefined : (
+        <div className={CHAT_LANE_COLUMN_CLASS}>{props.scrollHeader}</div>
+      ),
     engentyKind: props.agentEngenty,
     error: host.error,
     mentionRefSearch: props.mentionRefSearch,
@@ -238,8 +269,26 @@ export function AgentDeskChatPanel(props: {
     pendingUserInsertIndex: host.pendingUserInsertIndex,
     pendingUserParts: host.pendingUserParts,
     pendingUserText: host.pendingUserText,
-    // In lane only: no drawer, no sidebar, no floating window to move to.
-    positionMenu: <div aria-hidden className="hidden" />,
+    positionMenu: shell ? (
+      <CopilotDrawerPositionMenu
+        onSelectDockPosition={(mode) => {
+          shell.setPreferredDockMode(mode);
+          shell.setOpen(true);
+        }}
+        positionDrawerLabel={tc("copilot.position.drawer")}
+        positionFullscreenLabel={tc("copilot.position.fullscreen")}
+        positionHeadingLabel={tc("copilot.position.heading")}
+        positionMenuAriaLabel={tc("copilot.position.menu")}
+        positionSidebarLabel={tc("copilot.position.sidebar")}
+        positionWindowLabel={tc("copilot.position.window")}
+        value={normalizeCopilotPositionMenuValue(
+          shell.preferredDockMode,
+          shell.dockMode
+        )}
+      />
+    ) : (
+      <div aria-hidden className="hidden" />
+    ),
     respond: host.respond,
     selectedSuggestions: NO_SELECTION,
     setDraft: lane.setDraft,
@@ -268,8 +317,12 @@ export function AgentDeskChatPanel(props: {
     // working, and the room should say so while it happens.
     transcriptHeader: (
       <>
-        {props.onTranscriptTopVisibility ? (
+        {/* Not while the landing shows: the transcript is then mounted but
+            hidden, and a hidden sentinel reports "scrolled away" — which
+            would put the band up over the identity block. */}
+        {props.onTranscriptTopVisibility && !transcriptEmpty ? (
           <TranscriptTopSentinel
+            heightPx={props.scrollHeader ? IDENTITY_TOP_SENTINEL_PX : undefined}
             onVisibilityChange={props.onTranscriptTopVisibility}
           />
         ) : null}

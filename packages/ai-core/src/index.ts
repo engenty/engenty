@@ -80,6 +80,22 @@ export {
   isAgentEngentyKind,
   resolveAgentEngenty,
 } from "./agents/agent-engenty.js";
+export {
+  AGENT_ENGENTY_COLORS,
+  AGENT_ENGENTY_LOOKS,
+  type AgentEngentyLook,
+  agentEngentyLook,
+  parseAgentEngentyKind,
+  type SuggestAgentLookInput,
+  type SuggestedAgentLook,
+  suggestAgentLook,
+} from "./agents/agent-look.js";
+export {
+  buildAgentLookImagePrompt,
+  buildAgentLookSvgPrompt,
+  DEFAULT_AGENT_LOOK_IMAGE_MODEL,
+  DEFAULT_AGENT_LOOK_SVG_MODEL,
+} from "./agents/agent-look-prompt.js";
 export type {
   AgentAssetLocator,
   AiAgentManifest,

@@ -32,7 +32,7 @@ Concretely, for every kind that is not `update`:
 | `class` | `decision` · `alert` · `todo` · `update`, derived from the registered kind |
 
 `subject_type` / `subject_id` name the thing the record is about
-(`run`, `task`, `approval_request`, `thread_interrupt`, `thread`, `agent`) so
+(`run`, `task`, `approval_request`, `thread_interrupt`, `thread`, `agent`, `app_release`) so
 the seam that settles it can resolve every open record with one indexed query.
 
 **First to answer wins.** The right to resolve a record is never on the row:
@@ -65,7 +65,7 @@ Origin rides `metadata` under fixed keys the list reads:
 
 | class | kinds | on the badge |
 |---|---|---|
-| `decision` | `approval_requested`, `tool_approval`, `action_gate`, `action_question`, `agent_run_suspended`, `agent_proposed`, `workflow_proposed`, `skill_proposed`, `task_question`, `task_needs_input` | yes |
+| `decision` | `approval_requested`, `tool_approval`, `action_gate`, `action_question`, `agent_run_suspended`, `agent_proposed`, `workflow_proposed`, `skill_proposed`, `app_release_proposed`, `task_question`, `task_needs_input` | yes |
 | `alert` | `action_failed`, `routine_failed`, `task_failed` | yes |
 | `todo` | `task_assigned`, `task_review_requested`, `stream_escalation` | yes |
 | `update` | `agent_message_received`, `agent_work_completed`, `agent_hired`, `records_written`, `task_completed`, `stream_update`, `team_chat.message` | no |
@@ -96,6 +96,13 @@ A module registers its own kinds with `engenty.server.notifications.registerKind
   route's answer and fresh-turn branches) resolves it: `resumed` when
   answered, `abandoned` otherwise. The card is answered in the chat; the row
   deep-links to the desk.
+- **App releases** — `announceAppRelease` (apps/ai, `app-release-announce.ts`)
+  writes `app_release_proposed` when a version is built and still inert,
+  subject `app_release:<appId>:<version>`. A space conversation is addressed
+  to the space (`apps.approve` is a space act); a conversation outside any
+  space fans out to its people. The review banner lives in the artifact pane,
+  so watchers are not pre-seen — they stay on the badge until someone
+  activates or rejects. The AI review POST resolves the row.
 - **Agents talking** — `message_agent` emits `agent_message_received` for a
   hand-off, an ask and the reply, and `agent_work_completed` when a notified
   colleague finishes; a hire that goes live without a card emits
@@ -126,10 +133,10 @@ only on `completed`; updates never resolve.
 A person sees tenant rows, stream rows, their own `user` rows and the `space`
 rows of every space they may enter (the route's `accessibleSpaceIds`; the
 RLS select policy says the same for realtime). Inside a space
-(`scope=space`): the space's own rows plus tenant-global decisions, alerts
-and todos. A global `update` shows on the tenant page only. The bell badge is
-the in-space count inside a space (the tenant total is one click away under
-"All"); "Mark all seen" is the caller's own view and never touches decisions.
+(`scope=space`): the space's own rows only. Tenant-wide rows live under
+`scope=tenant`. The bell badge is the in-space Freigaben + Fehler count
+inside a space (the tenant total is one click away under Tenant); "Mark all
+seen" is the caller's own view and never touches decisions.
 
 ## Registering a body (what a kind can DO)
 

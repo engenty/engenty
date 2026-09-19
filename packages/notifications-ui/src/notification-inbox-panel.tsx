@@ -1,5 +1,6 @@
 // The compact inbox: lane tabs, the list, and a footer out to the full page.
 // Shared by the rail bell and the space dashboard bell.
+import { currentRequestSpaceId } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -11,15 +12,23 @@ import {
 } from "@engenty/ui-core";
 import { Bell, CheckCheck, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   isUnseen,
   matchesLaneFilter,
   type NotificationLaneFilter,
 } from "./classification.js";
 import { NotificationList } from "./notification-list.js";
-import { NOTIFICATIONS_PATH, spaceInboxPath } from "./notification-paths.js";
-import { useMarkAllSeenMutation, useNotificationsQuery } from "./queries.js";
+import {
+  NOTIFICATIONS_PATH,
+  spaceInboxPath,
+  spaceKeyFromPathname,
+} from "./notification-paths.js";
+import {
+  NEEDS_INPUT_SCAN_LIMIT,
+  useMarkAllSeenMutation,
+  useNotificationsQuery,
+} from "./queries.js";
 
 /** Width + padding for the popover chrome. Height is fixed so lane switches never resize it. */
 export const notificationInboxPopoverClassName =
@@ -66,11 +75,10 @@ export interface NotificationInboxPanelProps {
   inSpace: boolean;
   onNavigate: () => void;
   /**
-   * When set, the list stays on that scope and the This space / All toggle
-   * is hidden. The space dashboard bell is this space's inbox, not the
-   * tenant aggregate.
+   * When set, the list stays on that scope. The switch keeps the same shape
+   * but shows only the locked side (Space on the dashboard bell).
    */
-  scopeLocked?: "global" | "space";
+  scopeLocked?: "space" | "tenant";
   /** Overrides the "View all" destination. */
   viewAllHref?: string;
 }
@@ -83,17 +91,25 @@ export function NotificationInboxPanel({
 }: NotificationInboxPanelProps) {
   const { t, i18n } = useTranslation("common");
   const locale = i18n.language || "en";
-  const { spaceKey } = useParams<{ spaceKey?: string }>();
-  const [scope, setScope] = useState<"space" | "global">(
-    scopeLocked ?? (inSpace ? "space" : "global")
+  const { pathname } = useLocation();
+  const { spaceKey: paramSpaceKey } = useParams<{ spaceKey?: string }>();
+  const spaceKey = paramSpaceKey ?? spaceKeyFromPathname(pathname) ?? undefined;
+  const standingInSpace = inSpace || Boolean(spaceKey);
+  const [scope, setScope] = useState<"space" | "tenant">(
+    scopeLocked ?? (inSpace ? "space" : "tenant")
   );
   const [lane, setLane] = useState<InboxLane>("hitl");
-  const listQuery = useNotificationsQuery({ limit: 50, scope });
+  const listQuery = useNotificationsQuery({
+    limit: NEEDS_INPUT_SCAN_LIMIT,
+    scope,
+  });
   const markAll = useMarkAllSeenMutation();
-  const notifications = listQuery.data?.notifications ?? [];
+  const spaceId = currentRequestSpaceId();
+  const notifications = (listQuery.data?.notifications ?? []).filter((n) =>
+    scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true
+  );
   const visible = notifications.filter((n) => matchesLaneFilter(n, lane));
   const hasUnseen = visible.some((n) => isUnseen(n));
-  const showScopeToggle = inSpace && !scopeLocked;
   const href =
     viewAllHref ??
     (spaceKey && scope === "space"
@@ -127,6 +143,9 @@ export function NotificationInboxPanel({
               const count = notifications.filter((n) =>
                 matchesLaneFilter(n, tab.value)
               ).length;
+              // Freigaben + Fehler still need a person. Updates are FYI — listed,
+              // not badged, so the tab numbers add to the bell.
+              const showBadge = tab.value !== "updates" && count > 0;
               return (
                 <TabsTrigger
                   className="gap-1.5 px-3"
@@ -134,7 +153,7 @@ export function NotificationInboxPanel({
                   value={tab.value}
                 >
                   {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
-                  {count > 0 ? (
+                  {showBadge ? (
                     <Badge
                       className="h-4 min-w-4 justify-center px-1 py-0 font-medium text-[10px] tabular-nums"
                       variant={tab.badgeVariant}
@@ -147,29 +166,14 @@ export function NotificationInboxPanel({
             })}
           </TabsList>
         </Tabs>
-        {showScopeToggle ? (
-          <span className="mb-1 inline-flex shrink-0 rounded-full bg-muted p-0.5 font-normal text-xs">
-            {(["space", "global"] as const).map((value) => (
-              <button
-                aria-pressed={scope === value}
-                className={cn(
-                  "rounded-full px-2 py-0.5 transition-colors",
-                  scope === value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                key={value}
-                onClick={() => setScope(value)}
-                type="button"
-              >
-                {value === "space"
-                  ? t("notifications.scope.space", {
-                      defaultValue: "Space",
-                    })
-                  : t("notifications.scope.all", { defaultValue: "All" })}
-              </button>
-            ))}
-          </span>
+        {standingInSpace ? (
+          <div className="-mb-px flex h-9 shrink-0 items-center">
+            <InboxScopeSwitch
+              locked={scopeLocked}
+              onChange={setScope}
+              scope={scope}
+            />
+          </div>
         ) : null}
       </header>
 
@@ -269,5 +273,50 @@ function InboxSkeleton() {
         </div>
       ))}
     </div>
+  );
+}
+
+const SCOPE_OPTIONS = ["space", "tenant"] as const;
+
+function InboxScopeSwitch({
+  locked,
+  onChange,
+  scope,
+}: {
+  locked?: "space" | "tenant";
+  onChange: (scope: "space" | "tenant") => void;
+  scope: "space" | "tenant";
+}) {
+  const { t } = useTranslation("common");
+  const options = locked ? ([locked] as const) : SCOPE_OPTIONS;
+  const labelFor = (value: "space" | "tenant") =>
+    value === "space"
+      ? t("notifications.scope.space", { defaultValue: "Space" })
+      : t("notifications.scope.tenant", { defaultValue: "Tenant" });
+
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-muted p-0.5 font-normal text-xs">
+      {options.map((value) => {
+        const selected = scope === value;
+        return (
+          <button
+            aria-pressed={selected}
+            className={cn(
+              "rounded-full px-2 py-0.5",
+              selected
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+              locked && "cursor-default disabled:opacity-100"
+            )}
+            disabled={Boolean(locked)}
+            key={value}
+            onClick={locked ? undefined : () => onChange(value)}
+            type="button"
+          >
+            {labelFor(value)}
+          </button>
+        );
+      })}
+    </span>
   );
 }

@@ -250,6 +250,7 @@ export async function buildAgentDeskFeed(input: {
       can_ask: decorated.role !== "external",
       connectors: agentDeskCapabilityChips(surface.connectors),
       description: decorated.description ?? null,
+      ...(decorated.avatarUrl ? { avatarUrl: decorated.avatarUrl } : {}),
       engenty: resolveAgentEngenty(decorated.id, decorated.engenty),
       id: decorated.id,
       managed_by_module: decorated.managed_by_module,

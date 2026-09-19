@@ -1,12 +1,16 @@
 /**
- * A direct-message row: the agent's blob and name with a lock — one
- * person's private line with that agent, listed only for that person.
- * Opens the DM on the agent's desk.
+ * A direct-message row: the agent's blob, the private marker (closed lock)
+ * before the name — one person's private line with that agent, listed only
+ * for that person. Opens the DM on the agent's desk.
  */
-import { formatRelativeDate, type SpaceDmRow } from "@engenty/ai-ui";
+import {
+  AgentFace,
+  ChatVisibilityMarker,
+  formatRelativeDate,
+  type SpaceDmRow,
+} from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn, Engenty } from "@engenty/ui-core";
-import { Lock } from "lucide-react";
+import { cn } from "@engenty/ui-core";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { resolveSpaceChatDestination } from "@/lib/space-agent-nav";
@@ -51,22 +55,21 @@ export function SpaceDmNavRow({
           aria-hidden
           className="grid size-10 shrink-0 place-items-center overflow-visible"
         >
-          <Engenty
+          <AgentFace
             animated={active}
+            avatarUrl={agent?.avatarUrl}
             className="[&_.e-shadow]:hidden"
             kind={agent?.engenty ?? "round"}
+            name={name}
             size={38}
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0 leading-none">
           <span className="flex min-w-0 items-center gap-1.5 leading-snug">
+            <ChatVisibilityMarker visibility="private" />
             <span className="min-w-0 flex-1 truncate" title={name}>
               {name}
             </span>
-            <Lock
-              aria-hidden
-              className="size-3 shrink-0 text-muted-foreground"
-            />
             <span className="shrink-0 font-normal text-[11px] text-muted-foreground leading-none transition-opacity group-focus-within/item:opacity-0 group-hover/item:opacity-0 group-has-data-[state=open]/item:opacity-0">
               {formatRelativeDate(dm.session.updated_at)}
             </span>

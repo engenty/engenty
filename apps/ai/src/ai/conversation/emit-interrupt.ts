@@ -296,6 +296,20 @@ function artifactOpenInterrupt(
 }
 
 /**
+ * Hire / revision artifacts already filed `agent_proposed` on propose. A
+ * second `agent_question` row for the same card would double the badge and
+ * vanish when the interrupt clears while the proposal is still pending.
+ */
+export function decisionArtifactHasDurableInbox(result: unknown): boolean {
+  return (
+    !!result &&
+    typeof result === "object" &&
+    !Array.isArray(result) &&
+    (result as { durable_inbox?: unknown }).durable_inbox === true
+  );
+}
+
+/**
  * Detect a decision/feedback artifact in a tool result, persist the open interrupt,
  * and emit RUN_FINISHED with the interrupt outcome so the chat shows the interactive
  * picker/form. The caller STOPS the run. Resume is a fresh run (no parked agent).
@@ -364,16 +378,18 @@ export async function emitArtifactInterrupt(input: {
       error
     );
   }
-  await notifyThreadInterrupt({
-    ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
-    interruptId: interrupt.interruptId,
-    kind: "agent_question",
-    runId: input.resumeRunId ?? null,
-    scope: input.scope,
-    store: input.store,
-    threadId: input.threadId,
-    title: interrupt.artifact.title,
-  });
+  if (!decisionArtifactHasDurableInbox(input.result)) {
+    await notifyThreadInterrupt({
+      ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
+      interruptId: interrupt.interruptId,
+      kind: "agent_question",
+      runId: input.resumeRunId ?? null,
+      scope: input.scope,
+      store: input.store,
+      threadId: input.threadId,
+      title: interrupt.artifact.title,
+    });
+  }
   // The card's CONTENT only reaches a live client through this event. The
   // RUN_FINISHED outcome carries an id and a title, not the choices, and the
   // transcript fallback (`pendingInterruptFromTranscript`) reads the artifact

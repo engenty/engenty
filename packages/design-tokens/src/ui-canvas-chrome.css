@@ -34,12 +34,10 @@
   --ui-canvas-shell-border-c: transparent;
   --ui-canvas-shell-shadow: var(--shadow-ember-elevated);
 
-  /* Bottom inset on a main-area scroller so last content clears the copilot
-     FAB (60px + 16px inset + 20px breathing). Shell may override this on
-     `[data-engenty-region=main]` when the bottom dock is open.
-     Plus the bottom safe-area inset (ui-viewport.css) so the last row also
-     clears the home indicator — 0px everywhere that has no inset. */
-  --ui-scroll-safe-bottom: calc(96px + var(--ui-safe-bottom, 0px));
+  /* Bottom inset on a main-area scroller so last content clears the mobile
+     corner FAB until Group 3 (mobile home). Desktop Work lives in the side
+     panel, so the desktop scroller only needs the home-indicator inset. */
+  --ui-scroll-safe-bottom: var(--ui-safe-bottom, 0px);
 
   /* —— Detail / section cards on canvas —— */
   --ui-canvas-panel-border-w: 0px;
@@ -82,6 +80,10 @@
   --ui-card-hover-shadow: var(--e-3);
   --ui-row-hover-bg: color-mix(in oklch, var(--muted) 35%, transparent);
   --ui-row-selected-bg: color-mix(in oklch, var(--muted) 50%, transparent);
+
+  @media (max-width: 767px) {
+    --ui-scroll-safe-bottom: calc(96px + var(--ui-safe-bottom, 0px));
+  }
 }
 
 /* Dark: same hairline fields/rows as light; other surfaces keep ember shadow until sharp */

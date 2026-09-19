@@ -102,20 +102,21 @@ useEffect(() => {
 
 ## Toggle button wiring
 
-### Secondary nav (AppLayout → rail Open, column Close/pin)
+### Secondary nav (AppLayout → topbar Open, column Close/pin)
 
-Open lives on the **app bar's right edge** (`SecondaryNavSeamToggle` in `AppSidebar`) only while the column is collapsed. Close and pin live on the **column’s right seam**. Hover callbacks are only active when the nav is closed. The topbar keeps a fallback Open control only while the app bar itself is auto-hidden.
+Open lives in the **topbar** while the column is collapsed. Close and pin live on the **column’s right seam**. Hover callbacks are only active when the nav is closed.
 
 ```tsx
-// AppSidebar — rail-edge Open (collapsed only)
+// AppTopbar — Open (collapsed only)
 {!secondaryNavOpen ? (
-  <SecondaryNavSeamToggle
+  <Button
+    aria-label="Open module navigation"
+    onClick={onToggleSecondaryNav}
     onMouseEnter={onSecondaryNavHoverEnter}
     onMouseLeave={onSecondaryNavHoverLeave}
-    onToggle={onToggleSecondaryNav}
-    toggleMode="expand"
-    visuallyHidden={secondaryNavHoverPreview}
-  />
+  >
+    <PanelLeft />
+  </Button>
 ) : null}
 
 // SecondaryNavColumn — right-seam Close (pinned)
@@ -124,7 +125,7 @@ Open lives on the **app bar's right edge** (`SecondaryNavSeamToggle` in `AppSide
 
 Pass from `AppLayoutFrame`:
 ```tsx
-<AppSidebar
+<AppTopbar
   onSecondaryNavHoverEnter={openHoverPanel}
   onSecondaryNavHoverLeave={closeHoverPanel}
   onToggleSecondaryNav={handleToggleSecondaryNav}

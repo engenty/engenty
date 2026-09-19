@@ -273,27 +273,32 @@ export function hireDecisionArtifact(input: {
   const spaceLine = input.spaceId
     ? `**Intended space:** ${input.spaceId}`
     : "No space is stamped — approve will ask for one, or pick it on the desk.";
-  return createRequestDecisionArtifact({
-    title: `Hire ${input.name}?`,
-    // Markdown: the card renders it, and the instruction block is long.
-    body:
-      `${input.name} (\`${input.id}\`) is waiting for approval before it can run.\n\n` +
-      `${input.description}\n\n` +
-      `- **Tools:** ${tools}\n- **Skills:** ${skills}\n- ${spaceLine}\n\n` +
-      `**Instructions**\n\n${input.instructions}`,
-    choices: [
-      {
-        id: "approve",
-        label: "Approve",
-        description: "Activate this agent and mount it on the space.",
-      },
-      {
-        id: "reject",
-        label: "Reject",
-        description: "Discard the proposal. Nothing goes live.",
-      },
-    ],
-  });
+  return {
+    ...createRequestDecisionArtifact({
+      title: `Hire ${input.name}?`,
+      // Markdown: the card renders it, and the instruction block is long.
+      body:
+        `${input.name} (\`${input.id}\`) is waiting for approval before it can run.\n\n` +
+        `${input.description}\n\n` +
+        `- **Tools:** ${tools}\n- **Skills:** ${skills}\n- ${spaceLine}\n\n` +
+        `**Instructions**\n\n${input.instructions}`,
+      choices: [
+        {
+          id: "approve",
+          label: "Approve",
+          description: "Activate this agent and mount it on the space.",
+        },
+        {
+          id: "reject",
+          label: "Reject",
+          description: "Discard the proposal. Nothing goes live.",
+        },
+      ],
+    }),
+    // The propose route already wrote `agent_proposed`. emitArtifactInterrupt
+    // must not also file `agent_question` for this card.
+    durable_inbox: true,
+  };
 }
 
 export function hireSuspendLockKey(input: {

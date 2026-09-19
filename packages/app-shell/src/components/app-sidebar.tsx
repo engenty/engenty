@@ -8,10 +8,15 @@ import {
 import { Search } from "lucide-react";
 import { type CSSProperties, type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import {
+  AppBarChromeProvider,
+  type AppBarOrientation,
+} from "../context/app-bar-chrome-context";
 import { useShellSecondaryNav } from "../context/shell-secondary-nav-context";
 import { matchesPath } from "../lib/navigation";
 import {
   RAIL_TILE_ACTIVE_RING_CLASSNAME,
+  RAIL_TILE_ACTIVE_RING_INSET_CLASSNAME,
   RAIL_TILE_GLYPH_HOVER_CLASSNAME,
 } from "../lib/rail-tile-chrome";
 import type {
@@ -19,9 +24,12 @@ import type {
   NavigationSection,
   ShellSidebarConfig,
 } from "../types/shell";
+import type {
+  AppBarPosition,
+  AppBarTooltipSide,
+} from "../types/shell-app-bar-position";
 import { AppBarBrand } from "./app-bar-brand";
 import { MOBILE_NAV_RAIL_WIDTH_CLASS } from "./app-layout/constants";
-import { SecondaryNavSeamToggle } from "./app-layout/secondary-nav-seam-toggle";
 import { SortableModulesRail } from "./sortable-modules-rail";
 
 type AppSidebarSurface = "rail" | "panel";
@@ -61,21 +69,19 @@ interface AppSidebarProps {
   onNavigate?: () => void;
   /** Open the ⌘K app menu from the Engenty mark. */
   onOpenAppMenu?: () => void;
-  onSecondaryNavHoverEnter?: () => void;
-  onSecondaryNavHoverLeave?: () => void;
-  /** Desktop rail-edge Open/Close. Omit on mobile — the sheet has its own close. */
-  onToggleSecondaryNav?: () => void;
+  /** Desktop dock edge. Mobile sheet stays vertical. */
+  orientation?: AppBarOrientation;
+  position?: AppBarPosition;
+  /**
+   * Outermost personal-cluster slot — the Copilot blob, after the avatar.
+   * Host-wired like `railEndSlot`. Desktop rail only.
+   */
+  railCopilotSlot?: ReactNode;
   /**
    * Rendered in the compact rail immediately above the personal avatar —
    * the notification bell. Passed in like `spacesZone`: the app owns the data.
    */
   railEndSlot?: ReactNode;
-  /**
-   * Hover preview of the secondary column is on screen. The rail-edge Open
-   * chip hides (opacity 0) so the overlay’s pin is the visible control, while
-   * the chip stays a hover target.
-   */
-  secondaryNavHoverPreview?: boolean;
   sections: NavigationSection[];
   shell: ShellSidebarConfig;
   sidebarWidth?: number;
@@ -88,6 +94,7 @@ interface AppSidebarProps {
   style?: CSSProperties;
   /** Light navigation panel (mobile sheet) vs compact brand rail (desktop). */
   surface?: AppSidebarSurface;
+  tooltipSide?: AppBarTooltipSide;
 }
 
 export function AppSidebar({
@@ -99,11 +106,10 @@ export function AppSidebar({
   onModulesReorder,
   onNavigate,
   onOpenAppMenu,
-  onSecondaryNavHoverEnter,
-  onSecondaryNavHoverLeave,
-  onToggleSecondaryNav,
+  orientation = "vertical",
+  position = "left",
+  railCopilotSlot,
   railEndSlot,
-  secondaryNavHoverPreview = false,
   shell,
   spacesZone,
   footer,
@@ -111,12 +117,15 @@ export function AppSidebar({
   className,
   style,
   sidebarWidth,
+  tooltipSide = "right",
 }: AppSidebarProps) {
   const { pathname, search } = useLocation();
-  const { hasSecondaryNav, secondaryNavOpen } = useShellSecondaryNav();
+  const { hasSecondaryNav } = useShellSecondaryNav();
   const [adminRailExpanded, setAdminRailExpanded] = useState(false);
   const isPanel = surface === "panel";
   const iconScale = sidebarWidth && sidebarWidth < 64 ? sidebarWidth / 64 : 1;
+  const isHorizontal = orientation === "horizontal";
+  const reverseStrip = isHorizontal && position === "bottom";
 
   function isExternal(to: string, explicit?: boolean) {
     return (
@@ -188,7 +197,9 @@ export function AppSidebar({
       baseItemClass,
       isCompactRail &&
         (active
-          ? RAIL_TILE_ACTIVE_RING_CLASSNAME
+          ? isHorizontal
+            ? RAIL_TILE_ACTIVE_RING_INSET_CLASSNAME
+            : RAIL_TILE_ACTIVE_RING_CLASSNAME
           : RAIL_TILE_GLYPH_HOVER_CLASSNAME),
       active &&
         (isPanel
@@ -212,7 +223,7 @@ export function AppSidebar({
             transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
           }}
         >
-          <Icon className="size-full" />
+          <Icon aria-hidden className="pointer-events-none size-full" />
           {item.useBadgeCount ? (
             <NavItemBadge useBadgeCount={item.useBadgeCount} />
           ) : null}
@@ -236,6 +247,7 @@ export function AppSidebar({
       </div>
     ) : itemExternal ? (
       <a
+        aria-label={compact && !showLabel ? item.label : undefined}
         className={itemClass}
         draggable={false}
         href={item.to}
@@ -246,6 +258,7 @@ export function AppSidebar({
       </a>
     ) : (
       <Link
+        aria-label={compact && !showLabel ? item.label : undefined}
         className={itemClass}
         draggable={false}
         onClick={onNavigate}
@@ -280,7 +293,14 @@ export function AppSidebar({
             {...itemHoverProps}
           >
             {element}
-            <div className="pointer-events-none absolute top-1/2 left-full z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-popover px-3 py-1.5 font-medium text-popover-foreground text-sm opacity-0 shadow-md transition-opacity group-hover/flyout:opacity-100">
+            <div
+              className={cn(
+                "pointer-events-none absolute z-50 whitespace-nowrap rounded-md border bg-popover px-3 py-1.5 font-medium text-popover-foreground text-sm opacity-0 shadow-md transition-opacity group-hover/flyout:opacity-100",
+                isHorizontal
+                  ? "top-full left-1/2 mt-2 -translate-x-1/2"
+                  : "top-1/2 left-full ml-2 -translate-y-1/2"
+              )}
+            >
               {item.label}
             </div>
           </div>
@@ -297,7 +317,7 @@ export function AppSidebar({
         <div key={item.to} {...itemHoverProps}>
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>{element}</TooltipTrigger>
-            <TooltipContent side="right" sideOffset={12}>
+            <TooltipContent side={tooltipSide} sideOffset={12}>
               {item.label}
             </TooltipContent>
           </Tooltip>
@@ -309,201 +329,292 @@ export function AppSidebar({
   };
 
   return (
-    <TooltipProvider>
-      <aside
-        className={cn(
-          "relative flex h-full flex-col overflow-visible",
-          // No line on the rail's edge: the rail is the canvas-family frame and
-          // the column beside it is the raised card — its shadow separates them.
-          isPanel
-            ? "bg-card text-foreground"
-            : "bg-sidebar text-sidebar-foreground",
-          compact ? `${MOBILE_NAV_RAIL_WIDTH_CLASS} shrink-0` : "w-full",
-          className
-        )}
-        data-engenty-region="app-bar"
-        style={style}
-      >
-        {compact &&
-        hasSecondaryNav &&
-        onToggleSecondaryNav &&
-        !secondaryNavOpen ? (
-          <SecondaryNavSeamToggle
-            onMouseEnter={onSecondaryNavHoverEnter}
-            onMouseLeave={onSecondaryNavHoverLeave}
-            onToggle={onToggleSecondaryNav}
-            toggleMode="expand"
-            visuallyHidden={secondaryNavHoverPreview}
-          />
-        ) : null}
-        {compact ? (
-          <AppBarBrand onOpenAppMenu={onOpenAppMenu} />
-        ) : (
-          <div className="flex flex-col gap-2 px-3 py-2">
-            <button
-              className={cn(
-                "flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm shadow-sm",
-                isPanel
-                  ? "border-border bg-muted/40 text-muted-foreground"
-                  : "border-sidebar-border bg-card/90 text-sidebar-foreground/85 backdrop-blur-[2px]"
-              )}
-              type="button"
-            >
-              <Search className="size-3.5" />
-              <span className="flex-1 text-left">
-                {shell.searchPlaceholder}
-              </span>
-              {shell.searchShortcut ? (
-                <kbd className="rounded border px-1.5 text-xxs">
-                  {shell.searchShortcut}
-                </kbd>
-              ) : null}
-            </button>
-          </div>
-        )}
-
-        {spacesZone && compact ? (
-          // Below the brand row, not flush with `--shell-row`. Even side
-          // margins (10px in the 56px rail); a little air under the mark so
-          // the first place is not cramped against the Engenty icon.
-          <div className="px-1.5 pt-1.5 pb-2">{spacesZone}</div>
-        ) : null}
-
-        <nav
+    <AppBarChromeProvider value={{ orientation, position, tooltipSide }}>
+      <TooltipProvider>
+        <aside
           className={cn(
-            "flex-1 overflow-y-auto py-1",
-            compact ? "px-1.5" : "px-2"
+            "relative overflow-visible",
+            isHorizontal
+              ? cn(
+                  // Inset from the window left/right; the bar itself still
+                  // paints edge-to-edge. Vertical rails keep flush sides.
+                  "flex h-full w-full items-stretch px-3",
+                  reverseStrip ? "flex-row-reverse" : "flex-row"
+                )
+              : "flex h-full flex-col",
+            // No line on the rail's edge: the rail is the canvas-family frame and
+            // the column beside it is the raised card — its shadow separates them.
+            isPanel
+              ? "bg-card text-foreground"
+              : "bg-sidebar text-sidebar-foreground",
+            !isHorizontal && compact
+              ? `${MOBILE_NAV_RAIL_WIDTH_CLASS} shrink-0`
+              : "w-full",
+            className
           )}
+          data-engenty-region="app-bar"
+          style={style}
         >
-          {mainSections.map((section, index) => {
-            const sectionKey =
-              section.id ?? section.label ?? `section-${index}`;
-            const canReorderModules =
-              modulesReorderable &&
-              !!onModulesReorder &&
-              section.id === "modules" &&
-              section.items.some((item) => item.id);
-            return (
+          {compact ? (
+            <AppBarBrand onOpenAppMenu={onOpenAppMenu} />
+          ) : (
+            <div className="flex flex-col gap-2 px-3 py-2">
+              <button
+                className={cn(
+                  "flex h-10 w-full items-center gap-2 rounded-xl border px-3 text-sm shadow-sm",
+                  isPanel
+                    ? "border-border bg-muted/40 text-muted-foreground"
+                    : "border-sidebar-border bg-card/90 text-sidebar-foreground/85 backdrop-blur-[2px]"
+                )}
+                type="button"
+              >
+                <Search className="size-3.5" />
+                <span className="flex-1 text-left">
+                  {shell.searchPlaceholder}
+                </span>
+                {shell.searchShortcut ? (
+                  <kbd className="rounded border px-1.5 text-xxs">
+                    {shell.searchShortcut}
+                  </kbd>
+                ) : null}
+              </button>
+            </div>
+          )}
+
+          <div
+            className={
+              isHorizontal
+                ? "contents"
+                : "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+            }
+          >
+            {spacesZone && compact ? (
+              // Brand + spaces sit at the start. Even side margins (10px in the
+              // 56px rail); a little air so the first place is not cramped
+              // against the Engenty icon. Horizontal `py-1.5` is the same gutter
+              // the space pill cancels so it can sit on the outer edge.
+              <div
+                className={
+                  isHorizontal
+                    ? "flex h-full items-stretch px-1.5 py-1.5"
+                    : "px-1.5 pt-1.5 pb-2"
+                }
+              >
+                {spacesZone}
+              </div>
+            ) : null}
+
+            <nav
+              className={cn(
+                "min-w-0 flex-1",
+                isHorizontal
+                  ? "flex flex-row items-center overflow-x-auto px-1.5 py-1.5"
+                  : cn(
+                      "min-h-0 overflow-y-auto py-1",
+                      compact ? "px-1.5" : "px-2"
+                    )
+              )}
+            >
+              {mainSections.map((section, index) => {
+                const sectionKey =
+                  section.id ?? section.label ?? `section-${index}`;
+                const canReorderModules =
+                  modulesReorderable &&
+                  !!onModulesReorder &&
+                  section.id === "modules" &&
+                  section.items.some((item) => item.id);
+                return (
+                  <div
+                    className={cn(
+                      // Sections are separated by a gap, never a short rule.
+                      isHorizontal
+                        ? index < mainSections.length - 1
+                          ? "mr-4"
+                          : "mr-2"
+                        : index < mainSections.length - 1
+                          ? "mb-4"
+                          : "mb-2"
+                    )}
+                    key={sectionKey}
+                  >
+                    {!(compact || isHorizontal) && section.label && (
+                      <p
+                        className={cn(
+                          "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
+                          isPanel
+                            ? "text-muted-foreground"
+                            : "text-sidebar-foreground/55"
+                        )}
+                      >
+                        {section.label}
+                      </p>
+                    )}
+                    {canReorderModules ? (
+                      <SortableModulesRail
+                        items={section.items}
+                        onReorder={onModulesReorder}
+                        orientation={orientation}
+                        renderItem={(item, { rearranging }) =>
+                          renderItem(item, false, { inert: rearranging })
+                        }
+                      />
+                    ) : (
+                      <div
+                        className={
+                          isHorizontal
+                            ? "flex flex-row items-center gap-1"
+                            : "space-y-1"
+                        }
+                      >
+                        {section.items.map((item) => renderItem(item, false))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div
+            className={cn(
+              "shrink-0 overflow-visible",
+              isHorizontal
+                ? reverseStrip
+                  ? "flex flex-row-reverse items-center"
+                  : "ml-auto flex flex-row items-center"
+                : "mt-auto flex flex-col pb-2"
+            )}
+          >
+            {adminSection && (
               <div
                 className={cn(
-                  // Sections are separated by a gap, never a short rule.
-                  index < mainSections.length - 1 ? "mb-4" : "mb-2"
+                  "flex items-center overflow-visible",
+                  isHorizontal
+                    ? cn("h-full", compact ? "px-1.5" : "px-2")
+                    : cn(compact ? "px-1.5 pt-3 pb-1" : "px-2 py-2")
                 )}
-                key={sectionKey}
               >
-                {!compact && section.label && (
-                  <p
+                {compact ? (
+                  <div
+                    aria-label={adminSection.label || "Admin"}
                     className={cn(
-                      "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
-                      isPanel
-                        ? "text-muted-foreground"
-                        : "text-sidebar-foreground/55"
+                      "flex h-full items-center gap-1 overflow-visible",
+                      isHorizontal
+                        ? reverseStrip
+                          ? "flex-row"
+                          : "flex-row-reverse"
+                        : "flex-col-reverse"
                     )}
+                    onBlurCapture={(e) => {
+                      if (
+                        !e.currentTarget.contains(
+                          e.relatedTarget as Node | null
+                        )
+                      ) {
+                        setAdminRailExpanded(false);
+                      }
+                    }}
+                    onFocusCapture={() => setAdminRailExpanded(true)}
+                    onMouseEnter={() => setAdminRailExpanded(true)}
+                    onMouseLeave={() => setAdminRailExpanded(false)}
+                    role="group"
                   >
-                    {section.label}
-                  </p>
-                )}
-                {canReorderModules ? (
-                  <SortableModulesRail
-                    items={section.items}
-                    onReorder={onModulesReorder}
-                    renderItem={(item, { rearranging }) =>
-                      renderItem(item, false, { inert: rearranging })
-                    }
-                  />
+                    {/* reverse: first in DOM sits at the end (under Settings
+                        vertically, after Settings on a top/bottom strip). */}
+                    {settingsItem && renderItem(settingsItem, false)}
+                    {engentyAdminItem && renderItem(engentyAdminItem, false)}
+                    {otherAdminItems.length > 0 ? (
+                      <div
+                        aria-hidden={!adminRailExpanded}
+                        className={cn(
+                          "flex items-center duration-200 ease-out",
+                          isHorizontal
+                            ? "h-full flex-row gap-1 transition-[max-width,opacity]"
+                            : "flex-col gap-1 transition-[max-height,opacity]",
+                          adminRailExpanded
+                            ? isHorizontal
+                              ? reverseStrip
+                                ? "max-w-[min(70vw,24rem)] pl-1.5 opacity-100"
+                                : "max-w-[min(70vw,24rem)] pr-1.5 opacity-100"
+                              : "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
+                            : isHorizontal
+                              ? "max-w-0 overflow-x-clip opacity-0"
+                              : "max-h-0 overflow-y-clip opacity-0"
+                        )}
+                        inert={adminRailExpanded ? undefined : true}
+                        style={
+                          adminRailExpanded
+                            ? { overflow: "visible" }
+                            : undefined
+                        }
+                      >
+                        {otherAdminItems.map((item) => renderItem(item, false))}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="space-y-1">
-                    {section.items.map((item) => renderItem(item, false))}
+                    {adminSection.label && (
+                      <p
+                        className={cn(
+                          "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
+                          isPanel
+                            ? "text-muted-foreground"
+                            : "text-sidebar-foreground/55"
+                        )}
+                      >
+                        {adminSection.label}
+                      </p>
+                    )}
+                    {adminSection.items.map((item) => renderItem(item, false))}
                   </div>
                 )}
               </div>
-            );
-          })}
-        </nav>
+            )}
 
-        <div className="mt-auto shrink-0">
-          {adminSection && (
-            <div className={cn("pb-1", compact ? "px-1.5 pt-3" : "px-2 py-2")}>
-              {compact ? (
-                <div
-                  aria-label={adminSection.label || "Admin"}
-                  className="flex flex-col-reverse gap-1"
-                  onBlurCapture={(e) => {
-                    if (
-                      !e.currentTarget.contains(e.relatedTarget as Node | null)
-                    ) {
-                      setAdminRailExpanded(false);
-                    }
-                  }}
-                  onFocusCapture={() => setAdminRailExpanded(true)}
-                  onMouseEnter={() => setAdminRailExpanded(true)}
-                  onMouseLeave={() => setAdminRailExpanded(false)}
-                  role="group"
-                >
-                  {/* column-reverse: first in DOM sits lowest, under Settings. */}
-                  {settingsItem && renderItem(settingsItem, false)}
-                  {engentyAdminItem && renderItem(engentyAdminItem, false)}
-                  {otherAdminItems.length > 0 ? (
-                    <div
-                      aria-hidden={!adminRailExpanded}
-                      className={cn(
-                        "flex flex-col gap-1 overflow-hidden transition-[max-height,opacity] duration-200 ease-out",
-                        adminRailExpanded
-                          ? "max-h-[min(70vh,24rem)] pt-1.5 opacity-100"
-                          : "max-h-0 opacity-0"
-                      )}
-                      inert={adminRailExpanded ? undefined : true}
-                    >
-                      {otherAdminItems.map((item) => renderItem(item, false))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {adminSection.label && (
-                    <p
-                      className={cn(
-                        "mb-1 px-2 text-xxs uppercase tracking-[0.1em]",
-                        isPanel
-                          ? "text-muted-foreground"
-                          : "text-sidebar-foreground/55"
-                      )}
-                    >
-                      {adminSection.label}
-                    </p>
-                  )}
-                  {adminSection.items.map((item) => renderItem(item, false))}
-                </div>
-              )}
-            </div>
-          )}
+            {railEndSlot ? (
+              <div
+                className={cn(
+                  "flex justify-center",
+                  isHorizontal ? "px-1.5" : "w-full",
+                  compact ? (isHorizontal ? "" : "px-1.5 pb-1") : "px-2 pb-1"
+                )}
+              >
+                {railEndSlot}
+              </div>
+            ) : null}
 
-          {railEndSlot ? (
+            {/* One `--shell-footer` row, no rule above it: the bell sits just
+              above the avatar so both read as personal chrome. */}
             <div
               className={cn(
-                "flex w-full justify-center",
-                compact ? "px-1.5 pb-1" : "px-2 pb-1"
+                "flex shrink-0 items-center overflow-visible px-2",
+                isHorizontal ? "h-full" : "h-(--shell-footer)"
               )}
             >
-              {railEndSlot}
+              <div
+                className="w-full"
+                style={{
+                  transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
+                  transformOrigin: "center",
+                }}
+              >
+                {footer ?? shell.userMenu(compact)}
+              </div>
             </div>
-          ) : null}
-
-          {/* One `--shell-footer` row, no rule above it: the bell sits just
-            above the avatar so both read as personal chrome. */}
-          <div className="flex h-(--shell-footer) shrink-0 items-center px-2">
-            <div
-              className="w-full"
-              style={{
-                transform: iconScale < 1 ? `scale(${iconScale})` : undefined,
-                transformOrigin: "center",
-              }}
-            >
-              {footer ?? shell.userMenu(compact)}
-            </div>
+            {railCopilotSlot && !isPanel ? (
+              <div
+                className={cn(
+                  "relative z-10 flex shrink-0 items-center justify-center overflow-visible",
+                  isHorizontal ? "h-full w-16" : "h-14 w-full"
+                )}
+              >
+                {railCopilotSlot}
+              </div>
+            ) : null}
           </div>
-        </div>
-      </aside>
-    </TooltipProvider>
+        </aside>
+      </TooltipProvider>
+    </AppBarChromeProvider>
   );
 }

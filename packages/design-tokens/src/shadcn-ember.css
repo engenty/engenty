@@ -1,7 +1,8 @@
 @import "./ember-primitives.css";
 
 /* shadcn semantic tokens → Ember (light) */
-:root {
+:root,
+.dark .tone-flip {
   --background: var(--canvas);
   --foreground: var(--ink);
   --card: oklch(100% 0 0);
@@ -99,7 +100,13 @@
     oklch(30% var(--seed-neutral-c) var(--seed-neutral-h) / 0.16);
 }
 
-.dark {
+/* `.tone-flip` turns one region to the other theme: dark on a light page,
+   light on a dark one (a private chat's band and the topbar over it).
+   The lower-specificity `.tone-flip` must come after `.dark .tone-flip`
+   above: on a dark page the light block has to win. */
+.dark,
+/* biome-ignore lint/style/noDescendingSpecificity: the flip depends on this order */
+.tone-flip {
   --background: var(--canvas);
   --foreground: var(--ink);
   /* Raised surface above canvas — never `var(--card)` (self-cycle → transparent). */

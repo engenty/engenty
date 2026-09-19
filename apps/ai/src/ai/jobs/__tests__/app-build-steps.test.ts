@@ -41,6 +41,10 @@ vi.mock("../task-job-scope.js", () => ({
 vi.mock("../../../dal/artifacts/artifact-store.js", () => ({
   createArtifactStoreFromEnv: () => ({ create: artifactCreate }),
 }));
+const announceAppRelease = vi.fn(async () => undefined);
+vi.mock("../app-release-announce.js", () => ({
+  announceAppRelease: (input: unknown) => announceAppRelease(input),
+}));
 
 import {
   ensureAppStep,
@@ -65,6 +69,7 @@ beforeEach(() => {
   invoke.mockReset();
   invoke.mockResolvedValue({ ok: true });
   artifactCreate.mockClear();
+  announceAppRelease.mockClear();
 });
 
 describe("ensureAppStep", () => {
@@ -201,6 +206,16 @@ describe("publishArtifactStep", () => {
       app_version: 3,
       session_id: "chat-thread-1",
     });
+    expect(announceAppRelease).toHaveBeenCalledWith({
+      appId: APP_ID,
+      artifactId: "artifact-1",
+      builtByAgentId: null,
+      name: "Todo",
+      tenantId: TENANT,
+      threadId: "thread-1",
+      userId: null,
+      version: 3,
+    });
   });
 
   it("passes a failed build through untouched", async () => {
@@ -212,6 +227,7 @@ describe("publishArtifactStep", () => {
 
     expect(envelope.status).toBe("build_failed");
     expect(artifactCreate).not.toHaveBeenCalled();
+    expect(announceAppRelease).not.toHaveBeenCalled();
   });
 
   it("skips publishing outside a chat thread", async () => {
@@ -221,5 +237,6 @@ describe("publishArtifactStep", () => {
 
     expect(envelope.status).toBe("built");
     expect(artifactCreate).not.toHaveBeenCalled();
+    expect(announceAppRelease).not.toHaveBeenCalled();
   });
 });

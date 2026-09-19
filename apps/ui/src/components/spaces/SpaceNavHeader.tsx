@@ -1,7 +1,8 @@
 /**
  * The space's name tile — used on the space home card and as the sidebar
  * identity row. Switching lives on the rail (current tile opens the chooser);
- * this is identity, not a control.
+ * the name itself is the way HOME: with no Dashboard row in the list, the
+ * space's name at the top of its column is where you click to land on it.
  */
 import { SpaceIconFace } from "@engenty/app-shell";
 import { cn } from "@engenty/ui-core";
@@ -40,21 +41,38 @@ export function SpaceNavTile({
   );
 }
 
-/** Non-clickable space name for the column header — space home and inside a module. */
+/**
+ * The space's name for the column header — space home and inside a module.
+ * A link to the space's home when `to` is given; a plain label otherwise.
+ */
 export function SpaceNavTitle({
   color,
   icon,
   name,
+  to,
 }: {
   color?: string | null;
   icon?: string | null;
   name: string;
+  to?: string;
 }) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5">
+  const body = (
+    <>
       <SpaceNavTile color={color} icon={icon} name={name} size="sm" />
       <span className="min-w-0 truncate font-medium text-sm">{name}</span>
-    </div>
+    </>
+  );
+  if (!to) {
+    return <div className="flex min-w-0 items-center gap-1.5">{body}</div>;
+  }
+  return (
+    <Link
+      className="flex min-w-0 items-center gap-1.5 rounded-[6px] text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+      data-testid="space-nav-title"
+      to={to}
+    >
+      {body}
+    </Link>
   );
 }
 

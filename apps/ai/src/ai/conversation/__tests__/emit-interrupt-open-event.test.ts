@@ -9,14 +9,21 @@
 // row and no way to answer.
 import type { AGUIEvent } from "@engenty/ag-ui-bridge";
 import { ENGENTY_OPEN_INTERRUPT_EVENT, EventType } from "@engenty/ag-ui-bridge";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadStore } from "../../../dal/threads/index.js";
 import type { AiSessionScope } from "../../sessions/types.js";
 import {
+  decisionArtifactHasDurableInbox,
   emitArtifactInterrupt,
   emitFrontendToolInterrupt,
   emitToolApprovalInterrupt,
 } from "../emit-interrupt.js";
+
+const notifyThreadInterrupt = vi.fn(async () => undefined);
+vi.mock("../../../notifications/thread-interrupts.js", () => ({
+  notifyThreadInterrupt: (...args: unknown[]) => notifyThreadInterrupt(...args),
+  resolveThreadInterruptNotifications: vi.fn(async () => undefined),
+}));
 
 const SCOPE: AiSessionScope = {
   tenantId: "tenant-1",
@@ -66,6 +73,10 @@ const DECISION_ARTIFACT = {
 };
 
 describe("interrupt emitters and the open-interrupt side channel", () => {
+  beforeEach(() => {
+    notifyThreadInterrupt.mockClear();
+  });
+
   it("carries a suspended decision's choices on the CUSTOM event", async () => {
     const { emit, events } = collector();
     const { store } = buildStore();
@@ -180,5 +191,55 @@ describe("interrupt emitters and the open-interrupt side channel", () => {
       threadId: THREAD_ID,
     });
     expect(openInterruptEvents(frontend.events)).toHaveLength(1);
+  });
+
+  it("files a thread-interrupt notification for an ordinary question", async () => {
+    const { emit } = collector();
+    const { store } = buildStore();
+    await emitArtifactInterrupt({
+      busRunId: "bus-run-1",
+      emit,
+      result: DECISION_ARTIFACT,
+      resumeRunId: "mastra-run-1",
+      scope: SCOPE,
+      sessionMetadata: {},
+      store,
+      threadId: THREAD_ID,
+      toolCallId: "call-1",
+    });
+    expect(notifyThreadInterrupt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interruptId: DECISION_ARTIFACT.interrupt_id,
+        kind: "agent_question",
+        title: DECISION_ARTIFACT.title,
+      })
+    );
+  });
+
+  it("does not file a second inbox row when the artifact already has one", async () => {
+    const { emit, events } = collector();
+    const { store } = buildStore();
+    const hire = {
+      ...DECISION_ARTIFACT,
+      durable_inbox: true,
+      title: "Hire App Coder?",
+    };
+    expect(decisionArtifactHasDurableInbox(hire)).toBe(true);
+
+    const handled = await emitArtifactInterrupt({
+      busRunId: "bus-run-1",
+      emit,
+      result: hire,
+      resumeRunId: "mastra-run-1",
+      scope: SCOPE,
+      sessionMetadata: {},
+      store,
+      threadId: THREAD_ID,
+      toolCallId: "call-hire",
+    });
+
+    expect(handled).toBe(true);
+    expect(openInterruptEvents(events)).toHaveLength(1);
+    expect(notifyThreadInterrupt).not.toHaveBeenCalled();
   });
 });

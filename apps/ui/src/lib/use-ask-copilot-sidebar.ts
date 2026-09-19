@@ -1,28 +1,33 @@
 /**
- * Open Copilot in the sidebar on a fresh thread, optionally with a composer
- * draft. Space empty-states use this so "Ask AI" never resumes the last chat.
+ * Open Copilot in Work (or stay on Talk), optionally with a composer draft.
+ * Space empty-states use this so "Ask AI" never resumes the last chat.
  */
 import {
   ENGENTY_COPILOT_HOST_KEY,
+  isTalkConversationPathname,
   openCopilotShell,
   setCopilotComposerDraft,
   useCopilotThreadActions,
 } from "@engenty/ai-ui";
 import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useCallback } from "react";
+import { useLocation } from "react-router-dom";
 
 export function useAskCopilotSidebar(): (prompt?: string) => void {
   const shell = useCopilotShellOrNull();
+  const location = useLocation();
   const { startNewChat } = useCopilotThreadActions();
 
   return useCallback(
     (prompt?: string) => {
-      // New thread first — startNewChat clears any leftover composer draft.
       startNewChat();
+      shell?.setCompanionWho({ kind: "copilot" });
       if (shell) {
         openCopilotShell({
+          chromeHidden: shell.chromeHidden,
+          isTalkPage: isTalkConversationPathname(location.pathname),
           mergeLayout: shell.copilotLayout.mergeLayout,
-          preferredDockMode: "sidebar",
+          preferredDockMode: shell.preferredDockMode,
           setOpen: shell.setOpen,
           setPreferredDockMode: shell.setPreferredDockMode,
         });
@@ -37,6 +42,6 @@ export function useAskCopilotSidebar(): (prompt?: string) => void {
         );
       }
     },
-    [shell, startNewChat]
+    [location.pathname, shell, startNewChat]
   );
 }

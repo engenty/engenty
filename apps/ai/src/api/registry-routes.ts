@@ -32,6 +32,10 @@ import { mountAgentOnSpaces } from "../ai/space-mount-agent.js";
 import { listPublishedWorkflowsRunningAgent } from "../ai/workflows/graph-agents.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { RegistryStore } from "../dal/registry/index.js";
+import {
+  notifyAgentProposed,
+  resolveAgentProposalNotifications,
+} from "../notifications/agent-proposals.js";
 import { decorateAgentWithRole } from "./agent-role.js";
 import { AI_CAPABILITIES } from "./capabilities.js";
 import type { AiScopeResolver } from "./http.js";
@@ -533,6 +537,17 @@ export function registerRegistryRoutes(
           proposedSpaceId,
         }
       );
+      // The proposal is the subject: file it even when a chat widget also
+      // parks on the same turn. The card is one way to answer; walking away
+      // from it must not drop the row.
+      await notifyAgentProposed({
+        agentId,
+        agentName: parsed.data.name,
+        pendingRevision: Boolean(record.proposed_config),
+        proposedByAgent: proposedByAgent ?? record.created_by_agent ?? null,
+        spaceId: proposedSpaceId ?? record.proposed_space_id,
+        tenantId: resolved.scope.tenantId,
+      });
       return c.json({ record });
     } catch (err) {
       return handleRouteError(
@@ -589,6 +604,10 @@ export function registerRegistryRoutes(
         return c.json({ error: "agent_registry.spaceRequired" }, 400);
       }
       const agent = await store.approveAgent(resolved.scope.tenantId, agentId);
+      await resolveAgentProposalNotifications({
+        agentId,
+        tenantId: resolved.scope.tenantId,
+      });
       // Approval is go-live: provision the core.agents security principal.
       await resolveCoreAgentId(resolved.scope.tenantId, agent.id);
       let mounted: Awaited<ReturnType<typeof mountAgentOnSpaces>> = [];
@@ -630,6 +649,10 @@ export function registerRegistryRoutes(
         resolved.scope.tenantId,
         agentId
       );
+      await resolveAgentProposalNotifications({
+        agentId,
+        tenantId: resolved.scope.tenantId,
+      });
       return c.json({ rejected });
     } catch (err) {
       return handleRouteError(

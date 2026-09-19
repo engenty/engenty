@@ -9,6 +9,8 @@
  * Position and size persist in the layout snapshot (`windowRect`) and are
  * clamped to the viewport on every render — a window saved on a wide monitor
  * reopens inside a laptop screen instead of off its edge.
+ *
+ * The title bar is the drag handle (except on buttons and menus).
  */
 
 import type {
@@ -22,6 +24,7 @@ import type {
   RefObject,
 } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isCopilotWindowMoveTarget } from "./copilot-window-move-target";
 
 export const COPILOT_WINDOW_MIN_WIDTH = 360;
 export const COPILOT_WINDOW_MIN_HEIGHT = 320;
@@ -143,7 +146,8 @@ export interface CopilotWindowSurfaceProps {
   dragHandleLabel: string;
   surfaceInstanceKey: string;
   title: string | undefined;
-  /** The panel's own header lives inside `children`; this bar only drags. */
+  /** Real window chrome: who chooser, session, new chat, position, close. */
+  titleBar: ReactNode;
   titleBarRef?: RefObject<HTMLDivElement | null>;
 }
 
@@ -153,6 +157,7 @@ export function CopilotWindowSurface({
   dragHandleLabel,
   surfaceInstanceKey,
   title,
+  titleBar,
   titleBarRef,
 }: CopilotWindowSurfaceProps) {
   const [rect, setRect] = useState<CopilotWindowRect>(() =>
@@ -228,6 +233,16 @@ export function CopilotWindowSurface({
     []
   );
 
+  const beginTitleBarDrag = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!isCopilotWindowMoveTarget(event.target)) {
+        return;
+      }
+      beginDrag("move", "grabbing")(event);
+    },
+    [beginDrag]
+  );
+
   return (
     <div
       aria-label={title ?? "Copilot window"}
@@ -247,16 +262,14 @@ export function CopilotWindowSurface({
         width: rect.width,
       }}
     >
-      {/* The whole top strip drags — the panel header renders its own
-          controls inside `children`, so this bar stays thin and empty. */}
       <div
         aria-label={dragHandleLabel}
-        className="flex h-2 shrink-0 cursor-grab touch-none items-center justify-center bg-muted/40 active:cursor-grabbing"
-        onPointerDown={beginDrag("move", "grabbing")}
+        className="shrink-0"
+        onPointerDown={beginTitleBarDrag}
         ref={titleBarRef}
-        role="presentation"
+        role="toolbar"
       >
-        <span className="h-1 w-10 rounded-full bg-border" />
+        {titleBar}
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {children}

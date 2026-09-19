@@ -6,7 +6,12 @@
  * off the list until they have a chat.
  */
 import { conversationEngagement } from "@engenty/ai-core/browser";
-import { useAgentLiveActivityMap } from "@engenty/ai-ui";
+import {
+  AgentFace,
+  type ChatSpaceAudience,
+  chatVisibilityOf,
+  useAgentLiveActivityMap,
+} from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Collapsible,
@@ -16,7 +21,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Engenty,
 } from "@engenty/ui-core";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -56,12 +60,15 @@ const BUILT_IN_SECTION_LABELS = {
 
 /** One row of any kind, with its menu, for a section or for Favoriten. */
 export function SpaceConversationRow({
+  audience,
   isPinned,
   item,
   rosterById,
   sectionId,
   spaceKey,
 }: {
+  /** How far the space reaches — the tier of its desks and open rooms. */
+  audience: ChatSpaceAudience | null;
   isPinned: boolean;
   item: SpaceConversationItem;
   rosterById: ReadonlyMap<string, SpaceRosterAgent>;
@@ -94,6 +101,7 @@ export function SpaceConversationRow({
           destination={resolveSpaceAgentDestination(item.agent.id, spaceKey)}
           live={liveByAgent.get(item.agent.id) ?? null}
           menu={menu}
+          visibility={chatVisibilityOf("desk", null, audience)}
         />
       );
     case "room":
@@ -105,6 +113,7 @@ export function SpaceConversationRow({
           menu={menu}
           room={item.room}
           rosterById={rosterById}
+          spaceAudience={audience}
           spaceKey={spaceKey}
         />
       );
@@ -130,6 +139,7 @@ export function SpaceConversationRow({
 }
 
 export function SpaceConversationSection({
+  audience,
   canAdd,
   pinnedKeys,
   rosterAgents,
@@ -138,6 +148,7 @@ export function SpaceConversationSection({
   spaceId,
   spaceKey,
 }: {
+  audience: ChatSpaceAudience | null;
   canAdd: boolean;
   pinnedKeys: ReadonlySet<string>;
   rosterAgents: readonly SpaceRosterAgent[];
@@ -241,9 +252,11 @@ export function SpaceConversationSection({
               key={agent.id}
               onSelect={() => actions.openDm(agent.id)}
             >
-              <Engenty
+              <AgentFace
+                avatarUrl={agent.avatarUrl}
                 className="mr-2 [&_.e-shadow]:hidden"
                 kind={agent.engenty}
+                name={agent.name}
                 size={18}
               />
               {agent.name}
@@ -294,6 +307,7 @@ export function SpaceConversationSection({
           {section.items.map((item) => (
             <SpaceConversationDraggable id={item.key} key={item.key}>
               <SpaceConversationRow
+                audience={audience}
                 isPinned={pinnedKeys.has(item.key)}
                 item={item}
                 rosterById={rosterById}

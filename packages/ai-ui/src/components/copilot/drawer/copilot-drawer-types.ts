@@ -3,6 +3,8 @@ import type {
   AgUiOpenInterruptMetadata,
   Message,
 } from "@engenty/ag-ui-bridge";
+import type { CopilotDockMode } from "@engenty/app-shell";
+import type { EngentyKind } from "@engenty/ui-core";
 import type { MutableRefObject, ReactNode } from "react";
 import type { CopilotAgentThreadChooserThread } from "../composer/copilot-agent-thread-chooser.js";
 import type { StarterPromptItem } from "../composer/copilot-composer.js";
@@ -13,18 +15,11 @@ import type { CopilotLayoutPersistenceApi } from "../session/copilot-layout-snap
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 import type { CopilotDrawerInjectedSession } from "./copilot-drawer-injected-session.js";
 
+export type { CopilotDockMode } from "@engenty/app-shell";
+
 export type CopilotGetHeaders = () => Promise<Record<string, string>>;
 
 export type CopilotPanelMode = "docked" | "floating";
-
-/** Shell-level dock mode; when provided, overrides panelMode for layout. */
-export type CopilotDockMode =
-  | "floating"
-  | "mini-floating"
-  | "window"
-  | "drawer"
-  | "sidebar"
-  | "bottom";
 
 export interface CopilotDrawerProps {
   agentChooserLabels?: {
@@ -58,6 +53,8 @@ export interface CopilotDrawerProps {
   composerLeadingControl?: ReactNode;
   composerPlaceholder?: string;
   copilotContext?: CopilotRouteContext;
+  /** Ref to shell-owned app-bar blob slot. From useCopilotShell. */
+  copilotDockRef?: MutableRefObject<HTMLDivElement | null>;
   /** When set, persist floating layout via host merge (e.g. user-settings). From useCopilotShell().copilotLayout. */
   copilotLayout?: CopilotLayoutPersistenceApi | null;
   /** Ref to shell-owned inline sidebar container. From useCopilotShell. */
@@ -83,7 +80,7 @@ export interface CopilotDrawerProps {
   injectedSession?: CopilotDrawerInjectedSession;
   /** True when main content is mounted. From useCopilotShell. */
   mainContentReady?: boolean;
-  /** Ref to main content for bottom-dock portal. From useCopilotShell. */
+  /** Ref to main content. From useCopilotShell. */
   mainContentRef?: MutableRefObject<HTMLElement | null>;
   module: string;
   onApplySuccess?: () => void;
@@ -105,15 +102,11 @@ export interface CopilotDrawerProps {
   open: boolean;
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
   panelMode?: CopilotPanelMode;
-  positionBottomLabel?: string;
-  /** Compact launcher / FAB-style placement. */
-  positionButtonLabel?: string;
   positionDrawerLabel?: string;
-  positionFloatingLabel?: string;
   /** Full-page chat (`/mdl/engenty-copilot/chat`). */
   positionFullscreenLabel?: string;
   positionHeadingLabel?: string;
-  /** Bottom-dock ⋮ menu: aria label for the position trigger. */
+  /** Position menu trigger aria label. */
   positionMenuAriaLabel?: string;
   positionSidebarLabel?: string;
   /** Draggable, resizable window over the page (`window` dock mode). */
@@ -158,6 +151,15 @@ export interface CopilotDrawerProps {
   thinkingLabel?: string;
   title?: string;
   triggerType?: "message_copilot" | "button" | "shortcut";
+  /** Blob flyout who list (Copilot + space Engenties). */
+  whoOptions?: Array<{
+    avatarUrl?: string | null;
+    engenty: EngentyKind;
+    id: string;
+    name: string;
+  }>;
+  /** When set, Work/Window renders this lane instead of the Copilot session. */
+  workPanelContent?: ReactNode;
 }
 
 export type { CopilotRouteContext } from "../session/copilot-route-context.js";

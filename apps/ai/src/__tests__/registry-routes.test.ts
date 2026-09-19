@@ -1,6 +1,18 @@
 import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerRegistryRoutes } from "../api/registry-routes.js";
+import {
+  notifyAgentProposed,
+  resolveAgentProposalNotifications,
+} from "../notifications/agent-proposals.js";
+
+vi.mock("../notifications/agent-proposals.js", () => ({
+  notifyAgentProposed: vi.fn(async () => undefined),
+  resolveAgentProposalNotifications: vi.fn(async () => undefined),
+}));
+
+const notifyProposed = vi.mocked(notifyAgentProposed);
+const resolveProposed = vi.mocked(resolveAgentProposalNotifications);
 
 function createScopeResolver() {
   return async () => ({
@@ -18,6 +30,11 @@ function createScopeResolver() {
 }
 
 describe("registry-routes", () => {
+  beforeEach(() => {
+    notifyProposed.mockClear();
+    resolveProposed.mockClear();
+  });
+
   it("should list agents", async () => {
     const app = new Hono();
     const mockStore = {
@@ -377,6 +394,10 @@ describe("registry-routes", () => {
       { ok: true, spaceId: "00000000-0000-4000-8000-000000000010" },
     ]);
     expect(putSpaceMount).toHaveBeenCalledTimes(1);
+    expect(resolveProposed).toHaveBeenCalledWith({
+      agentId: "sales.researcher",
+      tenantId: "tenant-1",
+    });
   });
 
   it("does not remount when approving a revision", async () => {
@@ -470,6 +491,7 @@ describe("registry-routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       error: "agent_registry.spaceRequired",
     });
+    expect(resolveProposed).not.toHaveBeenCalled();
   });
 
   it("stamps proposed_space_id on propose and does not mount", async () => {
@@ -508,5 +530,33 @@ describe("registry-routes", () => {
       }
     );
     expect(putSpaceMount).not.toHaveBeenCalled();
+    expect(notifyProposed).toHaveBeenCalledWith({
+      agentId: "sales.researcher",
+      agentName: "Sales Researcher",
+      pendingRevision: false,
+      proposedByAgent: null,
+      spaceId: "00000000-0000-4000-8000-000000000010",
+      tenantId: "tenant-1",
+    });
+  });
+
+  it("resolves the proposal notification on reject", async () => {
+    const rejectAgent = vi.fn().mockResolvedValue(true);
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      getStore: () => ({ rejectAgent }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/sales.researcher/reject",
+      { method: "POST" }
+    );
+    expect(res.status).toBe(200);
+    expect(rejectAgent).toHaveBeenCalledWith("tenant-1", "sales.researcher");
+    expect(resolveProposed).toHaveBeenCalledWith({
+      agentId: "sales.researcher",
+      tenantId: "tenant-1",
+    });
   });
 });

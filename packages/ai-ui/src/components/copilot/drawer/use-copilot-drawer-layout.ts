@@ -12,25 +12,14 @@ import {
   clampFloatingPositionToViewport,
   reanchorFloatingPositionToViewport,
 } from "../session/copilot-floating-bounds";
+import type { CopilotCollapseMorphTransform } from "./copilot-drawer-collapse-morph";
 import {
-  anchorStyleToMorphRect,
-  COPILOT_COLLAPSE_MORPH_MS,
-  type CopilotCollapseMorphTransform,
-  computeCopilotCollapseMorphTransform,
-  domRectToMorphRect,
-} from "./copilot-drawer-collapse-morph";
-import {
-  BUTTON_SNAP_FAB_INSET,
-  BUTTON_SNAP_FAB_SIZE,
-  BUTTON_SNAP_FAB_WIDTH,
   COMPACT_LAUNCHER_HEIGHT,
   COMPACT_LAUNCHER_WIDTH,
   COMPACT_STATUS_FLAP_DEFAULT_HEIGHT,
   FLOATING_DEFAULT_HEIGHT,
   FLOATING_DEFAULT_MARGIN,
   FLOATING_DEFAULT_WIDTH,
-  MINI_FLOATING_HEIGHT,
-  MINI_FLOATING_WIDTH,
 } from "./copilot-drawer-constants";
 import { useCopilotDrawerFloatingDrag } from "./copilot-drawer-layout-drag";
 import { useCopilotDrawerLayoutPersistence } from "./copilot-drawer-layout-persistence";
@@ -40,8 +29,6 @@ import type {
 } from "./copilot-drawer-layout-types";
 import {
   resolveBottomDockIndicatorStyle,
-  resolveButtonFabIndicatorStyle,
-  resolveFabTriggerAnchorStyle,
   resolveSidebarDockIndicatorStyle,
 } from "./copilot-drawer-snap-indicators";
 import type { CopilotDockMode } from "./copilot-drawer-types";
@@ -49,17 +36,6 @@ import {
   type CopilotFloatingSnapTarget,
   resolveCopilotOpenDockMode,
 } from "./copilot-drawer-utils";
-import {
-  type CopilotFabAnchor,
-  defaultFabAnchor,
-  isUsableFabViewport,
-  resolveFabAnchorPosition,
-} from "./copilot-fab-anchor";
-
-const FAB_SURFACE_SIZE = {
-  width: BUTTON_SNAP_FAB_WIDTH,
-  height: BUTTON_SNAP_FAB_SIZE,
-};
 
 export type {
   UseCopilotDrawerLayoutOptions,
@@ -147,74 +123,6 @@ export function useCopilotDrawerLayout({
   }, [open, collapseToCircle]);
 
   const [enterFromClose, setEnterFromClose] = useState(false);
-  const [isIconDragging, setIsIconDragging] = useState(false);
-
-  // The FAB's logical dock: which corner it's pinned to, plus its gap to that
-  // corner. This is the single source of truth for the avatar's position —
-  // always defined (defaults to bottom-right), never a raw pixel point, and
-  // entirely independent of the floating modal's `floatingPosition`.
-  const [fabAnchor, setFabAnchor] = useState<CopilotFabAnchor>(() =>
-    defaultFabAnchor(BUTTON_SNAP_FAB_INSET)
-  );
-  const resetFabAnchor = useCallback(() => {
-    setFabAnchor(defaultFabAnchor(BUTTON_SNAP_FAB_INSET));
-  }, []);
-
-  // Pixel position derived from fabAnchor for the current viewport. Recomputed
-  // on anchor change and on resize — never mutated directly.
-  const [fabPosition, setFabPosition] = useState(() => {
-    if (typeof window === "undefined") {
-      return { x: 100, y: 100 };
-    }
-    const viewport = { width: window.innerWidth, height: window.innerHeight };
-    const anchor = defaultFabAnchor(BUTTON_SNAP_FAB_INSET);
-    if (
-      !isUsableFabViewport(viewport, FAB_SURFACE_SIZE, BUTTON_SNAP_FAB_INSET)
-    ) {
-      return { x: 100, y: 100 };
-    }
-    return resolveFabAnchorPosition(
-      anchor,
-      FAB_SURFACE_SIZE,
-      viewport,
-      BUTTON_SNAP_FAB_INSET
-    );
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const recompute = () => {
-      const viewport = {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      };
-      if (
-        !isUsableFabViewport(viewport, FAB_SURFACE_SIZE, BUTTON_SNAP_FAB_INSET)
-      ) {
-        return;
-      }
-      setFabPosition(
-        resolveFabAnchorPosition(
-          fabAnchor,
-          FAB_SURFACE_SIZE,
-          viewport,
-          BUTTON_SNAP_FAB_INSET
-        )
-      );
-    };
-    recompute();
-    window.addEventListener("resize", recompute);
-    return () => window.removeEventListener("resize", recompute);
-  }, [fabAnchor]);
-
-  // Transient pixel position used only while actively dragging the FAB — kept
-  // fully separate from floatingPosition (the modal's own state) so dragging
-  // one surface can never bleed into the other's committed position.
-  const [fabDragPosition, setFabDragPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
 
   const [compactShellMeasured, setCompactShellMeasured] = useState({
     width: COMPACT_LAUNCHER_WIDTH,
@@ -229,21 +137,13 @@ export function useCopilotDrawerLayout({
     () => copilotLayout == null
   );
 
-  const isMiniFloating = open && launcherMode === "mini-floating";
-  const floatingWidth = isMiniFloating
-    ? MINI_FLOATING_WIDTH
-    : floatingSize.width;
-  const floatingHeight = isMiniFloating
-    ? MINI_FLOATING_HEIGHT
-    : floatingSize.height;
+  const floatingWidth = floatingSize.width;
+  const floatingHeight = floatingSize.height;
 
   const clampFloatingChromeActive =
     (open && isFloatingStyle) ||
     (!(open || collapseToCircle) &&
-      (launcherMode === "floating" ||
-        launcherMode === "mini-floating" ||
-        effectiveMode === "drawer" ||
-        effectiveMode === "bottom" ||
+      (effectiveMode === "drawer" ||
         effectiveMode === "sidebar" ||
         effectiveMode === "window"));
 
@@ -254,14 +154,11 @@ export function useCopilotDrawerLayout({
     floatingDockedToCorner,
     floatingPosition,
     floatingSize,
-    internalPanelMode,
-    isPanelModeControlled,
     setCollapseToCircle,
     setCompactStatusFlapHeight,
     setFloatingDockedToCorner,
     setFloatingPosition,
     setFloatingSize,
-    setInternalPanelMode,
     setLayoutSnapshotApplied,
   });
 
@@ -301,16 +198,12 @@ export function useCopilotDrawerLayout({
   const surfaceWidth = isCompactLauncherSurface
     ? compactShellMeasured.width
     : open
-      ? launcherMode === "mini-floating"
-        ? MINI_FLOATING_WIDTH
-        : floatingSize.width
+      ? floatingSize.width
       : compactShellMeasured.width;
   const surfaceHeight = isCompactLauncherSurface
     ? compactShellMeasured.height
     : open
-      ? launcherMode === "mini-floating"
-        ? MINI_FLOATING_HEIGHT
-        : floatingSize.height
+      ? floatingSize.height
       : compactShellMeasured.height;
 
   const clampCurrentFloatingPosition = useCallback(
@@ -347,10 +240,7 @@ export function useCopilotDrawerLayout({
     floatingSize,
     margin,
     onOpenChange,
-    resetFabAnchor,
     setCollapseToCircle,
-    setFabAnchor,
-    setFabDragPosition,
     setFloatingPosition,
     setFloatingSize,
     setPanelMode,
@@ -366,39 +256,27 @@ export function useCopilotDrawerLayout({
       if (!setPreferredDockMode) {
         return;
       }
+      if (value === "mini-floating") {
+        setCollapseToCircle(true);
+        onOpenChange(false);
+        return;
+      }
+      if (value === "bottom" || value === "floating") {
+        setPreferredDockMode("sidebar");
+        setCollapseToCircle(false);
+        onOpenChange(true);
+        return;
+      }
       const mode = value as CopilotDockMode;
       setPreferredDockMode(mode);
-      if (mode === "bottom" || mode === "sidebar") {
-        setCollapseToCircle(false);
-        onOpenChange(true);
-      } else if (mode === "floating" || mode === "mini-floating") {
-        // Only re-dock to the bottom-right home if the launcher was never
-        // dragged away from it — otherwise a user-customized position would
-        // get silently discarded on every round-trip through another mode.
-        if (floatingDockedToCorner) {
-          setFloatingPosition(
-            resolveLauncherCornerPosition(
-              compactShellMeasuredRef.current.height,
-              FLOATING_DEFAULT_MARGIN
-            )
-          );
-        }
-        // The avatar always resets to its bottom-right home on a mode switch
-        // (clearing any custom drag anchor).
-        resetFabAnchor();
-        setCollapseToCircle(mode === "mini-floating");
-        onOpenChange(false);
-      } else {
-        setCollapseToCircle(false);
-        onOpenChange(true);
-      }
+      setCollapseToCircle(false);
+      onOpenChange(true);
     },
-    [floatingDockedToCorner, onOpenChange, resetFabAnchor, setPreferredDockMode]
+    [onOpenChange, setPreferredDockMode]
   );
 
   const finishCollapseToFabIcon = useCallback(
     (options?: { enterFromClose?: boolean }) => {
-      setPreferredDockMode?.("mini-floating");
       setCollapseToCircle(true);
       onOpenChange(false);
       setIsCollapsingToIcon(false);
@@ -409,7 +287,7 @@ export function useCopilotDrawerLayout({
         window.setTimeout(() => setEnterFromClose(false), 320);
       }
     },
-    [onOpenChange, setPreferredDockMode]
+    [onOpenChange]
   );
 
   const collapseToFabIcon = useCallback(() => {
@@ -417,50 +295,8 @@ export function useCopilotDrawerLayout({
       window.clearTimeout(collapseMorphTimeoutRef.current);
       collapseMorphTimeoutRef.current = null;
     }
-
-    const finishWithoutMorph = () => {
-      finishCollapseToFabIcon({ enterFromClose: true });
-    };
-
-    const panelEl = document.querySelector("[data-copilot-drawer-panel]");
-    const anchorRect = anchorStyleToMorphRect(resolveFabTriggerAnchorStyle());
-    const canMorph =
-      open &&
-      effectiveMode === "drawer" &&
-      panelEl instanceof HTMLElement &&
-      anchorRect != null;
-
-    if (!canMorph) {
-      setIsCollapsingToIcon(true);
-      collapseMorphTimeoutRef.current = window.setTimeout(() => {
-        collapseMorphTimeoutRef.current = null;
-        finishWithoutMorph();
-      }, 0);
-      return;
-    }
-
-    const fromRect = domRectToMorphRect(panelEl.getBoundingClientRect());
-    if (fromRect.width <= 0 || fromRect.height <= 0) {
-      finishWithoutMorph();
-      return;
-    }
-
-    const morph = computeCopilotCollapseMorphTransform(fromRect, anchorRect);
-    setIsCollapsingToIcon(true);
-    setCollapseMorph(morph);
-    setCollapseMorphPhase("start");
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setCollapseMorphPhase("animating");
-      });
-    });
-
-    collapseMorphTimeoutRef.current = window.setTimeout(() => {
-      collapseMorphTimeoutRef.current = null;
-      finishCollapseToFabIcon();
-    }, COPILOT_COLLAPSE_MORPH_MS);
-  }, [effectiveMode, finishCollapseToFabIcon, open]);
+    finishCollapseToFabIcon({ enterFromClose: true });
+  }, [finishCollapseToFabIcon]);
 
   useEffect(
     () => () => {
@@ -470,10 +306,6 @@ export function useCopilotDrawerLayout({
     },
     []
   );
-
-  // fabPosition is always derived from fabAnchor and already viewport-clamped,
-  // so the drag origin can use it directly — no separate default-style path.
-  const resolveTriggerAnchor = useCallback(() => fabPosition, [fabPosition]);
 
   const handleFabTriggerOpen = useCallback(() => {
     setCollapseToCircle(false);
@@ -582,48 +414,13 @@ export function useCopilotDrawerLayout({
     handleFabTriggerOpen();
   }, [handleFabTriggerOpen]);
 
-  const handleFabTriggerPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      setIsIconDragging(true);
-      drag.handleFabTriggerPointerDown(e, resolveTriggerAnchor());
-    },
-    [drag.handleFabTriggerPointerDown, resolveTriggerAnchor]
-  );
-
-  const handleFabTriggerPointerMove = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      drag.handleFabTriggerPointerMove(e);
-    },
-    [drag.handleFabTriggerPointerMove]
-  );
-
-  const handleFabTriggerPointerUp = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      drag.handleFabTriggerPointerUp(e);
-      setIsIconDragging(false);
-    },
-    [drag.handleFabTriggerPointerUp]
-  );
-
-  const handleFabTriggerPointerLeave = useCallback(
-    (e: ReactPointerEvent<HTMLButtonElement>) => {
-      if (isIconDragging) {
-        drag.handleFabTriggerPointerUp(e);
-        setIsIconDragging(false);
-      }
-    },
-    [drag.handleFabTriggerPointerUp, isIconDragging]
-  );
-
   const handleFabTriggerClick = useCallback(() => {
-    drag.handleFabTriggerClick(() => {
-      if (copilotOpenRef.current) {
-        collapseToFabIcon();
-        return;
-      }
-      handleFabTriggerOpen();
-    });
-  }, [collapseToFabIcon, drag.handleFabTriggerClick, handleFabTriggerOpen]);
+    if (copilotOpenRef.current) {
+      collapseToFabIcon();
+      return;
+    }
+    handleFabTriggerOpen();
+  }, [collapseToFabIcon, handleFabTriggerOpen]);
 
   // Dragging the floating surface (launcher or bottom-dock grip) breaks the
   // corner dock, so the re-pin effect stops overriding the dropped position.
@@ -650,7 +447,7 @@ export function useCopilotDrawerLayout({
       mainContentRef,
       margin,
     }),
-    buttonFabIndicatorStyle: resolveButtonFabIndicatorStyle(),
+    buttonFabIndicatorStyle: null,
     collapseMorph,
     collapseMorphPhase,
     collapseToCircle,
@@ -659,8 +456,6 @@ export function useCopilotDrawerLayout({
     compactShellMeasured,
     compactStatusFlapHeight,
     enterFromClose,
-    fabDragPosition,
-    fabPosition,
     floatingHeight,
     floatingPosition,
     floatingSize,
@@ -673,12 +468,7 @@ export function useCopilotDrawerLayout({
     handlePointerUp: drag.handlePointerUp,
     handleResizePointerDown: drag.handleResizePointerDown,
     handleFabTriggerClick,
-    handleFabTriggerPointerDown,
-    handleFabTriggerPointerLeave,
-    handleFabTriggerPointerMove,
-    handleFabTriggerPointerUp,
     isCollapsingToIcon,
-    isIconDragging,
     margin,
     setCompactStatusFlapHeight,
     sidebarDockIndicatorStyle: resolveSidebarDockIndicatorStyle(margin),

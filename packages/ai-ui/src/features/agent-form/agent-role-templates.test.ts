@@ -40,6 +40,15 @@ describe("agent role templates", () => {
     }
   });
 
+  it("includes Looksmith as the identity role", () => {
+    const looksmith = AGENT_ROLE_TEMPLATES.find(
+      (template) => template.templateId === "looksmith"
+    );
+    expect(looksmith?.name).toBe("Looksmith");
+    expect(looksmith?.agentId).toBe("studio.looksmith");
+    expect(looksmith?.instructions).toContain("agent_look");
+  });
+
   it("fills a draft from the role and leaves the rest empty to edit", () => {
     const template = AGENT_ROLE_TEMPLATES[0]!;
     const draft = draftFromRoleTemplate(template);

@@ -172,6 +172,7 @@ function lowerFirst(text: string): string {
 export const HIRE_TEMPLATE_ENGENTY: Record<string, AgentEngentyKind> = {
   "art-director": "oval",
   [FIRST_ENGENTY_TEMPLATE_ID]: "round",
+  looksmith: "sprout",
   "marketing-writer": "flame",
   "ops-assistant": "drop",
   "research-analyst": "bean",

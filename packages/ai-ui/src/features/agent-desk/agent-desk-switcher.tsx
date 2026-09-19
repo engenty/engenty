@@ -1,11 +1,5 @@
 "use client";
 
-// The first breadcrumb of a desk or a room: what is open, with a chevron that
-// lists every conversation of the Space — its agents' desks and its rooms —
-// the same control the space chooser is, one level down. The caller hands in
-// the label (a desk links to its root, a room opens its info panel); the
-// chevron is the only thing that opens the menu, so a click on the name
-// never surprises.
 import {
   type AgentEngentyKind,
   spaceRoomPathname,
@@ -19,26 +13,39 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Engenty,
 } from "@engenty/ui-core";
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
+// The first breadcrumb of a desk or a room: what is open, with a chevron that
+// lists every conversation of the Space — its agents' desks and its rooms —
+// the same control the space chooser is, one level down. The caller hands in
+// the label (a desk links to its root, a room opens its info panel); the
+// chevron is the only thing that opens the menu, so a click on the name
+// never surprises.
+import { AgentFace } from "../../components/agent-face.js";
+import {
+  type ChatSpaceAudience,
+  ChatVisibilityGlyphs,
+  chatVisibilityOf,
+} from "../../components/copilot/chat-visibility.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
 import { spaceAgentDeskPath } from "../agent-form/hire-spaces.js";
 
 export interface AgentDeskSwitchAgent {
+  avatarUrl?: string | null;
   engenty: AgentEngentyKind;
   id: string;
   name: string;
 }
 
-/** A room as the switcher lists it: its name and its agents' engenties. */
+/** A room as the switcher lists it: its name, its agents' engenties, its tier. */
 export interface AgentDeskSwitchRoom {
   id: string;
   kinds: readonly AgentEngentyKind[];
   title: string;
+  /** As stored: "private" for a members-only room, else the Space's. */
+  visibility?: string | null;
 }
 
 export type AgentDeskSwitchCurrent =
@@ -50,6 +57,7 @@ export function AgentDeskSwitcher({
   current,
   label,
   rooms = [],
+  spaceAudience,
   spaceKey,
 }: {
   /** The Space's roster, the current agent included. */
@@ -60,6 +68,8 @@ export function AgentDeskSwitcher({
   label?: ReactNode;
   /** The rooms the viewer is in, the current one included. */
   rooms?: readonly AgentDeskSwitchRoom[];
+  /** How far the Space reaches — the tier of its desks and open rooms. */
+  spaceAudience?: ChatSpaceAudience | null;
   spaceKey: string;
 }) {
   const { t } = useTranslation("ai-ui");
@@ -107,11 +117,19 @@ export function AgentDeskSwitcher({
                   navigate(spaceAgentDeskPath(spaceKey, candidate.id))
                 }
               >
-                <Engenty kind={candidate.engenty} size={18} />
+                <AgentFace
+                  avatarUrl={candidate.avatarUrl}
+                  kind={candidate.engenty}
+                  name={candidate.name}
+                  size={18}
+                />
                 <span className="min-w-0 flex-1 truncate">
                   {candidate.name}
                 </span>
-                <ChatKindBadge iconOnly kind="desk" name={candidate.name} />
+                <ChatVisibilityGlyphs
+                  kind="desk"
+                  visibility={chatVisibilityOf("desk", null, spaceAudience)}
+                />
               </DropdownMenuItem>
             ))}
             {rooms.length > 0 ? (
@@ -137,10 +155,13 @@ export function AgentDeskSwitcher({
                     <span className="min-w-0 flex-1 truncate">
                       {room.title}
                     </span>
-                    <ChatKindBadge
-                      iconOnly
+                    <ChatVisibilityGlyphs
                       kind="room"
-                      memberCount={room.kinds.length}
+                      visibility={chatVisibilityOf(
+                        "room",
+                        room.visibility,
+                        spaceAudience
+                      )}
                     />
                   </DropdownMenuItem>
                 ))}

@@ -19,6 +19,7 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 
 interface RegistryAgentConfig {
   agentScope?: AiRegisteredAgent["agentScope"];
+  avatarUrl?: string | null;
   description?: string;
   effort?: AiRegisteredAgent["effort"];
   engenty?: AiRegisteredAgent["engenty"];
@@ -84,6 +85,7 @@ export function mapRegistryAgentToRegisteredAgent(
     // back to hashing the id, so the same agent wears a different face in the
     // roster (which reads the catalog) and in a chat list (which reads this).
     ...(agent.engenty ? { engenty: agent.engenty } : {}),
+    ...(agent.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
     ...(agent.purpose ? { purpose: agent.purpose } : {}),

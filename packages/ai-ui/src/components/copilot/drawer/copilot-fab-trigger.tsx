@@ -1,26 +1,35 @@
 "use client";
 
 import {
+  RAIL_TILE_GLYPH_HOVER_CLASSNAME,
+  RAIL_TILE_REST_SHADOW_CLASSNAME,
+  useAppBarPosition,
+  useCopilotShellOrNull,
+} from "@engenty/app-shell";
+import {
   BlobAccents,
   BlobEye,
   Button,
   cn,
+  type EngentyKind,
   useBlobCharacterCycle,
 } from "@engenty/ui-core";
 import { Keyboard, MessageSquarePlus, Radio } from "lucide-react";
-import type { CSSProperties, PointerEvent } from "react";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { clampFloatingPositionToViewport } from "../session/copilot-floating-bounds";
+import { AgentFace } from "../../agent-face.js";
 import {
   BUTTON_SNAP_FAB_INSET,
   BUTTON_SNAP_FAB_SIZE,
   BUTTON_SNAP_FAB_WIDTH,
   COPILOT_Z_SNAP_HINT,
+  DOCKED_FAB_SHORT_SIZE,
+  DOCKED_FAB_STRIP_SIZE,
+  DOCKED_FAB_WIDE_SIZE,
 } from "./copilot-drawer-constants";
 import { resolveFabTriggerAnchorStyle } from "./copilot-drawer-snap-indicators";
-import { CopilotDrawerSnapOverlays } from "./copilot-drawer-snap-overlays";
-import type { CopilotFloatingSnapTarget } from "./copilot-drawer-utils";
+import { computeDialPositions, DIAL_BUTTON_SIZE } from "./copilot-fab-dial";
 
 const fabMenuStyles = `
 @keyframes copilot-fab-dial-in {
@@ -50,103 +59,16 @@ const SPEED_DIAL_ITEMS = [
   { key: "voice", icon: Radio, label: "Voice" },
 ] as const;
 
-/** Speed dial circle size (px). */
-const DIAL_BUTTON_SIZE = 36;
-/** Gap between stacked items (px). */
-const DIAL_GAP = 8;
-
-/**
- * Compute straight-line positions for speed dial items.
- * Stacks above the FAB by default; flips below if too close to top edge.
- * Labels go left or right based on available horizontal space.
- */
-function computeDialPositions(
-  fabCenterX: number,
-  fabCenterY: number,
-  count: number
-): { x: number; y: number; labelSide: "left" | "right" }[] {
-  const vw = typeof window === "undefined" ? 1200 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
-  const half = DIAL_BUTTON_SIZE / 2;
-  const margin = 8;
-  const itemStep = DIAL_BUTTON_SIZE + DIAL_GAP;
-
-  // Check if items fit above the FAB (with some padding from FAB edge)
-  const fabMargin = 24;
-  const spaceAbove = fabCenterY - BUTTON_SNAP_FAB_SIZE / 2 - fabMargin;
-  const totalHeight = count * DIAL_BUTTON_SIZE + (count - 1) * DIAL_GAP;
-  const stackAbove = spaceAbove >= totalHeight + margin;
-
-  // Labels go on whichever side has more room
-  const labelSide: "left" | "right" =
-    vw - fabCenterX < fabCenterX ? "left" : "right";
-
-  const itemX = Math.max(
-    margin,
-    Math.min(vw - DIAL_BUTTON_SIZE - margin, fabCenterX - half)
-  );
-
-  return Array.from({ length: count }, (_, i) => {
-    let y: number;
-    if (stackAbove) {
-      // Stack upward from FAB
-      y = fabCenterY - half - fabMargin - i * itemStep - DIAL_BUTTON_SIZE;
-    } else {
-      // Stack downward from FAB
-      y = fabCenterY + BUTTON_SNAP_FAB_SIZE / 2 + fabMargin + i * itemStep;
-    }
-    // Clamp to viewport
-    y = Math.max(margin, Math.min(vh - DIAL_BUTTON_SIZE - margin, y));
-    return { x: itemX, y, labelSide };
-  });
+export interface CopilotWhoOption {
+  avatarUrl?: string | null;
+  engenty: EngentyKind;
+  id: string;
+  name: string;
 }
 
-export interface CopilotFabTriggerProps {
-  ariaLabel: string;
-  bottomDockIndicatorStyle: CSSProperties | null;
-  buttonFabIndicatorStyle: CSSProperties | null;
-  dragPosition?: { x: number; y: number } | null;
-  enterFromClose?: boolean;
-  /** Custom FAB position when dragged away from the default corner. */
-  fabPosition?: { x: number; y: number } | null;
-  isActive?: boolean;
-  isDragging: boolean;
-  onClick: () => void;
-  /** Callback to open the compact prompt surface (bottom dock or floating launcher). */
-  onOpenPrompt?: () => void;
-  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
-  onPointerLeave: (event: PointerEvent<HTMLButtonElement>) => void;
-  onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
-  onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void;
-  /** Callback to start a new voice session. */
-  onStartVoice?: () => void;
-  sidebarDockIndicatorStyle: CSSProperties | null;
-  snapTarget: CopilotFloatingSnapTarget;
-  suppressDuringMorph?: boolean;
-}
+export const COPILOT_WHO_ID = "copilot";
 
-function committedFabAnchorStyle(
-  fabPosition: { x: number; y: number } | null | undefined
-): CSSProperties {
-  if (fabPosition && typeof window !== "undefined") {
-    const clamped = clampFloatingPositionToViewport({
-      x: fabPosition.x,
-      y: fabPosition.y,
-      margin: BUTTON_SNAP_FAB_INSET,
-      surfaceWidth: BUTTON_SNAP_FAB_WIDTH,
-      surfaceHeight: BUTTON_SNAP_FAB_SIZE,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-    });
-    return {
-      position: "fixed",
-      left: clamped.x,
-      top: clamped.y,
-      width: BUTTON_SNAP_FAB_WIDTH,
-      height: BUTTON_SNAP_FAB_SIZE,
-      zIndex: COPILOT_Z_SNAP_HINT + 5,
-    };
-  }
+function mobileCornerStyle(): CSSProperties {
   return (
     resolveFabTriggerAnchorStyle() ?? {
       position: "fixed",
@@ -159,31 +81,62 @@ function committedFabAnchorStyle(
   );
 }
 
+function dockedHangClass(
+  position: "bottom" | "left" | "right" | "top"
+): string {
+  switch (position) {
+    case "left":
+      return "absolute top-1/2 left-0 -translate-y-1/2 translate-x-2";
+    case "right":
+      return "absolute top-1/2 right-0 -translate-y-1/2 -translate-x-2";
+    case "top":
+      return "absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2";
+    case "bottom":
+      return "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2";
+  }
+}
+
+export interface CopilotFabTriggerProps {
+  ariaLabel: string;
+  /** In-flow app-bar home. No body portal, no free canvas position. */
+  docked?: boolean;
+  isActive?: boolean;
+  onClick: () => void;
+  onOpenChat?: () => void;
+  onOpenPrompt?: () => void;
+  onStartVoice?: () => void;
+  whoOptions?: CopilotWhoOption[];
+}
+
 export function CopilotFabTrigger({
   ariaLabel,
-  bottomDockIndicatorStyle,
-  buttonFabIndicatorStyle,
-  dragPosition,
-  enterFromClose = false,
-  fabPosition,
+  docked = false,
   isActive = false,
-  isDragging,
   onClick,
-  onPointerDown,
-  onPointerLeave,
-  onPointerMove,
-  onPointerUp,
-  onStartVoice,
+  onOpenChat,
   onOpenPrompt,
-  sidebarDockIndicatorStyle,
-  snapTarget,
-  suppressDuringMorph = false,
+  onStartVoice,
+  whoOptions = [],
 }: CopilotFabTriggerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const character = useBlobCharacterCycle();
+  const position = useAppBarPosition();
+  const horizontal = position === "top" || position === "bottom";
+  const dockedBox = horizontal
+    ? { width: DOCKED_FAB_WIDE_SIZE, height: DOCKED_FAB_SHORT_SIZE }
+    : { width: DOCKED_FAB_STRIP_SIZE, height: DOCKED_FAB_SHORT_SIZE };
+  const shell = useCopilotShellOrNull();
+  const selectedWhoId =
+    shell?.companionWho.kind === "engenty"
+      ? shell.companionWho.agentId
+      : COPILOT_WHO_ID;
+  const voiceAllowed = selectedWhoId === COPILOT_WHO_ID;
+  const actionItems = SPEED_DIAL_ITEMS.filter(
+    (item) => item.key !== "voice" || voiceAllowed
+  );
 
-  // Cleanup leave timer
   useEffect(
     () => () => {
       if (leaveTimerRef.current) {
@@ -192,13 +145,6 @@ export function CopilotFabTrigger({
     },
     []
   );
-
-  // Close menu during drag
-  useEffect(() => {
-    if (isDragging) {
-      setMenuOpen(false);
-    }
-  }, [isDragging]);
 
   const handleContainerPointerEnter = useCallback(() => {
     if (leaveTimerRef.current) {
@@ -217,8 +163,12 @@ export function CopilotFabTrigger({
 
   const handleNewChat = useCallback(() => {
     setMenuOpen(false);
+    if (onOpenChat) {
+      onOpenChat();
+      return;
+    }
     onClick();
-  }, [onClick]);
+  }, [onClick, onOpenChat]);
 
   const handleNewVoiceChat = useCallback(() => {
     setMenuOpen(false);
@@ -230,17 +180,19 @@ export function CopilotFabTrigger({
     onOpenPrompt?.();
   }, [onOpenPrompt]);
 
-  const useDragPosition = isDragging && dragPosition != null;
-  const style: CSSProperties = useDragPosition
-    ? {
-        position: "fixed",
-        left: dragPosition.x,
-        top: dragPosition.y,
-        zIndex: 45,
-        width: BUTTON_SNAP_FAB_WIDTH,
-        height: BUTTON_SNAP_FAB_SIZE,
+  const handleSelectWho = useCallback(
+    (id: string) => {
+      if (!shell) {
+        return;
       }
-    : committedFabAnchorStyle(fabPosition);
+      shell.setCompanionWho(
+        id === COPILOT_WHO_ID
+          ? { kind: "copilot" }
+          : { kind: "engenty", agentId: id }
+      );
+    },
+    [shell]
+  );
 
   const dialHandlers: Record<string, () => void> = {
     chat: handleNewChat,
@@ -248,31 +200,47 @@ export function CopilotFabTrigger({
     prompt: handleOpenPrompt,
   };
 
-  // Compute FAB center for radial speed dial
-  const anchorLeft = (style as CSSProperties & { left?: number })?.left ?? 0;
-  const anchorTop = (style as CSSProperties & { top?: number })?.top ?? 0;
-  const fabCenterX = anchorLeft + BUTTON_SNAP_FAB_WIDTH / 2;
-  const fabCenterY = anchorTop + BUTTON_SNAP_FAB_SIZE / 2;
-  const menuZIndex =
-    ((style as CSSProperties & { zIndex?: number })?.zIndex ?? 50) + 1;
+  const rect = menuOpen ? buttonRef.current?.getBoundingClientRect() : null;
+  const flyoutCount = whoOptions.length + actionItems.length;
+  const dialPositions =
+    menuOpen && rect
+      ? computeDialPositions({
+          count: flyoutCount,
+          dock: docked ? position : null,
+          fab: rect,
+          viewport: { height: window.innerHeight, width: window.innerWidth },
+        })
+      : [];
 
-  const dialPositions = menuOpen
-    ? computeDialPositions(fabCenterX, fabCenterY, SPEED_DIAL_ITEMS.length)
-    : [];
-
-  // Speed dial — round icon buttons fanning out in a radial arc from the FAB
   const flyoutMenu =
-    menuOpen && !isDragging && !suppressDuringMorph && style
+    menuOpen && typeof document !== "undefined"
       ? createPortal(
           <div
             className="pointer-events-none fixed inset-0"
             onPointerEnter={handleContainerPointerEnter}
             onPointerLeave={handleContainerPointerLeave}
             role="menu"
-            style={{ zIndex: menuZIndex }}
+            style={{ zIndex: COPILOT_Z_SNAP_HINT + 6 }}
           >
-            {SPEED_DIAL_ITEMS.map((item, i) => {
-              const Icon = item.icon;
+            {[
+              ...whoOptions.map((who) => ({
+                avatarUrl: who.avatarUrl,
+                engenty: who.engenty,
+                key: `who:${who.id}`,
+                kind: "who" as const,
+                label: who.name,
+                onClick: () => handleSelectWho(who.id),
+                selected: who.id === selectedWhoId,
+              })),
+              ...actionItems.map((item) => ({
+                Icon: item.icon,
+                key: item.key,
+                kind: "action" as const,
+                label: item.label,
+                onClick: dialHandlers[item.key],
+                selected: false,
+              })),
+            ].map((item, i) => {
               const pos = dialPositions[i];
               if (!pos) {
                 return null;
@@ -280,13 +248,16 @@ export function CopilotFabTrigger({
               const labelOnLeft = pos.labelSide === "left";
               return (
                 <button
+                  aria-current={
+                    item.kind === "who" && item.selected ? "true" : undefined
+                  }
                   aria-label={item.label}
                   className={cn(
                     "copilot-fab-dial-item pointer-events-auto absolute flex items-center gap-2.5 transition-transform hover:scale-105 active:scale-95",
                     labelOnLeft ? "flex-row-reverse" : "flex-row"
                   )}
                   key={item.key}
-                  onClick={dialHandlers[item.key]}
+                  onClick={item.onClick}
                   role="menuitem"
                   style={{
                     top: pos.y,
@@ -301,9 +272,30 @@ export function CopilotFabTrigger({
                 >
                   <span
                     aria-hidden
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-card shadow-lg ring-1 ring-border/50"
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center overflow-visible",
+                      item.kind === "action"
+                        ? "rounded-full bg-card shadow-lg ring-1 ring-border/50"
+                        : cn(
+                            "rounded-full",
+                            item.selected
+                              ? "ring-2 ring-ember/55 ring-offset-1 ring-offset-background"
+                              : null
+                          )
+                    )}
                   >
-                    <Icon className="size-[18px] text-foreground" />
+                    {item.kind === "action" ? (
+                      <item.Icon className="size-[18px] text-foreground" />
+                    ) : (
+                      <AgentFace
+                        animated={item.selected}
+                        avatarUrl={item.avatarUrl}
+                        className="[&_.e-shadow]:hidden"
+                        kind={item.engenty}
+                        name={item.label}
+                        size={36}
+                      />
+                    )}
                   </span>
                   <span
                     className="copilot-fab-dial-label whitespace-nowrap rounded-lg bg-foreground/90 px-2.5 py-1 font-medium text-background text-xs shadow-md backdrop-blur-sm"
@@ -320,29 +312,61 @@ export function CopilotFabTrigger({
         )
       : null;
 
-  const overlays =
-    typeof document === "undefined"
-      ? null
-      : createPortal(
-          <CopilotDrawerSnapOverlays
-            bottomDockIndicatorStyle={bottomDockIndicatorStyle}
-            buttonFabIndicatorStyle={buttonFabIndicatorStyle}
-            sidebarDockIndicatorStyle={sidebarDockIndicatorStyle}
-            snapTarget={snapTarget}
-            variant="compact"
-          />,
-          document.body,
-          "copilot-fab-trigger-overlays"
-        );
+  const blob = (
+    <Button
+      aria-label={ariaLabel}
+      aria-pressed={isActive}
+      className={cn(
+        "blob-shape shrink-0 touch-none bg-ember bg-none p-0 dark:bg-ember dark:bg-none",
+        !docked && "hover:scale-[1.08]",
+        docked
+          ? cn(
+              "border-0 bg-clip-border outline-hidden ring-0 ring-offset-0 [&_.blob-shadow]:hidden",
+              RAIL_TILE_REST_SHADOW_CLASSNAME,
+              RAIL_TILE_GLYPH_HOVER_CLASSNAME
+            )
+          : "h-15 w-18 shadow-none",
+        docked
+          ? null
+          : isActive
+            ? "ring-2 ring-ember/50 ring-offset-1 ring-offset-background"
+            : "ring-2 ring-background/90"
+      )}
+      data-character={character}
+      data-copilot-trigger
+      onClick={onClick}
+      onContextMenu={(event) => {
+        event.stopPropagation();
+      }}
+      ref={buttonRef}
+      size="icon-lg"
+      style={docked ? { ...dockedBox, outline: "none" } : undefined}
+      type="button"
+      variant="ai"
+    >
+      <BlobAccents character={character} isActive={isActive} />
+      <BlobEye isActive={isActive} />
+    </Button>
+  );
 
-  // Wrap the button to attach hover events — the button itself uses
-  // position:fixed so we re-apply the same style to a thin wrapper.
-  const triggerWithHover = (
+  const trigger = docked ? (
+    <div
+      className={cn(
+        "pointer-events-auto flex scale-90 items-center justify-center overflow-visible transition-transform hover:scale-[1.08]",
+        dockedHangClass(position)
+      )}
+      onPointerEnter={handleContainerPointerEnter}
+      onPointerLeave={handleContainerPointerLeave}
+      style={dockedBox}
+    >
+      {blob}
+    </div>
+  ) : (
     <div
       onPointerEnter={handleContainerPointerEnter}
       onPointerLeave={handleContainerPointerLeave}
       style={{
-        ...(style as CSSProperties),
+        ...mobileCornerStyle(),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -352,46 +376,17 @@ export function CopilotFabTrigger({
         overflow: "visible",
       }}
     >
-      {/* Button without inline position style — parent provides it */}
-      <Button
-        aria-label={ariaLabel}
-        aria-pressed={isActive}
-        className={cn(
-          "blob-shape h-15 w-18 shrink-0 touch-none bg-ember bg-none p-0 shadow-none hover:scale-[1.08] dark:bg-ember dark:bg-none",
-          isActive
-            ? "ring-2 ring-ember/50 ring-offset-1 ring-offset-background"
-            : "ring-2 ring-background/90",
-          suppressDuringMorph && "opacity-0",
-          enterFromClose &&
-            !suppressDuringMorph &&
-            "fade-in zoom-in-90 animate-in duration-300",
-          isDragging && "cursor-grabbing ring-ember/45"
-        )}
-        data-character={character}
-        data-copilot-trigger
-        onClick={onClick}
-        onPointerDown={onPointerDown}
-        onPointerLeave={onPointerLeave}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        size="icon-lg"
-        type="button"
-        variant="ai"
-      >
-        <BlobAccents character={character} isActive={isActive} />
-        <BlobEye isActive={isActive} />
-      </Button>
+      {blob}
     </div>
   );
 
   return (
     <>
       <style>{fabMenuStyles}</style>
-      {overlays}
       {flyoutMenu}
-      {typeof document === "undefined"
-        ? triggerWithHover
-        : createPortal(triggerWithHover, document.body, "copilot-fab-trigger")}
+      {docked || typeof document === "undefined"
+        ? trigger
+        : createPortal(trigger, document.body, "copilot-fab-trigger")}
     </>
   );
 }

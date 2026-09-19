@@ -47,7 +47,7 @@ export function NotificationsPage() {
   const [stream, setStream] = useState<string | null>(null);
   const listQuery = useNotificationsQuery({
     limit: 100,
-    scope: spaceKey ? "space" : "global",
+    scope: spaceKey ? "space" : "tenant",
     ...(stream ? { stream } : {}),
   });
   const markAll = useMarkAllSeenMutation();

@@ -47,10 +47,6 @@ export interface UseCopilotDrawerLayoutResult {
   compactShellMeasured: { height: number; width: number };
   compactStatusFlapHeight: number;
   enterFromClose: boolean;
-  /** Live pixel position while the FAB is being dragged; null when not dragging. */
-  fabDragPosition: { x: number; y: number } | null;
-  /** FAB's committed pixel position, always derived from its logical corner anchor. */
-  fabPosition: { x: number; y: number };
   floatingHeight: number;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };
@@ -59,10 +55,6 @@ export interface UseCopilotDrawerLayoutResult {
   handleDockPositionSelect: (value: string) => void;
   handleExpandFromCircle: () => void;
   handleFabTriggerClick: () => void;
-  handleFabTriggerPointerDown: (e: PointerEvent<HTMLButtonElement>) => void;
-  handleFabTriggerPointerLeave: (e: PointerEvent<HTMLButtonElement>) => void;
-  handleFabTriggerPointerMove: (e: PointerEvent<HTMLButtonElement>) => void;
-  handleFabTriggerPointerUp: (e: PointerEvent<HTMLButtonElement>) => void;
   handlePointerDown: (e: PointerEvent) => void;
   handlePointerMove: (e: PointerEvent) => void;
   handlePointerUp: (e: PointerEvent) => void;
@@ -70,7 +62,6 @@ export interface UseCopilotDrawerLayoutResult {
     edge: "e" | "s" | "se"
   ) => (e: PointerEvent) => void;
   isCollapsingToIcon: boolean;
-  isIconDragging: boolean;
   margin: number;
   setCompactStatusFlapHeight: Dispatch<SetStateAction<number>>;
   sidebarDockIndicatorStyle: CSSProperties | null;

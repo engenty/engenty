@@ -38,6 +38,7 @@ export function useRegisterCopilotFrontendTools(
   });
   useRegisterCloseCopilotFrontendTool({ setOpen: options.setOpen });
   useRegisterSetCopilotDockModeFrontendTool({
+    setOpen: options.setOpen,
     setPreferredDockMode: options.setPreferredDockMode,
   });
   useRegisterOpenDialogFrontendTool();

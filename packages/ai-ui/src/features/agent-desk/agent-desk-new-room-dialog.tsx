@@ -15,12 +15,12 @@ import {
   DialogDescription,
   DialogFooter,
   DialogTitle,
-  Engenty,
   Input,
   Label,
   Switch,
 } from "@engenty/ui-core";
 import { useEffect, useState } from "react";
+import { AgentFace } from "../../components/agent-face.js";
 import type { AgentDeskSwitchAgent } from "./agent-desk-switcher.js";
 import {
   ROOM_MAX_AGENTS,
@@ -166,9 +166,11 @@ export function AgentDeskNewRoomDialog(props: {
                         className="flex items-center gap-1.5 font-normal"
                         htmlFor={`agent-desk-room-${agent.id}`}
                       >
-                        <Engenty
+                        <AgentFace
+                          avatarUrl={agent.avatarUrl}
                           className="[&_.e-shadow]:hidden"
                           kind={agent.engenty}
+                          name={agent.name}
                           size={18}
                         />
                         {agent.name}

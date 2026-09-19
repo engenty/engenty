@@ -11,6 +11,10 @@ export const RAIL_TILE_REST_SHADOW_CLASSNAME =
 export const RAIL_TILE_ACTIVE_RING_CLASSNAME =
   "shadow-[0_2px_8px_rgb(0_0_0/0.35)] ring-2 ring-sidebar-foreground/90";
 
+/** Horizontal strip: ring draws inside the tile so the 56px bar does not clip it. */
+export const RAIL_TILE_ACTIVE_RING_INSET_CLASSNAME =
+  "shadow-[0_1px_4px_rgb(0_0_0/0.28)] ring-2 ring-sidebar-foreground/90 ring-inset";
+
 /** Quiet space tile: soft halo at rest, a fuller shadow on hover. */
 export const RAIL_TILE_SPACE_REST_CLASSNAME = `${RAIL_TILE_REST_SHADOW_CLASSNAME} group-hover/space:shadow-[0_0_4px_color-mix(in_oklch,var(--sidebar-foreground)_58%,transparent),0_1px_3px_rgb(0_0_0/0.22)] group-focus-within/space:shadow-[0_0_4px_color-mix(in_oklch,var(--sidebar-foreground)_58%,transparent),0_1px_3px_rgb(0_0_0/0.22)]`;
 

@@ -8,6 +8,7 @@ import {
   createEngentyCopilotAgent,
 } from "@engenty/engenty-copilot/ai";
 import { createTool } from "@mastra/core/tools";
+import { createAgentLookTools } from "../../tools/agent-look-tool.js";
 import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
 import { createAgentSelfReviseTools } from "../../tools/agent-self-revise-tool.js";
 import { createAgentStatusTools } from "../../tools/agent-status-tool.js";
@@ -131,6 +132,9 @@ export function createBuiltinRegistryTools() {
     // already has agent_propose, which covers its own row and everyone
     // else's.
     ...createAgentSelfReviseTools(),
+    // Own face: blob catalog, generated portrait, name + mandate — proposed
+    // for approval. Resolution only; specialists keep it via the catalog floor.
+    ...createAgentLookTools(),
     // Its sibling for the Workflows a specialist owns: one existing Workflow,
     // a new unapproved version, never a new Workflow and never someone
     // else's. Resolution only — the copilot's workflow_propose already

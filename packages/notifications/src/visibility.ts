@@ -1,17 +1,24 @@
-// Which records a space shows.
-//
-// A record stamped with a space belongs to that space. A record with no space
-// is tenant-global: a decision, alert or todo there is a blocker wherever the
-// person stands, so every space shows it; a global `update` is FYI and shows
-// on the tenant page only — repeated in every space it is noise.
+// Which records a space shows: only rows stamped with that space. Tenant-global
+// rows (no space) belong on All, not repeated in every space inbox.
 import type { NotificationRecord } from "./contracts.js";
 
 export function visibleInSpace(
-  record: Pick<NotificationRecord, "class" | "space_id">,
+  record: Pick<NotificationRecord, "space_id">,
   spaceId: string
 ): boolean {
-  if (record.space_id === spaceId) {
-    return true;
+  return record.space_id === spaceId;
+}
+
+/**
+ * `scope=space` on the list: this space's rows, or nothing when the request
+ * named no space. Never fall through to the tenant aggregate — that is
+ * `scope=tenant`.
+ */
+export function notificationsInSpaceScope<
+  T extends Pick<NotificationRecord, "space_id">,
+>(records: readonly T[], spaceId: string | null | undefined): T[] {
+  if (!spaceId) {
+    return [];
   }
-  return record.space_id === null && record.class !== "update";
+  return records.filter((record) => visibleInSpace(record, spaceId));
 }

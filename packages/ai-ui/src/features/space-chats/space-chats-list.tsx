@@ -1,9 +1,13 @@
 "use client";
 
-import { Button, cn, Engenty } from "@engenty/ui-core";
-import { Lock } from "lucide-react";
+import { Button, cn } from "@engenty/ui-core";
 import { Link } from "react-router-dom";
-import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
+import { AgentFace } from "../../components/agent-face.js";
+import {
+  type ChatSpaceAudience,
+  ChatVisibilityGlyphs,
+  chatVisibilityOf,
+} from "../../components/copilot/chat-visibility.js";
 import type {
   SpaceChatKind,
   SpaceChatKindGroup,
@@ -30,6 +34,7 @@ function ChatRow({
   onJoin,
   labels,
   row,
+  spaceAudience,
   withBlob,
 }: {
   href: string;
@@ -38,6 +43,7 @@ function ChatRow({
   labels: SpaceChatsListLabels;
   onJoin?: (row: SpaceChatRow) => void;
   row: SpaceChatRow;
+  spaceAudience?: ChatSpaceAudience | null;
   /** Rooms and DMs carry their agent on the row; desks have it as heading. */
   withBlob: boolean;
 }) {
@@ -54,9 +60,11 @@ function ChatRow({
               key={agentId}
               style={{ zIndex: 3 - index }}
             >
-              <Engenty
+              <AgentFace
+                avatarUrl={agentId === row.agentId ? row.avatarUrl : undefined}
                 className="[&_.e-shadow]:hidden"
                 kind={agentId === row.agentId ? row.engenty : "round"}
+                name={agentId === row.agentId ? row.agentName : agentId}
                 size={20}
               />
             </span>
@@ -66,17 +74,13 @@ function ChatRow({
       <span className="min-w-0 flex-1 truncate" title={label}>
         {label}
       </span>
-      {/* The kind, as the same glyph the chat header wears — the heading says
-          it once, the row says it where the eye lands. */}
-      <ChatKindBadge
-        iconOnly
+      {/* Who is in and how far it is visible, as the same glyphs the chat
+          header's chip wears — the heading says it once, the row says it
+          where the eye lands. */}
+      <ChatVisibilityGlyphs
         kind={row.kind}
-        memberCount={row.memberAgentIds.length}
-        name={row.agentName}
+        visibility={chatVisibilityOf(row.kind, row.visibility, spaceAudience)}
       />
-      {row.visibility === "private" && row.kind !== "dm" ? (
-        <Lock aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-      ) : null}
       {/* A run in flight is the one status worth a mark in a list this dense:
           it is the only one that changes on its own while you look at it. */}
       {row.status === "running" || row.status === "waiting" ? (
@@ -139,6 +143,7 @@ export function SpaceChatsList({
   labels,
   onJoin,
   resolveHref,
+  spaceAudience,
 }: {
   activeThreadId?: string | null;
   error?: Error | null;
@@ -147,6 +152,8 @@ export function SpaceChatsList({
   labels: SpaceChatsListLabels;
   onJoin?: (row: SpaceChatRow) => void;
   resolveHref: (row: SpaceChatRow) => string;
+  /** How far the Space reaches — the tier of a desk or an open room here. */
+  spaceAudience?: ChatSpaceAudience | null;
 }) {
   if (error) {
     return (
@@ -197,9 +204,11 @@ export function SpaceChatsList({
                       aria-hidden
                       className="grid size-6 shrink-0 place-items-center overflow-visible"
                     >
-                      <Engenty
+                      <AgentFace
+                        avatarUrl={agent.avatarUrl}
                         className="[&_.e-shadow]:hidden"
                         kind={agent.engenty}
+                        name={agent.agentName}
                         size={22}
                       />
                     </span>
@@ -219,6 +228,7 @@ export function SpaceChatsList({
                         label={row.title ?? labels.untitled}
                         labels={labels}
                         row={row}
+                        spaceAudience={spaceAudience}
                         withBlob={false}
                       />
                     ))}
@@ -241,6 +251,7 @@ export function SpaceChatsList({
                   labels={labels}
                   onJoin={onJoin}
                   row={row}
+                  spaceAudience={spaceAudience}
                   withBlob
                 />
               ))}

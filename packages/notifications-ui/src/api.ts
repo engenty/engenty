@@ -1,6 +1,6 @@
 // /api/notifications on core (@engenty/notifications). Every request rides
 // `requestApiJson`, which already sends `x-engenty-space-id` — the server
-// narrows `scope=space` lists and the `in_space` count by it.
+// narrows `scope=space` lists to that space's rows.
 import { requestApiJson } from "@engenty/api-client";
 import type {
   NotificationRecord,
@@ -15,8 +15,7 @@ export interface ListNotificationsInput {
   class?: NotificationRecord["class"];
   kind?: string;
   limit?: number;
-  /** `space` (default) narrows by the current space; `global` never does. */
-  scope?: "space" | "global";
+  scope?: "space" | "tenant";
   source?: string;
   status?: "open" | "all";
   stream?: string;

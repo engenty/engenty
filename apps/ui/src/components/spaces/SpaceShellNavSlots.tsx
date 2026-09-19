@@ -13,9 +13,10 @@
  * default outside `/s/…` and so cannot tell us whether we are in a space at all.
  *
  * Switching spaces is the rail's job (current tile opens the chooser). The
- * column still *names* the space at every level — a label, not a control.
- * Inside a module the back-row sits under that name, so the space is not
- * replaced by a second copy of the module title.
+ * column still *names* the space at every level, and that name is the link
+ * home — there is no Dashboard row under it any more. Inside a module the
+ * back-row sits under that name, so the space is not replaced by a second
+ * copy of the module title.
  */
 import { useUiContributions } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
@@ -38,7 +39,7 @@ function useSpaceByKey(spaceKey: string) {
   );
 }
 
-/** Column header at every space level: the space's name, not a switcher. */
+/** Column header at every space level: the space's name, linking home. */
 export function SpaceNavTitleSlot({ spaceKey }: { spaceKey: string }) {
   const space = useSpaceByKey(spaceKey);
   return (
@@ -46,6 +47,7 @@ export function SpaceNavTitleSlot({ spaceKey }: { spaceKey: string }) {
       color={space?.color}
       icon={space?.icon}
       name={space?.name ?? spaceKey}
+      to={spaceRootPath(spaceKey)}
     />
   );
 }

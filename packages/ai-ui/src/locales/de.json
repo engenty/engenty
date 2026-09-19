@@ -298,6 +298,24 @@
       "readers": "Nur du siehst das"
     }
   },
+  "chatVisibility": {
+    "private": {
+      "label": "Privat",
+      "readers": "Nur du siehst das. Niemand kann beitreten.",
+      "readersWith": "Nur du und {{name}}. Niemand kann beitreten."
+    },
+    "protected": {
+      "label": "Geschützt",
+      "readers": "Nur die Mitglieder sehen diesen Chat.",
+      "readersCount_one": "Nur das eine Mitglied sieht diesen Chat.",
+      "readersCount_other": "Nur die {{count}} Mitglieder sehen diesen Chat."
+    },
+    "open": {
+      "label": "Offen",
+      "readers": "Für alle im Space lesbar.",
+      "readersIn": "Für alle in {{space}} lesbar."
+    }
+  },
   "agentMessage": {
     "failed": "Nicht erreicht:",
     "from": "Nachricht von",

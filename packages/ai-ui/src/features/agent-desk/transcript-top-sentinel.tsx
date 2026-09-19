@@ -14,8 +14,15 @@ import { useEffect, useRef } from "react";
 export const TRANSCRIPT_TOP_SENTINEL_PX = 48;
 
 export function TranscriptTopSentinel({
+  heightPx = TRANSCRIPT_TOP_SENTINEL_PX,
   onVisibilityChange,
 }: {
+  /**
+   * How far the chat must scroll before "the beginning" counts as gone —
+   * as tall as whatever the collapsed band is meant to replace, so the
+   * band never covers half of it.
+   */
+  heightPx?: number;
   onVisibilityChange: (visible: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -49,8 +56,8 @@ export function TranscriptTopSentinel({
       data-testid="transcript-top-sentinel"
       ref={ref}
       style={{
-        height: TRANSCRIPT_TOP_SENTINEL_PX,
-        marginBottom: -TRANSCRIPT_TOP_SENTINEL_PX,
+        height: heightPx,
+        marginBottom: -heightPx,
       }}
     />
   );

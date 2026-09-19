@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { type ChatKind, ChatKindBadge } from "../chat-kind-badge.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import type { CopilotHeaderChrome } from "./copilot-panel-content-types";
 import { CopilotTitle } from "./copilot-panel-debug-details";

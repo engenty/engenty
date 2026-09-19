@@ -15,10 +15,11 @@
  * other mount — not a mix-in of its chats under the space column.
  *
  * The inbox — the shell's notification centre narrowed to this space — is no
- * longer a row here: it is the dashboard's bell, and Work's first row is the
- * Dashboard itself. Its unseen count still shows in both places (and on Plan
- * while that tab exists), because a space without Tasks still receives
- * approvals, questions and reports.
+ * longer a row here: it is the dashboard's bell. Nor is the Dashboard a row:
+ * the Work tab IS the way home, so a row under it saying the same thing was
+ * two doors to one place. What still waits for a person there rides on the
+ * tab as its count (and on Plan while that tab exists), because a space
+ * without Tasks still receives approvals, questions and reports.
  */
 import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -29,15 +30,10 @@ import {
   useUiContributions,
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
-import {
-  Database,
-  LayoutDashboard,
-  LayoutGrid,
-  SquareCheck,
-} from "lucide-react";
+import { Database, LayoutGrid, SquareCheck } from "lucide-react";
 import type { ComponentType } from "react";
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { SpaceArtifactsSection } from "@/components/spaces/SpaceArtifactsSection";
 import { SpaceConversationSections } from "@/components/spaces/SpaceConversationSections";
 import { SpaceCopilotWorkRows } from "@/components/spaces/SpaceCopilotWorkRows";
@@ -46,11 +42,10 @@ import { SpaceFilesSection } from "@/components/spaces/SpaceFilesSection";
 import { SpaceMembersSection } from "@/components/spaces/SpaceMembersSection";
 import { SpaceModulesSection } from "@/components/spaces/SpaceModulesSection";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
-import { NavCountBadge, SpaceNavRow } from "@/components/spaces/space-nav-row";
+import { NavCountBadge } from "@/components/spaces/space-nav-row";
 import type { Space } from "@/lib/api/spaces-client";
 import { type SpaceSectionId, spaceTabModuleId } from "@/lib/space-nav";
 import {
-  isSpaceDashboardBoundPath,
   spaceDataPath,
   spaceModulePath,
   spaceRootPath,
@@ -96,9 +91,9 @@ export function SpaceNavTabs({
   // included); the tenant-wide number is the bell's.
   const inboxCount =
     inboxUnseenQuery.data?.in_space ?? inboxUnseenQuery.data?.total ?? 0;
-  // The Dashboard's own badge counts what still WAITS for a person here, not
+  // The Work tab's own badge counts what still WAITS for a person here, not
   // what is unread: an approval you looked at yesterday and left open is the
-  // whole reason to put a number on the row.
+  // whole reason to put a number on the tab.
   const needsInputCount = useSpaceNeedsInputCount();
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
   // Personal-space owners may mount modules and agents (admins cannot see
@@ -166,14 +161,6 @@ export function SpaceNavTabs({
   // What Modules lists — a tab-owning module and an assistant module are both
   // filed elsewhere. Shared with the home's Module column.
   const { modules } = useSpaceListedModules(spaceId);
-  const location = useLocation();
-  const dashboardHref = spaceRootPath(spaceKey);
-  // The home is the one row whose page has no module segment: an exact match,
-  // so /s/<key>/agents does not light it up too. The inbox is the exception —
-  // it is the dashboard's list, so the row stays selected there.
-  const dashboardActive =
-    location.pathname === dashboardHref ||
-    isSpaceDashboardBoundPath(location.pathname, spaceKey);
 
   return (
     <div className="flex flex-col gap-3">
@@ -189,18 +176,30 @@ export function SpaceNavTabs({
         {sections.map((item) => {
           const Icon = item.icon;
           const isActive = section === item.id;
-          const planBadge = item.id === "plan" ? inboxCount : 0;
+          // Work carries what waits for a person in the space (the home's
+          // bell shows the same number); Plan carries the inbox's unseen.
+          const badge =
+            item.id === "plan"
+              ? inboxCount
+              : item.id === "work"
+                ? needsInputCount
+                : 0;
+          const badgeLabel =
+            badge <= 0
+              ? undefined
+              : item.id === "plan"
+                ? t("spaces.tabs.planWithCount", {
+                    count: badge,
+                    defaultValue: "Plan, {{count}} in inbox",
+                  })
+                : t("spaces.tabs.workWithCount", {
+                    count: badge,
+                    defaultValue: "Work, {{count}} waiting for you",
+                  });
           return (
             <Link
               aria-current={isActive ? "page" : undefined}
-              aria-label={
-                planBadge > 0
-                  ? t("spaces.tabs.planWithCount", {
-                      count: planBadge,
-                      defaultValue: "Plan, {{count}} in inbox",
-                    })
-                  : undefined
-              }
+              aria-label={badgeLabel}
               className={cn(
                 // Tighter under the label than over the icon: the uppercase
                 // label has no descenders, so symmetric padding reads as a gap
@@ -224,7 +223,7 @@ export function SpaceNavTabs({
               </span>
               <NavCountBadge
                 className="absolute top-0.5 right-0.5"
-                count={planBadge}
+                count={badge}
               />
             </Link>
           );
@@ -233,38 +232,23 @@ export function SpaceNavTabs({
 
       {section === "work" ? (
         <div className="flex flex-col gap-3">
-          {/* Favoriten sit where Inbox used to lead; Inbox stays the first
-              list row under them; then this person's sections and the
-              built-ins. One component, because dragging a row into Favoriten
-              crosses the Dashboard row. Copilot sits beside Dashboard as the
-              door into its module sidebar — not its chats mixed into this list. */}
+          {/* The list leads with the rows you reach for most: Copilot, the
+              door into its module sidebar, then Favoriten; then this person's
+              sections and the built-ins. One component, because dragging a
+              row into Favoriten crosses the Copilot row. */}
           <SpaceConversationSections
             canAdd={canEdit}
             canManage={canEdit}
             spaceId={spaceId}
             spaceKey={spaceKey}
           >
-            <div className="flex flex-col">
-              {/* The home, by name. Inbox left this list for the dashboard's
-                  own bell: what waits for you is one destination, and it now
-                  sits where you land rather than a row above the roster. The
-                  count comes along — the row still has to say that something
-                  is waiting, and it is the SAME number the bell shows. */}
-              <SpaceNavRow
-                active={dashboardActive}
-                badge={needsInputCount}
-                href={dashboardHref}
-                icon={LayoutDashboard}
-                label={t("spaces.dashboard", { defaultValue: "Dashboard" })}
+            {copilotApps.length > 0 ? (
+              <SpaceCopilotWorkRows
+                activeModuleId={activeModuleId}
+                apps={copilotApps}
+                spaceKey={spaceKey}
               />
-              {copilotApps.length > 0 ? (
-                <SpaceCopilotWorkRows
-                  activeModuleId={activeModuleId}
-                  apps={copilotApps}
-                  spaceKey={spaceKey}
-                />
-              ) : null}
-            </div>
+            ) : null}
           </SpaceConversationSections>
           {/* The space's own things, after its conversations and before the
               modules that produce records: a pinned artifact is at hand the

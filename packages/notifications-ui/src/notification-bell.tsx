@@ -1,10 +1,9 @@
-// The bell, in the app rail just above the personal avatar: the tenant-wide
-// unseen count, and the aggregate list in a popover (opening beside the rail)
-// or a drawer. Deliberately not narrowed by the space the user is standing in
-// — a decision waiting elsewhere is still waiting. Mounts the client-channel
-// watcher and the realtime subscription, so both run exactly once per shell.
+// The bell, in the app rail just above the personal avatar: how many
+// Freigaben + Fehler are still open. Same list the inbox tabs count, so the
+// numbers add up. Updates are FYI and stay off the badge. Mounts the
+// client-channel watcher and the realtime subscription, so both run exactly
+// once per shell.
 
-import { currentRequestSpaceId } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   cn,
@@ -20,12 +19,14 @@ import {
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Bell } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useClientChannels } from "./client-channels.js";
 import {
   NotificationInboxPanel,
   notificationInboxPopoverClassName,
 } from "./notification-inbox-panel.js";
-import { useUnseenCountQuery } from "./queries.js";
+import { spaceKeyFromPathname } from "./notification-paths.js";
+import { useNeedsInputCount } from "./queries.js";
 import { useNotificationsRealtime } from "./realtime.js";
 
 export { NOTIFICATIONS_PATH } from "./notification-paths.js";
@@ -69,15 +70,15 @@ export function NotificationBell({
   surface = "popover",
 }: NotificationBellProps) {
   const { currentTenant } = useWorkspaceContext();
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
-  const countQuery = useUnseenCountQuery();
   useNotificationsRealtime(currentTenant?.id ?? null);
   useClientChannels();
-  // Inside a space the badge counts what is waiting HERE (global blockers
-  // included); the tenant-wide number stays one click away under "All".
-  const inSpace = currentRequestSpaceId() !== null;
-  const count =
-    (inSpace ? countQuery.data?.in_space : null) ?? countQuery.data?.total ?? 0;
+  // Freigaben + Fehler still open in this scope. Same list the inbox tabs
+  // badge, so the numbers add up. Updates stay off every badge. Read the
+  // URL — the rail sits outside the space route's params.
+  const inSpace = spaceKeyFromPathname(pathname) !== null;
+  const count = useNeedsInputCount(inSpace ? "space" : "tenant");
 
   const panel = (
     <NotificationInboxPanel

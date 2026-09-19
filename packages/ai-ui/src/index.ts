@@ -122,6 +122,7 @@ export {
   type AgUiAgentInspectorWidgetProps,
   openAgUiAgentInspector,
 } from "./components/ag-ui-inspector/ag-ui-inspector-widget.js";
+export { AgentFace } from "./components/agent-face.js";
 export {
   PromptInput,
   PromptInputBody,
@@ -149,6 +150,20 @@ export {
   type UseChatLaneComposerParams,
   useChatLaneComposer,
 } from "./components/copilot/chat-lane/index.js";
+export {
+  CHAT_VISIBILITY_ICONS,
+  type ChatSpaceAudience,
+  type ChatVisibility,
+  ChatVisibilityBand,
+  ChatVisibilityChip,
+  ChatVisibilityGlyphs,
+  ChatVisibilityMarker,
+  type ChatWho,
+  chatVisibilityOf,
+  chatWhoOf,
+  spaceAudienceVisibility,
+  useChatVisibilityCopy,
+} from "./components/copilot/chat-visibility.js";
 export { agentIdToMentionHandle } from "./components/copilot/composer/copilot-agent-mention.js";
 export type { StarterPromptItem } from "./components/copilot/composer/copilot-composer.js";
 export { CopilotComposerSection } from "./components/copilot/composer/copilot-composer-section.js";
@@ -275,6 +290,12 @@ export {
   setCopilotComposerDraft,
 } from "./copilot/copilot-composer-draft-intent.js";
 export {
+  focusInlineAsk,
+  focusWorkComposer,
+  registerInlineAskFocus,
+  registerWorkComposerFocus,
+} from "./copilot/copilot-inline-ask.js";
+export {
   CopilotThreadBindingProvider,
   type CopilotThreadBindingProviderProps,
   useCopilotThreadBinding,
@@ -370,6 +391,7 @@ export {
 export { AgentRemovalDialog } from "./features/agent-desk/agent-removal-dialog.js";
 export { AgentRoom } from "./features/agent-desk/agent-room.js";
 export type { AgentDeskSpacePerson } from "./features/agent-desk/agent-room-info-panel.js";
+export { CompanionWorkChat } from "./features/agent-desk/companion-work-chat.js";
 export {
   type RoomVisibility,
   type SpaceConversations,
@@ -411,7 +433,10 @@ export {
   buildConnectionDetailPath,
   CONNECTIONS_ROOT_PATH,
 } from "./features/agents-workspace/agent-workspace-url-state.js";
-export { formatRelativeDate } from "./features/agents-workspace/date-format.js";
+export {
+  formatRelativeDate,
+  formatRelativeDateShort,
+} from "./features/agents-workspace/date-format.js";
 // Shell nav for module-owned pages living under /admin/engenty (e.g. the
 // connections module's Connections page): same sidebar as the core pages.
 export { EngentyCanvasPageChrome } from "./features/agents-workspace/engenty-catalog-page-chrome.js";

@@ -22,6 +22,13 @@ import {
  */
 export type PageTopbarChrome = "default" | "band";
 
+/**
+ * `"flip"` turns the topbar to the other theme (dark on a light page, light
+ * on a dark one) for a page whose top band is itself flipped — a private
+ * chat's — so the crumbs and actions floating over that band stay readable.
+ */
+export type PageTopbarTone = "default" | "flip";
+
 /** Paints the shell column + main for Ember paper stacks (`--paper` / `--paper-2`). */
 export type PageContentStackBackground = "default" | "paper" | "card";
 
@@ -148,6 +155,7 @@ interface PageHeaderContextValue {
    * hero/cover at the top of the scroll area.
    */
   topbarOverlap: boolean;
+  topbarTone: PageTopbarTone;
 }
 
 interface PageHeaderDispatchContextValue {
@@ -165,6 +173,7 @@ interface PageHeaderDispatchContextValue {
   setSecondaryNavSearchResultsOnly: (value: boolean) => void;
   setTopbarChrome: (chrome: PageTopbarChrome) => void;
   setTopbarOverlap: (overlap: boolean) => void;
+  setTopbarTone: (tone: PageTopbarTone) => void;
 }
 
 const PageHeaderContext = createContext<PageHeaderContextValue | null>(null);
@@ -191,6 +200,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
   const [topbarChrome, setTopbarChromeState] =
     useState<PageTopbarChrome>("default");
   const [topbarOverlap, setTopbarOverlapState] = useState(false);
+  const [topbarTone, setTopbarToneState] = useState<PageTopbarTone>("default");
   const [contentStackBackground, setContentStackBackgroundState] =
     useState<PageContentStackBackground>("default");
 
@@ -257,6 +267,10 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
     setTopbarOverlapState((prev) => (prev === overlap ? prev : overlap));
   }, []);
 
+  const setTopbarTone = useCallback((tone: PageTopbarTone) => {
+    setTopbarToneState((prev) => (prev === tone ? prev : tone));
+  }, []);
+
   const setContentStackBackground = useCallback(
     (value: PageContentStackBackground) => {
       setContentStackBackgroundState((prev) => (prev === value ? prev : value));
@@ -278,6 +292,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       secondaryNavSearchResultsOnly,
       topbarChrome,
       topbarOverlap,
+      topbarTone,
     }),
     [
       actions,
@@ -292,6 +307,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       secondaryNavSearchResultsOnly,
       topbarChrome,
       topbarOverlap,
+      topbarTone,
     ]
   );
   const dispatchValue = useMemo(
@@ -308,6 +324,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setSecondaryNavSearchResultsOnly,
       setTopbarChrome,
       setTopbarOverlap,
+      setTopbarTone,
     }),
     [
       setActions,
@@ -322,6 +339,7 @@ export function PageHeaderProvider({ children }: { children: ReactNode }) {
       setSecondaryNavSearchResultsOnly,
       setTopbarChrome,
       setTopbarOverlap,
+      setTopbarTone,
     ]
   );
 
@@ -423,6 +441,8 @@ export function usePageConfig(config: {
    * for a full-bleed hero/cover that flows under the transparent topbar. Resets on unmount.
    */
   topbarOverlap?: boolean;
+  /** Turns the topbar to the other theme over a flipped band. Resets on unmount. */
+  topbarTone?: PageTopbarTone;
 }) {
   const {
     actions,
@@ -435,6 +455,7 @@ export function usePageConfig(config: {
     secondaryNavHeaderSlot,
     topbarChrome,
     topbarOverlap,
+    topbarTone,
   } = config;
   const registersActions = Object.hasOwn(config, "actions");
   const {
@@ -448,6 +469,7 @@ export function usePageConfig(config: {
     setSecondaryNavHeaderSlot,
     setTopbarChrome,
     setTopbarOverlap,
+    setTopbarTone,
   } = usePageHeaderDispatch();
 
   // Update slots when inputs change. Do not clear in this effect's cleanup:
@@ -529,6 +551,12 @@ export function usePageConfig(config: {
   }, [topbarOverlap, setTopbarOverlap]);
 
   useLayoutEffect(() => () => setTopbarOverlap(false), [setTopbarOverlap]);
+
+  useLayoutEffect(() => {
+    setTopbarTone(topbarTone ?? "default");
+  }, [topbarTone, setTopbarTone]);
+
+  useLayoutEffect(() => () => setTopbarTone("default"), [setTopbarTone]);
 
   useLayoutEffect(() => {
     setRouteBreadcrumbAction(routeBreadcrumbAction ?? null);

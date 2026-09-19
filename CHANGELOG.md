@@ -4,6 +4,18 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.7] - 2026-09-19
+- ADDED **[chat]** Who-glyph chip, tidy sidebar, phone actions in the menu
+- ADDED **[chat]** State who reads a chat in a header band and sidebar markers
+- ADDED **[copilot]** Cut Talk, Work, and Window over to one conversation chrome
+- ADDED **[copilot]** Dock the Engenty in the personal app-bar cluster
+- ADDED **[desktop]** Tint the native title bar to match the AppBar
+- ADDED **[shell]** Dock the app bar on any screen edge
+- FIXED **[notifications]** Show app-release approvals in the space inbox
+- FIXED **[notifications]** File gated hire proposals in the inbox
+- FIXED **[shell]** Inset the top and bottom app bar from the window edge
+- FIXED **[notifications]** Count open decisions per space, not the tenant mix
+
 ## [0.2.6] - 2026-09-18
 - ADDED **[notifications]** Tabbed rail inbox with the bell above the avatar
 - DOCS Shorter hero lede

@@ -29,6 +29,11 @@ export function AgentDeskChat(props: {
   composerPlaceholder?: string;
   /** Identity that scrolls with the transcript, not a block above it. */
   scrollHeader?: ReactNode;
+  /**
+   * Work / Window: chat only — no desk empty-landing, no context card.
+   * Talk (the desk page) leaves this unset.
+   */
+  companion?: boolean;
   /** False when the surface around this chat lays the context card out itself. */
   contextPane?: boolean;
   /**
@@ -91,6 +96,9 @@ export function AgentDeskChat(props: {
         agentSkills={props.agentSkills}
         agentStarters={props.agentStarters}
         composerLeadingControl={props.composerLeadingControl}
+        {...(props.companion === undefined
+          ? {}
+          : { companion: props.companion })}
         {...(props.composerPlaceholder
           ? { composerPlaceholder: props.composerPlaceholder }
           : {})}

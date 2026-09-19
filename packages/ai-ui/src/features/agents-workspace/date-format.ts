@@ -5,7 +5,10 @@ const MINUTE_MS = 60 * SECOND_MS;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
-export function formatRelativeDate(value: string | null) {
+export function formatRelativeDate(
+  value: string | null,
+  options?: { style?: Intl.RelativeTimeFormatStyle }
+) {
   if (!value) {
     return null;
   }
@@ -17,7 +20,10 @@ export function formatRelativeDate(value: string | null) {
 
   const delta = timestamp - Date.now();
   const absoluteDelta = Math.abs(delta);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat(undefined, {
+    numeric: "auto",
+    style: options?.style ?? "long",
+  });
 
   if (absoluteDelta < MINUTE_MS) {
     return formatter.format(Math.round(delta / SECOND_MS), "second");
@@ -30,6 +36,11 @@ export function formatRelativeDate(value: string | null) {
   }
 
   return formatter.format(Math.round(delta / DAY_MS), "day");
+}
+
+/** The compact form for a band or a chip: "vor 3 Min.", "3m ago". */
+export function formatRelativeDateShort(value: string | null) {
+  return formatRelativeDate(value, { style: "narrow" });
 }
 
 export function formatDateTime(value: string | null) {

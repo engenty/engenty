@@ -1,51 +1,36 @@
 "use client";
 
 import type { CopilotLayoutPersistence } from "@engenty/app-shell";
+import { useCopilotShellOrNull } from "@engenty/app-shell";
 import {
   cn,
   SidePanel,
   SidePanelContent,
   SidePanelDescription,
   SidePanelTitle,
-  useBlobCharacterCycle,
 } from "@engenty/ui-core";
 import type { ReactNode, RefObject } from "react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
-import { PromptInputProvider } from "../../ai-elements/prompt-input";
-import { CopilotCompactComposerShell } from "../composer/copilot-compact-composer-shell";
-import {
-  type CopilotCompactContextOption,
-  CopilotCompactLauncher,
-} from "../composer/copilot-compact-launcher";
-import { CopilotComposerSection } from "../composer/copilot-composer-section";
-import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
-import { COMPACT_LAUNCHER_WIDTH } from "./copilot-drawer-constants";
-import { CopilotDrawerSnapOverlays } from "./copilot-drawer-snap-overlays";
 import type { CopilotDockMode } from "./copilot-drawer-types";
+import { shouldShowCopilotFab } from "./copilot-drawer-utils";
 import {
-  resolveCompactPromptDockMode,
-  shouldShowCopilotFab,
-} from "./copilot-drawer-utils";
-import { CopilotFabTrigger } from "./copilot-fab-trigger";
+  CopilotFabTrigger,
+  type CopilotWhoOption,
+} from "./copilot-fab-trigger";
 import { CopilotWindowSurface } from "./copilot-window-surface";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
 
 export interface CopilotDrawerSurfaceTreeProps {
-  /** Combined drag-grip + position-menu trigger for the bottom dock. */
-  bottomDockGripMenu?: ReactNode;
   closeLabel: string;
-  collapseToCompactLauncher: () => void;
   compactContextOptions: CopilotCompactContextOption[];
-  /** Rendered HITL interrupt banner (approval / decision / feedback) for the
-   *  compact surfaces' status flap. Built by the drawer body from the gated
-   *  `dockInterrupt` so the bottom dock and floating launcher show the same
-   *  approval card the docked panel does. Null when nothing is pending. */
-  compactInterruptContent?: ReactNode;
   composerPlaceholder: string;
+  /** Desktop app-bar blob slot. When attached, the avatar portals here. */
+  copilotDockRef?: RefObject<HTMLDivElement | null> | undefined;
   /** Layout persistence — the `window` mode stores its rect here. */
   copilotLayout?: CopilotLayoutPersistence | null;
   copilotPositionDropdown: ReactNode;
@@ -67,6 +52,8 @@ export interface CopilotDrawerSurfaceTreeProps {
   mainContentReady: boolean;
   mainContentRef: RefObject<HTMLElement | null> | undefined;
   onOpenChange: (open: boolean) => void;
+  onOpenChat?: () => void;
+  onOpenPrompt?: () => void;
   open: boolean;
   panelContent: ReactNode;
   panelContentProps: CopilotPanelContentProps;
@@ -75,43 +62,35 @@ export interface CopilotDrawerSurfaceTreeProps {
   renderCopilotThreadChooser: (variant: "compact" | "panel") => ReactNode;
   selectedCompactContext: CopilotCompactContextOption | undefined;
   selectedCompactContextId: string;
-  /** Setter for the preferred dock mode (bottom, floating, etc.). */
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
-  showCompactLauncher: boolean;
   surfaceInstanceKey: string;
   threadChooserEnabled: boolean;
   title: string | undefined;
+  whoOptions?: CopilotWhoOption[];
+  /** Window chrome: who chooser, session, new chat, position, close. */
+  windowTitleBar?: ReactNode;
 }
 
 function renderFabTrigger(input: {
-  layout: UseCopilotDrawerLayoutResult;
+  docked: boolean;
+  onOpenChat?: () => void;
   onOpenPrompt?: () => void;
   onStartVoice?: () => void;
   open: boolean;
   title: string | undefined;
+  triggerClick: () => void;
+  whoOptions?: CopilotWhoOption[];
 }) {
   return (
     <CopilotFabTrigger
       ariaLabel={input.title ?? "Open copilot"}
-      bottomDockIndicatorStyle={input.layout.bottomDockIndicatorStyle}
-      buttonFabIndicatorStyle={input.layout.buttonFabIndicatorStyle}
-      dragPosition={
-        input.layout.isIconDragging ? input.layout.fabDragPosition : null
-      }
-      enterFromClose={input.layout.enterFromClose}
-      fabPosition={input.layout.fabPosition}
+      docked={input.docked}
       isActive={input.open}
-      isDragging={input.layout.isIconDragging}
-      onClick={input.layout.handleFabTriggerClick}
+      onClick={input.triggerClick}
+      onOpenChat={input.onOpenChat}
       onOpenPrompt={input.onOpenPrompt}
-      onPointerDown={input.layout.handleFabTriggerPointerDown}
-      onPointerLeave={input.layout.handleFabTriggerPointerLeave}
-      onPointerMove={input.layout.handleFabTriggerPointerMove}
-      onPointerUp={input.layout.handleFabTriggerPointerUp}
       onStartVoice={input.onStartVoice}
-      sidebarDockIndicatorStyle={input.layout.sidebarDockIndicatorStyle}
-      snapTarget={input.layout.snapTarget}
-      suppressDuringMorph={input.layout.isCollapsingToIcon}
+      whoOptions={input.whoOptions}
     />
   );
 }
@@ -176,160 +155,78 @@ function renderDrawerFallback(input: {
 }
 
 export function CopilotDrawerSurfaceTree({
-  threadChooserEnabled,
-  closeLabel,
-  collapseToCompactLauncher,
-  compactContextOptions,
-  compactInterruptContent,
-  composerPlaceholder,
   copilotLayout = null,
-  copilotPositionDropdown,
+  copilotDockRef,
   copilotSidebarRef,
   dragHandleLabel,
   effectiveMode,
-  handleCompactContextChange,
   layout,
-  mainContentReady,
-  mainContentRef,
   onOpenChange,
+  onOpenChat,
+  onOpenPrompt,
   open,
   panelContent,
-  panelContentProps,
-  preferredDockMode = null,
-  recentCompactContexts,
-  renderCopilotThreadChooser,
-  selectedCompactContext,
-  selectedCompactContextId,
-  injected,
-  setPreferredDockMode,
-  showCompactLauncher,
   surfaceInstanceKey,
   title,
-  bottomDockGripMenu,
+  whoOptions,
+  windowTitleBar,
 }: CopilotDrawerSurfaceTreeProps) {
-  const blobCharacter = useBlobCharacterCycle();
-  const [bottomIsMultiline, setBottomIsMultiline] = useState(false);
   const { session: voiceSession } = useCopilotVoice();
+  const shell = useCopilotShellOrNull();
+  const dockContainer =
+    shell?.copilotDockReady === true
+      ? (shell.copilotDockRef.current ?? copilotDockRef?.current ?? null)
+      : null;
+  const docked = dockContainer != null;
   const showFab = shouldShowCopilotFab({
+    chromeHidden: shell?.chromeHidden,
     collapseToCircle: layout.collapseToCircle,
+    docked,
     isCollapsingToIcon: layout.isCollapsingToIcon,
     open,
-    showCompactLauncher,
     voiceSessionActive: voiceSession.isActive,
   });
 
   const handleOpenPrompt = useCallback(() => {
-    const mode = resolveCompactPromptDockMode(preferredDockMode);
-    if (mode === "bottom") {
-      setPreferredDockMode?.("bottom");
-      onOpenChange(true);
-      return;
-    }
-    layout.handleDockPositionSelect("floating");
-  }, [
-    layout.handleDockPositionSelect,
-    onOpenChange,
-    preferredDockMode,
-    setPreferredDockMode,
-  ]);
+    onOpenPrompt?.();
+  }, [onOpenPrompt]);
 
   const fabTrigger = showFab
     ? renderFabTrigger({
-        layout,
+        docked,
+        onOpenChat,
         onOpenPrompt: handleOpenPrompt,
         onStartVoice: voiceSession.start,
         open,
         title,
+        triggerClick: layout.handleFabTriggerClick,
+        whoOptions,
       })
     : null;
+  const dockedFab =
+    fabTrigger && dockContainer
+      ? createPortal(fabTrigger, dockContainer, "copilot-rail-dock")
+      : docked
+        ? null
+        : fabTrigger;
   const collapseMorph = renderCollapseMorph(layout);
 
-  if (showCompactLauncher && layout.collapseToCircle && !open) {
+  if (!open) {
     return (
       <>
-        {fabTrigger}
+        {dockedFab}
         {collapseMorph}
-      </>
-    );
-  }
-
-  // During a voice call with the shell closed, the voice FAB is the single
-  // voice surface — the compact launcher would sit next to it as a second,
-  // non-voice input.
-  if (showCompactLauncher && voiceSession.isActive && !open) {
-    return (
-      <>
-        {fabTrigger}
-        {collapseMorph}
-      </>
-    );
-  }
-
-  if (showCompactLauncher) {
-    return (
-      <>
-        {fabTrigger}
-        {collapseMorph}
-        <CopilotDrawerSnapOverlays
-          bottomDockIndicatorStyle={layout.bottomDockIndicatorStyle}
-          buttonFabIndicatorStyle={layout.buttonFabIndicatorStyle}
-          sidebarDockIndicatorStyle={layout.sidebarDockIndicatorStyle}
-          snapTarget={layout.snapTarget}
-          variant="compact"
-        />
-        <div
-          className="z-40 overflow-visible"
-          data-copilot-speech-scope
-          key={`launcher:${surfaceInstanceKey}`}
-          ref={layout.compactLauncherMeasureRef}
-          style={{
-            position: "fixed",
-            left: layout.floatingPosition.x,
-            top: layout.floatingPosition.y,
-            width: COMPACT_LAUNCHER_WIDTH,
-            maxWidth: `calc(100vw - ${layout.margin * 2}px)`,
-          }}
-        >
-          <CopilotCompactLauncher
-            agentTickerErrorMessage={injected.error?.message ?? null}
-            agentTickerMessages={injected.messages}
-            compactStatusFlapHeight={layout.compactStatusFlapHeight}
-            composerPlaceholder={composerPlaceholder}
-            contextControlOverride={panelContentProps.composerLeadingControl}
-            contextOptions={compactContextOptions}
-            draft={injected.draft}
-            dragHandleProps={{
-              onPointerDown: layout.handlePointerDown,
-              onPointerLeave: layout.handlePointerUp,
-              onPointerMove: layout.handlePointerMove,
-              onPointerUp: layout.handlePointerUp,
-              role: "presentation",
-            }}
-            interruptContent={compactInterruptContent}
-            onCompactStatusFlapHeightChange={layout.setCompactStatusFlapHeight}
-            onNewChat={panelContentProps.onNewChat}
-            onSelectContext={handleCompactContextChange}
-            pendingUserText={injected.pendingUserText ?? null}
-            positionMenu={copilotPositionDropdown}
-            recentContextOptions={recentCompactContexts}
-            selectedContextId={selectedCompactContext?.id ?? "current"}
-            setDraft={injected.setDraft}
-            status={injected.status}
-            submitMessage={injected.submitMessage}
-            threadId={injected.activeThreadId}
-          />
-        </div>
       </>
     );
   }
 
   if (effectiveMode === "sidebar") {
     const sidebarContainer = copilotSidebarRef?.current;
-    const canPortalSidebar = open && sidebarContainer != null;
+    const canPortalSidebar = sidebarContainer != null;
 
     return (
       <>
-        {fabTrigger}
+        {dockedFab}
         {collapseMorph}
         {canPortalSidebar
           ? createPortal(
@@ -348,18 +245,16 @@ export function CopilotDrawerSurfaceTree({
               sidebarContainer,
               "copilot-inline-sidebar"
             )
-          : open
-            ? renderDrawerFallback({
-                collapseMorph,
-                fabTrigger,
-                layout,
-                onOpenChange,
-                open,
-                panelContent,
-                surfaceInstanceKey,
-                title,
-              })
-            : null}
+          : renderDrawerFallback({
+              collapseMorph,
+              fabTrigger: dockedFab,
+              layout,
+              onOpenChange,
+              open,
+              panelContent,
+              surfaceInstanceKey,
+              title,
+            })}
       </>
     );
   }
@@ -367,117 +262,24 @@ export function CopilotDrawerSurfaceTree({
   if (effectiveMode === "window") {
     return (
       <>
-        {fabTrigger}
+        {dockedFab}
         {collapseMorph}
-        {open ? (
-          <CopilotWindowSurface
-            copilotLayout={copilotLayout}
-            dragHandleLabel={dragHandleLabel}
-            surfaceInstanceKey={surfaceInstanceKey}
-            title={title}
-          >
-            {panelContent}
-          </CopilotWindowSurface>
-        ) : null}
-      </>
-    );
-  }
-
-  if (
-    effectiveMode === "bottom" &&
-    mainContentRef?.current &&
-    mainContentReady
-  ) {
-    const bottomContent = (
-      <div
-        aria-label="Copilot dock"
-        // The dock centres on the main content area. A page whose content is
-        // split (a list pane beside a detail pane) can set
-        // `--copilot-dock-inset-left` to the width it wants excluded, so the
-        // dock centres on the part being worked in rather than the whole page.
-        // Ignored below `md`, where such pages show one pane at a time.
-        // Portaled into main content, so this competes with sticky table
-        // headers (`STICKY_HEADER_CLASS` is z-20). Stay above those, below
-        // dialogs (z-50).
-        className="absolute inset-x-0 bottom-0 z-30 flex justify-center overflow-visible px-3 pt-12 pb-4 md:left-[var(--copilot-dock-inset-left,0px)]"
-        data-copilot-speech-scope
-        key={`bottom:${surfaceInstanceKey}`}
-        role="region"
-      >
-        <div
-          className="relative w-full max-w-2xl overflow-visible"
-          ref={layout.bottomDockCardRef}
+        <CopilotWindowSurface
+          copilotLayout={copilotLayout}
+          dragHandleLabel={dragHandleLabel}
+          surfaceInstanceKey={surfaceInstanceKey}
+          title={title}
+          titleBar={windowTitleBar ?? null}
         >
-          <CopilotCompactComposerShell
-            belowCard={
-              panelContentProps.composerLeadingControl ? (
-                panelContentProps.composerLeadingControl
-              ) : (
-                <CopilotContextDropdown
-                  contextLabel="Context"
-                  onSelect={handleCompactContextChange}
-                  options={compactContextOptions}
-                  recentLabel="Recent"
-                  recentOptions={recentCompactContexts}
-                  selectedId={selectedCompactContextId}
-                  variant="compact"
-                />
-              )
-            }
-            chatStatus={injected.status}
-            compactStatusFlapHeight={layout.compactStatusFlapHeight}
-            errorMessage={injected.error?.message ?? null}
-            interruptContent={compactInterruptContent}
-            isMultiline={bottomIsMultiline}
-            messages={injected.messages}
-            onCompactStatusFlapHeightChange={layout.setCompactStatusFlapHeight}
-            pendingUserText={injected.pendingUserText ?? null}
-            threadId={injected.activeThreadId}
-            variant="dock-tinted"
-          >
-            <PromptInputProvider initialInput={injected.draft}>
-              <CopilotComposerSection
-                compact
-                compactCardChrome={
-                  bottomDockGripMenu ?? copilotPositionDropdown
-                }
-                composerPlaceholder={composerPlaceholder}
-                draft={injected.draft}
-                onMultilineChange={setBottomIsMultiline}
-                onNewChat={panelContentProps.onNewChat}
-                setDraft={injected.setDraft}
-                showStarterPrompts={false}
-                // The bottom-dock composer is the SAME component the panel
-                // uses, but it was not forwarded the command catalog — so
-                // typing "/" in the docked chat opened no menu while the full
-                // page worked. The catalog already rides on panelContentProps.
-                slashCommands={panelContentProps.slashCommands}
-                status={injected.status}
-                submitMessage={injected.submitMessage}
-              />
-            </PromptInputProvider>
-          </CopilotCompactComposerShell>
-        </div>
-      </div>
-    );
-    return (
-      <>
-        {fabTrigger}
-        {collapseMorph}
-        {open &&
-          mainContentRef.current &&
-          createPortal(
-            bottomContent,
-            mainContentRef.current,
-            "copilot-bottom-dock"
-          )}
+          {panelContent}
+        </CopilotWindowSurface>
       </>
     );
   }
 
   return renderDrawerFallback({
     collapseMorph,
-    fabTrigger,
+    fabTrigger: dockedFab,
     layout,
     onOpenChange,
     open,

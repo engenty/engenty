@@ -24,6 +24,8 @@ export type RegistryAgentStatus = "proposed" | "active" | "archived";
 export interface RegistryAgentRow {
   agent_id: string;
   agent_scope?: "personal" | "shared" | null;
+  /** Generated portrait storage key; null = blob silhouette. */
+  avatar_url?: string | null;
   /** Link to the core.agents security principal; provisioned lazily. */
   core_agent_id?: string | null;
   created_at: string;
@@ -126,6 +128,7 @@ function parseLimits(
 function agentRowWriteColumns(config: AgentConfig) {
   return {
     agent_scope: config.agentScope ?? "shared",
+    avatar_url: config.avatarUrl ?? null,
     description: config.description ?? null,
     effort: config.effort ?? null,
     engenty: resolveAgentEngenty(config.id, config.engenty),
@@ -202,6 +205,7 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     id: row.agent_id,
     name: row.name,
     description: row.description ?? undefined,
+    ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
     engenty: resolveAgentEngenty(row.agent_id, row.engenty),
     model: row.model,
     instructions: row.instructions,

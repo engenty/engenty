@@ -26,17 +26,9 @@ export function useCopilotDrawerShellMode(
   const panelMode = isPanelModeControlled
     ? input.controlledPanelMode
     : internalPanelMode;
-  const launcherMode: CopilotDockMode | null =
-    input.shellDockMode ?? (panelMode === "floating" ? "floating" : null);
-  const floatingLauncherMode =
-    launcherMode === "floating" || launcherMode === "mini-floating";
-  const effectiveMode: CopilotDockMode =
-    launcherMode === "floating" || launcherMode === "mini-floating"
-      ? launcherMode
-      : (input.shellDockMode ??
-        (panelMode === "floating" ? "floating" : "drawer"));
-  const isFloatingStyle =
-    effectiveMode === "floating" || effectiveMode === "mini-floating";
+  const launcherMode: CopilotDockMode | null = input.shellDockMode ?? null;
+  const effectiveMode: CopilotDockMode = input.shellDockMode ?? "drawer";
+  const isFloatingStyle = effectiveMode === "window";
   const panelModeForHeader: CopilotPanelMode = isFloatingStyle
     ? "floating"
     : "docked";
@@ -51,7 +43,7 @@ export function useCopilotDrawerShellMode(
       if (input.setPreferredDockMode) {
         const nextDockMode =
           mode === "floating"
-            ? "floating"
+            ? "window"
             : getDockedModePreference(input.shellDockMode);
         debugCopilotSurface("panel-mode-change", {
           mode,
@@ -72,12 +64,7 @@ export function useCopilotDrawerShellMode(
     ]
   );
 
-  const showCompactLauncher =
-    floatingLauncherMode ||
-    (!input.open &&
-      (effectiveMode === "drawer" ||
-        effectiveMode === "bottom" ||
-        effectiveMode === "sidebar"));
+  const showCompactLauncher = false;
 
   useEffect(() => {
     if (previousModeRef.current === effectiveMode) {
@@ -90,7 +77,7 @@ export function useCopilotDrawerShellMode(
   return useMemo(
     () => ({
       effectiveMode,
-      floatingLauncherMode,
+      floatingLauncherMode: false,
       isFloatingStyle,
       isPanelModeControlled,
       launcherMode,
@@ -103,7 +90,6 @@ export function useCopilotDrawerShellMode(
     }),
     [
       effectiveMode,
-      floatingLauncherMode,
       isFloatingStyle,
       isPanelModeControlled,
       launcherMode,

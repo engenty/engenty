@@ -1,6 +1,6 @@
 // agent_propose: allow-listed new hires create+mount; extra tools/skills/
-// revisions/missing space stay proposed; interactive runs suspend a hire
-// widget; headless runs inbox.
+// revisions/missing space stay proposed; the propose HTTP route files the
+// inbox row; interactive runs suspend a hire widget.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetFrontendToolSuspendSlotsForTests } from "../../ai/frontend-tools/frontend-tool-suspend-lock.js";
@@ -108,7 +108,8 @@ describe("agentProposeTool", () => {
     expect(result.ok).toBe(true);
     expect(result.status).toBe("proposed");
     expect(result.note).toContain("proposed");
-    expect(emitInbox).toHaveBeenCalledOnce();
+    // Inbox is the propose route's job — this test stubs that HTTP call.
+    expect(emitInbox).not.toHaveBeenCalled();
 
     const proposeCall = mockFetch.mock.calls.find(([url]) =>
       String(url).endsWith("/propose")
@@ -246,6 +247,7 @@ describe("agentProposeTool", () => {
       "thread_state_set",
       "agent_self_revise",
       "workflow_self_revise",
+      "agent_look",
       "show_objects",
       "show_artifact",
     ]);
@@ -365,6 +367,7 @@ describe("agentProposeTool", () => {
       "approve",
       "reject",
     ]);
+    expect((artifact as { durable_inbox?: boolean }).durable_inbox).toBe(true);
     expect(emitInbox).not.toHaveBeenCalled();
   });
 
@@ -402,11 +405,8 @@ describe("agentProposeTool", () => {
 
     expect(suspend).not.toHaveBeenCalled();
     expect(result.status).toBe("proposed");
-    expect(emitInbox).toHaveBeenCalledOnce();
-    expect(emitInbox.mock.calls[0]?.[0]).toMatchObject({
-      kind: "agent_proposed",
-      metadata: { agent_id: "sales.researcher", space_id: SPACE_ID },
-    });
+    // Headless still POSTs /propose; that route files `agent_proposed`.
+    expect(emitInbox).not.toHaveBeenCalled();
   });
 
   it("approves the parked proposal when the hire widget resumes Approve", async () => {

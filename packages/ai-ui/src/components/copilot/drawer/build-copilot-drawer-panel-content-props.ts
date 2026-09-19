@@ -1,6 +1,6 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { ReactNode } from "react";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { ChatSlashCommand } from "../composer/copilot-slash-command";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";

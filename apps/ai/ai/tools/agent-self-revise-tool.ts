@@ -15,7 +15,6 @@ import { createRequestDecisionArtifact } from "@engenty/ai-core";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../../src/ai/core-http-client.js";
-import { emitInboxNotification } from "../../src/notifications/inbox.js";
 import { releaseFrontendToolSuspendSlot } from "../frontend-tools/frontend-tool-suspend-lock.js";
 import {
   type HireHttp,
@@ -84,22 +83,26 @@ function revisionArtifact(input: {
       ? [`New instructions:\n\n${input.instructions}`]
       : []),
   ];
-  return createRequestDecisionArtifact({
-    title: `Change how ${input.name} works?`,
-    body: sections.join("\n\n"),
-    choices: [
-      {
-        id: "approve",
-        label: "Approve",
-        description: "Apply the new instructions from the next turn on.",
-      },
-      {
-        id: "reject",
-        label: "Reject",
-        description: "Discard the change. The agent keeps working as it does.",
-      },
-    ],
-  });
+  return {
+    ...createRequestDecisionArtifact({
+      title: `Change how ${input.name} works?`,
+      body: sections.join("\n\n"),
+      choices: [
+        {
+          id: "approve",
+          label: "Approve",
+          description: "Apply the new instructions from the next turn on.",
+        },
+        {
+          id: "reject",
+          label: "Reject",
+          description:
+            "Discard the change. The agent keeps working as it does.",
+        },
+      ],
+    }),
+    durable_inbox: true,
+  };
 }
 
 export const agentSelfReviseTool = createTool({
@@ -246,21 +249,6 @@ export const agentSelfReviseTool = createTool({
         suspend: ctx.agent.suspend,
       });
       return undefined as never;
-    }
-    if (run.tenantId) {
-      await emitInboxNotification({
-        dedupeKey: `agent-self-revision:${run.tenantId}:${agentId}`,
-        kind: "agent_proposed",
-        metadata: {
-          agent_id: agentId,
-          agent_type_key: agentId,
-          ...(run.space?.spaceId ? { space_id: run.space.spaceId } : {}),
-        },
-        priority: "medium",
-        source: "agent-registry",
-        summary: `${config.name ?? agentId} proposed a change to itself: ${input.summary}`,
-        tenantId: run.tenantId,
-      });
     }
     return {
       ok: true as const,

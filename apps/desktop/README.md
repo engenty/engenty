@@ -23,6 +23,9 @@ CORS allowance in core/ai).
 
 ## Native integration
 
+- **Title bar color** — the native macOS title bar tracks the in-app AppBar
+  (`--sidebar`): transparent chrome plus `setBackgroundColor`, and the page
+  `theme-color` meta is updated so WKWebView does not keep the ember tint.
 - **Dock badge + notifications** — the inbox unseen count is mirrored to the
   Dock badge; new arrivals while the window is unfocused post a native
   notification (`apps/ui/src/desktop/DesktopBridge.tsx`). The AI service also

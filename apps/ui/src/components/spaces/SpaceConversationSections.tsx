@@ -6,8 +6,8 @@
  * here through its desk.
  *
  * Owns what the rows share: the actions context, the drag context, the
- * name dialog and the new-room dialog. `slots.favorites` lets the caller
- * place Favoriten above Inbox while the sections follow it.
+ * name dialog and the new-room dialog. `children` (the Copilot row) lead,
+ * Favoriten follow, then the sections — one drag context over all of it.
  */
 import {
   AgentDeskNewRoomDialog,
@@ -21,11 +21,13 @@ import type { ConversationNavItem } from "@engenty/user-settings";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { arrayMoveIds } from "@/lib/space-agent-nav-order";
+import { useSpaceAudience } from "@/lib/space-audience";
 import {
   builtInSectionFor,
   type SpaceConversationItem,
 } from "@/lib/space-conversation-sections";
 import { spaceAgentDeskPath, spaceRoomPath } from "@/lib/space-routes";
+import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpaceConversationSidebar } from "@/lib/use-space-conversation-sidebar";
 import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
 import { SpaceConversationSection } from "./SpaceConversationSection";
@@ -53,8 +55,8 @@ export function SpaceConversationSections({
   /** Hired-agent removal and room management beyond one's own rooms. */
   canManage: boolean;
   /**
-   * Rendered between Favoriten and the sections — Inbox sits there. A render
-   * prop, because both halves must live inside one drag context.
+   * Rendered above Favoriten — the Copilot row sits there. A render prop,
+   * because both halves must live inside one drag context.
    */
   children?: ReactNode;
   spaceId: string | null;
@@ -65,6 +67,14 @@ export function SpaceConversationSections({
   const { currentUserId } = useWorkspaceContext();
   const sidebar = useSpaceConversationSidebar(spaceId);
   const { agents: rosterAgents } = useSpaceRosterAgents(spaceId);
+  // The space itself, for how far its desks and open rooms are visible: in a
+  // personal space every desk is private, in a private one its people's.
+  const spacesQuery = useSpacesQuery();
+  const space = useMemo(
+    () => spacesQuery.data?.find((candidate) => candidate.key === spaceKey),
+    [spaceKey, spacesQuery.data]
+  );
+  const audience = useSpaceAudience(space);
   const rosterById = useMemo(
     () => new Map(rosterAgents.map((agent) => [agent.id, agent])),
     [rosterAgents]
@@ -197,12 +207,13 @@ export function SpaceConversationSections({
   return (
     <SpaceConversationSidebarProvider value={actions}>
       <SpaceConversationDnd containers={containers} onDrop={onDrop}>
+        {children}
         <SpaceFavorites
+          audience={audience}
           items={model.favorites}
           rosterById={rosterById}
           spaceKey={spaceKey}
         />
-        {children}
         {sidebar.isPending &&
         model.sections.every((s) => s.items.length === 0) ? (
           <div className="flex flex-col gap-1">
@@ -216,6 +227,7 @@ export function SpaceConversationSections({
         ) : null}
         {model.sections.map((section) => (
           <SpaceConversationSection
+            audience={audience}
             canAdd={canAdd}
             key={section.id}
             pinnedKeys={pinnedKeys}

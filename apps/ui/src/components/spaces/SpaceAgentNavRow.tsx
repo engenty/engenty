@@ -1,6 +1,8 @@
 /**
- * A desk row in the conversation list: blob, agent name, when its desk line
- * last moved, and that line's title underneath. No conversation → New pill
+ * A desk row in the conversation list: blob, the visibility marker when the
+ * desk is not simply open (a lock in a personal space, a key in a private
+ * one), agent name, when its desk line last moved, and that line's title
+ * underneath. No conversation → New pill
  * where the timestamp would be, and no second line. Hover marquees
  * overflowing line-2 text only (paint/overflow). The menu is the row's ⋮;
  * right-click opens it too. Left-click opens the desk.
@@ -10,9 +12,15 @@
  * name, because a row that says "vor 3 Minuten" while the agent is mid-job
  * reads as an agent that stopped.
  */
-import { type AgentLiveActivity, formatRelativeDate } from "@engenty/ai-ui";
+import {
+  AgentFace,
+  type AgentLiveActivity,
+  type ChatVisibility,
+  ChatVisibilityMarker,
+  formatRelativeDate,
+} from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn, Engenty, SidebarRowTitleMarquee } from "@engenty/ui-core";
+import { cn, SidebarRowTitleMarquee } from "@engenty/ui-core";
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SpaceAgentActivity } from "@/lib/space-agent-activity";
@@ -26,6 +34,7 @@ export function SpaceAgentNavRow({
   destination,
   live,
   menu,
+  visibility,
 }: {
   active: boolean;
   activity: SpaceAgentActivity | undefined;
@@ -34,6 +43,8 @@ export function SpaceAgentNavRow({
   /** What this agent's runs say it is doing right now, if anything. */
   live: AgentLiveActivity | null;
   menu: ReactNode;
+  /** How far the desk is visible — as wide as the space around it. */
+  visibility: ChatVisibility;
 }) {
   const { t } = useTranslation("common");
   const liveLabel =
@@ -82,15 +93,18 @@ export function SpaceAgentNavRow({
           aria-hidden
           className="grid size-10 shrink-0 place-items-center overflow-visible"
         >
-          <Engenty
+          <AgentFace
             animated={active}
+            avatarUrl={agent.avatarUrl}
             className="[&_.e-shadow]:hidden"
             kind={agent.engenty}
+            name={agent.name}
             size={38}
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0 leading-none">
           <span className="flex min-w-0 items-center gap-1.5 leading-snug">
+            <ChatVisibilityMarker kind="desk" visibility={visibility} />
             <span className="min-w-0 flex-1 truncate" title={agent.name}>
               {agent.name}
             </span>

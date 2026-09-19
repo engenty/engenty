@@ -5,16 +5,13 @@
 
 export {
   COPILOT_LAYOUT_USER_SETTING_NAME,
-  type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
-  type CopilotPersistedPanelMode,
   reconcileCopilotLayoutSnapshot,
 } from "@engenty/app-shell";
 
 import {
-  type CopilotFabAnchor,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutSnapshotV1,
   type CopilotWindowRect,
@@ -74,38 +71,6 @@ export function parseCopilotLayoutSnapshot(
       ? o.floatingDockedToCorner
       : undefined;
 
-  let fabPosition: { x: number; y: number } | undefined;
-  const fab = o.fabPosition;
-  if (
-    fab &&
-    typeof fab === "object" &&
-    isFiniteNumber((fab as { x?: unknown }).x) &&
-    isFiniteNumber((fab as { y?: unknown }).y)
-  ) {
-    fabPosition = {
-      x: (fab as { x: number }).x,
-      y: (fab as { y: number }).y,
-    };
-  }
-
-  let fabAnchor: CopilotFabAnchor | undefined;
-  const fa = o.fabAnchor as Record<string, unknown> | undefined | null;
-  if (
-    fa &&
-    typeof fa === "object" &&
-    (fa.edgeX === "left" || fa.edgeX === "right") &&
-    (fa.edgeY === "top" || fa.edgeY === "bottom") &&
-    isFiniteNumber(fa.offsetX) &&
-    isFiniteNumber(fa.offsetY)
-  ) {
-    fabAnchor = {
-      edgeX: fa.edgeX,
-      edgeY: fa.edgeY,
-      offsetX: fa.offsetX,
-      offsetY: fa.offsetY,
-    };
-  }
-
   let floatingSize: { width: number; height: number } | undefined;
   const fs = o.floatingSize;
   if (
@@ -145,23 +110,16 @@ export function parseCopilotLayoutSnapshot(
 
   const collapseToCircle =
     typeof o.collapseToCircle === "boolean" ? o.collapseToCircle : undefined;
-  const panelMode =
-    o.panelMode === "docked" || o.panelMode === "floating"
-      ? o.panelMode
-      : undefined;
 
   return reconcileCopilotLayoutSnapshot({
     v: 1,
     open,
     preferredDockMode,
-    fabAnchor,
-    fabPosition,
     floatingDockedToCorner,
     floatingPosition,
     floatingSize,
     compactStatusFlapHeight,
     collapseToCircle,
-    panelMode,
     windowRect,
   });
 }
@@ -185,9 +143,6 @@ export function mergeCopilotLayoutSnapshot(
       patch.preferredDockMode === undefined
         ? base.preferredDockMode
         : patch.preferredDockMode,
-    fabAnchor: patch.fabAnchor === undefined ? base.fabAnchor : patch.fabAnchor,
-    fabPosition:
-      patch.fabPosition === undefined ? base.fabPosition : patch.fabPosition,
     floatingDockedToCorner:
       patch.floatingDockedToCorner === undefined
         ? base.floatingDockedToCorner
@@ -206,7 +161,6 @@ export function mergeCopilotLayoutSnapshot(
       patch.collapseToCircle === undefined
         ? base.collapseToCircle
         : patch.collapseToCircle,
-    panelMode: patch.panelMode === undefined ? base.panelMode : patch.panelMode,
     windowRect:
       patch.windowRect === undefined ? base.windowRect : patch.windowRect,
   });

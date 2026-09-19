@@ -1,18 +1,24 @@
 "use client";
 
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
+import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { useUiCoreMediaQuery } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isInterruptResolvedLocally } from "../../../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
 import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
 import { resolveFullscreenCopilotChatPath } from "../../../copilot/copilot-chat-paths.js";
+import {
+  focusInlineAsk,
+  focusWorkComposer,
+  registerWorkComposerFocus,
+} from "../../../copilot/copilot-inline-ask.js";
 import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import { CopilotBrowserPanel } from "../../../features/browser/copilot-browser-panel.js";
 import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
 import { useEngentyThread } from "../../../threads/use-engenty-thread.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import {
   CopilotOpenInterruptBanner,
@@ -35,8 +41,16 @@ import {
   debugCopilotSurface,
   formatCopilotRouteStatusLabel,
   getDockedModePreference,
+  isTalkConversationPathname,
   normalizeCopilotPositionMenuValue,
+  openCopilotShell,
 } from "./copilot-drawer-utils";
+import {
+  CopilotWhoChooser,
+  companionWhoFromOptionId,
+  companionWhoOptionId,
+} from "./copilot-who-chooser";
+import { CopilotWindowTitleBar } from "./copilot-window-title-bar";
 import { useCopilotDrawerAgentChooser } from "./use-copilot-drawer-agent-chooser";
 import { useCopilotDrawerLayout } from "./use-copilot-drawer-layout";
 import { useCopilotDrawerSuggestionsApply } from "./use-copilot-drawer-suggestions-apply";
@@ -79,6 +93,7 @@ export function CopilotDrawerBody({
   requestedAgentId,
   composerLeadingControl: composerLeadingControlProp,
   dockMode: shellDockMode,
+  copilotDockRef,
   copilotSidebarRef,
   mainContentRef,
   mainContentReady = false,
@@ -88,10 +103,7 @@ export function CopilotDrawerBody({
   copyThreadCopiedLabel = "Copied",
   copyThreadLabel = "Copy thread",
   positionMenuAriaLabel = "Copilot position",
-  positionBottomLabel = "Bottom dock",
-  positionButtonLabel = "Avatar",
   positionDrawerLabel = "Drawer",
-  positionFloatingLabel = "Modal",
   positionFullscreenLabel = "Full Screen",
   positionHeadingLabel = "Position",
   positionSidebarLabel = "Sidebar",
@@ -112,6 +124,8 @@ export function CopilotDrawerBody({
   registeredAgents = [],
   registeredAgentsLoading = false,
   injectedSession,
+  workPanelContent,
+  whoOptions,
 }: CopilotDrawerProps) {
   if (!injectedSession) {
     throw new Error(
@@ -119,6 +133,7 @@ export function CopilotDrawerBody({
     );
   }
   const session = injectedSession;
+  const shell = useCopilotShellOrNull();
   const realtimeVoice = useCopilotVoice();
   const threadBinding = useCopilotThreadBinding();
   const isMobile = useUiCoreMediaQuery("(max-width: 767px)");
@@ -132,13 +147,12 @@ export function CopilotDrawerBody({
   const panelMode = isPanelModeControlled
     ? controlledPanelMode
     : internalPanelMode;
-  const launcherMode: CopilotDockMode | null =
-    shellDockMode ?? (panelMode === "floating" ? "floating" : null);
+  const launcherMode: CopilotDockMode | null = shellDockMode ?? null;
   const positionMenuValue = useMemo(
     () =>
       normalizeCopilotPositionMenuValue(
         preferredDockMode,
-        shellDockMode ?? "floating"
+        shellDockMode ?? "sidebar"
       ),
     [preferredDockMode, shellDockMode]
   );
@@ -184,14 +198,8 @@ export function CopilotDrawerBody({
     return contexts;
   }, []);
 
-  const floatingLauncherMode =
-    launcherMode === "floating" || launcherMode === "mini-floating";
-  const effectiveMode: CopilotDockMode =
-    launcherMode === "floating" || launcherMode === "mini-floating"
-      ? launcherMode
-      : (shellDockMode ?? (panelMode === "floating" ? "floating" : "drawer"));
-  const isFloatingStyle =
-    effectiveMode === "floating" || effectiveMode === "mini-floating";
+  const effectiveMode: CopilotDockMode = shellDockMode ?? "drawer";
+  const isFloatingStyle = effectiveMode === "window";
   const panelModeForHeader: CopilotPanelMode = isFloatingStyle
     ? "floating"
     : "docked";
@@ -228,7 +236,7 @@ export function CopilotDrawerBody({
       if (setPreferredDockMode) {
         const nextDockMode =
           mode === "floating"
-            ? "floating"
+            ? "window"
             : getDockedModePreference(shellDockMode);
         debugCopilotSurface("panel-mode-change", {
           mode,
@@ -297,13 +305,7 @@ export function CopilotDrawerBody({
       threadIdRef,
     });
 
-  const showCompactLauncher =
-    floatingLauncherMode ||
-    (!open &&
-      (effectiveMode === "drawer" ||
-        effectiveMode === "bottom" ||
-        effectiveMode === "sidebar" ||
-        effectiveMode === "window"));
+  const showCompactLauncher = false;
 
   const surfaceInstanceKey = `${effectiveMode}:${surfaceEpoch}:${session.activeThreadId}`;
 
@@ -406,10 +408,7 @@ export function CopilotDrawerBody({
       onSelectFullscreen={
         threadBinding.navigate ? handleSelectFullscreen : undefined
       }
-      positionBottomLabel={positionBottomLabel}
-      positionButtonLabel={positionButtonLabel}
       positionDrawerLabel={positionDrawerLabel}
-      positionFloatingLabel={positionFloatingLabel}
       positionFullscreenLabel={positionFullscreenLabel}
       positionHeadingLabel={positionHeadingLabel}
       positionMenuAriaLabel={positionMenuAriaLabel}
@@ -420,46 +419,16 @@ export function CopilotDrawerBody({
     />
   ) : null;
 
-  // Bottom dock: drag grip doubles as the position-menu trigger (no 3-dots).
-  const bottomDockGripMenu = setPreferredDockMode ? (
-    <CopilotDrawerPositionMenu
-      {...positionMenuCopyProps}
-      gripLabel="Drag to move"
-      gripPointerDown={layout.handleBottomDockGripPointerDown}
-      onSelectDockPosition={layout.handleDockPositionSelect}
-      onSelectFullscreen={
-        threadBinding.navigate ? handleSelectFullscreen : undefined
-      }
-      positionBottomLabel={positionBottomLabel}
-      positionButtonLabel={positionButtonLabel}
-      positionDrawerLabel={positionDrawerLabel}
-      positionFloatingLabel={positionFloatingLabel}
-      positionFullscreenLabel={positionFullscreenLabel}
-      positionHeadingLabel={positionHeadingLabel}
-      positionMenuAriaLabel={positionMenuAriaLabel}
-      positionSidebarLabel={positionSidebarLabel}
-      positionWindowLabel={positionWindowLabel}
-      showDrawerOption={isMobile}
-      value={positionMenuValue}
-    />
-  ) : null;
-
-  const handleSurfacePanelModeChange =
-    effectiveMode === "sidebar" || effectiveMode === "bottom"
-      ? (mode: "docked" | "floating") => {
-          if (mode === "floating") {
-            collapseToCompactLauncher();
-            return;
-          }
-          setPanelMode(mode);
-        }
-      : (mode: "docked" | "floating") => {
-          if (mode === "floating") {
-            collapseToCompactLauncher();
-            return;
-          }
-          setPanelMode(mode);
-        };
+  const handleSurfacePanelModeChange = (mode: "docked" | "floating") => {
+    if (mode === "floating") {
+      setPreferredDockMode?.("window");
+      onOpenChange(true);
+      return;
+    }
+    setPreferredDockMode?.(getDockedModePreference(shellDockMode));
+    onOpenChange(true);
+    setPanelMode(mode);
+  };
 
   // The live stream value wins while set: after an approval, the persisted
   // session metadata still names the PREVIOUS interrupt until the refetch
@@ -515,14 +484,17 @@ export function CopilotDrawerBody({
     activeCopilotContext?.scope
   );
   const panelContentProps = {
-    browserPanel: browserPanelOpen ? (
-      <CopilotBrowserPanel spaceId={browserSpaceId} />
-    ) : null,
+    browserPanel:
+      isFloatingStyle || !browserPanelOpen ? null : (
+        <CopilotBrowserPanel spaceId={browserSpaceId} />
+      ),
     browserPanelLabel: "Your browser",
-    browserPanelOpen,
+    browserPanelOpen: isFloatingStyle ? false : browserPanelOpen,
     // The drawer is the person's own copilot: its every thread is theirs.
-    chatKind: "copilot" as const,
-    onToggleBrowserPanel: () => setBrowserPanelOpen((open) => !open),
+    chatKind: isFloatingStyle ? null : ("copilot" as const),
+    onToggleBrowserPanel: isFloatingStyle
+      ? undefined
+      : () => setBrowserPanelOpen((open) => !open),
     ...(agentSessionChooserEnabled
       ? { agentSessionChooser: renderAgentSessionChooser("panel") }
       : {
@@ -703,21 +675,77 @@ export function CopilotDrawerBody({
   // the attached card surface and its own padding.
   const dockedInterruptSurface = interruptBanner;
 
-  const panelContent = (
+  const copilotLane = (
     <CopilotPanelContent
       key={`panel:${surfaceInstanceKey}`}
       {...panelContentProps}
-      compact={open && launcherMode === "mini-floating"}
+      bodyOnly={isFloatingStyle}
+      centerEmptyLanding={isFloatingStyle ? false : undefined}
+      compact={false}
       compactContextControl={sidebarDockContextControl}
-      composerDockStyle={
-        effectiveMode === "sidebar" || effectiveMode === "drawer"
-      }
+      composerDockStyle
       dockedInterruptSurface={dockedInterruptSurface}
       dockedInterruptToolCallId={dockInterrupt?.tool_call_id ?? null}
       enableStatusFlap={false}
       headerVariant={isFloatingStyle ? "floating" : "docked"}
     />
   );
+
+  const panelContent = workPanelContent ?? copilotLane;
+
+  useEffect(
+    () =>
+      registerWorkComposerFocus(() => {
+        setComposerFocusToken((token) => token + 1);
+      }),
+    []
+  );
+
+  const talkPathname = copilotContext?.pathname ?? "";
+
+  const handleOpenChat = useCallback(() => {
+    openCopilotShell({
+      isMobile,
+      isTalkPage: isTalkConversationPathname(talkPathname),
+      mergeLayout: copilotLayout?.mergeLayout,
+      preferredDockMode,
+      setOpen: onOpenChange,
+      setPreferredDockMode,
+    });
+  }, [
+    copilotLayout?.mergeLayout,
+    isMobile,
+    onOpenChange,
+    preferredDockMode,
+    setPreferredDockMode,
+    talkPathname,
+  ]);
+
+  const handleOpenPrompt = useCallback(() => {
+    if (focusInlineAsk()) {
+      return;
+    }
+    const opened = openCopilotShell({
+      isMobile,
+      isTalkPage: isTalkConversationPathname(talkPathname),
+      mergeLayout: copilotLayout?.mergeLayout,
+      preferredDockMode,
+      setOpen: onOpenChange,
+      setPreferredDockMode,
+    });
+    if (opened === "work") {
+      requestAnimationFrame(() => {
+        focusWorkComposer();
+      });
+    }
+  }, [
+    copilotLayout?.mergeLayout,
+    isMobile,
+    onOpenChange,
+    preferredDockMode,
+    setPreferredDockMode,
+    talkPathname,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -759,32 +787,47 @@ export function CopilotDrawerBody({
     scope,
   ]);
 
-  useEffect(() => {
-    if (!open || effectiveMode !== "bottom") {
-      return;
-    }
+  const handleSelectWho = useCallback(
+    (id: string) => {
+      shell?.setCompanionWho(companionWhoFromOptionId(id));
+    },
+    [shell]
+  );
 
-    const mainContentAnchor = mainContentRef?.current;
-
-    if (!mainContentReady || mainContentAnchor == null) {
-      debugCopilotSurface("bottom-dock-missing-anchor", {
-        effectiveMode,
-        hasMainContentRef: mainContentAnchor != null,
-        mainContentReady,
-        module,
-        routeKey,
-      });
-    }
-  }, [effectiveMode, mainContentReady, mainContentRef, module, open, routeKey]);
+  const windowTitleBar = isFloatingStyle ? (
+    <CopilotWindowTitleBar
+      agentSessionChooser={
+        workPanelContent || !agentSessionChooserEnabled
+          ? undefined
+          : renderAgentSessionChooser("panel")
+      }
+      clearLabel={clearLabel}
+      closeLabel={closeLabel}
+      dragHandleLabel="Drag to move"
+      onClose={handleHeaderClose}
+      onNewChat={workPanelContent ? undefined : handleHeaderNewChat}
+      positionMenu={copilotPositionDropdown}
+      whoChooser={
+        whoOptions && whoOptions.length > 0 ? (
+          <CopilotWhoChooser
+            label={agentChooserLabels?.selectAgent}
+            onSelect={handleSelectWho}
+            options={whoOptions}
+            selectedId={companionWhoOptionId(
+              shell?.companionWho ?? { kind: "copilot" }
+            )}
+          />
+        ) : undefined
+      }
+    />
+  ) : undefined;
 
   return (
     <CopilotDrawerSurfaceTree
-      bottomDockGripMenu={bottomDockGripMenu}
       closeLabel={closeLabel}
-      collapseToCompactLauncher={collapseToCompactLauncher}
       compactContextOptions={compactContextOptions}
-      compactInterruptContent={interruptBanner}
       composerPlaceholder={composerPlaceholder}
+      copilotDockRef={copilotDockRef}
       copilotLayout={copilotLayout}
       copilotPositionDropdown={copilotPositionDropdown}
       copilotSidebarRef={copilotSidebarRef}
@@ -796,6 +839,8 @@ export function CopilotDrawerBody({
       mainContentReady={mainContentReady}
       mainContentRef={mainContentRef}
       onOpenChange={onOpenChange}
+      onOpenChat={handleOpenChat}
+      onOpenPrompt={handleOpenPrompt}
       open={open}
       panelContent={panelContent}
       panelContentProps={panelContentProps as CopilotPanelContentProps}
@@ -805,10 +850,11 @@ export function CopilotDrawerBody({
       selectedCompactContext={selectedCompactContext}
       selectedCompactContextId={selectedCompactContextId}
       setPreferredDockMode={setPreferredDockMode}
-      showCompactLauncher={showCompactLauncher}
       surfaceInstanceKey={surfaceInstanceKey}
       threadChooserEnabled={agentSessionChooserEnabled}
       title={title}
+      whoOptions={whoOptions}
+      windowTitleBar={windowTitleBar}
     />
   );
 }

@@ -23,17 +23,16 @@ import {
   evaluateResultPolicy,
   type PolicyDeps,
 } from "../../../security/policy.js";
-import {
-  isApprovedEdge,
-  linkPrincipal,
-} from "../../../security/principal-link.js";
+import { isApprovedEdge } from "../../../security/principal-link.js";
 import {
   getHttpRouteCapability,
   getRegisteredHttpRouteCapabilities,
 } from "../../plugin-route-capabilities.js";
 import { jsonApiError } from "../api-response.js";
 import type { ApiLogger } from "../types.js";
+import { withRequestPrincipalHeaders } from "./module-operation-auth.js";
 import {
+  handlerAuth,
   InvokeOperationError,
   invokeOperation,
 } from "./module-operation-routes.js";
@@ -130,6 +129,9 @@ function mountPluginRoute(
     }
     if (!(auth || route.isPublic)) {
       return jsonApiError(c, 401, { message: "Unauthorized" }) as never;
+    }
+    if (auth) {
+      auth = withRequestPrincipalHeaders(auth, (name) => c.req.header(name));
     }
     const operation = getRouteOperation(route);
     const operationId = getHttpRouteCapability(params.pluginId, route);
@@ -485,24 +487,14 @@ function mountPluginRoute(
         // module in-process is re-gated against this same principal, and a
         // context that dropped them would present an agent as an ordinary
         // user — the one principal the escalation policy never gates.
-        auth: linkPrincipal(
-          {
-            tenantId: auth.tenantId,
-            scopeId,
-            principalId: auth.principalId,
-            principalType: auth.principalType,
-            capabilities: auth.capabilities,
-            ...(auth.agentId ? { agentId: auth.agentId } : {}),
-            ...(auth.goalId ? { goalId: auth.goalId } : {}),
-          },
-          {
-            principal: auth,
-            approvedEdge: isApprovedEdge({
-              action: policy.action,
-              requiresApproval: operation?.requiresApproval ?? false,
-              riskLevel: operation?.riskLevel ?? "medium",
-            }),
-          }
+        auth: handlerAuth(
+          auth,
+          isApprovedEdge({
+            action: policy.action,
+            requiresApproval: operation?.requiresApproval ?? false,
+            riskLevel: operation?.riskLevel ?? "medium",
+          }),
+          scopeId
         ),
         recordAuditEvent,
       });

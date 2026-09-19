@@ -19,6 +19,7 @@ export {
   isAgentUiPageBriefKey,
   toAgUiTool,
 } from "@engenty/ag-ui-bridge";
+export { AppBarPositionPicker } from "./components/app-bar-position-picker";
 export { AppLayout, type AppLayoutProps } from "./components/app-layout";
 export {
   ModuleSidebarHeaderLabel,
@@ -34,6 +35,7 @@ export {
 export { WorkspaceEndPaneItem } from "./components/app-layout/workspace-end-pane-item";
 export { AppSidebar } from "./components/app-sidebar";
 export { type AppMenuActions, AppTopbar } from "./components/app-topbar";
+export { CopilotRailDockAnchor } from "./components/copilot-rail-dock-anchor";
 export {
   Pane,
   PaneGroup,
@@ -70,6 +72,10 @@ export {
   useRegisterAgentUiField,
   useRegisterAgentUiSlice,
 } from "./context/agent-ui-state-context";
+export {
+  AppBarChromeProvider,
+  useAppBarChromeContext,
+} from "./context/app-bar-chrome-context";
 export {
   CopilotShellContentArea,
   CopilotShellMain,
@@ -112,6 +118,7 @@ export {
   type UiGuideUpdateConfig,
   updateUiGuideSession,
 } from "./guide";
+export { useAppBarChrome, useAppBarPosition } from "./hooks/use-app-bar-chrome";
 export type { PersistedEwResizePaneWidthOptions } from "./hooks/use-persisted-ew-resize-pane-width";
 export { usePersistedEwResizePaneWidth } from "./hooks/use-persisted-ew-resize-pane-width";
 export { useShellSecondaryNavWidth } from "./hooks/use-shell-secondary-nav-width";
@@ -149,6 +156,10 @@ export {
   rollUpIndicators,
 } from "./lib/rail-spaces";
 export {
+  RAIL_TILE_GLYPH_HOVER_CLASSNAME,
+  RAIL_TILE_REST_SHADOW_CLASSNAME,
+} from "./lib/rail-tile-chrome";
+export {
   isShellSecondaryNavPinnedViewport,
   SHELL_SECONDARY_NAV_PINNED_MIN_WIDTH_PX,
   SHELL_SECONDARY_NAV_PINNED_MIN_WIDTH_QUERY,
@@ -163,23 +174,22 @@ export {
   SHELL_SECONDARY_NAV_WIDTH_STORAGE_KEY,
 } from "./lib/shell-secondary-nav-width";
 export {
-  COPILOT_BOTTOM_DOCK_CLEARANCE,
-  COPILOT_BOTTOM_DOCK_HEIGHT,
+  COPILOT_DOCK_MODES,
   COPILOT_LAYOUT_USER_SETTING_NAME,
-  type CopilotFabAnchor,
+  type CopilotDockMode,
+  type CopilotLayoutLegacyDockMode,
   type CopilotLayoutPersistDockMode,
   type CopilotLayoutPersistenceApi,
   type CopilotLayoutSnapshotV1,
-  type CopilotPersistedPanelMode,
   type CopilotWindowRect,
+  isCopilotDockMode,
   reconcileCopilotLayoutSnapshot,
-  UI_SCROLL_SAFE_BOTTOM,
-  UI_SCROLL_SAFE_BOTTOM_DOCKED,
+  remapPersistedDockMode,
   UI_SCROLL_SAFE_BOTTOM_PX,
 } from "./types/copilot-layout";
 export {
   COPILOT_LAYOUT_NOOP,
-  type CopilotDockMode,
+  type CopilotCompanionWho,
   type CopilotLayoutPersistence,
   type CopilotSlotProps,
 } from "./types/copilot-shell";
@@ -189,6 +199,32 @@ export type {
   NavigationSectionId,
   ShellSidebarConfig,
 } from "./types/shell";
+export {
+  APP_BAR_COMPACT_THICKNESS_PX,
+  APP_BAR_EXTENDED_WIDTH_PX,
+  APP_BAR_POSITIONS,
+  type AppBarPosition,
+  type AppBarTooltipSide,
+  appBarHideTransform,
+  appBarThicknessPx,
+  appBarTooltipSide,
+  createDefaultShellAppBarPositionSnapshot,
+  DEFAULT_APP_BAR_POSITION,
+  isAppBarPosition,
+  isHorizontalAppBarPosition,
+  mergeShellAppBarPositionSnapshot,
+  parseShellAppBarPositionSnapshot,
+  readAppBarPositionFromStorage,
+  SHELL_APP_BAR_POSITION_CHANGE_EVENT,
+  SHELL_APP_BAR_POSITION_NOOP,
+  SHELL_APP_BAR_POSITION_STORAGE_KEY,
+  SHELL_APP_BAR_POSITION_USER_SETTING_NAME,
+  type ShellAppBarPositionPersistence,
+  type ShellAppBarPositionPersistenceApi,
+  type ShellAppBarPositionSnapshotV1,
+  shellRootFlexClass,
+  writeAppBarPositionToStorage,
+} from "./types/shell-app-bar-position";
 export {
   createDefaultShellDockModuleOrderSnapshot,
   parseShellDockModuleOrderSnapshot,

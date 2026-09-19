@@ -298,6 +298,24 @@
       "readers": "Only you see this"
     }
   },
+  "chatVisibility": {
+    "private": {
+      "label": "Private",
+      "readers": "Only you see this. Nobody can join.",
+      "readersWith": "Only you and {{name}}. Nobody can join."
+    },
+    "protected": {
+      "label": "Protected",
+      "readers": "Only its members see this chat.",
+      "readersCount_one": "Only its one member sees this chat.",
+      "readersCount_other": "Only its {{count}} members see this chat."
+    },
+    "open": {
+      "label": "Open",
+      "readers": "Readable by everyone in the Space.",
+      "readersIn": "Readable by everyone in {{space}}."
+    }
+  },
   "agentMessage": {
     "failed": "Couldn't reach",
     "from": "Message from",

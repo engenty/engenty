@@ -536,14 +536,14 @@ describe("count and list", () => {
       summary: "global",
       tenantId: TENANT,
     });
-    // Alerts in a space go to the space: a member of s1 only sees s1's.
+    // A space count is that space's rows only — tenant-wide alerts stay on Tenant.
     const counts = await service.count({
       accessibleSpaceIds: ["s1"],
       spaceId: "s1",
       tenantId: TENANT,
       userId: "u1",
     });
-    expect(counts).toEqual({ inSpace: 2, total: 2 });
+    expect(counts).toEqual({ inSpace: 1, total: 2 });
     expect(
       await service.count({
         accessibleSpaceIds: ["s1", "s2"],
@@ -551,7 +551,7 @@ describe("count and list", () => {
         tenantId: TENANT,
         userId: "u1",
       })
-    ).toEqual({ inSpace: 2, total: 3 });
+    ).toEqual({ inSpace: 1, total: 3 });
   });
 
   it("shows a space row to its members and to nobody else", async () => {

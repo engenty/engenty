@@ -52,15 +52,6 @@ export function CopilotDrawerSnapOverlays({
           }
         />
       )}
-      {snapTarget === "bottom" && bottomDockIndicatorStyle && (
-        <div
-          className="pointer-events-none rounded-xl border-2 border-dashed"
-          style={{
-            ...bottomDockIndicatorStyle,
-            ...snapChrome,
-          }}
-        />
-      )}
       {snapTarget === "button" && buttonFabIndicatorStyle && (
         <div
           className="pointer-events-none rounded-full border-2 border-dashed"

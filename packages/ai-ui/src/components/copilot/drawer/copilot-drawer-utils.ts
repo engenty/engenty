@@ -1,28 +1,17 @@
-import type { CopilotLayoutSnapshotV1 } from "@engenty/app-shell";
+import type {
+  CopilotDockMode,
+  CopilotLayoutSnapshotV1,
+} from "@engenty/app-shell";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
-import type { CopilotDockMode } from "./copilot-drawer-types";
 
-export type CopilotFloatingSnapTarget = "bottom" | "button" | "sidebar" | null;
+export type CopilotFloatingSnapTarget = "button" | "sidebar" | null;
 
-export type CopilotPositionMenuChoice =
-  | "bottom"
-  | "drawer"
-  | "mini-floating"
-  | "floating"
-  | "window"
-  | "sidebar";
+export type CopilotPositionMenuChoice = "drawer" | "window" | "sidebar";
 
 const POSITION_MENU_CHOICES: ReadonlySet<string> =
-  new Set<CopilotPositionMenuChoice>([
-    "bottom",
-    "drawer",
-    "mini-floating",
-    "floating",
-    "window",
-    "sidebar",
-  ]);
+  new Set<CopilotPositionMenuChoice>(["drawer", "window", "sidebar"]);
 
 function isPositionMenuChoice(
   value: CopilotDockMode | null | undefined
@@ -40,7 +29,7 @@ export function normalizeCopilotPositionMenuValue(
   if (isPositionMenuChoice(effective)) {
     return effective;
   }
-  return "floating";
+  return "sidebar";
 }
 
 export function getSuggestionsSignature(
@@ -85,15 +74,13 @@ export function getDockedModePreference(
   return "sidebar";
 }
 
-/** Dock mode to restore when opening copilot from the collapsed FAB (not mini-floating). */
+/** Dock mode to restore when opening copilot from the collapsed FAB. */
 export function resolveCopilotOpenDockMode(
   preferred: CopilotDockMode | null | undefined
 ): CopilotDockMode {
   if (
     preferred === "drawer" ||
     preferred === "sidebar" ||
-    preferred === "bottom" ||
-    preferred === "floating" ||
     preferred === "window"
   ) {
     return preferred;
@@ -101,27 +88,88 @@ export function resolveCopilotOpenDockMode(
   return "sidebar";
 }
 
-/** Compact prompt surface from the FAB speed dial — bottom dock or floating launcher. */
-export function resolveCompactPromptDockMode(
-  preferred: CopilotDockMode | null | undefined
-): "bottom" | "floating" {
-  return preferred === "bottom" ? "bottom" : "floating";
+export type CopilotCompanionPlacement = "drawer" | "sidebar" | "window";
+
+export type CopilotCompanionOpenTarget =
+  | { kind: "talk" }
+  | { kind: "work"; dock: CopilotCompanionPlacement };
+
+/**
+ * Talk is a route; Work/Window is companion chrome. Look at the main area,
+ * then open. Persist only Work vs Window as the last companion placement.
+ */
+export function resolveCopilotCompanionOpen(input: {
+  chromeHidden?: boolean;
+  isMobile?: boolean;
+  isTalkPage: boolean;
+  preferredDockMode?: CopilotDockMode | null;
+}): CopilotCompanionOpenTarget {
+  if (input.chromeHidden || input.isTalkPage) {
+    return { kind: "talk" };
+  }
+  if (input.isMobile) {
+    return { kind: "work", dock: "drawer" };
+  }
+  const last = resolveCopilotOpenDockMode(input.preferredDockMode);
+  if (last === "window") {
+    return { kind: "work", dock: "window" };
+  }
+  return { kind: "work", dock: last === "drawer" ? "sidebar" : last };
+}
+
+/**
+ * Dedicated conversation pages: desk, room, or Copilot full-page chat.
+ * Roster `/agents` and hire `/agents/new` are not Talk.
+ */
+export function isTalkConversationPathname(pathname: string): boolean {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments[0] === "mdl" && segments[1] === "engenty-copilot") {
+    return segments[2] === "chat";
+  }
+  if (segments[0] !== "s" || segments.length < 3) {
+    return false;
+  }
+  const section = segments[2] ?? "";
+  if (section === "copilot") {
+    return segments[3] === "chat";
+  }
+  if (section === "rooms") {
+    return Boolean(segments[3]);
+  }
+  if (section === "agents") {
+    const agentId = segments[3] ?? "";
+    return agentId.length > 0 && agentId !== "new";
+  }
+  return false;
 }
 
 export interface OpenCopilotShellInput {
+  chromeHidden?: boolean;
+  isMobile?: boolean;
+  isTalkPage?: boolean;
   mergeLayout?: (patch: Partial<CopilotLayoutSnapshotV1>) => void;
   preferredDockMode?: CopilotDockMode | null;
   setOpen: (open: boolean) => void;
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
 }
 
-/** Open copilot shell from FAB-equivalent entry points (tools, URL params, etc.). */
-export function openCopilotShell(input: OpenCopilotShellInput): void {
+/** Open Work/Window from FAB-equivalent entry points. No-ops on a Talk page. */
+export function openCopilotShell(
+  input: OpenCopilotShellInput
+): "talk" | "work" {
+  const target = resolveCopilotCompanionOpen({
+    chromeHidden: input.chromeHidden,
+    isMobile: input.isMobile,
+    isTalkPage: input.isTalkPage ?? false,
+    preferredDockMode: input.preferredDockMode,
+  });
+  if (target.kind === "talk") {
+    return "talk";
+  }
   input.mergeLayout?.({ collapseToCircle: false, open: true });
-  input.setPreferredDockMode?.(
-    resolveCopilotOpenDockMode(input.preferredDockMode)
-  );
+  input.setPreferredDockMode?.(target.dock);
   input.setOpen(true);
+  return "work";
 }
 
 function humanizeToken(value: string): string {
@@ -314,23 +362,28 @@ export function buildCompactContextOptions({
   return options;
 }
 
-/** FAB is visible only in collapsed mini-floating (circle) state, plus during collapse morph. */
+/** FAB is visible on the desktop app-bar dock whenever chrome is shown; mobile
+ *  fallback keeps the collapsed corner blob. */
 export function shouldShowCopilotFab(input: {
+  chromeHidden?: boolean;
   collapseToCircle: boolean;
+  docked?: boolean;
   isCollapsingToIcon: boolean;
   open: boolean;
-  showCompactLauncher: boolean;
   /** When a realtime voice session is active the voice FAB takes over. */
   voiceSessionActive?: boolean;
 }): boolean {
+  if (input.chromeHidden) {
+    return false;
+  }
   if (input.voiceSessionActive) {
     return false;
+  }
+  if (input.docked) {
+    return true;
   }
   if (input.isCollapsingToIcon) {
     return true;
   }
-  if (input.open) {
-    return false;
-  }
-  return input.showCompactLauncher && input.collapseToCircle;
+  return !input.open;
 }

@@ -1,9 +1,15 @@
 // agent_propose: the agent-side writer of the agent registry. Allow-listed
 // NEW hires with a known space go live (create + mount). Anything wider —
-// extra tools, skills, revisions, missing space — stays a proposal. Interactive
-// runs then suspend with an Approve/Reject widget; headless runs inbox it.
+// extra tools, skills, revisions, missing space — stays a proposal. The
+// propose HTTP route files `agent_proposed`. Interactive runs also suspend
+// with an Approve/Reject widget; that card must not write a second inbox row
+// (`durable_inbox` on the artifact).
 
-import { resolveAgentEngenty, resolveChatModelId } from "@engenty/ai-core";
+import {
+  AGENT_ENGENTY_KINDS,
+  resolveAgentEngenty,
+  resolveChatModelId,
+} from "@engenty/ai-core";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../../src/ai/core-http-client.js";
@@ -99,6 +105,13 @@ const inputSchema = z.object({
     .array(z.string().min(1))
     .default([])
     .describe("Skill ids the agent should load"),
+  engenty: z
+    .enum(AGENT_ENGENTY_KINDS)
+    .optional()
+    .describe(
+      "Blob silhouette (and its locked color) this Engenty wears. Omit to " +
+        "hash a stable one from the id. Prefer a kind that fits the job."
+    ),
 });
 
 function configBody(
@@ -110,7 +123,7 @@ function configBody(
     agentScope: input.agent_scope,
     name: input.name,
     description: input.description,
-    engenty: resolveAgentEngenty(input.id),
+    engenty: input.engenty ?? resolveAgentEngenty(input.id),
     instructions: input.instructions,
     model:
       input.model ?? resolveChatModelId({ override: null, purpose: "chat" }),
@@ -127,14 +140,15 @@ function configBody(
 export const agentProposeTool = createTool({
   id: AGENT_PROPOSE_TOOL_ID,
   description:
-    "Create or propose a specialist agent. A NEW hire with only the " +
+    "Create or propose an Engenty. A NEW hire with only the " +
     "catalog and Space Data write tools, no extra skills, and a known space " +
     "goes live immediately so you can message it. Extra tools, extra skills, revisions, " +
     "or a missing space stay a proposal: in this conversation a hire widget " +
     "waits for Approve/Reject; otherwise it lands in the coordinator desk " +
     "waiting lane. Use registry_agents_list first. Write instructions as a " +
-    "clear standing mandate; keep tool/skill lists minimal. Every specialist " +
-    "already gets a sandbox computer — say so in the instructions when the " +
+    "clear standing mandate; keep tool/skill lists minimal. Pass `engenty` for " +
+    "the blob that fits the job (silhouette + color); omit to hash one from the id. " +
+    "Every Engenty already gets a sandbox computer — say so in the instructions when the " +
     "job needs one; do not go looking for a shell tool id.",
   inputSchema,
   resumeSchema: requestDecisionResumeSchema,
@@ -267,23 +281,6 @@ export const agentProposeTool = createTool({
           suspend: ctx.agent.suspend,
         });
         return undefined as never;
-      }
-      if (run.tenantId) {
-        await emitInboxNotification({
-          dedupeKey: `agent-proposal:${run.tenantId}:${input.id}`,
-          kind: "agent_proposed",
-          metadata: {
-            agent_id: input.id,
-            ...(proposedBy ? { agent_type_key: proposedBy } : {}),
-            ...(spaceId ? { space_id: spaceId } : {}),
-          },
-          priority: "medium",
-          source: "agent-registry",
-          summary: proposed.pending_revision
-            ? `${proposedBy ?? "An agent"} proposed a revision to agent "${input.id}" — review and approve to apply it.`
-            : `${proposedBy ?? "An agent"} proposed a new agent "${input.id}" — review and approve to activate it.`,
-          tenantId: run.tenantId,
-        });
       }
       return {
         ...proposed,

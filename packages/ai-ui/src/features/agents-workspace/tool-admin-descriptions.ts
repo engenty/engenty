@@ -72,6 +72,8 @@ const TOOL_ADMIN_DESCRIPTIONS: Record<string, string> = {
   show_artifact: "Open an artifact next to the chat.",
   thread_state_set: "Keep where a multi-turn exercise stands.",
   agent_self_revise: "Propose a change to its own instructions, for approval.",
+  agent_look:
+    "Design its own face: pick a blob, generate a portrait, or propose a name.",
   workflow_self_revise:
     "Propose a new version of a Workflow it owns, for approval.",
 };

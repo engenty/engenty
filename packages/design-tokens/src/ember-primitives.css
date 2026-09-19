@@ -2,7 +2,8 @@
  * Engenty Ember — canonical OKLCH primitives (DESIGN.md + typography scale).
  * Consumed by apps/ui and apps/manage via shadcn-ember.css.
  */
-:root {
+:root,
+.dark .tone-flip {
   /* ==========================================================================
      1. CORE INPUT SEEDS (Hex inputs set by JS with default fallbacks)
      ========================================================================== */
@@ -222,7 +223,13 @@
 /* ==========================================================================
    3. SEMANTIC TOKEN OVERRIDES (Dark Mode)
    ========================================================================== */
-.dark {
+/* `.tone-flip` turns one region to the other theme: dark on a light page,
+   light on a dark one (a private chat's band and the topbar over it).
+   The lower-specificity `.tone-flip` must come after `.dark .tone-flip`
+   above: on a dark page the light block has to win. */
+.dark,
+/* biome-ignore lint/style/noDescendingSpecificity: the flip depends on this order */
+.tone-flip {
   /* App-bar seed when JS does not set an absolute rail hex: one step BELOW
      the canvas (paper is 0.12 + 0.03·contrast), so the frame is the lowest
      surface and the column beside it reads as raised — the same stacking as
@@ -335,6 +342,29 @@
    4. ACCESSIBILITY MODIFIERS (Contrast & Color Blindness)
    ========================================================================== */
 /* High Contrast Toggle (CSS-only query + manual override class) */
+/* An alias (`--canvas: var(--paper)`) is computed where it is declared and
+   inherited as that value, so a flipped region has to restate the aliases to
+   pick up its own primitives — otherwise `--canvas` stays the page's paper
+   while `--paper` has flipped. The text colour is inherited the same way, so
+   the region sets it: without this, a control that names no colour of its
+   own keeps the page's ink and disappears on the flipped ground. */
+/* biome-ignore lint/style/noDescendingSpecificity: restated aliases, order is deliberate */
+.tone-flip {
+  color: var(--foreground);
+  --canvas: var(--paper);
+  --canvas-dim: var(--paper-2);
+  --canvas-darken: var(--paper-3);
+  --cobalt: var(--info);
+  --cobalt-tint: var(--info-tint);
+  --moss: var(--success);
+  --moss-tint: var(--success-tint);
+  --amber: var(--warning);
+  --amber-tint: var(--warning-tint);
+  --rose: var(--danger);
+  --rose-tint: var(--danger-tint);
+  --link: var(--info);
+}
+
 @media (prefers-contrast: more) {
   :root {
     --contrast: 1.4;

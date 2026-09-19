@@ -26,6 +26,8 @@ export interface AgentDeskAgent {
    * space chats use. Personal desks are 1:1 and do not show sender labels.
    */
   agentScope?: "personal" | "shared" | null;
+  /** Generated portrait storage key or URL; blob silhouette when absent. */
+  avatarUrl?: string | null;
   can_ask: boolean;
   can_assign_work: boolean;
   connectors: AgentDeskCapabilityChip[];

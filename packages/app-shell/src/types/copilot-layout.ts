@@ -1,45 +1,53 @@
 /** Shell layout constants shared with copilot chrome (no @engenty/ai-ui import — breaks Turbo cycle). */
 
-/** Bottom composer card height (measured) + gap from main content bottom. */
-export const COPILOT_BOTTOM_DOCK_HEIGHT = 94;
-
 /**
- * The same clearance as a CSS length, plus the bottom safe-area inset, so a
- * pinned composer clears the home indicator too. Identical to
- * `COPILOT_BOTTOM_DOCK_HEIGHT` wherever the inset is 0px (all desktop).
- */
-export const COPILOT_BOTTOM_DOCK_CLEARANCE = `calc(${COPILOT_BOTTOM_DOCK_HEIGHT}px + var(--ui-safe-bottom, 0px))`;
-
-/**
- * Bottom inset for a main-area scroller so the last content can clear the
- * collapsed copilot FAB (`60px` blob + `16px` inset + `20px` breathing).
- * Keep in lockstep with `--ui-scroll-safe-bottom` in design-tokens.
+ * Mobile corner-FAB inset (`60px` blob + `16px` inset + `20px` breathing).
+ * Keep in lockstep with `--ui-scroll-safe-bottom` under `md` in design-tokens.
+ * Desktop no longer reserves this hole; Group 3 retires the mobile FAB.
  */
 export const UI_SCROLL_SAFE_BOTTOM_PX = 96;
 
-/**
- * Safe-area-aware forms of the scroller inset, for the shell's inline
- * `--ui-scroll-safe-bottom` override. Writing the bare px value there would
- * discard the inset that the root token (ui-canvas-chrome.css) folds in.
- */
-export const UI_SCROLL_SAFE_BOTTOM = `calc(${UI_SCROLL_SAFE_BOTTOM_PX}px + var(--ui-safe-bottom, 0px))`;
-
-/** Reduced inset used while the bottom dock already reserves space below main. */
-export const UI_SCROLL_SAFE_BOTTOM_DOCKED =
-  "calc(2.5rem + var(--ui-safe-bottom, 0px))";
-
 export const COPILOT_LAYOUT_USER_SETTING_NAME = "copilot.layout";
 
-export type CopilotPersistedPanelMode = "docked" | "floating";
+/**
+ * Live conversation chrome:
+ * - `sidebar` — Work: chat as the side panel
+ * - `window` — Work, detached
+ * - `drawer` — Work as a sheet (mobile)
+ */
+export const COPILOT_DOCK_MODES = ["window", "drawer", "sidebar"] as const;
+export type CopilotDockMode = (typeof COPILOT_DOCK_MODES)[number];
 
-/** Dock modes aligned with `CopilotDockMode` in copilot-shell. */
-export type CopilotLayoutPersistDockMode =
+/** Legacy persisted ids. Hydrate remaps these before they reach live chrome. */
+export type CopilotLayoutLegacyDockMode =
   | "floating"
   | "mini-floating"
-  | "window"
-  | "drawer"
-  | "sidebar"
   | "bottom";
+
+/** Dock modes that may appear in stored `copilot.layout`. */
+export type CopilotLayoutPersistDockMode =
+  | CopilotDockMode
+  | CopilotLayoutLegacyDockMode;
+
+export function isCopilotDockMode(value: unknown): value is CopilotDockMode {
+  return value === "window" || value === "drawer" || value === "sidebar";
+}
+
+/**
+ * Map a stored dock id onto live chrome. `mini-floating` collapses to a closed
+ * blob (caller also flips `open`). `bottom` and compact `floating` become Work.
+ */
+export function remapPersistedDockMode(
+  mode: CopilotLayoutPersistDockMode | null | undefined
+): CopilotDockMode | null {
+  if (mode == null || mode === "mini-floating") {
+    return null;
+  }
+  if (mode === "bottom" || mode === "floating") {
+    return "sidebar";
+  }
+  return mode;
+}
 
 /** Where the `window` dock mode sits and how big it is, in viewport px. */
 export interface CopilotWindowRect {
@@ -49,51 +57,51 @@ export interface CopilotWindowRect {
   y: number;
 }
 
-/**
- * Which viewport edges the FAB avatar is pinned to, plus the gap from each
- * edge. Persisting the anchor (rather than an absolute point) keeps the avatar
- * stuck to its corner across window resizes and reloads.
- */
-export interface CopilotFabAnchor {
-  edgeX: "left" | "right";
-  edgeY: "top" | "bottom";
-  /** Distance in px from `edgeX` to the FAB's nearest horizontal edge. */
-  offsetX: number;
-  /** Distance in px from `edgeY` to the FAB's nearest vertical edge. */
-  offsetY: number;
-}
-
 export interface CopilotLayoutSnapshotV1 {
   collapseToCircle?: boolean;
-  /** Expanded status-flap content height (px) on compact floating/dock surfaces. */
+  /** Expanded status-flap content height (px) on compact surfaces. */
   compactStatusFlapHeight?: number;
-  /** Edge anchor for a FAB dragged away from the default corner. */
-  fabAnchor?: CopilotFabAnchor;
-  /** Legacy absolute FAB position (superseded by `fabAnchor`). */
-  fabPosition?: { x: number; y: number };
   /**
-   * When true, the floating launcher re-pins to the bottom-right corner as its
+   * When true, a detached window re-pins to the bottom-right corner as its
    * measured height settles. Cleared after the user drags it away.
    */
   floatingDockedToCorner?: boolean;
   floatingPosition?: { x: number; y: number };
   floatingSize?: { height: number; width: number };
   open: boolean;
-  panelMode?: CopilotPersistedPanelMode;
   preferredDockMode: CopilotLayoutPersistDockMode | null;
   v: 1;
   /** Last position and size of the `window` dock mode. */
   windowRect?: CopilotWindowRect;
 }
 
-/** `open` + collapsed circle hides all chrome; force expanded when shell is open. */
+/**
+ * Normalize a stored snapshot for the current chrome:
+ * - `open` + collapsed circle hides all chrome; force expanded when shell is open.
+ * - `mini-floating` used to mean a wanderable canvas avatar. Collapse now means
+ *   the panel is closed and the blob stays on the app bar.
+ */
 export function reconcileCopilotLayoutSnapshot(
   snapshot: CopilotLayoutSnapshotV1
 ): CopilotLayoutSnapshotV1 {
-  if (snapshot.open && snapshot.collapseToCircle) {
-    return { ...snapshot, collapseToCircle: false };
+  let next = snapshot;
+  if (next.preferredDockMode === "mini-floating") {
+    next = {
+      ...next,
+      collapseToCircle: true,
+      open: false,
+      preferredDockMode: null,
+    };
+  } else {
+    const remapped = remapPersistedDockMode(next.preferredDockMode);
+    if (remapped !== next.preferredDockMode) {
+      next = { ...next, preferredDockMode: remapped };
+    }
+    if (next.open && next.collapseToCircle) {
+      next = { ...next, collapseToCircle: false };
+    }
   }
-  return snapshot;
+  return next;
 }
 
 /** Injected by the host (e.g. React Query + user-settings API). */

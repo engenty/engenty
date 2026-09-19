@@ -19,14 +19,19 @@ import {
   usePageConfig,
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
-import { Info, Lock, PauseCircle } from "lucide-react";
+import { Info, PauseCircle } from "lucide-react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import {
   ArtifactPaneToggle,
   WorkspaceArtifactPane,
 } from "../../artifacts/workspace-artifact-pane.js";
-import { ChatKindBadge } from "../../components/copilot/chat-kind-badge.js";
+import {
+  type ChatSpaceAudience,
+  ChatVisibilityBand,
+  ChatVisibilityMarker,
+  chatVisibilityOf,
+} from "../../components/copilot/chat-visibility.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { ThreadContextToggle } from "../../components/copilot/thread-context/thread-context-toggle.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
@@ -47,6 +52,7 @@ import {
 import {
   useContinueRoomMutation,
   useRoomMembersQuery,
+  useRoomPeopleQuery,
   useRoomStateQuery,
   useRoomThreadQuery,
   useSpaceConversationsQuery,
@@ -91,7 +97,7 @@ function RoomMessage({
 export function switchRoomsFrom(
   rooms: readonly {
     members: readonly { agent_id: string }[];
-    session: { id: string; title: string | null };
+    session: { id: string; title: string | null; visibility?: string | null };
   }[],
   roster: readonly AgentDeskSwitchAgent[]
 ): AgentDeskSwitchRoom[] {
@@ -106,6 +112,7 @@ export function switchRoomsFrom(
       room.members
         .map((member) => byId.get(member.agent_id)?.name ?? member.agent_id)
         .join(", "),
+    visibility: room.session.visibility ?? null,
   }));
 }
 
@@ -117,6 +124,8 @@ export function AgentRoom(props: {
   /** `@` candidates for the composer — the Space's people and other agents. */
   mentionRefSearch?: MentionRefSearch;
   rosterAgents?: readonly AgentDeskSwitchAgent[];
+  /** How far the Space itself reaches — what "open to the Space" means here. */
+  spaceAudience?: ChatSpaceAudience | null;
   spaceId: string;
   spaceKey: string;
   spacePeople?: readonly AgentDeskSpacePerson[];
@@ -126,6 +135,7 @@ export function AgentRoom(props: {
     composerLeadingControl,
     mentionRefSearch,
     rosterAgents = NO_ROSTER,
+    spaceAudience,
     spaceId,
     spaceKey,
     spacePeople = NO_PEOPLE,
@@ -155,6 +165,7 @@ export function AgentRoom(props: {
     spaceId,
   });
   const membersQuery = useRoomMembersQuery(threadId);
+  const peopleQuery = useRoomPeopleQuery(threadId);
   const stateQuery = useRoomStateQuery(threadId);
   const conversationsQuery = useSpaceConversationsQuery(spaceId);
   const continueRoom = useContinueRoomMutation(threadId);
@@ -189,7 +200,13 @@ export function AgentRoom(props: {
     members
       .map((member) => byId.get(member.agent_id)?.name ?? member.agent_id)
       .join(", ");
-  const isPrivate = stateQuery.data?.visibility === "private";
+  // Its members only, or as wide as the Space (open — or, in a private
+  // Space, as far as that Space's people reach).
+  const visibility = chatVisibilityOf(
+    "room",
+    stateQuery.data?.visibility,
+    spaceAudience
+  );
   // Their own room is theirs to run; the space's admins run every room.
   const canManage =
     props.canManage ||
@@ -215,19 +232,15 @@ export function AgentRoom(props: {
                 type="button"
               >
                 <EngentyCluster kinds={kinds} size={22} />
+                <ChatVisibilityMarker kind="room" visibility={visibility} />
                 <span className="min-w-0 truncate">{title}</span>
-                {isPrivate ? (
-                  <Lock
-                    aria-hidden
-                    className="size-3 shrink-0 text-muted-foreground"
-                  />
-                ) : null}
               </button>
             }
             rooms={switchRoomsFrom(
               conversationsQuery.data?.rooms ?? [],
               rosterAgents
             )}
+            spaceAudience={spaceAudience}
             spaceKey={spaceKey}
           />
         ),
@@ -237,7 +250,6 @@ export function AgentRoom(props: {
     ];
   }, [
     conversationsQuery.data?.rooms,
-    isPrivate,
     kinds,
     openPanel,
     room,
@@ -246,6 +258,7 @@ export function AgentRoom(props: {
     t,
     threadId,
     title,
+    visibility,
   ]);
 
   // The pane and context toggles read the host the chat registers under this
@@ -316,22 +329,22 @@ export function AgentRoom(props: {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      {/* Same height as the transparent topbar (h-11) that floats over the
-          page: the clearance the breadcrumb and action row sit in. A room has
-          no identity band — the crumb names it. */}
-      <header className="h-11 w-full shrink-0" />
-      {/* Who reads this: the same badge the desk header wears, so a room and
-          a desk are never confused for one another. */}
-      <div
-        className="flex items-center gap-2 border-border-soft border-b px-4 py-1.5 text-muted-foreground text-xs"
-        data-testid="agent-room-readers-bar"
-      >
-        <ChatKindBadge kind="room" memberCount={members.length} />
-        <span className="min-w-0 truncate">
-          {isPrivate
-            ? t("agentDesk.roomInfo.privateHint")
-            : t("chatKind.room.readers")}
-        </span>
+      {/* The band the desk header collapses to, always up here: a room has
+          no identity block — the crumb names it, and the transparent topbar
+          (h-11) floats over the band's first row. It states who reads: its
+          members, counted (agents and people), or everyone in the Space. */}
+      <div data-testid="agent-room-readers-bar">
+        <ChatVisibilityBand
+          gutterClassName="px-4 pb-2"
+          kind="room"
+          lastActivityAt={room?.updated_at ?? null}
+          memberCount={
+            stateQuery.data?.visibility === "private"
+              ? members.length + (peopleQuery.data?.length ?? 0)
+              : spaceAudience?.peopleCount
+          }
+          visibility={visibility}
+        />
       </div>
       {paused ? (
         <div

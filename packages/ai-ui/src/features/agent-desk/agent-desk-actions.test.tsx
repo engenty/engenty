@@ -21,6 +21,7 @@ vi.mock("../../components/ag-ui-inspector/ag-ui-inspector-widget.js", () => ({
 vi.mock(
   "../../components/copilot/thread-context/thread-context-toggle.js",
   () => ({
+    ThreadContextMenuItem: () => null,
     ThreadContextToggle: () => null,
   })
 );

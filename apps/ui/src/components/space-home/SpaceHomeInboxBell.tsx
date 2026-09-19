@@ -4,8 +4,7 @@
  * It left the Work list to sit here: the home is where a person lands, and
  * "what waits for me in this space" is a number you glance at from there
  * rather than a row you scroll past. The count is this SPACE's open
- * needs-you items — the same number the Dashboard row carries — not the
- * tenant-wide unseen figure the app rail's bell shows.
+ * Freigaben + Fehler — the same number the rail bell shows here.
  *
  * A popover, not a link: glance and act without leaving the dashboard. "View
  * all" still opens the full-screen list, which keeps this sidebar (Dashboard

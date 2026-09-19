@@ -10,6 +10,7 @@ import {
   useSavePreferredAppearanceMutation,
 } from "../../lib/preferred-appearance-queries.js";
 import { getWorkspaceContext } from "../../lib/user-settings-api.js";
+import { AppBarPositionField } from "./app-bar-position-field.js";
 
 const LANGUAGES = [
   { code: "en" as const, flag: "🇬🇧", label: "English" },
@@ -590,6 +591,8 @@ export function PreferredAppearanceSection({
           })}
         </div>
       </div>
+
+      <AppBarPositionField />
 
       {/* Text Size Section */}
       <div className="space-y-2">

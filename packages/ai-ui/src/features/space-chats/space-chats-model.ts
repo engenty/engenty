@@ -75,6 +75,8 @@ export const SPACE_CHAT_KIND_ORDER: readonly SpaceChatKind[] = [
 ];
 
 export interface SpaceChatAgentInfo {
+  /** Generated portrait storage key; blob silhouette when absent. */
+  avatarUrl?: string | null;
   /** Blob character; absent hashes a stable one from the id. */
   engenty?: string | null;
   id: string;
@@ -84,15 +86,16 @@ export interface SpaceChatAgentInfo {
 export interface SpaceChatRow {
   agentId: string;
   agentName: string;
-  /** Null on an unattended run's thread — no human started it. */
-  createdByUserId: string | null;
   /**
-   * The agent's blob, carried on the ROW as well as on the group.
+   * The agent's face, carried on the ROW as well as on the group.
    *
    * The flat list (the sidebar's recent chats) has no group heading to hang it
    * on, and the blob is the only thing in a sidebar row that says who the
    * conversation was with.
    */
+  avatarUrl?: string | null;
+  /** Null on an unattended run's thread — no human started it. */
+  createdByUserId: string | null;
   engenty: AgentEngentyKind;
   id: string;
   /** Whether the viewer is in it. Only a room can be listed without. */
@@ -109,6 +112,7 @@ export interface SpaceChatRow {
 export interface SpaceChatAgentGroup {
   agentId: string;
   agentName: string;
+  avatarUrl?: string | null;
   engenty: AgentEngentyKind;
   rows: SpaceChatRow[];
 }
@@ -227,6 +231,7 @@ function rowFor(
     agentId: input.agentId,
     agentName: agent?.name?.trim() || input.agentId,
     createdByUserId: input.createdByUserId,
+    ...(agent?.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
     engenty: resolveAgentEngenty(input.agentId, agent?.engenty),
     id: input.id,
     joined: input.joined,
@@ -344,6 +349,7 @@ export function organizeSpaceChats(
       byAgent.set(row.agentId, {
         agentId: row.agentId,
         agentName: row.agentName,
+        ...(row.avatarUrl ? { avatarUrl: row.avatarUrl } : {}),
         engenty: row.engenty,
         rows: [row],
       });

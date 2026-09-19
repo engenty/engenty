@@ -1,27 +1,38 @@
-// The agent's identity as the page header: engenty, name, module, mandate,
-// where it stands in the team, and what kind of conversation is open.
+// The agent's identity as the page header: engenty, name, how far the open
+// conversation is visible, mandate, module, and where it stands in the team.
 //
 // This block used to live inside the chat, as the empty state's landing card —
 // so it vanished the moment you sent a message. Who this agent is does not
 // depend on how long you have talked to it, so it is the identity at the top
-// of the transcript and scrolls with it. A compact band in the topbar row
-// names the desk once that block has scrolled away — it does not replace the
-// large block in flow (that swap used to jitter the scroller). The band is
-// two lines and opaque: name on the first, kind / readers / standing on the
-// second, and nothing scrolling underneath shows through it.
+// of the transcript and scrolls with it. A band in the topbar row names the
+// desk once that block has scrolled away — it does not replace the large
+// block in flow (that swap used to jitter the scroller).
 //
-// The only pill is the module a module agent ships with, after the name:
-// "Specialist" and "Custom" said nothing the name and the mandate do not, and
-// sitting above the title they read as the loudest thing in the block.
+// The visibility tier is the one fact both states must state. In flow it is
+// the chip beside the readers line, on the page canvas — no ground of its own,
+// so the identity reads as one block with the transcript. Scrolled, the chip
+// grows into the band: the tier's ground under the topbar row (a private chat
+// flips the theme, protected is the ember tint, open the page surface), the
+// chip and the readers line on it, one line, and a status dot. Mandate,
+// module and standing stay in the block — the band says who reads, nothing
+// else. It is opaque: nothing scrolling underneath shows through.
+//
+// The only other pill is the module a module agent ships with, after the
+// mandate: "Specialist" and "Custom" said nothing the name and the mandate do
+// not, and sitting above the title they read as the loudest thing in the block.
 import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn, DetailPageHeader, Engenty } from "@engenty/ui-core";
-import { CornerDownRight, Crown, Lock, Users } from "lucide-react";
+import { cn, DetailPageHeader } from "@engenty/ui-core";
+import { CornerDownRight, Crown, Users } from "lucide-react";
 import { useOptionalAgentHostByKey } from "../../agent-provider/engenty-agent.js";
+import { AgentFace } from "../../components/agent-face.js";
+import type { ChatKind } from "../../components/copilot/chat-kind-badge.js";
 import {
-  type ChatKind,
-  ChatKindBadge,
-} from "../../components/copilot/chat-kind-badge.js";
+  type ChatVisibility,
+  ChatVisibilityBand,
+  ChatVisibilityChip,
+  useChatVisibilityCopy,
+} from "../../components/copilot/chat-visibility.js";
 import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
 
 /** Where the agent stands in the Space's team, by display name. */
@@ -34,12 +45,6 @@ export interface AgentDeskRelation {
   reportsToName?: string | null;
 }
 
-/** Who reads the open conversation, as the header states it. */
-export interface AgentDeskReaders {
-  kind: "dm" | "shared";
-  text: string;
-}
-
 export interface AgentDeskHeaderProps {
   agent: AgentDeskAgent;
   /** What the open conversation is; absent while no thread is bound. */
@@ -47,41 +52,16 @@ export interface AgentDeskHeaderProps {
   collapsed: boolean;
   /** The host the chat runs under — the compact row's status dot reads it. */
   hostKey?: string;
-  /** Rooms: how many members. */
+  /** When the open conversation last moved — the band's right edge. */
+  lastActivityAt?: string | null;
+  /** Protected: how many people read along. */
   memberCount?: number | null;
   /** Display name of `agent.managed_by_module`, as the sidebar labels it. */
   moduleLabel?: string;
-  readers?: AgentDeskReaders | null;
   relation?: AgentDeskRelation | null;
   spaceName?: string | null;
-}
-
-function ReadersLine({ readers }: { readers: AgentDeskReaders | null }) {
-  if (!readers) {
-    return null;
-  }
-  const Icon = readers.kind === "dm" ? Lock : Users;
-  return (
-    <span
-      className="inline-flex min-w-0 items-center gap-1 text-muted-foreground text-xs"
-      data-testid={
-        readers.kind === "dm" ? "agent-desk-dm-bar" : "agent-desk-readers-bar"
-      }
-    >
-      <Icon
-        aria-hidden
-        className={cn(
-          "size-3 shrink-0",
-          // Same colour the kind badge uses for the same fact: locked to you
-          // is amber, a Space that reads along is teal.
-          readers.kind === "dm"
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-teal-600 dark:text-teal-400"
-        )}
-      />
-      <span className="min-w-0 truncate">{readers.text}</span>
-    </span>
-  );
+  /** How far the open conversation is visible; absent while no thread is bound. */
+  visibility?: ChatVisibility | null;
 }
 
 function RelationLine({
@@ -171,44 +151,69 @@ function StatusDot({ hostKey }: { hostKey?: string }) {
   );
 }
 
+/** A private line names the agent — "only you and X"; the other tiers do not. */
+function readersName(props: AgentDeskHeaderProps): string | undefined {
+  return props.visibility === "private" ? props.agent.name : undefined;
+}
+
 function CompactHeader(props: AgentDeskHeaderProps) {
-  const { agent } = props;
-  // Two lines, opaque, UNDER the transparent topbar (z-10 against its z-20).
-  // The first line is the topbar's own row — breadcrumb left, actions right
-  // — so this only paints the ground it floats on. The second carries what
-  // the large block said under the name: the conversation's kind, who reads
-  // it, where the agent stands, and whether it is working. Steps aside on
-  // narrow screens, where the topbar already fills the band.
-  return (
-    <header
-      className="pointer-events-auto hidden w-full shrink-0 border-border-soft border-b bg-background md:block"
-      data-collapsed="true"
-    >
-      <div aria-hidden className="h-11" />
-      <div
-        // `pl-5` = the transcript's own gutter (`px-3` on the scroller plus
-        // `pl-2` on the stack), so the band's info starts on the message edge.
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 pr-3 pb-2 pl-5 text-muted-foreground text-xs"
+  if (!props.visibility) {
+    // No conversation bound: nothing to say about who reads, so the band is
+    // only the ground the topbar floats on.
+    return (
+      <header
+        className="pointer-events-auto w-full shrink-0 border-border-soft border-b bg-background"
+        data-collapsed="true"
       >
-        {agent.source === "module" && agent.managed_by_module ? (
-          <AgentModuleBadge
-            label={props.moduleLabel}
-            moduleId={agent.managed_by_module}
-          />
-        ) : null}
-        {props.chatKind ? (
-          <ChatKindBadge
-            kind={props.chatKind}
-            memberCount={props.memberCount}
-            name={agent.name}
-            spaceName={props.spaceName}
-          />
-        ) : null}
-        <ReadersLine readers={props.readers ?? null} />
-        <RelationLine className="contents" relation={props.relation} />
-        <StatusDot hostKey={props.hostKey} />
-      </div>
-    </header>
+        <div aria-hidden className="h-11" />
+      </header>
+    );
+  }
+  return (
+    // `pl-5` = the transcript's own gutter (`px-3` on the scroller plus
+    // `pl-2` on the stack), so the band's info starts on the message edge.
+    <ChatVisibilityBand
+      kind={props.chatKind}
+      lastActivityAt={props.lastActivityAt}
+      memberCount={props.memberCount}
+      name={readersName(props)}
+      spaceName={props.spaceName}
+      visibility={props.visibility}
+    >
+      <StatusDot hostKey={props.hostKey} />
+    </ChatVisibilityBand>
+  );
+}
+
+function VisibilityLine(props: AgentDeskHeaderProps) {
+  const copy = useChatVisibilityCopy({
+    memberCount: props.memberCount,
+    name: readersName(props),
+    spaceName: props.spaceName,
+    visibility: props.visibility ?? "open",
+  });
+  if (!props.visibility) {
+    return null;
+  }
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-2 gap-y-1"
+      data-testid="agent-desk-readers-bar"
+    >
+      <ChatVisibilityChip
+        kind={props.chatKind}
+        memberCount={props.memberCount}
+        name={readersName(props)}
+        spaceName={props.spaceName}
+        visibility={props.visibility}
+      />
+      {/* Open is the default: the chip says it, a sentence would repeat it. */}
+      {props.visibility === "open" ? null : (
+        <span className="min-w-0 text-muted-foreground text-xs">
+          {copy.readers}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -235,39 +240,39 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
         className="mb-2 block xl:absolute xl:top-20 xl:left-[-5.5rem] xl:mb-0"
         role="img"
       >
-        <Engenty kind={agent.engenty} size={60} />
+        <AgentFace
+          avatarUrl={agent.avatarUrl}
+          kind={agent.engenty}
+          name={agent.name}
+          size={60}
+        />
       </span>
       <DetailPageHeader
         containerClassName="max-w-none px-0 pt-0 pb-0 sm:px-0 md:px-0 md:pb-0"
         description={
           <div className="max-w-2xl space-y-1.5">
+            {/* Who reads along comes first, right under the name: it is the
+                fact the band will keep stating once this has scrolled away. */}
+            <VisibilityLine {...props} />
             {description ? (
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {description}
               </p>
             ) : null}
-            {/* The badges read with the standing lines, not with the name:
-                beside a long name they hung off the end of the title. */}
-            <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
-              {agent.source === "module" && agent.managed_by_module ? (
+            {agent.source === "module" && agent.managed_by_module ? (
+              <div className="flex flex-wrap items-center gap-1.5">
                 <AgentModuleBadge
                   label={moduleLabel}
                   moduleId={agent.managed_by_module}
                 />
-              ) : null}
-              {props.chatKind ? (
-                <ChatKindBadge
-                  kind={props.chatKind}
-                  memberCount={props.memberCount}
-                  name={agent.name}
-                  spaceName={props.spaceName}
-                />
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             <RelationLine relation={relation} />
-            <ReadersLine readers={props.readers ?? null} />
           </div>
         }
+        // Never collapsed here, so the clamp only ever clipped: on a phone the
+        // chip, the mandate and the standing line run past 8rem.
+        descriptionClassName="max-h-none"
         // Wraps rather than truncates — the name owns the whole measure now.
         title={<span className="break-words">{agent.name}</span>}
         // No card surface: the identity reads on the page canvas, the same

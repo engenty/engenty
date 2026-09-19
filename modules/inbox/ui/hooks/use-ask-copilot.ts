@@ -1,10 +1,12 @@
 import {
   ENGENTY_COPILOT_HOST_KEY,
+  isTalkConversationPathname,
   openCopilotShell,
   setCopilotComposerDraft,
 } from "@engenty/ai-ui";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useCallback } from "react";
+import { useLocation } from "react-router-dom";
 
 /**
  * Hand a prompt to the global Copilot dock: open the shell and prefill its
@@ -14,12 +16,22 @@ import { useCallback } from "react";
  * The prompt is a draft, not a send: the reader still sees it before it goes.
  */
 export function useAskCopilot(): (prompt: string) => void {
-  const { copilotLayout, preferredDockMode, setOpen, setPreferredDockMode } =
-    useCopilotShell();
+  const {
+    chromeHidden,
+    copilotLayout,
+    preferredDockMode,
+    setCompanionWho,
+    setOpen,
+    setPreferredDockMode,
+  } = useCopilotShell();
+  const location = useLocation();
 
   return useCallback(
     (prompt: string) => {
+      setCompanionWho({ kind: "copilot" });
       openCopilotShell({
+        chromeHidden,
+        isTalkPage: isTalkConversationPathname(location.pathname),
         mergeLayout: copilotLayout.mergeLayout,
         preferredDockMode,
         setOpen,
@@ -34,8 +46,11 @@ export function useAskCopilot(): (prompt: string) => void {
       }
     },
     [
+      chromeHidden,
       copilotLayout.mergeLayout,
+      location.pathname,
       preferredDockMode,
+      setCompanionWho,
       setOpen,
       setPreferredDockMode,
     ]

@@ -729,11 +729,7 @@
     "position": {
       "menu": "Copilot-Menü",
       "heading": "Position",
-      "bottom": "Unten angedockt",
-      "button": "Avatar",
       "drawer": "Drawer",
-      "modal": "Modal",
-      "floating": "Schwebend",
       "window": "Fenster",
       "sidebar": "Seitenleiste",
       "fullscreen": "Vollbild"
@@ -1205,6 +1201,8 @@
     "tabs": {
       "work": "Arbeit",
       "planWithCount": "Plan, {{count}} in Inbox",
+      "workWithCount_one": "Arbeit, {{count}} wartet auf dich",
+      "workWithCount_other": "Arbeit, {{count}} warten auf dich",
       "data": "Daten",
       "plan": "Plan"
     },
@@ -1751,6 +1749,7 @@
     "scope": {
       "all": "Alle",
       "space": "Space",
+      "tenant": "Tenant",
       "thisSpace": "Dieser Space"
     },
     "searchPlaceholder": "Benachrichtigungen durchsuchen…",

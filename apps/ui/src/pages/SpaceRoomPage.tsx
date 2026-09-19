@@ -2,6 +2,7 @@ import { AgentRoom, agentRoomHostKey } from "@engenty/ai-ui";
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { SpaceComposerControls } from "@/components/spaces/SpaceComposerControls";
+import { useSpaceAudience } from "@/lib/space-audience";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpaceMentionRefSearch } from "@/lib/use-space-mention-ref-search";
 import { useSpacePeople } from "@/lib/use-space-people";
@@ -27,6 +28,7 @@ export function SpaceRoomPage({
   // The space's people, the same rows the People section and the composer's `@`
   // list read. Feeds the room info's "add someone" picker.
   const spacePeople = useSpacePeople(space);
+  const spaceAudience = useSpaceAudience(space);
 
   if (!(space?.id && threadId)) {
     return null;
@@ -43,6 +45,7 @@ export function SpaceRoomPage({
       }
       mentionRefSearch={mentionRefSearch}
       rosterAgents={rosterAgents}
+      spaceAudience={spaceAudience}
       spaceId={space.id}
       spaceKey={spaceKey}
       spacePeople={spacePeople}

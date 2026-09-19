@@ -410,7 +410,7 @@ function KbHubChatPageContent(props: {
         composerWrapperClassName={CHAT_LANE_COMPOSER_CLASS}
         contentBodyGutter="flush"
         debugPayload={undefined}
-        detachLabel={tc("copilot.position.floating")}
+        detachLabel={tc("copilot.position.window")}
         draft={draft}
         emptyStateSubtitle={t("hub.chat_empty_subtitle")}
         emptyStateTitle={kbName}

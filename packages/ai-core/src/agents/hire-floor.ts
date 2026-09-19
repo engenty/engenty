@@ -60,6 +60,10 @@ export const LIVE_HIRE_TOOL_IDS = [
   // The same for the Workflows it owns: a new version for a human to
   // publish, never a new Workflow and never a colleague's.
   "workflow_self_revise",
+  // Its own face: pick a blob (silhouette + color), generate a new
+  // portrait, or propose a name and mandate that fit — in conversation,
+  // with a human approve before anything sticks.
+  "agent_look",
 ] as const;
 
 /** Presentation tools attached after a live hire passes the go-live gate. */

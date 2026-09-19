@@ -28,6 +28,7 @@ import {
 import { Check, MoreHorizontal, Plus, Settings2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAppBarChromeContext } from "../context/app-bar-chrome-context";
 import type {
   RailSpace,
   RailSpaceIndicator,
@@ -36,6 +37,7 @@ import type {
 } from "../lib/rail-spaces";
 import {
   RAIL_TILE_ACTIVE_RING_CLASSNAME,
+  RAIL_TILE_ACTIVE_RING_INSET_CLASSNAME,
   RAIL_TILE_SPACE_REST_CLASSNAME,
 } from "../lib/rail-tile-chrome";
 import { SpaceIconFace } from "./space-icon-face";
@@ -105,11 +107,13 @@ const TILE_BASE =
   "relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg font-semibold text-xs";
 
 /**
- * Discord-style left pill + shadow chrome on the tile. The pill sits on the
- * rail's left edge (`-translate-x-1.5` cancels the app-bar `px-1.5`). Quiet
- * tiles carry a soft contrast halo; hover is a fuller shadow, still thinner
- * than the current tile's 2px outline. Hover also grows a short stub so you
- * can see which place you are about to enter.
+ * Discord-style edge pill + shadow chrome on the tile. The pill sits on the
+ * rail's outer edge (`-translate-x-1.5` / `-translate-y-1.5` cancel the
+ * app-bar `px-1.5` / `py-1.5`). Quiet tiles carry a soft contrast halo; hover
+ * is a fuller shadow, still thinner than the current tile's 2px outline.
+ * Hover also grows a short stub so you can see which place you are about to
+ * enter. The slot stretches across the bar so `top-0` / `bottom-0` / `left-0`
+ * / `right-0` are the padded content edge, not the tile.
  */
 function RailSpaceSlot({
   children,
@@ -118,22 +122,58 @@ function RailSpaceSlot({
   children: ReactNode;
   current?: boolean;
 }) {
+  const { orientation, position } = useAppBarChromeContext();
+  const horizontal = orientation === "horizontal";
+  const pill = (() => {
+    switch (position) {
+      case "right":
+        return {
+          current: "h-8",
+          hover: "h-0 group-focus-within/space:h-3 group-hover/space:h-3",
+          rest: "top-1/2 right-0 w-1 translate-x-1.5 -translate-y-1/2 rounded-l-full",
+        };
+      case "top":
+        return {
+          current: "w-8",
+          hover: "w-0 group-focus-within/space:w-3 group-hover/space:w-3",
+          rest: "top-0 left-1/2 h-1 -translate-x-1/2 -translate-y-1.5 rounded-b-full",
+        };
+      case "bottom":
+        return {
+          current: "w-8",
+          hover: "w-0 group-focus-within/space:w-3 group-hover/space:w-3",
+          rest: "bottom-0 left-1/2 h-1 translate-y-1.5 -translate-x-1/2 rounded-t-full",
+        };
+      default:
+        return {
+          current: "h-8",
+          hover: "h-0 group-focus-within/space:h-3 group-hover/space:h-3",
+          rest: "top-1/2 left-0 w-1 -translate-x-1.5 -translate-y-1/2 rounded-r-full",
+        };
+    }
+  })();
   return (
-    <div className="group/space relative flex w-full justify-center">
+    <div
+      className={cn(
+        "group/space relative flex items-center justify-center",
+        horizontal ? "h-full" : "w-full"
+      )}
+    >
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute top-1/2 left-0 w-1 -translate-x-1.5 -translate-y-1/2 rounded-r-full bg-sidebar-foreground transition-[height] duration-200 ease-out",
-          current
-            ? "h-8"
-            : "h-0 group-focus-within/space:h-3 group-hover/space:h-3"
+          "pointer-events-none absolute bg-sidebar-foreground transition-[height,width] duration-200 ease-out",
+          pill.rest,
+          current ? pill.current : pill.hover
         )}
       />
       <div
         className={cn(
           "rounded-lg transition-shadow",
           current
-            ? RAIL_TILE_ACTIVE_RING_CLASSNAME
+            ? horizontal
+              ? RAIL_TILE_ACTIVE_RING_INSET_CLASSNAME
+              : RAIL_TILE_ACTIVE_RING_CLASSNAME
             : RAIL_TILE_SPACE_REST_CLASSNAME
         )}
       >
@@ -159,6 +199,7 @@ function SpaceTile({
   onNavigate?: () => void;
   space: RailSpaceTile;
 }) {
+  const { tooltipSide } = useAppBarChromeContext();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -182,7 +223,7 @@ function SpaceTile({
           <SpaceIndicator indicator={space.indicator} />
         </Link>
       </TooltipTrigger>
-      <TooltipContent side="right">{space.name}</TooltipContent>
+      <TooltipContent side={tooltipSide}>{space.name}</TooltipContent>
     </Tooltip>
   );
 }
@@ -272,6 +313,7 @@ function CurrentSpaceChooserTile({
   spaceHref: (space: { id: string; key: string }) => string;
   spaces: readonly RailSpaceTile[];
 }) {
+  const { tooltipSide } = useAppBarChromeContext();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -291,9 +333,9 @@ function CurrentSpaceChooserTile({
             <SpaceIndicator indicator={space.indicator} />
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="right">{space.name}</TooltipContent>
+        <TooltipContent side={tooltipSide}>{space.name}</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="start" className="w-56" side="right">
+      <DropdownMenuContent align="start" className="w-56" side={tooltipSide}>
         <SpaceChooserMenuItems
           canCreate={canCreate}
           labels={labels}
@@ -329,6 +371,7 @@ function SpaceOverflowChooser({
   spaceHref: (space: { id: string; key: string }) => string;
   stackIndicator: RailSpaceIndicator;
 }) {
+  const { tooltipSide } = useAppBarChromeContext();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -342,7 +385,7 @@ function SpaceOverflowChooser({
         <MoreHorizontal aria-hidden className="size-4" />
         <SpaceIndicator indicator={stackIndicator} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56" side="right">
+      <DropdownMenuContent align="start" className="w-56" side={tooltipSide}>
         <SpaceChooserMenuItems
           canCreate={canCreate}
           labels={labels}
@@ -368,14 +411,22 @@ export function SidebarSpacesZone({
   resolved,
   spaceHref,
 }: SidebarSpacesZoneProps) {
+  const { orientation, position, tooltipSide } = useAppBarChromeContext();
+  const horizontal = orientation === "horizontal";
+  /** Bottom strip: + and overflow sit toward the modules; tiles toward the brand. */
+  const reverseChrome = position === "bottom";
   const { hidden, hiddenTotal, stackIndicator, visible } = resolved;
   const showChooser = hiddenTotal >= RAIL_OVERFLOW_MIN_HIDDEN;
   const extraTiles = showChooser ? [] : hidden;
   const chooserSpaces = [...visible, ...hidden];
+  const stripClass = cn(
+    "flex items-center gap-1",
+    horizontal ? "h-full flex-row" : "flex-col py-1"
+  );
 
   if (pending) {
     return (
-      <div className="flex flex-col items-center gap-1 py-1">
+      <div className={stripClass}>
         {[0, 1, 2].map((index) => (
           <div
             className="size-9 shrink-0 animate-pulse rounded-lg bg-sidebar-accent/60"
@@ -395,12 +446,8 @@ export function SidebarSpacesZone({
     ) : null;
   }
 
-  return (
-    <div
-      aria-label={labels.spaces}
-      className="flex flex-col items-center gap-1 py-1"
-      role="group"
-    >
+  const spaceTiles = (
+    <>
       {visible.map((space) =>
         space.isCurrent ? (
           <RailSpaceSlot current key={space.id}>
@@ -434,35 +481,52 @@ export function SidebarSpacesZone({
           />
         </RailSpaceSlot>
       ))}
-      {showChooser ? (
-        <SpaceOverflowChooser
-          canCreate={canCreate}
-          hiddenTotal={hiddenTotal}
-          labels={labels}
-          onCreateSpace={onCreateSpace}
-          onNavigate={onNavigate}
-          onOpenSwitcher={onOpenSwitcher}
-          spaceHref={spaceHref}
-          spaces={chooserSpaces}
-          stackIndicator={stackIndicator}
-        />
-      ) : null}
+    </>
+  );
+  const overflowChooser = showChooser ? (
+    <SpaceOverflowChooser
+      canCreate={canCreate}
+      hiddenTotal={hiddenTotal}
+      labels={labels}
+      onCreateSpace={onCreateSpace}
+      onNavigate={onNavigate}
+      onOpenSwitcher={onOpenSwitcher}
+      spaceHref={spaceHref}
+      spaces={chooserSpaces}
+      stackIndicator={stackIndicator}
+    />
+  ) : null;
+  const addSpaceButton = canCreate ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          aria-label={labels.newSpace}
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border border-dashed text-sidebar-foreground/60 transition hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          onClick={onCreateSpace}
+          type="button"
+        >
+          <Plus aria-hidden className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={tooltipSide}>{labels.newSpace}</TooltipContent>
+    </Tooltip>
+  ) : null;
 
-      {canCreate ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              aria-label={labels.newSpace}
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border border-dashed text-sidebar-foreground/60 transition hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              onClick={onCreateSpace}
-              type="button"
-            >
-              <Plus aria-hidden className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{labels.newSpace}</TooltipContent>
-        </Tooltip>
-      ) : null}
+  return (
+    <div aria-label={labels.spaces} className={stripClass} role="group">
+      {reverseChrome ? (
+        <>
+          {addSpaceButton}
+          {overflowChooser}
+          {spaceTiles}
+        </>
+      ) : (
+        <>
+          {spaceTiles}
+          {overflowChooser}
+          {addSpaceButton}
+        </>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   objectRenderToolCallMatch,
 } from "../../../objects/object-render-tool-call-card";
 import { A2uiToolCallCard } from "./a2ui-tool-call-card";
+import { AgentLookToolCallCard } from "./agent-look-tool-call-card";
 import { AgentMessageToolCallCard } from "./agent-message-tool-call-card";
 import {
   AppBuildToolCallCard,
@@ -137,6 +138,13 @@ export function registerDefaultToolCallUiCards() {
     priority: 80,
     match: (ctx) => ctx.toolName.startsWith("agent-"),
     Card: SubAgentTaskToolCallCard,
+  });
+  registerToolCallUi({
+    id: "core.agent-look",
+    priority: 91,
+    match: (ctx) => ctx.toolName === "agent_look",
+    Card: AgentLookToolCallCard,
+    standalone: true,
   });
   registerToolCallUi({
     id: "core.agent-message",

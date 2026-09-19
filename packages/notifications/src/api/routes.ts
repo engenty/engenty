@@ -11,7 +11,7 @@
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { NotificationsService } from "../service.js";
-import { visibleInSpace } from "../visibility.js";
+import { notificationsInSpaceScope } from "../visibility.js";
 import { canManageStream } from "./manage.js";
 import {
   listNotificationsQuerySchema,
@@ -105,12 +105,14 @@ export function registerNotificationsApi(
         ...(query.subject_id ? { subjectId: query.subject_id } : {}),
         ...(query.subject_type ? { subjectType: query.subject_type } : {}),
       });
-      // Space narrowing keeps tenant-global blockers (a decision that belongs
-      // to no space is waiting in every space) and drops global FYI.
-      const spaceId = scope === "space" ? auth.spaceId : undefined;
-      const notifications = spaceId
-        ? records.filter((record) => visibleInSpace(record, spaceId))
-        : records;
+      // Space = this space's rows only. No space on the request → nothing,
+      // never the tenant aggregate (that is scope=tenant). `auth.spaceId` is
+      // the `x-engenty-space-id` header; dropping it on the HTTP edge made
+      // every in-space inbox look empty.
+      const notifications =
+        scope === "space"
+          ? notificationsInSpaceScope(records, auth.spaceId)
+          : records;
       return Response.json({ notifications }, { status: 200 });
     },
     method: "get",

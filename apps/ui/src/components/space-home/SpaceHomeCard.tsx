@@ -11,13 +11,14 @@
  * a second "Answer" button next to it would only send you to the same place.
  */
 import {
+  AgentFace,
   agentDeskHostKey,
   agentRoomHostKey,
   EngentyCluster,
   formatRelativeDate,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Badge, cn, Engenty } from "@engenty/ui-core";
+import { Badge, cn } from "@engenty/ui-core";
 import { Lock } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -161,11 +162,17 @@ export function SpaceHomeCard({
             size={38}
           />
         ) : (
-          <Engenty
+          <AgentFace
+            avatarUrl={item.agent?.avatarUrl}
             kind={
               item.kind === "desk"
                 ? item.agent.engenty
                 : (item.agent?.engenty ?? "round")
+            }
+            name={
+              item.kind === "desk"
+                ? item.agent.name
+                : (item.agent?.name ?? undefined)
             }
             size={38}
           />

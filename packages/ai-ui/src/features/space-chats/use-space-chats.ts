@@ -80,6 +80,7 @@ export function useSpaceChats(input: {
     const map = new Map<string, SpaceChatAgentInfo>();
     for (const agent of agentsQuery.data?.agents ?? []) {
       map.set(agent.id, {
+        ...(agent.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
         engenty: agent.engenty ?? null,
         id: agent.id,
         name: agent.name?.trim() || agent.id,

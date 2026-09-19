@@ -31,6 +31,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { resolveSpaceChatDestination } from "@/lib/space-agent-nav";
+import { useSpaceAudience } from "@/lib/space-audience";
 import { spaceRoomPath, spaceRootPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 
@@ -42,6 +43,7 @@ export function SpaceChatsPage() {
     () => spacesQuery.data?.find((candidate) => candidate.key === spaceKey),
     [spaceKey, spacesQuery.data]
   );
+  const spaceAudience = useSpaceAudience(space);
   const [query, setQuery] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const { error, groups, isLoading } = useSpaceChats({
@@ -163,6 +165,7 @@ export function SpaceChatsPage() {
               ? spaceRoomPath(spaceKey, row.id)
               : resolveSpaceChatDestination(row.agentId, spaceKey, row.id)
           }
+          spaceAudience={spaceAudience}
         />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { SpaceComposerControls } from "@/components/spaces/SpaceComposerControls";
 import { resolveSpaceAgentDeskRedirect } from "@/lib/space-agent-nav";
+import { useSpaceAudience } from "@/lib/space-audience";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpaceMentionRefSearch } from "@/lib/use-space-mention-ref-search";
 import { useSpaceModules } from "@/lib/use-space-modules";
@@ -23,6 +24,9 @@ export function SpaceAgentDeskPage({
     [spaceKey, spacesQuery.data]
   );
   const mentionRefSearch = useSpaceMentionRefSearch(space);
+  // What "everyone in the space reads" amounts to on this desk: in a private
+  // space that is its people, in a personal one it is only you.
+  const spaceAudience = useSpaceAudience(space);
   const { agents: rosterAgents } = useSpaceRosterAgents(space?.id ?? null);
   const { modules } = useSpaceModules(space?.id ?? null);
   const rosterEntry = useMemo(
@@ -73,6 +77,7 @@ export function SpaceAgentDeskPage({
       moduleLabel={moduleLabel}
       relation={relation}
       rosterAgents={rosterAgents}
+      spaceAudience={spaceAudience}
       spaceId={space.id}
       spaceKey={spaceKey}
       spaceName={space.name}

@@ -49,6 +49,10 @@ export async function announceAppRelease(
 ): Promise<void> {
   const source = createDbSourceFromEnv();
   if (!source) {
+    logger.warn("app release announce skipped — no database lane", {
+      appId: input.appId,
+      threadId: input.threadId,
+    });
     return;
   }
   const store = createThreadStore(source);
@@ -56,6 +60,10 @@ export async function announceAppRelease(
     .getThread({ tenantId: input.tenantId, threadId: input.threadId })
     .catch(() => null);
   if (!thread) {
+    logger.warn("app release announce skipped — thread not found", {
+      appId: input.appId,
+      threadId: input.threadId,
+    });
     return;
   }
   const marker: AppReleaseMarker = {
@@ -84,16 +92,24 @@ export async function announceAppRelease(
       threadId: input.threadId,
     });
   }
-  // Whoever owns the conversation is who the decision is owed to; a service
-  // run with neither has nobody to tell.
-  const participantUserIds = [
+  // Activating an App is `apps.approve` — a space act, not the conversation
+  // owner's private one. Address the row to the space so every member sees
+  // it in Freigaben; the people of the thread stay subscribed to the push.
+  // `participantUserIds` would win over the space (private-subject ladder)
+  // and hide the row from everyone but those ids.
+  //
+  // Do not pre-see the watchers. The review banner lives in the artifact
+  // pane, not the transcript they are already reading — marking them seen
+  // left the bell dark while the App sat unactivated.
+  const watchers = [
     ...new Set(
       [thread.created_by_user_id, input.userId ?? null].filter(
         (id): id is string => Boolean(id)
       )
     ),
   ];
-  if (participantUserIds.length === 0) {
+  const spaceId = thread.space_id ?? null;
+  if (!(spaceId || watchers.length > 0)) {
     return;
   }
   await emitInboxNotification({
@@ -113,10 +129,14 @@ export async function announceAppRelease(
       thread_id: input.threadId,
       version: input.version,
     },
-    participantUserIds,
+    ...(spaceId
+      ? watchers.length > 0
+        ? { subscribers: watchers }
+        : {}
+      : { participantUserIds: watchers }),
     priority: "medium",
     source: "apps",
-    spaceId: thread.space_id ?? null,
+    spaceId,
     subject: {
       id: `${input.appId}:${input.version}`,
       type: APP_RELEASE_SUBJECT,

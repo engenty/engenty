@@ -12,7 +12,6 @@ import {
   FLOATING_MIN_HEIGHT,
   FLOATING_MIN_WIDTH,
 } from "./copilot-drawer-constants";
-import type { CopilotPanelMode } from "./copilot-drawer-types";
 
 export function useCopilotDrawerLayoutPersistence(input: {
   collapseToCircle: boolean;
@@ -21,14 +20,11 @@ export function useCopilotDrawerLayoutPersistence(input: {
   floatingDockedToCorner: boolean;
   floatingPosition: { x: number; y: number };
   floatingSize: { height: number; width: number };
-  internalPanelMode: CopilotPanelMode;
-  isPanelModeControlled: boolean;
   setCollapseToCircle: Dispatch<SetStateAction<boolean>>;
   setCompactStatusFlapHeight: Dispatch<SetStateAction<number>>;
   setFloatingDockedToCorner: Dispatch<SetStateAction<boolean>>;
   setFloatingPosition: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setFloatingSize: Dispatch<SetStateAction<{ height: number; width: number }>>;
-  setInternalPanelMode: Dispatch<SetStateAction<CopilotPanelMode>>;
   /** Flip true after the first hydrate so corner re-pin cannot race restored coords. */
   setLayoutSnapshotApplied: Dispatch<SetStateAction<boolean>>;
 }) {
@@ -47,12 +43,6 @@ export function useCopilotDrawerLayoutPersistence(input: {
     const raw = input.copilotLayout.snapshot;
     const s = raw ? reconcileCopilotLayoutSnapshot(raw) : null;
     if (s) {
-      if (
-        !input.isPanelModeControlled &&
-        (s.panelMode === "floating" || s.panelMode === "docked")
-      ) {
-        input.setInternalPanelMode(s.panelMode);
-      }
       if (s.floatingPosition) {
         input.setFloatingPosition({
           x: s.floatingPosition.x,
@@ -103,13 +93,11 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.copilotLayout,
     input.copilotLayout?.layoutHydrated,
     input.copilotLayout?.snapshot,
-    input.isPanelModeControlled,
     input.setCollapseToCircle,
     input.setCompactStatusFlapHeight,
     input.setFloatingDockedToCorner,
     input.setFloatingPosition,
     input.setFloatingSize,
-    input.setInternalPanelMode,
     input.setLayoutSnapshotApplied,
   ]);
 
@@ -125,9 +113,6 @@ export function useCopilotDrawerLayoutPersistence(input: {
         floatingDockedToCorner: input.floatingDockedToCorner,
         floatingPosition: input.floatingPosition,
         floatingSize: input.floatingSize,
-        ...(input.isPanelModeControlled
-          ? {}
-          : { panelMode: input.internalPanelMode }),
       });
     }, 300);
     return () => window.clearTimeout(timer);
@@ -140,7 +125,5 @@ export function useCopilotDrawerLayoutPersistence(input: {
     input.floatingPosition.y,
     input.floatingSize.width,
     input.floatingSize.height,
-    input.internalPanelMode,
-    input.isPanelModeControlled,
   ]);
 }

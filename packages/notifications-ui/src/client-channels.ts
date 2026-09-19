@@ -82,7 +82,7 @@ export const browserClientChannel: ClientChannel = {
  * registered client channel. Mount once (the bell does).
  */
 export function useClientChannels() {
-  const query = useNotificationsQuery({ limit: 30, scope: "global" });
+  const query = useNotificationsQuery({ limit: 30, scope: "tenant" });
   const records = query.data?.notifications;
   const knownIds = useRef<Set<string> | null>(null);
   useEffect(() => {

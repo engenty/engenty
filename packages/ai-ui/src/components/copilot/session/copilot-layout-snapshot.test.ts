@@ -18,7 +18,7 @@ describe("copilot-layout-snapshot", () => {
       { open: false }
     );
     expect(a.open).toBe(false);
-    expect(a.preferredDockMode).toBe("floating");
+    expect(a.preferredDockMode).toBe("sidebar");
     expect(a.floatingPosition).toEqual({ x: 10, y: 20 });
     expect(a.floatingSize).toEqual({ width: 400, height: 500 });
   });
@@ -40,24 +40,21 @@ describe("copilot-layout-snapshot", () => {
     });
   });
 
-  it("parses fabPosition from snapshot", () => {
+  it("ignores leftover fabPosition and fabAnchor keys on hydrate", () => {
     const s = parseCopilotLayoutSnapshot({
       v: 1,
       open: false,
       preferredDockMode: null,
+      fabAnchor: {
+        edgeX: "right",
+        edgeY: "bottom",
+        offsetX: 16,
+        offsetY: 16,
+      },
       fabPosition: { x: 100, y: 200 },
     });
-    expect(s?.fabPosition).toEqual({ x: 100, y: 200 });
-  });
-
-  it("ignores invalid fabPosition", () => {
-    const s = parseCopilotLayoutSnapshot({
-      v: 1,
-      open: false,
-      preferredDockMode: null,
-      fabPosition: { x: "bad", y: 200 },
-    });
-    expect(s?.fabPosition).toBeUndefined();
+    expect(s && "fabPosition" in s).toBe(false);
+    expect(s && "fabAnchor" in s).toBe(false);
   });
 
   it("reconciles open + collapseToCircle to expanded layout", () => {
@@ -71,17 +68,32 @@ describe("copilot-layout-snapshot", () => {
     expect(s?.collapseToCircle).toBe(false);
   });
 
-  it("merges fabPosition", () => {
-    const base = mergeCopilotLayoutSnapshot(
-      { v: 1, open: false, preferredDockMode: null },
-      { fabPosition: { x: 50, y: 60 } }
-    );
-    expect(base.fabPosition).toEqual({ x: 50, y: 60 });
-
-    const cleared = mergeCopilotLayoutSnapshot(base, {
-      fabPosition: undefined,
+  it("closes a legacy mini-floating avatar into a closed blob", () => {
+    const s = parseCopilotLayoutSnapshot({
+      v: 1,
+      open: true,
+      preferredDockMode: "mini-floating",
     });
-    expect(cleared.fabPosition).toEqual({ x: 50, y: 60 });
+    expect(s?.preferredDockMode).toBeNull();
+    expect(s?.open).toBe(false);
+    expect(s?.collapseToCircle).toBe(true);
+  });
+
+  it("remaps a stored bottom or floating dock onto Work", () => {
+    expect(
+      parseCopilotLayoutSnapshot({
+        v: 1,
+        open: true,
+        preferredDockMode: "bottom",
+      })?.preferredDockMode
+    ).toBe("sidebar");
+    expect(
+      parseCopilotLayoutSnapshot({
+        v: 1,
+        open: true,
+        preferredDockMode: "floating",
+      })?.preferredDockMode
+    ).toBe("sidebar");
   });
 
   it("parses compactStatusFlapHeight from snapshot", () => {
@@ -103,6 +115,7 @@ describe("copilot-layout-snapshot", () => {
       floatingPosition: { x: 120, y: 340 },
     });
     expect(s?.floatingDockedToCorner).toBe(false);
+    expect(s?.preferredDockMode).toBe("sidebar");
     expect(s?.floatingPosition).toEqual({ x: 120, y: 340 });
 
     const merged = mergeCopilotLayoutSnapshot(

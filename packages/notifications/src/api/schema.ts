@@ -20,8 +20,7 @@ export const listNotificationsQuerySchema = z.object({
   kind: z.string().min(1).max(128).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   priority: notificationPrioritySchema.optional(),
-  /** `space` (default) narrows by the x-engenty-space-id header; `global` never does. */
-  scope: z.enum(["space", "global"]).optional(),
+  scope: z.enum(["space", "tenant"]).optional(),
   source: z.string().min(1).max(128).optional(),
   status: z.enum(["open", "all"]).optional(),
   stream: z.string().min(1).max(128).optional(),

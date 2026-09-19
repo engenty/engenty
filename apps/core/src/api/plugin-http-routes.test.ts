@@ -15,7 +15,7 @@ async function createToken(
 ): Promise<string> {
   return await new SignJWT({
     tenant_id: "tenant-1",
-    role: "agent",
+    role: "user",
     capabilities: params.capabilities,
     role_profiles: [],
     module_ids: [],
@@ -72,6 +72,7 @@ function writeUserSettingsPlugin(dir: string) {
           },
           handler: async (ctx) => ({
             name: ctx.params.name,
+            spaceId: ctx.auth?.spaceId ?? null,
             type: "json",
             value_jsonb: { ok: true },
           }),
@@ -151,7 +152,57 @@ describe("plugin HTTP routes", () => {
     await expect(response.json()).resolves.toMatchObject({
       data: {
         name: "copilot.layout",
+        spaceId: null,
         value_jsonb: { ok: true },
+      },
+    });
+  });
+
+  it("forwards x-engenty-space-id onto the handler auth (scope=space lists)", async () => {
+    tmpRoot = makeTempDir();
+    const modulesDir = path.join(tmpRoot, "modules");
+    const packagesDir = path.join(tmpRoot, "packages");
+    const pluginDir = path.join(packagesDir, "user-settings");
+    fs.mkdirSync(modulesDir, { recursive: true });
+    fs.mkdirSync(pluginDir, { recursive: true });
+    writeUserSettingsPlugin(pluginDir);
+
+    const registry = loadPlugins({
+      modulesDir,
+      packagesDir,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+      },
+    });
+    const secret = "test-security-secret";
+    const token = await createToken(secret, {
+      capabilities: ["user-settings.read"],
+    });
+    const app = createApiApp({
+      registry,
+      config: { securityJwtSecret: secret },
+      dataDir: tmpRoot,
+      resolvePath: (p) => path.resolve(tmpRoot, p),
+      auditLog: createNoopAuditLog(),
+      tenantPluginOverrides: createTenantPluginOverrides({}),
+    });
+    const spaceId = "01a0aa05-e37c-736a-af16-ea36e3c133ff";
+
+    const response = await app.request("/api/user-settings/copilot.layout", {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-engenty-space-id": spaceId,
+      },
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        name: "copilot.layout",
+        spaceId,
       },
     });
   });

@@ -275,6 +275,13 @@ export const agentConfigSchema = z.object({
    */
   engenty: z.enum(AGENT_ENGENTY_KINDS).optional(),
   /**
+   * Optional generated portrait. A storage object key under
+   * `tenants/<tid>/ai/agents/…`, or a data/https URL in tests. When set, UI
+   * prefers it over the blob silhouette and falls back to `engenty` if the
+   * file is missing.
+   */
+  avatarUrl: z.string().min(1).max(2048).nullish(),
+  /**
    * How much thinking this agent's turns default to whenever nobody chose:
    * the person left the composer on Auto, or the turn is a hand-off, a
    * delegation or a routine. An explicit pick on the person's own desk still

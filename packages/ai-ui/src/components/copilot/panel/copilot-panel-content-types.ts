@@ -6,7 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import type { ChatKind } from "../chat-kind-badge.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-launcher";
+import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { CopilotDecisionInterruptFeedback } from "../interrupts/copilot-tool-call-actions";
 import type { FieldSuggestion } from "../interrupts/hitl-approval-card";

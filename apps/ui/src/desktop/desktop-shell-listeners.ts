@@ -2,10 +2,12 @@
  * Shell-level listeners for the desktop app. Installed from `main.tsx` for
  * every desktop launch (before auth), so they work on the server picker and
  * login screens too. Tauri APIs are imported dynamically so the web bundle
- * only ships a lazy chunk reference.
+ * only ships a lazy chunk reference. Also keeps the native title bar color
+ * in sync with the AppBar.
  */
 
 import { clearStoredDesktopServer, isDesktopShell } from "./desktop-runtime";
+import { installDesktopTitlebarSync } from "./sync-desktop-titlebar";
 
 /** Tray menu "Change Server…" (see src-tauri/src/lib.rs). */
 const CHANGE_SERVER_EVENT = "engenty-desktop:change-server";
@@ -95,6 +97,7 @@ export function installDesktopShellListeners(): void {
   }
   installDesktopErrorOverlay();
   installReloadShortcut();
+  installDesktopTitlebarSync();
   void (async () => {
     try {
       const { listen } = await import("@tauri-apps/api/event");

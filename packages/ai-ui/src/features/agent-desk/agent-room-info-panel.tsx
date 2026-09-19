@@ -13,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Engenty,
   Input,
   Label,
   Switch,
@@ -21,6 +20,7 @@ import {
 } from "@engenty/ui-core";
 import { PauseCircle, Plus, User, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { AgentFace } from "../../components/agent-face.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
 import type { AgentDeskSwitchAgent } from "./agent-desk-switcher.js";
 import {
@@ -241,9 +241,11 @@ export function AgentRoomInfoPanel(props: {
                     key={agent.id}
                     onSelect={() => addMember.mutate(agent.id)}
                   >
-                    <Engenty
+                    <AgentFace
+                      avatarUrl={agent.avatarUrl}
                       className="mr-2 [&_.e-shadow]:hidden"
                       kind={agent.engenty}
+                      name={agent.name}
                       size={18}
                     />
                     {agent.name}
@@ -265,9 +267,11 @@ export function AgentRoomInfoPanel(props: {
                 data-testid="agent-room-member"
                 key={member.agent_id}
               >
-                <Engenty
+                <AgentFace
+                  avatarUrl={agent?.avatarUrl}
                   className="[&_.e-shadow]:hidden"
                   kind={agent?.engenty ?? "round"}
+                  name={name}
                   size={24}
                 />
                 <span className="min-w-0 flex-1 truncate">{name}</span>
