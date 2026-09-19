@@ -4,6 +4,15 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.10] - 2026-09-19
+- ADDED **[specialists]** Scaffold engenty-specialists, a builtin module for hired engenties
+- CHANGED **[specialists]** The floor entry, the hire policy and the standing appendix move into the module
+- CHANGED **[specialists]** The Space playbooks ship with engenty-specialists, seeded by name
+- DOCS **[readme]** List the apps/* workspace like the modules table
+- DOCS **[specialists]** Dev notes — floor and lanes, routine approval, the hire dialog, the module plan
+- FIXED **[ai]** Say what a routine is without the retired phrasing
+- FIXED **[notifications]** Size the inbox popover by the dynamic viewport
+
 ## [0.2.9] - 2026-09-19
 - ADDED **[cli]** Engenty setup keeps the local AI service credential alive
 - ADDED **[ai]** An engenty sees its own routines in the runtime block

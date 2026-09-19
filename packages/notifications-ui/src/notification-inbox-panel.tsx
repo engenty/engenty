@@ -32,7 +32,7 @@ import {
 
 /** Width + padding for the popover chrome. Height is fixed so lane switches never resize it. */
 export const notificationInboxPopoverClassName =
-  "z-[100] flex h-[min(40rem,calc(100vh-1.5rem))] min-h-[min(40rem,calc(100vh-1.5rem))] w-[min(32rem,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0";
+  "z-[100] flex h-[min(40rem,calc(100dvh-1.5rem))] min-h-[min(40rem,calc(100dvh-1.5rem))] w-[min(32rem,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0";
 
 type InboxLane = Exclude<NotificationLaneFilter, "all">;
 

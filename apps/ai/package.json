@@ -33,6 +33,7 @@
     "@engenty/context-graph": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",
+    "@engenty/engenty-specialists": "workspace:*",
     "@engenty/environment": "workspace:*",
     "@engenty/file-storage": "workspace:*",
     "@engenty/import": "workspace:*",

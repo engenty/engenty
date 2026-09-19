@@ -358,11 +358,25 @@ function collectModuleNamedPolicies(mod) {
   return map;
 }
 
+/**
+ * Modules whose skills any agent may prefer. `engenty-specialists` holds the
+ * Space playbooks the copilot and every hired engenty share (routines,
+ * space-data, hire-agent, …): seeded by name into every tenant, never
+ * mount-gated, so preferring one is not preferring a foreign module's skill.
+ */
+const SHARED_SKILL_MODULE_IDS = new Set(["engenty-specialists"]);
+
 function preferredSkillErrors(root, modules, closedPrefixes) {
   const errors = [];
   const skillsByModule = collectSkillNamesByModule(root, modules);
+  const shared = new Set();
+  for (const moduleId of SHARED_SKILL_MODULE_IDS) {
+    for (const name of skillsByModule.get(moduleId) ?? []) {
+      shared.add(name);
+    }
+  }
   for (const mod of modules.values()) {
-    const owned = skillsByModule.get(mod.id) ?? new Set();
+    const owned = new Set([...(skillsByModule.get(mod.id) ?? []), ...shared]);
     const agentsDir = join(mod.dir, "ai", "agents");
     if (!existsSync(agentsDir)) {
       continue;

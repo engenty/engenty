@@ -1,5 +1,5 @@
-import { LIVE_HIRE_TOOL_IDS } from "@engenty/ai-core";
 import { describe, expect, it } from "vitest";
+import { LIVE_HIRE_TOOL_IDS } from "./floor.js";
 import {
   agentCarriesCatalogFloor,
   effectiveToolGating,
@@ -11,7 +11,7 @@ import {
   withLiveHireSkills,
   withTopLevelHireSkills,
   withTopLevelHireTools,
-} from "../../ai/tools/agent-hire-policy.js";
+} from "./policy.js";
 
 describe("isLiveHireEligible", () => {
   const spaceId = "00000000-0000-4000-8000-000000000010";

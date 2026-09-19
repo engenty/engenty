@@ -28,7 +28,7 @@ export const FIRST_ENGENTY_TOOL_IDS: readonly string[] = [
   "skill_propose",
 ];
 
-/** Library skill (packages/ai-skills) that is the first engenty's playbook. */
+/** Shared Space playbook (modules/engenty-specialists) of the first engenty. */
 export const FIRST_ENGENTY_SKILL_ID = "chief-of-staff";
 
 /** Role template id of the first engenty (wizard step and roster suggestion). */

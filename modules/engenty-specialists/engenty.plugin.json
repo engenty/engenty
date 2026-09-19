@@ -1,0 +1,22 @@
+{
+  "id": "engenty-specialists",
+  "name": "Specialists",
+  "emoji": "🫧",
+  "description": "Hired engenties — the catalog floor every specialist carries, the Space playbooks it may load, and its standing appendix. A builtin code home like engenty-copilot: never mounted, nothing here is mount-gated.",
+  "version": "0.0.1",
+  "kind": "module",
+  "category": "agents",
+  "provides": ["module.engenty-specialists"],
+  "requires": [],
+  "capabilities": {
+    "operations": false,
+    "ui": false,
+    "ai": true,
+    "frontendTools": false
+  },
+  "server": {
+    "entry": "./src/plugin.ts"
+  },
+  "placement": "settings",
+  "stability": "experimental"
+}

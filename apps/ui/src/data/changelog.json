@@ -1,7 +1,55 @@
 [
   {
+    "version": "v0.2.10",
+    "timestamp": 1789844431,
+    "commits": [
+      {
+        "id": "0461137",
+        "message": "list the apps/* workspace like the modules table",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "f68dd9b",
+        "message": "dev notes — floor and lanes, routine approval, the hire dialog, the module plan",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "eea3ec6",
+        "message": "the floor entry, the hire policy and the standing appendix move into the module",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "be75552",
+        "message": "the Space playbooks ship with engenty-specialists, seeded by name",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "d228860",
+        "message": "scaffold engenty-specialists, a builtin module for hired engenties",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "286bda1",
+        "message": "say what a routine is without the retired phrasing",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5a63f58",
+        "message": "size the inbox popover by the dynamic viewport",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.9",
-    "timestamp": 1789841124,
+    "timestamp": 1789841126,
     "commits": [
       {
         "id": "c3fa094",

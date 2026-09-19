@@ -164,7 +164,7 @@ export function NotificationBell({
         // Away from the app bar, whichever edge it is docked on.
         side={tooltipSide}
         sideOffset={12}
-        style={{ height: "min(40rem, calc(100vh - 1.5rem))" }}
+        style={{ height: "min(40rem, calc(100dvh - 1.5rem))" }}
       >
         {panel}
       </PopoverContent>

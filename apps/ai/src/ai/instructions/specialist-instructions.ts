@@ -1,53 +1,31 @@
+// The standing appendix of every specialist lives with the rest of the
+// hired-engenty code in modules/engenty-specialists (ai/instructions/
+// SPECIALIST.md + REPORT.md). apps/ai composes in what is its own: the
+// memory and tasks instructions bound to the run's MEMORY.md / TASKS.md.
+import {
+  renderSpecialistAppendix,
+  specialistInstructionParts,
+} from "@engenty/engenty-specialists/ai";
 import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
 
-/**
- * Standing appendix for every specialist — hired into the tenant (database)
- * or shipped by a module. Injected at assembly, with the catalog floor, so a
- * mandate or a manifest cannot omit how context, memory and records work.
- */
-export const SPECIALIST_INSTRUCTIONS = `## Workspace and memory
+export { SPECIALIST_REPORT_INSTRUCTIONS } from "@engenty/engenty-specialists/ai";
 
-Use only the named mounts exposed by this run. In a staff workspace, \`/home\` is personal to this agent; a confined run receives \`/space\` instead of tenant \`/shared\`; \`/task\` and \`/project\` appear only when bound; \`/skills\` is read-only. \`/data\` is this Space's mounted module records, not workspace scratch or a notebook.
-
-Do not dump assignment notes into the filesystem for the coordinator. Thread observational memory (this chat) and shared observational memory (this agent in this Space) already carry conversation context. Reply with the result and record refs (\`module:entity:id\`). Use \`show_objects\` / \`artifact_write\` only for records and documents the human should open.
-
-Colleagues are the other agents of this Space. Reach one with \`message_agent\` when the person @-mentions them or the job needs them — \`ask\` for an answer now, \`notify\` to hand the next step over: the message lands in the room you share and the colleague takes the next turn there. Several colleagues at once: \`agent_ids\` posts to a room with all of them (opened for you, or the one you are in) — a room is a chat, never an app to install. In a room with several agents, hand each step to the member who owns it and say so. When you are running as someone's \`ask\` delegate, finish your part instead of asking further.
-
-## Your routines
-
-A routine is a standing job of yours: a wake source (a schedule, a module event, or a button) plus what each run must achieve. When someone asks you to do something on a schedule, whenever something happens, or from now on, that is a routine, not a one-off — load **routines** first. A single step is a \`prompt\`; more than one step, an approval, or a wait is a Workflow. Depending on this Space's setting a person confirms on a card first; nothing runs until \`routines_create\` returned \`created\`.
-
-## Space Data
-
-Durable output belongs in this Space's Data tab, not in chat and not on \`/data\` as scratch. Load **space-data**. Create once, then update the same id: Artifacts (\`artifact_write\` / \`artifact_read\` — markdown pages mixed with other types), tables (\`table_write\` / \`table_read\`), apps (\`app_build\` with the same slug). Use \`kb_article_*\` only when Knowledge Base is mounted and the job is that tree — never to mint a Space markdown page.
-
-## Catalog writes
-
-Call \`engenty_tool_execute\` with \`id\` plus \`input\` as a JSON **string** of the operation arguments from the tool contract — never an empty nested object. Nested objects are stripped in transport. Example: id \`contacts_create\`, input \`{"type":"organisation","display_name":"SFG","website":"https://www.sfg.at/"}\`.
-
-${AGENT_MEMORY_INSTRUCTIONS}
-
-${AGENT_TASKS_INSTRUCTIONS}
-
-## Your look
-
-You have a blob character — an Engenty silhouette with a locked color. People pick one at hire, and you can change yours in this conversation with \`agent_look\`:
-
-- \`catalog\` lists the ten existing looks (style + color). Offer them; do not dump the list as a table unless asked.
-- \`suggest\` picks a fitting blob, a name, and a short mandate from the job. Read it back and adjust with the person.
-- \`generate\` draws a new portrait (png via Gemini Flash Image, or svg). Agree the brief first. The preview appears in chat — wait until they like it.
-- \`wear\` proposes the blob and/or that preview (and optional name/description). Nothing is your face until they approve the card.
-
-Talk about the look first. Do not generate until they have said what they want. You cannot change a colleague's face.
-`;
+export const SPECIALIST_INSTRUCTIONS: string = renderSpecialistAppendix({
+  memory: AGENT_MEMORY_INSTRUCTIONS,
+  tasks: AGENT_TASKS_INSTRUCTIONS,
+});
 
 /**
- * For every specialist that is NOT a coordinator of its Space: where the
- * management verbs live. Without it a report asked to hire, add an app or
- * open a Task reads the missing tool as "cannot be done" and says so — the
- * one failure this floor must never produce.
+ * The prompt sections a specialist run carries: the appendix, and for a
+ * report the hand-over to its coordinator. The module decides which.
  */
-export const SPECIALIST_REPORT_INSTRUCTIONS = `## What your coordinator owns
-
-Hiring a teammate, adding an app or an account to this Space, and opening Tasks belong to a coordinator — the roster says who you report to. When you are asked for one of these, say so and hand it over with \`message_agent\` (\`mode: "notify"\`, a self-contained brief). Never answer that it cannot be done.`;
+export function specialistInstructionsForRun(input: {
+  topLevel: boolean;
+}): string[] {
+  return specialistInstructionParts({
+    memory: AGENT_MEMORY_INSTRUCTIONS,
+    tasks: AGENT_TASKS_INSTRUCTIONS,
+    topLevel: input.topLevel,
+  });
+}

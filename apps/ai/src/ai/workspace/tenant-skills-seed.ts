@@ -12,6 +12,10 @@
 import { createHash } from "node:crypto";
 
 import { listLibrarySkills } from "@engenty/ai-skills";
+import {
+  ENGENTY_SPECIALISTS_MANAGED_SKILLS,
+  ENGENTY_SPECIALISTS_MODULE_ID,
+} from "@engenty/engenty-specialists/ai";
 
 import { loadRuntimeManagedSkills } from "../../../ai/skills/index.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
@@ -138,12 +142,14 @@ function rememberSyncedCatalog(tenantId: string, packs: ManagedSkillPack[]) {
   markManagedSkillsSynced(tenantId);
 }
 
-// Collect code-provided skills from three authoring roots into one flat
-// managed catalog. Runtime (`builtin`) skills ship from this repo; module
-// markdown arrives over the capability HTTP channel; library skills live in
-// `@engenty/ai-skills` (the Space playbooks the copilot and hired engenties
-// share among them) and are visible to a run only when preferred by name or
-// mounted on its Space.
+// Collect code-provided skills from four authoring roots into one flat
+// managed catalog. Runtime (`builtin`) skills ship from this repo; the Space
+// playbooks the copilot and hired engenties share ship with the
+// `engenty-specialists` module and are seeded by NAME here — never over the
+// capability channel, which is filtered by mount, and a floor skill must
+// exist in every Space; module markdown arrives over that capability HTTP
+// channel; library skills live in `@engenty/ai-skills`. A run sees a skill
+// only when its agent prefers it by name or the Space mounts it.
 export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
   const loader = createDefaultModuleCapabilityLoader();
   const capabilities = await loader.listModuleCapabilities();
@@ -152,6 +158,11 @@ export async function collectManagedSkillPacks(): Promise<ManagedSkillPack[]> {
     loadRuntimeManagedSkills()
   )) {
     packs.push({ name, skillMarkdown, source: "builtin" });
+  }
+  for (const [name, skillMarkdown] of Object.entries(
+    ENGENTY_SPECIALISTS_MANAGED_SKILLS
+  )) {
+    packs.push({ name, skillMarkdown, source: ENGENTY_SPECIALISTS_MODULE_ID });
   }
   for (const capability of capabilities) {
     for (const [name, skillMarkdown] of Object.entries(

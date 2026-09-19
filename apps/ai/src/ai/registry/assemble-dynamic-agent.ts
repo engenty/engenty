@@ -53,10 +53,7 @@ import { workspaceTransferTools } from "../../../ai/tools/workspace-move/index.j
 import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 import { AiSessionError } from "../errors.js";
 import { REPLY_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
-import {
-  SPECIALIST_INSTRUCTIONS,
-  SPECIALIST_REPORT_INSTRUCTIONS,
-} from "../instructions/specialist-instructions.js";
+import { specialistInstructionsForRun } from "../instructions/specialist-instructions.js";
 import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
 import { nativeModuleToolMeta } from "../native-module-tool-meta.js";
@@ -636,16 +633,16 @@ export function buildAgentInstructions(
   }
   if (agentCarriesCatalogFloor(config)) {
     // The floor's own manual: hired or module-shipped, a specialist that has
-    // the catalog, Space Data and colleagues must be told how they work.
-    parts.push(SPECIALIST_INSTRUCTIONS);
-    // And a report told where the management verbs live: without this, a
-    // specialist asked to hire, add an app or open a Task answers that it
-    // cannot be done, instead of handing it to its coordinator.
-    if (!extras?.topLevel) {
-      parts.push(SPECIALIST_REPORT_INSTRUCTIONS);
-    }
+    // the catalog, Space Data and colleagues must be told how they work — and
+    // a report told where the management verbs live, or a specialist asked
+    // to hire, add an app or open a Task answers that it cannot be done
+    // instead of handing it to its coordinator. The module decides which
+    // sections a run gets.
+    parts.push(
+      ...specialistInstructionsForRun({ topLevel: extras?.topLevel === true })
+    );
   } else if (config.agentScope) {
-    // Specialists carry these inside SPECIALIST_INSTRUCTIONS. Any other agent
+    // Specialists carry these inside the specialist appendix. Any other agent
     // with an audience — the personal copilot, an interface declaring
     // `agent_scope` — has the same MEMORY.md and TASKS.md bound to its run
     // and needs to be told about them.

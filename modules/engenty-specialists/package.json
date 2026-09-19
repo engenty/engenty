@@ -1,0 +1,40 @@
+{
+  "name": "@engenty/engenty-specialists",
+  "version": "0.0.1",
+  "description": "Hired engenties — floor, playbooks and standing appendix of every specialist. Builtin code home; apps/ai imports it directly.",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./src/plugin.ts",
+  "exports": {
+    ".": {
+      "types": "./src/plugin.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ai": {
+      "types": "./ai/index.ts",
+      "default": "./dist/ai/index.js"
+    },
+    "./ai/floor": {
+      "types": "./ai/floor.ts",
+      "default": "./dist/ai/floor.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}
