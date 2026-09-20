@@ -1,19 +1,30 @@
 name: Publish engenty CLI
 
-# On a release tag (pushed here by engenty-pro's publish-open.yml together with
-# the open snapshot), publish packages/cli to npmjs as `engenty`, so
-# `npx engenty create`, `npx engenty deploy` and `npx engenty doctor --remote`
-# exist at the release's version. scripts/publish-cli.mjs stages the package
-# and bakes the release facts (schemas, migrations, compose templates) into it.
+# Publishes `packages/cli` to npmjs as `engenty`, so `npx engenty create`,
+# `npx engenty deploy` and `npx engenty doctor --remote` exist at the release's
+# version. scripts/publish-cli.mjs stages the package and bakes the release
+# facts (schemas, migrations, compose templates) into it.
 #
-# This is the one place the npm package is published from: the tarball is built
-# from this open tree, and npm provenance links it to this repo. Auth is npm
-# Trusted Publishing (GitHub OIDC) — the `engenty` package on npmjs lists this
-# repo + this workflow file as its trusted publisher, and npm >= 11.5.1 swaps
-# the job's id-token for a short-lived publish token. No secret to rotate.
+# INSTALL THIS ON THE MIRROR BY HAND, under this exact filename.
+# publish-open-snapshot.sh deliberately keeps the mirror's own .github/workflows
+# and drops pro's, so this file is not synced — engenty-pro holds it as the
+# reviewable source, and engenty/engenty needs its own copy committed directly.
+# Re-copy it when it changes here. The filename matters twice over: npm's
+# trusted publisher for the package pins `engenty/engenty` + `publish-cli.yml`,
+# and a rename there silently breaks publishing.
 #
-# workflow_dispatch with `version` re-publishes that version from main
-# (recovery after a workflow fix). Leaving `version` empty dry-runs.
+# Runs ONLY on engenty/engenty. The package is built from the open tree so its
+# provenance points at the repository users can actually read, and pro's tree
+# still holds the closed modules. Pro's own tag runs check-cli-package.yml,
+# which stages the same package and only dry-runs it.
+#
+# Auth is npm Trusted Publishing (GitHub OIDC): npm >= 11.5.1 swaps the job's
+# id-token for a short-lived publish token, so there is no NPM_TOKEN secret and
+# nothing to rotate. The publisher must allow `npm publish` (not just
+# `npm stage publish`) and name no environment.
+#
+# workflow_dispatch with `version` re-publishes that version from main (recovery
+# after a workflow fix). Leaving `version` empty dry-runs.
 on:
   push:
     tags: ["v*"]
@@ -30,6 +41,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.repository == 'engenty/engenty'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
