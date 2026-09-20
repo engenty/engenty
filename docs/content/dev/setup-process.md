@@ -94,8 +94,9 @@ and the commands installed plugins contribute.
 
 ### `npx engenty`
 
-The same package is published to npm as **`engenty`** on every release tag
-(`publish-cli.yml`, `scripts/publish-cli.mjs`), versioned with the release. It
+The same package is published to npm as **`engenty`** on every release tag —
+from the public mirror, by its own `publish-cli.yml` on top of
+`scripts/publish-cli.mjs`, versioned with the release. It
 is a door, not a second CLI — what it does depends on where it runs:
 
 | where | `npx engenty …` |

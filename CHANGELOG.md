@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.13] - 2026-09-20
+- FIXED **[ci]** Pre-pull the images production runs, and verify the release after it lands (#19)
+- FIXED **[ci]** Publish the engenty CLI via npm Trusted Publishing (#17)
+
 ## [0.2.12] - 2026-09-20
 - ADDED **[ai-core]** Retire the gpt-5-nano seed for the low tier
 - ADDED **[ai]** Fast loop decides the element first and types from the goal's own words

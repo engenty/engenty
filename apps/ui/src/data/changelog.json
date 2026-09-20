@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.2.13",
+    "timestamp": 1789894206,
+    "commits": [
+      {
+        "id": "10083b5",
+        "message": "pre-pull the images production runs, and verify the release after it lands (#19)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "76553f2",
+        "message": "publish the engenty CLI via npm Trusted Publishing (#17)",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.12",
-    "timestamp": 1789889374,
+    "timestamp": 1789889376,
     "commits": [
       {
         "id": "b05fe4f",

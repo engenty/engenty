@@ -16,7 +16,7 @@ pnpm release:desktop                # builds the macOS .dmg locally + attaches i
 ```
 
 - `pnpm release` is the **single source of truth**. NEVER hand-edit `CHANGELOG.md`, `changelog.json`, the `package.json` version, or tags. (`pnpm release:changelog` drafts the changelog only.)
-- Pushing the **`v*` tag** triggers `build-images.yml` (build → GHCR → Coolify deploy), `publish-open.yml` (sync the public `engenty/engenty` repo), `publish-packages.yml` (module packages) and `publish-cli.yml` (the `engenty` npm package — dry-run until `PUBLISH_CLI_ENABLED` + `NPM_TOKEN` are set).
+- Pushing the **`v*` tag** triggers `build-images.yml` (build → GHCR → Coolify deploy), `publish-open.yml` (sync the public `engenty/engenty` repo), `publish-packages.yml` (module packages) and `check-cli-package.yml` (stages the `engenty` npm package and dry-runs it as a leak check). The npm package itself is published **by the mirror**: the tag lands in `engenty/engenty` and its own `publish-cli.yml` publishes with Trusted Publishing + provenance.
 - Pushing `main` **without a tag** runs CI only (lint / typecheck / test) — no build, no deploy.
 - Commits use [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, …) — they drive the changelog groups and the suggested version bump.
 
@@ -89,13 +89,14 @@ pnpm dev:portless --domain=x
    pnpm release
    git push origin main --follow-tags
    ```
-4. Watch the tag's `Build deploy images` run go green through the `deploy` job. The public repo updates in the same tag push.
+4. Watch the tag's `Build deploy images` run go green through the `deploy` job. That job pre-pulls the images, waits for Coolify to finish, then verifies the public endpoints — so a red `Verify public release` means the release really is not serving, not that the deploy was slow. The public repo updates in the same tag push.
 
 ## Guardrails (hard-won)
 
 - **Deploys are release-gated**: only a `v*` tag builds + deploys. A plain `main` push never deploys.
 - The deploy job is gated on repo variable **`COOLIFY_DEPLOY_ENABLED == 'true'`** — if deploys silently skip, check this flag first.
 - The prebuilt compose uses `pull_policy: always`, so the VPS pulls the new `:latest` each deploy — don't remove it or releases stop going live.
+- If a release is 503 afterwards, read the edge container's log on the VPS before suspecting migrations: it refuses to start when the server-lane preflight fails (e.g. Supabase restricted for an egress/spend cap) and then stays up-but-unhealthy without retrying, so it needs a `docker restart` once the cause is cleared.
 - Public mirror auto-syncs on tag via `publish-open.yml` (needs the `PUBLIC_REPO_PUSH_TOKEN` secret). Don't hand-sync; if you must, `pnpm push:snapshot` (`DRY_RUN=1` to preview).
 - Run `pnpm fix` before committing; CI lints changed files and will fail the push otherwise.
 - After changing installed modules or SQL: `pnpm engenty generate && pnpm engenty db migrate`.

@@ -78,13 +78,21 @@ just made. That tag push triggers
    containers on the VPS.
 
 These are the **pro** images, `ghcr.io/engenty/engenty-pro-<service>`, and they
-are private. The same tag also publishes the open tree and a second, public set
-of images — see [Pro / public](#pro--public) — and the `engenty` npm package
-(`publish-cli.yml`: `packages/cli` staged with the release's open schemas,
-migrations and public compose templates baked in, so `npx engenty create`,
-`npx engenty deploy` and `npx engenty doctor --remote` exist at the release's
-version; gated on the `PUBLISH_CLI_ENABLED` variable and the `NPM_TOKEN` secret,
-dry-run otherwise).
+are private. The same tag also publishes the open tree, a second and public set
+of images, and the `engenty` npm package — all three from the mirror, see
+[Pro / public](#pro--public).
+
+Step 2 is worth knowing in detail, because two releases were mis-diagnosed over
+it. The deploy job SSHes to the VPS with a forced-command key; what runs there is
+[`deploy/scripts/coolify-queue-deploy.sh`](https://github.com/engenty/engenty-pro/blob/main/deploy/scripts/coolify-queue-deploy.sh)
+installed as `/opt/coolify-deploy.sh` (**not** `deploy/scripts/coolify-deploy.sh`,
+which is the blue/green orchestrator this app does not use). It pre-pulls the
+release images while the old stack still serves, queues the deployment, and
+blocks until Coolify reports it finished — only then does the job verify the
+public endpoints. Pre-pull must name the **private** `engenty-pro-*` images the
+prebuilt compose actually runs; when it named the public mirror images instead,
+every deploy downloaded ~20 GB nothing would run and still pulled the real
+images inside the outage window.
 
 Every push to `main` (tagged or not) also runs `ci.yml` (lint, typecheck, test) —
 that's the gate for code quality, independent of shipping.
@@ -187,7 +195,33 @@ snapshot rewrites the prebuilt deploy files as it publishes them, dropping
 the mirror says `engenty-edge`, same file, no variable to remember on either
 side.
 
-Two things about that workflow are easy to get wrong:
+### The npm CLI package
+
+The same tag also publishes `packages/cli` to npmjs as **`engenty`**, so
+`npx engenty create`, `npx engenty deploy` and `npx engenty doctor --remote`
+exist at the release's version. `scripts/publish-cli.mjs` stages the package,
+bakes in the release's open schemas, migrations and public compose templates,
+and refuses to publish if the bundle mentions a closed path.
+
+This publishes **from the mirror**, not from here — the package is built from
+the open tree, so its npm provenance points at the repository users can read.
+Same hand-install rule as the images: `.github/workflows/publish-cli.yml` in
+this repo is the reviewable source, guarded to `engenty/engenty` so it never
+runs here, and the mirror needs its own copy committed directly **under that
+exact filename**. Pro's tag runs `check-cli-package.yml` instead, which stages
+the same package and dry-runs it as a closed-path leak check.
+
+Auth is **npm Trusted Publishing** (GitHub OIDC) — no `NPM_TOKEN`, nothing to
+rotate. The token path it replaced had been failing with E403 since v0.2.10. The
+trusted publisher on npmjs pins org `engenty`, repo `engenty`, workflow
+`publish-cli.yml`, no environment, and must allow `npm publish` rather than only
+`npm stage publish`. Renaming the workflow file or adding a GitHub environment
+to the job breaks publishing silently.
+
+To re-publish a version after a fix:
+`gh workflow run publish-cli.yml --repo engenty/engenty -f version=X.Y.Z`.
+
+Two things about the images workflow are easy to get wrong:
 
 - **It is installed on the mirror by hand.** The snapshot deliberately keeps the
   mirror's `.github/workflows` and drops this repo's, because
