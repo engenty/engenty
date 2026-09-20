@@ -1451,7 +1451,7 @@
     "copilotDesc": "Chat model defaults for this tenant.",
     "classifier": "Classifier",
     "classifierDesc": "Fast, single-call models for inbox attachment scanning and routing (no extended reasoning).",
-    "classifierHint": "Prefer a small model such as gpt-5-nano or gpt-5-mini for lower latency and cost.",
+    "classifierHint": "Prefer a small model such as gpt-5.4-nano or gpt-5.4-mini for lower latency and cost.",
     "routingModelHint": "Used for the copilot supervisor and lightweight decisions (thread titles, tool discovery). Prefer a faster, cheaper model than chat.",
     "modelCatalogEmpty": "No Gateway models in the catalog yet. Restart apps/ai after migrate, or ask a superadmin to POST /ai/v1/gateway/models/sync. The catalog auto-syncs on startup when empty.",
     "modelCatalogLoadError": "Could not load the Gateway model catalog. Ensure apps/ai is running (pnpm dev:ai) and reachable from the UI — same-origin via the dev proxy or set VITE_ENGENTY_AI_BASE_URL.",

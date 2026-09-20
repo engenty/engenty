@@ -25,6 +25,12 @@ export const AI_PLATFORM_SETTING_KEYS: readonly string[] = [
   // offers it — without hydration that toggle would silently do nothing here,
   // since isRemoteChannelsEnabled() reads process.env.
   "ENGENTY_REMOTE_CHANNELS_ENABLED",
+  // Experimental browser fast loop: the switch, its knobs and the classifier
+  // key are platform-configurable so an admin can turn the experiment on
+  // without a redeploy (PLAN-browser-fast-loop.md D2).
+  "ENGENTY_BROWSER_FAST_LOOP",
+  "ENGENTY_BROWSER_FAST_MAX_STEPS",
+  "ENGENTY_BROWSER_FAST_MIN_MARGIN",
   "MISTRAL_API_KEY",
   "OPENAI_API_KEY",
   // Second model gateway. Hydrated alongside the Vercel key rather than
@@ -35,6 +41,7 @@ export const AI_PLATFORM_SETTING_KEYS: readonly string[] = [
   "SLACK_BOT_TOKEN",
   "SLACK_SIGNING_SECRET",
   "TELEGRAM_BOT_TOKEN",
+  "TYPESAFE_API_KEY",
   ...OBSERVABILITY_SETTING_KEYS,
 ];
 

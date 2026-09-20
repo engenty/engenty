@@ -580,6 +580,7 @@ export async function runDelegatedConversation(
               ? browserSpace.spaceId
               : null,
           tenantId: input.scope.tenantId,
+          textModelId: childModelConfig?.gradedModelIds?.low ?? null,
         });
         const agent = await assembleDynamicAgent(
           input.registry,

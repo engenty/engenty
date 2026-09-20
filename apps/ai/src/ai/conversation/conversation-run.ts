@@ -458,6 +458,7 @@ export async function startConversationRun(
       headless: false,
       spaceId: runSpace?.spaceId ?? null,
       tenantId: input.scope.tenantId,
+      textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
     });
     const extraTools = {
       ...frontendTools,

@@ -30,7 +30,7 @@ describe("seedBindings", () => {
     const seeded = seedBindings();
     expect(seeded.find((b) => b.role === "model.low")).toMatchObject({
       gateway: "vercel",
-      modelId: "openai/gpt-5-nano",
+      modelId: "openai/gpt-5.4-nano",
     });
     expect(seeded.find((b) => b.role === "router")?.modelId).toBe(
       "openai/gpt-oss-20b"

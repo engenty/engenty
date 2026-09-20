@@ -19,6 +19,7 @@ import {
   getSeat,
   getUserBrowser,
   releaseUserSeat,
+  subscribeSeat,
   takeUserSeat,
 } from "../ai/browser/user-browser-registry.js";
 import {
@@ -213,6 +214,9 @@ export function registerBrowserStreamWs(
       // when the page navigates itself or the agent switches tabs.
       let lastTabs = "";
       let tabsTimer: ReturnType<typeof setInterval> | null = null;
+      // The seat can change hands without this socket asking (the agent
+      // hands the page over, a run ends): the view is told at once.
+      let unsubscribeSeat: (() => void) | null = null;
       const pushTabs = async (
         ws: { send(data: string): void },
         tabs: TabInfo[] | null
@@ -247,6 +251,9 @@ export function registerBrowserStreamWs(
             },
           };
           ws.send(seatStatus(sandboxId));
+          unsubscribeSeat = subscribeSeat(sandboxId, () => {
+            ws.send(seatStatus(sandboxId));
+          });
           try {
             // The registry starts the screencast when the browser reports
             // ready; nothing else launches a session a person merely wants
@@ -378,6 +385,8 @@ export function registerBrowserStreamWs(
             clearInterval(tabsTimer);
             tabsTimer = null;
           }
+          unsubscribeSeat?.();
+          unsubscribeSeat = null;
           if (viewer) {
             await registry
               .removeViewer(sandboxId, viewer)

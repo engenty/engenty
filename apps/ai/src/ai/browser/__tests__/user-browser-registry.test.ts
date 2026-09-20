@@ -16,6 +16,7 @@ import {
   releaseAgentSeat,
   releaseUserSeat,
   resetUserBrowserRegistryForTests,
+  subscribeSeat,
   takeUserSeat,
 } from "../user-browser-registry.js";
 
@@ -63,6 +64,24 @@ describe("user browser seat", () => {
       error: "held_by_user",
       ok: false,
     });
+  });
+
+  it("tells a live view every time the seat changes hands", () => {
+    const seen: string[] = [];
+    const unsubscribe = subscribeSeat(SANDBOX_ID, () => {
+      const holder = getSeat(SANDBOX_ID).holder;
+      seen.push(
+        holder === null ? "free" : holder === "user" ? "user" : "agent"
+      );
+    });
+    acquireAgentSeat(identity, "run-1");
+    acquireAgentSeat(identity, "run-1");
+    takeUserSeat(SANDBOX_ID);
+    takeUserSeat(SANDBOX_ID);
+    releaseUserSeat(SANDBOX_ID);
+    unsubscribe();
+    acquireAgentSeat(identity, "run-2");
+    expect(seen).toEqual(["agent", "user", "free"]);
   });
 
   it("handing back frees the seat for the next agent call", () => {

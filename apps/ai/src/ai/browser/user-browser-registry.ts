@@ -54,6 +54,37 @@ interface Entry {
 }
 
 const entries = new Map<string, Entry>();
+/** Live views of a browser, told whenever its seat changes hands. */
+const seatListeners = new Map<string, Set<() => void>>();
+
+function notifySeat(sandboxId: string): void {
+  for (const listener of seatListeners.get(sandboxId) ?? []) {
+    listener();
+  }
+}
+
+/**
+ * Be told when this browser's seat changes hands — an agent handing the
+ * page to its owner, a run releasing it — so a live view can redraw its
+ * take-over control without polling. Returns the unsubscribe.
+ */
+export function subscribeSeat(
+  sandboxId: string,
+  listener: () => void
+): () => void {
+  let set = seatListeners.get(sandboxId);
+  if (!set) {
+    set = new Set();
+    seatListeners.set(sandboxId, set);
+  }
+  set.add(listener);
+  return () => {
+    set.delete(listener);
+    if (set.size === 0) {
+      seatListeners.delete(sandboxId);
+    }
+  };
+}
 
 function newSeat(): Seat {
   return { holder: null, idleTimer: null, interrupt: null, sinceMs: 0 };
@@ -162,9 +193,13 @@ function clearIdleTimer(seat: Seat): void {
 
 function releaseSeatEntirely(entry: Entry): void {
   clearIdleTimer(entry.seat);
+  const held = entry.seat.holder !== null;
   entry.seat.holder = null;
   entry.seat.sinceMs = 0;
   entry.seat.interrupt = null;
+  if (held) {
+    notifySeat(entry.sandboxId);
+  }
 }
 
 function armIdleRelease(entry: Entry, runId: string): void {
@@ -201,6 +236,7 @@ export function acquireAgentSeat(
   if (!seat.holder) {
     seat.holder = { runId };
     seat.sinceMs = Date.now();
+    notifySeat(entry.sandboxId);
   }
   if (!seat.interrupt) {
     let resolve: () => void = () => undefined;
@@ -249,6 +285,7 @@ export function takeUserSeat(sandboxId: string): void {
       sandboxId,
     });
   }
+  notifySeat(sandboxId);
 }
 
 /** The human hands the browser back; the next agent call takes the seat. */

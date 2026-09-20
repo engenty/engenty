@@ -735,6 +735,67 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     scopes: ["deploy"],
     secret: true,
   },
+  // Experimental browser fast loop (PLAN-browser-fast-loop.md): a TypeSafe
+  // classifier picks operation + target per step; the agent LLM only plans.
+  // Off unless the switch is on AND the key is present.
+  {
+    configurable: "platform",
+    description:
+      "TypeSafe (Jev) API key for the experimental browser fast loop — optional: without it Jev is reached through the Vercel AI Gateway (typesafe-ai/jev) on AI_GATEWAY_API_KEY.",
+    group: "User browsers (one per person per Space)",
+    key: "TYPESAFE_API_KEY",
+    obtain: {
+      instructions: [
+        "1. Sign in at https://typesafe.ai and create an API key",
+        "2. Copy it here",
+      ],
+      kind: "provider",
+      url: "https://docs.typesafe.ai/introduction/quickstart",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    configurable: "platform",
+    defaultValue: "false",
+    description:
+      "Experimental: offer agents the browser_run_fast tool (TypeSafe Jev decides each browser step). Needs AI_GATEWAY_API_KEY or TYPESAFE_API_KEY.",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_FAST_LOOP",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+    validate: (value) =>
+      ["true", "false", "1", "0", ""].includes(value.trim().toLowerCase())
+        ? undefined
+        : "must be true or false",
+  },
+  {
+    configurable: "platform",
+    defaultValue: "0.1",
+    description:
+      "Fast loop: a step is executed only when the classifier's pick leads the runner-up by at least this probability margin (0–1); otherwise the agent LLM takes over. Default 0.1.",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_FAST_MIN_MARGIN",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
+  {
+    configurable: "platform",
+    defaultValue: "60",
+    description:
+      "Fast loop: hard ceiling of browser steps per browser_run_fast call. Default 60.",
+    group: "User browsers (one per person per Space)",
+    key: "ENGENTY_BROWSER_FAST_MAX_STEPS",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+  },
 ];
 
 /**

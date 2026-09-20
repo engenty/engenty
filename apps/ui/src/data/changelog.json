@@ -1,7 +1,85 @@
 [
   {
+    "version": "v0.2.12",
+    "timestamp": 1789889374,
+    "commits": [
+      {
+        "id": "b05fe4f",
+        "message": "retire the gpt-5-nano seed for the low tier",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3fed84b",
+        "message": "keep the fast loop from calling a fillable calendar blocked",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e9ed86f",
+        "message": "fast loop decides the element first and types from the goal's own words",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ee6e91b",
+        "message": "fast loop picks the best joint step and asks for a page's values once",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bfa82e8",
+        "message": "let the agent pass the browser seat to the person and back",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6f1a2de",
+        "message": "open the person's browser pane when the agent starts browser work",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d3be9ea",
+        "message": "let the fast loop wait for the page to come to rest",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "256a694",
+        "message": "gate fast-loop steps on probability margin, not absolute confidence",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "76313f7",
+        "message": "stop calling the in-app UI tools \"browser tools\" in the prompt",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fa5b533",
+        "message": "reach Jev through the Vercel AI Gateway",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cf15233",
+        "message": "browser_run_fast — classifier-driven browser steps behind a switch",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "78ee421",
+        "message": "TypeSafe System One client, key manifest and probe",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.11",
-    "timestamp": 1789886365,
+    "timestamp": 1789886368,
     "commits": [
       {
         "id": "8ad01cf",

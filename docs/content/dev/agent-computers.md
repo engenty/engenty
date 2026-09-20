@@ -121,6 +121,47 @@ agent may drive it with nobody at the keyboard). A run that acts for nobody gets
 no browser tools at all. Every step is audited as `engenty.browser.action`, with
 arguments recorded as shape, not payload.
 
+**One seat, and the agent can pass it.** The person and the agent never drive
+the page at once: "Take over" in the browser pane gives the person the seat and
+fails the agent's in-flight step; "Hand back" returns it. The agent can switch
+the seat too: `browser_request_user` hands the page to the person and waits for
+their answer (the pane opens with the controls already theirs, and the seat
+comes back with the answer), `browser_hand_over` switches it without waiting —
+`to: "person"` to let them browse, `to: "agent"` once they said they are done.
+The desk opens the pane on the first `browser_*` call of a run.
+
+**Experimental: the fast loop.** With `ENGENTY_BROWSER_FAST_LOOP=true`
+(platform-configurable) the same toolset gains `browser_run_fast`. Jev is
+reached through the Vercel AI Gateway (`typesafe-ai/jev`, on the gateway key
+every install already has); a `TYPESAFE_API_KEY` switches to TypeSafe's own
+API. The agent LLM hands it one page's worth of mechanical work
+("set departure to 12 Oct, pick the first suggestion, click Search"); inside,
+each step is one call to TypeSafe's Jev classifier with two questions: act on
+an element, scroll, wait, done or blocked — and, speculatively in the same
+call, which element. The element's kind names the operation (a field is typed
+into, a dropdown value is selected, everything else is clicked), so the
+classifier never splits its mass between "click the field" and "type into the
+field". Model output never becomes a selector or script: every target
+resolves to an element the page itself indexed and is re-checked for
+freshness and occlusion right before input. The gate is a margin on the joint
+probability P(act) × P(element), not absolute confidence: on a form with a
+dozen look-alike fields the right one may hold 0.4 of the mass and still be
+the unambiguous winner. A step whose pick does not lead the runner-up by
+`ENGENTY_BROWSER_FAST_MIN_MARGIN` (0.1) gets one tiebreak question (this
+step, that step, or neither); if that does not settle it either, the call
+returns `uncertain` with the element table and a note naming both candidates,
+and the agent does that one step with the normal `browser_*` tools and calls
+`browser_run_fast` again. Field values come from the goal's own words first:
+the classifier picks, per typeable field, which span of the goal (a date, a
+name, a quoted string) is its value, or none; only a value that has to be
+rewritten goes to the run's low-tier model (`model.low`, with minimal
+reasoning effort). Both are asked once per page and goal, for every field at
+once, as soon as a page with a field is observed — alongside the decision, not
+after it. `ENGENTY_BROWSER_FAST_MAX_STEPS` (60) bounds one call. Every inner
+step is audited as `engenty.browser.action` with its confidence, margin,
+tiebreak, text source, latency and token usage under `fast_step`. Design and
+measurements: `PLAN-browser-fast-loop.md`.
+
 ## The image
 
 `engenty-sandbox:latest`, built from `deploy/Dockerfile.sandbox` — one unified

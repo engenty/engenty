@@ -31,6 +31,7 @@ import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-compos
 import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
 import { isThreadWritableByViewer } from "../../threads/thread-write-access.js";
 import { TEMPORARY_ENGENTY_THREAD_ID_PREFIX } from "../../threads/use-engenty-threads.js";
+import { useBrowserWorkOpensPane } from "../browser/browser-work-opens-pane.js";
 import { transcriptShowsSenderLabels } from "../space-chats/space-chats-model.js";
 import {
   agentDeskEmptyStarters,
@@ -113,6 +114,8 @@ export function AgentDeskChatPanel(props: {
   const { i18n, t: tc } = useTranslation("common");
   const { currentTenant, currentUserId } = useWorkspaceContext();
   const host = useAgentHost(props.hostKey);
+  // The person's browser comes into view as soon as the agent starts using it.
+  useBrowserWorkOpensPane(host.events);
   const shell = useCopilotShellOrNull();
   const locale = i18n.language || "en";
   const slashBuiltins = useMemo<ChatSlashCommand[]>(

@@ -54,8 +54,11 @@ function buildFrontendToolInstructions(
     (tool) => tool.name === "ui_dom_snapshot" || tool.name === "ui_screenshot"
   );
   const lines = [
-    "Some of your tools run in the user's browser (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
-    `Browser tools available now: ${toolNames}.`,
+    // Named "Engenty UI tools" on purpose: calling them "browser tools" made a
+    // model read this list as the complete browser surface and declare its
+    // browser_* tools (a separate, real browser) unavailable.
+    "Some of your tools run inside the Engenty app UI the person is looking at (navigation, theme, locale, etc.). Call them directly by name like any other tool; the UI runs them and returns the result.",
+    `Engenty UI tools available now: ${toolNames}.`,
   ];
   // Gated on the tool actually being present: an agent without `navigate` that
   // is told to navigate will improvise one.

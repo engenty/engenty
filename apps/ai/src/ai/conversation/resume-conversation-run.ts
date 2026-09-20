@@ -555,6 +555,7 @@ async function resumeFromSnapshot(
       headless: false,
       spaceId: resolvedRunSpace(spaceResolution)?.spaceId ?? null,
       tenantId: input.scope.tenantId,
+      textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
     });
     const extraTools = {
       ...createNativeFrontendTools(mergedDefinitions),

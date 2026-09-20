@@ -12,7 +12,8 @@ export type AiProviderGateway =
   | "openrouter"
   | "opper"
   | "openai"
-  | "anthropic";
+  | "anthropic"
+  | "typesafe";
 
 export interface AiProviderGatewaySpec {
   envKey: string;
@@ -54,6 +55,15 @@ export const AI_PROVIDER_GATEWAYS: Readonly<
     headers: bearer,
     label: "Opper",
     probeUrl: "https://api.opper.ai/v3/compat/models",
+  },
+  // Not a model gateway: the classifier behind the experimental browser fast
+  // loop (PLAN-browser-fast-loop.md). Listed so the Setup UI's "Test key"
+  // works for it; `ai.model` holds no rows for it.
+  typesafe: {
+    envKey: "TYPESAFE_API_KEY",
+    headers: bearer,
+    label: "TypeSafe (Jev)",
+    probeUrl: "https://api.typesafe.ai/v1/models",
   },
   vercel: {
     envKey: "AI_GATEWAY_API_KEY",

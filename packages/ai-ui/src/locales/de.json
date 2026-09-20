@@ -1451,7 +1451,7 @@
     "copilotDesc": "Chat-Modell-Standards für diesen Mandanten.",
     "classifier": "Klassifikation",
     "classifierDesc": "Schnelle Einzelaufruf-Modelle für Posteingangs-Anhänge und Routing (ohne ausgedehntes Reasoning).",
-    "classifierHint": "Kleine Modelle wie gpt-5-nano oder gpt-5-mini eignen sich für geringere Latenz und Kosten.",
+    "classifierHint": "Kleine Modelle wie gpt-5.4-nano oder gpt-5.4-mini eignen sich für geringere Latenz und Kosten.",
     "routingModelHint": "Für den Copilot-Supervisor und leichte Entscheidungen (Thread-Titel, Tool-Suche). Bevorzuge ein schnelleres, günstigeres Modell als beim Chat.",
     "modelCatalogEmpty": "Noch keine Gateway-Modelle im Katalog. apps/ai nach der Migration neu starten, oder ein Superadmin ruft POST /ai/v1/gateway/models/sync auf. Bei leerem Katalog synchronisiert apps/ai beim Start automatisch.",
     "modelCatalogLoadError": "Gateway-Modellkatalog konnte nicht geladen werden. apps/ai muss laufen (pnpm dev:ai) und vom UI erreichbar sein — same-origin über den Dev-Proxy oder VITE_ENGENTY_AI_BASE_URL setzen.",

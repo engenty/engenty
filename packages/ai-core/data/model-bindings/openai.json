@@ -2,12 +2,12 @@
   "gateway": "openai",
   "label": "OpenAI",
   "roles": {
-    "model.low": "openai/gpt-5-nano",
+    "model.low": "openai/gpt-5.4-nano",
     "model.medium": "openai/gpt-5.6-luna",
     "model.high": "openai/gpt-5.6-luna",
-    "router": "openai/gpt-5-nano",
-    "classifier": "openai/gpt-5-nano",
-    "safeguard": "openai/gpt-5-nano",
+    "router": "openai/gpt-5.4-nano",
+    "classifier": "openai/gpt-5.4-nano",
+    "safeguard": "openai/gpt-5.4-nano",
     "planning_coding": "openai/gpt-5.6-luna",
     "research": "openai/gpt-5.6-luna",
     "memory": "openai/gpt-5.6-luna"

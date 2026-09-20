@@ -4,6 +4,20 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.12] - 2026-09-20
+- ADDED **[ai-core]** Retire the gpt-5-nano seed for the low tier
+- ADDED **[ai]** Fast loop decides the element first and types from the goal's own words
+- ADDED **[ai]** Fast loop picks the best joint step and asks for a page's values once
+- ADDED **[ai]** Let the agent pass the browser seat to the person and back
+- ADDED **[ai-ui]** Open the person's browser pane when the agent starts browser work
+- ADDED **[ai]** Gate fast-loop steps on probability margin, not absolute confidence
+- ADDED **[typesafe-client]** Reach Jev through the Vercel AI Gateway
+- ADDED **[ai]** Browser_run_fast — classifier-driven browser steps behind a switch
+- ADDED **[typesafe-client]** TypeSafe System One client, key manifest and probe
+- FIXED **[ai]** Keep the fast loop from calling a fillable calendar blocked
+- FIXED **[ai]** Let the fast loop wait for the page to come to rest
+- FIXED **[ai]** Stop calling the in-app UI tools "browser tools" in the prompt
+
 ## [0.2.11] - 2026-09-20
 - DOCS **[readme]** Name agentOS and integrations.sh under "What it is built on"
 - FIXED **[ci]** Green the verify lane and the nightly db-checks lane (#16)

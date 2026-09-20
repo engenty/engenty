@@ -31,7 +31,7 @@ describe("buildAgentUiContextInstructions", () => {
         userId: "u1",
       },
     });
-    expect(result).toContain("run in the user's browser");
+    expect(result).toContain("run inside the Engenty app UI");
     expect(result).toContain("navigate");
   });
 
@@ -59,9 +59,9 @@ describe("buildAgentUiContextInstructions", () => {
       },
     });
     // Native tools carry their own typed schema in the tool list; the instructions
-    // only need to name the browser tools so the model knows they exist.
+    // only need to name the UI tools so the model knows they exist.
     expect(result).toContain("test.openPanel");
-    expect(result).toContain("Browser tools available now:");
+    expect(result).toContain("Engenty UI tools available now:");
     expect(result).not.toContain("Prefer ui_dom_snapshot");
   });
 
@@ -218,8 +218,8 @@ describe("buildAgentUiContextInstructions", () => {
         userId: "u1",
       },
     });
-    expect(result).not.toContain("run in the user's browser");
-    expect(result).not.toContain("Browser tools available now:");
+    expect(result).not.toContain("run inside the Engenty app UI");
+    expect(result).not.toContain("Engenty UI tools available now:");
     expect(result).not.toContain("navigate");
   });
 });

@@ -12,6 +12,10 @@
 
 import { createRequestDecisionArtifact } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
+import {
+  resolveTypeSafeClientOptions,
+  TypeSafeClient,
+} from "@engenty/typesafe-client";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
@@ -30,15 +34,31 @@ import {
   type UserBrowserIdentity,
 } from "../sandbox/space-browser.js";
 import {
+  createFieldText,
+  type FastLoopPage,
+  isFastLoopEnabled,
+  resolveFastLoopMaxSteps,
+  resolveFastLoopMinMargin,
+  runFastLoop,
+  typeSafeEnv,
+} from "./fast-loop/index.js";
+import {
   acquireAgentSeat,
+  getSeat,
   getUserBrowser,
   releaseAgentSeat,
+  releaseUserSeat,
+  takeUserSeat,
 } from "./user-browser-registry.js";
 
 const logger = createLogger({ name: "apps/ai/user-browser-tools" });
 
 export const BROWSER_REQUEST_USER_TOOL_ID = "browser_request_user";
+/** The seat switch without waiting: hand the page to the person, or take it back. */
+export const BROWSER_HAND_OVER_TOOL_ID = "browser_hand_over";
 export const BROWSER_START_TOOL_ID = "browser_start";
+/** Experimental (PLAN-browser-fast-loop.md): a classifier drives bounded sub-goals. */
+export const BROWSER_RUN_FAST_TOOL_ID = "browser_run_fast";
 /** The decision-card answer that lets the agent create the browser. */
 export const BROWSER_ALLOW_START_CHOICE_ID = "browser_allow_start";
 const BROWSER_DECLINE_START_CHOICE_ID = "browser_decline_start";
@@ -57,6 +77,11 @@ export interface UserBrowserToolsInput {
   headless: boolean;
   spaceId: string | null | undefined;
   tenantId: string;
+  /**
+   * The run's low-tier model (`modelConfig.gradedModelIds.low`) for the fast
+   * loop's field values; the `model.low` seed when the run resolved none.
+   */
+  textModelId?: string | null;
 }
 
 const NEEDS_USER_UNATTENDED =
@@ -111,7 +136,7 @@ function createRequestUserTool(input: {
   return createTool({
     id: BROWSER_REQUEST_USER_TOOL_ID,
     description:
-      "Hand the browser to its owner and WAIT: use when a page needs something only the person can give — a login, a one-time code, a captcha, a consent — or when you are unsure a click is what they want. Say in `reason` what they should do. The tool returns once they hand the browser back; then take a fresh browser_snapshot before continuing.",
+      "Hand the browser to its owner and WAIT: use when a page needs something only the person can give — a login, a one-time code, a captcha, a consent — or when you are unsure a click is what they want. Say in `reason` what they should do. Their browser pane opens with the controls already theirs; the tool returns once they hand it back, and the controls are yours again. Then take a fresh browser_snapshot before continuing.",
     inputSchema: z.object({
       reason: z
         .string()
@@ -127,6 +152,8 @@ function createRequestUserTool(input: {
       const lockKey = suspendLockKey();
       if (resume) {
         releaseFrontendToolSuspendSlot(lockKey);
+        // Whatever they answered, the page is the agent's to drive again.
+        releaseUserSeat(input.sandboxId);
         const declined =
           resume.cancelled === true ||
           resume.choice_id === DECLINE_CHOICE_ID ||
@@ -148,8 +175,12 @@ function createRequestUserTool(input: {
           requested: inputData.reason,
         } as never;
       }
+      // The controls are theirs before they are asked: no "Take over" click
+      // stands between the question and the page.
+      getUserBrowser(input.identity);
+      takeUserSeat(input.sandboxId);
       const artifact = createRequestDecisionArtifact({
-        body: "Open your browser (the monitor icon, or Space settings → Computer → Open), take over, do it there, then answer here.",
+        body: "Your browser pane is open and the controls are yours. Do it there, then answer here.",
         choices: [
           {
             description: "I am done in the browser; continue.",
@@ -179,6 +210,61 @@ function createRequestUserTool(input: {
         throw error;
       }
       return undefined as never;
+    },
+  });
+}
+
+/**
+ * The seat switch: give the page to the person without waiting for anything
+ * ("the search is set up, browse the results yourself"), or take it back
+ * once they said they are done in the chat. Every browser_* call the agent
+ * makes while the person holds the seat is refused, so "back to me" is what
+ * makes the next step possible.
+ */
+function createHandOverTool(input: {
+  emit?: UserBrowserToolsInput["emit"];
+  identity: UserBrowserIdentity;
+  sandboxId: string;
+}) {
+  return createTool({
+    id: BROWSER_HAND_OVER_TOOL_ID,
+    description:
+      'Switch who drives the browser, without waiting. `to: "person"` gives the page to its owner (their pane opens with the controls theirs) — say in `note` what they can do there. `to: "agent"` takes the controls back, only after the person said they are done. To hand over AND wait for them, use browser_request_user instead.',
+    inputSchema: z.object({
+      note: z
+        .string()
+        .max(300)
+        .optional()
+        .describe("For the person: what the page is ready for, one sentence."),
+      to: z.enum(["person", "agent"]),
+    }),
+    execute: async (inputData) => {
+      const runId = getEngentyToolsRunContext().runId ?? "";
+      if (inputData.to === "person") {
+        getUserBrowser(input.identity);
+        takeUserSeat(input.sandboxId);
+      } else {
+        releaseUserSeat(input.sandboxId);
+      }
+      const holder = getSeat(input.sandboxId).holder;
+      const seat =
+        holder === null ? "free" : holder === "user" ? "user" : "agent";
+      input.emit?.(BROWSER_ACTION_EVENT_NAME, {
+        input: { note: inputData.note ?? null, to: inputData.to },
+        ok: true,
+        run_id: runId,
+        sandbox_id: input.sandboxId,
+        seat,
+        tool: BROWSER_HAND_OVER_TOOL_ID,
+        user_id: input.identity.userId,
+      });
+      return {
+        note:
+          inputData.to === "person"
+            ? 'The person has the browser now. Do not touch it until they say they are done; then hand it back to yourself with browser_hand_over to: "agent".'
+            : "The browser is yours again. Take a fresh browser_snapshot before you continue — the page may have changed.",
+        seat,
+      } as never;
     },
   });
 }
@@ -419,6 +505,101 @@ function wrapBrowserTool(params: {
 
 const INTERRUPTED = Symbol("interrupted_by_user");
 
+const RUN_FAST_DESCRIPTION =
+  "Delegate a small, concrete browser sub-goal to the fast executor: on the CURRENT page it reads the visible controls, picks one element per step with a classifier (no LLM), types field values taken from your goal, and repeats until the goal is visibly satisfied or it is unsure. Use it for mechanical sequences — fill and submit a form, pick a date in a calendar, choose an autocomplete suggestion, select dropdown values, open a matching result. Give one page's worth of work per call with every value spelled out (dates, names, filters); it never invents data. Returns status `done`, or `uncertain`/`blocked`/`budget` with the page's element table and a note naming the step it could not decide. Then do THAT ONE step with browser_snapshot and the other browser_* tools and call browser_run_fast again with the same goal — do not finish the rest by hand. Navigate with browser_goto first; it does not open URLs.";
+
+/**
+ * `browser_run_fast`: the fast loop as one wrapped tool, so it shares the
+ * seat, the unattended gate, wake-on-first-use and the audit event with
+ * every other browser step (D1, D3). Offered only with the switch on and a
+ * TypeSafe key present. Runs on the page Mastra's `AgentBrowser` already
+ * holds — `getPage()` is not in the provider's public types but is the
+ * method its own tools use; `fast-loop-page.real.test.ts` pins it.
+ */
+function createRunFastTool(params: {
+  emit?: UserBrowserToolsInput["emit"];
+  identity: UserBrowserIdentity;
+  sandboxId: string;
+  textModelId: string | null;
+}) {
+  const { identity, sandboxId } = params;
+  return {
+    description: RUN_FAST_DESCRIPTION,
+    inputSchema: z.object({
+      goal: z
+        .string()
+        .min(1)
+        .max(2000)
+        .describe(
+          "The sub-goal for the current page, with every concrete value it needs (e.g. 'Set departure to 12 Oct 2026 and return to 19 Oct 2026, then click Search')."
+        ),
+      max_steps: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+          "Step budget for this call; defaults to the platform setting."
+        ),
+    }),
+    execute: async (inputData: unknown) => {
+      const input = inputData as { goal: string; max_steps?: number };
+      const route = resolveTypeSafeClientOptions(typeSafeEnv());
+      if (!route) {
+        return { error: "typesafe_key_missing", status: "error" };
+      }
+      const browser = getUserBrowser(identity) as unknown as {
+        getPage(): Promise<FastLoopPage>;
+      };
+      const page = await browser.getPage();
+      const runId = getEngentyToolsRunContext().runId?.trim() || "unknown";
+      const client = new TypeSafeClient({
+        apiKey: route.apiKey,
+        baseUrl: route.baseUrl,
+        model: route.model,
+      });
+      const result = await runFastLoop({
+        client,
+        fieldText: createFieldText({
+          ...(params.textModelId ? { modelId: params.textModelId } : {}),
+          spans: { client, model: route.model },
+        }),
+        goal: input.goal,
+        maxSteps: Math.min(
+          input.max_steps ?? resolveFastLoopMaxSteps(),
+          resolveFastLoopMaxSteps()
+        ),
+        minMargin: resolveFastLoopMinMargin(),
+        onStep: (step) =>
+          params.emit?.(BROWSER_ACTION_EVENT_NAME, {
+            fast_step: step,
+            sandbox_id: sandboxId,
+            tool: BROWSER_RUN_FAST_TOOL_ID,
+            user_id: identity.userId,
+          }),
+        page,
+        shouldStop: () => {
+          const holder = getSeat(sandboxId).holder;
+          return (
+            holder === "user" || (holder !== null && holder.runId !== runId)
+          );
+        },
+      });
+      logger.info("browser fast loop finished", {
+        elapsed_ms: result.elapsed_ms,
+        model: route.model,
+        route: route.route,
+        sandboxId,
+        status: result.status,
+        steps: result.steps,
+        totals: result.totals,
+      });
+      return result;
+    },
+  };
+}
+
 /**
  * The browser toolset for a run (D11): the full wrapped set when the acting
  * user has a browser here (running or stopped) or allows agents to start one
@@ -473,6 +654,30 @@ export async function createUserBrowserTools(
     identity,
     sandboxId,
   }) as unknown as MastraToolDefinition;
+  if (!input.headless) {
+    // Nobody at the keyboard can take the page in a headless run.
+    tools[BROWSER_HAND_OVER_TOOL_ID] = createHandOverTool({
+      emit: input.emit,
+      identity,
+      sandboxId,
+    }) as unknown as MastraToolDefinition;
+  }
+  if (isFastLoopEnabled()) {
+    tools[BROWSER_RUN_FAST_TOOL_ID] = wrapBrowserTool({
+      emit: input.emit,
+      headless: input.headless,
+      id: BROWSER_RUN_FAST_TOOL_ID,
+      identity,
+      sandboxId,
+      tool: createRunFastTool({
+        emit: input.emit,
+        identity,
+        sandboxId,
+        textModelId: input.textModelId ?? null,
+      }),
+      unattended: input.browser.unattended,
+    }) as unknown as MastraToolDefinition;
+  }
   return tools;
 }
 
