@@ -134,7 +134,11 @@ const query = `
 let output;
 try {
   output = execSync(
-    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F$'\\t' -c "${query}"`,
+    // '|' as the field separator: the obvious $'\t' is bash-only, and
+    // execSync runs /bin/sh, which is dash on the CI runner. There it came
+    // through as the literal characters `$\t`, every row parsed as one field,
+    // and the allowlist matched nothing.
+    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F '|' -c "${query}"`,
     { encoding: "utf-8" }
   );
 } catch (err) {
@@ -148,7 +152,7 @@ const offenders = output
   .map((line) => line.trim())
   .filter(Boolean)
   .map((line) => {
-    const [schema, table, missing] = line.split("\t");
+    const [schema, table, missing] = line.split("|");
     return { schema, table, missing, key: `${schema}.${table}` };
   })
   .filter((o) => !isDeliberate(o.key, o.missing));

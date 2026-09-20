@@ -19,7 +19,9 @@ import {
   emitToolApprovalInterrupt,
 } from "../emit-interrupt.js";
 
-const notifyThreadInterrupt = vi.fn(async () => undefined);
+const notifyThreadInterrupt = vi.fn<(...args: unknown[]) => Promise<undefined>>(
+  async () => undefined
+);
 vi.mock("../../../notifications/thread-interrupts.js", () => ({
   notifyThreadInterrupt: (...args: unknown[]) => notifyThreadInterrupt(...args),
   resolveThreadInterruptNotifications: vi.fn(async () => undefined),

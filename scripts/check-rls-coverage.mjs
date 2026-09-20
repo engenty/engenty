@@ -77,8 +77,8 @@ if (!isSupabaseRunning()) {
   process.exit(0);
 }
 
-// -F$'\x1f' + -R$'\x1e' would be cleaner, but stick to a simple tab/newline
-// format that survives docker exec quoting.
+// '|' as the field separator: the obvious $'\t' is bash-only and execSync
+// runs /bin/sh, which is dash on the CI runner (see check-grants-coverage.mjs).
 const query = `
   select c.relnamespace::regnamespace as schema, c.relname as tbl
   from pg_class c
@@ -94,7 +94,7 @@ const query = `
 let output;
 try {
   output = execSync(
-    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F$'\\t' -c "${query}"`,
+    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F '|' -c "${query}"`,
     { encoding: "utf-8" }
   );
 } catch (err) {
@@ -108,7 +108,7 @@ const offenders = output
   .map((line) => line.trim())
   .filter(Boolean)
   .map((line) => {
-    const [schema, table] = line.split("\t");
+    const [schema, table] = line.split("|");
     return { schema, table, key: `${schema}.${table}` };
   })
   .filter((o) => !allowed.has(o.key));

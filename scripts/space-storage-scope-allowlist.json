@@ -28,6 +28,11 @@
       "reason": "Read-only skill mount paths for the tenant skill library."
     },
     {
+      "file": "apps/ai/ai/tools/agent-look-preview.ts",
+      "kind": "tenant-level",
+      "reason": "The specialist's avatar. An agent row (ai.engenty_ai_agents) belongs to the tenant \u2014 agent_scope is personal or shared, there is no space_id, and a shared specialist is hired into spaces rather than owned by one \u2014 so its look lives with it at `tenants/<t>/ai/agents/<id>/avatar.png`."
+    },
+    {
       "file": "modules/company-profile/src/api/gateway-methods.ts",
       "kind": "tenant-level",
       "reason": "One company profile per tenant \u2014 logo and brand assets are above every space by definition."

@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.11] - 2026-09-20
+- DOCS **[readme]** Name agentOS and integrations.sh under "What it is built on"
+- FIXED **[ci]** Green the verify lane and the nightly db-checks lane (#16)
+- FIXED **[types]** Clear the five typecheck errors CI hits on main
+
 ## [0.2.10] - 2026-09-19
 - ADDED **[specialists]** Scaffold engenty-specialists, a builtin module for hired engenties
 - CHANGED **[specialists]** The floor entry, the hire policy and the standing appendix move into the module

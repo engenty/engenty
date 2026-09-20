@@ -1,7 +1,31 @@
 [
   {
+    "version": "v0.2.11",
+    "timestamp": 1789886365,
+    "commits": [
+      {
+        "id": "8ad01cf",
+        "message": "green the verify lane and the nightly db-checks lane (#16)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3bdb00c",
+        "message": "clear the five typecheck errors CI hits on main",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3e0d6f6",
+        "message": "name agentOS and integrations.sh under \"What it is built on\"",
+        "group": "Docs",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.10",
-    "timestamp": 1789844431,
+    "timestamp": 1789844433,
     "commits": [
       {
         "id": "0461137",

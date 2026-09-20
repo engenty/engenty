@@ -92,7 +92,9 @@ if (!isSupabaseRunning()) {
 function psql(query) {
   const q = query.replace(/\s+/g, " ").trim();
   return execSync(
-    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F$'\\t' -c "${q}"`,
+    // '|' rather than $'\t': execSync runs /bin/sh, which is dash on the CI
+    // runner and has no ANSI-C quoting (see check-grants-coverage.mjs).
+    `docker exec -i ${containerName} psql -U postgres -d postgres -t -A -F '|' -c "${q}"`,
     { encoding: "utf-8" }
   )
     .split("\n")

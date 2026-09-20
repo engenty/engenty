@@ -1,0 +1,7 @@
+{
+  "comment": "Offenders scripts/check-server-lane-coverage.mjs must tolerate, each with a reason. Keys mirror the script's rule groups; entries are the exact labels the script prints. Read the rule's comment in the script before adding here — the allow-list is for deliberate designs, not for silencing a finding.",
+  "publicDefiners": ["mcp_oauth_pending_client(text)"],
+  "reasons": {
+    "mcp_oauth_pending_client(text)": "Deliberately anon-callable (20260916103000_mcp_oauth_pending_client.sql): /auth/login shows the OAuth client's name and logo BEFORE the user has a session, and Supabase's getAuthorizationDetails needs auth. The definer reads only the pending authorization's public branding (client_name, logo_uri, client_id), keyed by an unguessable authorization_id, and returns nothing once it is consumed or expired."
+  }
+}

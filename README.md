@@ -113,6 +113,11 @@ Deeper: [Local development](docs/content/dev/local-development/index.md) and
 
 * **[Mastra](https://mastra.ai/)** as the agent framework
 * **[AG-UI](https://ag-ui.com/)** to integrate agents seamlessly with the UI
+* **[agentOS](https://rivet.dev/agentos)** to run the Apps your agents build,
+  each in its own isolate
+* **[integrations.sh](https://integrations.sh/)** as the registry behind
+  Connections — import any service as a connector from its OpenAPI spec or
+  MCP server
 * Modular to the core — a plugin architecture, all the way down
 * Batteries included — basic modules, and a knowledge base with ingestion and RAG
 * Your own infrastructure: **[Supabase](https://supabase.com/)** and

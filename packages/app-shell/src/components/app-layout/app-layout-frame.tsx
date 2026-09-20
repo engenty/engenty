@@ -76,11 +76,7 @@ export function AppLayoutFrame({
   children,
 }: AppLayoutFrameProps & { children: ReactNode }) {
   const { contentStackBackground } = usePageHeader();
-  const {
-    chromeHidden,
-    dockMode,
-    open: copilotPersistedOpen,
-  } = useCopilotShell();
+  const { chromeHidden, open: copilotPersistedOpen } = useCopilotShell();
   const copilotOpen = isCopilotShellSlotOpen({
     chromeHidden,
     open: copilotPersistedOpen,

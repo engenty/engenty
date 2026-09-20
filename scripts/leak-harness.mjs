@@ -107,7 +107,9 @@ if (!dbUp()) {
 
 function psql(sql) {
   return execSync(
-    `docker exec -i ${container} psql -U postgres -d postgres -t -A -F$'\\t'`,
+    // '|' rather than $'\t': execSync runs /bin/sh, which is dash on the CI
+    // runner and has no ANSI-C quoting (see check-grants-coverage.mjs).
+    `docker exec -i ${container} psql -U postgres -d postgres -t -A -F '|'`,
     { encoding: "utf-8", input: sql }
   )
     .split("\n")
@@ -160,8 +162,8 @@ for (const table of tables) {
            count(*) filter (where tenant_id is null) as untenanted
     from "${schema}"."${name}";
   `);
-  const truthRow = truth.find((l) => /^\d+\t\d+$/.test(l)) ?? "0\t0";
-  const [expectedOwn, untenanted] = truthRow.split("\t").map(Number);
+  const truthRow = truth.find((l) => /^\d+\|\d+$/.test(l)) ?? "0|0";
+  const [expectedOwn, untenanted] = truthRow.split("|").map(Number);
 
   // The lane's view: as engenty_server carrying tenant A's claims. RLS must
   // hide every other tenant's rows AND must not hide A's own. current_setting
@@ -177,7 +179,7 @@ for (const table of tables) {
     from "${schema}"."${name}";
     rollback;
   `);
-  const row = out.find((l) => /^\d+\t\d+$/.test(l));
+  const row = out.find((l) => /^\d+\|\d+$/.test(l));
   if (row === undefined) {
     // No counts at all means the query itself failed for this role — a table
     // the server lane cannot read is just as broken as one it over-reads, and
@@ -186,7 +188,7 @@ for (const table of tables) {
     leaks.push(`${table}: query failed for engenty_server — ${detail}`);
     continue;
   }
-  const [visibleOwn, visibleForeign] = row.split("\t").map(Number);
+  const [visibleOwn, visibleForeign] = row.split("|").map(Number);
 
   // NEGATIVE: nothing belonging to another tenant — or to no tenant at all —
   // may be visible. `is distinct from` (not `<>`) so NULL tenant_id counts as

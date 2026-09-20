@@ -41,7 +41,9 @@ vi.mock("../task-job-scope.js", () => ({
 vi.mock("../../../dal/artifacts/artifact-store.js", () => ({
   createArtifactStoreFromEnv: () => ({ create: artifactCreate }),
 }));
-const announceAppRelease = vi.fn(async () => undefined);
+const announceAppRelease = vi.fn<(input: unknown) => Promise<undefined>>(
+  async () => undefined
+);
 vi.mock("../app-release-announce.js", () => ({
   announceAppRelease: (input: unknown) => announceAppRelease(input),
 }));

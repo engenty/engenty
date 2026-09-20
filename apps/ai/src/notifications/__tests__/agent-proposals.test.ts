@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const emitInboxNotification = vi.fn(async () => null);
-const resolveNotifications = vi.fn(async () => 1);
+const emitInboxNotification = vi.fn<(input: unknown) => Promise<null>>(
+  async () => null
+);
+const resolveNotifications = vi.fn<(input: unknown) => Promise<number>>(
+  async () => 1
+);
 vi.mock("../inbox.js", () => ({
   emitInboxNotification: (input: unknown) => emitInboxNotification(input),
   resolveNotifications: (input: unknown) => resolveNotifications(input),
