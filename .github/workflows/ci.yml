@@ -79,9 +79,14 @@ jobs:
       - name: Env example sync
         run: pnpm env:example:check
 
+      # No Supabase env on purpose. Pointing SUPABASE_URL at a port nothing
+      # listens on does not give the unit tests a database — it makes
+      # createAiDatabaseAdapter() hand back a live client, so code that treats
+      # "no database configured" as its fast path instead issues a real request
+      # and fails ~7s later. That is what broke
+      # registry-routes "should delete agent in the resolved tenant scope":
+      # the handler's workflow-reference lookup went to the network and the
+      # route answered 500. engenty-pro runs these same 298 files with no
+      # Supabase env and they pass.
       - name: Test
-        env:
-          SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
-          SUPABASE_ANON_KEY: test-anon-key
         run: pnpm test
