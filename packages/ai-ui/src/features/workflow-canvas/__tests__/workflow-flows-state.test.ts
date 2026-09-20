@@ -53,6 +53,25 @@ const GRAPHS = [
 
 const ENTRIES = buildFlowCatalog(GRAPHS, []);
 
+describe("surface", () => {
+  it("rides the row onto the entry; a declared action has none yet", () => {
+    const entries = buildFlowCatalog(
+      [
+        flow({ name: "Angebot erstellen", surface: "wizard" }),
+        flow({ name: "Chase" }),
+      ],
+      [action({})]
+    );
+    expect(
+      Object.fromEntries(entries.map((entry) => [entry.name, entry.surface]))
+    ).toEqual({
+      "Angebot erstellen": "wizard",
+      Chase: "chat",
+      "Enhance contact": undefined,
+    });
+  });
+});
+
 const BASE = {
   searchQuery: "",
   sourceFilter: FLOW_FILTER_ALL,

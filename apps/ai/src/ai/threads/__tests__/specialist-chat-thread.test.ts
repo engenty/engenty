@@ -108,13 +108,45 @@ describe("resolveSpecialistChatThread", () => {
     );
   });
 
-  it("has no chat without a person or a Space", async () => {
-    const store = storeWith([]);
+  it("opens no chat without a person, but speaks into one that exists", async () => {
+    // A continuation runs without the actor's identity, and a thread row's
+    // author has to be a real user — so an ownerless caller can find the
+    // conversation but never start it.
+    const empty = storeWith([]);
     expect(
       await resolveSpecialistChatThread({
         agentId: "tim",
         ownerUserId: null,
         spaceId,
+        store: empty as unknown as ThreadStore,
+        tenantId,
+        threadSeed: "seed",
+        title: "Tim",
+      })
+    ).toBeNull();
+    expect(empty.upsertThread).not.toHaveBeenCalled();
+
+    const existing = storeWith([thread({ id: "desk-1" })]);
+    expect(
+      await resolveSpecialistChatThread({
+        agentId: "tim",
+        ownerUserId: null,
+        spaceId,
+        store: existing as unknown as ThreadStore,
+        tenantId,
+        threadSeed: "seed",
+        title: "Tim",
+      })
+    ).toBe("desk-1");
+  });
+
+  it("has no chat without a Space", async () => {
+    const store = storeWith([]);
+    expect(
+      await resolveSpecialistChatThread({
+        agentId: "tim",
+        ownerUserId: "user-1",
+        spaceId: null,
         store: store as unknown as ThreadStore,
         tenantId,
         threadSeed: "seed",

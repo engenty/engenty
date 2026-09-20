@@ -17,7 +17,10 @@
 // arguments from a `{ value: … }` constant in the immediately preceding mapping
 // entry, and anything else is rejected. Fail closed, loudly, at save.
 
-import { validateEngentyA2uiComponents } from "@engenty/a2ui-catalog/spec";
+import {
+  A2UI_SURFACE_MAX_BYTES,
+  validateEngentyA2uiComponents,
+} from "@engenty/a2ui-catalog/spec";
 import {
   parseMapConfig,
   validateDynamicWorkflow,
@@ -51,6 +54,8 @@ export interface GraphValidationIssue {
     | "container-without-steps"
     | "loop-without-condition"
     | "gate-in-foreach"
+    | "inline-workflow-invalid"
+    | "wizard-without-step"
     | "sleep-too-long"
     | "invalid-ui-surface"
     | "unknown-artifact-type"
@@ -101,6 +106,12 @@ export interface ValidateGraphActionOptions {
    * preflight on a graph nobody is saving yet.
    */
   holdsCapability?: (capabilityId: string) => boolean;
+  /**
+   * How the workflow is meant to run. A `wizard` is walked one gate per page,
+   * so it must hold at least one approval_gate — a wizard with no page is a
+   * headless run wearing the wrong label.
+   */
+  surface?: "chat" | "wizard";
 }
 
 /**
@@ -126,7 +137,7 @@ export const MAX_SLEEP_MS = 15 * 60 * 1000;
  * cap. A node's payload is stored JSON, so this has to hold at SAVE time —
  * finding out at run time means a flow that dies at step 7.
  */
-export const MAX_UI_PAYLOAD_BYTES = 65_536;
+export const MAX_UI_PAYLOAD_BYTES = A2UI_SURFACE_MAX_BYTES;
 
 // Request-context keys are the run's identity channel. A graph that sets them
 // (via a mapping `value`) would be asserting its own tenant — exactly the
@@ -176,6 +187,76 @@ const KNOWN_ENTRY_TYPES = new Set([
 
 function entryId(entry: SerializedEntry): string | undefined {
   return typeof entry.id === "string" ? entry.id : undefined;
+}
+
+/**
+ * An inline nested workflow: a `workflow` entry that carries its own `graph`
+ * instead of naming a registered workflow. The way a loop body gets several
+ * steps, since the engine's containers hold exactly one entry.
+ */
+function isInlineWorkflow(
+  entry: SerializedEntry
+): entry is SerializedEntry & { graph: unknown[] } {
+  return entry.type === "workflow" && Array.isArray(entry.graph);
+}
+
+/**
+ * The graph as Mastra's validator can read it: inline nested workflows become
+ * references, and each one is listed in the registry index so the reference
+ * resolves. The nested graphs themselves are validated separately.
+ */
+function referencedGraph(entries: readonly unknown[]): {
+  entries: unknown[];
+  workflowIds: string[];
+} {
+  const workflowIds: string[] = [];
+  const rewrite = (raw: unknown): unknown => {
+    if (!raw || typeof raw !== "object") {
+      return raw;
+    }
+    const entry = raw as SerializedEntry;
+    if (isInlineWorkflow(entry)) {
+      const id = entryId(entry) ?? "";
+      workflowIds.push(id);
+      return { id, type: "workflow", workflowId: id };
+    }
+    const next: SerializedEntry = { ...entry };
+    if (Array.isArray(entry.steps)) {
+      next.steps = entry.steps.map(rewrite);
+    }
+    if (entry.step && typeof entry.step === "object") {
+      next.step = rewrite(entry.step);
+    }
+    return next;
+  };
+  return { entries: entries.map(rewrite), workflowIds };
+}
+
+/** Whether any entry — including inside inline nested workflows — is an approval gate. */
+function holdsApprovalGate(entries: readonly unknown[]): boolean {
+  for (const raw of entries) {
+    if (!raw || typeof raw !== "object") {
+      continue;
+    }
+    const entry = raw as SerializedEntry;
+    if (entry.type === "tool" && entry.toolId === APPROVAL_GATE_PRIMITIVE_ID) {
+      return true;
+    }
+    if (isInlineWorkflow(entry) && holdsApprovalGate(entry.graph)) {
+      return true;
+    }
+    if (Array.isArray(entry.steps) && holdsApprovalGate(entry.steps)) {
+      return true;
+    }
+    if (
+      entry.step &&
+      typeof entry.step === "object" &&
+      holdsApprovalGate([entry.step])
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -270,7 +351,26 @@ export function validateGraphAction(
   def: GraphWorkflowDefinition,
   options: ValidateGraphActionOptions = {}
 ): GraphValidationIssue[] {
+  return validateGraphEntries(def, options, "graph", false);
+}
+
+/**
+ * The validator proper. Inline nested workflows are validated as graphs of
+ * their own — Mastra's structural pass and the engenty rules both — with
+ * their issues reported under the entry's path, and a nested workflow inside a
+ * foreach inherits that fact so a gate in it is refused the same way.
+ */
+function validateGraphEntries(
+  def: GraphWorkflowDefinition,
+  options: ValidateGraphActionOptions,
+  basePath: string,
+  inForeachBase: boolean
+): GraphValidationIssue[] {
   const issues: GraphValidationIssue[] = [];
+  const referenced = referencedGraph(def.graph);
+  const nestedIndex = Object.fromEntries(
+    referenced.workflowIds.map((id) => [id, {}])
+  );
 
   // 1. Mastra's own validation over the deterministic spine. The tools index is
   // exactly our primitives — a reference to anything else is a missing-ref
@@ -290,25 +390,45 @@ export function validateGraphAction(
   // even analyze is an invalid graph, so that is what it becomes.
   let mastraIssues: WorkflowValidationIssue[] = [];
   try {
-    mastraIssues = validateDynamicWorkflow(def as never, {
-      tools: Object.fromEntries(
-        GRAPH_ACTION_PRIMITIVE_IDS.map((id) => [id, {}])
-      ),
-    });
+    mastraIssues = validateDynamicWorkflow(
+      { ...def, graph: referenced.entries } as never,
+      {
+        tools: Object.fromEntries(
+          GRAPH_ACTION_PRIMITIVE_IDS.map((id) => [id, {}])
+        ),
+        workflows: nestedIndex,
+      }
+    );
   } catch (err) {
     issues.push({
       code: "mastra",
       message: `the graph is malformed and could not be analyzed: ${
         err instanceof Error ? err.message : String(err)
       }`,
-      path: "graph",
+      path: basePath,
     });
   }
   for (const issue of mastraIssues) {
     issues.push({
       code: "mastra",
       message: `${issue.code}: ${issue.message}`,
-      path: issue.path,
+      path:
+        basePath === "graph"
+          ? issue.path
+          : issue.path.replace(/^graph/, basePath),
+    });
+  }
+
+  if (
+    options.surface === "wizard" &&
+    basePath === "graph" &&
+    !holdsApprovalGate(def.graph)
+  ) {
+    issues.push({
+      code: "wizard-without-step",
+      message:
+        'a wizard is walked one approval_gate per page, so it needs at least one gate — add one (kind "surface" with the inputs the person must give) or run this as a chat workflow',
+      path: basePath,
     });
   }
 
@@ -317,9 +437,58 @@ export function validateGraphAction(
   // thing yielded" is wrong inside containers.
   for (const { entry, inForeach, path, previous } of walkEntries(
     def.graph,
-    "graph"
+    basePath,
+    inForeachBase
   )) {
     const id = entryId(entry);
+
+    if (entry.type === "workflow") {
+      if (isInlineWorkflow(entry)) {
+        if (!id) {
+          issues.push({
+            code: "inline-workflow-invalid",
+            message:
+              'an inline workflow entry needs an "id" — it is the step id the parent\'s predicates and later mappings refer to',
+            path,
+          });
+        } else if (entry.graph.length === 0) {
+          issues.push({
+            code: "inline-workflow-invalid",
+            entryId: id,
+            message: `inline workflow "${id}" has an empty graph`,
+            path,
+          });
+        } else {
+          issues.push(
+            ...validateGraphEntries(
+              {
+                graph: entry.graph,
+                id,
+                inputSchema:
+                  entry.inputSchema && typeof entry.inputSchema === "object"
+                    ? (entry.inputSchema as Record<string, unknown>)
+                    : {},
+                outputSchema:
+                  entry.outputSchema && typeof entry.outputSchema === "object"
+                    ? (entry.outputSchema as Record<string, unknown>)
+                    : {},
+              },
+              options,
+              `${path}.graph`,
+              inForeach
+            )
+          );
+        }
+      } else if (typeof entry.workflowId !== "string") {
+        issues.push({
+          code: "inline-workflow-invalid",
+          message:
+            'a "workflow" entry carries either an inline "graph" (an array of entries) or a "workflowId"',
+          path,
+          ...(id ? { entryId: id } : {}),
+        });
+      }
+    }
 
     const entryType = typeof entry.type === "string" ? entry.type : "";
     if (!KNOWN_ENTRY_TYPES.has(entryType)) {
@@ -594,6 +763,55 @@ export function validateGraphAction(
           issues.push({
             code: "unknown-artifact-type",
             message: `artifact_write: "${type}" is not an artifact type — use one of ${ARTIFACT_TYPE_IDS.join(", ")}`,
+            path,
+            ...(id ? { entryId: id } : {}),
+          });
+        }
+      }
+
+      if (
+        toolId === APPROVAL_GATE_PRIMITIVE_ID &&
+        constants?.kind === "surface"
+      ) {
+        // A surface gate's page is STORED json, so the same catalog and size
+        // checks the gate runs at suspend time run here — a broken page is a
+        // badge on the canvas, not a run parked on a step nobody can answer.
+        const payload =
+          constants.payload && typeof constants.payload === "object"
+            ? (constants.payload as Record<string, unknown>)
+            : undefined;
+        const components = payload?.components;
+        if (Array.isArray(components)) {
+          const componentIssues = validateEngentyA2uiComponents(
+            components as Record<string, unknown>[]
+          );
+          const payloadBytes = Buffer.byteLength(
+            JSON.stringify({ components, data: payload?.data }),
+            "utf8"
+          );
+          if (componentIssues.length > 0) {
+            issues.push({
+              code: "invalid-ui-surface",
+              message: `approval_gate: ${componentIssues
+                .slice(0, 3)
+                .map((issue) => String(issue.message ?? issue))
+                .join("; ")}`,
+              path,
+              ...(id ? { entryId: id } : {}),
+            });
+          } else if (payloadBytes > MAX_UI_PAYLOAD_BYTES) {
+            issues.push({
+              code: "invalid-ui-surface",
+              message: `approval_gate: the surface is ${payloadBytes} bytes; the limit is ${MAX_UI_PAYLOAD_BYTES}. Compose a smaller one.`,
+              path,
+              ...(id ? { entryId: id } : {}),
+            });
+          }
+        } else {
+          issues.push({
+            code: "invalid-ui-surface",
+            message:
+              'approval_gate of kind "surface" needs a constant payload { components, data } from the mapping directly before it',
             path,
             ...(id ? { entryId: id } : {}),
           });

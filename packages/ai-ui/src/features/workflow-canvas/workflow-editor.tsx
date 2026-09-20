@@ -27,6 +27,7 @@ import {
   Minimize2,
   Play,
   Rocket,
+  Wand2,
   Workflow,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -52,6 +53,7 @@ import {
   useRepairWorkflowMutation,
   useRunWorkflowMutation,
   useSaveVersionMutation,
+  useUpdateWorkflowMutation,
   useWorkflowQuery,
 } from "./workflow-queries.js";
 
@@ -106,6 +108,10 @@ export function WorkflowEditor({
   const repair = useRepairWorkflowMutation(graphId);
   const runNow = useRunWorkflowMutation(graphId);
   const saveVersion = useSaveVersionMutation(graphId);
+  // The surface is a row field, not a version field: switching it does not
+  // mint a version. A wizard needs a gate — the server refuses the switch
+  // otherwise, and the error lands under the toolbar.
+  const updateRow = useUpdateWorkflowMutation(graphId);
 
   const graphRow = detail.data?.graph ?? null;
   const versions = detail.data?.versions ?? [];
@@ -143,6 +149,7 @@ export function WorkflowEditor({
   // and every reconcile heartbeat republishes it, so this reads it rather than
   // pretending an edit here would last.
   const readOnly = Boolean(graphRow?.source_workflow_id);
+  const isWizard = graphRow?.surface === "wizard";
   // One rail, three things it can be. A node and the ambient context are
   // different subjects, so opening either drops the other rather than stacking
   // them.
@@ -361,6 +368,39 @@ export function WorkflowEditor({
           {t("workflows.editor.context")}
         </button>
 
+        {/* Chat or wizard: where a run's gates are answered. A module row's
+            flag comes from its file, so it is shown, not switched. */}
+        {readOnly ? (
+          isWizard ? (
+            <span className="flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground">
+              <Wand2 aria-hidden className="size-3" />
+              {t("workflows.surface.wizard", { defaultValue: "Wizard" })}
+            </span>
+          ) : null
+        ) : (
+          <button
+            aria-pressed={isWizard}
+            className={cn(
+              "flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] transition-colors",
+              isWizard
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            disabled={updateRow.isPending}
+            onClick={() =>
+              updateRow.mutate({ surface: isWizard ? "chat" : "wizard" })
+            }
+            title={t("workflows.surface.toggleHint", {
+              defaultValue:
+                "Wizard: the person who starts it answers one page per gate. Off: the cards land in the specialist's chat.",
+            })}
+            type="button"
+          >
+            <Wand2 aria-hidden className="size-3" />
+            {t("workflows.surface.wizard", { defaultValue: "Wizard" })}
+          </button>
+        )}
+
         <label className="flex items-center gap-1">
           <History aria-hidden className="size-3 text-muted-foreground" />
           <span className="sr-only">{t("workflows.editor.version")}</span>
@@ -438,6 +478,16 @@ export function WorkflowEditor({
           ) : null}
         </div>
       </div>
+
+      {updateRow.isError ? (
+        <p className="shrink-0 border-b px-3 py-1.5 text-destructive text-xs">
+          {updateRow.error instanceof Error
+            ? updateRow.error.message
+            : t("workflows.surface.switchFailed", {
+                defaultValue: "The surface could not be changed.",
+              })}
+        </p>
+      ) : null}
 
       <div className="flex min-h-0 flex-1">
         {view === "code" ? (

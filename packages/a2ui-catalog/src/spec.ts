@@ -7,9 +7,20 @@
  * no React and no @a2ui dependency so apps/ai can import it directly.
  */
 
+export {
+  type FormSurface,
+  type FormSurfaceOptions,
+  formSurfaceFromSchema,
+  type JsonSchemaObject,
+  type JsonSchemaProperty,
+} from "./form-from-schema.js";
+
 export const ENGENTY_A2UI_CATALOG_ID = "engenty:core/v1";
 
-/** Q4 starter set — the components this build renders. */
+/** Upper bound for one serialized surface (components + data), shared by the tool and the validator. */
+export const A2UI_SURFACE_MAX_BYTES = 65_536;
+
+/** The components this build renders. */
 export const ENGENTY_A2UI_COMPONENT_NAMES = [
   "List",
   "Row",
@@ -18,10 +29,40 @@ export const ENGENTY_A2UI_COMPONENT_NAMES = [
   "Actions",
   "Button",
   "Text",
+  "Form",
+  "TextField",
+  "TextArea",
+  "NumberField",
+  "Select",
+  "MultipleChoice",
+  "CheckBox",
+  "DateInput",
+  "ObjectPicker",
+  "Column",
+  "Inline",
+  "Card",
+  "Divider",
+  "Callout",
+  "Markdown",
+  "Image",
+  "Table",
+  "Document",
 ] as const;
 
 export type EngentyA2uiComponentName =
   (typeof ENGENTY_A2UI_COMPONENT_NAMES)[number];
+
+/** Components whose `value` binds two-way into the data model. */
+export const ENGENTY_A2UI_INPUT_NAMES = [
+  "TextField",
+  "TextArea",
+  "NumberField",
+  "Select",
+  "MultipleChoice",
+  "CheckBox",
+  "DateInput",
+  "ObjectPicker",
+] as const;
 
 /**
  * Compact per-component prop guide for the model. Bindable props accept a
@@ -37,7 +78,28 @@ export const ENGENTY_A2UI_PROMPT_GUIDE = [
   "- Actions { children: string[] } — horizontal button group.",
   "- Button { label, action: { event: { name, context? } } }.",
   "- Text { text, variant?: 'h3'|'h4'|'body'|'muted' }.",
-  'Bindable string props (title, subtitle, meta, label, value, text) accept either a literal string or {"path": "/json/pointer"} into the data model.',
+  "- Form { children: string[], submit?: { event: { name } } } — groups inputs; Enter or the submit action sends the step. Put Actions with a Button inside whose event name is the step's outcome (e.g. 'next', 'ok', 'revise').",
+  "- TextField { value: {path}, label?, help?, placeholder?, required?, disabled? } — single-line text.",
+  "- TextArea { value: {path}, label?, help?, placeholder?, rows?, required?, disabled? } — multi-line text.",
+  "- NumberField { value: {path}, label?, help?, min?, max?, step?, required?, disabled? } — writes a number.",
+  "- Select { value: {path}, options: [{ value, label }], label?, help?, placeholder?, required?, disabled? } — single choice; writes the option value.",
+  "- MultipleChoice { value: {path}, options: [{ value, label }], style?: 'list'|'chips', label?, help?, required?, disabled? } — writes a string array.",
+  "- CheckBox { value: {path}, label, help?, required?, disabled? } — writes a boolean.",
+  "- DateInput { value: {path}, label?, help?, min?, max?, required?, disabled? } — writes an ISO date 'YYYY-MM-DD'.",
+  "- ObjectPicker { value: {path}, entity, label?, help?, required?, disabled? } — picks a record of an engenty entity; writes its ref '<module>:<entity>:<id>'.",
+  "- Column { children: string[], gap?: 'sm'|'md'|'lg' } — vertical stack.",
+  "- Inline { children: string[], gap?: 'sm'|'md'|'lg' } — side-by-side, wrapping; for two or three short fields on one line.",
+  "- Card { children: string[], title? } — bordered section.",
+  "- Divider {} — horizontal rule.",
+  "- Callout { text, tone?: 'info'|'success'|'warning'|'danger' } — highlighted note.",
+  "- Markdown { text } — markdown body (headings, lists, bold, code, links; no raw HTML).",
+  "- Image { url, alt?, width?, height? } — width/height in px when known.",
+  "- Table { columns: [{ key, label, align?: 'start'|'end' }], rows: [{ ... }] | {path} } — read-only grid; a column key may reach into a row ('content_json/amount').",
+  "- Document { artifactRef } — renders the artifact with that id.",
+  'Bindable string props (title, subtitle, meta, label, value, text, url, artifactRef) accept either a literal string or {"path": "/json/pointer"} into the data model.',
+  'Repeating a row: instead of a static children array, a container (List, Column, Card, Form) takes "children": {"componentId": "<row id>", "path": "/items"} — the row component is rendered once per array item and ITS bindings are relative to that item ({"path": "title"}, {"path": "content_json/amount"}). That is how N positions are shown, and how they are EDITED: inputs inside the row write back into the array. The row component is declared once in the flat list like any other.',
+  'Inputs bind with "value": {"path": "/field"} and write what the user enters into the data model at that path; seed defaults through the data model.',
+  "When the surface is a step, the whole data model comes back with the event name of the pressed Button (or the Form's submit action): {event: 'next', data: {field: ...}}. Mark mandatory inputs required: true — an empty required input blocks the submit client-side.",
   "Actions: 'open_object' with context {ref} opens the record beside the chat; any other event name is sent back to you as a user message.",
 ].join("\n");
 
@@ -57,18 +119,191 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function collectChildIds(value: unknown): string[] {
-  // Static child lists only — the show_ui surface builds explicit lists; a
-  // dynamic template list ({ template, path }) is passed through unchecked.
   if (Array.isArray(value)) {
     return value.filter((v): v is string => typeof v === "string");
   }
+  // A dynamic list template renders one copy of `componentId` per item of the
+  // array at `path`; the copy's own bindings are relative to that item.
+  if (isRecord(value) && typeof value.componentId === "string") {
+    return [value.componentId];
+  }
   return [];
+}
+
+function isActionShape(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const event = value.event;
+  return isRecord(event) && typeof event.name === "string" && event.name !== "";
+}
+
+/**
+ * Collect every data binding `{ path }` below a prop value. A binding is a
+ * record whose only key is `path`; child lists are skipped because a template
+ * list carries a relative path by design.
+ */
+function collectBindingPaths(value: unknown, out: unknown[]): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectBindingPaths(item, out);
+    }
+    return;
+  }
+  if (!isRecord(value)) {
+    return;
+  }
+  const keys = Object.keys(value);
+  if (keys.length === 1 && keys[0] === "path") {
+    out.push(value.path);
+    return;
+  }
+  for (const nested of Object.values(value)) {
+    collectBindingPaths(nested, out);
+  }
+}
+
+function isOptionList(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((o) => isRecord(o) && typeof o.value === "string")
+  );
+}
+
+function validateComponentProps(
+  raw: Record<string, unknown>,
+  id: string,
+  component: string,
+  issues: A2uiValidationIssue[]
+): void {
+  const bindings: unknown[] = [];
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === "id" || key === "component" || key === "children") {
+      continue;
+    }
+    collectBindingPaths(value, bindings);
+  }
+  for (const path of bindings) {
+    // Absolute ("/total") or, inside a list template's row, relative to the
+    // row ("content_json/title") — both are JSON pointers to the binder.
+    if (typeof path !== "string" || path.trim() === "" || /\s/.test(path)) {
+      issues.push({
+        componentId: id,
+        message: `binding path '${String(path)}' must be a JSON pointer ('/total' from the root, or 'qty' relative to a list template's row)`,
+      });
+    }
+  }
+
+  if (isRecord(raw.children) && !Array.isArray(raw.children)) {
+    const template = raw.children;
+    if (
+      typeof template.componentId !== "string" ||
+      typeof template.path !== "string" ||
+      !template.path.startsWith("/")
+    ) {
+      issues.push({
+        componentId: id,
+        message:
+          "a dynamic children list must be { componentId, path } with an absolute path to an array",
+      });
+    }
+  }
+
+  switch (component) {
+    case "Form": {
+      if (Array.isArray(raw.submit)) {
+        issues.push({
+          componentId: id,
+          message: "Form takes at most one submit action",
+        });
+      } else if (raw.submit !== undefined && !isActionShape(raw.submit)) {
+        issues.push({
+          componentId: id,
+          message: "Form submit must be an action { event: { name } }",
+        });
+      }
+      break;
+    }
+    case "Select":
+    case "MultipleChoice": {
+      if (!isOptionList(raw.options)) {
+        issues.push({
+          componentId: id,
+          message: `${component} needs a non-empty options array of { value, label }`,
+        });
+      }
+      break;
+    }
+    case "ObjectPicker": {
+      if (typeof raw.entity !== "string" || !raw.entity.trim()) {
+        issues.push({
+          componentId: id,
+          message: "ObjectPicker needs a string entity",
+        });
+      }
+      break;
+    }
+    case "Table": {
+      const columns = raw.columns;
+      if (
+        !Array.isArray(columns) ||
+        columns.length === 0 ||
+        !columns.every((c) => isRecord(c) && typeof c.key === "string")
+      ) {
+        issues.push({
+          componentId: id,
+          message: "Table needs a non-empty columns array of { key, label }",
+        });
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+/** A Form nested inside another Form would give the step two submit paths. */
+function validateFormNesting(
+  entries: ComponentEntry[],
+  issues: A2uiValidationIssue[]
+): void {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  for (const form of entries) {
+    if (form.component !== "Form") {
+      continue;
+    }
+    const seen = new Set<string>([form.id]);
+    const stack = [...form.children];
+    while (stack.length > 0) {
+      const next = stack.pop() as string;
+      if (seen.has(next)) {
+        continue;
+      }
+      seen.add(next);
+      const entry = byId.get(next);
+      if (!entry) {
+        continue;
+      }
+      if (entry.component === "Form") {
+        issues.push({
+          componentId: form.id,
+          message: `Form '${form.id}' contains another Form '${entry.id}' — one Form per step`,
+        });
+        continue;
+      }
+      stack.push(...entry.children);
+    }
+  }
 }
 
 /**
  * Validate a flat component list against the catalog contract. Returns issues
  * (empty = valid). Checks: record shape, unique string ids, known component
- * names, a `root` component, and child references that resolve.
+ * names, a `root` component, child references that resolve (static lists and
+ * the { componentId, path } template alike), binding paths that are JSON
+ * pointers, and the per-component prop rules (Form
+ * submit, Select/MultipleChoice options, ObjectPicker entity, Table columns).
  */
 export function validateEngentyA2uiComponents(
   components: unknown
@@ -107,6 +342,7 @@ export function validateEngentyA2uiComponents(
       });
       continue;
     }
+    validateComponentProps(raw, id, component, issues);
     entries.push({ children: collectChildIds(raw.children), component, id });
   }
 
@@ -124,6 +360,8 @@ export function validateEngentyA2uiComponents(
       }
     }
   }
+
+  validateFormNesting(entries, issues);
 
   return issues;
 }

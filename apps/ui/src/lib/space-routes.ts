@@ -29,6 +29,15 @@ export const SPACE_ROUTE_PREFIX = "/s";
  */
 export const PERSONAL_SPACE_ALIAS = "me";
 
+/**
+ * Route patterns of a wizard inside a space, relative to `/s/:spaceKey`:
+ * page 0 by workflow id (a stored uuid or a module id), a run by its run id.
+ * `workflows` is a reserved segment (space-module-url.ts).
+ */
+export const SPACE_WORKFLOW_ROUTE_PATTERN = "workflows/:workflowId";
+export const SPACE_WORKFLOW_RUN_ROUTE_PATTERN =
+  "workflows/:workflowId/runs/:runId";
+
 /** The space's own home — its Apps tab. */
 export function spaceRootPath(spaceKey: string): string {
   return `${SPACE_ROUTE_PREFIX}/${encodeURIComponent(spaceKey)}`;

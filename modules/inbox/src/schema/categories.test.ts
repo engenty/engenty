@@ -8,10 +8,7 @@ import {
   visibleInboxCategories,
 } from "../schema/categories.js";
 import type { InboxMessage } from "../schema/types.js";
-import {
-  applyCategoryMap,
-  coerceCategoryMap,
-} from "../services/message-classify.js";
+import { applyCategoryMap } from "../services/message-classify.js";
 
 describe("normalizeCategorySlug", () => {
   it("lowercases and strips invalid characters", () => {
@@ -128,15 +125,7 @@ function stubMessage(id: string): InboxMessage {
   };
 }
 
-describe("coerceCategoryMap with custom allowlist", () => {
-  it("accepts custom slugs from the tenant catalog", () => {
-    const allowlist = ["conversation", "billing", "spam"];
-    expect(
-      coerceCategoryMap({ "0": "billing", "1": "spam" }, allowlist)
-    ).toEqual({ "0": "billing", "1": "spam" });
-    expect(coerceCategoryMap({ "0": "newsletter" }, allowlist)).toBeNull();
-  });
-
+describe("applyCategoryMap with custom allowlist", () => {
   it("maps missing indices to conversation when present in allowlist", () => {
     const batch = [stubMessage("a"), stubMessage("b")];
     const mapped = applyCategoryMap(batch, { "0": "billing" }, [

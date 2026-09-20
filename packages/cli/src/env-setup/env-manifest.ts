@@ -735,14 +735,13 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     scopes: ["deploy"],
     secret: true,
   },
-  // Experimental browser fast loop (PLAN-browser-fast-loop.md): a TypeSafe
-  // classifier picks operation + target per step; the agent LLM only plans.
-  // Off unless the switch is on AND the key is present.
+  // Jev answers the small classifiers (Auto effort, inbox categories, KB
+  // search verifier) and, behind its own switch, each browser fast-loop step.
   {
     configurable: "platform",
     description:
-      "TypeSafe (Jev) API key for the experimental browser fast loop — optional: without it Jev is reached through the Vercel AI Gateway (typesafe-ai/jev) on AI_GATEWAY_API_KEY.",
-    group: "User browsers (one per person per Space)",
+      "TypeSafe (Jev) API key for the small classifiers and the browser fast loop — optional: without it Jev is reached through the Vercel AI Gateway (typesafe-ai/jev) on AI_GATEWAY_API_KEY.",
+    group: "Core API & AI workspace",
     key: "TYPESAFE_API_KEY",
     obtain: {
       instructions: [

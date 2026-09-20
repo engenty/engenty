@@ -1,7 +1,36 @@
 import { describe, expect, it } from "vitest";
 import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
+import {
+  DEV_LOGIN_FALLBACK_EMAIL,
+  resolveDevLoginEmail,
+} from "./routes/auth/dev-login-routes.js";
 import { createApiApp } from "./server.js";
+
+describe("resolveDevLoginEmail", () => {
+  it("falls back when ENGENTY_DEV_EMAIL is unset", () => {
+    // envString() yields "" for an unset variable, not undefined. Reading this
+    // with `??` kept the empty string, and the session was minted for nobody:
+    // Supabase answered "Cannot create a user without either an email or
+    // phone" and the smoke lane hung on the login page for every spec.
+    expect(resolveDevLoginEmail(undefined, "")).toBe(DEV_LOGIN_FALLBACK_EMAIL);
+    expect(resolveDevLoginEmail("", "")).toBe(DEV_LOGIN_FALLBACK_EMAIL);
+    expect(resolveDevLoginEmail("   ", "  ")).toBe(DEV_LOGIN_FALLBACK_EMAIL);
+  });
+
+  it("prefers the query address, then the configured default", () => {
+    expect(resolveDevLoginEmail("q@test.local", "d@test.local")).toBe(
+      "q@test.local"
+    );
+    expect(resolveDevLoginEmail(" q@test.local ", "d@test.local")).toBe(
+      "q@test.local"
+    );
+    expect(resolveDevLoginEmail(undefined, "d@test.local")).toBe(
+      "d@test.local"
+    );
+    expect(resolveDevLoginEmail("", " d@test.local ")).toBe("d@test.local");
+  });
+});
 
 describe("dev-login routes", () => {
   it("returns 404 when ENGENTY_DEV_PASS is not set", async () => {

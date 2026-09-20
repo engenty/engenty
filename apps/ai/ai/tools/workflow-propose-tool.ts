@@ -25,6 +25,7 @@ import { capabilityForModuleOperation } from "../../src/ai/workflows/capabilitie
 import { missingRequiredFlowInputs } from "../../src/ai/workflows/flow-input.js";
 import { validateGraphAction } from "../../src/ai/workflows/validate-graph.js";
 import { createCoreAiScopeResolver } from "../../src/api/http.js";
+import type { WorkflowSurface } from "../../src/dal/workflows/index.js";
 import { emitInboxNotification } from "../../src/notifications/inbox.js";
 import {
   acquireFrontendToolSuspendSlot,
@@ -200,11 +201,17 @@ export async function publishFromDecision(
 const RUN_BY_VALUES = ["routine", "button", "slash_command", "agent"] as const;
 type RunBy = (typeof RUN_BY_VALUES)[number];
 
+const SURFACE_VALUES = [
+  "chat",
+  "wizard",
+] as const satisfies readonly WorkflowSurface[];
+
 interface LiftedParams {
   input_schema: Record<string, unknown> | undefined;
   output_schema: Record<string, unknown> | undefined;
   owner_agent_id: string | undefined;
   run_by: string | undefined;
+  surface: string | undefined;
   workflow_id: string | undefined;
 }
 
@@ -223,6 +230,7 @@ export function liftMisnestedParams(input: {
   output_schema?: Record<string, unknown>;
   owner_agent_id?: string;
   run_by?: string;
+  surface?: string;
 }): LiftedParams {
   const lifted: LiftedParams = {
     workflow_id: input.workflow_id,
@@ -230,11 +238,16 @@ export function liftMisnestedParams(input: {
     output_schema: input.output_schema ? { ...input.output_schema } : undefined,
     owner_agent_id: input.owner_agent_id,
     run_by: input.run_by,
+    surface: input.surface,
   };
   const liftFrom = (schema: Record<string, unknown>) => {
     if (lifted.run_by === undefined && typeof schema.run_by === "string") {
       lifted.run_by = schema.run_by;
       schema.run_by = undefined;
+    }
+    if (lifted.surface === undefined && typeof schema.surface === "string") {
+      lifted.surface = schema.surface;
+      schema.surface = undefined;
     }
     if (
       lifted.owner_agent_id === undefined &&
@@ -355,6 +368,16 @@ export const actionProposeTool = createTool({
           "it; it needs that agent and a routines_create call, and this tool " +
           "creates neither."
       ),
+    // Optional rather than defaulted so a value misnested into a schema can
+    // still be lifted (see liftMisnestedParams); execute treats absent as chat.
+    surface: z
+      .enum(SURFACE_VALUES)
+      .optional()
+      .describe(
+        "wizard = an end user walks the run step by step: every approval_gate " +
+          "is a page; needs at least one gate. chat (default) = the cards land " +
+          "in the owning specialist's chat."
+      ),
   }),
   resumeSchema: actionProposeResumeSchema,
   execute: async (input, executionContext) => {
@@ -405,6 +428,11 @@ export const actionProposeTool = createTool({
       };
     }
 
+    // The surface is declared intent; whether the graph can be walked as a
+    // wizard is what the validator checks (`wizard-without-step`).
+    const surface: WorkflowSurface =
+      SURFACE_VALUES.find((value) => value === params.surface) ?? "chat";
+
     const stored = {
       description: input.description,
       graph: input.graph,
@@ -415,7 +443,7 @@ export const actionProposeTool = createTool({
 
     // Validate BEFORE creating the definition, so a malformed graph doesn't
     // leave an empty shell behind for the user to clean up.
-    const issues = validateGraphAction(stored);
+    const issues = validateGraphAction(stored, { surface });
     if (issues.length > 0) {
       return {
         ok: false as const,
@@ -480,6 +508,7 @@ export const actionProposeTool = createTool({
         const created = await store.create({
           description: input.description,
           name: input.name,
+          surface,
           tenantId,
           ...(input.context_type ? { contextType: input.context_type } : {}),
           ...(ownerAgentId ? { ownerAgentId } : {}),
@@ -531,13 +560,17 @@ export const actionProposeTool = createTool({
         const lockKey = publishSuspendLockKey();
         const ticket = await acquireFrontendToolSuspendSlot(lockKey);
         try {
+          const noun = surface === "wizard" ? "Wizard" : "Workflow";
           await executionContext.agent.suspend({
             artifact_id: artifactId,
             artifact_type: "decision" as const,
-            title: `Publish "${input.name}"?`,
+            title: `Publish ${noun} "${input.name}"?`,
             body:
               `${input.description}\n\n${stepCount} step${stepCount === 1 ? "" : "s"}` +
-              `${ownerAgentId ? ` · owned by ${ownerAgentId}` : " · library Workflow"}. ` +
+              `${ownerAgentId ? ` · owned by ${ownerAgentId}` : ` · library ${noun}`}` +
+              (surface === "wizard"
+                ? " · walked page by page by the person who starts it. "
+                : ". ") +
               "Publishing activates it; as a draft it cannot run.",
             choices: [
               {
@@ -566,6 +599,7 @@ export const actionProposeTool = createTool({
         ok: true as const,
         workflow_id: graphId,
         version: version.version,
+        surface,
         note: [
           runBy === "routine"
             ? "Saved as a draft. This Workflow runs nothing on its own: " +
@@ -582,6 +616,10 @@ export const actionProposeTool = createTool({
               `In a Space run, link it as /s/<space key>/agents/${ownerAgentId}?panel=manage ` +
               "(the key is on current_space) — never an /admin/… link, which " +
               "leaves the user's Space."
+            : null,
+          surface === "wizard"
+            ? "Once published it is listed as a wizard: a slash command and a " +
+              "catalog card open it, and the person answers one page per gate."
             : null,
           requiredInput.length > 0
             ? `Every call must carry: ${requiredInput.join(", ")}. A schedule ` +

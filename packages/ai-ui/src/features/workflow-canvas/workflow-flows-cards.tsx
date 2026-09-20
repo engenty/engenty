@@ -4,7 +4,7 @@
 // description is the deciding field, which is why the track is the wide one.
 import { useTranslation } from "@engenty/i18n/ui";
 import { adminListCardsGridClassName, Badge, cn } from "@engenty/ui-core";
-import { FileTerminal, ShieldCheck } from "lucide-react";
+import { FileTerminal, ShieldCheck, Wand2 } from "lucide-react";
 import { formatEngentyActionSource } from "../agents-workspace/workflow-record-utils.js";
 import {
   flowEntryStatus,
@@ -37,7 +37,10 @@ export function WorkflowLibraryCards({
         >
           <div className="flex items-start justify-between gap-2">
             <p className="truncate font-medium text-sm">{flow.name}</p>
-            <FlowStatusBadge flow={flow} />
+            <div className="flex shrink-0 items-center gap-1">
+              <FlowSurfaceBadge flow={flow} />
+              <FlowStatusBadge flow={flow} />
+            </div>
           </div>
           {flow.description ? (
             <p className="mt-1.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
@@ -66,6 +69,20 @@ export function WorkflowLibraryCards({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Marks a wizard: the person who starts it answers one page per gate. */
+export function FlowSurfaceBadge({ flow }: { flow: WorkflowCatalogEntry }) {
+  const { t } = useTranslation("ai-ui");
+  if (flow.surface !== "wizard") {
+    return null;
+  }
+  return (
+    <Badge className="gap-1" variant="outline">
+      <Wand2 aria-hidden className="size-3" />
+      {t("workflows.surface.wizard", { defaultValue: "Wizard" })}
+    </Badge>
   );
 }
 

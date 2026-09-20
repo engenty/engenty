@@ -1,5 +1,4 @@
 export { CreateWorkflowDialog } from "./create-workflow-dialog.js";
-export { GateDecisionCard } from "./gate-decision-card.js";
 export {
   type CanvasNodeData,
   type CanvasNodeKind,
@@ -18,10 +17,12 @@ export { WorkflowLibraryCards } from "./workflow-flows-cards.js";
 export { WorkflowLibraryTable } from "./workflow-flows-table.js";
 export { type NodeRunState, WorkflowStepNode } from "./workflow-node.js";
 export {
+  useCancelRunMutation,
   useDraftWorkflowMutation,
   useGraphValidationQuery,
   useResumeRunMutation,
   useRunWorkflowMutation,
+  useTimeTravelRunMutation,
   useWorkflowListQuery,
   useWorkflowQuery,
   workflowKeys,

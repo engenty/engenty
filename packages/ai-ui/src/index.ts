@@ -502,7 +502,28 @@ export {
   spaceHomeQueryKey,
   useSpaceHomeQuery,
 } from "./features/space-home/space-home-api.js";
-export { GateDecisionCard } from "./features/workflow-canvas/gate-decision-card.js";
+export {
+  type GateDecision,
+  GateSurfaceCard,
+  type GateSurfaceCardProps,
+} from "./features/wizard/gate-surface-card.js";
+export {
+  type PressWizardCommandInput,
+  pressWizardCommand,
+} from "./features/wizard/press-wizard-command.js";
+export { useWizardRun } from "./features/wizard/use-wizard-run.js";
+export {
+  spaceWorkflowPath,
+  spaceWorkflowRunPath,
+} from "./features/wizard/wizard-paths.js";
+export {
+  WizardRunner,
+  type WizardRunnerProps,
+} from "./features/wizard/wizard-runner.js";
+export {
+  WizardStart,
+  type WizardStartProps,
+} from "./features/wizard/wizard-start.js";
 export {
   type CanvasNodeData,
   type CanvasNodeKind,
@@ -511,10 +532,17 @@ export {
 } from "./features/workflow-canvas/graph-model.js";
 export { NodeInspector } from "./features/workflow-canvas/node-inspector.js";
 // ── Action canvas (multi-step graph actions) ─────────────────────────────────
-export type {
-  GraphIssueDto,
-  WorkflowDto,
-  WorkflowVersionDto,
+export {
+  type GraphIssueDto,
+  type GraphRunAnswerDto,
+  type GraphRunGateDto,
+  type GraphRunSnapshotDto,
+  isStoredWorkflowId,
+  listWorkflows,
+  type WorkflowDto,
+  type WorkflowRunDto,
+  type WorkflowSurface,
+  type WorkflowVersionDto,
 } from "./features/workflow-canvas/workflow-api.js";
 export {
   type CanvasMode,

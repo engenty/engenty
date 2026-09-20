@@ -140,6 +140,9 @@ export function useChatSlashCommands(input: {
           entry.label ??
           undefined,
         pluginId: entry.module_id,
+        ...(entry.surface === "wizard" && entry.workflow_id
+          ? { surface: "wizard" as const, workflowId: entry.workflow_id }
+          : {}),
       });
     }
 

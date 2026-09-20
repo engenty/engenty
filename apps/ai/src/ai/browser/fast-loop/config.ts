@@ -2,10 +2,8 @@
 // platform settings and hydrated into process.env (D2).
 
 import {
-  AI_GATEWAY_API_KEY_ENV,
+  readJevEnv,
   resolveTypeSafeClientOptions,
-  TYPESAFE_API_KEY_ENV,
-  TYPESAFE_MODEL_ENV,
 } from "@engenty/typesafe-client";
 
 export const FAST_LOOP_ENABLED_ENV = "ENGENTY_BROWSER_FAST_LOOP";
@@ -26,17 +24,6 @@ function isTruthy(value: string | undefined): boolean {
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
-/** The env slice the client resolver reads. */
-export function typeSafeEnv(
-  readEnv: EnvReader = defaultReadEnv
-): Record<string, string | undefined> {
-  return {
-    [AI_GATEWAY_API_KEY_ENV]: readEnv(AI_GATEWAY_API_KEY_ENV),
-    [TYPESAFE_API_KEY_ENV]: readEnv(TYPESAFE_API_KEY_ENV),
-    [TYPESAFE_MODEL_ENV]: readEnv(TYPESAFE_MODEL_ENV),
-  };
-}
-
 /**
  * Switch on AND a door to Jev — TypeSafe's own key, or the Vercel AI Gateway
  * key that serves `typesafe-ai/jev`. Otherwise the tool is not offered.
@@ -47,7 +34,7 @@ export function isFastLoopEnabled(
   if (!isTruthy(readEnv(FAST_LOOP_ENABLED_ENV))) {
     return false;
   }
-  return resolveTypeSafeClientOptions(typeSafeEnv(readEnv)) !== null;
+  return resolveTypeSafeClientOptions(readJevEnv(readEnv)) !== null;
 }
 
 export function resolveFastLoopMinMargin(

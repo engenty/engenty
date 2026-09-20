@@ -114,6 +114,29 @@ served by Vercel are two separate options, each showing its own price.
 Binding a role to a gateway whose key is not set will fail that role's calls, so
 set the key first.
 
+## The small classifiers
+
+Three decisions are not made by a language model at all: how much effort an
+Auto turn needs, which category an inbox message belongs to, and whether a
+knowledge-base search hit really answers the query. Each asks
+[Jev](https://docs.typesafe.ai) one typed question and reads back a choice or a
+probability with a confidence, which is faster and cheaper than asking a chat
+model for JSON.
+
+Jev is reached through `AI_GATEWAY_API_KEY` (as `typesafe-ai/jev` on the Vercel
+AI Gateway) or through `TYPESAFE_API_KEY` for TypeSafe's own API. It is not a
+catalog entry and has no binding of its own — one of those two keys is all it
+needs.
+
+Without either key each site keeps working and simply decides nothing: Auto
+effort falls back to its lexical guess, the search verifier returns every
+candidate, and classifying pending inbox messages reports
+`inbox_classifier_unavailable`.
+
+The `routing` and `classifier` bindings are unaffected — they still serve tool
+discovery, conversation starters, hire welcomes, natural-language queries,
+inbox digests and thread chat.
+
 ## Tenant settings
 
 Workspace admins see **Settings → AI**, which covers:

@@ -45,7 +45,9 @@ export default defineConfig({
   // occasionally stalls first paint past the login timeout.
   retries: 1,
   testDir: "./e2e",
-  timeout: 60_000,
+  // CI runs against a cold Vite dev server: the first navigation transforms the
+  // whole module graph on demand and has outrun 60s on every nightly run.
+  timeout: process.env.CI ? 120_000 : 60_000,
   use: {
     baseURL: process.env.ENGENTY_E2E_BASE_URL ?? "http://localhost:5173",
     // Portless serves the app over HTTPS with a locally-trusted (self-signed)
@@ -61,8 +63,12 @@ export default defineConfig({
     // Node fetch that would otherwise treat the origin as down and spawn a
     // second `pnpm run dev` on top of the worktree stack.
     ignoreHTTPSErrors: true,
-    reuseExistingServer: true,
-    stdout: "ignore",
+    // Locally this picks up the worktree's own stack. In CI there is nothing
+    // to reuse, and a stray listener on the port would silently become the
+    // system under test instead of the build this run produced.
+    reuseExistingServer: !process.env.CI,
+    // The dev server's output is the only window into a failed CI boot.
+    stdout: process.env.CI ? "pipe" : "ignore",
     timeout: 600_000,
     url: process.env.ENGENTY_E2E_BASE_URL ?? "http://localhost:5173",
   },

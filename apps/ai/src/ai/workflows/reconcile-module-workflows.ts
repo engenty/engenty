@@ -12,6 +12,7 @@ import type {
   WorkflowStore,
   WorkflowWithVersion,
 } from "../../dal/workflows/workflow-store.js";
+import { wrapPublishedWorkflow } from "../routines/wrap-workflow.js";
 import { translateAgentEntries } from "./translate-agent-entries.js";
 import { validateGraphAction } from "./validate-graph.js";
 
@@ -170,7 +171,15 @@ async function reconcileOne(input: {
       outputSchema: action.definition.outputSchema,
       tenantId,
     });
-    return store.publishVersion({ tenantId, versionId: version.id });
+    const published = await store.publishVersion({
+      tenantId,
+      versionId: version.id,
+    });
+    // Pressable and invokable the moment it is runnable: the wrapper routine
+    // with the manual + agent trigger pair, the same one publishing an
+    // authored workflow creates. Idempotent — an existing routine stays.
+    await wrapPublishedWorkflow({ graphId, tenantId });
+    return published;
   };
 
   const existing = await store.findBySourceWorkflow({
@@ -185,6 +194,7 @@ async function reconcileOne(input: {
       name: action.name,
       ...(action.owner_agent_id ? { ownerAgentId: action.owner_agent_id } : {}),
       sourceWorkflowId: action.id,
+      surface: action.surface ?? "chat",
       tenantId,
       title: action.name,
     });
@@ -197,6 +207,24 @@ async function reconcileOne(input: {
     return;
   }
 
+  // The module file is the source: name, description and surface follow it
+  // on every reconcile, or a renamed workflow keeps introducing itself with
+  // the text it shipped with the first time.
+  const desiredSurface = action.surface ?? "chat";
+  const desiredDescription = action.description ?? null;
+  if (
+    existing.surface !== desiredSurface ||
+    existing.name !== action.name ||
+    existing.description !== desiredDescription
+  ) {
+    await store.update({
+      description: desiredDescription,
+      id: existing.id,
+      name: action.name,
+      surface: desiredSurface,
+      tenantId,
+    });
+  }
   const current = await store.getCurrent({ id: existing.id, tenantId });
   if (
     current &&

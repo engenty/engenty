@@ -1,3 +1,4 @@
+import { WorkflowButton } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   AdminListCardsView,
@@ -25,6 +26,7 @@ import { FileText, Plus, Trash2 } from "lucide-react";
 import { parseAsStringEnum, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import type { OfferListItem, OfferStatus } from "../api.js";
 import { CreateOfferDialog } from "../components/create-offer-dialog.js";
 import { OffersCards } from "../components/offers-cards.js";
@@ -256,10 +258,23 @@ export function OffersListPage() {
 
   const pageActions = useMemo(
     () => (
-      <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-        <Plus className="mr-1.5 h-4 w-4" />
-        {t("createOffer")}
-      </Button>
+      <div className="flex items-center gap-1.5">
+        {/* The wizard: the offers.create workflow walked one page at a time,
+            with the draft growing as a document beside the pages. */}
+        <WorkflowButton
+          label={t("createOfferWizard")}
+          onError={(err) =>
+            toast.error(t("createOfferWizard"), { description: err.message })
+          }
+          size="sm"
+          variant="outline"
+          workflowId="offers.create"
+        />
+        <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+          <Plus className="mr-1.5 h-4 w-4" />
+          {t("createOffer")}
+        </Button>
+      </div>
     ),
     [t]
   );

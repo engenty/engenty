@@ -13,6 +13,9 @@
 // that failed says so. Opening it binds the lane to the fire's own thread,
 // where the full transcript lives; while the lane is already there the card
 // steps aside rather than narrating the transcript twice.
+//
+// A step the run parks on is NOT drawn here: it docks above the composer
+// (`useDeskWizardStep`), where an answer belongs. This card only narrates.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
@@ -22,9 +25,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useWorkflowRunStatus } from "../../hooks/use-workflow-run-status.js";
 import { WorkflowRunStatus } from "../agents-workspace/workflow-run-status.js";
-import { GateDecisionCard } from "../workflow-canvas/gate-decision-card.js";
 import {
-  useResumeRunMutation,
   useReviewRunMutation,
   useWorkflowRunQuery,
 } from "../workflow-canvas/workflow-queries.js";
@@ -50,20 +51,15 @@ export function AgentDeskRunActivity(props: {
     activity && activity.threadId !== props.threadId ? activity.runId : null;
   const { cancel, isCancelling, state } = useWorkflowRunStatus(watchedRunId);
 
-  // A parked run's question or approval is answerable HERE — the chat is the
-  // room the person is already in, and work-model.md promises the ask on the
-  // desk. The graph-run snapshot carries the gate; answering resumes the same
-  // run, and the SSE card above then follows it to its end.
+  // Parked with no gate is a review hold (`report: ask`): the fire finished
+  // and waits for a look. Only a gate can suspend a graph, so nothing else
+  // leaves a run in this state — and a gate is the composer dock's business.
   const parked = state?.phase === "requires_action";
   const parkedRun = useWorkflowRunQuery(
     parked ? (watchedRunId ?? undefined) : undefined
   );
-  const gate = parked ? parkedRun.data?.snapshot?.gate : undefined;
-  const resume = useResumeRunMutation();
-  // Parked with no gate is a review hold (`report: ask`): the fire finished
-  // and waits for a look. Only a gate can suspend a graph, so nothing else
-  // leaves a run in this state.
-  const heldForReview = parked && parkedRun.isSuccess && !gate;
+  const heldForReview =
+    parked && parkedRun.isSuccess && !parkedRun.data?.snapshot?.gate;
   const review = useReviewRunMutation();
 
   // A settled fire is a new thread on the desk. The feed is a snapshot taken
@@ -139,18 +135,6 @@ export function AgentDeskRunActivity(props: {
             {t("agentDesk.activity.markReviewed")}
           </Button>
         </div>
-      ) : null}
-      {gate && watchedRunId ? (
-        <GateDecisionCard
-          busy={resume.isPending}
-          gate={gate}
-          onDecide={(decision) =>
-            resume.mutate(
-              { runId: watchedRunId, ...decision, step_id: gate.stepId },
-              { onSuccess: () => void parkedRun.refetch() }
-            )
-          }
-        />
       ) : null}
       <WorkflowRunStatus
         cancel={cancel}

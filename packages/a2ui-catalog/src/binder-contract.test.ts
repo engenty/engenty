@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import {
   ActionSchema,
   DynamicStringSchema,
@@ -5,6 +6,7 @@ import {
 } from "@a2ui/web_core/v0_9";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { createEngentyA2uiCatalog } from "./catalog.js";
 
 /**
  * Regression guard for the zod-3 pin (root package.json scoped overrides).
@@ -18,6 +20,18 @@ import { z } from "zod";
  * stack has drifted back onto zod 4 — re-check the scoped `@a2ui/*` /
  * `@engenty/a2ui-catalog` zod overrides.
  */
+
+function shapeOf(name: string) {
+  const implementation = createEngentyA2uiCatalog().components.get(name);
+  if (!implementation) {
+    throw new Error(`catalog has no component ${name}`);
+  }
+  const behavior = scrapeSchemaBehavior(implementation.schema);
+  if (behavior.type !== "OBJECT") {
+    throw new Error(`expected an OBJECT behavior node, got ${behavior.type}`);
+  }
+  return behavior.shape;
+}
 
 describe("A2UI binder schema contract (zod 3)", () => {
   it("this package's zod exposes the _def.typeName the binder reads", () => {
@@ -38,5 +52,27 @@ describe("A2UI binder schema contract (zod 3)", () => {
     }
     expect(behavior.shape.action).toEqual({ type: "ACTION" });
     expect(behavior.shape.title).toEqual({ type: "DYNAMIC" });
+  });
+
+  it("Form's submit is an ACTION and its children are STRUCTURAL", () => {
+    const shape = shapeOf("Form");
+    expect(shape.submit).toEqual({ type: "ACTION" });
+    expect(shape.children).toEqual({ type: "STRUCTURAL" });
+  });
+
+  it("every input's value is DYNAMIC so the binder generates setValue", () => {
+    for (const name of [
+      "TextField",
+      "TextArea",
+      "NumberField",
+      "Select",
+      "MultipleChoice",
+      "CheckBox",
+      "DateInput",
+      "ObjectPicker",
+    ]) {
+      expect(shapeOf(name).value, name).toEqual({ type: "DYNAMIC" });
+    }
+    expect(shapeOf("Table").rows).toEqual({ type: "DYNAMIC" });
   });
 });

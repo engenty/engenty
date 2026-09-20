@@ -31,6 +31,14 @@ export function stableUuid(seed: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20)}`;
 }
 
+/** The id inside a resolved space claim; null for an unresolved or absent one. */
+function spaceIdOf(space: SpaceGateContext | null | undefined): string | null {
+  if (space && "spaceId" in space && typeof space.spaceId === "string") {
+    return space.spaceId;
+  }
+  return null;
+}
+
 export interface DispatchPublishedActionRunInput {
   /**
    * What this run may do without asking — a routine's standing allow-list.
@@ -163,7 +171,12 @@ export async function dispatchPublishedWorkflowRun(
     routineTitle: input.routineTitle ?? null,
     runId,
     scope,
-    spaceId: input.spaceId ?? null,
+    // The Space the run belongs to. A caller that resolved the claim already
+    // holds it, so fall back to that rather than leaving the run's thread
+    // space-less: everything the run says later is resolved FROM this thread
+    // (the desk it speaks into, its memory), and a thread with no Space has
+    // no desk to reach.
+    spaceId: input.spaceId ?? spaceIdOf(input.space),
     threadId,
     // Already known here: the caller said whether this was a press, a slash
     // command or an API dispatch.

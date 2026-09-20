@@ -15,6 +15,14 @@ export {
   VERCEL_JEV_MODEL,
   VERCEL_TYPESAFE_BASE_URL,
 } from "./client.js";
+export {
+  type EnvReader,
+  isJevConfigured,
+  type ResolvedJev,
+  readJevEnv,
+  resolveJevClient,
+  warmJev,
+} from "./resolve.js";
 export type {
   Answer,
   ChoiceAnswer,

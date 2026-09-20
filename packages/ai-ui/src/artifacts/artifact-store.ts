@@ -349,12 +349,14 @@ export interface UseArtifactPaneResult extends ArtifactPaneState {
  */
 export function useArtifactListSync(params: {
   hostKey: string;
+  /** Open the pane on a fresh artifact even while closed (no badge). */
+  openOnFresh?: boolean;
   /** Identity of the list source (thread id or scope tuple) — a change re-seeds so a different scope does not auto-open. */
   scopeKey: string | null;
   ids: string[];
   isReady: boolean;
 }): void {
-  const { hostKey, scopeKey, ids, isReady } = params;
+  const { hostKey, scopeKey, ids, isReady, openOnFresh = false } = params;
   const knownRef = useRef<Set<string> | null>(null);
   const key = ids.join("");
 
@@ -369,13 +371,19 @@ export function useArtifactListSync(params: {
     }
     if (knownRef.current === null) {
       knownRef.current = new Set(ids);
+      // A surface that opens on fresh work also opens on work that is
+      // already there when it mounts — a wizard page reloaded mid-run shows
+      // the draft beside the step, not a closed pane.
+      if (openOnFresh && ids.length > 0 && !getStore(hostKey).state.paneOpen) {
+        activateArtifact(hostKey, ids[0]);
+      }
     } else {
       const fresh = ids.filter((id) => !knownRef.current?.has(id));
       const emptied = ids.length === 0 && knownRef.current.size > 0;
       knownRef.current = new Set(ids);
       if (fresh.length > 0) {
         const { state } = getStore(hostKey);
-        if (state.paneOpen) {
+        if (state.paneOpen || openOnFresh) {
           activateArtifact(hostKey, fresh[0]);
         } else {
           // Keep the conversation focused — badge + toggle open the pane.
@@ -413,7 +421,7 @@ export function useArtifactListSync(params: {
     } else if (!nextState.activeId && nextState.paneOpen && ids.length > 0) {
       setActiveArtifact(hostKey, ids[0]);
     }
-  }, [hostKey, isReady, key]);
+  }, [hostKey, isReady, key, openOnFresh]);
 }
 
 export function useArtifacts(hostKey: string): UseArtifactPaneResult {

@@ -41,6 +41,7 @@ const execute = (input: Record<string, unknown> = {}) =>
         workflow_id: string;
         required_input: string[];
         runnable: boolean;
+        surface: string;
       }[];
     }>
   )(input, {});
@@ -66,9 +67,24 @@ describe("workflows_list", () => {
         runnable: true,
         status: "active",
         subject_type: null,
+        surface: "chat",
       },
     ]);
     expect(list).toHaveBeenCalledWith({ tenantId: "tenant-1" });
+  });
+
+  it("says which rows are wizards — they open page by page, not in a chat", async () => {
+    list.mockResolvedValue([
+      row({ id: "wizard", surface: "wizard" }),
+      row({ id: "chat", surface: "chat" }),
+    ]);
+    const result = await execute();
+    expect(
+      result.workflows.map((flow) => [flow.workflow_id, flow.surface])
+    ).toEqual([
+      ["wizard", "wizard"],
+      ["chat", "chat"],
+    ]);
   });
 
   it("marks a draft-only flow NOT runnable — same bar invoke_workflow enforces", async () => {

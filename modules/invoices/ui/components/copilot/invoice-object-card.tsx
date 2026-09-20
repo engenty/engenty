@@ -15,8 +15,8 @@ import { Badge, Skeleton } from "@engenty/ui-core";
 import { Hash, Receipt } from "lucide-react";
 import { useRef } from "react";
 import type { InvoiceStatus } from "../../api.js";
+import { InvoiceDetailPage } from "../../pages/invoice-detail-page.js";
 import { useInvoiceDetailQuery } from "../../queries.js";
-import { InvoiceDocumentView } from "./invoice-document-view.js";
 
 /** Chat object widget for `invoices:invoice:<id>` refs — live data, viewer authz. */
 
@@ -153,6 +153,11 @@ export function InvoiceObjectCard({
   );
 }
 
+/**
+ * The invoice in a pane: the module's OWN page, embedded — the offers panel's
+ * mirror, so a draft is the draft editor here too and the pane never drifts
+ * from what `/mdl/invoices/<id>` shows.
+ */
 export function InvoiceObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const { data: invoice } = useInvoiceDetailQuery(objectRef.id);
@@ -161,8 +166,11 @@ export function InvoiceObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
     : undefined;
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
-        <InvoiceDocumentView className="p-4" invoiceId={objectRef.id} />
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        ref={contentRef}
+      >
+        <InvoiceDetailPage embedded invoiceId={objectRef.id} />
       </div>
       <ObjectPanelAskAgentBar
         contentRef={contentRef}

@@ -63,6 +63,19 @@ async function main() {
   );
   await hydrateAiPlatformSettings(logger);
 
+  // The effort router's first Jev question must not pay the cold connection.
+  const { warmJev } = await import("@engenty/typesafe-client");
+  if (warmJev()) {
+    logger.info("Jev reachable; warming the connection");
+  } else {
+    // Named at boot because every symptom of a missing key is silent: Auto
+    // just stops picking high, search stops trimming, and classifying mail
+    // fails on a button nobody is watching.
+    logger.warn(
+      "No Jev key (AI_GATEWAY_API_KEY or TYPESAFE_API_KEY): Auto effort falls back to its lexical guess, KB search skips verification, and inbox classification is unavailable"
+    );
+  }
+
   const { createApp } = await import("./app.js");
   const { mastra } = await import("../ai/index.js");
   const { sweepEngentySandboxes } = await import(

@@ -138,6 +138,7 @@ export function CopilotPanelContent({
   mentionRefSearch,
   onComposerMentionAgent,
   showAuthorLabels = false,
+  onPressWizardCommand,
   slashCommands,
   transcriptContainerClassName,
   transcriptFooter = null,
@@ -518,6 +519,7 @@ export function CopilotPanelContent({
           mentionRefSearch={mentionRefSearch}
           messages={messages}
           onComposerMentionAgent={onComposerMentionAgent}
+          onPressWizardCommand={onPressWizardCommand}
           onStop={onStop ?? onCancel}
           setDraft={setDraft}
           slashCommands={slashCommands}

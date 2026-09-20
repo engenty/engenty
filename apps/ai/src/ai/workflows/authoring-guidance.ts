@@ -97,9 +97,25 @@ Only these ten values are valid for "toolId":
   engenty_tool        — call a module operation. Constant: tool_id (e.g.
                         "invoices_update"). Input usually maps from an earlier step.
   approval_gate       — pause for a human. Constants: kind ("confirm" |
-                        "field_updates" | "choice"), title, payload. Put the
-                        ACTUAL data the human is approving in payload (amounts,
-                        recipients, field values) — not a restatement of intent.
+                        "field_updates" | "choice" | "surface"), title, payload,
+                        optional accepts_text (true lets free text typed beside
+                        the step reach the run as event "utterance" +
+                        data.utterance). For confirm/field_updates/choice put
+                        the ACTUAL data the human is deciding on in payload
+                        (amounts, recipients, field values) — not a restatement
+                        of intent. kind "surface" is a whole page: payload =
+                        { components, data } from the component catalog below,
+                        with inputs bound into data ("value": {"path": "/x"})
+                        and outputs (Document, Table, Markdown…) showing what
+                        earlier steps produced. The gate resumes with
+                        { approved, data, event, reason }: data is the page's
+                        data model after the person edited it, event is the
+                        Button they pressed ("next", "ok", "revise", …).
+                        payload is LITERAL — a {"step"} source nested inside
+                        payload.data is stored as-is, never resolved. To show
+                        an earlier step's result on the page, map the
+                        top-level key data ({"step": "carry", "path": ""}):
+                        that object becomes the page's data model.
   apply_field_updates — write an approved patch to the run's subject. Normally
                         directly after a field_updates gate.
   wait_until          — park the run durably. Constants: either until (ISO
@@ -118,8 +134,13 @@ Only these ten values are valid for "toolId":
                         component catalog. Constants: components (flat list,
                         exactly one entry with id "root"), optional data, title.
   show_objects        — show engenty records as cards. Constant: refs, e.g.
-                        ["offers:offer:<id>"]. Optional display
-                        ("inline" | "panel" | "expanded"), title.
+                        ["offers:offer:<id>"]. One record MAPPED from an
+                        earlier step goes in "ref" instead, as a template:
+                        {"ref":{"template":"offers:offer:\${stepResults.create.output.id}"}}
+                        — a mapping cannot fill an element of an array.
+                        Optional display ("inline" | "panel" | "expanded"),
+                        title. A write step followed by show_objects is what
+                        leaves a record of the run in the conversation.
 
 A node RENDERS what is already known; an agent WRITES what has to be composed.
 So: put an agent step before show_ui when the surface depends on judgment, and
@@ -153,13 +174,20 @@ Each has a FIXED shape:
       Repeats "step". "loopType" is exactly "dowhile" (repeat WHILE true) or
       "dountil" (repeat UNTIL true) — no other value is valid. No "id".
 
-  { "type": "workflow", "id": "…", "workflowId": "…" }
-      Runs another action as a step.
+  { "type": "workflow", "id": "…", "graph": [ <entries> ] }
+      An INLINE nested workflow: its own ordered entry list, mappings
+      included, run as one step. This is how a container body gets several
+      steps — a loop that drafts, writes and asks ("draft" → "write" →
+      "review") is a loop whose "step" is one workflow entry holding those
+      three. Its output is its LAST entry's output, so a predicate or a later
+      mapping reads {"step": "<its id>", "path": "<field>"} — never a step
+      inside it. Needs an "id"; "inputSchema"/"outputSchema" are optional.
 
 CONTAINERS DO NOT NEST, AND HOLD NO MAPPINGS. Whatever goes in "steps" or
 "step" must be a single tool or workflow entry WITH an "id". You cannot put a
 parallel inside a conditional, or a conditional inside a foreach — lift the
-inner one out and place it before or after.
+inner one out and place it before or after. A body that needs more than one
+step is an inline workflow entry (above).
 
 A MAPPING MUST BE TOP-LEVEL. It is rejected inside "steps" or "step". This is
 the rule that shapes every branching graph, because a tool normally gets its
@@ -233,6 +261,46 @@ Design rules that make a good Workflow:
     to a run_specialist step on the way in, but write run_specialist yourself —
     it is the only form that carries a brief, an output_schema and allowed_tools.
 
+WIZARD. A workflow published with surface "wizard" is walked by a person one
+page at a time: every approval_gate is a page, and nothing else is shown
+between pages except the running step's name. Rules that make a good one:
+  · The first gate collects what only the person knows — kind "surface" with
+    a Form of inputs (TextField, TextArea, Select, ObjectPicker…) and one
+    Button whose event is "next". Leave the run's input_schema empty; the
+    page is the input.
+  · When the result is a module RECORD, draft the operation's INPUT and let
+    the person edit it on the page: the run_specialist step returns exactly
+    what the write takes, the gate's top-level "data" key makes that object
+    the page's data model, the page's inputs bind into it ("value":
+    {"path":"/offer/title"}; a list of rows is one row component repeated
+    with "children": {"componentId":"<row id>","path":"/offer/blocks"}), and
+    the gate's answer goes straight into the engenty_tool that writes it. No
+    document in between — the module holds the record.
+  · When the result is a DOCUMENT, put it in an artifact (artifact_write,
+    then show_artifact): it opens beside the pages and every later page can
+    show it with Document { artifactRef }.
+  · When the person may ask for changes, the loop is: draft (run_specialist)
+    → review (a surface gate showing the draft, with a notes TextArea and
+    Buttons) as ONE inline workflow entry inside a "dountil" loop whose
+    predicate reads that entry's "event".
+  · The last gate confirms the irreversible effect (send, create, book).
+  · A wizard's pages are its UI, so end a record-producing run with a
+    show_objects node on what it wrote: the conversation then holds the
+    record's card instead of nothing (a specialist step's structured answer is
+    the graph's data, not a message — it lives in the run's own thread).
+  · End with a mapping that sets "summary": one sentence, then the record as
+    a markdown link on its own line — "[<number> — <title>](<the write's
+    link>)". The last page reads that link back and opens the record in the
+    pane beside it, and the link's text names the pane's tab, so label it
+    with the record, never "open it".
+  · A wizard with no gate is invalid.
+  · State across pages: the engine resolves only TOP-LEVEL mapping keys, and
+    a loop body receives its OWN previous output on every iteration. So
+    flatten what later pages need into one object with a mapping before the
+    loop, end the loop body with a mapping that re-emits that object (plus
+    what the iteration produced), and feed a page from it through the gate's
+    top-level "data" key.
+
 Your reply must be STRICTLY VALID JSON — count your braces. A single surplus
 or missing "}" discards the entire graph; nothing recovers a reply that does
 not parse. Before finishing, re-check that every "{" and "[" you opened is
@@ -275,7 +343,11 @@ step's own instruction — to hand it an earlier step's output, use a
 never a bare {"step"} reference. Other entry types (no toolId): mapping,
 conditional, parallel, foreach, loop, workflow, sleep, sleepUntil. Containers
 do not nest and may not hold a mapping — the mapping feeding a branch goes at
-the top level, before the container. Put anything irreversible behind an
+the top level, before the container; a body of several steps is an inline
+{ "type": "workflow", "id", "graph": [ … ] } entry. An approval_gate of kind
+"surface" is a whole page ({ components, data } from the catalog) and resumes
+with { approved, data, event } — a wizard is a graph with one such gate per
+page. Put anything irreversible behind an
 approval_gate, and use wait_until — never sleep — for waits beyond a few
 minutes.
 

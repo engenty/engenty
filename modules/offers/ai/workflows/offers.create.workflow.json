@@ -1,0 +1,187 @@
+{
+  "id": "offers.create",
+  "description": "Angebot erstellen: Kunde und Umfang erfassen, die Positionen prüfen und anpassen, dann das Angebot mit seinen Positionen im Offers-Modul anlegen.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {}
+  },
+  "outputSchema": {
+    "type": "object",
+    "description": "The created offer.",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "offer_number": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      }
+    }
+  },
+  "metadata": {
+    "title": "Angebot erstellen",
+    "owner_agent_id": "offers.manager",
+    "surface": "wizard",
+    "skills": ["offers-create-and-edit", "offers-search-and-retrieve"]
+  },
+  "graph": [
+    {
+      "type": "mapping",
+      "id": "prep-ask",
+      "mapConfig": "{\"kind\": {\"value\": \"surface\"}, \"title\": {\"value\": \"Für wen ist das Angebot?\"}, \"payload\": {\"value\": {\"components\": [{\"id\": \"root\", \"component\": \"Form\", \"children\": [\"customer\", \"scope\", \"actions\"], \"submit\": {\"event\": {\"name\": \"next\"}}}, {\"id\": \"customer\", \"component\": \"ObjectPicker\", \"label\": \"Kunde\", \"entity\": \"contacts:contact\", \"value\": {\"path\": \"/customer\"}, \"required\": true}, {\"id\": \"scope\", \"component\": \"TextArea\", \"label\": \"Was soll angeboten werden?\", \"help\": \"Leistungen, Umfang, Zeitraum, Besonderheiten — alles, was der Entwurf wissen muss.\", \"rows\": 5, \"value\": {\"path\": \"/scope\"}, \"required\": true}, {\"id\": \"actions\", \"component\": \"Actions\", \"children\": [\"next\"]}, {\"id\": \"next\", \"component\": \"Button\", \"label\": \"Weiter\", \"action\": {\"event\": {\"name\": \"next\"}}}], \"data\": {\"customer\": null, \"scope\": \"\"}}}}"
+    },
+    {
+      "type": "tool",
+      "id": "ask-basics",
+      "toolId": "approval_gate"
+    },
+    {
+      "type": "mapping",
+      "id": "prep-loop",
+      "mapConfig": "{\"customer\": {\"step\": \"ask-basics\", \"path\": \"data.customer\"}, \"scope\": {\"step\": \"ask-basics\", \"path\": \"data.scope\"}, \"notes\": {\"value\": \"\"}, \"utterance\": {\"value\": \"\"}, \"event\": {\"value\": \"start\"}, \"offer\": {\"value\": {}}}"
+    },
+    {
+      "type": "loop",
+      "loopType": "dountil",
+      "predicate": {
+        "op": "eq",
+        "left": {
+          "path": "stepResults.draftLoop.event"
+        },
+        "right": {
+          "literal": "create"
+        }
+      },
+      "step": {
+        "type": "workflow",
+        "id": "draftLoop",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "customer": {
+              "type": "string",
+              "description": "Contact ref '<module>:<entity>:<id>' from the ObjectPicker."
+            },
+            "scope": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string",
+              "description": "Change requests typed on the review page; empty before the first review."
+            },
+            "utterance": {
+              "type": "string",
+              "description": "Free text sent from the desk composer while the review page was up."
+            },
+            "event": {
+              "type": "string",
+              "description": "The button pressed on the last review page: 'create' ends the loop and writes the offer."
+            },
+            "offer": {
+              "type": "object",
+              "description": "The offer as it stands, with the person's edits — the input of offers_create."
+            }
+          },
+          "required": [
+            "customer",
+            "scope",
+            "notes",
+            "utterance",
+            "event",
+            "offer"
+          ]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "customer": {
+              "type": "string",
+              "description": "Contact ref '<module>:<entity>:<id>' from the ObjectPicker."
+            },
+            "scope": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string",
+              "description": "Change requests typed on the review page; empty before the first review."
+            },
+            "utterance": {
+              "type": "string",
+              "description": "Free text sent from the desk composer while the review page was up."
+            },
+            "event": {
+              "type": "string",
+              "description": "The button pressed on the last review page: 'create' ends the loop and writes the offer."
+            },
+            "offer": {
+              "type": "object",
+              "description": "The offer as it stands, with the person's edits — the input of offers_create."
+            }
+          },
+          "required": [
+            "customer",
+            "scope",
+            "notes",
+            "utterance",
+            "event",
+            "offer"
+          ]
+        },
+        "graph": [
+          {
+            "type": "mapping",
+            "id": "prep-draft",
+            "mapConfig": "{\"agent_type_key\": {\"value\": \"offers.manager\"}, \"brief\": {\"template\": \"Draft a sales offer for this customer and return it as the input of offers_create.\\n\\nCustomer (ref '<module>:<entity>:<id>' — load the record with contacts_get to address them properly and to take the id for client_id): ${initData.customer}\\nScope the person asked for: ${initData.scope}\\nChange requests from the last review (empty on the first draft): ${initData.notes} ${initData.utterance}\\n\\nThe draft the person has already seen is attached as structured context (empty on the first round). They may have edited quantities, units or prices in it — keep their numbers and their wording unless a change request says otherwise, and only add, remove or rewrite what was asked for.\\n\\nWrite in the customer's language (German unless the record says otherwise). Every position is one line_item block with quantity, unit, net unit price and VAT percent — no headings, no text blocks, no totals: the offers module sums the positions itself. ALWAYS propose concrete positions, one per deliverable in the scope, with a realistic quantity and a realistic net price at usual market rates (check earlier offers with offers_list / offers_get_blocks when they help). An empty position list is not an answer, and neither is a note asking the person to fill the prices in: they correct the numbers on the next page, but they need something to correct. Keep introduction and final_notes short and specific to this customer. Return the JSON described by the output schema and nothing else.\"}, \"input\": {\"initData\": true, \"path\": \"offer\"}, \"output_schema\": {\"value\": {\"type\": \"object\", \"properties\": {\"offer\": {\"type\": \"object\", \"description\": \"Exactly the input of offers_create — nothing else goes in here.\", \"properties\": {\"title\": {\"type\": \"string\", \"description\": \"Offer title, as it appears on the document.\"}, \"client_id\": {\"type\": \"string\", \"description\": \"The contact id (last segment of the customer's ref).\"}, \"introduction\": {\"type\": \"string\", \"description\": \"Opening paragraph, addressed to the customer.\"}, \"final_notes\": {\"type\": \"string\", \"description\": \"Closing notes: validity, terms, next step.\"}, \"blocks\": {\"type\": \"array\", \"description\": \"The positions, in the order they should appear.\", \"items\": {\"type\": \"object\", \"description\": \"One position. `type` is always \\\"line_item\\\".\", \"properties\": {\"type\": {\"type\": \"string\", \"description\": \"Always \\\"line_item\\\".\"}, \"content_json\": {\"type\": \"object\", \"properties\": {\"title\": {\"type\": \"string\", \"description\": \"What is delivered, in a few words.\"}, \"content\": {\"type\": \"string\", \"description\": \"One sentence of detail under the title; empty string when the title says it all.\"}, \"amount\": {\"type\": \"number\", \"description\": \"Quantity.\"}, \"unit\": {\"type\": \"string\", \"description\": \"Unit of the quantity: \\\"Std.\\\", \\\"Tage\\\", \\\"Stück\\\", \\\"pauschal\\\".\"}, \"cost_per_item\": {\"type\": \"number\", \"description\": \"Net price per unit in the offer's currency.\"}, \"tax\": {\"type\": \"number\", \"description\": \"VAT percent, e.g. 20.\"}}, \"required\": [\"title\", \"content\", \"amount\", \"unit\", \"cost_per_item\", \"tax\"]}}, \"required\": [\"type\", \"content_json\"]}, \"minItems\": 1}}, \"required\": [\"title\", \"client_id\", \"introduction\", \"final_notes\", \"blocks\"]}}, \"required\": [\"offer\"]}}}"
+          },
+          {
+            "type": "tool",
+            "id": "draft",
+            "toolId": "run_specialist"
+          },
+          {
+            "type": "mapping",
+            "id": "prep-review",
+            "mapConfig": "{\"kind\": {\"value\": \"surface\"}, \"title\": {\"template\": \"Passt das Angebot „${stepResults.draft.output.offer.title}“?\"}, \"accepts_text\": {\"value\": true}, \"payload\": {\"value\": {\"components\": [{\"id\": \"root\", \"component\": \"Column\", \"children\": [\"hint\", \"positions\", \"notes\", \"actions\"]}, {\"id\": \"hint\", \"component\": \"Callout\", \"tone\": \"info\", \"text\": \"Mengen, Einheiten und Preise kannst du hier direkt ändern. Was inhaltlich fehlt oder weg soll, schreibst du darunter — dann wird neu entworfen.\"}, {\"id\": \"positions\", \"component\": \"Card\", \"title\": \"Positionen\", \"children\": {\"componentId\": \"position\", \"path\": \"/offer/blocks\"}}, {\"id\": \"position\", \"component\": \"Column\", \"gap\": \"sm\", \"children\": [\"positionTitle\", \"positionNumbers\", \"positionNote\"]}, {\"id\": \"positionTitle\", \"component\": \"TextField\", \"label\": \"Position\", \"value\": {\"path\": \"content_json/title\"}}, {\"id\": \"positionNumbers\", \"component\": \"Inline\", \"children\": [\"positionAmount\", \"positionUnit\", \"positionPrice\", \"positionTax\"]}, {\"id\": \"positionAmount\", \"component\": \"NumberField\", \"label\": \"Menge\", \"min\": 0, \"value\": {\"path\": \"content_json/amount\"}}, {\"id\": \"positionUnit\", \"component\": \"TextField\", \"label\": \"Einheit\", \"value\": {\"path\": \"content_json/unit\"}}, {\"id\": \"positionPrice\", \"component\": \"NumberField\", \"label\": \"Einzelpreis\", \"min\": 0, \"value\": {\"path\": \"content_json/cost_per_item\"}}, {\"id\": \"positionTax\", \"component\": \"NumberField\", \"label\": \"USt %\", \"min\": 0, \"max\": 100, \"value\": {\"path\": \"content_json/tax\"}}, {\"id\": \"positionNote\", \"component\": \"TextField\", \"label\": \"Beschreibung\", \"value\": {\"path\": \"content_json/content\"}}, {\"id\": \"notes\", \"component\": \"TextArea\", \"label\": \"Änderungswünsche\", \"help\": \"Zum Beispiel: eine Position ergänzen, eine streichen, den Einstiegstext anders formulieren.\", \"rows\": 3, \"value\": {\"path\": \"/notes\"}}, {\"id\": \"actions\", \"component\": \"Actions\", \"children\": [\"create\", \"revise\"]}, {\"id\": \"create\", \"component\": \"Button\", \"label\": \"Angebot anlegen\", \"action\": {\"event\": {\"name\": \"create\"}}}, {\"id\": \"revise\", \"component\": \"Button\", \"label\": \"Neu entwerfen\", \"action\": {\"event\": {\"name\": \"revise\"}}}], \"data\": {\"notes\": \"\", \"utterance\": \"\"}}}, \"data\": {\"step\": \"draft\", \"path\": \"output\"}}"
+          },
+          {
+            "type": "tool",
+            "id": "review",
+            "toolId": "approval_gate"
+          },
+          {
+            "type": "mapping",
+            "id": "carry",
+            "mapConfig": "{\"customer\": {\"initData\": true, \"path\": \"customer\"}, \"scope\": {\"initData\": true, \"path\": \"scope\"}, \"notes\": {\"step\": \"review\", \"path\": \"data.notes\"}, \"utterance\": {\"step\": \"review\", \"path\": \"data.utterance\"}, \"event\": {\"step\": \"review\", \"path\": \"event\"}, \"offer\": {\"step\": \"review\", \"path\": \"data.offer\"}}"
+          }
+        ]
+      }
+    },
+    {
+      "type": "mapping",
+      "id": "prep-create",
+      "mapConfig": "{\"tool_id\": {\"value\": \"offers_create\"}, \"input\": {\"step\": \"draftLoop\", \"path\": \"offer\"}}"
+    },
+    {
+      "type": "tool",
+      "id": "create",
+      "toolId": "engenty_tool"
+    },
+    {
+      "type": "mapping",
+      "id": "prep-show",
+      "mapConfig": "{\"ref\": {\"template\": \"offers:offer:${stepResults.create.output.id}\"}, \"display\": {\"value\": \"inline\"}, \"entry_id\": {\"value\": \"offers-create-card\"}}"
+    },
+    {
+      "type": "tool",
+      "id": "show",
+      "toolId": "show_objects"
+    },
+    {
+      "type": "mapping",
+      "id": "done",
+      "mapConfig": "{\"id\": {\"step\": \"create\", \"path\": \"output.id\"}, \"offer_number\": {\"step\": \"create\", \"path\": \"output.offer_number\"}, \"title\": {\"step\": \"create\", \"path\": \"output.title\"}, \"outcome\": {\"value\": \"ok\"}, \"summary\": {\"template\": \"Das Angebot ist angelegt.\\n\\n[${stepResults.create.output.offer_number} — ${stepResults.create.output.title}](${stepResults.create.output.link})\"}}"
+    }
+  ]
+}

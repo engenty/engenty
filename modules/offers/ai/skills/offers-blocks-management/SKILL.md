@@ -38,6 +38,10 @@ expect them when reading blocks back via `offers_get_blocks`.
 ] }
 ```
 
+A brand-new offer takes its positions with it: `offers_create` accepts the
+same `blocks` array, so use that instead of create-then-write when the
+positions are known up front.
+
 ## Tool Process
 
 1. **Always read first**: Call `offers_get_blocks` before proposing any changes. Never guess the existing block list. Every block has a stable UUID `id` — that id is how you address it in edits.

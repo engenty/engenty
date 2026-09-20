@@ -22,7 +22,20 @@ import {
 import { pendingInterruptFromTranscript } from "../interrupts/pending-interrupt-from-transcript.js";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content-types.js";
 
+/**
+ * A graph-run step docked above the composer. While one is docked the
+ * composer answers IT: free text resumes the gate as an utterance when the
+ * step accepts text, and is otherwise refused — never a new agent turn and
+ * never a steer, because graph runs are not in that register.
+ */
+export interface ChatLaneDockedGate {
+  acceptsText: boolean;
+  submitUtterance: (text: string) => void;
+}
+
 export interface UseChatLaneComposerParams {
+  /** The step a parked graph run is waiting on, when one is docked. */
+  dockedGate?: ChatLaneDockedGate | null;
   /** Host-bound host for this lane (copilot host, or a desk's per-agent host). */
   host: AgentHost;
   /**
@@ -72,7 +85,7 @@ export interface ChatLaneComposer {
 export function useChatLaneComposer(
   params: UseChatLaneComposerParams
 ): ChatLaneComposer {
-  const { host, messages, status, threadKey } = params;
+  const { dockedGate, host, messages, status, threadKey } = params;
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
 
   const draftRecovery = useCopilotComposerDraftRecovery({
@@ -148,6 +161,15 @@ export function useChatLaneComposer(
       if (!(trimmed || options?.attachments?.length)) {
         return;
       }
+      if (dockedGate) {
+        // The words answer the docked step, or nothing: a step that takes no
+        // text has already replaced the composer with a hint.
+        if (dockedGate.acceptsText && trimmed) {
+          draftRecovery.clearDraft();
+          dockedGate.submitUtterance(trimmed);
+        }
+        return;
+      }
       draftRecovery.clearDraft();
       if (status !== "ready") {
         // A run this window did not start is answering here: put the words
@@ -169,6 +191,7 @@ export function useChatLaneComposer(
       host.submitMessage(trimmed, options);
     },
     [
+      dockedGate,
       draftRecovery.clearDraft,
       host.attachedRunId,
       host.steer,

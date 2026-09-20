@@ -96,8 +96,17 @@ function stringifyToolResult(value: unknown): string {
  * chat uses. Pass `null` to detach. Also exposes `cancel()` to stop a live run.
  */
 export function useWorkflowRunStatus(
-  runId: string | null
+  runId: string | null,
+  options?: {
+    /**
+     * Changing this re-attaches to the same run. A suspended run ends the
+     * attach (the stream closes on `run_suspended`); a host that resumes the
+     * run bumps the key to follow the rest of it.
+     */
+    attachKey?: string | number | null;
+  }
 ): UseWorkflowRunStatusResult {
+  const attachKey = options?.attachKey ?? null;
   const [state, setState] = useState<WorkflowRunStatusState | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const textRef = useRef("");
@@ -321,7 +330,7 @@ export function useWorkflowRunStatus(
       stopped = true;
       controller.abort();
     };
-  }, [runId]);
+  }, [runId, attachKey]);
 
   const cancel = useCallback(() => {
     if (!runId || cancelledRef.current) {

@@ -1,7 +1,7 @@
 // Runs of one action. The status column is the point: at a glance, which runs
 // are waiting on a human, which are asleep until Thursday, and which failed.
 import { cn, Skeleton } from "@engenty/ui-core";
-import { Check, Clock, Loader2, Moon, ShieldCheck, X } from "lucide-react";
+import { Ban, Check, Clock, Loader2, Moon, ShieldCheck, X } from "lucide-react";
 import type { WorkflowRunDto } from "./workflow-api.js";
 import { useWorkflowRunsQuery } from "./workflow-queries.js";
 
@@ -9,6 +9,11 @@ const STATUS_META: Record<
   string,
   { className: string; icon: typeof Check; label: string }
 > = {
+  cancelled: {
+    className: "text-muted-foreground",
+    icon: Ban,
+    label: "Cancelled",
+  },
   completed: {
     className: "text-emerald-600 dark:text-emerald-400",
     icon: Check,

@@ -2,12 +2,12 @@
 
 import {
   formatObjectRef,
-  type ObjectRef,
   readObjectRenderMeta,
 } from "@engenty/ai-core/browser";
 import { Box } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { objectRefLinksInMarkdown } from "./object-ref-links.js";
 import { useObjectWidgets } from "./object-widget-registry.js";
 
 /**
@@ -20,15 +20,6 @@ import { useObjectWidgets } from "./object-widget-registry.js";
 
 const MENTION_LIMIT = 6;
 
-const MD_INTERNAL_LINK =
-  /\[([^\]]+)\]\(\s*(?:https?:\/\/[^/)\s]+)?(\/mdl\/[^)\s]+?)\s*\)/g;
-
-interface Mention {
-  href: string;
-  ref: ObjectRef;
-  title: string;
-}
-
 export function ObjectRefMentions({
   parts,
   text,
@@ -38,10 +29,7 @@ export function ObjectRefMentions({
 }) {
   const widgets = useObjectWidgets();
 
-  const mentions = useMemo((): Mention[] => {
-    if (widgets.length === 0 || !text.includes("/mdl/")) {
-      return [];
-    }
+  const mentions = useMemo(() => {
     const alreadyRendersObjects = parts.some((part) => {
       const output = (part as { output?: unknown } | null)?.output;
       return readObjectRenderMeta(output) !== null;
@@ -49,33 +37,7 @@ export function ObjectRefMentions({
     if (alreadyRendersObjects) {
       return [];
     }
-    const found: Mention[] = [];
-    const seen = new Set<string>();
-    MD_INTERNAL_LINK.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while (found.length < MENTION_LIMIT) {
-      match = MD_INTERNAL_LINK.exec(text);
-      if (!match) {
-        break;
-      }
-      const title = match[1]?.trim();
-      const pathname = match[2]?.trim();
-      if (!(title && pathname)) {
-        continue;
-      }
-      for (const widget of widgets) {
-        const ref = widget.matchHref?.(pathname) ?? null;
-        if (ref) {
-          const key = formatObjectRef(ref);
-          if (!seen.has(key)) {
-            seen.add(key);
-            found.push({ href: pathname, ref, title });
-          }
-          break;
-        }
-      }
-    }
-    return found;
+    return objectRefLinksInMarkdown(text, widgets, MENTION_LIMIT);
   }, [widgets, text, parts]);
 
   if (mentions.length === 0) {

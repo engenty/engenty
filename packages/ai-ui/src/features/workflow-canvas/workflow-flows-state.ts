@@ -12,7 +12,11 @@
 // action lives on its specialist's page, never here.
 import { rankRecordsLexically } from "@engenty/search-index";
 import type { AiRegisteredAction } from "../../lib/admin/ai-runtime-types.js";
-import type { WorkflowDto, WorkflowStatus } from "./workflow-api.js";
+import type {
+  WorkflowDto,
+  WorkflowStatus,
+  WorkflowSurface,
+} from "./workflow-api.js";
 
 /** `declared` = a module workflow with no compiled flow yet (nobody has pressed it). */
 export type FlowEntryStatus = WorkflowStatus | "declared";
@@ -35,6 +39,12 @@ export interface WorkflowCatalogEntry {
   moduleId: string | null;
   name: string;
   source: FlowEntrySource;
+  /**
+   * `wizard` = walked one page per gate by the person who starts it. Known
+   * once the row exists; a declared-only module workflow reads as chat until
+   * the reconcile writes it. Absent means chat.
+   */
+  surface?: WorkflowSurface;
   /** The module workflow behind this row, when there is one. */
   workflowId: string | null;
 }
@@ -62,6 +72,7 @@ function graphEntry(graph: WorkflowDto): WorkflowCatalogEntry {
     // `title` is the display name; `name` stays the stable key.
     name: graph.title ?? graph.name,
     source: workflowId ? "module" : "authored",
+    surface: graph.surface ?? "chat",
   };
 }
 

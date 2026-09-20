@@ -149,16 +149,24 @@ export async function watchGraphRunEvents(
  */
 export async function emitGraphRunTerminal(
   target: GraphRunEventTarget,
-  outcome: { reason?: string | null; status: "completed" | "failed" }
+  outcome: {
+    reason?: string | null;
+    status: "completed" | "failed" | "cancelled";
+  }
 ): Promise<void> {
   try {
     const emit = makeEmit(target, await nextSeqStart(target));
     if (outcome.status === "failed") {
       emit("RUN_ERROR", { message: outcome.reason ?? "graph run failed" });
     } else {
+      // A cancelled run ends cleanly — the consumer reads the status off the
+      // result rather than treating the stop as an error.
       emit("RUN_FINISHED", {
         runId: target.runId,
         threadId: target.threadId,
+        ...(outcome.status === "cancelled"
+          ? { result: { status: "cancelled" } }
+          : {}),
       });
     }
   } finally {

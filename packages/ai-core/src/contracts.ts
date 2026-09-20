@@ -118,6 +118,11 @@ export interface WorkflowDefinition {
   owner_agent_id?: string | null;
   /** From `metadata.skills`. */
   skills?: string[];
+  /**
+   * From `metadata.surface`. `wizard`: a person walks the run one gate per
+   * page; it is listed in the catalog and as a slash command. Absent = chat.
+   */
+  surface?: "chat" | "wizard";
 }
 
 /**

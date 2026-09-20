@@ -54,7 +54,7 @@ export async function resolveSpecialistChatThread(
   input: ResolveSpecialistChatThreadInput
 ): Promise<string | null> {
   const { agentId, ownerUserId, spaceId, store, tenantId } = input;
-  if (!(ownerUserId && spaceId && agentId)) {
+  if (!(spaceId && agentId)) {
     return null;
   }
   const threads = await store.listThreadsForSpaceAgent({
@@ -75,6 +75,13 @@ export async function resolveSpecialistChatThread(
     )[0];
   if (existing) {
     return existing.id;
+  }
+  // Nobody to open a chat FOR: a continuation deliberately runs without the
+  // actor's identity, and the row's author has to be a real user. It can
+  // still speak into a conversation that exists (above) — it just cannot
+  // start one.
+  if (!ownerUserId) {
+    return null;
   }
   // First message to a specialist nobody has talked to yet. The alternative
   // is staying silent, which is the bug.

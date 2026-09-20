@@ -126,6 +126,8 @@
   "toasts": {
     "attachmentOpenFailed": "Anhang konnte nicht geöffnet werden: {{error}}",
     "categoriesSaved": "Kategorien gespeichert",
+    "classifierUnavailable": "Kein Klassifizierer konfiguriert — AI_GATEWAY_API_KEY oder TYPESAFE_API_KEY setzen.",
+    "classifyFailed": "Einstufung der Nachrichten fehlgeschlagen: {{error}}",
     "copilotOpened": "In Copilot geöffnet",
     "draftSaved": "Entwurf lokal gespeichert — Senden ist noch nicht verfügbar",
     "settingsFailed": "Speichern fehlgeschlagen: {{error}}",

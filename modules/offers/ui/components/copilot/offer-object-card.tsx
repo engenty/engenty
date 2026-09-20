@@ -16,8 +16,8 @@ import { Badge, Skeleton } from "@engenty/ui-core";
 import { FileText, Hash } from "lucide-react";
 import { useRef } from "react";
 import type { OfferStatus } from "../../api.js";
+import { OfferDetailPage } from "../../pages/offer-detail-page.js";
 import { useOfferDetailQuery } from "../../queries.js";
-import { OfferDocumentView } from "./offer-document-view.js";
 
 /**
  * Chat object widget for `offers:offer:<id>` refs — live data via the module
@@ -234,6 +234,12 @@ export function OfferObjectCard({
   );
 }
 
+/**
+ * The offer in a pane: the module's OWN page, embedded — so a draft is the
+ * draft editor here too, and what is read beside a chat or a wizard is the
+ * same thing `/mdl/offers/<id>` shows, editable, rather than a second,
+ * read-only rendering that drifts from it.
+ */
 export function OfferObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const { data: offer } = useOfferDetailQuery(objectRef.id);
@@ -242,8 +248,11 @@ export function OfferObjectPanel({ objectRef }: ObjectWidgetPanelProps) {
     : undefined;
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
-        <OfferDocumentView className="p-4" offerId={objectRef.id} />
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        ref={contentRef}
+      >
+        <OfferDetailPage embedded offerId={objectRef.id} />
       </div>
       <ObjectPanelAskAgentBar
         contentRef={contentRef}

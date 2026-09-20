@@ -33,6 +33,11 @@ Use `offers_create` with at minimum `{ title: "..." }`. Optional fields at creat
 
 The `offer_number` is auto-generated. To show the user what the next number will be, call `offers_get_next_number` first.
 
+`offers_create` also takes `blocks` — the positions, in the same shape
+`offers_replace_blocks` uses (see the offers-blocks-management skill). Pass
+them when you already know the positions: the offer is created with its line
+items in one call, instead of a create followed by a block write.
+
 After creating, navigate to the new offer with the `navigate` tool: `/mdl/offers/<id>/draft`.
 
 ## Editing an Offer

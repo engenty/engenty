@@ -55,6 +55,7 @@ export function toWorkflowDefinition(
       : undefined;
   const allowedTools = stringList(metadata.allowed_tools);
   const skills = stringList(metadata.skills);
+  const surface = metadata.surface === "wizard" ? "wizard" : undefined;
   return {
     definition,
     id: definition.id,
@@ -65,6 +66,7 @@ export function toWorkflowDefinition(
     ...(contextType ? { context_type: contextType } : {}),
     ...(allowedTools ? { allowed_tools: allowedTools } : {}),
     ...(skills ? { skills } : {}),
+    ...(surface ? { surface } : {}),
   };
 }
 

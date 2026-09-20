@@ -16,13 +16,14 @@ export interface ChatLaneDockLabels {
 }
 
 /**
- * The flap behind a lane's composer: queued messages on top, then the decision /
- * approval chooser the run is parked on.
+ * The flap behind a lane's composer: queued messages on top, then the step a
+ * graph run is parked on, then the decision / approval chooser of the
+ * conversation run.
  *
- * Both live outside the scrolling transcript because they are things the human
- * still has to answer — scrolling away from a parked run is how a thread looks
- * wedged. Returns `null` when there is nothing pending; the panel treats any
- * non-null dock as a visible flap.
+ * All three live outside the scrolling transcript because they are things the
+ * human still has to answer — scrolling away from a parked run is how a thread
+ * looks wedged. Returns `null` when there is nothing pending; the panel treats
+ * any non-null dock as a visible flap.
  */
 export function ChatLaneDock({
   dockInterrupt,
@@ -32,6 +33,7 @@ export function ChatLaneDock({
   onSandboxCommandApprove,
   onSandboxCommandReject,
   queue,
+  wizardStep,
 }: {
   dockInterrupt: AgUiOpenInterruptMetadata | null;
   host: Pick<AgentHost, "dismissInterrupt" | "respond">;
@@ -40,6 +42,8 @@ export function ChatLaneDock({
   onSandboxCommandApprove: (open: AgUiOpenInterruptMetadata) => void;
   onSandboxCommandReject: (open: AgUiOpenInterruptMetadata) => void;
   queue: CopilotMessageQueue;
+  /** The gate card of a parked graph run (`GateSurfaceCard`), if any. */
+  wizardStep?: ReactNode;
 }): ReactNode {
   const queueSurface = queue.hasQueued ? (
     <CopilotMessageQueueSurface
@@ -76,12 +80,13 @@ export function ChatLaneDock({
       open={dockInterrupt}
     />
   ) : null;
-  if (!(queueSurface || interruptBanner)) {
+  if (!(queueSurface || wizardStep || interruptBanner)) {
     return null;
   }
   return (
     <div className="flex flex-col gap-2">
       {queueSurface}
+      {wizardStep}
       {interruptBanner}
     </div>
   );

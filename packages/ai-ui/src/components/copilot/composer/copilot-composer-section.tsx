@@ -45,7 +45,7 @@ import { CopilotComposerSlashPopover } from "./copilot-composer-slash-popover";
 import { CopilotComposerSpeechControl } from "./copilot-composer-speech-control";
 import {
   type ChatSlashCommand,
-  parseLeadingSlashCommand,
+  routeSlashSubmit,
 } from "./copilot-slash-command";
 import {
   type MentionRefCandidate,
@@ -79,6 +79,12 @@ export interface CopilotComposerSectionProps {
   onMultilineChange?: (multiline: boolean) => void;
   /** Start a fresh conversation from the composer (+) menu. Omit to hide it. */
   onNewChat?: () => void;
+  /**
+   * A `/command` whose workflow is a wizard is pressed by the client — no
+   * message goes to the agent. The host decides what follows: a desk docks
+   * the run, a drawer navigates to its page.
+   */
+  onPressWizardCommand?: (input: PressWizardCommandRequest) => void;
   /** Abort the in-flight AG-UI run (maps to PromptInputSubmit `onStop`). */
   onStop?: () => void;
   setDraft: Dispatch<SetStateAction<string>>;
@@ -95,6 +101,13 @@ export interface CopilotComposerSectionProps {
   voiceInputLang?: string;
 }
 
+/** What the composer hands the host when a wizard command is submitted. */
+export interface PressWizardCommandRequest {
+  argsText: string;
+  command: ChatSlashCommand & { surface: "wizard"; workflowId: string };
+  refs: ChatReferenceItem[];
+}
+
 /** Renders starter chips + PromptInput; must be used inside PromptInputProvider. */
 export function CopilotComposerSection({
   compact = false,
@@ -109,6 +122,7 @@ export function CopilotComposerSection({
   mentionRefSearch,
   onComposerMentionAgent,
   onNewChat,
+  onPressWizardCommand,
   slashCommands,
   setDraft,
   showStarterPrompts,
@@ -271,17 +285,33 @@ export function CopilotComposerSection({
       if (!text && files.length === 0) {
         return;
       }
+      const slashRoute = routeSlashSubmit(text, slashCommands ?? [], {
+        canPressWizard: Boolean(onPressWizardCommand),
+      });
       // Leading slash command of kind `ui` executes client-side — no message.
-      const slashMatch = parseLeadingSlashCommand(text, slashCommands ?? []);
-      if (slashMatch && slashMatch.command.kind === "ui") {
+      if (slashRoute.kind === "ui") {
         slash.clearSlashOnSubmit();
         setDraft("");
-        if (slashMatch.command.run) {
-          slashMatch.command.run(slashMatch.argsText);
-        } else if (slashMatch.command.command === "help") {
+        if (slashRoute.command.run) {
+          slashRoute.command.run(slashRoute.argsText);
+        } else if (slashRoute.command.command === "help") {
           // Built-in: reopen the menu in browse mode.
           slash.openSlashBrowse();
         }
+        return;
+      }
+      // A wizard command is a press, not a message: the run starts at once
+      // and the host shows its first step — no agent turn narrates it.
+      if (slashRoute.kind === "wizard") {
+        slash.clearSlashOnSubmit();
+        mention.clearMentionOnSubmit();
+        onPressWizardCommand?.({
+          argsText: slashRoute.argsText,
+          command: slashRoute.command,
+          refs: pendingRefs,
+        });
+        setDraft("");
+        setPendingRefs([]);
         return;
       }
       const resolved = mention.resolveSubmitAgentOverride(text);
@@ -324,6 +354,7 @@ export function CopilotComposerSection({
     },
     [
       mention,
+      onPressWizardCommand,
       pendingRefs,
       setDraft,
       slash,

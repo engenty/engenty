@@ -871,7 +871,8 @@
         "agents": "Agenten",
         "artifacts": "Artefakte",
         "people": "Personen",
-        "rooms": "Räume"
+        "rooms": "Räume",
+        "records": "Datensätze"
       },
       "copiedId": "Kopiert",
       "copyId": "Agenten-ID kopieren",
@@ -1283,6 +1284,9 @@
         "line": "{{when}}",
         "all": "Alle {{count}} Artefakte"
       },
+      "workflows": {
+        "title": "Abläufe"
+      },
       "modules": {
         "mount": "Modul einbinden"
       },
@@ -1676,6 +1680,9 @@
       "roomTitle": "Räume",
       "roomHint": "Benannte Chats mit Mitgliedern. Offenen kannst du beitreten; private sind auf Einladung.",
       "intro": "Jede Unterhaltung in diesem Space: Räume, die Desks der Agenten, deine Direktnachrichten."
+    },
+    "workflows": {
+      "crumb": "Ablauf"
     },
     "artifacts": {
       "section": "Artefakte",

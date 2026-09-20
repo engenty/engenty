@@ -379,6 +379,11 @@ export function OfferEditPage(props?: {
     }
     try {
       await persistDraft();
+      // Embedded, the host owns the URL and the saved offer is still what the
+      // pane is showing — navigating would eject the reader from it.
+      if (embedded) {
+        return;
+      }
       navigate(
         offer.status === "draft"
           ? `/mdl/offers/${offer.id}/draft`
@@ -387,7 +392,7 @@ export function OfferEditPage(props?: {
     } catch {
       // Error surfaced via mutation
     }
-  }, [navigate, offer, persistDraft]);
+  }, [embedded, navigate, offer, persistDraft]);
 
   const handleMarkAsReady = useCallback(async () => {
     if (!offer) {
@@ -395,11 +400,15 @@ export function OfferEditPage(props?: {
     }
     try {
       await persistDraft({ status: "ready" });
+      // Embedded, the phase switch alone shows the ready state in place.
+      if (embedded) {
+        return;
+      }
       navigate(`/mdl/offers/${offer.id}`);
     } catch {
       // Error surfaced via mutation
     }
-  }, [navigate, offer, persistDraft]);
+  }, [embedded, navigate, offer, persistDraft]);
 
   // Draft-phase PDF preview (legacy engency parity): persist what's on
   // screen, render server-side, show in the in-app sheet.

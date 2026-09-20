@@ -52,6 +52,10 @@ export const SPACE_MODULE_URL_ALIASES: Readonly<Record<string, string>> = {
  * `notifications` is the space's inbox (`/s/<key>/notifications`). It is the
  * dashboard's full-screen list, not a module — without this the shell slides
  * the space sidebar away to show a phantom "notifications" nav.
+ *
+ * `workflows` is a wizard walked inside the space
+ * (`/s/<key>/workflows/<workflowId>[/runs/<runId>]`). A workflow belongs to
+ * the tenant or a module, not to a module's pages — so it is a space page.
  */
 export const SPACE_RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
   "agents",
@@ -60,6 +64,7 @@ export const SPACE_RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
   "notifications",
   "rooms",
   "settings",
+  "workflows",
 ]);
 
 /** Whether a `/s/<space>/<segment>` segment is a space page rather than a module. */

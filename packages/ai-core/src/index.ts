@@ -167,6 +167,8 @@ export {
   type ChatCommandArg,
   type ChatCommandDefinition,
   type ChatCommandKind,
+  type ChatCommandReference,
+  chatCommandArgsToWorkflowInput,
   expandChatCommand,
   isValidChatCommandToken,
   parseLeadingChatCommand,

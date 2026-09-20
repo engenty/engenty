@@ -571,3 +571,132 @@ describe("validateGraphAction — deliverable and presentation nodes", () => {
     expect(found).not.toContain("unknown-tool");
   });
 });
+
+describe("validateGraphAction — surface gates, inline workflows, wizards", () => {
+  const surfacePayload = {
+    components: [
+      {
+        children: ["name", "go"],
+        component: "Form",
+        id: "root",
+        submit: { event: { name: "next" } },
+      },
+      {
+        component: "TextField",
+        id: "name",
+        label: "Name",
+        value: { path: "/name" },
+      },
+      {
+        action: { event: { name: "next" } },
+        component: "Button",
+        id: "go",
+        label: "Weiter",
+      },
+    ],
+    data: { name: "" },
+  };
+
+  function surfaceGate(id: string, payload: unknown = surfacePayload) {
+    return [
+      mapping(`prep-${id}`, {
+        kind: { value: "surface" },
+        title: { value: "Who?" },
+        payload: { value: payload },
+      }),
+      toolEntry(id, "approval_gate"),
+    ];
+  }
+
+  it("accepts a surface gate whose page passes the catalog checks", () => {
+    expect(codes(surfaceGate("ask"))).toEqual([]);
+  });
+
+  it("rejects a surface gate with an unknown component", () => {
+    const bad = {
+      components: [{ component: "Spinner", id: "root" }],
+      data: {},
+    };
+    expect(codes(surfaceGate("ask", bad))).toContain("invalid-ui-surface");
+  });
+
+  it("rejects a surface gate without a components payload", () => {
+    expect(codes(surfaceGate("ask", { data: {} }))).toContain(
+      "invalid-ui-surface"
+    );
+  });
+
+  it("a wizard needs at least one gate", () => {
+    const graph = [
+      mapping("prep", {
+        agent_type_key: { value: "offers.manager" },
+        brief: { value: "Draft" },
+      }),
+      toolEntry("draft", "run_specialist"),
+    ];
+    expect(codes(graph, { surface: "wizard" })).toContain(
+      "wizard-without-step"
+    );
+    expect(codes(graph, { surface: "chat" })).not.toContain(
+      "wizard-without-step"
+    );
+  });
+
+  it("a gate inside an inline loop body counts as the wizard's step", () => {
+    const graph = [
+      {
+        loopType: "dountil",
+        predicate: {
+          left: { path: "stepResults.draftLoop.event" },
+          op: "eq",
+          right: { literal: "ok" },
+        },
+        step: {
+          graph: surfaceGate("review"),
+          id: "draftLoop",
+          type: "workflow",
+        },
+        type: "loop",
+      },
+    ];
+    const issues = codes(graph, { surface: "wizard" });
+    expect(issues).not.toContain("wizard-without-step");
+    expect(issues).not.toContain("mastra");
+    expect(issues).not.toContain("inline-workflow-invalid");
+  });
+
+  it("validates an inline workflow's own entries and reports them under its path", () => {
+    const graph = [
+      {
+        graph: [
+          mapping("prep", { tool_id: { value: "x" } }),
+          toolEntry("write", "not_a_primitive"),
+        ],
+        id: "inner",
+        type: "workflow",
+      },
+    ];
+    const issues = validateGraphAction(def(graph));
+    const unknown = issues.find((issue) => issue.code === "unknown-tool");
+    expect(unknown?.path.startsWith("graph.0.graph")).toBe(true);
+  });
+
+  it("an inline workflow needs an id and a non-empty graph", () => {
+    expect(codes([{ graph: [], id: "inner", type: "workflow" }])).toContain(
+      "inline-workflow-invalid"
+    );
+    expect(codes([{ graph: surfaceGate("ask"), type: "workflow" }])).toContain(
+      "inline-workflow-invalid"
+    );
+  });
+
+  it("a gate inside an inline workflow inside a foreach is still refused", () => {
+    const graph = [
+      {
+        step: { graph: surfaceGate("ask"), id: "each", type: "workflow" },
+        type: "foreach",
+      },
+    ];
+    expect(codes(graph)).toContain("gate-in-foreach");
+  });
+});

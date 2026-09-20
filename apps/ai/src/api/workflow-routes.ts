@@ -18,21 +18,29 @@
 // compatibility redirect — nothing is deployed off this branch.
 import { createLogger } from "@engenty/telemetry";
 import type { Hono } from "hono";
+import type { SpaceGateContext } from "../../ai/tools/engenty-tools/lib/space-gate.js";
 import {
   createRoutineStoreFromEnv,
   createThreadStoreFromEnv,
 } from "../ai/index.js";
 import { releaseReviewedRun } from "../ai/routines/review-hold.js";
 import { wrapPublishedWorkflow } from "../ai/routines/wrap-workflow.js";
-import { resolveRunSpaceForThread } from "../ai/sessions/run-space.js";
+import {
+  resolveRunSpaceById,
+  resolveRunSpaceForThread,
+  toolsSpaceFromResolution,
+} from "../ai/sessions/run-space.js";
 import {
   type AiSessionScope,
   scopeCoversCapability,
 } from "../ai/sessions/types.js";
 import { capabilityForModuleOperation } from "../ai/workflows/capabilities.js";
 import {
+  cancelGraphRun,
+  type GraphRunOutcome,
   readGraphRunSnapshot,
   resumeGraphRun,
+  timeTravelGraphRun,
 } from "../ai/workflows/dispatch.js";
 import { dispatchPublishedWorkflowRun } from "../ai/workflows/dispatch-published-run.js";
 import {
@@ -53,8 +61,15 @@ import {
   validateGraphAction,
 } from "../ai/workflows/validate-graph.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import type { WorkflowRunStore } from "../dal/workflow-runs/workflow-run-store.js";
-import type { WorkflowStore } from "../dal/workflows/index.js";
+import type {
+  WorkflowRunRow,
+  WorkflowRunStore,
+} from "../dal/workflow-runs/workflow-run-store.js";
+import type {
+  WorkflowStore,
+  WorkflowSurface,
+  WorkflowVersionRow,
+} from "../dal/workflows/index.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope, uuidString } from "./http.js";
 
@@ -76,11 +91,225 @@ export interface RegisterWorkflowRoutesOptions {
 }
 
 /** Validation options bound to the caller — the author is who gets checked. */
-function validationOptionsFor(scope: AiSessionScope) {
+function validationOptionsFor(
+  scope: AiSessionScope,
+  surface?: WorkflowSurface
+) {
   return {
     capabilityForOperation: capabilityForModuleOperation,
     holdsCapability: (capabilityId: string) =>
       scopeCoversCapability(scope, capabilityId),
+    ...(surface ? { surface } : {}),
+  };
+}
+
+/** `surface` from a request body, when it names a legal value. */
+function surfaceField(body: Record<string, unknown>): {
+  surface?: WorkflowSurface;
+} {
+  return body.surface === "wizard" || body.surface === "chat"
+    ? { surface: body.surface }
+    : {};
+}
+
+/**
+ * The step a resume or a step-back targets: `step_path` (an array into a
+ * nested workflow) wins over `step_id` (a top-level id).
+ */
+function stepTarget(body: Record<string, unknown>): {
+  stepId?: string | string[];
+} {
+  if (
+    Array.isArray(body.step_path) &&
+    body.step_path.length > 0 &&
+    body.step_path.every((part) => typeof part === "string")
+  ) {
+    return { stepId: body.step_path as string[] };
+  }
+  return typeof body.step_id === "string" ? { stepId: body.step_id } : {};
+}
+
+/** The run row and its pinned version, or the response that says why not. */
+async function locateRun(
+  ctx: { scope: AiSessionScope; store: WorkflowStore },
+  requests: WorkflowRunStore | null,
+  runId: string
+): Promise<
+  | { ok: true; request: WorkflowRunRow; version: WorkflowVersionRow }
+  | { error: string; ok: false; status: 404 | 410 }
+> {
+  const request = await requests?.getByRunId({
+    runId,
+    tenantId: ctx.scope.tenantId,
+  });
+  if (!(request?.workflow_version_id && request.workflow_id)) {
+    return { error: "workflows.runNotFound", ok: false, status: 404 };
+  }
+  const version = await ctx.store.getVersion({
+    id: request.workflow_version_id,
+    tenantId: ctx.scope.tenantId,
+  });
+  if (!version) {
+    // The pinned version is gone — the run cannot continue on a different
+    // graph, so fail loudly rather than silently substituting.
+    return { error: "workflows.pinnedVersionMissing", ok: false, status: 410 };
+  }
+  return { ok: true, request, version };
+}
+
+/**
+ * The Space a parked run continues in, resolved with the ANSWERER's scope.
+ *
+ * Whoever may act in the run's Space may answer — core's `requireSpaceAccess`
+ * is the gate, so nothing here re-invents membership. The resolution is also
+ * what the continuing run carries as its Space: resolved once, here, where a
+ * person is present, because the run's own footing has no user and could not
+ * resolve a Space-scoped thread on its own. A run outside any Space stays
+ * tenant-global.
+ */
+async function resolveAnswererSpace(
+  scope: AiSessionScope,
+  request: WorkflowRunRow
+): Promise<
+  | { ok: true; space: SpaceGateContext | null }
+  | { error: "workflows.spaceForbidden"; ok: false }
+> {
+  const threadStore = createThreadStoreFromEnv();
+  if (!(request.thread_id && threadStore)) {
+    return { ok: true, space: null };
+  }
+  const resolution = await resolveRunSpaceForThread({
+    scope,
+    store: threadStore,
+    threadId: request.thread_id,
+  });
+  if (resolution.kind === "unresolved") {
+    return { error: "workflows.spaceForbidden", ok: false };
+  }
+  return { ok: true, space: toolsSpaceFromResolution(resolution) };
+}
+
+/**
+ * Continue a parked run without holding the request open.
+ *
+ * What follows a gate can be a specialist drafting for a minute or a wait of
+ * days, so the answer is acknowledged at once and the run carries on the way
+ * a press does: in the background, settled through the one lifecycle funnel,
+ * watched by the client over the run's event stream and snapshot. A crash in
+ * the continuation settles as a failure rather than a run stuck on
+ * `requires_action`.
+ */
+function continueInBackground(input: {
+  continue: () => Promise<GraphRunOutcome>;
+  initiatorUserId: string | null;
+  request: WorkflowRunRow;
+  runId: string;
+  space: SpaceGateContext | null;
+  tenantId: string;
+  version: WorkflowVersionRow;
+}): void {
+  void (async () => {
+    let outcome: GraphRunOutcome;
+    try {
+      outcome = await input.continue();
+    } catch (err) {
+      outcome = {
+        reason: err instanceof Error ? err.message : String(err),
+        status: "failed",
+      };
+    }
+    try {
+      await settleGraphRun({
+        initiatorUserId: input.initiatorUserId,
+        outcome,
+        outputSchema: input.version.output_schema,
+        requestId: input.request.id,
+        runId: input.runId,
+        space: input.space,
+        tenantId: input.tenantId,
+      });
+    } catch (err) {
+      logger.error("graph run continuation settle failed", {
+        error: err instanceof Error ? err.message : String(err),
+        runId: input.runId,
+      });
+    }
+  })();
+}
+
+/**
+ * The Space a press claims, from the body's `space_id`.
+ *
+ * A press comes from a page inside a Space, and the run has to be dispatched
+ * WITH it: the alternative is a run whose thread has no Space, which reads
+ * back later as "this run belongs nowhere".
+ */
+async function pressedRunSpace(
+  scope: AiSessionScope,
+  body: Record<string, unknown>,
+  header: string | undefined
+): Promise<
+  | { ok: true; space: SpaceGateContext | null }
+  | { error: "workflows.spaceForbidden"; ok: false }
+> {
+  // Same claim the chat lane and the by-source press read: the header first,
+  // the body for callers that cannot set one.
+  const spaceId =
+    header?.trim() ||
+    (typeof body.space_id === "string" ? body.space_id.trim() : "");
+  if (!spaceId) {
+    return { ok: true, space: null };
+  }
+  const resolution = await resolveRunSpaceById({ scope, spaceId });
+  if (resolution.kind === "unresolved") {
+    return { error: "workflows.spaceForbidden", ok: false };
+  }
+  return { ok: true, space: toolsSpaceFromResolution(resolution) };
+}
+
+/** Where the run speaks: the workflow's owner, as the dispatch recorded it. */
+async function deskAgentOfRun(
+  ctx: { scope: { tenantId: string }; store: WorkflowStore },
+  request: WorkflowRunRow
+): Promise<string | null> {
+  if (!request.workflow_id) {
+    return null;
+  }
+  const graph = await ctx.store.getGraph({
+    id: request.workflow_id,
+    tenantId: ctx.scope.tenantId,
+  });
+  return graph?.owner_agent_id ?? null;
+}
+
+/**
+ * The footing a parked run continues on: the one it was dispatched with, in
+ * the Space the answerer resolved. Deliberately no userId — answering,
+ * stepping back or stopping never lends the run the actor's identity.
+ *
+ * `deskAgentId` is not identity, it is where the run SPEAKS — the workflow's
+ * owner, decided at dispatch. Dropping it here sent every card a graph
+ * rendered after its first gate into the run's own log instead of the desk
+ * chat, which is the one place anybody reads.
+ */
+function runContextFor(
+  tenantId: string,
+  request: WorkflowRunRow,
+  version: WorkflowVersionRow,
+  space: SpaceGateContext | null,
+  deskAgentId?: string | null
+) {
+  return {
+    workflowId: request.workflow_id ?? "",
+    workflowVersion: version.version,
+    requestId: request.id,
+    tenantId,
+    threadId: request.thread_id ?? "",
+    ...(version.allowed_tools ? { allowedToolIds: version.allowed_tools } : {}),
+    ...(request.context_type ? { contextType: request.context_type } : {}),
+    ...(request.context_id ? { contextId: request.context_id } : {}),
+    ...(deskAgentId ? { deskAgentId } : {}),
+    space,
   };
 }
 
@@ -201,7 +430,10 @@ export function registerWorkflowRoutes(
       if (!def) {
         return c.json({ error: "workflows.graphRequired" }, 400);
       }
-      const issues = validateGraphAction(def, validationOptionsFor(ctx.scope));
+      const issues = validateGraphAction(
+        def,
+        validationOptionsFor(ctx.scope, surfaceField(body).surface)
+      );
       return c.json({ issues, valid: issues.length === 0 });
     } catch (err) {
       return handleRouteError(
@@ -235,6 +467,7 @@ export function registerWorkflowRoutes(
           typeof body.description === "string" ? body.description : null,
         moduleId: typeof body.module_id === "string" ? body.module_id : null,
         name,
+        ...surfaceField(body),
         tenantId: ctx.scope.tenantId,
       });
       return c.json({ graph }, 201);
@@ -286,13 +519,18 @@ export function registerWorkflowRoutes(
         runId = parsedRunId.data;
       }
 
+      const surface = surfaceField(body).surface;
       const drafted = await draftGraphFromDescription({
         description,
         name,
         scope: ctx.scope,
-        validation: validationOptionsFor(ctx.scope),
+        validation: {
+          ...validationOptionsFor(ctx.scope),
+          ...(surface ? { surface } : {}),
+        },
         ...(contextType ? { contextType } : {}),
         ...(runId ? { runId } : {}),
+        ...(surface ? { surface } : {}),
       });
 
       // The definition is created only once a graph exists to put in it, so a
@@ -304,6 +542,7 @@ export function registerWorkflowRoutes(
           createdByUserId: ctx.scope.userId,
           description,
           name,
+          ...(surface ? { surface } : {}),
           tenantId: ctx.scope.tenantId,
         });
       } catch (err) {
@@ -427,9 +666,13 @@ export function registerWorkflowRoutes(
       // The issue list is computed HERE, not taken from the request: the
       // client's copy may be stale, and the repair brief must describe the
       // graph actually stored.
+      const repairedRow = await ctx.store.getGraph({
+        id,
+        tenantId: ctx.scope.tenantId,
+      });
       const issues = validateGraphAction(
         storedGraph,
-        validationOptionsFor(ctx.scope)
+        validationOptionsFor(ctx.scope, repairedRow?.surface)
       );
       // Zero issues + an instruction = an EDIT round: describing the change
       // is how a valid flow is edited (there is no manual node editor).
@@ -491,8 +734,10 @@ export function registerWorkflowRoutes(
       return ctx.response;
     }
     try {
+      const surface = c.req.query("surface");
       const graphs = await ctx.store.list({
         contextType: c.req.query("context_type") || null,
+        ...(surface === "wizard" || surface === "chat" ? { surface } : {}),
         tenantId: ctx.scope.tenantId,
       });
       return c.json({ graphs });
@@ -559,6 +804,7 @@ export function registerWorkflowRoutes(
         ...(body.context_type === undefined
           ? {}
           : { contextType: (body.context_type as string) ?? null }),
+        ...surfaceField(body),
       });
       return c.json({ graph });
     } catch (err) {
@@ -627,16 +873,19 @@ export function registerWorkflowRoutes(
         ...raw,
         graph: translateAgentEntries(raw.graph as Record<string, unknown>[]),
       };
-      const issues = validateGraphAction(def, validationOptionsFor(ctx.scope));
-      if (issues.length > 0) {
-        return c.json({ error: "workflows.invalidGraph", issues }, 400);
-      }
       const owner = await ctx.store.getGraph({
         id,
         tenantId: ctx.scope.tenantId,
       });
       if (!owner) {
         return c.json({ error: "workflows.notFound" }, 404);
+      }
+      const issues = validateGraphAction(
+        def,
+        validationOptionsFor(ctx.scope, owner.surface)
+      );
+      if (issues.length > 0) {
+        return c.json({ error: "workflows.invalidGraph", issues }, 400);
       }
       // Title + description generated once at save when the row lacks them.
       if (!owner.title) {
@@ -782,9 +1031,13 @@ export function registerWorkflowRoutes(
       }
       // Re-validate at publish: the registry (and the approver's capabilities)
       // may have moved since the version was authored.
+      const publishedRow = await ctx.store.getGraph({
+        id: c.req.param("id"),
+        tenantId: ctx.scope.tenantId,
+      });
       const issues = validateGraphAction(
         version.graph as never,
-        validationOptionsFor(ctx.scope)
+        validationOptionsFor(ctx.scope, publishedRow?.surface)
       );
       if (issues.length > 0) {
         return c.json({ error: "workflows.invalidGraph", issues }, 400);
@@ -848,6 +1101,18 @@ export function registerWorkflowRoutes(
       const contextId =
         typeof contextRaw?.id === "string" ? contextRaw.id.trim() : "";
 
+      // The Space the presser was in. Without it the run's thread is
+      // space-less, and everything the run resolves FROM that thread later —
+      // the desk it speaks into, its memory — has no Space either.
+      const claimed = await pressedRunSpace(
+        ctx.scope,
+        body,
+        c.req.header("x-engenty-space-id")
+      );
+      if (!claimed.ok) {
+        return c.json({ error: claimed.error }, 403);
+      }
+
       // Shared with the WorkflowButton press and invoke_workflow's out-of-task
       // path: per-subject dedup, subject bound into the run context, an
       // workflow_run with no owner task, background execution.
@@ -861,6 +1126,7 @@ export function registerWorkflowRoutes(
         input: (body.input as Record<string, unknown>) ?? {},
         scope: ctx.scope,
         trigger: body.trigger === "command" ? "command" : "button",
+        ...(claimed.space ? { space: claimed.space } : {}),
       });
 
       return c.json({
@@ -993,51 +1259,11 @@ export function registerWorkflowRoutes(
         return c.json({ error: "workflows.pinnedVersionMissing" }, 410);
       }
 
-      // Whoever may act in the run's Space may answer — resolved with the
-      // ANSWERER's own scope, so core's `requireSpaceAccess` is the gate and
-      // nothing here re-invents membership. A run outside any Space stays
-      // tenant-gated as before.
-      const threadStore = createThreadStoreFromEnv();
-      if (request.thread_id && threadStore) {
-        const spaceGate = await resolveRunSpaceForThread({
-          scope: ctx.scope,
-          store: threadStore,
-          threadId: request.thread_id,
-        });
-        if (spaceGate.kind === "unresolved") {
-          return c.json({ error: "workflows.spaceForbidden" }, 403);
-        }
+      const answerer = await resolveAnswererSpace(ctx.scope, request);
+      if (!answerer.ok) {
+        return c.json({ error: answerer.error }, 403);
       }
 
-      const outcome = await resumeGraphRun({
-        ctx: {
-          workflowId: request.workflow_id,
-          workflowVersion: version.version,
-          requestId: request.id,
-          tenantId: ctx.scope.tenantId,
-          threadId: request.thread_id ?? "",
-          ...(version.allowed_tools
-            ? { allowedToolIds: version.allowed_tools }
-            : {}),
-          ...(request.context_type
-            ? { contextType: request.context_type }
-            : {}),
-          ...(request.context_id ? { contextId: request.context_id } : {}),
-          // Deliberately NO userId: the run resumes on the footing it was
-          // dispatched with — the same one the wake sweep uses — so answering
-          // never lends a run the answerer's identity. The answerer is
-          // attribution (`answeredByUserId` on the task mirror), not the
-          // acting principal.
-        },
-        resumeData: {
-          approved: body.approved === true,
-          ...(body.data ? { data: body.data as Record<string, unknown> } : {}),
-          ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
-        },
-        runId,
-        version,
-        ...(typeof body.step_id === "string" ? { stepId: body.step_id } : {}),
-      });
       // The answer joins the question on the task thread (Phase 8 P8-1). Order
       // matters only for readability: decision first, then whatever the resumed
       // run went on to do.
@@ -1050,18 +1276,144 @@ export function registerWorkflowRoutes(
           ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
         });
       }
-      await settleGraphRun({
-        outcome,
-        outputSchema: version.output_schema,
-        requestId: request.id,
+      const deskAgentId = await deskAgentOfRun(ctx, request);
+      continueInBackground({
+        continue: () =>
+          resumeGraphRun({
+            ctx: runContextFor(
+              ctx.scope.tenantId,
+              request,
+              version,
+              answerer.space,
+              deskAgentId
+            ),
+            resumeData: {
+              approved: body.approved === true,
+              ...(body.data
+                ? { data: body.data as Record<string, unknown> }
+                : {}),
+              ...(typeof body.event === "string" ? { event: body.event } : {}),
+              ...(typeof body.reason === "string"
+                ? { reason: body.reason }
+                : {}),
+            },
+            runId,
+            version,
+            ...stepTarget(body),
+          }),
+        initiatorUserId: ctx.scope.userId ?? null,
+        request,
         runId,
+        space: answerer.space,
         tenantId: ctx.scope.tenantId,
+        version,
       });
-      return c.json({ ok: true, outcome });
+      return c.json({ ok: true, run_id: runId });
     } catch (err) {
       return handleRouteError(
         c,
         "failed to resume action graph run",
+        "workflows.internalError",
+        err
+      );
+    }
+  });
+
+  // Step back to an earlier gate: the run re-executes from there, the gate
+  // asks again (its previous answer stays in the snapshot for the prefill), and
+  // everything after it runs anew once answered. Only a parked run can travel.
+  app.post(`${base}/runs/:runId/time-travel`, async (c) => {
+    const ctx = await ready(c);
+    if (!ctx.ok) {
+      return ctx.response;
+    }
+    const runId = c.req.param("runId");
+    try {
+      const body = (await c.req.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
+      const target = stepTarget(body).stepId;
+      if (!target) {
+        return c.json({ error: "workflows.stepRequired" }, 400);
+      }
+      const located = await locateRun(ctx, getWorkflowRunStore(), runId);
+      if (!located.ok) {
+        return c.json({ error: located.error }, located.status);
+      }
+      const { request, version } = located;
+      if (request.status !== "requires_action") {
+        return c.json({ error: "workflows.runNotParked" }, 409);
+      }
+      const answerer = await resolveAnswererSpace(ctx.scope, request);
+      if (!answerer.ok) {
+        return c.json({ error: answerer.error }, 403);
+      }
+      const deskAgentId = await deskAgentOfRun(ctx, request);
+      continueInBackground({
+        continue: () =>
+          timeTravelGraphRun({
+            ctx: runContextFor(
+              ctx.scope.tenantId,
+              request,
+              version,
+              answerer.space,
+              deskAgentId
+            ),
+            runId,
+            stepId: target,
+            version,
+          }),
+        initiatorUserId: ctx.scope.userId ?? null,
+        request,
+        runId,
+        space: answerer.space,
+        tenantId: ctx.scope.tenantId,
+        version,
+      });
+      return c.json({ ok: true, run_id: runId });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to step back in action graph run",
+        "workflows.internalError",
+        err
+      );
+    }
+  });
+
+  // Stop a parked run. Artifacts it wrote stay; nothing resumes it.
+  app.post(`${base}/runs/:runId/cancel`, async (c) => {
+    const ctx = await ready(c);
+    if (!ctx.ok) {
+      return ctx.response;
+    }
+    const runId = c.req.param("runId");
+    try {
+      const located = await locateRun(ctx, getWorkflowRunStore(), runId);
+      if (!located.ok) {
+        return c.json({ error: located.error }, located.status);
+      }
+      const { request, version } = located;
+      if (
+        request.status === "completed" ||
+        request.status === "failed" ||
+        request.status === "cancelled"
+      ) {
+        return c.json({ error: "workflows.runSettled" }, 409);
+      }
+      await cancelGraphRun({ runId, version });
+      await settleGraphRun({
+        outcome: { reason: "cancelled by the person", status: "cancelled" },
+        requestId: request.id,
+        runId,
+        tenantId: ctx.scope.tenantId,
+      });
+      return c.json({ ok: true });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "failed to cancel action graph run",
         "workflows.internalError",
         err
       );

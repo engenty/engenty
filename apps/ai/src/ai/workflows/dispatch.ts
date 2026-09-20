@@ -170,6 +170,10 @@ export async function rehydrateGraphVersion(version: WorkflowVersionRow) {
   const stored = version.graph as Record<string, unknown>;
   const def = {
     ...stored,
+    graph: await registerInlineWorkflows(
+      Array.isArray(stored.graph) ? stored.graph : [],
+      mastra
+    ),
     // Pin the runtime id to the version so a suspended run's snapshot resolves
     // back to exactly the graph it started on, never an edited one.
     id: graphWorkflowId(version),
@@ -179,6 +183,79 @@ export async function rehydrateGraphVersion(version: WorkflowVersionRow) {
   return { mastra, workflow };
 }
 
+/** An inline nested workflow: a `workflow` entry carrying its own graph. */
+export function isInlineWorkflowEntry(
+  entry: unknown
+): entry is Record<string, unknown> & { graph: unknown[]; id: string } {
+  return Boolean(
+    entry &&
+      typeof entry === "object" &&
+      (entry as { type?: unknown }).type === "workflow" &&
+      Array.isArray((entry as { graph?: unknown }).graph) &&
+      typeof (entry as { id?: unknown }).id === "string"
+  );
+}
+
+/**
+ * Register every inline nested workflow of a graph on the throwaway Mastra and
+ * return the graph with those entries rewritten to references.
+ *
+ * A container's body is ONE entry in Mastra's engine, so a loop whose body is
+ * several steps (draft → write → review) is written as a `workflow` entry with
+ * an inline `graph`. The engine resolves `workflow` entries by id against the
+ * Mastra instance, so each inline graph becomes a real nested workflow —
+ * innermost first, since a nested graph may hold its own — before the parent
+ * is rehydrated. The instance is per dispatch, so ids only have to be unique
+ * within one stored graph.
+ */
+async function registerInlineWorkflows(
+  entries: readonly unknown[],
+  mastra: Mastra
+): Promise<unknown[]> {
+  const rewritten: unknown[] = [];
+  for (const entry of entries) {
+    rewritten.push(await registerInlineEntry(entry, mastra));
+  }
+  return rewritten;
+}
+
+async function registerInlineEntry(
+  entry: unknown,
+  mastra: Mastra
+): Promise<unknown> {
+  if (!entry || typeof entry !== "object") {
+    return entry;
+  }
+  if (isInlineWorkflowEntry(entry)) {
+    const nestedDef = {
+      description:
+        typeof entry.description === "string" ? entry.description : "",
+      graph: await registerInlineWorkflows(entry.graph, mastra),
+      id: entry.id,
+      inputSchema:
+        entry.inputSchema && typeof entry.inputSchema === "object"
+          ? entry.inputSchema
+          : { properties: {}, type: "object" },
+      outputSchema:
+        entry.outputSchema && typeof entry.outputSchema === "object"
+          ? entry.outputSchema
+          : { properties: {}, type: "object" },
+    };
+    const { workflow } = await rehydrateWorkflow(nestedDef as never, mastra);
+    mastra.addWorkflow(workflow);
+    return { id: entry.id, type: "workflow", workflowId: entry.id };
+  }
+  const record = entry as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...record };
+  if (Array.isArray(record.steps)) {
+    next.steps = await registerInlineWorkflows(record.steps, mastra);
+  }
+  if (record.step && typeof record.step === "object") {
+    next.step = await registerInlineEntry(record.step, mastra);
+  }
+  return next;
+}
+
 export interface StartGraphRunInput {
   ctx: GraphRunContext;
   input: Record<string, unknown>;
@@ -186,45 +263,76 @@ export interface StartGraphRunInput {
   version: WorkflowVersionRow;
 }
 
-export interface GraphRunOutcome {
-  /** Present when the run suspended at a gate — drives the inbox card. */
-  gate?: {
-    kind?: string;
-    payload?: Record<string, unknown>;
-    stepId: string;
-    title?: string;
+/** The suspended gate: what to render and where to resume. */
+export interface GraphRunGate {
+  /** Whether free text typed beside the step reaches the run. */
+  accepts_text: boolean;
+  kind?: string;
+  /** The full step path — `["draftLoop", "review"]` for a gate inside a loop body. */
+  path: string[];
+  /** The gate's own id (the last path element), what the canvas and progress key on. */
+  stepId: string;
+  /** What the person sees: an A2UI surface with inputs and outputs. */
+  surface: {
+    components: Record<string, unknown>[];
+    data: Record<string, unknown>;
   };
+  title?: string;
+}
+
+export interface GraphRunOutcome {
+  /** Present when the run suspended at a gate — drives the card and the wizard page. */
+  gate?: GraphRunGate;
   reason?: string;
   result?: unknown;
-  status: "success" | "suspended" | "failed" | "sleeping";
+  status: "success" | "suspended" | "failed" | "sleeping" | "cancelled";
   /** When a sleep/sleepUntil node parked the run. */
   wakeAt?: string;
 }
 
 /**
- * Normalize a gate's suspend payload for the approval card.
+ * The gate envelope for a suspension.
  *
- * The gate suspends with `{ kind, title, payload, request_id, context_* }` —
- * the envelope. Only the inner `payload` is the thing a human is deciding
- * about. Handing the envelope to the card renders "kind: field_updates" and a
- * request UUID instead of "€4,800.00 → billing@acme.com", which defeats the
- * whole point of showing the actual effect.
+ * The gate suspends with `{ kind, title, surface, accepts_text, request_id,
+ * context_* }`. For a gate inside a nested workflow the engine records the
+ * envelope on the CONTAINER's step result and adds `__workflow_meta.path`
+ * pointing at the leaf — that marker is engine bookkeeping and is dropped.
  */
-function readGate(
-  stepId: string,
-  suspendPayload: unknown
-): GraphRunOutcome["gate"] {
+function readGate(path: string[], suspendPayload: unknown): GraphRunGate {
   const envelope = (suspendPayload ?? {}) as Record<string, unknown>;
-  const inner = envelope.payload;
+  const surface = envelope.surface as
+    | { components?: unknown; data?: unknown }
+    | undefined;
   return {
-    stepId,
+    accepts_text: envelope.accepts_text === true,
     ...(typeof envelope.kind === "string" ? { kind: envelope.kind } : {}),
+    path,
+    stepId: path.at(-1) ?? "",
+    surface: {
+      components: Array.isArray(surface?.components)
+        ? (surface.components as Record<string, unknown>[])
+        : [],
+      data:
+        surface?.data && typeof surface.data === "object"
+          ? (surface.data as Record<string, unknown>)
+          : {},
+    },
     ...(typeof envelope.title === "string" ? { title: envelope.title } : {}),
-    payload:
-      inner && typeof inner === "object"
-        ? (inner as Record<string, unknown>)
-        : {},
   };
+}
+
+/**
+ * The leaf path of a suspension recorded on a top-level step result:
+ * `[stepId]` for a top-level gate, `[stepId, ...meta.path]` for one inside a
+ * nested workflow.
+ */
+function suspendedPathFor(stepId: string, suspendPayload: unknown): string[] {
+  const meta = (suspendPayload as { __workflow_meta?: { path?: unknown } })
+    ?.__workflow_meta;
+  const nested = Array.isArray(meta?.path)
+    ? meta.path.filter((part): part is string => typeof part === "string")
+    : [];
+  return [stepId, ...nested];
 }
 
 /** Normalize a Mastra workflow result into the shape the run record wants. */
@@ -251,7 +359,10 @@ function toOutcome(result: unknown): GraphRunOutcome {
       const state = step as { status?: string; suspendPayload?: unknown };
       if (state.status === "suspended") {
         return {
-          gate: readGate(stepId, state.suspendPayload),
+          gate: readGate(
+            suspendedPathFor(stepId, state.suspendPayload),
+            state.suspendPayload
+          ),
           status: "suspended",
         };
       }
@@ -263,6 +374,9 @@ function toOutcome(result: unknown): GraphRunOutcome {
       result: (result as { result?: unknown }).result,
       status: "success",
     };
+  }
+  if (status === "canceled" || status === "cancelled") {
+    return { status: "cancelled" };
   }
   const error = (result as { error?: unknown }).error;
   return {
@@ -354,8 +468,13 @@ export interface GraphRunSnapshot {
    * what lets a task show what its agent actually said and asked for.
    */
   agentRuns: { runId: string; stepId: string; threadId?: string }[];
+  /**
+   * What each gate was answered with, keyed by the gate's step id — the
+   * prefill when a person steps back to it.
+   */
+  answers: Record<string, Record<string, unknown>>;
   /** The suspended gate, when the run is waiting on a human. */
-  gate?: GraphRunOutcome["gate"];
+  gate?: GraphRunGate;
   nodes: Record<string, { detail?: string; state: GraphNodeState }>;
   status: string;
 }
@@ -432,24 +551,41 @@ export async function readGraphRunSnapshot(input: {
   const steps = (state as { steps?: Record<string, unknown> }).steps ?? {};
   const nodes: GraphRunSnapshot["nodes"] = {};
   const agentRuns: GraphRunSnapshot["agentRuns"] = [];
-  let gate: GraphRunOutcome["gate"] | undefined;
-  for (const [stepId, raw] of Object.entries(steps)) {
+  const answers: GraphRunSnapshot["answers"] = {};
+  let gate: GraphRunGate | undefined;
+  for (const [key, raw] of Object.entries(steps)) {
     const step = raw as {
       output?: unknown;
+      resumePayload?: unknown;
       status?: string;
       suspendPayload?: Record<string, unknown>;
     };
-    nodes[stepId] = nodeStateFor(stepId, step);
-    if (step.status === "suspended") {
-      gate = readGate(stepId, step.suspendPayload);
+    // The persisted state keys a nested workflow's steps by dotted path
+    // ("draftLoop.review") beside the container's own entry ("draftLoop").
+    // Nodes are keyed by the leaf id — what the canvas and the progress rail
+    // know — and the gate is the deepest suspended entry.
+    const path = key.includes(".")
+      ? key.split(".")
+      : suspendedPathFor(key, step.suspendPayload);
+    const leafId = path.at(-1) ?? key;
+    nodes[leafId] = nodeStateFor(leafId, step);
+    if (
+      step.status === "suspended" &&
+      (!gate || path.length > gate.path.length)
+    ) {
+      gate = readGate(path, step.suspendPayload);
     }
-    const agentRun = agentRunFromStep(stepId, step);
+    if (step.resumePayload && typeof step.resumePayload === "object") {
+      answers[leafId] = step.resumePayload as Record<string, unknown>;
+    }
+    const agentRun = agentRunFromStep(leafId, step);
     if (agentRun) {
       agentRuns.push(agentRun);
     }
   }
   return {
     agentRuns,
+    answers,
     ...(gate ? { gate } : {}),
     nodes,
     status: (state as { status?: string }).status ?? "unknown",
@@ -460,8 +596,11 @@ export interface ResumeGraphRunInput {
   ctx: GraphRunContext;
   resumeData: Record<string, unknown>;
   runId: string;
-  /** Suspended step id. Omit to let Mastra pick the only suspended step. */
-  stepId?: string;
+  /**
+   * Suspended step: an id for a top-level gate, a path for one inside a
+   * nested workflow. Omit to let Mastra pick the only suspended step.
+   */
+  stepId?: string | string[];
   version: WorkflowVersionRow;
 }
 
@@ -487,4 +626,51 @@ export async function resumeGraphRun(
   } finally {
     unwatch();
   }
+}
+
+export interface TimeTravelGraphRunInput {
+  ctx: GraphRunContext;
+  runId: string;
+  /** The gate to return to: an id, or a path into a nested workflow. */
+  stepId: string | string[];
+  version: WorkflowVersionRow;
+}
+
+/**
+ * Step back: re-execute the run from an earlier gate. The gate suspends again
+ * and everything after it runs anew once answered. The gate's previous answer
+ * stays on its step result (`answers` in the snapshot) for the prefill; it is
+ * deliberately NOT handed to `timeTravel` as `resumeData`, which would make the
+ * gate take its resume branch instead of asking.
+ */
+export async function timeTravelGraphRun(
+  input: TimeTravelGraphRunInput
+): Promise<GraphRunOutcome> {
+  const ctx = await withGraphRunSpace(input.ctx);
+  const { workflow } = await rehydrateGraphVersion(input.version);
+  const run = await workflow.createRun({ runId: input.runId });
+  const unwatch = await watchGraphRunEvents(run, {
+    runId: input.runId,
+    tenantId: ctx.tenantId,
+    threadId: ctx.threadId,
+  });
+  try {
+    const result = await run.timeTravel({
+      requestContext: buildGraphRequestContext(ctx),
+      step: input.stepId,
+    });
+    return toOutcome(result);
+  } finally {
+    unwatch();
+  }
+}
+
+/** Abort a parked run. The snapshot keeps what happened; nothing resumes it. */
+export async function cancelGraphRun(input: {
+  runId: string;
+  version: WorkflowVersionRow;
+}): Promise<void> {
+  const { workflow } = await rehydrateGraphVersion(input.version);
+  const run = await workflow.createRun({ runId: input.runId });
+  await run.cancel();
 }

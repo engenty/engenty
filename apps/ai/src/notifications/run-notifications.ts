@@ -96,7 +96,7 @@ export async function notifyRunSuspended(
  * that succeeded. Never throws.
  */
 export async function resolveRunNotifications(input: {
-  outcome: "resumed" | "completed" | "failed" | "decided";
+  outcome: "resumed" | "completed" | "failed" | "decided" | "abandoned";
   subject: { id: string; type: "run" | "task" };
   tenantId: string;
 }): Promise<number> {

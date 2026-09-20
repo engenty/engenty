@@ -13,7 +13,7 @@ const DISPATCH_STALE_MS = 10 * 60 * 1000;
 
 // Terminal statuses the workflow sets at finalize. The in-flight status is
 // "dispatched" (set at create). Constrained by ai.workflow_run_status_check.
-export type WorkflowRunStatus = "completed" | "failed";
+export type WorkflowRunStatus = "completed" | "failed" | "cancelled";
 
 export interface WorkflowRunRow {
   agent_id: string | null;

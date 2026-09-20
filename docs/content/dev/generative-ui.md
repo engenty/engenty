@@ -32,11 +32,14 @@ The pieces:
   number/title, introduction, blocks with line items, totals (via the shared
   `CommercialBlockTotals`), final notes. It is the HTML sibling of the PDF
   template and is width-tolerant, so it works in the narrow side pane.
-- The offers and invoices modules wrap it (`OfferDocumentView`,
-  `InvoiceDocumentView`) on their own detail queries and register the wrapper
-  as the object widget's **`panel`**. Because the view sits on module queries,
-  the module's live binding + agent-tool invalidation refresh it whenever the
-  agent edits the record — there is no extra wiring.
+- The offers and invoices detail pages build on it, and each module registers
+  its own page — embedded (`<OfferDetailPage embedded offerId>`) — as the
+  object widget's **`panel`**, so the pane shows what the module's route shows
+  and a draft is the draft editor there too. The pane wraps a panel in its own
+  `PageHeaderProvider`, so an embedded page's breadcrumbs and topbar actions
+  do not reach the page it sits beside. Because the page sits on module
+  queries, the module's live binding + agent-tool invalidation refresh it
+  whenever the agent edits the record — there is no extra wiring.
 - The update loop is therefore: agent calls `offers_update` → postgres change /
   tool invalidation → query refetch → document re-renders. Nothing is pushed
   into the panel explicitly.

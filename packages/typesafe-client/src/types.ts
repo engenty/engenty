@@ -24,8 +24,12 @@ export interface ChoiceQuestion {
 }
 
 export interface ScoreQuestion {
-  /** Ordered level id → what that level means. */
-  criteria: Record<string, Description>;
+  /**
+   * Ordered levels, lowest first. An ARRAY, unlike `choice`: the answer's
+   * `score` is a position on this scale and its probabilities are keyed by
+   * index (verified against the gateway 2026-09-20; an object is a 400).
+   */
+  criteria: Description[];
   instructions?: Description;
   type: "score";
 }
@@ -48,7 +52,11 @@ export interface ChoiceAnswer {
 
 export interface ScoreAnswer {
   confidence: number;
+  /** Index → the criterion at that position, echoed back. */
+  legend?: Record<string, Description>;
+  /** Keyed by criterion index ("0", "1", …). */
   probabilities: Record<string, number>;
+  /** Expected index on the scale, e.g. 1.98 on three levels. */
   score: number;
   type: "score";
 }

@@ -120,6 +120,9 @@ export {
   fieldSuggestionsToolOutputToCreatedValue,
   parseFieldSuggestionsArtifactCreatedValue,
 } from "./artifacts/field-suggestions.js";
+// A wizard `/command` is pressed from the browser with the same args→input
+// mapping the server applies inside a chat turn.
+export { chatCommandArgsToWorkflowInput } from "./chat-commands/contracts.js";
 export { isCapableAgentModel } from "./config/capable-agent-model.js";
 export {
   type ChatModelResolutionPurpose,

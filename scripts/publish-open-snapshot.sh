@@ -90,8 +90,13 @@ fi
 #
 # Rewritten IN THE INDEX, because this script deliberately leaves the working
 # tree untouched.
-stripped_pkg="$(git show "$SOURCE:package.json" | node scripts/strip-closed-plugins-stdin.mjs)"
-pkg_blob="$(printf '%s' "$stripped_pkg" | git hash-object -w --stdin)"
+# Piped straight into hash-object on purpose. Routing it through a shell
+# variable ate the trailing newline — `$(...)` strips every trailing newline and
+# `printf '%s'` adds none back — so the mirror's package.json ended at `}` and
+# its own `Lint (changed files)` failed the format check on every release.
+pkg_blob="$(git show "$SOURCE:package.json" \
+  | node scripts/strip-closed-plugins-stdin.mjs \
+  | git hash-object -w --stdin)"
 GIT_INDEX_FILE="$tmp_index" git update-index --cacheinfo "100644,$pkg_blob,package.json"
 
 # The deploy files name their images in full, because Coolify's compose parser

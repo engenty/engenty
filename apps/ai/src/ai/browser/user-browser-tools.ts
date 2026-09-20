@@ -12,10 +12,7 @@
 
 import { createRequestDecisionArtifact } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import {
-  resolveTypeSafeClientOptions,
-  TypeSafeClient,
-} from "@engenty/typesafe-client";
+import { resolveJevClient } from "@engenty/typesafe-client";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
@@ -40,7 +37,6 @@ import {
   resolveFastLoopMaxSteps,
   resolveFastLoopMinMargin,
   runFastLoop,
-  typeSafeEnv,
 } from "./fast-loop/index.js";
 import {
   acquireAgentSeat,
@@ -545,8 +541,8 @@ function createRunFastTool(params: {
     }),
     execute: async (inputData: unknown) => {
       const input = inputData as { goal: string; max_steps?: number };
-      const route = resolveTypeSafeClientOptions(typeSafeEnv());
-      if (!route) {
+      const jev = resolveJevClient();
+      if (!jev) {
         return { error: "typesafe_key_missing", status: "error" };
       }
       const browser = getUserBrowser(identity) as unknown as {
@@ -554,16 +550,12 @@ function createRunFastTool(params: {
       };
       const page = await browser.getPage();
       const runId = getEngentyToolsRunContext().runId?.trim() || "unknown";
-      const client = new TypeSafeClient({
-        apiKey: route.apiKey,
-        baseUrl: route.baseUrl,
-        model: route.model,
-      });
+      const { client } = jev;
       const result = await runFastLoop({
         client,
         fieldText: createFieldText({
           ...(params.textModelId ? { modelId: params.textModelId } : {}),
-          spans: { client, model: route.model },
+          spans: { client, model: jev.model },
         }),
         goal: input.goal,
         maxSteps: Math.min(
@@ -588,8 +580,8 @@ function createRunFastTool(params: {
       });
       logger.info("browser fast loop finished", {
         elapsed_ms: result.elapsed_ms,
-        model: route.model,
-        route: route.route,
+        model: jev.model,
+        route: jev.route,
         sandboxId,
         status: result.status,
         steps: result.steps,

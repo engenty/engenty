@@ -183,6 +183,7 @@ function memoryStores() {
         owner_agent_id: input.ownerAgentId ?? null,
         source_workflow_id: null,
         status: "active",
+        surface: "chat",
         tenant_id: input.tenantId,
         title: input.title ?? null,
         updated_at: now(),

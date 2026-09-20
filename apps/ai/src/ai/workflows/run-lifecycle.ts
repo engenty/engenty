@@ -20,6 +20,7 @@ import {
   createArtifactStoreFromEnv,
   createRoutineStoreFromEnv,
   createWorkflowRunStoreFromEnv,
+  createWorkflowStoreFromEnv,
 } from "../index.js";
 import { finishActionRun } from "../jobs/action-job-run-record.js";
 import { reportRoutineRun } from "../routines/report-routine-run.js";
@@ -180,11 +181,18 @@ export async function settleGraphRun(
             ?.get({ id: request.routine_id, tenantId: input.tenantId })
             .catch(() => null)
         : null;
+    // A wizard's ask opens its page, a chat workflow's ask opens the desk —
+    // the row's surface tells the notification where to point.
+    const workflow = request?.workflow_id
+      ? await createWorkflowStoreFromEnv()
+          ?.getGraph({ id: request.workflow_id, tenantId: input.tenantId })
+          .catch(() => null)
+      : null;
     await notifyRunSuspended({
       actorAgentId: request?.agent_id ?? null,
       ask: {
         kind: gate?.kind === "question" ? "action_question" : "action_gate",
-        ...(gate?.payload ? { payload: gate.payload } : {}),
+        ...(gate ? { payload: gate.surface.data } : {}),
         title: gate?.title ?? "A workflow run is waiting for a decision",
       },
       initiatorUserId: input.initiatorUserId ?? null,
@@ -193,6 +201,7 @@ export async function settleGraphRun(
         ...(request?.workflow_id ? { workflow_id: request.workflow_id } : {}),
         ...(gate?.stepId ? { step_id: gate.stepId } : {}),
         ...(gate?.kind ? { gate_kind: gate.kind } : {}),
+        ...(workflow?.surface ? { workflow_surface: workflow.surface } : {}),
         ...(owner ? { task_id: owner.taskId } : {}),
         request_id: input.requestId,
         ...(request?.thread_id ? { thread_id: request.thread_id } : {}),
@@ -224,6 +233,51 @@ export async function settleGraphRun(
       });
     // No mirror: a sleeping run's task is resting on purpose. The wake sweep
     // resumes the graph and this function runs again at the real settle.
+    return;
+  }
+
+  if (input.outcome.status === "cancelled") {
+    // A person stopped the run. Nothing to verify, nothing to hold for review:
+    // the row records the stop, whatever asked on the run's behalf is moot,
+    // and the stream ends cleanly so a watching page settles.
+    await mirror("failed", input.outcome.reason ?? "cancelled");
+    try {
+      await requests?.finish({
+        id: input.requestId,
+        reason: input.outcome.reason ?? null,
+        status: "cancelled",
+        tenantId: input.tenantId,
+      });
+    } catch (err) {
+      logger.warn("graph run cancel bookkeeping failed", {
+        error: err instanceof Error ? err.message : String(err),
+        runId: input.runId,
+      });
+    }
+    await finishActionRun({
+      runId: input.runId,
+      status: "cancelled",
+      tenantId: input.tenantId,
+    });
+    await resolveRunNotifications({
+      outcome: "abandoned",
+      subject: { id: input.runId, type: "run" },
+      tenantId: input.tenantId,
+    });
+    if (request?.thread_id) {
+      await emitGraphRunTerminal(
+        {
+          runId: input.runId,
+          tenantId: input.tenantId,
+          threadId: request.thread_id,
+        },
+        { reason: input.outcome.reason ?? null, status: "cancelled" }
+      );
+    }
+    forgetGraphRunScope({
+      requestId: input.requestId,
+      tenantId: input.tenantId,
+    });
     return;
   }
 

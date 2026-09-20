@@ -33,7 +33,10 @@ export function registerChatCommandRoutes(
     }
     try {
       const agentId = c.req.query("agent_id") ?? null;
-      const all = await listAllChatCommands(moduleLoader);
+      const all = await listAllChatCommands(
+        moduleLoader,
+        resolved.scope.tenantId
+      );
       const commands = filterChatCommandsForAgent(all, agentId).map(
         (command) => ({
           args: command.args ?? [],
@@ -46,6 +49,11 @@ export function registerChatCommandRoutes(
           label_key: command.label_key ?? null,
           module_id: command.module_id,
           order: command.order ?? null,
+          surface: command.surface ?? null,
+          // Only a wizard's target is the client's business: it presses the
+          // stored workflow itself. Module commands run inside a chat turn.
+          workflow_id:
+            command.surface === "wizard" ? (command.workflow_id ?? null) : null,
         })
       );
       return c.json({ commands });

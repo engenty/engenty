@@ -10,7 +10,6 @@ export {
   isFastLoopEnabled,
   resolveFastLoopMaxSteps,
   resolveFastLoopMinMargin,
-  typeSafeEnv,
 } from "./config.js";
 export {
   type Decision,

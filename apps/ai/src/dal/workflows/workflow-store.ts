@@ -12,6 +12,12 @@ const SCHEMA = "ai";
 
 export type WorkflowStatus = "draft" | "active" | "disabled";
 export type WorkflowAuthoredBy = "user" | "copilot" | "system";
+/**
+ * How a run of this workflow is meant to be experienced. `chat`: its cards
+ * land in the owner's chat. `wizard`: a person walks it one gate per page, and
+ * it is listed in the catalog and as a slash command for that.
+ */
+export type WorkflowSurface = "chat" | "wizard";
 
 export interface WorkflowRow {
   context_type: string | null;
@@ -27,6 +33,7 @@ export interface WorkflowRow {
   /** Module workflow this row reconciles from; null on an authored flow. */
   source_workflow_id: string | null;
   status: WorkflowStatus;
+  surface: WorkflowSurface;
   tenant_id: string;
   /** Display title, generated once at save when absent; `name` is the key. */
   title: string | null;
@@ -65,6 +72,7 @@ export interface CreateWorkflowInput {
   ownerAgentId?: string | null;
   /** Set only by the module-workflow reconcile — marks the row as derived. */
   sourceWorkflowId?: string | null;
+  surface?: WorkflowSurface;
   tenantId: string;
   title?: string | null;
 }
@@ -103,6 +111,7 @@ export interface WorkflowStore {
   list(input: {
     contextType?: string | null;
     status?: WorkflowStatus;
+    surface?: WorkflowSurface;
     tenantId: string;
   }): Promise<WorkflowRow[]>;
   listVersions(input: {
@@ -128,6 +137,7 @@ export interface WorkflowStore {
     description?: string | null;
     id: string;
     name?: string;
+    surface?: WorkflowSurface;
     tenantId: string;
     title?: string | null;
   }): Promise<WorkflowRow>;
@@ -175,6 +185,7 @@ export function createWorkflowStore(client: SupabaseClient): WorkflowStore {
           owner_agent_id: input.ownerAgentId ?? null,
           source_workflow_id: input.sourceWorkflowId ?? null,
           status: "draft",
+          surface: input.surface ?? "chat",
           tenant_id: input.tenantId,
           title: input.title ?? null,
         })
@@ -237,6 +248,9 @@ export function createWorkflowStore(client: SupabaseClient): WorkflowStore {
       }
       if (input.contextType) {
         query = query.eq("context_type", input.contextType);
+      }
+      if (input.surface) {
+        query = query.eq("surface", input.surface);
       }
       const { data, error } = await query;
       if (error) {
@@ -367,6 +381,9 @@ export function createWorkflowStore(client: SupabaseClient): WorkflowStore {
       }
       if (input.title !== undefined) {
         patch.title = input.title;
+      }
+      if (input.surface !== undefined) {
+        patch.surface = input.surface;
       }
       const { data, error } = await db
         .from("workflow")

@@ -28,6 +28,20 @@ const VALID_GRAPH = [
   { type: "tool", id: "wait", toolId: "wait_until" },
 ];
 
+/** A page: the smallest graph a wizard accepts. */
+const GATE_GRAPH = [
+  {
+    type: "mapping",
+    id: "prep-ask",
+    mapConfig: JSON.stringify({
+      kind: { value: "confirm" },
+      payload: { value: { tense: "Perfekt" } },
+      title: { value: "Diese Zeitform?" },
+    }),
+  },
+  { type: "tool", id: "ask", toolId: "approval_gate" },
+];
+
 function row(overrides: Partial<WorkflowRow> = {}): WorkflowRow {
   return {
     context_type: null,
@@ -41,6 +55,7 @@ function row(overrides: Partial<WorkflowRow> = {}): WorkflowRow {
     owner_agent_id: AGENT_ID,
     source_workflow_id: null,
     status: "active",
+    surface: "chat",
     tenant_id: TENANT_ID,
     title: "Grammatik-Drill",
     updated_at: "2026-09-01T00:00:00Z",
@@ -142,6 +157,22 @@ describe(WORKFLOW_SELF_REVISE_TOOL_ID, () => {
       (output.issues as { code: string }[]).map((issue) => issue.code)
     ).toContain("sleep-too-long");
     expect(saved).toHaveLength(0);
+  });
+
+  it("keeps the row's surface: a wizard stays a wizard and must keep a page", async () => {
+    stored = row({ surface: "wizard" });
+
+    const revised = await revise({ graph: GATE_GRAPH });
+    expect(revised.ok).toBe(true);
+    expect(revised.surface).toBe("wizard");
+
+    // The same graph without a gate is a valid chat Workflow but not a wizard.
+    const pageless = await revise({});
+    expect(pageless.code).toBe("action_invalid");
+    expect(
+      (pageless.issues as { code: string }[]).map((issue) => issue.code)
+    ).toContain("wizard-without-step");
+    expect(saved).toHaveLength(1);
   });
 
   it("cannot act when the run does not know which agent it is", async () => {

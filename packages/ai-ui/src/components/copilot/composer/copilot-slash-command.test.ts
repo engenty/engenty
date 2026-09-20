@@ -5,6 +5,7 @@ import {
   getSlashQueryAtCursor,
   groupSlashCommands,
   parseLeadingSlashCommand,
+  routeSlashSubmit,
 } from "./copilot-slash-command";
 
 const COMMANDS: ChatSlashCommand[] = [
@@ -118,5 +119,45 @@ describe("groupSlashCommands", () => {
       "help",
       "clear",
     ]);
+  });
+});
+
+describe("routeSlashSubmit", () => {
+  const wizard: ChatSlashCommand = {
+    command: "angebot",
+    kind: "workflow",
+    surface: "wizard",
+    workflowId: "6f1d2c3e-0000-4000-8000-000000000001",
+  };
+
+  it("presses a wizard command where the host can press one", () => {
+    const route = routeSlashSubmit("/angebot Acme", [...COMMANDS, wizard], {
+      canPressWizard: true,
+    });
+    expect(route.kind).toBe("wizard");
+    if (route.kind === "wizard") {
+      expect(route.argsText).toBe("Acme");
+      expect(route.command.workflowId).toBe(wizard.workflowId);
+    }
+  });
+
+  it("sends a wizard command as a message where nothing can press it", () => {
+    expect(
+      routeSlashSubmit("/angebot Acme", [...COMMANDS, wizard], {
+        canPressWizard: false,
+      })
+    ).toEqual({ kind: "message" });
+  });
+
+  it("keeps a chat-surface workflow command a message", () => {
+    expect(
+      routeSlashSubmit("/create-offer", COMMANDS, { canPressWizard: true })
+    ).toEqual({ kind: "message" });
+  });
+
+  it("routes a ui command client-side regardless", () => {
+    expect(
+      routeSlashSubmit("/help", COMMANDS, { canPressWizard: true }).kind
+    ).toBe("ui");
   });
 });

@@ -66,13 +66,42 @@ export function createShowUiPrimitive() {
   });
 }
 
+/**
+ * One ref, for a node that MAPS it from an earlier step.
+ *
+ * A mapping resolves top-level keys only, so `${stepResults.create.output.id}`
+ * can fill a string but never an element of `refs` — and the record a write
+ * step just made is exactly the thing a graph wants to show. `refs` stays the
+ * shape the agent tool speaks; this is its one-at-a-time sibling.
+ */
+const singleRefSchema = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    "One canonical ref ('offers:offer:<id>'), for a node that maps it from an earlier step. Use instead of `refs`."
+  );
+
 export function createShowObjectsPrimitive() {
   return createTool({
     id: SHOW_OBJECTS_TOOL_ID,
     description: SHOW_OBJECTS_DESCRIPTION,
-    inputSchema: showObjectsInputSchema.extend({ entry_id: entryIdSchema }),
+    inputSchema: showObjectsInputSchema
+      .extend({ entry_id: entryIdSchema })
+      .partial({ refs: true })
+      .extend({ ref: singleRefSchema }),
     outputSchema: passthroughOutputSchema,
-    execute: async (input, ctx) => {
+    execute: async (rawInput, ctx) => {
+      const refs =
+        rawInput.refs && rawInput.refs.length > 0
+          ? rawInput.refs
+          : rawInput.ref
+            ? [rawInput.ref]
+            : [];
+      if (refs.length === 0) {
+        return { ok: false, error: "show_objects: no refs to show" };
+      }
+      const input = { ...rawInput, refs };
       const runCtx = readGraphRunContext(ctx.requestContext);
       // Refs only. The agent tool resolves a display snapshot as the VIEWING
       // USER, which is what drops refs that user may not see. A node holds a

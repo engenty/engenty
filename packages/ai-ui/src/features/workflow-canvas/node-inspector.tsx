@@ -8,9 +8,10 @@
 import { Badge, Button, cn, ScrollArea, Separator } from "@engenty/ui-core";
 import { Braces, ListTree, X } from "lucide-react";
 import { useState } from "react";
+import { GateSurfaceCard } from "../wizard/gate-surface-card.js";
 import type { CanvasNodeData, CanvasNodeKind } from "./graph-model.js";
 import { JsonView } from "./json-view.js";
-import type { GraphIssueDto } from "./workflow-api.js";
+import type { GateSurfaceDto, GraphIssueDto } from "./workflow-api.js";
 
 const KIND_TITLE: Record<CanvasNodeKind, string> = {
   agent: "Agent step",
@@ -37,7 +38,7 @@ const KIND_EXPLAINER: Record<CanvasNodeKind, string> = {
   artifact:
     "Produces a deliverable the person can open and download. It appears in their chat with this workflow's specialist.",
   branch: "Routes the flow on a condition. No model turn.",
-  gate: "Pauses the run until a human decides. Nothing downstream happens first.",
+  gate: "Pauses the run until a human decides. Nothing downstream happens first. In a wizard this is one page.",
   input:
     "What a press must provide. Validated before the run starts, and rendered as the run form.",
   loop: "Repeats the inner step for every item.",
@@ -55,6 +56,27 @@ const KIND_EXPLAINER: Record<CanvasNodeKind, string> = {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * The page a `surface` gate draws, when its constants carry one. The three
+ * shorthand kinds (confirm, field_updates, choice) are expanded into a surface
+ * on the server at suspend time; the inspector shows their constants as they
+ * are written. A payload mapped from an earlier step is a reference string
+ * here and is validated when the run reaches the gate.
+ */
+function gateSurfaceOf(args: Record<string, unknown>): GateSurfaceDto | null {
+  if (args.kind !== "surface" || !isPlainObject(args.payload)) {
+    return null;
+  }
+  const { components, data } = args.payload;
+  if (!Array.isArray(components)) {
+    return null;
+  }
+  return {
+    components: components.filter(isPlainObject),
+    ...(isPlainObject(data) ? { data } : {}),
+  };
 }
 
 /** A JSON-Schema-shaped object: something with a `properties` map. */
@@ -194,7 +216,11 @@ export function NodeInspector({
   const nodeIssues = issues.filter(
     (issue) => issue.entryId && node.entryIds.includes(issue.entryId)
   );
-  const args = Object.entries(node.args);
+  const surface = node.kind === "gate" ? gateSurfaceOf(node.args) : null;
+  // The page IS the payload — drawing it twice (card and JSON) says nothing.
+  const args = Object.entries(node.args).filter(
+    ([key]) => !(surface && key === "payload")
+  );
 
   return (
     <aside className="flex h-full w-[320px] shrink-0 flex-col border-l bg-card">
@@ -241,6 +267,27 @@ export function NodeInspector({
                   </li>
                 ))}
               </ul>
+            </div>
+          ) : null}
+
+          {surface ? (
+            <div className="space-y-2">
+              <Separator />
+              <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                page
+              </p>
+              <GateSurfaceCard
+                className="rounded-md border"
+                gate={{
+                  kind: "surface",
+                  surface,
+                  ...(typeof node.args.title === "string"
+                    ? { title: node.args.title }
+                    : {}),
+                }}
+                onSubmit={() => undefined}
+                readOnly
+              />
             </div>
           ) : null}
 

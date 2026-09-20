@@ -134,6 +134,9 @@ export interface ChatCommandCatalogEntry {
   label_key: string | null;
   module_id: string;
   order: number | null;
+  /** `wizard` rows are pressed by the client; `workflow_id` is the stored uuid. */
+  surface?: "wizard";
+  workflow_id?: string;
 }
 
 /** Server chat slash-command catalog (prompt/action kinds; templates stay server-side). */
@@ -173,6 +176,8 @@ export interface RunWorkflowResult {
   requestId: string;
   /** The run to watch — always present; a deduped press returns the existing one. */
   runId: string;
+  /** `wizard` = the run is walked on its own page, not in an inline panel. */
+  surface?: "chat" | "wizard";
   threadId: string;
 }
 
@@ -206,12 +211,14 @@ export async function postAppsAiActionRun(
     deduped?: boolean;
     request_id: string;
     run_id: string;
+    surface?: "chat" | "wizard";
     thread_id: string;
   };
   return {
     deduped: data.deduped ?? false,
     requestId: data.request_id,
     runId: data.run_id,
+    surface: data.surface,
     threadId: data.thread_id,
   };
 }

@@ -6,43 +6,65 @@ import {
 } from "@engenty/query-client";
 import type { StoredGraph } from "./graph-model.js";
 import {
+  cancelWorkflowRun,
   createWorkflow,
   deleteWorkflow,
   draftWorkflow,
   getWorkflow,
   getWorkflowRun,
+  type ListWorkflowsFilter,
   listWorkflowRuns,
   listWorkflows,
   materializeWorkflow,
   publishWorkflowVersion,
+  type ResumeWorkflowRunInput,
   reconcileModuleWorkflows,
   repairWorkflow,
   resumeWorkflowRun,
   reviewWorkflowRun,
   runWorkflow,
   saveWorkflowVersion,
+  timeTravelWorkflowRun,
   updateWorkflow,
   validateWorkflow,
   type WorkflowVersionDto,
 } from "./workflow-api.js";
 
+function normalizeListFilter(
+  filter?: ListWorkflowsFilter | string | null
+): ListWorkflowsFilter {
+  return typeof filter === "string" ? { contextType: filter } : (filter ?? {});
+}
+
 export const workflowKeys = {
   all: ["workflows"] as const,
   detail: (id: string) => [...workflowKeys.all, "detail", id] as const,
-  list: (contextType?: string | null) =>
-    [...workflowKeys.all, "list", contextType ?? "*"] as const,
+  list: (filter?: ListWorkflowsFilter | string | null) => {
+    const { contextType, surface } = normalizeListFilter(filter);
+    return [
+      ...workflowKeys.all,
+      "list",
+      contextType ?? "*",
+      surface ?? "*",
+    ] as const;
+  },
+  run: (runId: string) => [...workflowKeys.all, "run", runId] as const,
 };
 
-export function workflowListOptions(contextType?: string | null) {
+export function workflowListOptions(
+  filter?: ListWorkflowsFilter | string | null
+) {
   return queryOptions({
-    queryFn: ({ signal }) => listWorkflows(contextType, signal),
-    queryKey: workflowKeys.list(contextType),
+    queryFn: ({ signal }) => listWorkflows(normalizeListFilter(filter), signal),
+    queryKey: workflowKeys.list(filter),
     staleTime: 10_000,
   });
 }
 
-export function useWorkflowListQuery(contextType?: string | null) {
-  return useQuery(workflowListOptions(contextType));
+export function useWorkflowListQuery(
+  filter?: ListWorkflowsFilter | string | null
+) {
+  return useQuery(workflowListOptions(filter));
 }
 
 export function useWorkflowQuery(id: string | undefined) {
@@ -167,7 +189,9 @@ export function useMaterializeWorkflowMutation() {
   return useMutation({
     mutationFn: (workflowId: string) => materializeWorkflow(workflowId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: workflowKeys.list() });
+      void queryClient.invalidateQueries({
+        queryKey: [...workflowKeys.all, "list"],
+      });
     },
   });
 }
@@ -198,16 +222,33 @@ export function useRunWorkflowMutation(id: string) {
 export function useResumeRunMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      runId: string;
-      approved: boolean;
-      data?: Record<string, unknown>;
-      reason?: string;
-      step_id?: string;
-    }) => {
+    mutationFn: (input: ResumeWorkflowRunInput & { runId: string }) => {
       const { runId, ...rest } = input;
       return resumeWorkflowRun(runId, rest);
     },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+}
+
+/** Rewind a suspended run to an earlier gate ("Zurück"). */
+export function useTimeTravelRunMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { runId: string; step_path: string[] }) =>
+      timeTravelWorkflowRun(input.runId, { step_path: input.step_path }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+}
+
+/** Stop a run for good. */
+export function useCancelRunMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) => cancelWorkflowRun(runId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workflowKeys.all });
     },
@@ -238,12 +279,25 @@ export function useWorkflowRunsQuery(id: string | undefined) {
  * pending gate are the two things a watcher actually wants live. Settled runs
  * stop polling, because a finished run never changes again.
  */
-export function useWorkflowRunQuery(runId: string | undefined) {
+export function useWorkflowRunQuery(
+  runId: string | undefined,
+  options?: {
+    /**
+     * False turns the polling off — for a host that refetches on its own
+     * signal (the wizard runner follows the run's SSE stream instead).
+     */
+    poll?: boolean;
+  }
+) {
+  const poll = options?.poll ?? true;
   return useQuery({
     enabled: Boolean(runId),
     queryFn: ({ signal }) => getWorkflowRun(runId as string, signal),
-    queryKey: ["workflows", "run", runId ?? ""],
+    queryKey: workflowKeys.run(runId ?? ""),
     refetchInterval: (query) => {
+      if (!poll) {
+        return false;
+      }
       const snapshot = query.state.data?.snapshot;
       // No snapshot yet = the background dispatch hasn't persisted one — a
       // just-pressed run always starts here. Returning false at this point

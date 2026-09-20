@@ -37,6 +37,7 @@
     "@engenty/connections-sdk": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/typesafe-client": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/retrieval": "workspace:*",
     "@engenty/search-index": "workspace:*",

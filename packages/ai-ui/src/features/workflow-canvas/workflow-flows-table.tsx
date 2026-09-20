@@ -13,7 +13,7 @@ import {
 } from "@engenty/ui-core";
 import { FileTerminal, Workflow } from "lucide-react";
 import { formatEngentyActionSource } from "../agents-workspace/workflow-record-utils.js";
-import { FlowStatusBadge } from "./workflow-flows-cards.js";
+import { FlowStatusBadge, FlowSurfaceBadge } from "./workflow-flows-cards.js";
 import type { WorkflowCatalogEntry } from "./workflow-flows-state.js";
 
 interface WorkflowLibraryTableProps {
@@ -37,7 +37,7 @@ export function WorkflowLibraryTable({
           <TableHead className="w-[180px]">
             {t("workflows.columnSource")}
           </TableHead>
-          <TableHead className="w-[110px]">
+          <TableHead className="w-[190px]">
             {t("workflows.columnStatus")}
           </TableHead>
         </TableRow>
@@ -86,7 +86,10 @@ export function WorkflowLibraryTable({
                 : t("workflows.source.authored")}
             </TableCell>
             <TableCell>
-              <FlowStatusBadge flow={flow} />
+              <div className="flex items-center gap-1">
+                <FlowStatusBadge flow={flow} />
+                <FlowSurfaceBadge flow={flow} />
+              </div>
             </TableCell>
           </TableRow>
         ))}

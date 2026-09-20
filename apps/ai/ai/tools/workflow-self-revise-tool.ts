@@ -168,7 +168,10 @@ export function createWorkflowSelfReviseTools(
           outputSchema: input.output_schema ??
             latest?.output_schema ?? { properties: {}, type: "object" },
         };
-        const issues = validateGraphAction(stored);
+        // The row's surface is kept, never re-declared here: a wizard stays a
+        // wizard, so the revision must still carry at least one gate.
+        const surface = existing.surface ?? "chat";
+        const issues = validateGraphAction(stored, { surface });
         if (issues.length > 0) {
           return {
             ok: false as const,
@@ -251,6 +254,7 @@ export function createWorkflowSelfReviseTools(
             ok: true as const,
             workflow_id: existing.id,
             version: version.version,
+            surface,
             note:
               "Saved unapproved. The current version keeps running until a " +
               "human reviews the steps on the canvas and publishes this one — " +

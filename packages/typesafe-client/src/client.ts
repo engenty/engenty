@@ -1,3 +1,4 @@
+import { Agent, fetch as undiciFetch } from "undici";
 import type {
   ModelCard,
   SystemOneRequest,
@@ -21,6 +22,31 @@ export const TYPESAFE_PROBE_PATH = "/v1/models";
 
 /** Status codes worth a retry: rate limit, overloaded, unavailable. */
 const RETRYABLE_STATUS = new Set([429, 503, 529]);
+
+/**
+ * How long an idle connection to Jev stays open. Node's default is 4 s, and a
+ * classifier that runs once per turn or per search is idle longer than that
+ * almost every time — measured 2026-09-20: 300 ms warm, 400+ ms after a
+ * 6 s pause (a fresh TLS handshake), 1.4 s cold in a new process.
+ */
+const KEEP_ALIVE_MS = 60_000;
+let keepAliveDispatcher: Agent | null = null;
+
+/** The default fetch: Node's undici with a long keep-alive, one pool per process. */
+function keepAliveFetch(): typeof fetch {
+  if (!keepAliveDispatcher) {
+    keepAliveDispatcher = new Agent({
+      keepAliveMaxTimeout: KEEP_ALIVE_MS,
+      keepAliveTimeout: KEEP_ALIVE_MS,
+    });
+  }
+  const dispatcher = keepAliveDispatcher;
+  return (input, init) =>
+    undiciFetch(input as string, {
+      ...(init as Record<string, unknown>),
+      dispatcher,
+    }) as unknown as Promise<Response>;
+}
 
 export interface TypeSafeClientOptions {
   apiKey: string;
@@ -112,7 +138,7 @@ export class TypeSafeClient {
       /\/+$/,
       ""
     );
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? keepAliveFetch();
     this.model = options.model ?? DEFAULT_TYPESAFE_MODEL;
     this.retries = Math.max(1, options.retries ?? 3);
     this.timeoutMs = options.timeoutMs ?? 25_000;

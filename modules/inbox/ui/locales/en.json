@@ -126,6 +126,8 @@
   "toasts": {
     "attachmentOpenFailed": "Could not open attachment: {{error}}",
     "categoriesSaved": "Categories saved",
+    "classifierUnavailable": "No classifier is configured — set AI_GATEWAY_API_KEY or TYPESAFE_API_KEY.",
+    "classifyFailed": "Classifying messages failed: {{error}}",
     "copilotOpened": "Opened in Copilot",
     "draftSaved": "Draft saved locally — sending isn’t available yet",
     "settingsFailed": "Saving settings failed: {{error}}",

@@ -132,6 +132,8 @@ export interface CopilotPanelContentProps {
    */
   onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
+  /** A wizard `/command` is pressed by the host, never sent as a message. */
+  onPressWizardCommand?: import("../composer/copilot-composer-section.js").CopilotComposerSectionProps["onPressWizardCommand"];
   /** Approve a pending sandbox command (resumes on the server). */
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
   /** Reject a pending sandbox command. */

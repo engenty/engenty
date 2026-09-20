@@ -360,6 +360,7 @@
   "offerTitlePlaceholder": "e.g. Website Redesign Project",
   "creatingOffer": "Creating offer...",
   "createOfferFailed": "Failed to create offer.",
+  "createOfferWizard": "Create with assistant",
   "newOfferTitle": "New offer",
   "loadFailed": "Failed to load offers.",
   "noOffers": "No offers yet.",

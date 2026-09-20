@@ -2,20 +2,13 @@
 
 import {
   type EngentyA2uiAction,
-  type EngentyA2uiHost,
-  EngentyA2uiHostProvider,
   EngentyA2uiSurfaceView,
 } from "@engenty/a2ui-catalog";
-import {
-  type ObjectRef,
-  parseObjectRef,
-  readA2uiRenderMeta,
-} from "@engenty/ai-core/browser";
+import { parseObjectRef, readA2uiRenderMeta } from "@engenty/ai-core/browser";
 import { cn } from "@engenty/ui-core";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
+import { EngentyA2uiHostBoundary } from "../../../a2ui/engenty-a2ui-host.js";
 import { useObjectDisplayIntent } from "../../../objects/object-display-intent.js";
-import { ObjectFallbackCard } from "../../../objects/object-fallback-card.js";
-import { useObjectWidgets } from "../../../objects/object-widget-registry.js";
 import { useCopilotToolCallActions } from "../interrupts/copilot-tool-call-actions";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 import { ToolCallCardBase } from "./tool-call-card-base";
@@ -25,35 +18,9 @@ import { ToolCallCardBase } from "./tool-call-card-base";
  * replays the persisted v0.9 message list through the engenty-catalog
  * renderer. Actions land on seams that already exist — `open_object` promotes
  * the record through ObjectDisplayIntent, everything else goes back to the
- * agent as a user message over the AG-UI stream.
+ * agent as a user message over the AG-UI stream. The record cards, pickers
+ * and documents inside come from the shared ai-ui host boundary.
  */
-
-/** `Row.objectRef` bridge — the native record card, live data + viewer authz. */
-function A2uiObjectRefRow({ refString }: { refString: string }) {
-  const objectRef = useMemo(() => parseObjectRef(refString), [refString]);
-  const widgets = useObjectWidgets();
-  const { openInPanel } = useObjectDisplayIntent();
-  if (!objectRef) {
-    return null;
-  }
-  const widget =
-    widgets.find(
-      (reg) =>
-        reg.module === objectRef.module && reg.entity === objectRef.entity
-    ) ?? null;
-  if (!widget) {
-    return <ObjectFallbackCard items={[]} refs={[objectRef]} />;
-  }
-  const Card = widget.card;
-  return (
-    <Card
-      onOpenInPanel={
-        openInPanel ? (ref: ObjectRef) => openInPanel(ref) : undefined
-      }
-      refs={[objectRef]}
-    />
-  );
-}
 
 function actionFallbackMessage(action: EngentyA2uiAction): string {
   const readable = action.name.replace(/_/g, " ").trim();
@@ -92,13 +59,6 @@ export function A2uiToolCallCard(props: ToolCallCardProps) {
     [openInPanel, submitMessage]
   );
 
-  const host = useMemo<EngentyA2uiHost>(
-    () => ({
-      renderObjectRef: (ref) => <A2uiObjectRefRow refString={ref} />,
-    }),
-    []
-  );
-
   if (!meta) {
     return (
       <ToolCallCardBase
@@ -110,13 +70,13 @@ export function A2uiToolCallCard(props: ToolCallCardProps) {
   }
 
   const surface = (
-    <EngentyA2uiHostProvider value={host}>
+    <EngentyA2uiHostBoundary>
       <EngentyA2uiSurfaceView
         messages={meta.messages}
         onAction={handleAction}
         surfaceId={meta.surface_id}
       />
-    </EngentyA2uiHostProvider>
+    </EngentyA2uiHostBoundary>
   );
 
   if ((props.state ?? "completed") === "completed") {

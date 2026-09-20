@@ -226,12 +226,25 @@ describe("approval_gate primitive", () => {
     );
     // Assert on the payload argument specifically — Mastra's tool wrapper may
     // pass extra trailing args, which `toHaveBeenCalledWith` would count.
+    // The envelope carries the PAGE, not the raw payload: a confirm gate's
+    // facts become a DetailGrid the card and the wizard render alike.
     expect(suspend.mock.calls[0]?.[0]).toMatchObject({
+      accepts_text: false,
       context_id: "offer-42",
       context_type: "offers.offer",
       kind: "confirm",
-      payload: { amount: 4800, to: "billing@acme.com" },
       request_id: "req-1",
+      surface: {
+        components: expect.arrayContaining([
+          expect.objectContaining({
+            component: "DetailGrid",
+            rows: [
+              { label: "amount", value: "4800" },
+              { label: "to", value: "billing@acme.com" },
+            ],
+          }),
+        ]),
+      },
       title: "Send invoice #2041?",
     });
     expect(setStatus).toHaveBeenCalledWith(

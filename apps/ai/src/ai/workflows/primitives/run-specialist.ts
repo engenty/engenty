@@ -338,6 +338,17 @@ export function createRunSpecialistPrimitive() {
             // null is what makes `isConversationThread` read this as the
             // run's thread rather than somebody's chat.
             createdByUserId: null,
+            // The run this step belongs to, so `threadKind` reads it as a
+            // `run` the way the run's own thread is read. Without it the step
+            // thread looked like a desk line, and the desk opened it as
+            // "where you left off" — showing the person the structured JSON
+            // the specialist answered its graph with.
+            routeContext: {
+              workflow_id: runCtx.workflowId,
+              workflow_run_id: runCtx.requestId,
+              ...(runCtx.routineId ? { routine_id: runCtx.routineId } : {}),
+              ...(runCtx.taskId ? { task_id: runCtx.taskId } : {}),
+            },
             tenantId: runCtx.tenantId,
             title: `Action step — ${input.agent_type_key}`,
             ...(spaceId ? { spaceId } : {}),

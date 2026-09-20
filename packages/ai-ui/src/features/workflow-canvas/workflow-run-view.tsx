@@ -5,13 +5,13 @@
 // The server returns that pinned version with the snapshot, so this component
 // never has to decide.
 //
-// When the run is parked at a gate, the decision card appears beside the canvas
-// with the pending node highlighted — approving is one place, one click, with
-// the actual effect in view.
+// When the run is parked at a gate, the step's surface appears beside the
+// canvas with the pending node highlighted — answering is one place, one
+// click, with the actual effect in view.
 import { Badge, Button, cn, Skeleton } from "@engenty/ui-core";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
-import { GateDecisionCard } from "./gate-decision-card.js";
+import { GateSurfaceCard } from "../wizard/gate-surface-card.js";
 import { WorkflowCanvas } from "./workflow-canvas.js";
 import {
   useResumeRunMutation,
@@ -24,6 +24,8 @@ export interface WorkflowRunViewProps {
 }
 
 const STATUS_TONE: Record<string, string> = {
+  canceled: "border-muted-foreground/40 text-muted-foreground",
+  cancelled: "border-muted-foreground/40 text-muted-foreground",
   failed: "border-destructive/50 text-destructive",
   running: "border-primary/50 text-primary",
   sleeping: "border-sky-500/50 text-sky-600 dark:text-sky-400",
@@ -34,6 +36,8 @@ const STATUS_TONE: Record<string, string> = {
 
 /** Human phrasing for a run's overall state. */
 const STATUS_LABEL: Record<string, string> = {
+  canceled: "Cancelled",
+  cancelled: "Cancelled",
   failed: "Failed",
   running: "Running",
   sleeping: "Sleeping",
@@ -119,13 +123,19 @@ export function WorkflowRunView({ onBack, runId }: WorkflowRunViewProps) {
           selectedNodeId={selectedNodeId ?? gate?.stepId ?? null}
         />
         {gate ? (
-          <aside className="w-[340px] shrink-0 overflow-y-auto border-l bg-card p-4">
-            <GateDecisionCard
+          <aside className="w-[380px] shrink-0 overflow-y-auto border-l bg-card p-4">
+            <GateSurfaceCard
+              answer={snapshot?.answers?.[gate.stepId] ?? null}
               busy={resume.isPending}
               gate={gate}
-              onDecide={(decision) =>
+              onSubmit={(decision) =>
                 resume.mutate(
-                  { runId, ...decision, step_id: gate.stepId },
+                  {
+                    runId,
+                    ...decision,
+                    step_id: gate.stepId,
+                    step_path: gate.path,
+                  },
                   { onSuccess: () => void run.refetch() }
                 )
               }

@@ -135,6 +135,25 @@ function readAnonKey(config: Record<string, unknown>): string {
   );
 }
 
+export const DEV_LOGIN_FALLBACK_EMAIL = "agent@engenty.local";
+
+/**
+ * Pick the address the dev session is minted for.
+ *
+ * Empty-or-missing must fall through at every step. `envString()` returns ""
+ * for an unset ENGENTY_DEV_EMAIL, so the `??` chain this replaced kept that
+ * empty string and the fallback could never fire: the request reached Supabase
+ * with an empty email and came back "Cannot create a user without either an
+ * email or phone", which the agent-login page rendered instead of redirecting.
+ * Local checkouts get the variable from `engenty env init`, so only CI hit it.
+ */
+export function resolveDevLoginEmail(
+  queryEmail: string | undefined,
+  defaultEmail: string
+): string {
+  return queryEmail?.trim() || defaultEmail.trim() || DEV_LOGIN_FALLBACK_EMAIL;
+}
+
 /** Create/update the Supabase user so its password equals the dev pass. */
 async function ensureDevUser(
   admin: SupabaseClient,
@@ -276,11 +295,7 @@ export function registerDevLoginRoutes(params: {
     }
     const { devPass, defaultEmail } = readDevLoginConfig(config);
 
-    const email = (
-      c.req.query("email") ??
-      defaultEmail ??
-      "agent@engenty.local"
-    ).trim();
+    const email = resolveDevLoginEmail(c.req.query("email"), defaultEmail);
     const supabaseUrl = readSupabaseUrl(config);
     const serviceRoleKey = readServiceRoleKey(config);
     const anonKey = readAnonKey(config);

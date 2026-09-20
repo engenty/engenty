@@ -24,6 +24,63 @@ export interface ChatSlashCommand {
    * Receives the free text typed after the command token.
    */
   run?: (argsText: string) => void;
+  /**
+   * kind=workflow only — `wizard` marks a run walked one step per page. The
+   * composer presses it directly instead of sending a message.
+   */
+  surface?: "wizard";
+  /** kind=workflow only — the stored workflow the command presses. */
+  workflowId?: string;
+}
+
+/** Where a submitted draft goes once its leading `/token` is read. */
+export type SlashSubmitRoute =
+  | { argsText: string; command: ChatSlashCommand; kind: "ui" }
+  | {
+      argsText: string;
+      command: ChatSlashCommand & { surface: "wizard"; workflowId: string };
+      kind: "wizard";
+    }
+  | { kind: "message" };
+
+/**
+ * A `ui` command runs client-side; a wizard command is pressed client-side
+ * when the host can press one; everything else is a message for the agent —
+ * including a wizard command on a host that cannot press it, where the
+ * agent then narrates the press as it always did.
+ */
+export function routeSlashSubmit(
+  text: string,
+  commands: readonly ChatSlashCommand[],
+  options: { canPressWizard: boolean }
+): SlashSubmitRoute {
+  const match = parseLeadingSlashCommand(text, commands);
+  if (!match) {
+    return { kind: "message" };
+  }
+  if (match.command.kind === "ui") {
+    return { argsText: match.argsText, command: match.command, kind: "ui" };
+  }
+  if (options.canPressWizard && isWizardSlashCommand(match.command)) {
+    return {
+      argsText: match.argsText,
+      command: match.command,
+      kind: "wizard",
+    };
+  }
+  return { kind: "message" };
+}
+
+/** A wizard command is pressed by the client, never narrated by the agent. */
+export function isWizardSlashCommand(
+  command: Pick<ChatSlashCommand, "kind" | "surface" | "workflowId">
+): command is ChatSlashCommand & { surface: "wizard"; workflowId: string } {
+  return (
+    command.kind === "workflow" &&
+    command.surface === "wizard" &&
+    typeof command.workflowId === "string" &&
+    command.workflowId.length > 0
+  );
 }
 
 const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*$/;

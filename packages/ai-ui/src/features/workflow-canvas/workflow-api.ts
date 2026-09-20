@@ -4,6 +4,13 @@ import type { StoredGraph } from "./graph-model.js";
 
 export type WorkflowStatus = "draft" | "active" | "disabled";
 
+/**
+ * Where a workflow's steps are answered. `chat` = the cards land in the
+ * owning specialist's chat; `wizard` = the run is walked one step per page
+ * on `/s/<key>/workflows/<id>/runs/<runId>` and listed as a slash command.
+ */
+export type WorkflowSurface = "chat" | "wizard";
+
 export interface WorkflowDto {
   context_type: string | null;
   created_at: string;
@@ -17,6 +24,7 @@ export interface WorkflowDto {
   /** Module workflow this row reconciles from; null on an authored flow. */
   source_workflow_id?: string | null;
   status: WorkflowStatus;
+  surface?: WorkflowSurface;
   /** Display title generated at save; `name` stays the stable key. */
   title?: string | null;
   updated_at: string;
@@ -46,13 +54,25 @@ const BASE = "/ai/v1/workflows";
 /** Generous: a draft plus one repair round is two full model turns. */
 const DRAFT_TIMEOUT_MS = 600_000;
 
+export interface ListWorkflowsFilter {
+  contextType?: string | null;
+  surface?: WorkflowSurface | null;
+}
+
 export function listWorkflows(
-  contextType?: string | null,
+  filter?: ListWorkflowsFilter | string | null,
   signal?: AbortSignal
 ): Promise<{ graphs: WorkflowDto[] }> {
-  const query = contextType
-    ? `?context_type=${encodeURIComponent(contextType)}`
-    : "";
+  const normalized: ListWorkflowsFilter =
+    typeof filter === "string" ? { contextType: filter } : (filter ?? {});
+  const search = new URLSearchParams();
+  if (normalized.contextType) {
+    search.set("context_type", normalized.contextType);
+  }
+  if (normalized.surface) {
+    search.set("surface", normalized.surface);
+  }
+  const query = search.size > 0 ? `?${search.toString()}` : "";
   return requestAiServiceJson(`${BASE}${query}`, { signal });
 }
 
@@ -85,6 +105,7 @@ export function draftWorkflow(input: {
   context_type?: string | null;
   description: string;
   name: string;
+  surface?: WorkflowSurface;
   /**
    * Client-minted UUID for the first drafting round. Attach
    * `GET /ai/v1/runs/:id/stream` with it to watch the draft being written —
@@ -146,6 +167,7 @@ export function updateWorkflow(
     context_type?: string | null;
     description?: string | null;
     name?: string;
+    surface?: WorkflowSurface;
   }
 ): Promise<{ graph: WorkflowDto }> {
   return requestAiServiceJson(`${BASE}/${encodeURIComponent(id)}`, {
@@ -236,36 +258,100 @@ export function publishWorkflowVersion(
   });
 }
 
-export function runWorkflow(
-  id: string,
-  input: {
-    context?: { id?: string; type?: string };
-    input?: Record<string, unknown>;
-  }
-): Promise<{
+export interface RunWorkflowInput {
+  context?: { id?: string; type?: string };
+  input?: Record<string, unknown>;
+  /** Fallback for callers that cannot set the space header. */
+  space_id?: string;
+  trigger?: "command" | "press";
+}
+
+export interface RunWorkflowResponse {
   deduped?: boolean;
   request_id?: string;
   run_id: string;
+  surface?: WorkflowSurface;
   thread_id: string;
-}> {
+}
+
+/** Start a run of a stored workflow by its uuid. */
+export function runWorkflow(
+  id: string,
+  input: RunWorkflowInput
+): Promise<RunWorkflowResponse> {
   return requestAiServiceJson(`${BASE}/${encodeURIComponent(id)}/run`, {
     body: JSON.stringify(input),
     method: "POST",
   });
 }
 
+/** A declared module workflow id is dotted (`offers.create`), never a uuid. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isStoredWorkflowId(workflowId: string): boolean {
+  return UUID_PATTERN.test(workflowId);
+}
+
+/**
+ * Start a run by either id shape: a stored uuid presses `/:id/run`, a module
+ * id presses `/by-source/:id/run`. Both answer the same shape.
+ */
+export function runWorkflowByAnyId(
+  workflowId: string,
+  input: RunWorkflowInput
+): Promise<RunWorkflowResponse> {
+  if (isStoredWorkflowId(workflowId)) {
+    return runWorkflow(workflowId, input);
+  }
+  return requestAiServiceJson(
+    `${BASE}/by-source/${encodeURIComponent(workflowId)}/run`,
+    { body: JSON.stringify(input), method: "POST" }
+  );
+}
+
+export interface ResumeWorkflowRunInput {
+  approved: boolean;
+  data?: Record<string, unknown>;
+  /** The submit action's name (`next`, `ok`, `utterance`, …). */
+  event?: string;
+  reason?: string;
+  /** Leaf step id — read by servers that predate `step_path`. */
+  step_id?: string;
+  /** Full resume path; a gate inside a loop or sub-workflow needs it. */
+  step_path?: string[];
+}
+
 export function resumeWorkflowRun(
   runId: string,
-  input: {
-    approved: boolean;
-    data?: Record<string, unknown>;
-    reason?: string;
-    step_id?: string;
-  }
-): Promise<{ ok: true; outcome: { status: string } }> {
+  input: ResumeWorkflowRunInput
+): Promise<{ ok: true; run_id: string }> {
   return requestAiServiceJson(
     `${BASE}/runs/${encodeURIComponent(runId)}/resume`,
     { body: JSON.stringify(input), method: "POST" }
+  );
+}
+
+/**
+ * Rewind a suspended run to an earlier gate. The gate re-executes and
+ * suspends again; everything after it runs afresh. 409 when the run is not
+ * suspended.
+ */
+export function timeTravelWorkflowRun(
+  runId: string,
+  input: { step_path: string[] }
+): Promise<{ ok: true; run_id: string }> {
+  return requestAiServiceJson(
+    `${BASE}/runs/${encodeURIComponent(runId)}/time-travel`,
+    { body: JSON.stringify(input), method: "POST" }
+  );
+}
+
+/** Stop a run for good. Artifacts it wrote stay on its thread. */
+export function cancelWorkflowRun(runId: string): Promise<{ ok: true }> {
+  return requestAiServiceJson(
+    `${BASE}/runs/${encodeURIComponent(runId)}/cancel`,
+    { body: "{}", method: "POST" }
   );
 }
 
@@ -284,12 +370,46 @@ export interface WorkflowRunDto {
   context_type: string | null;
   created_at: string;
   id: string;
+  /** Settled outcome text, when the run reported one. */
+  outcome?: string | null;
   reason: string | null;
   run_id: string | null;
   status: string;
+  summary?: string | null;
+  thread_id?: string | null;
   updated_at: string;
   wake_at?: string | null;
+  workflow_id?: string | null;
   workflow_version_id?: string | null;
+}
+
+/** The A2UI surface a suspended gate asks with — `show_ui`'s input shape. */
+export interface GateSurfaceDto {
+  components: Record<string, unknown>[];
+  data?: Record<string, unknown>;
+}
+
+export type GateKind = "confirm" | "field_updates" | "choice" | "surface";
+
+/** A suspended gate as the snapshot reports it. */
+export interface GraphRunGateDto {
+  /** Free text from the composer resumes this gate as `event: "utterance"`. */
+  accepts_text: boolean;
+  kind: GateKind;
+  /** Full resume path — `["draft-loop", "review"]` for a gate inside a loop. */
+  path: string[];
+  /** Leaf step id; keys `nodes` and `answers`. */
+  stepId: string;
+  surface: GateSurfaceDto;
+  title?: string;
+}
+
+/** What a gate was answered with — prefill when the run is rewound to it. */
+export interface GraphRunAnswerDto {
+  approved: boolean;
+  data?: Record<string, unknown>;
+  event?: string;
+  reason?: string;
 }
 
 export interface GraphRunSnapshotDto {
@@ -299,12 +419,9 @@ export interface GraphRunSnapshotDto {
    * flow's run.
    */
   agentRuns?: { runId: string; stepId: string; threadId?: string }[];
-  gate?: {
-    kind?: string;
-    payload?: Record<string, unknown>;
-    stepId: string;
-    title?: string;
-  };
+  /** Every gate step's last answer, keyed by leaf step id. */
+  answers?: Record<string, GraphRunAnswerDto>;
+  gate?: GraphRunGateDto;
   nodes: Record<
     string,
     {

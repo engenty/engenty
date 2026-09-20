@@ -22,6 +22,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import type { EngentyKind } from "@engenty/ui-core";
 import { MessagesSquare } from "lucide-react";
 import { type ComponentType, useCallback, useMemo } from "react";
+import { request } from "./api/client";
 import type { Space } from "./api/spaces-client";
 import { useSpacePeople } from "./use-space-people";
 import { useSpaceRosterAgents } from "./use-space-roster-agents";
@@ -89,6 +90,9 @@ export function useSpaceMentionRefSearch(
   const peopleGroup = t("spaces.agents.mentions.people");
   const roomsGroup = t("spaces.agents.mentions.rooms", {
     defaultValue: "Rooms",
+  });
+  const recordsGroup = t("spaces.agents.mentions.records", {
+    defaultValue: "Records",
   });
   const artifactsGroup = t("spaces.agents.mentions.artifacts", {
     defaultValue: "Artifacts",
@@ -169,7 +173,16 @@ export function useSpaceMentionRefSearch(
             sublabel: artifact.type,
           })
         );
-      return [...agentRows, ...peopleRows, ...roomRows, ...artifactRows];
+      const recordRows = query
+        ? await searchRecords(rawQuery, recordsGroup)
+        : [];
+      return [
+        ...agentRows,
+        ...peopleRows,
+        ...roomRows,
+        ...artifactRows,
+        ...recordRows,
+      ];
     },
     [
       agentNameById,
@@ -179,8 +192,65 @@ export function useSpaceMentionRefSearch(
       artifactsGroup,
       people,
       peopleGroup,
+      recordsGroup,
       rooms,
       roomsGroup,
     ]
   );
+}
+
+const RECORD_LIMIT = 8;
+
+interface WorkspaceSearchItem {
+  doc_id: string;
+  source_type: string;
+  text?: string | null;
+  title?: string | null;
+}
+
+/** A ranked hit wraps the indexed item; older shapes carried the item flat. */
+type WorkspaceSearchMatch = WorkspaceSearchItem | { item: WorkspaceSearchItem };
+
+function matchItem(match: WorkspaceSearchMatch): WorkspaceSearchItem {
+  return "item" in match ? match.item : match;
+}
+
+/**
+ * Module records (contacts, offers, …) through the unified workspace search —
+ * the same lexical index every module search tool answers from, scoped by
+ * the server to the spaces the caller may enter. A source type
+ * "contacts.contact" is the entity "contacts:contact"; the match's doc id is
+ * the record id, so the ref is the canonical ObjectRef.
+ */
+async function searchRecords(
+  query: string,
+  group: string
+): Promise<MentionRefCandidate[]> {
+  try {
+    const response = await request<{
+      data?: { matches?: WorkspaceSearchMatch[] };
+      matches?: WorkspaceSearchMatch[];
+    }>("/api/workspace-search", {
+      body: { limit: RECORD_LIMIT, query: query.trim() },
+      method: "POST",
+    });
+    const matches = response.data?.matches ?? response.matches ?? [];
+    return matches
+      .map(matchItem)
+      .filter((item) => item.doc_id && item.source_type.includes("."))
+      .map((item): MentionRefCandidate => {
+        const entity = item.source_type.replace(".", ":");
+        return {
+          entity,
+          group,
+          label: item.title?.trim() || item.doc_id,
+          ref: `${entity}:${item.doc_id}`,
+          ...(item.text?.trim()
+            ? { sublabel: item.text.trim().slice(0, 80) }
+            : {}),
+        };
+      });
+  } catch {
+    return [];
+  }
 }

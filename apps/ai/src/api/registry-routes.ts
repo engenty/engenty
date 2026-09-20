@@ -316,6 +316,25 @@ export function registerRegistryRoutes(
     return unknown;
   }
 
+  /**
+   * One refusal for both agent-side writers (create and propose), so a hire
+   * and a self-revision fail the same way and say the same thing.
+   */
+  function unknownToolsError(unknown: readonly string[]) {
+    return {
+      error: "agent_registry.unknownTools",
+      message:
+        `These are not tool ids: ${unknown.join(", ")}. ` +
+        "Module operations are reached through the catalog " +
+        "(engenty_tool_execute) and pre-approved via approval grants — " +
+        "they do not go in toolIds. The browser tools (browser_goto, " +
+        "browser_snapshot, …) are not tool ids either: they arrive on a run " +
+        "from the space's own browser, so an agent that needs the web is " +
+        "hired without them.",
+      unknown_tool_ids: [...unknown],
+    };
+  }
+
   // Who a hire reports to in the spaces it is mounted on — routing for its
   // reports, written on the mount, never on the registry row.
   const reportsToSchema = z
@@ -373,18 +392,7 @@ export function registerRegistryRoutes(
         parsed.data.toolIds ?? []
       );
       if (unknownTools.length > 0) {
-        return c.json(
-          {
-            error: "agent_registry.unknownTools",
-            message:
-              `These are not tool ids: ${unknownTools.join(", ")}. ` +
-              "Module operations are reached through the catalog " +
-              "(engenty_tool_execute) and pre-approved via approval grants — " +
-              "they do not go in toolIds.",
-            unknown_tool_ids: unknownTools,
-          },
-          400
-        );
+        return c.json(unknownToolsError(unknownTools), 400);
       }
       const core = coreClientForScope(resolved.scope, createCoreClient);
       // Core refuses the mount past the limit too; checking first keeps a
@@ -511,6 +519,17 @@ export function registerRegistryRoutes(
           },
           400
         );
+      }
+      // Same gate as the create route: a proposal carrying ids the registry
+      // can't provide is a broken agent the moment a human approves it —
+      // assembly throws agent_threads.unknownTool and every message 400s.
+      // Catch it here, where the proposing agent can still fix its own call.
+      const unknownProposedTools = await unresolvableToolIds(
+        getRegistry?.(resolved.scope.tenantId),
+        parsed.data.toolIds ?? []
+      );
+      if (unknownProposedTools.length > 0) {
+        return c.json(unknownToolsError(unknownProposedTools), 400);
       }
       let proposedSpaceId: string | null = null;
       if (

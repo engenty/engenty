@@ -4,6 +4,18 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.14] - 2026-09-20
+- ADDED **[ai]** Check a proposed hire for real tool ids, like a live one
+- ADDED **[workflows]** Wizards — a graph run walked one page at a time
+- ADDED **[kb]** Verify search candidates with Jev
+- ADDED **[inbox]** Classify message categories with Jev
+- ADDED **[ai]** Auto effort sizes turns with Jev instead of a language model
+- ADDED **[typesafe-client]** Resolve Jev in one place behind a pooled connection
+- FIXED **[wizards]** The desk keeps the record's card, not the specialist's JSON
+- FIXED **[wizards]** A pressed wizard stays in the desk's dock until it settles
+- FIXED **[ci]** Give the smoke lane the VITE_ env its browser needs (#20)
+- FIXED **[ci]** Stop the open snapshot eating package.json's trailing newline (#21)
+
 ## [0.2.13] - 2026-09-20
 - FIXED **[ci]** Pre-pull the images production runs, and verify the release after it lands (#19)
 - FIXED **[ci]** Publish the engenty CLI via npm Trusted Publishing (#17)

@@ -13,6 +13,7 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@engenty/ui-core";
+import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import {
   AlertCircle,
   CheckCircle2,
@@ -20,17 +21,39 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ActionContext } from "../../ag-ui/apps-ai/apps-ai-api.js";
 import {
   postAppsAiRunFieldUpdates,
   resolveEngentyAiServiceBaseUrl,
 } from "../../ag-ui/apps-ai/apps-ai-api.js";
+import { spaceWorkflowRunPath } from "../../features/wizard/wizard-paths.js";
 import type { RunWorkflowResult } from "../../hooks/use-run-workflow.js";
 import { useRunWorkflow } from "../../hooks/use-run-workflow.js";
 import { useWorkflowPressRun } from "../../hooks/use-workflow-press-run.js";
 import { COMPACT_MARKDOWN_PROSE_CLASSNAME } from "../../lib/admin/compact-markdown-prose-classname.js";
 import { MessageResponse } from "../presentation.js";
+
+/**
+ * Where a pressed wizard goes: its own page inside the current space. Null
+ * outside a space — the press then stays an inline run.
+ */
+function useWizardRunNavigation():
+  | ((workflowId: string, runId: string) => void)
+  | null {
+  const { currentSpace } = useWorkspaceContext();
+  const navigate = useNavigate();
+  const spaceKey = currentSpace?.key ?? null;
+  return useMemo(
+    () =>
+      spaceKey
+        ? (workflowId: string, runId: string) =>
+            navigate(spaceWorkflowRunPath(spaceKey, workflowId, runId))
+        : null,
+    [navigate, spaceKey]
+  );
+}
 
 // How long a "Done" with no message lingers before the button resets to idle.
 const DONE_LINGER_MS = 6000;
@@ -73,6 +96,7 @@ export function WorkflowButton({
 }: WorkflowButtonProps) {
   const { t } = useTranslation("ai-ui");
   const { mutate, isPending } = useRunWorkflow();
+  const openWizardRun = useWizardRunNavigation();
   const [press, setPress] = useState<{ runId: string } | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -132,15 +156,30 @@ export function WorkflowButton({
       { workflowId, context, input, threadId },
       {
         onSuccess: (result) => {
+          onDispatched?.(result);
+          // A wizard is walked on its own page, one step at a time — the
+          // inline run panel is for runs that report back here.
+          if (result.surface === "wizard" && openWizardRun) {
+            openWizardRun(workflowId, result.runId);
+            return;
+          }
           // Deduped or fresh, there is always a run to watch — a press while
           // this subject's run is in flight attaches to THAT run.
           setPress({ runId: result.runId });
-          onDispatched?.(result);
         },
         onError: (err) => onError?.(err),
       }
     );
-  }, [workflowId, context, input, threadId, mutate, onDispatched, onError]);
+  }, [
+    workflowId,
+    context,
+    input,
+    threadId,
+    mutate,
+    onDispatched,
+    onError,
+    openWizardRun,
+  ]);
 
   function handleClick() {
     if (!running && (needsApproval || (phase && hasMessage))) {

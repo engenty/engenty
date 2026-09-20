@@ -225,11 +225,16 @@ export function InvoiceEditPage(props?: {
   const handleSave = useCallback(async () => {
     try {
       await persist();
+      // Embedded, the host owns the URL and the saved invoice is still what
+      // the pane is showing — navigating would eject the reader from it.
+      if (embedded) {
+        return;
+      }
       navigate(`/mdl/invoices/${invoice?.id ?? ""}`);
     } catch {
       // surfaced via mutation state
     }
-  }, [persist, navigate, invoice?.id]);
+  }, [embedded, persist, navigate, invoice?.id]);
 
   const handleIssue = useCallback(async () => {
     if (!invoice) {
@@ -238,11 +243,15 @@ export function InvoiceEditPage(props?: {
     try {
       await persist();
       await issueMutation.mutateAsync(invoice.id);
+      // Embedded, the phase switch alone shows the issued invoice in place.
+      if (embedded) {
+        return;
+      }
       navigate(`/mdl/invoices/${invoice.id}`);
     } catch {
       // surfaced via mutation state
     }
-  }, [invoice, persist, issueMutation, navigate]);
+  }, [embedded, invoice, persist, issueMutation, navigate]);
 
   const handleDeleteConfirmed = useCallback(async () => {
     if (!invoice) {

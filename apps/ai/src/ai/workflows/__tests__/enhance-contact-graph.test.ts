@@ -176,7 +176,15 @@ describe("contacts.enhance-contact", () => {
     // the patch itself — evidence rides in the title instead.
     const gate = result.steps?.review;
     expect(gate?.suspendPayload?.kind).toBe("field_updates");
-    expect(gate?.suspendPayload?.payload).toEqual(RESEARCHED.updates);
+    // The page is the patch, one editable field per key, prefilled.
+    expect(gate?.suspendPayload?.surface?.data).toEqual(RESEARCHED.updates);
+    expect(
+      gate?.suspendPayload?.surface?.components.map(
+        (component: { component: string }) => component.component
+      )
+    ).toEqual(
+      expect.arrayContaining(["Form", "TextField", "Actions", "Button"])
+    );
     expect(gate?.suspendPayload?.title).toContain(RESEARCHED.evidence_summary);
   });
 

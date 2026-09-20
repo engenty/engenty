@@ -540,6 +540,48 @@ describe("registry-routes", () => {
     });
   });
 
+  it("refuses a proposal naming tool ids the registry cannot provide", async () => {
+    // A proposal is not a draft: approving it writes the row the assembler
+    // reads, and an id nothing can resolve makes every later message fail
+    // with agent_threads.unknownTool. The browser tools are the live case —
+    // they arrive on a run from the space's browser, never from the registry.
+    const proposeAgent = vi.fn();
+    const app = new Hono();
+    registerRegistryRoutes(app, {
+      getRegistry: () =>
+        ({
+          getAgentConfig: vi.fn(),
+          getTool: vi.fn(async (id: string) =>
+            id === "web_search" ? { id } : undefined
+          ),
+          listAgentConfigs: vi.fn(),
+        }) as any,
+      getStore: () => ({ proposeAgent }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request(
+      "/ai/registry/agents/shopping.buyer/propose",
+      {
+        body: JSON.stringify({
+          instructions: "You are a helpful assistant.",
+          model: "gpt-4",
+          name: "Shopping Buyer",
+          toolIds: ["web_search", "browser_goto", "browser_click"],
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }
+    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "agent_registry.unknownTools",
+      unknown_tool_ids: ["browser_goto", "browser_click"],
+    });
+    expect(proposeAgent).not.toHaveBeenCalled();
+    expect(notifyProposed).not.toHaveBeenCalled();
+  });
+
   it("resolves the proposal notification on reject", async () => {
     const rejectAgent = vi.fn().mockResolvedValue(true);
     const app = new Hono();

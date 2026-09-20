@@ -32,13 +32,60 @@ export interface ChatCommandDefinition {
   module_id: string;
   order?: number;
   /**
+   * kind=workflow — how the run is experienced. `wizard`: the client presses
+   * the workflow itself (no agent turn) and the run opens step by step;
+   * `workflow_id` is then the STORED workflow id.
+   */
+  surface?: "chat" | "wizard";
+  /**
    * kind=prompt — the expansion template. `{input}` interpolates the free text
    * typed after the command; `{argName}` interpolates declared args when the
    * client sends structured values (v1: `{input}` only).
    */
   template?: string;
-  /** kind=action — the module action or strict snake_case tool id to direct the agent at. */
+  /** kind=workflow — the module workflow id, or the stored workflow id of a wizard. */
   workflow_id?: string;
+}
+
+/** An @-mentioned reference typed beside a command. */
+export interface ChatCommandReference {
+  entity?: string;
+  label?: string;
+  /** Canonical ObjectRef: "<module>:<entity>:<id>" | "core:user:<id>" | "artifact:<id>". */
+  ref: string;
+}
+
+function referenceId(ref: string): string {
+  return ref.split(":").at(-1)?.trim() ?? ref;
+}
+
+/**
+ * The workflow input a command press carries: `ref` args take the id of the
+ * matching @-mention, the single textual arg takes the free text. Shared by
+ * the server (a command inside a chat turn) and the client (a wizard pressed
+ * without one), so both agree on what the person typed.
+ */
+export function chatCommandArgsToWorkflowInput(input: {
+  argsText: string;
+  command: Pick<ChatCommandDefinition, "args">;
+  refs: readonly ChatCommandReference[];
+}): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const args = input.command.args ?? [];
+  const textual = args.filter((arg) => arg.type !== "ref");
+  for (const arg of args) {
+    if (arg.type === "ref") {
+      const match = input.refs.find(
+        (ref) => !arg.ref_entity || ref.entity === arg.ref_entity
+      );
+      if (match) {
+        result[arg.name] = referenceId(match.ref);
+      }
+    } else if (textual.length === 1 && input.argsText) {
+      result[arg.name] = input.argsText;
+    }
+  }
+  return result;
 }
 
 const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*$/;

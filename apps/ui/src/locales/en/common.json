@@ -871,7 +871,8 @@
         "agents": "Agents",
         "artifacts": "Artifacts",
         "people": "People",
-        "rooms": "Rooms"
+        "rooms": "Rooms",
+        "records": "Records"
       },
       "copiedId": "Copied",
       "copyId": "Copy agent ID",
@@ -1277,6 +1278,9 @@
         "line": "{{when}}",
         "all": "All {{count}} artifacts"
       },
+      "workflows": {
+        "title": "Workflows"
+      },
       "modules": {
         "mount": "Mount a module"
       },
@@ -1670,6 +1674,9 @@
       "roomTitle": "Rooms",
       "roomHint": "Named chats with members. Join the open ones; private ones are by invitation.",
       "intro": "Every conversation held in this space: rooms, the agents' desks, your direct messages."
+    },
+    "workflows": {
+      "crumb": "Workflow"
     },
     "artifacts": {
       "section": "Artifacts",

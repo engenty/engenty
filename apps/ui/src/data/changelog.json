@@ -1,7 +1,73 @@
 [
   {
+    "version": "v0.2.14",
+    "timestamp": 1789934256,
+    "commits": [
+      {
+        "id": "eb6828a",
+        "message": "check a proposed hire for real tool ids, like a live one",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "497c2ce",
+        "message": "the desk keeps the record's card, not the specialist's JSON",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e3eb3f0",
+        "message": "a pressed wizard stays in the desk's dock until it settles",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9407afd",
+        "message": "wizards — a graph run walked one page at a time",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c80e1c1",
+        "message": "verify search candidates with Jev",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "241c695",
+        "message": "classify message categories with Jev",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "994ae5b",
+        "message": "Auto effort sizes turns with Jev instead of a language model",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a803544",
+        "message": "resolve Jev in one place behind a pooled connection",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a01303b",
+        "message": "give the smoke lane the VITE_ env its browser needs (#20)",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6e6d8cc",
+        "message": "stop the open snapshot eating package.json's trailing newline (#21)",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.13",
-    "timestamp": 1789894206,
+    "timestamp": 1789894253,
     "commits": [
       {
         "id": "10083b5",

@@ -31,6 +31,10 @@ import {
   spaceMirrorPath,
   spacePlacedModuleIds,
 } from "@/lib/space-route-mirrors";
+import {
+  SPACE_WORKFLOW_ROUTE_PATTERN,
+  SPACE_WORKFLOW_RUN_ROUTE_PATTERN,
+} from "@/lib/space-routes";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
@@ -54,6 +58,7 @@ import { SpaceLayout } from "@/pages/SpaceLayout";
 import { SpaceRoomPage } from "@/pages/SpaceRoomPage";
 import { SpaceSettingsPage } from "@/pages/SpaceSettingsPage";
 import { SpacesSettingsPage } from "@/pages/SpacesSettingsPage";
+import { SpaceWorkflowPage } from "@/pages/SpaceWorkflowPage";
 import { SpaceWorkHome } from "@/pages/SpaceWorkHome";
 import { TenantSettingsPage } from "@/pages/TenantSettingsPage";
 import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
@@ -464,6 +469,17 @@ export function AuthenticatedRoutes({
           <Route
             element={<SpaceRoomPage canManageAgents={isAdmin} />}
             path="rooms/:threadId"
+          />
+          {/* A wizard: page 0 by workflow id (stored uuid or module id), a run
+              by its run id. `workflows` is a reserved segment for the same
+              reason `rooms` is. */}
+          <Route
+            element={<SpaceWorkflowPage />}
+            path={SPACE_WORKFLOW_ROUTE_PATTERN}
+          />
+          <Route
+            element={<SpaceWorkflowPage />}
+            path={SPACE_WORKFLOW_RUN_ROUTE_PATTERN}
           />
           {/* The space's Data tree — its own page, not a module's. `data` is a
               RESERVED segment (space-module-url.ts) for the same reason

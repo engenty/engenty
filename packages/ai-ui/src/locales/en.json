@@ -37,7 +37,9 @@
       },
       "stop": "Stop",
       "submit": "Draft workflow",
-      "title": "New workflow"
+      "title": "New workflow",
+      "wizardLabel": "Wizard",
+      "wizardHint": "A person walks the run one page at a time; every approval gate is a page."
     },
     "editor": {
       "applyChange": "Apply the change",
@@ -132,7 +134,12 @@
     "subtitle": "The shared workflows every specialist can use. A workflow takes input parameters and is called from a button, a slash command, a routine or an agent — its steps are one agent turn or a whole graph.",
     "tableView": "List view",
     "title": "Workflow library",
-    "viewMode": "View layout"
+    "viewMode": "View layout",
+    "surface": {
+      "wizard": "Wizard",
+      "toggleHint": "Open this workflow step by step instead of in the chat",
+      "switchFailed": "Could not switch the surface"
+    }
   },
   "actions": {
     "save": "Save",
@@ -548,6 +555,10 @@
       "owner": "Owner",
       "privateHint": "Private room — only its members see this",
       "title": "Room"
+    },
+    "wizard": {
+      "answerOrCancel": "Answer the step above or cancel the run.",
+      "utterancePlaceholder": "Reply to this step…"
     }
   },
   "agentDetail": {
@@ -2070,6 +2081,49 @@
         "closed": "Disconnected.",
         "error": "The live view failed."
       }
+    }
+  },
+  "gateSurface": {
+    "back": "Back",
+    "busy": "Working…",
+    "cancel": "Cancel",
+    "cancelConfirm": {
+      "title": "Cancel this run?",
+      "body": "The run stops here. What it produced so far stays in its thread.",
+      "keep": "Keep going",
+      "confirm": "Cancel run"
+    },
+    "shorthand": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "next": "Continue",
+      "note": "Note (optional)"
+    }
+  },
+  "wizard": {
+    "done": "Done",
+    "error": "That did not go through.",
+    "restart": "Start over",
+    "start": "Start",
+    "state": {
+      "cancelled": "Cancelled",
+      "completed": "Finished",
+      "failed": "Failed",
+      "gate": "Waiting for you",
+      "running": "Working…",
+      "sleeping": "Sleeping",
+      "sleepingUntil": "Sleeping until {{when}}",
+      "starting": "Starting…"
+    }
+  },
+  "a2uiHost": {
+    "artifactLoading": "Loading document…",
+    "artifactUnavailable": "This document is not available.",
+    "objectPicker": {
+      "clear": "Clear",
+      "empty": "Nothing found.",
+      "placeholder": "Search…",
+      "searching": "Searching…"
     }
   }
 }

@@ -284,6 +284,15 @@ export function InboxClientPage() {
       classify.mutate(
         {},
         {
+          // Without this the button simply stops spinning: a missing Jev key
+          // throws `inbox_classifier_unavailable`, which needs its own line
+          // because it is fixed in the environment, not by retrying.
+          onError: (error) =>
+            toast.error(
+              String(error).includes("inbox_classifier_unavailable")
+                ? t("toasts.classifierUnavailable")
+                : t("toasts.classifyFailed", { error: String(error) })
+            ),
           onSuccess: (result) => {
             if (result.remaining > 0) {
               runBatch();
@@ -293,7 +302,7 @@ export function InboxClientPage() {
       );
     };
     runBatch();
-  }, [classify]);
+  }, [classify, t]);
 
   const openThread = useCallback(
     (id: string) => {

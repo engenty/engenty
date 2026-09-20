@@ -11,6 +11,7 @@ import {
   parseLeadingChatCommand,
 } from "@engenty/ai-core";
 
+import { createWorkflowStoreFromEnv } from "./index.js";
 import type { SkillStorage } from "./skills/skill-storage.js";
 
 // Core built-ins (prompt kind — `ui` built-ins live client-side). Core wins
@@ -28,18 +29,119 @@ const CORE_CHAT_COMMANDS: ChatCommandDefinition[] = [
 ];
 
 export async function listAllChatCommands(
-  moduleLoader?: DynamicAiModuleCapabilityLoader
+  moduleLoader?: DynamicAiModuleCapabilityLoader,
+  tenantId?: string
 ): Promise<ChatCommandDefinition[]> {
   const local = [...CORE_CHAT_COMMANDS, ...listRegisteredChatCommands()];
-  if (!moduleLoader) {
-    return local;
+  const taken = new Set(local.map((command) => command.command));
+  const commands = [...local];
+  if (moduleLoader) {
+    const capabilities = await moduleLoader.listModuleCapabilities();
+    for (const command of capabilities.flatMap(
+      (capability) => capability.chatCommands ?? []
+    )) {
+      if (!taken.has(command.command)) {
+        taken.add(command.command);
+        commands.push(command);
+      }
+    }
   }
-  const localTokens = new Set(local.map((command) => command.command));
-  const capabilities = await moduleLoader.listModuleCapabilities();
-  const moduleCommands = capabilities
-    .flatMap((capability) => capability.chatCommands ?? [])
-    .filter((command) => !localTokens.has(command.command));
-  return [...local, ...moduleCommands];
+  if (tenantId) {
+    for (const command of await listWizardCommands(tenantId)) {
+      if (!taken.has(command.command)) {
+        taken.add(command.command);
+        commands.push(command);
+      }
+    }
+  }
+  return commands;
+}
+
+/** A slash token from a workflow's title: "Angebot erstellen" → "angebot-erstellen". */
+export function commandTokenFor(title: string): string {
+  return title
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+/**
+ * Every published wizard of the tenant is a command: `/<title>` opens it step
+ * by step, no COMMAND.md needed. The stored row is the target — the client
+ * presses it directly, without an agent turn — and its input schema's
+ * properties are the args a person may type or @-mention.
+ */
+async function listWizardCommands(
+  tenantId: string
+): Promise<ChatCommandDefinition[]> {
+  const store = createWorkflowStoreFromEnv();
+  if (!store) {
+    return [];
+  }
+  const rows = await store
+    .list({ status: "active", surface: "wizard", tenantId })
+    .catch(() => []);
+  const commands: ChatCommandDefinition[] = [];
+  for (const row of rows) {
+    if (row.current_version === null) {
+      continue;
+    }
+    const token = commandTokenFor(row.title ?? row.name);
+    if (!token) {
+      continue;
+    }
+    const current = await store
+      .getCurrent({ id: row.id, tenantId })
+      .catch(() => null);
+    if (!current) {
+      continue;
+    }
+    commands.push({
+      args: commandArgsFromSchema(current.version.input_schema),
+      command: token,
+      ...(row.description ? { description: row.description } : {}),
+      id: `workflow:${row.id}`,
+      kind: "workflow",
+      label: row.title ?? row.name,
+      module_id: row.module_id ?? "workflows",
+      surface: "wizard",
+      workflow_id: row.id,
+    });
+  }
+  return commands;
+}
+
+/** The typed/mentioned args a wizard's input schema admits. */
+function commandArgsFromSchema(
+  schema: Record<string, unknown> | null | undefined
+): ChatCommandDefinition["args"] {
+  const properties = (schema?.properties ?? {}) as Record<
+    string,
+    Record<string, unknown> | undefined
+  >;
+  const required = new Set(
+    Array.isArray(schema?.required) ? (schema.required as string[]) : []
+  );
+  return Object.entries(properties).map(([name, property]) => {
+    const ref =
+      typeof property?.["x-ref"] === "string" ? property["x-ref"] : null;
+    return {
+      name,
+      ...(typeof property?.title === "string" ? { label: property.title } : {}),
+      ...(required.has(name) ? { required: true } : {}),
+      ...(ref
+        ? { ref_entity: ref, type: "ref" as const }
+        : Array.isArray(property?.enum)
+          ? {
+              options: (property.enum as unknown[]).map(String),
+              type: "enum" as const,
+            }
+          : { type: "string" as const }),
+    };
+  });
 }
 
 /** Catalog filtered for one agent (commands scoped via agent_ids hide elsewhere). */
@@ -154,13 +256,18 @@ export async function buildChatTurnContextEntries(params: {
   refs: readonly ChatTurnReferenceItem[];
   /** Optional skill catalog — enables `/skill-name` expansion when no command matches. */
   skillStorage?: SkillStorage | null;
+  /** Lists the tenant's published wizards as commands when given. */
+  tenantId?: string;
 }): Promise<Array<{ description: string; value: string }>> {
   const entries: Array<{ description: string; value: string }> = [];
 
   if (params.prompt.trimStart().startsWith("/")) {
     let attemptedActionCommand: ChatCommandDefinition | null = null;
     try {
-      const all = await listAllChatCommands(params.moduleLoader);
+      const all = await listAllChatCommands(
+        params.moduleLoader,
+        params.tenantId
+      );
       const match = parseLeadingChatCommand(
         params.prompt,
         filterChatCommandsForAgent(all, params.agentId)

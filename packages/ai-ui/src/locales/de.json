@@ -37,7 +37,9 @@
       },
       "stop": "Stopp",
       "submit": "Workflow entwerfen",
-      "title": "Neuer Workflow"
+      "title": "Neuer Workflow",
+      "wizardLabel": "Wizard",
+      "wizardHint": "Eine Person geht den Lauf Seite für Seite durch; jedes Freigabe-Gate ist eine Seite."
     },
     "editor": {
       "applyChange": "Änderung anwenden",
@@ -132,7 +134,12 @@
     "subtitle": "Die geteilten Workflows, die jeder Specialist nutzen kann. Ein Workflow nimmt Eingabeparameter und wird von einem Button, einem Slash-Befehl, einer Routine oder einem Agenten aufgerufen — seine Schritte sind ein Agentenlauf oder ein ganzer Graph.",
     "tableView": "Listenansicht",
     "title": "Workflow-Bibliothek",
-    "viewMode": "Ansicht"
+    "viewMode": "Ansicht",
+    "surface": {
+      "wizard": "Wizard",
+      "toggleHint": "Diesen Workflow Schritt für Schritt statt im Chat öffnen",
+      "switchFailed": "Oberfläche konnte nicht umgestellt werden"
+    }
   },
   "actions": {
     "save": "Speichern",
@@ -548,6 +555,10 @@
       "owner": "Besitzer",
       "privateHint": "Privater Raum — nur seine Mitglieder sehen das",
       "title": "Raum"
+    },
+    "wizard": {
+      "answerOrCancel": "Schritt beantworten oder abbrechen.",
+      "utterancePlaceholder": "Auf diesen Schritt antworten…"
     }
   },
   "agentDetail": {
@@ -2070,6 +2081,49 @@
         "closed": "Getrennt.",
         "error": "Die Live-Ansicht ist fehlgeschlagen."
       }
+    }
+  },
+  "gateSurface": {
+    "back": "Zurück",
+    "busy": "Wird verarbeitet…",
+    "cancel": "Abbrechen",
+    "cancelConfirm": {
+      "title": "Diesen Lauf abbrechen?",
+      "body": "Der Lauf endet hier. Was er bisher erzeugt hat, bleibt in seinem Thread.",
+      "keep": "Weitermachen",
+      "confirm": "Lauf abbrechen"
+    },
+    "shorthand": {
+      "approve": "Freigeben",
+      "reject": "Ablehnen",
+      "next": "Weiter",
+      "note": "Notiz (optional)"
+    }
+  },
+  "wizard": {
+    "done": "Fertig",
+    "error": "Das hat nicht geklappt.",
+    "restart": "Neu starten",
+    "start": "Starten",
+    "state": {
+      "cancelled": "Abgebrochen",
+      "completed": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "gate": "Wartet auf dich",
+      "running": "Arbeitet…",
+      "sleeping": "Schläft",
+      "sleepingUntil": "Schläft bis {{when}}",
+      "starting": "Startet…"
+    }
+  },
+  "a2uiHost": {
+    "artifactLoading": "Dokument wird geladen…",
+    "artifactUnavailable": "Dieses Dokument ist nicht verfügbar.",
+    "objectPicker": {
+      "clear": "Leeren",
+      "empty": "Nichts gefunden.",
+      "placeholder": "Suchen…",
+      "searching": "Suche…"
     }
   }
 }

@@ -11,6 +11,7 @@ import {
   withRecordLink,
   withRecordLinks,
 } from "@engenty/plugin-sdk";
+import { resolveJevClient } from "@engenty/typesafe-client";
 import { z } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InboxRepo } from "../dal/contracts.js";
@@ -330,14 +331,10 @@ export function registerInboxGatewayMethods(
       if (pending.length === 0) {
         return { classified: 0, remaining: 0 };
       }
-      const [modelId, categoryItems] = await Promise.all([
-        inboxModel(ctx.auth),
-        inboxCategoryItems(ctx.auth),
-      ]);
       const categories = await classifyInboxMessages(
         pending,
-        modelId,
-        categoryItems
+        resolveJevClient()?.client ?? null,
+        await inboxCategoryItems(ctx.auth)
       );
       const classified = await repo.messages.setCategories(categories);
       return {

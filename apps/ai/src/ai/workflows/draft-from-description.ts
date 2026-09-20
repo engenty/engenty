@@ -37,6 +37,9 @@ import {
 
 const logger = createLogger({ name: "graph-action-drafter" });
 
+/** Where a run's gates are answered: cards in a chat, or one page per gate. */
+export type DraftSurface = "chat" | "wizard";
+
 export interface DraftGraphInput {
   contextType?: string | null;
   /** The user's own words — the thing the flow should do. */
@@ -52,6 +55,8 @@ export interface DraftGraphInput {
    */
   runId?: string;
   scope: AiSessionScope;
+  /** `wizard` shapes the brief: every gate is a page, and there must be one. */
+  surface?: DraftSurface;
   /** Capability-aware validation bound to the requesting user. */
   validation?: ValidateGraphActionOptions;
 }
@@ -80,6 +85,21 @@ The reply must be strictly valid JSON — one unbalanced brace discards the
 whole graph. Check your bracket balance before finishing.
 `.trim();
 
+/**
+ * What changes when the person walks the run instead of reading cards. Kept
+ * as one paragraph so the repair round carries exactly the same rules as the
+ * draft round — a `wizard-without-step` repair must know what a step IS.
+ */
+export const WIZARD_BRIEF = `
+This is a WIZARD: the person walks it one page at a time. Every approval_gate
+is a page. The first gate collects what only the person knows (use kind
+"surface" with a Form of inputs); put the deliverable in an artifact
+(artifact_write, then show_artifact) so it appears beside the pages; when the
+person may ask for changes, wrap draft → write → review gate in a loop whose
+body is an inline workflow entry; the last gate confirms; never end without a
+gate.
+`.trim();
+
 /** Exported for tests — the brief IS the repair contract. */
 export function buildBrief(input: {
   contextType?: string | null;
@@ -89,6 +109,7 @@ export function buildBrief(input: {
   issues?: GraphValidationIssue[];
   name: string;
   previous?: string;
+  surface?: DraftSurface;
 }): string {
   const parts = [
     "Design a multi-step Workflow as a declarative graph.",
@@ -100,6 +121,9 @@ export function buildBrief(input: {
       `It runs against a subject of type "${input.contextType}" — the run's ` +
         "subject is supplied by the request context, so do NOT put an id in the graph."
     );
+  }
+  if (input.surface === "wizard") {
+    parts.push(WIZARD_BRIEF);
   }
   parts.push(GRAPH_GUIDANCE);
   if (input.issues?.length && input.previous) {
@@ -351,10 +375,13 @@ async function draftRounds(
   runOnce: (brief: string, roundRunId: string) => Promise<string>,
   abortSignal?: AbortSignal
 ): Promise<DraftGraphResult> {
+  const surface = input.surface ?? "chat";
+  const validation = { ...input.validation, surface };
   let reply = await runOnce(
     buildBrief({
       description: input.description,
       name: input.name,
+      surface,
       ...(input.contextType ? { contextType: input.contextType } : {}),
     }),
     input.runId ?? randomUUID()
@@ -372,7 +399,7 @@ async function draftRounds(
   });
 
   let graph = build(parsed);
-  let issues = validateGraphAction(graph, input.validation);
+  let issues = validateGraphAction(graph, validation);
 
   if (issues.length > 0) {
     logger.info("draft did not validate — attempting one repair round", {
@@ -386,6 +413,7 @@ async function draftRounds(
           issues,
           name: input.name,
           previous: JSON.stringify(graph.graph),
+          surface,
           ...(input.contextType ? { contextType: input.contextType } : {}),
         }),
         randomUUID()
@@ -393,10 +421,7 @@ async function draftRounds(
       const repaired = extractJsonObject(reply);
       if (repaired && Array.isArray(repaired.graph)) {
         const candidate = build(repaired);
-        const candidateIssues = validateGraphAction(
-          candidate,
-          input.validation
-        );
+        const candidateIssues = validateGraphAction(candidate, validation);
         // Keep the repair only if it actually helped. A "fix" that trades three
         // problems for four would otherwise be handed to the user as progress.
         if (candidateIssues.length < issues.length) {
@@ -434,6 +459,8 @@ export interface RepairGraphInput {
   /** Client-supplied observe id — repair is a single round, so it streams it. */
   runId?: string;
   scope: AiSessionScope;
+  /** The row's surface — a wizard repair must keep a gate in the graph. */
+  surface?: DraftSurface;
   validation?: ValidateGraphActionOptions;
 }
 
@@ -470,6 +497,8 @@ export async function repairGraphIssues(
       ? `Editing Action — ${input.name}`
       : `Fixing Action — ${input.name}`,
   });
+  const surface = input.surface ?? "chat";
+  const validation = { ...input.validation, surface };
   return await session.run(async () => {
     const reply = await session.runOnce(
       buildBrief({
@@ -477,6 +506,7 @@ export async function repairGraphIssues(
         issues: input.issues,
         name: input.name,
         previous: JSON.stringify(input.graph.graph),
+        surface,
         ...(input.contextType ? { contextType: input.contextType } : {}),
         ...(input.instruction ? { instruction: input.instruction } : {}),
       }),
@@ -507,7 +537,7 @@ export async function repairGraphIssues(
         ? asSchema(repaired.output_schema)
         : input.graph.outputSchema,
     };
-    const candidateIssues = validateGraphAction(candidate, input.validation);
+    const candidateIssues = validateGraphAction(candidate, validation);
     // Edit bar: the result must still be VALID (it started valid — a change
     // that breaks the graph is not an edit) and actually different (an
     // identical reply minted as v(N+1) presents zero progress as progress).

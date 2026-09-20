@@ -13,6 +13,7 @@ import type {
   EngentySpaceSurface,
 } from "../ai/core-http-client.js";
 import type { AgentConfig } from "../ai/registry/types.js";
+import { isConversationThread } from "../ai/threads/specialist-chat-thread.js";
 import { decorateAgentWithRole } from "../api/agent-role.js";
 import {
   isDmThread,
@@ -184,6 +185,11 @@ export async function buildAgentDeskFeed(input: {
         metadata: {
           has_open_interrupt:
             thread.metadata[AG_UI_OPEN_INTERRUPT_METADATA_KEY] != null,
+          // The one predicate, computed where it is defined: a desk line is a
+          // thread a person started. Anything the machine opened for itself
+          // is listed as this agent's work and never opened as "where you
+          // left off" — a flag per kind misses the next kind of run thread.
+          desk_line: isConversationThread(thread),
           // A routine fire's transcript, not a conversation anyone had. It
           // belongs in the feed — it is this agent's work — but a reader has
           // to be able to tell the two apart, and so does the Chat tab, which

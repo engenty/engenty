@@ -65,6 +65,13 @@ export interface WorkspaceArtifactPaneProps {
   extraScope?: ArtifactPaneScope | null;
   hostKey: string;
   /**
+   * Open the pane on the first artifact that arrives or is presented while it
+   * is closed, instead of badging it. The wizard page has nothing else to
+   * show beside the step; a chat keeps the badge so the conversation stays
+   * in focus.
+   */
+  openOnFirstArtifact?: boolean;
+  /**
    * Primary tab source. Defaults to the bound copilot thread — pass an
    * explicit scope on surfaces without a chat (e.g. the project Artifacts tab).
    */
@@ -106,6 +113,7 @@ function mergeArtifacts(
 export function WorkspaceArtifactPane({
   container,
   hostKey,
+  openOnFirstArtifact = false,
   scope,
   extraScope,
 }: WorkspaceArtifactPaneProps) {
@@ -171,6 +179,7 @@ export function WorkspaceArtifactPane({
 
   useArtifactListSync({
     hostKey,
+    openOnFresh: openOnFirstArtifact,
     scopeKey: `${primaryScope.type}:${primaryScope.id ?? "none"}|c:${container ? `${container.tier}:${container.id}` : "-"}|${extraScope?.type ?? "-"}:${extraScope?.id ?? "-"}`,
     ids: artifacts.map((a) => a.id),
     isReady:
@@ -253,7 +262,7 @@ export function WorkspaceArtifactPane({
     if (!(pendingActiveId && artifacts.some((a) => a.id === pendingActiveId))) {
       return;
     }
-    if (getArtifactPaneOpen(hostKey)) {
+    if (getArtifactPaneOpen(hostKey) || openOnFirstArtifact) {
       activateArtifact(hostKey, pendingActiveId);
     } else {
       // Keep the conversation focused — badge + toggle open the pane.
@@ -261,7 +270,7 @@ export function WorkspaceArtifactPane({
       markUnseenArtifacts(hostKey, [pendingActiveId]);
     }
     setPendingActiveId(null);
-  }, [artifacts, hostKey, pendingActiveId]);
+  }, [artifacts, hostKey, openOnFirstArtifact, pendingActiveId]);
 
   const openArtifact = (id: string) => {
     if (

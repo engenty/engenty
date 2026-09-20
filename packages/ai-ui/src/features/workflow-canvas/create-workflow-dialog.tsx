@@ -25,6 +25,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  Switch,
   Textarea,
 } from "@engenty/ui-core";
 import { Sparkles, Square } from "lucide-react";
@@ -36,7 +37,13 @@ import {
   useDraftedSteps,
   useElapsedSeconds,
 } from "./draft-progress-view.js";
+import type { draftWorkflow, WorkflowSurface } from "./workflow-api.js";
 import { useDraftWorkflowMutation } from "./workflow-queries.js";
+
+/** The draft request, with the surface the row is created with. */
+type DraftRequest = Parameters<typeof draftWorkflow>[0] & {
+  surface: WorkflowSurface;
+};
 
 export interface CreateWorkflowDialogProps {
   /** Subject the new flow runs against, when created from a subject's context. */
@@ -74,6 +81,10 @@ export function CreateWorkflowDialog({
   const { t } = useTranslation("ai-ui");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // A wizard is walked one page per gate by the person who starts it; the
+  // flag shapes the brief (every gate is a page, and there must be one) and
+  // lands on the row so the catalog and the slash menu list it as one.
+  const [wizard, setWizard] = useState(false);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   // Once the user stops a draft, the mutation's trailing rejection is the
   // outcome they asked for — not an error to show.
@@ -96,6 +107,7 @@ export function CreateWorkflowDialog({
     if (open) {
       setName("");
       setDescription("");
+      setWizard(false);
       setActiveRunId(null);
       setStopped(false);
       setFallbackNotice(null);
@@ -115,24 +127,23 @@ export function CreateWorkflowDialog({
     const runId = crypto.randomUUID();
     setActiveRunId(runId);
     setStopped(false);
-    draft.mutate(
-      {
-        description: trimmedDescription,
-        name: trimmedName,
-        run_id: runId,
-        ...(contextType ? { context_type: contextType } : {}),
+    const request: DraftRequest = {
+      description: trimmedDescription,
+      name: trimmedName,
+      run_id: runId,
+      surface: wizard ? "wizard" : "chat",
+      ...(contextType ? { context_type: contextType } : {}),
+    };
+    draft.mutate(request, {
+      onSuccess: (result) => {
+        if (result.drafted_with_fallback_tier) {
+          setFallbackNotice(result.graph.id);
+          return;
+        }
+        onOpenChange(false);
+        onCreated(result.graph.id);
       },
-      {
-        onSuccess: (result) => {
-          if (result.drafted_with_fallback_tier) {
-            setFallbackNotice(result.graph.id);
-            return;
-          }
-          onOpenChange(false);
-          onCreated(result.graph.id);
-        },
-      }
-    );
+    });
   };
 
   const stopDrafting = () => {
@@ -257,6 +268,30 @@ export function CreateWorkflowDialog({
               />
               <p className="text-muted-foreground text-xs">
                 {t("workflows.createDialog.approvalHint")}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={wizard}
+                  id="flow-wizard"
+                  onCheckedChange={(checked) => setWizard(checked === true)}
+                />
+                <Label
+                  className="cursor-pointer font-normal"
+                  htmlFor="flow-wizard"
+                >
+                  {t("workflows.createDialog.wizardLabel", {
+                    defaultValue: "Wizard",
+                  })}
+                </Label>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {t("workflows.createDialog.wizardHint", {
+                  defaultValue:
+                    "The person who starts it answers one page per step, with the result growing beside the pages — instead of cards in a chat.",
+                })}
               </p>
             </div>
 

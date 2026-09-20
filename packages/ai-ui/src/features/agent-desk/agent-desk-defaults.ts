@@ -25,6 +25,12 @@ export function isAgentDeskChatSurface(
  * opens them by name; the desk's own line is the one without either marker.
  */
 function isNotTheDeskLine(engagement: AgentDeskEngagement): boolean {
+  // `desk_line` is the server's own answer (`isConversationThread`): a thread
+  // a person started. The per-kind flags below it are the older reading, kept
+  // for a feed that predates the field.
+  if (engagement.metadata.desk_line === false) {
+    return true;
+  }
   return (
     typeof engagement.metadata.routine_id === "string" ||
     engagement.metadata.delegated === true ||

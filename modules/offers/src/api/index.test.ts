@@ -153,6 +153,53 @@ describe("registerOffersApi", () => {
     });
   });
 
+  it("offers_create writes the positions it was given with the offer", async () => {
+    const { api, serverOperations } = makeMockApi();
+    const written: { id: string; blocks: unknown[] }[] = [];
+    const repo = {
+      ...makeMockRepo(),
+      create: async (input: Record<string, unknown>) => ({
+        ...input,
+        id: "offer-new",
+      }),
+      replaceBlocks: async (id: string, blocks: unknown[]) => {
+        written.push({ blocks, id });
+        return blocks;
+      },
+    };
+    registerOffersApi(api, repo as any);
+    const create = serverOperations.find(
+      (operation) => operation.operationId === "offers_create"
+    );
+    if (!create) {
+      throw new Error("offers_create not registered");
+    }
+    const offer = (await create.handler(
+      {
+        title: "Beratung",
+        blocks: [
+          {
+            type: "line_item",
+            // The aliases an agent may emit — the write normalizes them.
+            content_json: { title: "Workshop", quantity: 2, unit_price: 900 },
+          },
+        ],
+      },
+      { auth: undefined } as never
+    )) as { id: string };
+    expect(offer.id).toBe("offer-new");
+    expect(written).toHaveLength(1);
+    expect(written[0]?.id).toBe("offer-new");
+    expect(written[0]?.blocks).toMatchObject([
+      {
+        offer_id: "offer-new",
+        order_index: 0,
+        type: "line_item",
+        content_json: { title: "Workshop", amount: 2, cost_per_item: 900 },
+      },
+    ]);
+  });
+
   it("resolves offers_get by id first, then by offer number", async () => {
     const { api, serverOperations } = makeMockApi();
     registerOffersApi(api, makeMockRepo() as any);

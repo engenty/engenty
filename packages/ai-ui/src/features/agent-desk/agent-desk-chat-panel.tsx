@@ -7,10 +7,11 @@ import type {
 } from "@engenty/ai-core/browser";
 import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Eye } from "lucide-react";
+import { Eye, ListChecks } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAwaitingAgUiInitialHydrate } from "../../ag-ui/conversation.js";
 import { useAgentHost } from "../../agent-provider/index.js";
 import { CHAT_LANE_COLUMN_CLASS } from "../../components/copilot/chat-lane/chat-lane-layout.js";
@@ -19,6 +20,7 @@ import {
   chatLanePanelBaseProps,
   useChatLaneComposer,
 } from "../../components/copilot/chat-lane/index.js";
+import type { PressWizardCommandRequest } from "../../components/copilot/composer/copilot-composer-section.js";
 import type { ChatSlashCommand } from "../../components/copilot/composer/copilot-slash-command.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { CopilotDrawerPositionMenu } from "../../components/copilot/drawer/copilot-drawer-position-menu.js";
@@ -33,6 +35,14 @@ import { isThreadWritableByViewer } from "../../threads/thread-write-access.js";
 import { TEMPORARY_ENGENTY_THREAD_ID_PREFIX } from "../../threads/use-engenty-threads.js";
 import { useBrowserWorkOpensPane } from "../browser/browser-work-opens-pane.js";
 import { transcriptShowsSenderLabels } from "../space-chats/space-chats-model.js";
+import { pressWizardCommand } from "../wizard/press-wizard-command.js";
+import { useDeskWizardStep } from "../wizard/use-desk-wizard-step.js";
+import { useWizardOutcomeRecord } from "../wizard/use-wizard-outcome-record.js";
+import { WizardDock } from "../wizard/wizard-dock.js";
+import {
+  useCancelRunMutation,
+  useResumeRunMutation,
+} from "../workflow-canvas/workflow-queries.js";
 import {
   agentDeskEmptyStarters,
   mergeAgentDeskStarters,
@@ -47,7 +57,10 @@ import { TranscriptTopSentinel } from "./transcript-top-sentinel.js";
  */
 const IDENTITY_TOP_SENTINEL_PX = 152;
 
-import { useAgentDeskGeneratedStarters } from "./use-agent-desk-feed.js";
+import {
+  agentDeskKeys,
+  useAgentDeskGeneratedStarters,
+} from "./use-agent-desk-feed.js";
 import type { useAgentDeskThread } from "./use-agent-desk-thread.js";
 
 /**
@@ -64,6 +77,12 @@ import type { useAgentDeskThread } from "./use-agent-desk-thread.js";
  * Space's colleagues (people and other agents) as references — never a lane
  * switch, since this lane belongs to one agent. The colleague list needs the
  * app's Space queries, so the host injects it like the effort chooser.
+ *
+ * A graph run parked at a step — a routine fire, or a wizard pressed from
+ * this composer — docks its step above the composer. While it is docked the
+ * composer answers the step: free text resumes it when the step takes text,
+ * otherwise the composer yields to a hint until the step is answered or the
+ * run cancelled.
  */
 export function AgentDeskChatPanel(props: {
   agentConnectors: AgentDeskCapabilityChip[];
@@ -165,7 +184,62 @@ export function AgentDeskChatPanel(props: {
     `${TEMPORARY_ENGENTY_THREAD_ID_PREFIX}${host.threadResetKey}`;
   const status =
     host.pendingSend && host.status === "ready" ? "submitted" : host.status;
+
+  // A wizard this composer pressed: its run id is watched ahead of whatever
+  // the fire discovery finds, since a press has no routine to be found by.
+  const [pressedRunId, setPressedRunId] = useState<string | null>(null);
+  // The press itself is a round trip; the dock says "Startet…" from the click
+  // rather than from the run id, so a slash command answers immediately.
+  const [pressPending, setPressPending] = useState(false);
+  const queryClient = useQueryClient();
+  const wizardStep = useDeskWizardStep({
+    agentId: props.agentId,
+    pressedRunId,
+  });
+  // A wizard that wrote a record opens it in the desk's pane, the same way
+  // the wizard page opens it beside its last step.
+  useWizardOutcomeRecord({
+    hostKey: props.hostKey,
+    settled: wizardStep?.state === "settled",
+    summary: wizardStep?.summary,
+  });
+  const resumeRun = useResumeRunMutation();
+  const cancelRun = useCancelRunMutation();
+  const invalidateDeskFeed = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: agentDeskKeys.feed(props.spaceId, props.agentId, locale),
+    });
+  }, [locale, props.agentId, props.spaceId, queryClient]);
+  const wizardGate = wizardStep?.gate ?? null;
+  const submitUtterance = useCallback(
+    (text: string) => {
+      if (!(wizardStep && wizardGate)) {
+        return;
+      }
+      resumeRun.mutate(
+        {
+          approved: true,
+          data: { ...(wizardGate.surface.data ?? {}), utterance: text },
+          event: "utterance",
+          runId: wizardStep.runId,
+          step_id: wizardGate.stepId,
+          step_path: wizardGate.path,
+        },
+        { onSuccess: wizardStep.refetch }
+      );
+    },
+    [resumeRun.mutate, wizardGate, wizardStep]
+  );
+  const dockedGate = useMemo(
+    () =>
+      wizardGate
+        ? { acceptsText: wizardGate.accepts_text, submitUtterance }
+        : null,
+    [submitUtterance, wizardGate]
+  );
+
   const lane = useChatLaneComposer({
+    dockedGate,
     host,
     messages: host.copilotMessages,
     openInterruptFromSession: props.openInterruptFromSession,
@@ -174,6 +248,31 @@ export function AgentDeskChatPanel(props: {
     threadKey,
     userId: currentUserId ?? "",
   });
+
+  // `/command` for a wizard: press it here, no agent turn. The run's first
+  // step then docks through the same hook a routine fire's would.
+  const onPressWizardCommand = useCallback(
+    (request: PressWizardCommandRequest) => {
+      setPressPending(true);
+      void pressWizardCommand({
+        argsText: request.argsText,
+        command: request.command,
+        refs: request.refs,
+        spaceId: props.spaceId,
+        workflowId: request.command.workflowId,
+      })
+        .then((result) => {
+          setPressedRunId(result.run_id);
+          invalidateDeskFeed();
+        })
+        .catch(() => {
+          // The press is refused (missing input, no such workflow): nothing
+          // docks, and the composer keeps the draft for a retry.
+        })
+        .finally(() => setPressPending(false));
+    },
+    [invalidateDeskFeed, props.spaceId]
+  );
   // Object panels and widgets prefill THIS composer ("Ask the agent to…") the
   // same way module pages prefill the copilot's — keyed by host, so a record
   // opened beside the desk talks to the Engenty whose desk it is.
@@ -188,9 +287,51 @@ export function AgentDeskChatPanel(props: {
   // steer instead of start.
   const composerStatus = host.attachedRunId ? "ready" : status;
 
+  // The pressed wizard, drawn once above the composer: its step, the wait
+  // between steps, or its closing line. Cancel stops the run for good and
+  // refreshes the feed, where the settled thread now lists.
+  const dockedWizardStep =
+    wizardStep || pressPending ? (
+      <WizardDock
+        busy={resumeRun.isPending || cancelRun.isPending}
+        objectSearch={props.mentionRefSearch ?? null}
+        onCancel={() => {
+          if (!wizardStep) {
+            return;
+          }
+          cancelRun.mutate(wizardStep.runId, {
+            onSuccess: () => {
+              setPressedRunId(null);
+              wizardStep.refetch();
+              invalidateDeskFeed();
+            },
+          });
+        }}
+        onDismiss={() => {
+          setPressedRunId(null);
+          invalidateDeskFeed();
+        }}
+        onSubmit={(decision) => {
+          const gate = wizardStep?.gate;
+          if (!(wizardStep && gate)) {
+            return;
+          }
+          resumeRun.mutate(
+            {
+              ...decision,
+              runId: wizardStep.runId,
+              step_id: gate.stepId,
+              step_path: gate.path,
+            },
+            { onSuccess: wizardStep.refetch }
+          );
+        }}
+        step={wizardStep}
+      />
+    ) : null;
   // Any non-null dock is a visible composer flap — pass null when idle.
   const dockedInterruptSurface =
-    lane.queue.hasQueued || lane.dockInterrupt ? (
+    lane.queue.hasQueued || lane.dockInterrupt || dockedWizardStep ? (
       <ChatLaneDock
         dockInterrupt={lane.dockInterrupt}
         host={host}
@@ -205,12 +346,23 @@ export function AgentDeskChatPanel(props: {
         onSandboxCommandApprove={lane.onSandboxCommandApprove}
         onSandboxCommandReject={lane.onSandboxCommandReject}
         queue={lane.queue}
+        wizardStep={dockedWizardStep}
       />
     ) : null;
   const isReadOnlyThread = !isThreadWritableByViewer(
     props.thread,
     currentUserId
   );
+  // A docked step that takes no free text owns the composer's place: the
+  // hint says what to do instead, and nothing typed can reach the agent.
+  const composerOverride = isReadOnlyThread ? (
+    <ReadOnlyThreadNotice label={t("agentDesk.readOnlyThread")} />
+  ) : wizardGate && !wizardGate.accepts_text ? (
+    <ReadOnlyThreadNotice
+      icon={ListChecks}
+      label={t("agentDesk.wizard.answerOrCancel")}
+    />
+  ) : undefined;
   const transcriptLoading =
     props.isLoadingMessages ||
     isAwaitingAgUiInitialHydrate({
@@ -237,12 +389,11 @@ export function AgentDeskChatPanel(props: {
     awaitingInterrupt: host.awaitingInterrupt,
     composerFocusKey: host.threadResetKey,
     composerLeadingControl: props.composerLeadingControl,
-    composerOverride: isReadOnlyThread ? (
-      <ReadOnlyThreadNotice label={t("agentDesk.readOnlyThread")} />
-    ) : undefined,
-    composerPlaceholder:
-      props.composerPlaceholder ??
-      t("agentDesk.composerPlaceholder", { name: props.agentName }),
+    composerOverride,
+    composerPlaceholder: wizardGate
+      ? t("agentDesk.wizard.utterancePlaceholder")
+      : (props.composerPlaceholder ??
+        t("agentDesk.composerPlaceholder", { name: props.agentName })),
     dismissInterrupt: host.dismissInterrupt,
     dockedInterruptSurface,
     dockedInterruptToolCallId: lane.dockInterrupt?.tool_call_id ?? null,
@@ -263,6 +414,7 @@ export function AgentDeskChatPanel(props: {
     mentionRefSearch: props.mentionRefSearch,
     messages: host.copilotMessages,
     onCancel: lane.stopAndClearQueue,
+    onPressWizardCommand,
     onSandboxCommandApprove: lane.onSandboxCommandApprove,
     onSandboxCommandReject: lane.onSandboxCommandReject,
     onStop: lane.stopAndClearQueue,
@@ -363,10 +515,16 @@ export function AgentDeskChatPanel(props: {
   );
 }
 
-function ReadOnlyThreadNotice({ label }: { label: string }) {
+function ReadOnlyThreadNotice({
+  icon: Icon = Eye,
+  label,
+}: {
+  icon?: typeof Eye;
+  label: string;
+}) {
   return (
     <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 px-4 py-3 text-muted-foreground text-sm">
-      <Eye aria-hidden className="size-4 shrink-0" />
+      <Icon aria-hidden className="size-4 shrink-0" />
       <span>{label}</span>
     </div>
   );

@@ -14,11 +14,9 @@ import {
   type AiEffortChoice,
   type AiUsageStore,
   agentDefaultEffort,
-  bindingsFromList,
   checkUsageLimits,
   type DynamicAiModuleCapabilityLoader,
   formatUsageLimitError,
-  type ModelBindings,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
@@ -357,43 +355,17 @@ function resolveEffortChoice(input: RunAgentInput): AiEffortChoice | null {
 async function loadEffortResolutionContext(params: {
   getUsageStore?: () => AiUsageStore | null;
   tenantId: string;
-}): Promise<{
-  allowedEfforts: readonly string[] | null;
-  bindings: ModelBindings | undefined;
-}> {
+}): Promise<{ allowedEfforts: readonly string[] | null }> {
   const store = params.getUsageStore?.() ?? null;
   if (!store) {
-    return { allowedEfforts: null, bindings: undefined };
+    return { allowedEfforts: null };
   }
-  let allowedEfforts: readonly string[] | null = null;
-  let bindings: ModelBindings | undefined;
   try {
     const policy = await store.getTenantPolicy(params.tenantId);
-    allowedEfforts = policy?.allowed_efforts ?? null;
+    return { allowedEfforts: policy?.allowed_efforts ?? null };
   } catch {
-    allowedEfforts = null;
+    return { allowedEfforts: null };
   }
-  try {
-    const rows = await (
-      store as AiUsageStore & {
-        listModelBindings?: () => Promise<
-          Array<{ gateway: string; model_id: string; role: string }>
-        >;
-      }
-    ).listModelBindings?.();
-    if (rows && rows.length > 0) {
-      bindings = bindingsFromList(
-        rows.map((r) => ({
-          gateway: r.gateway,
-          modelId: r.model_id,
-          role: r.role,
-        }))
-      );
-    }
-  } catch {
-    bindings = undefined;
-  }
-  return { allowedEfforts, bindings };
 }
 
 function resolveModelIdOverride(input: RunAgentInput): string | null {
@@ -1242,7 +1214,6 @@ export function registerThreadRunRoutes(
             agentEffort,
             agentId: session.agent_id,
             allowedEfforts: effortCtx.allowedEfforts,
-            bindings: effortCtx.bindings,
             choice: effortChoice,
             hasAttachments: isResumeRun
               ? false
@@ -1397,6 +1368,7 @@ export function registerThreadRunRoutes(
                 prompt: hsPrompt,
                 refs: latestUserReferenceItems(body.data),
                 skillStorage: hsSkillStorage,
+                tenantId: scope.scope.tenantId,
               })),
               ...hsTieredAttachments.contextEntries,
             ];

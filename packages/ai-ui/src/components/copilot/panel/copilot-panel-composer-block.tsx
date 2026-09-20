@@ -41,6 +41,7 @@ export function CopilotPanelComposerBlock({
   onComposerMentionAgent,
   onStop,
   setDraft,
+  onPressWizardCommand,
   slashCommands,
   starterPrompts,
   status,
@@ -77,6 +78,7 @@ export function CopilotPanelComposerBlock({
   onComposerMentionAgent?: (agentId: string) => void;
   onStop?: () => void;
   setDraft: Dispatch<SetStateAction<string>>;
+  onPressWizardCommand?: import("../composer/copilot-composer-section.js").CopilotComposerSectionProps["onPressWizardCommand"];
   slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
   status: "ready" | "streaming" | "submitted" | "error";
@@ -148,6 +150,7 @@ export function CopilotPanelComposerBlock({
                   mentionRefSearch={mentionRefSearch}
                   onComposerMentionAgent={onComposerMentionAgent}
                   onMultilineChange={setIsMultiline}
+                  onPressWizardCommand={onPressWizardCommand}
                   onStop={onStop}
                   setDraft={setDraft}
                   showStarterPrompts={false}
@@ -190,6 +193,7 @@ export function CopilotPanelComposerBlock({
                   mentionRefSearch={mentionRefSearch}
                   onComposerMentionAgent={onComposerMentionAgent}
                   onMultilineChange={setIsMultiline}
+                  onPressWizardCommand={onPressWizardCommand}
                   onStop={onStop}
                   setDraft={setDraft}
                   showStarterPrompts={false}
@@ -214,6 +218,7 @@ export function CopilotPanelComposerBlock({
                   mentionAgentCandidates={mentionAgentCandidates}
                   mentionRefSearch={mentionRefSearch}
                   onComposerMentionAgent={onComposerMentionAgent}
+                  onPressWizardCommand={onPressWizardCommand}
                   onStop={onStop}
                   setDraft={setDraft}
                   showStarterPrompts={messages.length === 0}

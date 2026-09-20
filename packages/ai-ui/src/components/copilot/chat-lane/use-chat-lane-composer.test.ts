@@ -88,3 +88,72 @@ describe("useChatLaneComposer while a run is in flight", () => {
     ]);
   });
 });
+
+describe("useChatLaneComposer while a wizard step is docked", () => {
+  function renderDocked(
+    agentHost: AgentHost,
+    dockedGate: { acceptsText: boolean; submitUtterance: (t: string) => void }
+  ) {
+    return renderHook(() =>
+      useChatLaneComposer({
+        dockedGate,
+        host: agentHost,
+        messages: [],
+        openInterruptFromSession: null,
+        status: "ready",
+        threadKey: "t1",
+      } as never)
+    );
+  }
+
+  it("answers the step with the words instead of starting a turn", async () => {
+    const submitUtterance = vi.fn();
+    const agentHost = host();
+    const { result } = renderDocked(agentHost, {
+      acceptsText: true,
+      submitUtterance,
+    });
+
+    await act(async () => {
+      result.current.submitMessage("  Bitte kürzer.  ");
+    });
+
+    expect(submitUtterance).toHaveBeenCalledWith("Bitte kürzer.");
+    expect(agentHost.submitMessage).not.toHaveBeenCalled();
+    expect(result.current.queue.queued).toEqual([]);
+  });
+
+  it("refuses free text when the step takes none", async () => {
+    const submitUtterance = vi.fn();
+    const agentHost = host();
+    const { result } = renderDocked(agentHost, {
+      acceptsText: false,
+      submitUtterance,
+    });
+
+    await act(async () => {
+      result.current.submitMessage("anything");
+    });
+
+    expect(submitUtterance).not.toHaveBeenCalled();
+    expect(agentHost.submitMessage).not.toHaveBeenCalled();
+    expect(result.current.queue.queued).toEqual([]);
+  });
+
+  it("never steers an attached run while a step is docked", async () => {
+    const steer = vi.fn(async () => true);
+    const submitUtterance = vi.fn();
+    const agentHost = host({ attachedRunId: "run-other", steer });
+    const { result } = renderDocked(agentHost, {
+      acceptsText: true,
+      submitUtterance,
+    });
+
+    await act(async () => {
+      result.current.submitMessage("redirect");
+    });
+
+    expect(steer).not.toHaveBeenCalled();
+    expect(submitUtterance).toHaveBeenCalledWith("redirect");
+  });
+});

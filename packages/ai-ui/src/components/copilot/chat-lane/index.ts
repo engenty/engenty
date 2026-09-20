@@ -13,6 +13,7 @@ export {
 } from "./chat-lane-panel-props.js";
 export {
   type ChatLaneComposer,
+  type ChatLaneDockedGate,
   type UseChatLaneComposerParams,
   useChatLaneComposer,
 } from "./use-chat-lane-composer.js";

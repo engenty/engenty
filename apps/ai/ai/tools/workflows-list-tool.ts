@@ -31,7 +31,8 @@ export const actionsListTool = createTool({
     "published version exists. Call this BEFORE invoke_workflow (to turn a " +
     "name into an id) and before workflow_propose (so you extend an existing " +
     "Workflow instead of duplicating it). Only `runnable: true` Workflows can " +
-    "be run.",
+    'be run. `surface: "wizard"` rows open step by step for the person who ' +
+    "starts them (one page per gate) instead of reporting into a chat.",
   inputSchema: z.object({
     context_type: z
       .string()
@@ -52,6 +53,8 @@ export const actionsListTool = createTool({
         runnable: z.boolean(),
         status: z.string(),
         subject_type: z.string().nullable(),
+        /** `wizard` = walked one page per gate by the person who starts it. */
+        surface: z.enum(["chat", "wizard"]),
       })
     ),
   }),
@@ -104,6 +107,7 @@ export const actionsListTool = createTool({
             runnable,
             status: row.status,
             subject_type: row.context_type,
+            surface: row.surface ?? "chat",
           };
         })
       ),

@@ -64,10 +64,52 @@ const offerAgentCreateSchema = z.object({
   valid_until: z.string().optional(),
 });
 
-/** Blocks input for agents: omit `id` for new blocks (generated on write). */
+/**
+ * Blocks input for agents: omit `id` for new blocks (generated on write), and
+ * omit `order_index` to take the position the list itself gives.
+ */
 const offerAgentBlockInputSchema = offerBlockInputSchema
   .omit({ id: true, offer_id: true })
-  .extend({ id: z.string().optional() });
+  .extend({ id: z.string().optional(), order_index: z.number().optional() });
+
+/**
+ * How a block list is written, shared by `offers_create` and
+ * `offers_replace_blocks` so an agent learns the shape once.
+ */
+const OFFER_BLOCKS_DESCRIPTION =
+  'Full ordered block list. content_json by type — line_item: {"title": string, "amount": number (quantity), "unit": string ("h", "Tage", "fixed", …), "cost_per_item": number (net unit price), "tax": number (percent), "content"?: string (description line)}; phase: {"title": string} (stored as a headline block with is_phase: true; groups all following blocks until the next phase); headline/subheading: {"title": string}; text: {"content": string}. The aliases quantity/unit_price/tax_rate and text are accepted and normalized to the canonical keys.';
+
+/** Normalize an agent block list into the repo's replace input. */
+function toReplaceBlocks(
+  offerId: string,
+  blocks: readonly z.infer<typeof offerAgentBlockInputSchema>[]
+) {
+  return blocks.map((block, index) => {
+    const normalized = normalizeCommercialBlock({
+      content: block.content_json ?? {},
+      type: block.type,
+    });
+    return {
+      id: block.id ?? "",
+      offer_id: offerId,
+      type: normalized.type as typeof block.type,
+      content_json: normalized.content,
+      order_index: block.order_index ?? index,
+    };
+  });
+}
+
+/**
+ * What `offers_create` accepts: the offer fields plus, optionally, the
+ * positions to write with it — one call for "an offer with its line items",
+ * so a caller never has to plumb the new id into a second write.
+ */
+const offerAgentCreateWithBlocksSchema = offerAgentCreateSchema.extend({
+  blocks: z
+    .array(offerAgentBlockInputSchema)
+    .optional()
+    .describe(OFFER_BLOCKS_DESCRIPTION),
+});
 
 /** Diff-style upsert entry: position via `order_index` or `after_id`. */
 const offerAgentBlockUpsertSchema = offerAgentBlockInputSchema.extend({
@@ -285,17 +327,18 @@ export function registerOffersGatewayMethods(
 
   api.registerOperation({
     operationId: "offers_create",
-    summary: "Create an offer (title suffices; UI defaults apply)",
+    summary:
+      "Create an offer, optionally with its positions (title suffices; UI defaults apply)",
     moduleId: "offers",
     spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
     riskLevel: "high",
     requiresApproval: true,
-    inputSchema: offerAgentCreateSchema,
+    inputSchema: offerAgentCreateWithBlocksSchema,
     outputSchema: offerSchema,
     handler: async (input, ctx) => {
       const repo = getRepo(repoOrFactory, ctx.auth);
-      const parsed = offerAgentCreateSchema.parse(input);
+      const parsed = offerAgentCreateWithBlocksSchema.parse(input);
       const settings = await repo.getSettings();
       const now = new Date();
       const validUntil = new Date(now);
@@ -342,6 +385,12 @@ export function registerOffersGatewayMethods(
         created_by: actorUserIdFromAuth(ctx.auth),
       };
       const created = await repo.create(createInput);
+      if (parsed.blocks && parsed.blocks.length > 0) {
+        await repo.replaceBlocks(
+          created.id,
+          toReplaceBlocks(created.id, parsed.blocks)
+        );
+      }
       await ensureClientRoleOnEntity(ops, parsed.client_id, ctx.auth);
       return withRecordLink(created, (offer) => offerLink(ctx.auth, offer));
     },
@@ -409,9 +458,7 @@ export function registerOffersGatewayMethods(
       id: z.string().min(1),
       blocks: z
         .array(offerAgentBlockInputSchema)
-        .describe(
-          'Full ordered block list. content_json by type — line_item: {"title": string, "amount": number (quantity), "unit": string ("h", "Tage", "fixed", …), "cost_per_item": number (net unit price), "tax": number (percent), "content"?: string (description line)}; phase: {"title": string} (stored as a headline block with is_phase: true; groups all following blocks until the next phase); headline/subheading: {"title": string}; text: {"content": string}. The aliases quantity/unit_price/tax_rate and text are accepted and normalized to the canonical keys.'
-        ),
+        .describe(OFFER_BLOCKS_DESCRIPTION),
     }),
     outputSchema: z.array(offerBlockSchema),
     handler: async (input, ctx) => {
@@ -422,19 +469,7 @@ export function registerOffersGatewayMethods(
       };
       return repo.replaceBlocks(
         parsed.id,
-        parsed.blocks.map((block, index) => {
-          const normalized = normalizeCommercialBlock({
-            content: block.content_json ?? {},
-            type: block.type,
-          });
-          return {
-            id: block.id ?? "",
-            offer_id: parsed.id,
-            type: normalized.type as typeof block.type,
-            content_json: normalized.content,
-            order_index: block.order_index ?? index,
-          };
-        })
+        toReplaceBlocks(parsed.id, parsed.blocks)
       );
     },
   });

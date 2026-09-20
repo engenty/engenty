@@ -37,6 +37,7 @@ import { SpaceHomeModules } from "@/components/space-home/SpaceHomeModules";
 import { SpaceHomeQuietLine } from "@/components/space-home/SpaceHomeQuietLine";
 import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectionHeading";
 import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
+import { SpaceHomeWorkflows } from "@/components/space-home/SpaceHomeWorkflows";
 import { spaceTabModuleId } from "@/lib/space-nav";
 import { MODULE_ROUTE_PREFIX } from "@/lib/space-route-mirrors";
 import { spaceSettingsPath } from "@/lib/space-routes";
@@ -270,6 +271,7 @@ export function SpaceWorkHome() {
               className={cn("flex min-w-0 flex-col gap-5", HOME_RAIL_CLASS)}
             >
               <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
+              <SpaceHomeWorkflows spaceKey={space.key} />
               <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
