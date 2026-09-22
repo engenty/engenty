@@ -1,23 +1,5 @@
 {
-  "menu": {
-    "label": "Engenty Copilot"
-  },
   "chat": {
-    "emptyStateTitle": "Wie kann ich helfen?",
-    "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen.",
-    "composerPlaceholder": "Nachricht an den Copilot…",
-    "readOnlyThread": "Nur lesen — dieser Verlauf gehört einem Agenten. Schreib in die Aufgabe, nicht hierher.",
-    "sending": "Wird gesendet…",
-    "queue": {
-      "title": "Warteschlange",
-      "sendNow": "Jetzt senden",
-      "remove": "Löschen",
-      "edit": "Bearbeiten",
-      "drag": "Zum Umsortieren ziehen"
-    },
-    "missingAiBaseUrl": "VITE_ENGENTY_AI_BASE_URL in .env.local setzen (volle Basis-URL für @engenty/ai, z. B. https://ai.engenty.localhost).",
-    "missingScope": "Mandant oder Benutzer fehlt; nach der Anmeldung neu laden.",
-    "agentChooserLabel": "Agent auswählen",
     "modelChooserLabel": "Modell auswählen",
     "effortExpertToggle": "Expertenmodus: Modell wählen",
     "modelChooser": {
@@ -36,122 +18,10 @@
         "unknown": "Sonstige"
       }
     },
-    "requestFailed": "apps/ai ist nicht erreichbar: {{message}}",
-    "listLoadFailedTitle": "Chats konnten nicht geladen werden",
-    "retry": "Erneut versuchen",
-    "moduleErrorTitle": "Copilot konnte nicht geladen werden",
-    "moduleErrorDescription": "In der Chat-Oberfläche ist ein Fehler aufgetreten. Seite neu laden, um fortzufahren.",
-    "moduleErrorReload": "Seite neu laden",
-    "chats": "Chats",
-    "topbarMenu": "Chat-Aktionen",
-    "newChatPickAgent": "Agent für neue Unterhaltung auswählen",
-    "newChatStartWithAgent": "Neue Unterhaltung mit Agent",
-    "newSession": "Neue Unterhaltung",
-    "sessionMenu": "Aktionen zur Unterhaltung",
-    "deleteSession": "Unterhaltung löschen",
-    "draftSession": "Neuer Chat",
-    "clearAllChats": "Alle Chats löschen",
-    "clearAllChatsTitle": "Alle Chats löschen?",
-    "clearAllChatsDescription": "Damit werden alle Copilot-Chats für deinen Benutzer entfernt.",
-    "clearAllChatsCancel": "Abbrechen",
-    "clearAllChatsConfirm": "Alle Chats löschen",
-    "noSessions": "Noch keine Chats. Mit + starten.",
-    "sessionNotFoundTitle": "Chat nicht gefunden",
-    "sessionNotFoundDescription": "Diese Unterhaltung wurde gelöscht oder ist in deinem Workspace nicht verfügbar.",
-    "noSearchResults": "Keine Chats passen zu deiner Suche.",
-    "searchChats": "Chats suchen",
-    "listSettings": "Chatlisteneinstellungen",
-    "sandboxesKillAll": "Alle beenden",
-    "sandboxesMenu": "{{count}} Sandboxes aktiv",
-    "sandboxesNone": "Keine Sandboxes",
-    "sandboxesRunning": "{{count}} Sandboxes aktiv",
-    "agent": "Agent",
-    "age": "Alter",
-    "ageAll": "Jederzeit",
-    "ageLastTwoDays": "Letzte 2 Tage",
-    "ageLastSevenDays": "Letzte Woche",
-    "ageLastThirtyDays": "Letzter Monat",
-    "allAgents": "Alle Agenten",
-    "status": "Status",
-    "allStatuses": "Alle Status",
-    "visibility": "Sichtbarkeit",
-    "activeChats": "Aktive Chats",
-    "archivedChats": "Archivierte Chats",
-    "allChats": "Alle Chats",
-    "groupBy": "Gruppieren nach",
-    "groupNone": "Keine Gruppierung",
-    "groupNoneShort": "Liste",
-    "groupAgent": "Agent",
-    "groupStatus": "Status",
-    "groupType": "Typ",
-    "groupDate": "Datum",
-    "groupSpace": "Space",
-    "sortBy": "Sortieren nach",
-    "sortUpdated": "Zuletzt aktualisiert",
-    "spaceScope": "Spaces",
-    "spaceScopeAll": "Alle Spaces",
-    "spaceScopeCurrent": "Dieser Space",
-    "spaceNone": "Ohne Space",
-    "spaceUnknown": "Unbekannter Space",
-    "sortCreated": "Erstellt",
-    "sortTitle": "Titel",
-    "sortAgent": "Agent",
-    "sortAscending": "Aufsteigend",
-    "sortDescending": "Absteigend",
-    "statusIdle": "Inaktiv",
-    "statusDraft": "Entwurf",
-    "statusRunning": "Läuft",
-    "statusWaiting": "Wartet",
-    "statusFailed": "Fehlgeschlagen",
-    "statusCompleted": "Abgeschlossen",
-    "dateToday": "Heute",
-    "dateYesterday": "Gestern",
-    "datePreviousSevenDays": "Letzte 7 Tage",
-    "dateOlder": "Älter",
-    "typeChat": "Chat",
-    "selectSessionToSend": "Wähle oder lege einen Chat an, bevor du sendest.",
-    "untitledSession": "Chat {{shortId}}",
-    "realtimeVoice": {
-      "assistant": "Copilot",
-      "user": "Du"
-    },
-    "starters": {
-      "helloOneLine": {
-        "label": "Hallo sagen",
-        "prompt": "Sag in einem kurzen Satz Hallo."
-      },
-      "protocolTest": {
-        "label": "Protokolltest",
-        "prompt": "Das ist ein Protokolltest. Antworte mit einem einzigen kurzen Satz."
-      },
-      "whatIsThis": {
-        "label": "Was ist das?",
-        "prompt": "Was kannst du im Copilot-Chat tun?"
-      }
-    },
     "artifactReady": "Artefakt bereit",
-    "openArtifact": "Öffnen",
-    "history": "Verlauf",
-    "spaceMismatchTitle": "Dieser Chat gehört zu einem anderen Space",
-    "spaceMismatchBody": "Er antwortet weiterhin mit den Agenten, Verbindungen und Dateien jenes Spaces — nicht mit denen von hier. Starte einen neuen Chat, um hier zu arbeiten.",
-    "spaceMismatchAction": "Hier weiterreden",
-    "allSpaceChats": "Alle Chats in diesem Space"
+    "openArtifact": "Öffnen"
   },
-  "subAgent": {
-    "backToChat": "Zurück zum Chat",
-    "fullView": "Vollansicht",
-    "input": "Eingabe",
-    "log": "Protokoll",
-    "notFound": "Dieser Sub-Agent-Lauf ist im Transcript nicht mehr verfügbar.",
-    "output": "Ausgabe",
-    "running": "Läuft…"
-  },
-  "memory": {
-    "menu": "Gedächtnis",
-    "title": "Gedächtnis",
-    "subtitle": "Das stets verfügbare Profil, das der Assistent über dich pflegt. Es aktualisiert sich selbst; Zurücksetzen ist die einzige Bearbeitung.",
-    "reset": "Zurücksetzen",
-    "loading": "Lädt…",
-    "empty": "Noch kein Profil."
+  "settings": {
+    "menu": "Copilot"
   }
 }

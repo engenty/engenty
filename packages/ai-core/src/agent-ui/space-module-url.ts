@@ -2,7 +2,6 @@
  * Short URL segments for modules inside a space (PLAN-spaces.md Phase 5a).
  *
  * A space URL is meant to be read and typed by a person —
- * `/s/company/copilot/chat/…`, not `/s/company/engenty-copilot/chat/…`;
  * `/s/company/kb/…`, not `/s/company/knowledge-base/…`. The
  * module ID stays what it is everywhere else (mounts, manifests, tool names);
  * only the URL segment is shortened.
@@ -13,7 +12,7 @@
  * second reader of the same scheme. One table imported by both readers is the
  * only version of this that cannot drift; two tables that must agree, in
  * packages that cannot import each other's tests, is how the agent ends up
- * resolving `copilot` against a registry that only knows `engenty-copilot`.
+ * resolving `kb` against a registry that only knows `knowledge-base`.
  *
  * Aliases are opt-in per module, never derived (stripping a leading `engenty-`
  * would silently claim `/s/x/core` for `engenty-core` the day someone adds it).
@@ -21,7 +20,6 @@
 
 /** moduleId → the segment used in `/s/<space>/<segment>/…`. */
 export const SPACE_MODULE_URL_ALIASES: Readonly<Record<string, string>> = {
-  "engenty-copilot": "copilot",
   "knowledge-base": "kb",
 };
 
@@ -53,6 +51,11 @@ export const SPACE_MODULE_URL_ALIASES: Readonly<Record<string, string>> = {
  * dashboard's full-screen list, not a module — without this the shell slides
  * the space sidebar away to show a phantom "notifications" nav.
  *
+ * `copilot` is the river seen from inside this space (`/s/<key>/copilot`):
+ * the person's one conversation with their copilot, opened at this space's
+ * chapters. The copilot is a module for its tools and settings, never for its
+ * conversation — so the segment is the SPACE's, and the column stays.
+ *
  * `workflows` is a wizard walked inside the space
  * (`/s/<key>/workflows/<workflowId>[/runs/<runId>]`). A workflow belongs to
  * the tenant or a module, not to a module's pages — so it is a space page.
@@ -60,6 +63,7 @@ export const SPACE_MODULE_URL_ALIASES: Readonly<Record<string, string>> = {
 export const SPACE_RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
   "agents",
   "chats",
+  "copilot",
   "data",
   "notifications",
   "rooms",

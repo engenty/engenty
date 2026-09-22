@@ -40,7 +40,6 @@ export function CopilotPanelHeader({
   onClose,
   onCompact,
   attachLabel,
-  agentSessionChooser,
   compactLabel = "Compact",
   detachLabel,
   dragHandleLabel = "Drag to move",
@@ -55,9 +54,12 @@ export function CopilotPanelHeader({
   selectedContextId,
   headerChrome = "default",
 }: {
-  agentSessionChooser?: ReactNode;
   title?: string;
   panelMode: "docked" | "floating";
+  /**
+   * A host with threads of its own (a module hub chat) offers a new one here.
+   * The river has no "new": one conversation, cut into chapters, not threads.
+   */
   onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   onClose: () => void;
@@ -70,6 +72,7 @@ export function CopilotPanelHeader({
   detachLabel: string;
   dragHandleLabel?: string;
   closeLabel: string;
+  /** Label for `onNewChat`. */
   clearLabel?: string;
   onSelectContext?: (contextId: string) => void;
   recentContextMenuLabel?: string;
@@ -86,13 +89,10 @@ export function CopilotPanelHeader({
       onSelectContext &&
       selectedContextId != null
   );
-  const showAgentChooser = Boolean(agentSessionChooser);
   const content = (
     <>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {showAgentChooser ? (
-          agentSessionChooser
-        ) : showContext ? (
+        {showContext ? (
           <CopilotContextDropdown
             contextLabel={contextMenuLabel}
             onSelect={onSelectContext!}
@@ -110,7 +110,6 @@ export function CopilotPanelHeader({
         {onNewChat ? (
           <Button
             aria-label={clearLabel}
-            className={headerActionClass}
             onClick={onNewChat}
             size="icon"
             variant="ghost"
@@ -194,8 +193,6 @@ export function CopilotPanelInlineHeader({
   chatKind = null,
   headerVariant,
   headerChrome,
-  showAgentChooser,
-  agentSessionChooser,
   showHeaderContext,
   contextMenuLabel,
   contextOptions,
@@ -224,8 +221,6 @@ export function CopilotPanelInlineHeader({
   chatKind?: ChatKind | null;
   headerVariant: "docked" | "floating";
   headerChrome: CopilotHeaderChrome;
-  showAgentChooser: boolean;
-  agentSessionChooser?: ReactNode;
   showHeaderContext: boolean;
   contextMenuLabel?: string;
   contextOptions?: CopilotCompactContextOption[];
@@ -239,6 +234,7 @@ export function CopilotPanelInlineHeader({
   detachLabel: string;
   attachLabel: string;
   panelMode: "docked" | "floating";
+  /** See `CopilotPanelHeader.onNewChat` — only a host with threads of its own. */
   onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   onClose: () => void;
@@ -251,9 +247,7 @@ export function CopilotPanelInlineHeader({
         {headerVariant === "floating" && (
           <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
-        {showAgentChooser ? (
-          agentSessionChooser
-        ) : showHeaderContext ? (
+        {showHeaderContext ? (
           <CopilotContextDropdown
             contextLabel={contextMenuLabel}
             onSelect={onSelectContext!}
@@ -283,17 +277,19 @@ export function CopilotPanelInlineHeader({
             <Monitor className="h-4 w-4" />
           </Button>
         ) : null}
+        {onNewChat ? (
+          <Button
+            aria-label={clearLabel}
+            className={headerActionClass}
+            onClick={onNewChat}
+            size="icon"
+            variant="ghost"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </Button>
+        ) : null}
         {headerVariant === "docked" && positionMenu ? (
           <>
-            <Button
-              aria-label={clearLabel}
-              className={headerActionClass}
-              onClick={onNewChat}
-              size="icon"
-              variant="ghost"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </Button>
             <Button
               aria-label={closeLabel}
               className={headerActionClass}
@@ -307,15 +303,6 @@ export function CopilotPanelInlineHeader({
           </>
         ) : (
           <>
-            <Button
-              aria-label={clearLabel}
-              className={headerActionClass}
-              onClick={onNewChat}
-              size="icon"
-              variant="ghost"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </Button>
             {panelMode === "docked" ? (
               <Button
                 aria-label={detachLabel}

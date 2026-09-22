@@ -39,6 +39,11 @@ import {
   type ThreadVisibility,
 } from "../../dal/threads/types.js";
 import { emitInboxNotification } from "../../notifications/inbox.js";
+import {
+  type AlterEgo,
+  alterEgoDisplayName,
+  resolveAlterEgo,
+} from "../rooms/alter-ego.js";
 import { deliverToRoom } from "../rooms/deliver.js";
 import {
   ROOM_MAX_AGENTS,
@@ -46,6 +51,7 @@ import {
   readRoomPurpose,
 } from "../rooms/room-turns.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
+import { resolveUserDisplayNames } from "../sessions/user-display-names.js";
 import {
   AGENT_MESSAGE_MARKER_KEY,
   type AgentMessageMarker,
@@ -72,6 +78,58 @@ export function resolveMessageAgentDepthLimit(): number {
     10
   );
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+}
+
+/**
+ * What the parent is called in the prose it sends: its own name, or — when
+ * it is someone's copilot — that person's copilot (rooms/alter-ego.ts).
+ */
+async function senderNameFor(
+  deps: DelegationToolDeps & { parentAgentId: string },
+  sender:
+    | { agentScope?: string | null; name?: string | null }
+    | null
+    | undefined
+): Promise<string> {
+  const own = sender?.name ?? deps.parentAgentId;
+  const ownerUserId = scopeAttributionUserId(deps.scope);
+  if (sender?.agentScope !== "personal" || !ownerUserId) {
+    return own;
+  }
+  const names = await resolveUserDisplayNames([ownerUserId]);
+  return alterEgoDisplayName(
+    { userId: ownerUserId, userName: names.get(ownerUserId) ?? null },
+    own
+  );
+}
+
+/**
+ * The parent as an alter ego in `roomId`: a personal-scope agent (the
+ * copilot) speaks in a room FOR its person. Marks the membership row on the
+ * way in — idempotent — and returns what the rows it writes should carry.
+ * Null for every other agent (rooms/alter-ego.ts).
+ */
+async function alterEgoFor(
+  deps: DelegationToolDeps & { parentAgentId: string },
+  roomId: string
+): Promise<AlterEgo | null> {
+  const config = await deps.registry.getAgentConfig(deps.parentAgentId);
+  const ownerUserId = scopeAttributionUserId(deps.scope);
+  if (config?.agentScope !== "personal" || !ownerUserId) {
+    return null;
+  }
+  await deps.store.markAgentOnBehalfOf({
+    agentId: deps.parentAgentId,
+    onBehalfOfUserId: ownerUserId,
+    tenantId: deps.scope.tenantId,
+    threadId: roomId,
+  });
+  return await resolveAlterEgo({
+    agentId: deps.parentAgentId,
+    store: deps.store,
+    tenantId: deps.scope.tenantId,
+    threadId: roomId,
+  });
 }
 
 export function createMessageAgentTool(
@@ -183,7 +241,7 @@ export function createMessageAgentTool(
         deps.registry.getAgentConfig(deps.parentAgentId),
       ]);
       const alias = target?.name ?? agentId;
-      const senderName = sender?.name ?? deps.parentAgentId;
+      const senderName = await senderNameFor(deps, sender);
       // The colleague reads this as the user turn of its thread; the header
       // says who is speaking, since the row itself is attributed to the person
       // whose room it is — and the transcript draws it as "Message from …".
@@ -255,7 +313,13 @@ export function createMessageAgentTool(
           } as never;
         }
         const delivered = await deliverToRoom({
-          from: { agentId: deps.parentAgentId, name: senderName },
+          from: {
+            agentId: deps.parentAgentId,
+            ...(await alterEgoFor(deps, roomId).then((alterEgo) =>
+              alterEgo ? { alterEgo } : {}
+            )),
+            name: senderName,
+          },
           mentions: [agentId],
           modelConfig: deps.modelConfig ?? null,
           registry: deps.registry,
@@ -354,7 +418,7 @@ async function messageRoom(
     deps.registry.getAgentConfig(deps.parentAgentId),
     ...input.ids.map((id) => deps.registry.getAgentConfig(id)),
   ]);
-  const senderName = sender?.name ?? deps.parentAgentId;
+  const senderName = await senderNameFor(deps, sender);
   const members = input.ids.map((id, index) => {
     const config = targets[index];
     return {
@@ -452,7 +516,13 @@ async function messageRoom(
     });
   }
   const delivered = await deliverToRoom({
-    from: { agentId: deps.parentAgentId, name: senderName },
+    from: {
+      agentId: deps.parentAgentId,
+      ...(await alterEgoFor(deps, room.id).then((alterEgo) =>
+        alterEgo ? { alterEgo } : {}
+      )),
+      name: senderName,
+    },
     mentions: input.ids,
     modelConfig: deps.modelConfig ?? null,
     registry: deps.registry,
@@ -557,9 +627,15 @@ async function messageExistingRoom(
     };
   }
   const sender = await deps.registry.getAgentConfig(deps.parentAgentId);
-  const senderName = sender?.name ?? deps.parentAgentId;
+  const senderName = await senderNameFor(deps, sender);
   const delivered = await deliverToRoom({
-    from: { agentId: deps.parentAgentId, name: senderName },
+    from: {
+      agentId: deps.parentAgentId,
+      ...(await alterEgoFor(deps, room.id).then((alterEgo) =>
+        alterEgo ? { alterEgo } : {}
+      )),
+      name: senderName,
+    },
     mentions,
     modelConfig: deps.modelConfig ?? null,
     registry: deps.registry,

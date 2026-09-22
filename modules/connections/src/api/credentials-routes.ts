@@ -43,7 +43,7 @@ export function registerConnectionsCredentialsRoutes(
       }
       const connectorId = (ctx.params as { connectorId?: string })?.connectorId;
       const connector = connectorId
-        ? getConnectorDefinition(connectorId)
+        ? getConnectorDefinition(connectorId, ctx.auth.tenantId)
         : undefined;
       if (!connector) {
         return hono.json({ error: `Unknown connector: ${connectorId}` }, 404);
@@ -93,7 +93,7 @@ export function registerConnectionsCredentialsRoutes(
         grantedScopes: [],
         ownerUserId,
         refreshToken: null,
-        sharing: body.sharing,
+        sharing: "personal",
         tenantId: ctx.auth.tenantId,
       });
       ctx.recordAuditEvent?.({
@@ -103,7 +103,7 @@ export function registerConnectionsCredentialsRoutes(
       try {
         await options.onConnected?.({
           connectorId: connector.id,
-          sharing: body.sharing,
+          sharing: "personal",
           tenantId: ctx.auth.tenantId,
         });
       } catch {

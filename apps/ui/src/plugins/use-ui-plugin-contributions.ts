@@ -11,7 +11,6 @@ const emptyContributions: UiContributions = {
   adminMenuItems: [],
   backgroundComponents: [],
   chatCommands: [],
-  copilotApps: [],
   copilotContributions: [],
   dashboardWidgets: [],
   developmentPanels: [],

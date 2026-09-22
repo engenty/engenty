@@ -6,17 +6,17 @@ import {
 } from "./agent-desk-api.js";
 
 export const agentMemoryKeys = {
-  memory: (spaceId: string, agentId: string) =>
-    ["agent-desk", "memory", spaceId, agentId] as const,
+  memory: (spaceId: string | null, agentId: string) =>
+    ["agent-desk", "memory", spaceId ?? "", agentId] as const,
 };
 
 export function useAgentMemoryQuery(input: {
   agentId: string;
   enabled?: boolean;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   return useQuery({
-    enabled: (input.enabled ?? true) && Boolean(input.agentId && input.spaceId),
+    enabled: (input.enabled ?? true) && Boolean(input.agentId),
     queryFn: ({ signal }) =>
       getAgentDeskMemory(
         { agent_id: input.agentId, space_id: input.spaceId },
@@ -29,7 +29,7 @@ export function useAgentMemoryQuery(input: {
 
 export function useSaveAgentMemoryMutation(input: {
   agentId: string;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   const queryClient = useQueryClient();
   return useMutation({

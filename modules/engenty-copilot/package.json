@@ -30,10 +30,6 @@
       "types": "./src/lib/ensure-copilot-user-workspace-prefix.ts",
       "default": "./dist/src/lib/ensure-copilot-user-workspace-prefix.js"
     },
-    "./paths": {
-      "types": "./ui/paths.ts",
-      "default": "./dist/ui/paths.js"
-    },
     "./ui/effort-control": {
       "types": "./ui/components/chat/copilot-effort-control.tsx",
       "default": "./dist/ui/components/chat/copilot-effort-control.js"

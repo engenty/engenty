@@ -188,6 +188,31 @@ describe("connector mounts (C3b)", () => {
     ).toBeNull();
   });
 
+  it("refuses connector tools on a global agent run that did not enable them", () => {
+    const global = {
+      allConnectorPrefixes: new Set(["gmail", "gdrive"]),
+      connectorPrefixes: new Set(["gmail"]),
+      kind: "global" as const,
+    };
+    expect(
+      checkOperationAgainstSpace({
+        moduleId: "connections-google",
+        operationId: "gmail_search_threads",
+        readOnly: true,
+        space: global,
+      })
+    ).toBeNull();
+    expect(
+      checkOperationAgainstSpace({
+        moduleId: "connections-google",
+        operationId: "gdrive_files_list",
+        readOnly: true,
+        space: global,
+      })?.error
+    ).toBe("connector_not_in_space");
+    expect(isModuleVisibleInSpace("offers", global)).toBe(true);
+  });
+
   it("keeps the connections plumbing reachable once a connector is mounted", () => {
     // A space with Gmail but without the connections module would otherwise be
     // able to call Gmail and unable to ask which account to call it with.

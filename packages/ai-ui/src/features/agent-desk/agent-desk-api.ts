@@ -7,14 +7,15 @@ export function getAgentDeskFeed(
     cursor?: string;
     limit?: number;
     locale?: string;
-    space_id: string;
+    /** Absent for the copilot's desk outside a space. */
+    space_id?: string | null;
   },
   signal?: AbortSignal
 ): Promise<AgentDeskFeed> {
-  const query = new URLSearchParams({
-    agent_id: input.agent_id,
-    space_id: input.space_id,
-  });
+  const query = new URLSearchParams({ agent_id: input.agent_id });
+  if (input.space_id) {
+    query.set("space_id", input.space_id);
+  }
   if (input.cursor) {
     query.set("cursor", input.cursor);
   }
@@ -63,15 +64,17 @@ export interface AgentDeskMemory {
   memory: string;
 }
 
-function memoryQuery(input: { agent_id: string; space_id: string }) {
-  return new URLSearchParams({
-    agent_id: input.agent_id,
-    space_id: input.space_id,
-  }).toString();
+/** A personal-scope agent's pads are one row per person; no space needed. */
+function memoryQuery(input: { agent_id: string; space_id: string | null }) {
+  const query = new URLSearchParams({ agent_id: input.agent_id });
+  if (input.space_id) {
+    query.set("space_id", input.space_id);
+  }
+  return query.toString();
 }
 
 export function getAgentDeskMemory(
-  input: { agent_id: string; space_id: string },
+  input: { agent_id: string; space_id: string | null },
   signal?: AbortSignal
 ): Promise<AgentDeskMemory> {
   return requestAiServiceJson<AgentDeskMemory>(
@@ -83,7 +86,7 @@ export function getAgentDeskMemory(
 export function putAgentDeskMemory(input: {
   agent_id: string;
   memory: string;
-  space_id: string;
+  space_id: string | null;
 }): Promise<AgentDeskMemory> {
   return requestAiServiceJson<AgentDeskMemory>(
     `/ai/v1/agent-desk/memory?${memoryQuery(input)}`,
@@ -99,7 +102,7 @@ export interface AgentDeskTasks {
 }
 
 export function getAgentDeskTasks(
-  input: { agent_id: string; space_id: string },
+  input: { agent_id: string; space_id: string | null },
   signal?: AbortSignal
 ): Promise<AgentDeskTasks> {
   return requestAiServiceJson<AgentDeskTasks>(
@@ -110,7 +113,7 @@ export function getAgentDeskTasks(
 
 export function putAgentDeskTasks(input: {
   agent_id: string;
-  space_id: string;
+  space_id: string | null;
   tasks: string;
 }): Promise<AgentDeskTasks> {
   return requestAiServiceJson<AgentDeskTasks>(

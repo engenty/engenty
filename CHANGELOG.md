@@ -4,6 +4,18 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.15] - 2026-09-22
+- ADDED **[connections]** Open a token form when imported setup cannot start OAuth
+- ADDED **[extensions]** Install catalog connections and browse skills the same way
+- ADDED **[connections]** Show registry logos, descriptions, and sign-in steps
+- ADDED **[connections]** Add an Extensions marketplace for spaces and agents
+- ADDED **[connections]** Replace personal/org sharing with a space plugin marketplace
+- ADDED **[desk]** One desk for the copilot and the specialists — chapters on both
+- ADDED **[manage]** Add Shortcuts to the user menu
+- ADDED **[app-shell]** Add a searchable keyboard shortcuts palette
+- ADDED **[copilot]** The river — one private conversation per person, with chapters and an alter ego
+- FIXED **[agent-desk]** Keep the engenty mark inside a narrow chat column
+
 ## [0.2.14] - 2026-09-20
 - ADDED **[ai]** Check a proposed hire for real tool ids, like a live one
 - ADDED **[workflows]** Wizards — a graph run walked one page at a time

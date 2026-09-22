@@ -4,21 +4,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
 import { ConnectorLogoImg, connectorLogoSvg } from "@engenty/ui-icons";
 import { Cable, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import type { CatalogConnector, ConnectionSharing } from "../api.js";
+import type { CatalogConnector } from "../api.js";
 import { getConnectUrl } from "../api.js";
 
 /**
- * "+ New connection" page action: pick a connector, then the sharing mode,
- * and jump straight into its OAuth flow (returning to `redirectTo`).
+ * "+ New connection" page action: pick a connector and jump straight into
+ * its OAuth flow (returning to `redirectTo`).
  */
 export function NewConnectionButton({
   connectors,
@@ -36,13 +33,12 @@ export function NewConnectionButton({
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
 
-  const connect = async (connectorId: string, sharing: ConnectionSharing) => {
+  const connect = async (connectorId: string) => {
     setConnecting(true);
     try {
       const { authUrl } = await getConnectUrl({
         connectorId,
         redirectTo,
-        sharing,
         spaceId,
       });
       window.location.assign(authUrl);
@@ -71,35 +67,25 @@ export function NewConnectionButton({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {connectors.map((connector) => (
-          <DropdownMenuSub key={connector.id}>
-            <DropdownMenuSubTrigger className="gap-2">
-              {connectorLogoSvg(connector.icon) ? (
-                <ConnectorLogoImg
-                  className="size-4 shrink-0 object-contain"
-                  icon={connector.icon}
-                  size={16}
-                />
-              ) : (
-                <Cable
-                  aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-              )}
-              {connector.name}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuItem
-                onSelect={() => void connect(connector.id, "personal")}
-              >
-                {t("catalog.connectPersonal")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => void connect(connector.id, "org")}
-              >
-                {t("catalog.connectOrg")}
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          <DropdownMenuItem
+            className="gap-2"
+            key={connector.id}
+            onSelect={() => void connect(connector.id)}
+          >
+            {connectorLogoSvg(connector.icon) ? (
+              <ConnectorLogoImg
+                className="size-4 shrink-0 object-contain"
+                icon={connector.icon}
+                size={16}
+              />
+            ) : (
+              <Cable
+                aria-hidden
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+            )}
+            {connector.name}
+          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

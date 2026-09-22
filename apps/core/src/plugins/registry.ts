@@ -83,6 +83,7 @@ export interface PluginRecord {
   connections?: PluginManifestConnectionNeed[];
   dependencies: string[];
   description?: string;
+  emoji?: string;
   enabled: boolean;
   eventFilters?: string[];
   eventInterceptors?: string[];

@@ -23,6 +23,11 @@ import type {
   ThreadStore,
 } from "../../dal/threads/index.js";
 import {
+  type TurnContext,
+  turnContextMetadata,
+} from "../conversation/turn-context.js";
+import { type AlterEgo, alterEgoMetadata } from "../rooms/alter-ego.js";
+import {
   ROOM_AGENT_TURNS_KEY,
   ROOM_PAUSED_KEY,
   ROOM_PURPOSE_KEY,
@@ -101,6 +106,8 @@ export interface EngentySessionMemoryStorageOptions {
    * of a room read its turns under a name instead of an engenty id.
    */
   agentName?: string;
+  /** The person this agent writes for in a room (rooms/alter-ego.ts). */
+  alterEgo?: AlterEgo | null;
   /**
    * Persist `sendMessage` as a visible user row. Artifact-resume re-runs steer
    * the model with a synthetic "Approved: you may now run …" prompt that must
@@ -128,6 +135,8 @@ export interface EngentySessionMemoryStorageOptions {
   store: ThreadStore;
   /** The run's own thread — the one `sharedRoom` speaks about. */
   threadId?: string;
+  /** Where this run's user turn was said — stamped on its row (turn-context.ts). */
+  turnContext?: TurnContext | null;
   // Durable AG-UI `image`/`document` parts for the current user turn. Mastra
   // saves the user turn text-only, so these are appended (once) to the durable
   // user message so attachments survive a thread reload.
@@ -154,6 +163,8 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
   readonly #sharedRoom: boolean;
   readonly #spaceId: string | null;
   readonly #store: ThreadStore;
+  readonly #turnContext: TurnContext | null;
+  readonly #alterEgo: AlterEgo | null;
   // Attachment parts for the current turn + a one-shot guard so they are folded
   // onto the first persisted user message only (the insert wins; later re-saves
   // are ignored via `ignoreDuplicates`).
@@ -172,6 +183,8 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
     this.#agentName = options.agentName?.trim() || null;
     this.#runThreadId = options.threadId ?? null;
     this.#scope = options.scope;
+    this.#turnContext = options.turnContext ?? null;
+    this.#alterEgo = options.alterEgo ?? null;
     this.#sharedRoom = options.sharedRoom === true;
     const spaceId = options.spaceId?.trim();
     this.#spaceId = spaceId || null;
@@ -768,8 +781,16 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
                   ...(this.#agentName
                     ? { [MESSAGE_AUTHOR_AGENT_NAME_KEY]: this.#agentName }
                     : {}),
+                  // Whose copilot is speaking, when it speaks for someone.
+                  ...alterEgoMetadata(this.#alterEgo),
                 }
-              : extractMastraMessageMetadata(message),
+              : role === "user" && this.#turnContext
+                ? {
+                    ...(extractMastraMessageMetadata(message) ?? {}),
+                    // The turn's place — chapters of the river are cut on it.
+                    ...turnContextMetadata(this.#turnContext),
+                  }
+                : extractMastraMessageMetadata(message),
           // Preserve the message id (a uuid) so re-saves are idempotent
           // and updateMessages can match by id — fixes durable-run duplicate rows.
           ...(insertId ? { id: insertId } : {}),

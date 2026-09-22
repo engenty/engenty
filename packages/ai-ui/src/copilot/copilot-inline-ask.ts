@@ -1,7 +1,11 @@
 /**
- * Bridges speed-dial Prompt into an on-page inline Ask, or the Work composer.
- * Pages that own an inline prompt register a focuser; the blob Prompt action
- * tries that first, then opens Work and focuses its composer.
+ * Puts the caret in the Work composer once the blob has opened it.
+ *
+ * `registerInlineAskFocus` / `focusInlineAsk` are the older half: Prompt used
+ * to hand off to a page's own inline Ask field when one was mounted, and open
+ * the companion only otherwise. Prompt now always shows its floating input, so
+ * nothing calls them — they stay only because `focusInlineAsk` is exported
+ * from the package index and a plugin may hold it.
  */
 
 type FocusFn = () => boolean;

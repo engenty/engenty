@@ -7,6 +7,7 @@ import type {
 import {
   agentUiStateForwardedProps,
   isAgentUiStateSnapshotV1,
+  runRouteContextForwardedProps,
   toAgUiTool,
 } from "@engenty/ag-ui-bridge";
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
@@ -116,6 +117,10 @@ function buildAppsAiRunInputBase(params: {
         ...agentUiStateForwardedProps(
           isAgentUiStateSnapshotV1(snapshot) ? snapshot : undefined
         ),
+        // Where THIS turn happens — module, route, pathname and the scope
+        // (space, UI language). The thread only remembers where it was
+        // created; the copilot's one thread is walked through many spaces.
+        ...runRouteContextForwardedProps({ ...routeContext, pathname }),
       },
     },
     messages: [...params.messages],

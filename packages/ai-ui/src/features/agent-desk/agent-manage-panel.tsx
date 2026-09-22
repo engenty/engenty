@@ -35,16 +35,19 @@ import {
 } from "../../lib/admin/instruction-settings-queries.js";
 import { AgentEngentyPicker } from "../agent-form/agent-engenty-picker.js";
 import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
-import { AgentConnectionsPanel } from "../agents-workspace/agent-connections-panel.js";
 import { AgentIdentityRow } from "../agents-workspace/agent-identity-card.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
+import { WorkingMemoryProfileSection } from "../memory/working-memory-profile-section.js";
+import {
+  AgentConnectDialog,
+  type AgentConnectTab,
+} from "./agent-connect-dialog.js";
 import {
   AgentMemorySection,
   AgentTasksSection,
 } from "./agent-memory-sections.js";
 import { AgentPadSection } from "./agent-pad-section.js";
 import { AgentRecentRuns } from "./agent-runs-panel.js";
-import { AgentSkillsDialog } from "./agent-skills-dialog.js";
 import { AgentWorkSections } from "./agent-work-sections.js";
 
 function Chips({
@@ -89,7 +92,8 @@ export function AgentManagePanel({
   locale?: string;
   /** Display name of `agent.managed_by_module`, as the sidebar labels it. */
   moduleLabel?: string;
-  spaceId: string;
+  /** Null on the copilot's desk outside a space; its pads are its person's. */
+  spaceId: string | null;
 }) {
   const { t } = useTranslation("ai-ui");
   const description = agent.description?.trim() ?? "";
@@ -101,7 +105,8 @@ export function AgentManagePanel({
   const [draft, setDraft] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectTab, setConnectTab] = useState<AgentConnectTab>("plugins");
   // The work sections swap to a routine's setup in place; the identity half
   // yields the tab while one is open. An open Action is a MODAL over the
   // current view, so it hides nothing.
@@ -266,30 +271,19 @@ export function AgentManagePanel({
         description={t("agentDesk.manage.skillsDescription")}
         headerVariant="compact"
         title={t("agentDesk.skills")}
-        titleAction={
-          editable ? (
-            <Button
-              onClick={() => setSkillsOpen(true)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              {t("agentDesk.manage.editSkills")}
-            </Button>
-          ) : undefined
-        }
       >
         <Chips
           chips={agent.skills}
           empty={t("agentDesk.manage.noSkills")}
           icon={<Sparkles className="size-3" />}
         />
-        {editable ? (
-          <AgentSkillsDialog
-            agentId={agent.id}
-            onOpenChange={setSkillsOpen}
-            open={skillsOpen}
-            skillIds={agent.skills.map((chip) => chip.id)}
+        {canManage ? (
+          <ConnectLink
+            label={t("agentDesk.manage.connect")}
+            onClick={() => {
+              setConnectTab("skills");
+              setConnectOpen(true);
+            }}
           />
         ) : null}
       </CardSection>
@@ -305,11 +299,25 @@ export function AgentManagePanel({
           empty={t("agentDesk.manage.noConnectors")}
           icon={<Cable className="size-3" />}
         />
+        {canManage ? (
+          <ConnectLink
+            label={t("agentDesk.manage.connect")}
+            onClick={() => {
+              setConnectTab("plugins");
+              setConnectOpen(true);
+            }}
+          />
+        ) : null}
       </CardSection>
 
       {/* Every agent with an audience has both pads (the route answers
           `enabled: false` for one without); a person who can manage the
           space may correct them, whichever module or hire the agent is. */}
+      {agent.agentScope === "personal" ? (
+        // The copilot's profile of its person — working memory it keeps
+        // itself; reset is the only human edit.
+        <WorkingMemoryProfileSection />
+      ) : null}
       <AgentInstructionsSection agentId={agent.id} editable={canEditPads} />
       <AgentMemorySection
         agentId={agent.id}
@@ -322,18 +330,14 @@ export function AgentManagePanel({
         spaceId={spaceId}
       />
 
-      {/* Which ACCOUNTS the agent may reach unattended — the full grant
-          panel, not a chip list. Granting stays owner-gated server-side, so
-          rendering it here widens nothing. */}
       {canManage ? (
-        <CardSection
-          cardVariant="flush"
-          description={t("agentConnections.description")}
-          headerVariant="compact"
-          title={t("agentConnections.title")}
-        >
-          <AgentConnectionsPanel agentId={agent.id} />
-        </CardSection>
+        <AgentConnectDialog
+          agent={agent}
+          canEditSkills={editable}
+          initialTab={connectTab}
+          onOpenChange={setConnectOpen}
+          open={connectOpen}
+        />
       ) : null}
 
       {/* What the agent has actually done, last three. The full feed is its
@@ -361,6 +365,24 @@ export function AgentManagePanel({
  * "reset" drops the override. Same document + API as Settings → Instructions
  * (`apps/ai/src/ai/instructions/base-documents.ts` names the key).
  */
+function ConnectLink({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="mt-2 font-medium text-[12px] text-primary hover:underline"
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
 function AgentInstructionsSection({
   agentId,
   editable,

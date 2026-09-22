@@ -33,7 +33,20 @@ and read-only refusals as final rather than retrying around the boundary.
   A Space mount grants access to the tenant library; it does not create a
   `space_id` on those records.
 - **Account/user-scoped:** inbox, connectors, calendar sync, and personal
-  memory/home data. Access is limited by the mounted account and/or owner.
+  memory/home data. Connector *accounts* are owned by whoever authenticated
+  them (`owner_user_id`). Where they may be used is a **union**, not an
+  intersection and not the old `sharing=personal|org` flag (column leftover;
+  access no longer reads it): space plugin enablement
+  (`core.space_mount.resource_type = 'plugin'`, key = connector id),
+  space-shared account UUID mounts (`resource_type = 'connection'`), accounts
+  flagged `all_spaces`, and `connection_agent_grants`. A grant remains usable
+  in a space that did not mount the account.
+
+  That is not the **personal Space** (`/s/me`: private, owner-only, no
+  members). Copilot connector reach follows the standing space plus
+  copilot-enabled accounts — one tenant-wide river, not a per-space copilot
+  thread. Outside `/s/…` the run is `{kind:"global"}` (agent grants plus
+  all-spaces only); it does not fall back to Company or to `/s/me`.
 - **Platform:** operations that are intentionally outside tenant record data.
 
 Mount availability and record scope are separate decisions: mounting determines

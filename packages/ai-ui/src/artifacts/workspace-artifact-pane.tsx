@@ -14,7 +14,7 @@ import { Layers } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
-import { useOptionalCopilotThreadBinding } from "../copilot/copilot-thread-binding-provider.js";
+import { useOptionalCopilotRiver } from "../copilot/copilot-river.js";
 import type { ArtifactStoreTarget } from "./artifact-move-menu.js";
 import { ArtifactPane } from "./artifact-pane.js";
 import {
@@ -119,8 +119,7 @@ export function WorkspaceArtifactPane({
 }: WorkspaceArtifactPaneProps) {
   const { t } = useTranslation("ai-ui");
   const queryClient = useQueryClient();
-  const threadId =
-    useOptionalCopilotThreadBinding()?.activeThreadId?.trim() || null;
+  const threadId = useOptionalCopilotRiver()?.threadId?.trim() || null;
   const { copilotContext } = useCopilotShell();
 
   const primaryScope: ArtifactPaneScope = scope ?? {
@@ -435,8 +434,7 @@ export function ArtifactPaneToggle({
   scope?: ArtifactPaneScope;
 }) {
   const { t } = useTranslation("ai-ui");
-  const threadId =
-    useOptionalCopilotThreadBinding()?.activeThreadId?.trim() || null;
+  const threadId = useOptionalCopilotRiver()?.threadId?.trim() || null;
   const { fileTabs, objectTabs, openPane, paneOpen, unseenCount } =
     useArtifacts(hostKey);
 

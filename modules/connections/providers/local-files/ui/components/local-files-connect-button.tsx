@@ -18,6 +18,7 @@ const CATALOG_KEY = ["connections", "catalog"];
  * bridge can serve it.
  */
 export function LocalFilesConnectButton({
+  onConnected,
   spaceId = null,
 }: ConnectorConnectButtonProps) {
   const queryClient = useQueryClient();
@@ -41,6 +42,7 @@ export function LocalFilesConnectButton({
       }
       await queryClient.invalidateQueries({ queryKey: CATALOG_KEY });
       toast.success(`Connected "${granted.name}"`);
+      await onConnected?.(granted.connectionId);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;

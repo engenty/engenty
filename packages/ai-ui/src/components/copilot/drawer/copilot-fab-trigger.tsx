@@ -14,7 +14,7 @@ import {
   type EngentyKind,
   useBlobCharacterCycle,
 } from "@engenty/ui-core";
-import { Keyboard, MessageSquarePlus, Radio } from "lucide-react";
+import { Keyboard, Radio } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -30,6 +30,7 @@ import {
 } from "./copilot-drawer-constants";
 import { resolveFabTriggerAnchorStyle } from "./copilot-drawer-snap-indicators";
 import { computeDialPositions, DIAL_BUTTON_SIZE } from "./copilot-fab-dial";
+import { CopilotFabPrompt } from "./copilot-fab-prompt";
 
 const fabMenuStyles = `
 @keyframes copilot-fab-dial-in {
@@ -52,11 +53,19 @@ const fabMenuStyles = `
 }
 `;
 
-/** Speed dial items — order is closest-to-FAB first. */
+/**
+ * Speed dial items — order is closest-to-FAB first.
+ *
+ * Three ACTIONS. There is one conversation with the copilot (the river), so
+ * "open it" is one item — the face, because it is the copilot itself, not a
+ * surface beside the page. Prompt takes a first line without leaving the
+ * page; Voice starts talking. Choosing WHO the companion addresses lives in
+ * its own header (`CopilotWhoChooser`), where the choice stays visible.
+ */
 const SPEED_DIAL_ITEMS = [
-  { key: "chat", icon: MessageSquarePlus, label: "Chat" },
-  { key: "prompt", icon: Keyboard, label: "Prompt" },
-  { key: "voice", icon: Radio, label: "Voice" },
+  { face: true, key: "copilot", label: "Copilot" },
+  { icon: Keyboard, key: "prompt", label: "Prompt" },
+  { icon: Radio, key: "voice", label: "Voice" },
 ] as const;
 
 export interface CopilotWhoOption {
@@ -102,10 +111,12 @@ export interface CopilotFabTriggerProps {
   docked?: boolean;
   isActive?: boolean;
   onClick: () => void;
-  onOpenChat?: () => void;
-  onOpenPrompt?: () => void;
+  /** Open the river where it belongs on this page. */
+  onOpenCopilot?: () => void;
   onStartVoice?: () => void;
-  whoOptions?: CopilotWhoOption[];
+  /** First message from the floating prompt; opens the river with it. */
+  onSubmitPrompt?: (text: string) => void;
+  promptPlaceholder?: string;
 }
 
 export function CopilotFabTrigger({
@@ -113,12 +124,13 @@ export function CopilotFabTrigger({
   docked = false,
   isActive = false,
   onClick,
-  onOpenChat,
-  onOpenPrompt,
+  onOpenCopilot,
   onStartVoice,
-  whoOptions = [],
+  onSubmitPrompt,
+  promptPlaceholder,
 }: CopilotFabTriggerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const character = useBlobCharacterCycle();
@@ -161,14 +173,14 @@ export function CopilotFabTrigger({
     }, 300);
   }, []);
 
-  const handleNewChat = useCallback(() => {
+  const handleOpenCopilot = useCallback(() => {
     setMenuOpen(false);
-    if (onOpenChat) {
-      onOpenChat();
+    if (onOpenCopilot) {
+      onOpenCopilot();
       return;
     }
     onClick();
-  }, [onClick, onOpenChat]);
+  }, [onClick, onOpenCopilot]);
 
   const handleNewVoiceChat = useCallback(() => {
     setMenuOpen(false);
@@ -177,27 +189,13 @@ export function CopilotFabTrigger({
 
   const handleOpenPrompt = useCallback(() => {
     setMenuOpen(false);
-    onOpenPrompt?.();
-  }, [onOpenPrompt]);
-
-  const handleSelectWho = useCallback(
-    (id: string) => {
-      if (!shell) {
-        return;
-      }
-      shell.setCompanionWho(
-        id === COPILOT_WHO_ID
-          ? { kind: "copilot" }
-          : { kind: "engenty", agentId: id }
-      );
-    },
-    [shell]
-  );
+    setPromptOpen(true);
+  }, []);
 
   const dialHandlers: Record<string, () => void> = {
-    chat: handleNewChat,
-    voice: handleNewVoiceChat,
+    copilot: handleOpenCopilot,
     prompt: handleOpenPrompt,
+    voice: handleNewVoiceChat,
   };
 
   const rect = menuOpen ? buttonRef.current?.getBoundingClientRect() : null;
@@ -208,12 +206,11 @@ export function CopilotFabTrigger({
           ?.closest('[data-engenty-region="app-bar"]')
           ?.getBoundingClientRect() ?? null)
       : null;
-  const flyoutCount = whoOptions.length + actionItems.length;
   const dialPositions =
     menuOpen && rect
       ? computeDialPositions({
           bar: barRect,
-          count: flyoutCount,
+          count: actionItems.length,
           dock: docked ? position : null,
           fab: rect,
           viewport: { height: window.innerHeight, width: window.innerWidth },
@@ -230,42 +227,22 @@ export function CopilotFabTrigger({
             role="menu"
             style={{ zIndex: COPILOT_Z_SNAP_HINT + 6 }}
           >
-            {[
-              ...whoOptions.map((who) => ({
-                avatarUrl: who.avatarUrl,
-                engenty: who.engenty,
-                key: `who:${who.id}`,
-                kind: "who" as const,
-                label: who.name,
-                onClick: () => handleSelectWho(who.id),
-                selected: who.id === selectedWhoId,
-              })),
-              ...actionItems.map((item) => ({
-                Icon: item.icon,
-                key: item.key,
-                kind: "action" as const,
-                label: item.label,
-                onClick: dialHandlers[item.key],
-                selected: false,
-              })),
-            ].map((item, i) => {
+            {actionItems.map((item, i) => {
               const pos = dialPositions[i];
               if (!pos) {
                 return null;
               }
               const labelOnLeft = pos.labelSide === "left";
+              const Icon = "icon" in item ? item.icon : null;
               return (
                 <button
-                  aria-current={
-                    item.kind === "who" && item.selected ? "true" : undefined
-                  }
                   aria-label={item.label}
                   className={cn(
                     "copilot-fab-dial-item pointer-events-auto absolute flex items-center gap-2.5 transition-transform hover:scale-105 active:scale-95",
                     labelOnLeft ? "flex-row-reverse" : "flex-row"
                   )}
                   key={item.key}
-                  onClick={item.onClick}
+                  onClick={dialHandlers[item.key]}
                   role="menuitem"
                   style={{
                     top: pos.y,
@@ -281,25 +258,16 @@ export function CopilotFabTrigger({
                   <span
                     aria-hidden
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center overflow-visible",
-                      item.kind === "action"
-                        ? "rounded-full bg-card shadow-lg ring-1 ring-border/50"
-                        : cn(
-                            "rounded-full",
-                            item.selected
-                              ? "ring-2 ring-ember/55 ring-offset-1 ring-offset-background"
-                              : null
-                          )
+                      "flex size-9 shrink-0 items-center justify-center overflow-visible rounded-full",
+                      Icon ? "bg-card shadow-lg ring-1 ring-border/50" : null
                     )}
                   >
-                    {item.kind === "action" ? (
-                      <item.Icon className="size-[18px] text-foreground" />
+                    {Icon ? (
+                      <Icon className="size-[18px] text-foreground" />
                     ) : (
                       <AgentFace
-                        animated={item.selected}
-                        avatarUrl={item.avatarUrl}
                         className="[&_.e-shadow]:hidden"
-                        kind={item.engenty}
+                        kind="round"
                         name={item.label}
                         size={36}
                       />
@@ -392,6 +360,17 @@ export function CopilotFabTrigger({
     <>
       <style>{fabMenuStyles}</style>
       {flyoutMenu}
+      {onSubmitPrompt ? (
+        <CopilotFabPrompt
+          anchorRef={buttonRef}
+          docked={docked}
+          onOpenChange={setPromptOpen}
+          onSubmit={onSubmitPrompt}
+          open={promptOpen}
+          position={position}
+          {...(promptPlaceholder ? { placeholder: promptPlaceholder } : {})}
+        />
+      ) : null}
       {docked || typeof document === "undefined"
         ? trigger
         : createPortal(trigger, document.body, "copilot-fab-trigger")}

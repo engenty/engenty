@@ -18,6 +18,8 @@ export interface AgentDraftStarter {
 
 export interface AgentDraft {
   agentScope: "personal" | "shared";
+  /** Preferred connector ids; empty = all plugins enabled on the active space. */
+  connectorIds: string[];
   description: string;
   engenty: AgentEngentyKind;
   id: string;
@@ -45,6 +47,7 @@ export function createEmptyAgentDraft(): AgentDraft {
     model: DEFAULT_AGENT_MODEL,
     name: "",
     skillIds: [],
+    connectorIds: [],
     spaceIds: [],
     starters: [],
     subAgentsText: "",
@@ -62,6 +65,7 @@ export function createAgentDraft(agent: CustomAgentConfig): AgentDraft {
     model: agent.model,
     name: agent.name,
     skillIds: [...agent.skillIds],
+    connectorIds: [...(agent.connectorIds ?? [])],
     spaceIds: [],
     starters: (agent.starters ?? []).map(starterToDraft),
     subAgentsText: (agent.subAgents ?? [])
@@ -138,6 +142,9 @@ export function buildAgentConfigFromDraft(
     model: draft.model.trim(),
     name: draft.name.trim(),
     skillIds: [...new Set(draft.skillIds)],
+    ...(draft.connectorIds.length > 0
+      ? { connectorIds: [...new Set(draft.connectorIds)] }
+      : {}),
     starters: draftStartersToConfig(draft.starters),
     subAgents: subAgents.length > 0 ? subAgents : undefined,
     toolIds: [...new Set(draft.toolIds)],

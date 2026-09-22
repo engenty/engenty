@@ -56,7 +56,7 @@ import {
 } from "../agent-provider/index.js";
 import { VoiceConfirmationHost } from "../components/copilot/interrupts/voice-confirmation-host.js";
 import { useCustomAgentDetailQuery } from "../lib/admin/ai-runtime-queries.js";
-import { useCopilotThreadBinding } from "./copilot-thread-binding-provider.js";
+import { useCopilotRiver } from "./copilot-river.js";
 import { formatCopilotVoiceUiStateInstructions } from "./copilot-voice-context.js";
 
 interface CopilotVoiceContextValue {
@@ -84,7 +84,7 @@ function CallStripPresence({
 
 export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation("engenty-copilot");
-  const binding = useCopilotThreadBinding();
+  const river = useCopilotRiver();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
   const ai = useEngentyAIContext();
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
@@ -129,7 +129,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
     host.pendingSend && host.status === "ready" ? "submitted" : host.status;
   const controlsDisabled =
     status !== "ready" || host.awaitingInterrupt || !isTransportReady;
-  const userId = binding.userId;
+  const userId = river.userId;
 
   // Ref to the session so the tool executor can access it without circular deps
   const sessionRef = useRef<
@@ -168,19 +168,19 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
           executeOpenAiRealtimeVoiceBackendTool({
             baseUrl: serviceBaseUrl,
             request: req,
-            threadId: binding.activeThreadId,
+            threadId: river.threadId,
             ...(opts?.approvalGrantOnce
               ? { approvalGrantOnce: opts.approvalGrantOnce }
               : {}),
           }),
-        runId: binding.activeThreadId ?? `new-${host.threadResetKey}`,
+        runId: river.threadId ?? `new-${host.threadResetKey}`,
       }),
-    [binding.activeThreadId, host.threadResetKey, serviceBaseUrl]
+    [river.threadId, host.threadResetKey, serviceBaseUrl]
   );
 
   const executeRealtimeVoiceTool = useCallback(
     async (request: OpenAiRealtimeVoiceToolCallRequest) => {
-      const runId = binding.activeThreadId ?? `new-${host.threadResetKey}`;
+      const runId = river.threadId ?? `new-${host.threadResetKey}`;
       // ---- Voice session control tools (handled locally) ----
       const session = sessionRef.current;
       if (request.name === VOICE_END_SESSION_TOOL.name) {
@@ -218,7 +218,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
         const result = await executeOpenAiRealtimeVoiceBackendTool({
           baseUrl: serviceBaseUrl,
           request,
-          threadId: binding.activeThreadId,
+          threadId: river.threadId,
         });
         // A gated backend op returns an approval decision artifact instead of
         // running. Park it for confirmation rather than handing the model the
@@ -237,7 +237,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
             kind: "backend_approval",
             operationId: approval.operationId,
             request,
-            threadId: binding.activeThreadId ?? null,
+            threadId: river.threadId ?? null,
             title: approval.title,
           });
           return {
@@ -287,7 +287,7 @@ export function CopilotVoiceProvider({ children }: { children: ReactNode }) {
       });
     },
     [
-      binding.activeThreadId,
+      river.threadId,
       executeFrontendTool,
       frontendTools,
       host.threadResetKey,

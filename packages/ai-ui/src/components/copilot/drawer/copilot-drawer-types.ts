@@ -1,12 +1,10 @@
 import type {
   AgentUiRunContext,
   AgUiOpenInterruptMetadata,
-  Message,
 } from "@engenty/ag-ui-bridge";
 import type { CopilotDockMode } from "@engenty/app-shell";
 import type { EngentyKind } from "@engenty/ui-core";
 import type { MutableRefObject, ReactNode } from "react";
-import type { CopilotAgentThreadChooserThread } from "../composer/copilot-agent-thread-chooser.js";
 import type { StarterPromptItem } from "../composer/copilot-composer.js";
 import type { ChatSlashCommand } from "../composer/copilot-slash-command.js";
 import type { CopilotHeaderChrome } from "../panel/copilot-panel-content.js";
@@ -22,31 +20,17 @@ export type CopilotGetHeaders = () => Promise<Record<string, string>>;
 export type CopilotPanelMode = "docked" | "floating";
 
 export interface CopilotDrawerProps {
+  /** Labels for the who chooser in the window title bar. */
   agentChooserLabels?: {
-    emptySessions: string;
-    /** Display name for the default `engenty.copilot` agent in compact agent picker. */
-    generalCopilot?: string;
-    newSession: string;
     selectAgent: string;
-    sessionsHeading: string;
   };
   agentDebugPayload?: unknown;
-  /** When true, header and compact surfaces use the Agent / Session chooser; context stays on the current page. */
-  agentSessionChooserEnabled?: boolean;
   agentUi?: AgentUiRunContext | null;
   applySelectedLabel?: string;
   artifactLoadFailedLabel?: string;
   attachLabel?: string;
   cancelLabel?: string;
-  /**
-   * When `floatingChatRouteBinding` is enabled, used as `copilotContext` for the chat session only
-   * (e.g. virtual `/chat/...` routing) while header/apply keep using the main `copilotContext`.
-   */
-  chatRouteCopilotContext?: CopilotRouteContext;
-  chooserMenuAgentId?: string | null;
-  chooserMenuSessions?: CopilotAgentThreadChooserThread[];
-  chooserMenuSessionsLoading?: boolean;
-  clearLabel?: string;
+
   closeLabel?: string;
   compactLabel?: string;
   /** Optional control rendered below the compact composer (e.g. model chooser). */
@@ -67,11 +51,6 @@ export interface CopilotDrawerProps {
   dockMode?: CopilotDockMode;
   dragHandleLabel?: string;
   floatingBoundsMargin?: number;
-  /** Canonical server-backed messages for route-bound floating chat (`historyMode: "none"`). */
-  floatingChatCanonicalMessages?: readonly Message[];
-  floatingChatCanonicalMessagesLoading?: boolean;
-  /** When true, thread id comes from `injectedSession` (host binding), not drawer-local storage. */
-  floatingChatRouteBinding?: boolean;
   getHeaders?: CopilotGetHeaders;
   /** Match app-shell page topbar chrome for the docked copilot header row. */
   headerChrome?: CopilotHeaderChrome;
@@ -86,13 +65,10 @@ export interface CopilotDrawerProps {
   onApplySuccess?: () => void;
   onApplySuggestions?: (patch: Record<string, string | null>) => Promise<void>;
   /**
-   * When not using `floatingChatRouteBinding`, invoked after each assistant message completes
-   * (mirrors AI SDK `onFinish`; use for query invalidation when server tools mutate data).
+   * Invoked after each assistant message completes (mirrors AI SDK `onFinish`;
+   * use for query invalidation when server tools mutate data).
    */
   onAssistantTurnFinish?: CopilotChatOnFinish;
-  onChooserMenuAgentIdChange?: (agentId: string | null) => void;
-  /** Called after each assistant turn when `floatingChatRouteBinding` is enabled. */
-  onFloatingChatFinish?: () => void;
   onOpenChange: (open: boolean) => void;
   onPanelModeChange?: (mode: CopilotPanelMode) => void;
   onSandboxCommandInterruptApprove?: (
@@ -103,7 +79,7 @@ export interface CopilotDrawerProps {
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
   panelMode?: CopilotPanelMode;
   positionDrawerLabel?: string;
-  /** Full-page chat (`/mdl/engenty-copilot/chat`). */
+  /** The river's own page (`/copilot`, or `/s/<key>/copilot` inside a space). */
   positionFullscreenLabel?: string;
   positionHeadingLabel?: string;
   /** Position menu trigger aria label. */
@@ -112,22 +88,6 @@ export interface CopilotDrawerProps {
   /** Draggable, resizable window over the page (`window` dock mode). */
   positionWindowLabel?: string;
   preferredDockMode?: CopilotDockMode | null;
-  /**
-   * When true with `agentSessionChooserEnabled`, `chooserMenuSessions` is a flat recent-session list
-   * (not per-agent submenu). Host should load tenant sessions (e.g. `useAppsAiThreadsQuery`).
-   */
-  recentSessionsChooser?: boolean;
-  registeredAgents?: Array<{
-    chat_triggers?: {
-      include_in_chat_picker: boolean;
-      is_active: boolean;
-    };
-    description?: string | null;
-    id: string;
-    name: string;
-  }>;
-  registeredAgentsLoading?: boolean;
-  requestedAgentId?: string;
   reviewPromptLabel?: string;
   routeKey: string;
   /** Current workspace tenant (optional; forwarded when posting frontend-tool results). */

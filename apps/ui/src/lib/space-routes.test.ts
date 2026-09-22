@@ -128,24 +128,24 @@ describe("agent desk", () => {
 });
 
 describe("short module segments", () => {
-  it("builds the copilot's path with its short segment", () => {
-    expect(spaceModulePath("company", "engenty-copilot", "chat/abc")).toBe(
-      "/s/company/copilot/chat/abc"
+  it("builds the knowledge base's path with its short segment", () => {
+    expect(spaceModulePath("company", "knowledge-base", "faqs/f1")).toBe(
+      "/s/company/kb/faqs/f1"
     );
   });
 
   it("reads the short segment back as the module ID", () => {
     // Callers ask "which module is open" — the answer has to be the id the
     // mounts, manifests and tool names use, never the URL's short form.
-    expect(parseSpacePath("/s/company/copilot/chat/abc")?.moduleId).toBe(
-      "engenty-copilot"
+    expect(parseSpacePath("/s/company/kb/faqs/f1")?.moduleId).toBe(
+      "knowledge-base"
     );
   });
 
   it("still reads a pre-alias URL as the same module", () => {
-    expect(
-      parseSpacePath("/s/company/engenty-copilot/chat/abc")?.moduleId
-    ).toBe("engenty-copilot");
+    expect(parseSpacePath("/s/company/knowledge-base/faqs/f1")?.moduleId).toBe(
+      "knowledge-base"
+    );
   });
 
   it("leaves an unaliased module untouched in both directions", () => {

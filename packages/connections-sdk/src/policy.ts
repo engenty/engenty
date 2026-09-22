@@ -5,11 +5,8 @@ import type {
   ConnectionPolicyOverride,
   ConnectionSummary,
   ConnectorAction,
-  ConnectorActionGroup,
 } from "./types.js";
 import { ACTION_GROUP_DEFAULT_POLICY } from "./types.js";
-
-const GROUP_ORDER: ConnectorActionGroup[] = ["read", "write", "destructive"];
 
 /** Least to most permissive — the order both autonomy clamps compare on. */
 const AUTONOMY_ORDER: ConnectionAutonomousMode[] = ["off", "read_only", "full"];
@@ -79,39 +76,26 @@ export type ResolvedConnectionPolicy =
  *   3. group default       (read→allow, write/destructive→ask)
  *
  * Then the cross-axis clamps, applied in order:
- *   - sharing: non-owners on org connections are capped at
- *     `non_owner_max_group` (actions in higher groups → deny)
  *   - run context: autonomous principals (agent/service) are clamped by the
  *     lower of the space's level and the account's `autonomous_mode` — `off`
  *     denies all, `read_only` denies non-read groups; `ask` outcomes stay
  *     `ask` (the caller decides how ask surfaces for autonomous runs).
+ *
+ * Account reach (space mount ∪ all-spaces ∪ agent grant) is decided by the
+ * caller before this function runs — this resolver no longer reads `sharing`.
  */
 export function resolveConnectionActionPolicy(params: {
   action: Pick<ConnectorAction, "group" | "id">;
-  connection: Pick<
-    ConnectionSummary,
-    "autonomous_mode" | "non_owner_max_group" | "owner_user_id" | "sharing"
-  >;
+  connection: Pick<ConnectionSummary, "autonomous_mode" | "owner_user_id">;
   /**
-   * The acting AGENT holds an explicit grant on this connection
-   * (PLAN-spaces.md CN.5) — "the Marketing Agent may use my Gmail", written by
-   * the owner and revocable in one place.
-   *
-   * It stands in for ownership in the sharing clamp and NOWHERE else: every
-   * other axis still applies, so a granted agent is still subject to
-   * `autonomous_mode`, the action policies, and any `ask` that follows from
-   * them. The point is that the agent may reach the account at all, not that
-   * it may do anything with it.
+   * The acting AGENT holds an explicit grant on this connection.
+   * Reach (whether the account is a candidate) is decided before this
+   * function; the flag is accepted so callers do not have to change shape.
    */
   hasAgentGrant?: boolean;
   /**
-   * The run acts for the VERIFIED owner of its personal space, and this
-   * connection is that owner's (PLAN-space-computer.md §2.1).
-   *
-   * Like `hasAgentGrant`, it stands in for ownership in the SHARING CLAMP and
-   * nowhere else: the owner's `autonomous_mode` ceiling, the space level,
-   * action policies and every `ask` still apply. Callers must derive it from
-   * `resolveVerifiedSpaceOwnerForRun`, never from an unverified space claim.
+   * The run acts for the VERIFIED owner of its personal space. Candidate
+   * listing still uses it; this resolver no longer clamps on sharing.
    */
   actsForSpaceOwner?: boolean;
   /** True when the run has no live user session (task jobs, triggers). */
@@ -131,46 +115,7 @@ export function resolveConnectionActionPolicy(params: {
    */
   spaceAccess?: SpaceConnectionAccess | null;
 }): ResolvedConnectionPolicy {
-  const {
-    action,
-    connection,
-    actsForSpaceOwner = false,
-    hasAgentGrant = false,
-    isAutonomous,
-    overrides,
-    principal,
-    spaceAccess,
-  } = params;
-
-  // Sharing clamp before anything else: a personal connection is only usable
-  // by its owner, or by an agent the owner granted it to (CN.5). Before that
-  // grant existed the only way an unattended run could touch a personal
-  // account was to impersonate its owner — which works and is wrong, because
-  // the audit trail then says a person did what an agent did.
-  const isOwner =
-    connection.owner_user_id !== null &&
-    connection.owner_user_id === principal.principalId;
-  if (
-    connection.sharing === "personal" &&
-    !(isOwner || hasAgentGrant || actsForSpaceOwner)
-  ) {
-    return {
-      decision: "deny",
-      reason: "connection_personal_not_owner",
-    };
-  }
-  if (
-    connection.sharing === "org" &&
-    !isOwner &&
-    connection.non_owner_max_group !== null &&
-    GROUP_ORDER.indexOf(action.group) >
-      GROUP_ORDER.indexOf(connection.non_owner_max_group)
-  ) {
-    return {
-      decision: "deny",
-      reason: "connection_non_owner_group_cap",
-    };
-  }
+  const { action, connection, isAutonomous, overrides, spaceAccess } = params;
 
   if (isAutonomous) {
     const autonomy = effectiveAutonomy(connection.autonomous_mode, spaceAccess);

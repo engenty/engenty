@@ -350,7 +350,6 @@
    own keeps the page's ink and disappears on the flipped ground. */
 /* biome-ignore lint/style/noDescendingSpecificity: restated aliases, order is deliberate */
 .tone-flip {
-  color: var(--foreground);
   --canvas: var(--paper);
   --canvas-dim: var(--paper-2);
   --canvas-darken: var(--paper-3);
@@ -363,6 +362,7 @@
   --rose: var(--danger);
   --rose-tint: var(--danger-tint);
   --link: var(--info);
+  color: var(--foreground);
 }
 
 @media (prefers-contrast: more) {

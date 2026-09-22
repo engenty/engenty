@@ -1,13 +1,9 @@
 import { conversationEngagement } from "@engenty/ai-core/browser";
-import {
-  spaceAgentDeskPath,
-  spaceAgentsPath,
-  spaceModulePath,
-} from "./space-routes";
+import { copilotRiverPath } from "@engenty/ai-ui";
+import { spaceAgentDeskPath, spaceAgentsPath } from "./space-routes";
 
 export const ENGENTY_COPILOT_AGENT_ID = "engenty.copilot";
 export const ENGENTY_COORDINATOR_AGENT_ID = "engenty.coordinator";
-const ENGENTY_COPILOT_MODULE_ID = "engenty-copilot";
 
 /**
  * Which kind of engenty a mounted agent is, for surfaces that must say WHY it
@@ -64,7 +60,8 @@ export function compareSpaceAgents(
  * Whether a mounted agent belongs in the space Agents roster (Work list and
  * `/s/<key>/agents`).
  *
- * Copilot is the platform assistant: rail + Work-tab root, not a desk here.
+ * Copilot is the person's, not the space's: its one conversation — the river
+ * — heads the Private list and lives on the app bar, never in this roster.
  * Specialists are people you talk to here. A leftover `coordinator` row still
  * lists until unmounted. Chat surfaces live inside their module; delegated
  * sub-agents only run when another agent calls them. All read off the
@@ -79,17 +76,17 @@ export function isSpaceRosterAgent(agent: {
 }
 
 /**
- * Resolve the user-facing destination for an agent mounted in a Space.
+ * Resolve the user-facing destination for an agent in a Space.
  *
- * Copilot keeps a full-page chat as a deep link (bookmarks, Chats, the rail
- * and the Work-tab root). Other mounted agents use the Space-native Desk.
+ * The copilot's is the river, opened inside this space. Every other agent
+ * has its Space-native desk.
  */
 export function resolveSpaceAgentDestination(
   agentId: string,
   spaceKey: string
 ): string {
   if (agentId === ENGENTY_COPILOT_AGENT_ID) {
-    return spaceModulePath(spaceKey, ENGENTY_COPILOT_MODULE_ID, "chat");
+    return copilotRiverPath(spaceKey);
   }
   return spaceAgentDeskPath(spaceKey, agentId);
 }
@@ -98,11 +95,8 @@ export function resolveSpaceAgentDestination(
  * Where ONE conversation lives — the same destination as the agent, with the
  * thread named (PLAN-space-chats.md).
  *
- * Two shapes, because the two surfaces address a thread differently and always
- * have: the Copilot's full-page chat carries it in the PATH, a Desk carries it
- * in `?engagement=`. Building both here rather than at each call site is what
- * stops a row in the space's Chats list from opening the right agent on the
- * wrong (or no) conversation — a failure that looks like the chat was lost.
+ * A desk carries it in `?engagement=`. The copilot has exactly one
+ * conversation, the river, so its destination names no thread at all.
  */
 export function resolveSpaceChatDestination(
   agentId: string,
@@ -111,7 +105,7 @@ export function resolveSpaceChatDestination(
 ): string {
   const base = resolveSpaceAgentDestination(agentId, spaceKey);
   if (agentId === ENGENTY_COPILOT_AGENT_ID) {
-    return `${base}/${encodeURIComponent(threadId)}`;
+    return base;
   }
   const params = new URLSearchParams({
     engagement: conversationEngagement(threadId),

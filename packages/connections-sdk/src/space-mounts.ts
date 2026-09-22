@@ -1,27 +1,10 @@
 /**
- * "Which accounts may this space use?" (PLAN-spaces.md Phase CN.3).
+ * "Which accounts may this space use?" plus tenant-wide all-spaces accounts.
  *
- * The fourth authorization axis. The other three answer WHO (sharing +
- * ownership), WHAT (action policies) and WHEN (autonomous mode); this one
- * answers WHERE, and it is the only one that was missing — mounting Gmail into
- * a space used to grant every Gmail account in the tenant, because the mount
- * key was the connector.
- *
- * **Narrowing only, which is why the space id may come from a header.** The
- * caller intersects this set with candidates it has already resolved from the
- * principal's own sharing and capability rules. Naming a space you are not in
- * therefore removes accounts from your own list; it cannot add one.
- *
- * A read of `core.space_mount` from outside core, deliberately: the alternative
- * is a second copy of the mount list published through the plugin API, and a
- * second copy is how "what the space shows" and "what the agent may call" start
- * disagreeing. The handle is tenant-locked, so the tenant wall is still the
- * database's.
- *
- * In the SDK rather than the connections module because two modules need the
- * same answer — the connections policy (may this call use this account?) and
- * the inbox account list (which mailboxes belong on this page?) — and those
- * two must not drift into different definitions of "mounted".
+ * Space connection mounts name ACCOUNT ids. `all_spaces` accounts are treated
+ * as mounted in every space (one flag, not a row per space). Agent grants are
+ * NOT included here — the executor unions them so a copilot personal account
+ * remains usable in a space that did not mount it.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -49,6 +32,32 @@ export async function listMountedConnectionIds(
 ): Promise<Set<string> | null> {
   const access = await listMountedConnectionAccess(client, tenantId, spaceId);
   return access === null ? null : new Set(access.keys());
+}
+
+/**
+ * Connector ids enabled on this space with no account yet (`plugin` mounts).
+ * Null when the space's mounts could not be read.
+ */
+export async function listMountedPluginIds(
+  client: SupabaseClient,
+  tenantId: string,
+  spaceId: string
+): Promise<Set<string> | null> {
+  const result = await client
+    .schema("core")
+    .from("space_mount")
+    .select("resource_key")
+    .eq("tenant_id", tenantId)
+    .eq("space_id", spaceId)
+    .eq("resource_type", "plugin");
+  if (result.error) {
+    return null;
+  }
+  return new Set(
+    ((result.data ?? []) as Array<{ resource_key: string }>).map(
+      (row) => row.resource_key
+    )
+  );
 }
 
 /**
@@ -83,12 +92,27 @@ export async function listMountedConnectionAccess(
     agent_access: string | null;
     resource_key: string;
   }>;
-  return new Map(
+  const access = new Map(
     rows.map((row) => [
       row.resource_key,
       toSpaceConnectionAccess(row.agent_access),
     ])
   );
+  const allSpaces = await client
+    .schema("module_connections")
+    .from("connections")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("all_spaces", true)
+    .eq("status", "active");
+  if (!allSpaces.error) {
+    for (const row of (allSpaces.data ?? []) as Array<{ id: string }>) {
+      if (!access.has(row.id)) {
+        access.set(row.id, null);
+      }
+    }
+  }
+  return access;
 }
 
 function toSpaceConnectionAccess(
@@ -158,6 +182,30 @@ export async function mountConnectionInSpace(
       is_required: false,
       resource_key: params.connectionId,
       resource_type: "connection",
+      space_id: params.spaceId,
+      tenant_id: params.tenantId,
+    },
+    { onConflict: "tenant_id,space_id,resource_type,resource_key" }
+  );
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+  return true;
+}
+
+/**
+ * Enable a plugin on a space before anyone authenticates an account.
+ * `resource_key` is the connector id. Idempotent.
+ */
+export async function mountPluginInSpace(
+  client: SupabaseClient,
+  params: { connectorId: string; spaceId: string; tenantId: string }
+): Promise<boolean> {
+  const result = await client.schema("core").from("space_mount").upsert(
+    {
+      is_required: false,
+      resource_key: params.connectorId,
+      resource_type: "plugin",
       space_id: params.spaceId,
       tenant_id: params.tenantId,
     },

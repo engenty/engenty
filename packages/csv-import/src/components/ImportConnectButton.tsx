@@ -1,23 +1,15 @@
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@engenty/ui-core";
-import { ChevronDown } from "lucide-react";
+import { Button } from "@engenty/ui-core";
 import { useState } from "react";
-import {
-  type ConnectionSharing,
-  getConnectUrl,
-} from "../connection-import-api.js";
+import { getConnectUrl } from "../connection-import-api.js";
 
 export interface ImportConnectButtonProps {
   connectingLabel: string;
   connectLabel: string;
-  connectOrgLabel: string;
+  /** @deprecated Sharing is no longer chosen at connect time. */
+  connectOrgLabel?: string;
   connectorId: string;
-  connectPersonalLabel: string;
+  /** @deprecated Sharing is no longer chosen at connect time. */
+  connectPersonalLabel?: string;
   onError?: (message: string) => void;
   redirectTo: string;
 }
@@ -26,21 +18,19 @@ export interface ImportConnectButtonProps {
 export function ImportConnectButton({
   connectLabel,
   connectingLabel,
-  connectOrgLabel,
-  connectPersonalLabel,
   connectorId,
   onError,
   redirectTo,
 }: ImportConnectButtonProps) {
   const [connecting, setConnecting] = useState(false);
 
-  const connect = async (sharing: ConnectionSharing) => {
+  const connect = async () => {
     setConnecting(true);
     try {
       const { authUrl } = await getConnectUrl({
         connectorId,
         redirectTo,
-        sharing,
+        sharing: "personal",
       });
       window.location.assign(authUrl);
     } catch (error) {
@@ -52,21 +42,14 @@ export function ImportConnectButton({
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button disabled={connecting} size="sm" type="button" variant="outline">
-          {connecting ? connectingLabel : connectLabel}
-          <ChevronDown className="ml-1 size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => void connect("personal")}>
-          {connectPersonalLabel}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void connect("org")}>
-          {connectOrgLabel}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      disabled={connecting}
+      onClick={() => void connect()}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {connecting ? connectingLabel : connectLabel}
+    </Button>
   );
 }

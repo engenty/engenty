@@ -34,7 +34,7 @@ export function useImportedConnectorsQuery(enabled = true) {
 }
 
 /**
- * Client-side superadmin gate, mirroring the search-index console: the shell's
+ * Client-side admin gate, mirroring the setup console: the shell's
  * workspace-context query (`/api/users/setup/context`) carries `isSuperAdmin`.
  * Same query key + options as the app shell so the cached response is shared.
  * The server enforces the real gate (403) on every route regardless.

@@ -1,12 +1,8 @@
 import {
   AGENTS_WORKSPACE_ROOT_PATH,
   AiGeneralSettingsPage,
+  COPILOT_RIVER_PATH,
 } from "@engenty/ai-ui";
-import {
-  COPILOT_CHAT_NEW,
-  COPILOT_CHAT_ROOT,
-  COPILOT_MODULE_ID,
-} from "@engenty/engenty-copilot/paths";
 import {
   NotificationStreamsSettingsPage,
   NotificationsPage,
@@ -36,6 +32,7 @@ import {
   SPACE_WORKFLOW_RUN_ROUTE_PATTERN,
 } from "@/lib/space-routes";
 import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
+import { CopilotDeskPage } from "@/pages/CopilotDeskPage";
 import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
 import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
@@ -61,7 +58,6 @@ import { SpacesSettingsPage } from "@/pages/SpacesSettingsPage";
 import { SpaceWorkflowPage } from "@/pages/SpaceWorkflowPage";
 import { SpaceWorkHome } from "@/pages/SpaceWorkHome";
 import { TenantSettingsPage } from "@/pages/TenantSettingsPage";
-import { ChatLegacySessionRedirect } from "@/routes/chat-legacy-redirect.tsx";
 import { DefaultPlaceRedirect } from "@/routes/DefaultPlaceRedirect";
 import { LegacyModuleRedirect } from "@/routes/LegacyModuleRedirect";
 import { LegacySpaceSettingsRedirect } from "@/routes/LegacySpaceSettingsRedirect";
@@ -143,17 +139,9 @@ export function AuthenticatedRoutes({
   // Which plugins declared `placement: "space"` — the only ones whose legacy
   // `/mdl/*` links redirect. Read off the menu items because that is where the
   // resolver enriches placement; routes carry only the pluginId.
-  //
-  // Copilot is space-placed for mounts, but `/mdl/engenty-copilot` is the
-  // personal desk and stays canonical. It is still passed in so the set is
-  // honest; the wrapper below skips it.
   const spacePlaced = useMemo(
-    () =>
-      spacePlacedModuleIds([
-        ...contributions.adminMenuItems,
-        ...contributions.copilotApps,
-      ]),
-    [contributions.adminMenuItems, contributions.copilotApps]
+    () => spacePlacedModuleIds(contributions.adminMenuItems),
+    [contributions.adminMenuItems]
   );
 
   // Clicking a web-push notification focuses this tab; the service worker
@@ -181,15 +169,8 @@ export function AuthenticatedRoutes({
           element={<Navigate replace to="/mdl/dashboard" />}
           path="/dashboard"
         />
-        <Route
-          element={<Navigate replace to={COPILOT_CHAT_ROOT} />}
-          path="/chat"
-        />
-        <Route
-          element={<Navigate replace to={COPILOT_CHAT_NEW} />}
-          path="/chat/new"
-        />
-        <Route element={<ChatLegacySessionRedirect />} path="/chat/:threadId" />
+        {/* The river outside any space. */}
+        <Route element={<CopilotDeskPage />} path={COPILOT_RIVER_PATH} />
         <Route element={<DeviceApprovalPage />} path="/auth/device" />
         <Route element={<NotificationsPage />} path="/notifications" />
         <Route
@@ -410,12 +391,10 @@ export function AuthenticatedRoutes({
             : adminOnly && !isAdmin;
           const element = blocked ? <DefaultPlaceRedirect /> : <PluginPage />;
           // A space-placed module's legacy path redirects into its space; a
-          // global one keeps `/mdl/` as canonical. Copilot is space-placed
-          // for mounts but its `/mdl/` path is the personal desk — do not
-          // bounce it into a space. Blocked routes never redirect.
+          // global one keeps `/mdl/` as canonical. Blocked routes never
+          // redirect.
           const redirects =
             !blocked &&
-            pluginRoute.pluginId !== COPILOT_MODULE_ID &&
             spaceMirrorPath(pluginRoute.path) !== null &&
             spacePlaced.has(pluginRoute.pluginId);
           return (
@@ -487,6 +466,11 @@ export function AuthenticatedRoutes({
               module called "data" and the shell hides the space's sidebar to
               show its (non-existent) nav. */}
           <Route element={<SpaceDataPage />} path="data" />
+          {/* The river inside this space: the person's one conversation with
+              their copilot, opened at this space's chapters, with the space's
+              own column kept beside it. `copilot` is a RESERVED segment for
+              the same reason `data` is. */}
+          <Route element={<CopilotDeskPage />} path="copilot" />
           {/* Every conversation in the space, across its agents. Reserved for
               the same reason `data` is — it is the SPACE's view over what
               several modules produced, and a module called "chats" would take

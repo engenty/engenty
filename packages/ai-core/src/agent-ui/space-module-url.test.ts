@@ -9,15 +9,13 @@ import {
 
 describe("space module url segments", () => {
   it("shortens an aliased module and passes the rest through", () => {
-    expect(spaceModuleUrlSegment("engenty-copilot")).toBe("copilot");
     expect(spaceModuleUrlSegment("offers")).toBe("offers");
-    expect(spaceModuleIdFromUrlSegment("copilot")).toBe("engenty-copilot");
     expect(spaceModuleUrlSegment("knowledge-base")).toBe("kb");
     expect(spaceModuleIdFromUrlSegment("kb")).toBe("knowledge-base");
     expect(spaceModuleIdFromUrlSegment("offers")).toBe("offers");
     // A link minted before the alias still names the module.
-    expect(spaceModuleIdFromUrlSegment("engenty-copilot")).toBe(
-      "engenty-copilot"
+    expect(spaceModuleIdFromUrlSegment("knowledge-base")).toBe(
+      "knowledge-base"
     );
   });
 
@@ -25,6 +23,7 @@ describe("space module url segments", () => {
     expect(isSpaceReservedSegment("settings")).toBe(true);
     expect(isSpaceReservedSegment("Data")).toBe(true);
     expect(isSpaceReservedSegment("agents")).toBe(true);
+    expect(isSpaceReservedSegment("copilot")).toBe(true);
     expect(isSpaceReservedSegment("notifications")).toBe(true);
     expect(isSpaceReservedSegment("offers")).toBe(false);
   });
@@ -42,9 +41,6 @@ describe("canonicalModulePathname", () => {
   });
 
   it("resolves the module ALIAS, not the URL segment", () => {
-    expect(canonicalModulePathname("/s/matthias/copilot/chat/x")).toBe(
-      "/mdl/engenty-copilot/chat/x"
-    );
     expect(canonicalModulePathname("/s/brain/kb/faqs/f1")).toBe(
       "/mdl/knowledge-base/faqs/f1"
     );
@@ -64,6 +60,10 @@ describe("canonicalModulePathname", () => {
     expect(canonicalModulePathname("/s/company/agents/custom.researcher")).toBe(
       "/s/company/agents/custom.researcher"
     );
+    // The river seen from a space is the space's page, not a module's.
+    expect(canonicalModulePathname("/s/company/copilot")).toBe(
+      "/s/company/copilot"
+    );
   });
 
   it("passes through anything that is not a space module path", () => {
@@ -78,8 +78,8 @@ describe("canonicalModulePathname", () => {
   });
 
   it("decodes an encoded segment before resolving it", () => {
-    expect(canonicalModulePathname("/s/my%20space/copilot/chat")).toBe(
-      "/mdl/engenty-copilot/chat"
+    expect(canonicalModulePathname("/s/my%20space/kb/faqs")).toBe(
+      "/mdl/knowledge-base/faqs"
     );
   });
 });
@@ -118,14 +118,14 @@ describe("chats is the space's own page", () => {
 describe("which space a pathname is in", () => {
   it("reads the key out of a space URL", () => {
     expect(spaceKeyFromPathname("/s/company")).toBe("company");
-    expect(spaceKeyFromPathname("/s/company/copilot/chat/abc")).toBe("company");
+    expect(spaceKeyFromPathname("/s/company/copilot")).toBe("company");
     expect(spaceKeyFromPathname("/s/kunde%20m%C3%BCller")).toBe("kunde müller");
   });
 
   it("answers NULL outside a space rather than guessing a default", () => {
     // Callers use this to ask "am I in a space at all"; a fallback here would
     // make every module page claim to be inside one.
-    expect(spaceKeyFromPathname("/mdl/engenty-copilot/chat")).toBeNull();
+    expect(spaceKeyFromPathname("/copilot")).toBeNull();
     expect(spaceKeyFromPathname("/settings/appearance")).toBeNull();
     expect(spaceKeyFromPathname("/s/")).toBeNull();
     expect(spaceKeyFromPathname("/s")).toBeNull();

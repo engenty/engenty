@@ -57,7 +57,7 @@ function toApprovalRequestRecord(
 }
 
 const CONNECTION_COLUMNS =
-  "id, tenant_id, connector_id, owner_user_id, sharing, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
+  "id, tenant_id, connector_id, owner_user_id, sharing, all_spaces, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
 
 interface ConnectionTokenRow {
   access_token_enc: string | null;
@@ -235,7 +235,9 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       const rows = await listApprovalRequestsForModule(supabase, {
         moduleId: [
           APPROVALS_MODULE_ID,
-          ...listConnectorDefinitions().map((def) => def.moduleId),
+          ...listConnectorDefinitions(params.tenantId).map(
+            (def) => def.moduleId
+          ),
         ],
         tenantId: params.tenantId,
         ...(params.status ? { status: params.status } : {}),
@@ -273,27 +275,15 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
     },
 
     /**
-     * All active connections a principal may use for a connector: their own
-     * personal connections plus the org-shared ones. Which candidate a call
-     * actually uses is decided by `selectConnectionForAccount` (explicit
-     * `account` addressing, single-candidate default, ambiguity error).
+     * Active connections for a connector. RLS already limits the user-scoped
+     * client; reach (space mount ∪ all-spaces ∪ agent grant) is applied by
+     * the executor / profile policy. Do not re-filter by owner here — a
+     * space-mounted colleague account would never become a candidate.
      */
     async listCandidateConnections(params: {
-      /**
-       * Personal connections the ACTING AGENT was granted (CN.5). Without
-       * this they would not be candidates at all, and the grant would be a row
-       * the policy consults about a connection it never sees.
-       */
       agentGrantedConnectionIds?: ReadonlySet<string>;
       connectorId: string;
       principalId: string;
-      /**
-       * The VERIFIED personal-space owner the run acts for
-       * (PLAN-space-computer.md §2.1) — resolved by
-       * `resolveVerifiedSpaceOwnerForRun`, never taken from a raw claim. Makes
-       * the owner's personal connections candidates the way the owner's own
-       * calls would; every later clamp still applies.
-       */
       spaceOwnerUserId?: string | null;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
@@ -301,15 +291,7 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         connectorId: params.connectorId,
         tenantId: params.tenantId,
       });
-      return all.filter(
-        (c) =>
-          c.status === "active" &&
-          (c.sharing === "org" ||
-            c.owner_user_id === params.principalId ||
-            (params.spaceOwnerUserId != null &&
-              c.owner_user_id === params.spaceOwnerUserId) ||
-            params.agentGrantedConnectionIds?.has(c.id))
-      );
+      return all.filter((c) => c.status === "active");
     },
 
     /**
@@ -416,6 +398,7 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
     },
 
     async updateConnectionSettings(params: {
+      allSpaces?: boolean;
       autonomousMode?: ConnectionAutonomousMode;
       connectionId: string;
       displayName?: string | null;
@@ -424,6 +407,9 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       tenantId: string;
     }): Promise<void> {
       const patch: Record<string, unknown> = {};
+      if (params.allSpaces !== undefined) {
+        patch.all_spaces = params.allSpaces;
+      }
       if (params.autonomousMode !== undefined) {
         patch.autonomous_mode = params.autonomousMode;
       }
@@ -535,18 +521,9 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         await db()
           .from("connections")
           .insert({
+            all_spaces: false,
             auth_kind: input.authKind ?? "oauth2",
             connector_id: input.connectorId,
-            // PLAN-spaces.md CN.6/1 — a NEW org share starts capped at reads.
-            // The column is nullable and null means uncapped, so sharing an
-            // account with the team used to hand every member its destructive
-            // actions unless someone thought to opt into a cap. The safe
-            // direction is the default; the owner can widen it in settings.
-            // Only on INSERT: a reconnect must not silently undo a cap the
-            // owner deliberately widened.
-            ...(input.sharing === "org"
-              ? { non_owner_max_group: "read" as const }
-              : {}),
             owner_user_id: input.ownerUserId,
             sharing: input.sharing,
             tenant_id: input.tenantId,

@@ -1,4 +1,12 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { useHotkeys } from "@tanstack/react-hotkeys";
+import type { RefObject } from "react";
+import { HOTKEY_GROUP } from "../hotkeys/hotkey-meta";
+
+export const LIST_TOOLBAR_HOTKEYS = {
+  filters: "Mod+Shift+F",
+  newItem: "Mod+N",
+  search: "Mod+F",
+} as const;
 
 export interface UseListToolbarHotkeysOptions {
   /**
@@ -45,63 +53,84 @@ export function useListToolbarHotkeys(
   options: UseListToolbarHotkeysOptions
 ): void {
   const { searchInputRef, onOpenFilters, onNewItem, enabled = true } = options;
-  const onOpenFiltersRef = useRef(onOpenFilters);
-  onOpenFiltersRef.current = onOpenFilters;
-  const onNewItemRef = useRef(onNewItem);
-  onNewItemRef.current = onNewItem;
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
+  useHotkeys(
+    enabled
+      ? [
+          ...(searchInputRef
+            ? [
+                {
+                  callback: (event: KeyboardEvent) => {
+                    if (isInsideBlockingOverlay(event.target)) {
+                      return;
+                    }
+                    const input = searchInputRef.current;
+                    if (!input) {
+                      return;
+                    }
+                    event.preventDefault();
+                    input.focus();
+                    input.select();
+                  },
+                  hotkey: LIST_TOOLBAR_HOTKEYS.search,
+                  options: {
+                    meta: {
+                      description: "Focus and select the list search field",
+                      group: HOTKEY_GROUP.lists,
+                      name: "Focus list search",
+                    },
+                  },
+                },
+              ]
+            : []),
+          ...(onOpenFilters
+            ? [
+                {
+                  callback: (event: KeyboardEvent) => {
+                    if (isInsideBlockingOverlay(event.target)) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onOpenFilters();
+                  },
+                  hotkey: LIST_TOOLBAR_HOTKEYS.filters,
+                  options: {
+                    meta: {
+                      description: "Open the list filter chip bar",
+                      group: HOTKEY_GROUP.lists,
+                      name: "Open list filters",
+                    },
+                  },
+                },
+              ]
+            : []),
+          ...(onNewItem
+            ? [
+                {
+                  callback: (event: KeyboardEvent) => {
+                    if (isInsideBlockingOverlay(event.target)) {
+                      return;
+                    }
+                    event.preventDefault();
+                    onNewItem();
+                  },
+                  hotkey: LIST_TOOLBAR_HOTKEYS.newItem,
+                  options: {
+                    meta: {
+                      description: "Open the new-item dialog",
+                      group: HOTKEY_GROUP.lists,
+                      name: "New item",
+                    },
+                  },
+                },
+              ]
+            : []),
+        ]
+      : [],
+    {
+      conflictBehavior: "allow",
+      preventDefault: false,
+      stopPropagation: false,
     }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.repeat) {
-        return;
-      }
-      if (isInsideBlockingOverlay(event.target)) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-
-      if (key === "n") {
-        if (event.shiftKey) {
-          return;
-        }
-        const newItem = onNewItemRef.current;
-        if (!newItem) {
-          return;
-        }
-        event.preventDefault();
-        newItem();
-        return;
-      }
-
-      if (key !== "f") {
-        return;
-      }
-
-      if (event.shiftKey) {
-        const openFilters = onOpenFiltersRef.current;
-        if (!openFilters) {
-          return;
-        }
-        event.preventDefault();
-        openFilters();
-        return;
-      }
-
-      const input = searchInputRef?.current;
-      if (!input) {
-        return;
-      }
-      event.preventDefault();
-      input.focus();
-      input.select();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled, searchInputRef]);
+  );
 }

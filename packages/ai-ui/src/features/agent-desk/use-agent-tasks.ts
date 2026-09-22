@@ -6,17 +6,17 @@ import {
 } from "./agent-desk-api.js";
 
 export const agentTasksKeys = {
-  tasks: (spaceId: string, agentId: string) =>
-    ["agent-desk", "tasks", spaceId, agentId] as const,
+  tasks: (spaceId: string | null, agentId: string) =>
+    ["agent-desk", "tasks", spaceId ?? "", agentId] as const,
 };
 
 export function useAgentTasksQuery(input: {
   agentId: string;
   enabled?: boolean;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   return useQuery({
-    enabled: (input.enabled ?? true) && Boolean(input.agentId && input.spaceId),
+    enabled: (input.enabled ?? true) && Boolean(input.agentId),
     queryFn: ({ signal }) =>
       getAgentDeskTasks(
         { agent_id: input.agentId, space_id: input.spaceId },
@@ -29,7 +29,7 @@ export function useAgentTasksQuery(input: {
 
 export function useSaveAgentTasksMutation(input: {
   agentId: string;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -1,3 +1,4 @@
+import type { ConnectionsRepo } from "@engenty/connections-sdk";
 import { capabilityCovers, type PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import { ImportValidationError } from "../errors.js";
@@ -6,8 +7,14 @@ import {
   connectorIdFromSlug,
   prepareSource,
   resolveRequiredHeaders,
+  surfaceRequiresAuth,
   toolPrefixFromSlug,
 } from "../import-service.js";
+import { preferImportedTokenAuth } from "../prefer-token-auth.js";
+import {
+  applyImportedRefresh,
+  withImportedAccessToken,
+} from "../refresh-actions.js";
 import {
   discoverImportableSources,
   discoverOAuthFacts,
@@ -22,13 +29,10 @@ import type { ExternalConnectorsRepo } from "../repo.js";
 import type { ImportedConnectorRecord } from "../types.js";
 
 /**
- * Superadmin import console API. Imports are platform-level in v1 (connector
- * definitions are process-global); per-tenant catalogs are an explicit
- * non-goal — see PLAN-external-connectors.md §0.
- *
- * Registry metadata that decides what gets imported — surface slug, spec
- * overrides, required headers, transport — is re-resolved here from `domain`
- * plus `source_url`. The client never gets to hand it in.
+ * Tenant import console API. Imports are tenant-scoped (marketplace Phase 1):
+ * `tenant_id` is stamped from auth, never from the client. Tenant admins
+ * (`core.users.manage`) or superadmins may import. Search and paste live in
+ * the marketplace; `/setup/connectors` lists this tenant's installs.
  */
 
 const searchBody = z.object({
@@ -68,12 +72,16 @@ interface Hono {
 
 /** Public projection: never expose encrypted credential columns. */
 function projectRecord(record: ImportedConnectorRecord) {
-  const { client_id_enc, client_secret_enc, registry_snapshot, ...rest } =
-    record;
+  const {
+    client_id_enc,
+    client_secret_enc: _clientSecretEnc,
+    registry_snapshot,
+    ...rest
+  } = record;
   return {
     ...rest,
     action_count: record.actions.length,
-    has_oauth_client: Boolean(client_id_enc && client_secret_enc),
+    has_oauth_client: Boolean(client_id_enc),
   };
 }
 
@@ -116,9 +124,10 @@ function projectSource(source: ImportableSource) {
 }
 
 export interface ExternalRoutesDeps {
+  connectionsRepo: ConnectionsRepo;
   /** (Re-)register a record's connector live; returns skipped action ids. */
   registerRecord: (record: ImportedConnectorRecord) => string[];
-  removeRecord: (id: string) => void;
+  removeRecord: (id: string, tenantId: string) => void;
   repo: ExternalConnectorsRepo;
 }
 
@@ -126,17 +135,23 @@ export function registerExternalConnectorRoutes(
   server: PluginServerApi,
   deps: ExternalRoutesDeps
 ): void {
-  const { registerRecord, removeRecord, repo } = deps;
+  const { connectionsRepo, registerRecord, removeRecord, repo } = deps;
 
   const guard = (ctx: {
-    auth?: { capabilities?: string[] } | null;
+    auth?: { capabilities?: string[]; tenantId?: string } | null;
   }): string | null => {
-    if (!ctx.auth) {
+    if (!ctx.auth?.tenantId) {
       return "Unauthorized";
     }
-    // In-process callers may omit capabilities — treat absent as not covered.
-    if (!capabilityCovers(ctx.auth.capabilities ?? [], "core.superadmin")) {
-      return "Forbidden: importing connectors requires superadmin";
+    const caps = ctx.auth.capabilities ?? [];
+    if (
+      !(
+        capabilityCovers(caps, "core.users.manage") ||
+        capabilityCovers(caps, "core.superadmin") ||
+        capabilityCovers(caps, "*")
+      )
+    ) {
+      return "Forbidden: importing connectors requires tenant admin";
     }
     return null;
   };
@@ -183,12 +198,19 @@ export function registerExternalConnectorRoutes(
         // Uses integrations.sh /surface (cached catalog), not live /discover.
         const { parsed } = await registryDiscover(body.domain);
         return hono.json({
+          credentials: Object.values(parsed.credentials).map((credential) => ({
+            generate_url: credential.generateUrl ?? null,
+            label: credential.label ?? credential.type,
+            setup: credential.setup ?? null,
+            type: credential.type,
+          })),
+          description: parsed.description ?? null,
           domain: parsed.domain,
           oauth_found: Boolean(
             discoverOAuthFacts(parsed)?.authorizationEndpoint
           ),
           sources: discoverImportableSources(parsed).map(projectSource),
-          summary: parsed.summary ?? parsed.description ?? null,
+          summary: parsed.summary ?? null,
         });
       } catch (error) {
         return hono.json(
@@ -248,6 +270,8 @@ export function registerExternalConnectorRoutes(
         }
 
         const prepared = await prepareSource({
+          deferMcpTools:
+            body.source_kind === "mcp" && surfaceRequiresAuth(surface),
           requiredHeaders:
             blockers.length === 0 && surface
               ? resolveRequiredHeaders(surface)
@@ -298,8 +322,9 @@ export function registerExternalConnectorRoutes(
           denied === "Unauthorized" ? 401 : 403
         );
       }
+      const tenantId = ctx.auth?.tenantId as string;
       const body = ctx.body as z.infer<typeof importBody>;
-      if (await repo.get(body.id)) {
+      if (await repo.get(tenantId, body.id)) {
         return hono.json(
           { error: `connector "${body.id}" already imported` },
           409
@@ -314,6 +339,7 @@ export function registerExternalConnectorRoutes(
         });
         if (surface) {
           const existing = await repo.findByRegistrySurface(
+            tenantId,
             body.domain,
             surface.slug
           );
@@ -327,6 +353,8 @@ export function registerExternalConnectorRoutes(
           }
         }
         const prepared = await prepareSource({
+          deferMcpTools:
+            body.source_kind === "mcp" && surfaceRequiresAuth(surface),
           requiredHeaders: surface ? resolveRequiredHeaders(surface) : [],
           sourceKind: body.source_kind,
           sourceUrl: body.source_url,
@@ -353,6 +381,7 @@ export function registerExternalConnectorRoutes(
           sourceKind: body.source_kind,
           sourceUrl: body.source_url,
           surface,
+          tenantId,
           toolPrefix: body.tool_prefix,
         });
         await repo.insert(record);
@@ -395,7 +424,8 @@ export function registerExternalConnectorRoutes(
           denied === "Unauthorized" ? 401 : 403
         );
       }
-      const records = await repo.list();
+      const tenantId = ctx.auth?.tenantId as string;
+      const records = await repo.list(tenantId);
       return hono.json({ connectors: records.map(projectRecord) });
     },
   });
@@ -413,72 +443,78 @@ export function registerExternalConnectorRoutes(
           denied === "Unauthorized" ? 401 : 403
         );
       }
+      const tenantId = ctx.auth?.tenantId as string;
       const id = (ctx.params as Record<string, string>).id;
-      const record = await repo.get(id);
+      const record = await repo.get(tenantId, id);
       if (!record) {
         return hono.json({ error: "not found" }, 404);
       }
       try {
-        // A refresh is the deliberate moment registry metadata is re-read:
-        // spec overrides, required headers and transport are re-derived from
-        // the surface the record was imported from.
-        const { surface } = record.registry_surface_slug
-          ? await resolveRegistrySource({
-              domain: record.domain,
-              sourceUrl: record.source_url,
-            })
-          : { surface: null };
-        const requiredHeaders = surface
-          ? resolveRequiredHeaders(surface)
-          : record.required_headers;
-        const transport =
-          record.source_kind === "mcp"
-            ? ((surface ? resolveMcpTransport(surface) : null) ??
-              record.mcp_transport ??
-              "streamable-http")
-            : null;
-        const prepared = await prepareSource({
-          requiredHeaders,
-          sourceKind: record.source_kind,
-          sourceUrl: record.source_url,
-          specOverrides: surface?.spec_overrides ?? [],
-          transport,
+        const result = await withImportedAccessToken({
+          connectionsRepo,
+          record,
+          use: (accessToken) =>
+            applyImportedRefresh({
+              accessToken,
+              record,
+              registerRecord,
+              repo,
+            }),
         });
-        const before = new Set(record.actions.map((a) => a.id));
-        const after = new Set(prepared.normalized.actions.map((a) => a.id));
-        const added = [...after].filter((a) => !before.has(a));
-        const removed = [...before].filter((a) => !after.has(a));
-        const updated: ImportedConnectorRecord = {
-          ...record,
-          actions: prepared.normalized.actions,
-          base_url: record.base_url ?? prepared.normalized.base_url,
-          mcp_transport: transport,
-          refreshed_at: new Date().toISOString(),
-          required_headers: requiredHeaders,
-          spec_hash: prepared.spec_hash,
-        };
-        await repo.update(id, {
-          actions: updated.actions,
-          base_url: updated.base_url,
-          mcp_transport: updated.mcp_transport,
-          refreshed_at: updated.refreshed_at,
-          required_headers: updated.required_headers,
-          spec_hash: updated.spec_hash,
-        });
-        const skippedActions = registerRecord(updated);
         await ctx.recordAuditEvent?.({
-          detail: { added, connector_id: id, removed },
+          detail: {
+            added: result.added,
+            connector_id: id,
+            removed: result.removed,
+          },
           type: "external_connector.refreshed",
         });
         return hono.json({
-          added,
-          connector: projectRecord(updated),
-          removed,
+          added: result.added,
+          connector: projectRecord(result.updated),
+          removed: result.removed,
           // New actions register live; changed schemas and removed actions
           // fully settle on the next core restart (operations are add-only).
-          restart_recommended: removed.length > 0,
-          skipped_actions: skippedActions,
+          restart_recommended: result.removed.length > 0,
+          skipped_actions: result.skippedActions,
         });
+      } catch (error) {
+        const status = error instanceof ImportValidationError ? 422 : 502;
+        return hono.json(
+          { error: error instanceof Error ? error.message : String(error) },
+          status
+        );
+      }
+    },
+  });
+
+  server.registerHttpRoute({
+    method: "post",
+    path: "/api/external-connectors/:id/prefer-token",
+    summary:
+      "Switch an unconfigured OAuth import to its API token when the spec offers one",
+    async handler(ctx) {
+      const hono = ctx.hono as Hono;
+      const denied = guard(ctx);
+      if (denied) {
+        return hono.json(
+          { error: denied },
+          denied === "Unauthorized" ? 401 : 403
+        );
+      }
+      const tenantId = ctx.auth?.tenantId as string;
+      const id = (ctx.params as Record<string, string>).id;
+      const record = await repo.get(tenantId, id);
+      if (!record) {
+        return hono.json({ error: "not found" }, 404);
+      }
+      try {
+        const result = await preferImportedTokenAuth({
+          record,
+          registerRecord,
+          repo,
+        });
+        return hono.json(result);
       } catch (error) {
         const status = error instanceof ImportValidationError ? 422 : 502;
         return hono.json(
@@ -503,15 +539,16 @@ export function registerExternalConnectorRoutes(
           denied === "Unauthorized" ? 401 : 403
         );
       }
+      const tenantId = ctx.auth?.tenantId as string;
       const id = (ctx.params as Record<string, string>).id;
       const body = ctx.body as z.infer<typeof statusBody>;
-      const record = await repo.get(id);
+      const record = await repo.get(tenantId, id);
       if (!record) {
         return hono.json({ error: "not found" }, 404);
       }
-      await repo.setStatus(id, body.status);
+      await repo.setStatus(tenantId, id, body.status);
       if (body.status === "disabled") {
-        removeRecord(id);
+        removeRecord(id, tenantId);
       } else {
         registerRecord({ ...record, status: "enabled" });
       }
@@ -532,13 +569,14 @@ export function registerExternalConnectorRoutes(
           denied === "Unauthorized" ? 401 : 403
         );
       }
+      const tenantId = ctx.auth?.tenantId as string;
       const id = (ctx.params as Record<string, string>).id;
-      const record = await repo.get(id);
+      const record = await repo.get(tenantId, id);
       if (!record) {
         return hono.json({ error: "not found" }, 404);
       }
-      await repo.delete(id);
-      removeRecord(id);
+      await repo.delete(tenantId, id);
+      removeRecord(id, tenantId);
       await ctx.recordAuditEvent?.({
         detail: { connector_id: id },
         type: "external_connector.deleted",

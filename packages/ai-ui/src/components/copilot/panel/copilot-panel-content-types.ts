@@ -16,8 +16,6 @@ export type CopilotEmptyLandingAlign = "center" | "start";
 
 export interface CopilotPanelContentProps {
   agentDebugPayload?: unknown;
-  /** When set, replaces the route context dropdown / title in the header. */
-  agentSessionChooser?: ReactNode;
   appliedSuggestions?: FieldSuggestion[];
   applyError: string | null;
   applySelectedLabel: string;
@@ -43,7 +41,9 @@ export interface CopilotPanelContentProps {
   centerEmptyLanding?: boolean;
   /** The badge in the header saying what kind of conversation this is. */
   chatKind?: ChatKind | null;
+  /** Label for `onNewChat`. */
   clearLabel?: string;
+
   closeLabel: string;
   /** When true, show minimal UI (composer + compact transcript). Used for mini-floating. */
   compact?: boolean;
@@ -126,9 +126,8 @@ export interface CopilotPanelContentProps {
   /** When user picks an agent from the @ mention list, sync shell agent selection (e.g. full-page chat). */
   onComposerMentionAgent?: (agentId: string) => void;
   /**
-   * Header "new chat" action; may be wired to new-session-for-agent when using
-   * {@link agentSessionChooser}. Absent on a desk: one long conversation has
-   * no "new".
+   * Header "new chat", for a host with threads of its own (a module hub
+   * chat). Absent on the river and on a desk: one conversation has no "new".
    */
   onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;

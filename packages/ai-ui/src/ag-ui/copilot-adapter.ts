@@ -67,6 +67,14 @@ function readAuthorName(metadata: Record<string, unknown>): string | null {
   return typeof name === "string" && name.trim() ? name.trim() : null;
 }
 
+/** The person whose copilot wrote the row (apps/ai rooms/alter-ego.ts). */
+function readAlterEgoUserName(
+  metadata: Record<string, unknown>
+): string | null {
+  const name = metadata.on_behalf_of_user_name;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
 /**
  * A desk-room row that points at an agent pair's thread (apps/ai writes it
  * under `engenty_agent_message` — see agent-pair-thread.ts).
@@ -712,6 +720,9 @@ export function agUiMessagesToCopilotMessages(
     const authorName = isRecord(message.metadata)
       ? readAuthorName(message.metadata)
       : null;
+    const alterEgoUserName = isRecord(message.metadata)
+      ? readAlterEgoUserName(message.metadata)
+      : null;
     // A colleague's brief is a user row; the desk agent's reply preview is
     // an assistant row. Either way the marker names the pair thread.
     const markerCandidate = isRecord(message.metadata)
@@ -731,6 +742,7 @@ export function agUiMessagesToCopilotMessages(
       role: message.role,
       parts: partsFromAgUiMessage(message, toolResults),
       ...(authorName ? { authorName } : {}),
+      ...(alterEgoUserName ? { alterEgoUserName } : {}),
       ...(agentMessage ? { agentMessage } : {}),
       ...(appRelease ? { appRelease } : {}),
     });

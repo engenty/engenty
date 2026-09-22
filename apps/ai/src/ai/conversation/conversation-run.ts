@@ -31,6 +31,7 @@ import {
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
 import type { AgentSessionStatus } from "../../dal/threads/types.js";
+import { isRoomThread, threadKind } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import {
   createUserBrowserTools,
@@ -46,6 +47,7 @@ import {
   assembleDynamicAgent,
   type RuntimeModelConfig,
 } from "../registry/index.js";
+import { resolveAlterEgo } from "../rooms/alter-ego.js";
 import { noteHumanTurnInRoom } from "../rooms/deliver.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
@@ -64,6 +66,7 @@ import {
   publishRunEvent,
 } from "../sessions/run-event-bus.js";
 import {
+  enrichToolsSpaceForAgentRun,
   resolvedRunSpace,
   resolveRunSpaceForThread,
   toolsSpaceFromResolution,
@@ -111,6 +114,10 @@ import {
 } from "./run-failure-notice.js";
 import { recordSessionUsage } from "./run-usage.js";
 import { patchThreadStatus } from "./thread-status.js";
+import { turnContextFromRouteContext } from "./turn-context.js";
+
+/** The thread kinds cut into chapters (api/thread-chapter-routes.ts). */
+const CHAPTERED_THREAD_KINDS = new Set(["desk", "dm"]);
 
 /** A tool that suspended the run, captured for the post-run interrupt. */
 interface SuspendedTool {
@@ -245,6 +252,7 @@ export async function startConversationRun(
     threadId: input.threadId,
   });
   const spaceResolution = await resolveRunSpaceForThread({
+    routeContext: input.routeContext,
     runId: input.runId,
     scope: input.scope,
     store: input.store,
@@ -369,6 +377,12 @@ export async function startConversationRun(
     // BOTH chat lanes — this one and the resume — have to agree, and a value
     // threaded from two routes is a value that eventually diverges.
     const rootConfig = await input.registry.getAgentConfig?.(input.agentId);
+    const toolsSpace = await enrichToolsSpaceForAgentRun({
+      agentId: input.agentId,
+      preferredConnectorIds: rootConfig?.connectorIds ?? [],
+      scope: input.scope,
+      space: toolsSpaceFromResolution(spaceResolution),
+    });
     // The page-driving grant reads the row and the Space position, so it comes
     // after both are known; the executor and the prompt share this one value.
     const frontendToolGrant = frontendToolGrantForRun({
@@ -394,9 +408,22 @@ export async function startConversationRun(
       agentScope: rootConfig?.agentScope,
       thread: threadRow,
     });
+    // In a room, a personal-scope agent speaks for its person (rooms/alter-ego.ts).
+    const alterEgo =
+      rootConfig?.agentScope === "personal" &&
+      threadRow &&
+      isRoomThread(threadRow.route_context)
+        ? await resolveAlterEgo({
+            agentId: input.agentId,
+            store: input.store,
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+          })
+        : null;
     const { memory, memoryProcessors, memoryTools } =
       createEngentySessionMemoryRuntime({
         agentId: input.agentId,
+        alterEgo,
         ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
         observationalModelId: input.modelConfig?.memoryModelId,
         scope: input.scope,
@@ -407,6 +434,14 @@ export async function startConversationRun(
         spaceId: runSpace?.spaceId ?? threadRow?.space_id,
         store: input.store,
         threadId: input.threadId,
+        // The RUN's context, not the thread's stored one: the river is one
+        // thread walked through many spaces, and the chapter a turn belongs to
+        // is where the person stood when they sent it.
+        turnContext: turnContextFromRouteContext(input.routeContext),
+        // A conversation that goes on without end has chapters to read.
+        threadChapters:
+          threadRow != null &&
+          CHAPTERED_THREAD_KINDS.has(threadKind(threadRow)),
         ...(input.attachmentParts && input.attachmentParts.length > 0
           ? { userAttachmentParts: input.attachmentParts }
           : {}),
@@ -495,7 +530,7 @@ export async function startConversationRun(
     ).trim();
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
-      space: toolsSpaceFromResolution(spaceResolution),
+      space: toolsSpace,
       // The Memory INSTANCE has to live ON the agent — `agent.stream()` takes no
       // memory argument. Without it the memory processors (observational memory) throw
       // "computeStateSignal requires Mastra memory with an active resourceId and
@@ -594,7 +629,7 @@ export async function startConversationRun(
       // itself. The AG-UI session lane and child runs already set it.
       agentTypeKey: input.agentId,
       approvalGrants: input.approvalGrants ?? [],
-      space: toolsSpaceFromResolution(spaceResolution),
+      space: toolsSpace,
       // Interactive chat: a gated operation SUSPENDS the run natively
       // (context.agent.suspend in lib/execute-approval.ts) and resumes from
       // Mastra's snapshot — the same mechanism the resume lane uses, so one
@@ -874,6 +909,7 @@ export async function startConversationRun(
     // shapes, so the chat renders two cards — and only memory's is ever resolved
     // by `resolveToolCallResultInHistory`, leaving ours spinning forever.
     await persistTurnTranscript({
+      context: turnContextFromRouteContext(input.routeContext),
       // `failureNotice` marks the "length"/"content-filter" finishes: those DO
       // reach end-of-generation, so memory flushed the turn even though the run
       // is recorded as failed — writing ours would duplicate every tool card.

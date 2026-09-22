@@ -12,23 +12,6 @@ export interface EngentyThreadHostProfile {
   /** Default page size for `GET /ai/threads` when `listMode === "many"`. */
   listLimit: number;
   listMode: EngentyThreadHostListMode;
-  /**
-   * This host's ACTIVE thread is remembered per space (PLAN-space-chats.md).
-   *
-   * True for the copilot, and true of nothing else so far, because the copilot
-   * is the one host that appears in every space under a single host key: the
-   * dock opens on any page, and its persisted active thread is keyed by host
-   * key alone. Without this, walking from Company into Marketing and opening
-   * the dock resumes the Company thread — and the run's tools, connectors and
-   * `/data` root come from the THREAD's space (`resolveRunSpace`), so the agent
-   * quietly works in Company while the address bar says Marketing.
-   *
-   * The fix belongs on the STORAGE key, never on the host key: host key answers
-   * "which UI surface", space answers "where", and minting `engenty:copilot@…`
-   * as a host key would repoint every existing thread's binding and break every
-   * host that is not space-aware.
-   */
-  spaceBound?: boolean;
 }
 
 const HOST_PROFILES: Record<string, EngentyThreadHostProfile> = {
@@ -37,7 +20,6 @@ const HOST_PROFILES: Record<string, EngentyThreadHostProfile> = {
     hostKey: ENGENTY_COPILOT_HOST_KEY,
     listLimit: 80,
     listMode: "many",
-    spaceBound: true,
   },
 };
 

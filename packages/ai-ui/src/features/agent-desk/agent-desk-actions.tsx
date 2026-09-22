@@ -27,7 +27,13 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useArtifacts } from "../../artifacts/artifact-store.js";
 import { ArtifactPaneToggle } from "../../artifacts/workspace-artifact-pane.js";
@@ -59,6 +65,8 @@ export function AgentDeskActions(props: {
   canAsk: boolean;
   canAssignWork: boolean;
   canManage: boolean;
+  /** The conversation's chapters, one icon (thread-chapters.tsx). */
+  chapters?: ReactNode;
   hostKey: string;
   /** Only a custom (database-backed) agent has an edit form to open. */
   isCustomAgent: boolean;
@@ -69,8 +77,9 @@ export function AgentDeskActions(props: {
   onOpenDm?: () => void;
   /** Opens the side drawer — Settings or Runs — over the chat. */
   onOpenPanel: (panel: AgentDeskPanel) => void;
-  spaceId: string;
-  spaceKey: string;
+  /** Null on the copilot's desk outside a space. */
+  spaceId: string | null;
+  spaceKey: string | null;
   /** The open conversation — the artifact pane lists that thread's work. */
   threadId: string | null;
 }) {
@@ -135,6 +144,7 @@ export function AgentDeskActions(props: {
           <Settings2 className="size-4" />
         </Button>
         <ThreadContextToggle hostKey={props.hostKey} />
+        {props.chapters}
         {/* The person's browser beside the chat — its state, and the live
             view with takeover while it runs (PLAN-user-browser.md §2.6). */}
         <UserBrowserPaneToggle />
@@ -275,7 +285,7 @@ export function AgentDeskActions(props: {
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {removal ? (
+      {removal && props.spaceId && props.spaceKey ? (
         <AgentRemovalDialog
           agentId={props.agentId}
           agentName={props.agentName}

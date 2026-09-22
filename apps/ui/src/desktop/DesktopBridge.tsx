@@ -1,3 +1,4 @@
+import { COPILOT_RIVER_PATH } from "@engenty/ai-ui";
 import type { NavigationSection } from "@engenty/app-shell";
 import {
   notificationDisplayText,
@@ -157,8 +158,10 @@ function DesktopBridgeInner({ sections }: DesktopBridgeProps) {
             navigateRef.current(payload);
           }
         });
-        // New chat: the menu's ⌘N and the global ⌥Space hotkey both land here.
-        await register(NEW_CHAT_EVENT, () => navigateRef.current("/chat/new"));
+        // The menu's ⌘N and the global ⌥Space hotkey both open the river.
+        await register(NEW_CHAT_EVENT, () =>
+          navigateRef.current(COPILOT_RIVER_PATH)
+        );
         await register(SETTINGS_EVENT, () => navigateRef.current("/settings"));
       } catch (error) {
         console.warn("[desktop] failed to install menu listeners", error);

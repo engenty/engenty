@@ -1,4 +1,6 @@
 import {
+  createConnectionsRepo,
+  encryptToken,
   registerConnectorModule,
   removeConnectorDefinition,
 } from "@engenty/connections-sdk";
@@ -6,64 +8,124 @@ import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerExternalConnectorRoutes } from "./api/routes.js";
 import { buildImportedConnector } from "./build-connector.js";
+import {
+  applyImportedRefresh,
+  withImportedAccessToken,
+} from "./refresh-actions.js";
 import { createExternalConnectorsRepo } from "./repo.js";
 import type { ImportedConnectorRecord } from "./types.js";
 
+function liveKey(
+  record: Pick<ImportedConnectorRecord, "id" | "tenant_id">
+): string {
+  return `${record.tenant_id}::${record.id}`;
+}
+
 /**
- * External (imported) connectors provider. Unlike the hand-written providers,
- * definitions here are data: superadmins import OpenAPI/MCP sources (found via
- * the integrations.sh registry or a pasted URL) and this plugin materializes
- * them into ordinary connectors at boot — policy, approvals, accounts, audit
- * and the agent tool surface all come from the framework unchanged.
+ * External (imported) connectors provider. Definitions are data: tenant admins
+ * import OpenAPI/MCP sources (found via the integrations.sh registry or a
+ * pasted URL) and this plugin materializes them into ordinary connectors at
+ * boot — keyed `${tenantId}::${id}` so one tenant's import is not listed or
+ * executed as another's. Builtins stay code, not rows.
  */
 const registerExternalConnectorsPlugin: EngentyPluginFactory = async (
   engenty
 ) => {
-  const { server } = engenty;
-  // Phase A seam note (PLAN-tenant-isolation-a-rls-seam.md): this provider stays
-  // on the SERVICE lane by design. module_external_connectors carries no
-  // tenant_id — it is the platform-level registry of imported connector specs
-  // (admin-managed, incl. encrypted client credentials), boot-materialized for
-  // the whole instance. Fail-closed doctrine: the tenant lane has no grants on
-  // it; tenant data never lives here.
+  const { events, server } = engenty;
+  // Boot lists every tenant on the SERVICE lane so each import can register
+  // under its tenant key. Request handlers stamp tenant_id from auth and the
+  // tenant-lane RLS keeps one tenant from reading another's rows.
   const supabaseRaw = server.getServiceDb?.() ?? null;
   if (!supabaseRaw) {
     throw new Error("External connectors provider requires Supabase");
   }
   const supabase = supabaseRaw as SupabaseClient;
   const repo = createExternalConnectorsRepo(supabase);
+  const connectionsRepo = createConnectionsRepo(supabase);
 
-  // Live record store: action handlers resolve their record through this map,
-  // so refresh/credential updates apply without re-binding already-registered
-  // operation closures. Module-local is safe — routes and handlers below share
-  // this jiti instance.
   const liveRecords = new Map<string, ImportedConnectorRecord>();
 
+  const persistOAuthClient = async (
+    record: ImportedConnectorRecord,
+    creds: { clientId: string; clientSecret: string }
+  ): Promise<void> => {
+    const current = liveRecords.get(liveKey(record)) ?? record;
+    const client_id_enc = encryptToken(creds.clientId);
+    const client_secret_enc = creds.clientSecret
+      ? encryptToken(creds.clientSecret)
+      : null;
+    await repo.update(current.tenant_id, current.id, {
+      client_id_enc,
+      client_secret_enc,
+    });
+    liveRecords.set(liveKey(current), {
+      ...current,
+      client_id_enc,
+      client_secret_enc,
+    });
+  };
+
   const registerRecord = (record: ImportedConnectorRecord): string[] => {
-    liveRecords.set(record.id, record);
-    const { connector, skippedActions } = buildImportedConnector(record, () =>
-      liveRecords.get(record.id)
+    liveRecords.set(liveKey(record), record);
+    const { connector, skippedActions } = buildImportedConnector(
+      record,
+      () => liveRecords.get(liveKey(record)),
+      (creds) => persistOAuthClient(record, creds)
     );
-    // Latest definition wins in the shared registry; duplicate operation ids
-    // are warn-skipped by core (add-only), which registerRecord tolerates.
     registerConnectorModule(engenty, connector);
     return skippedActions;
   };
 
-  const removeRecord = (id: string): void => {
-    liveRecords.delete(id);
-    removeConnectorDefinition(id);
+  const removeRecord = (id: string, tenantId: string): void => {
+    liveRecords.delete(`${tenantId}::${id}`);
+    removeConnectorDefinition(id, tenantId);
   };
 
   registerExternalConnectorRoutes(server, {
+    connectionsRepo,
     registerRecord,
     removeRecord,
     repo,
   });
 
-  // Boot: register every enabled import. One rotten record must not take the
-  // provider down — report a diagnostic and continue; the console shows the
-  // record via the list route either way.
+  events.modules.on("connections.connected", async (payload, context) => {
+    const connectorId =
+      typeof payload.connector_id === "string" ? payload.connector_id : null;
+    const tenantId = context.tenantId;
+    if (!(connectorId && tenantId)) {
+      return;
+    }
+    const record = await repo.get(tenantId, connectorId);
+    if (record?.source_kind !== "mcp" || record.actions.length > 0) {
+      return;
+    }
+    try {
+      await withImportedAccessToken({
+        connectionsRepo,
+        record,
+        use: async (accessToken) => {
+          if (!accessToken) {
+            return;
+          }
+          await applyImportedRefresh({
+            accessToken,
+            record,
+            registerRecord,
+            repo,
+          });
+        },
+      });
+    } catch (error) {
+      engenty.diagnostics.report({
+        code: "external_connectors.refresh_after_connect_failed",
+        level: "warn",
+        message: `could not list tools for "${connectorId}" after connect: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+  });
+
   let records: ImportedConnectorRecord[] = [];
   try {
     records = await repo.listEnabled();

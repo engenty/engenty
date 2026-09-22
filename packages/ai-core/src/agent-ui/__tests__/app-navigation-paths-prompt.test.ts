@@ -13,8 +13,9 @@ describe("buildAppNavigationPathsPromptSection", () => {
   });
 
   it("lists Space chat and agent desk routes", () => {
-    expect(text).toContain("`/s/<space_key>/copilot/chat`");
-    expect(text).toContain("`/s/<space_key>/copilot/chat/<threadId>`");
+    expect(text).toContain("`/s/<space_key>/copilot`");
+    expect(text).toContain("`/copilot`");
+    expect(text).not.toContain("/copilot/chat");
     expect(text).toContain("`/s/<space_key>/agents`");
     expect(text).toContain("`/s/<space_key>/agents/<agentId>`");
     expect(text).toContain("`/s/<space_key>/agents/new`");
@@ -28,8 +29,8 @@ describe("buildAppNavigationPathsPromptSection", () => {
   it("does not treat the module id as the Space URL segment", () => {
     expect(text).toContain("do not assume `moduleId === segment`");
     expect(text).toContain("route mirror");
-    expect(SPACE_MODULE_URL_ALIASES["engenty-copilot"]).toBe("copilot");
-    expect(text).toContain("`engenty-copilot` is `/s/<space_key>/copilot/…`");
+    expect(SPACE_MODULE_URL_ALIASES["knowledge-base"]).toBe("kb");
+    expect(text).toContain("`knowledge-base` is `/s/<space_key>/kb/…`");
     expect(text).toContain("Let `navigate` resolve the real route table");
   });
 });

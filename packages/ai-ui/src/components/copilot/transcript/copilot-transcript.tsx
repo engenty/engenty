@@ -29,6 +29,7 @@ import {
   MessageResponse,
 } from "../../ai-elements/message";
 import { Shimmer } from "../../ai-elements/shimmer";
+import { alterEgoLabel } from "../../alter-ego-label.js";
 import { AgentNamePill } from "../agent-name-pill.js";
 import { formatElapsedSeconds } from "../composer/agent-status-ticker/format-elapsed-seconds.js";
 import { useElapsedSeconds } from "../composer/agent-status-ticker/use-elapsed-seconds.js";
@@ -365,7 +366,9 @@ export function CopilotTranscript({
               msg.role === "user" ? "self-end" : "self-start"
             )}
           >
-            {msg.authorName}
+            {msg.alterEgoUserName
+              ? alterEgoLabel(msg.alterEgoUserName, t)
+              : msg.authorName}
           </span>
         ) : null}
         {/* Attachments render as separate tiles ABOVE the bubble (AI SDK

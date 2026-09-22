@@ -78,10 +78,8 @@ describe("isTalkConversationPathname", () => {
       isTalkConversationPathname("/s/company/agents/custom.researcher")
     ).toBe(true);
     expect(isTalkConversationPathname("/s/company/rooms/thread-1")).toBe(true);
-    expect(isTalkConversationPathname("/s/company/copilot/chat")).toBe(true);
-    expect(isTalkConversationPathname("/mdl/engenty-copilot/chat/abc")).toBe(
-      true
-    );
+    expect(isTalkConversationPathname("/s/company/copilot")).toBe(true);
+    expect(isTalkConversationPathname("/copilot")).toBe(true);
   });
 
   it("does not treat roster, hire, or app pages as Talk", () => {
@@ -104,7 +102,9 @@ describe("shouldShowCopilotFab", () => {
     ).toBe(true);
   });
 
-  it("hides the blob on dedicated chat chrome", () => {
+  it("keeps the docked blob on dedicated chat chrome", () => {
+    // `chromeHidden` hands the COMPANION surface to the page, not the app
+    // bar's blob — the bar must not change shape when you open a chat.
     expect(
       shouldShowCopilotFab({
         chromeHidden: true,
@@ -112,6 +112,30 @@ describe("shouldShowCopilotFab", () => {
         docked: true,
         isCollapsingToIcon: false,
         open: false,
+      })
+    ).toBe(true);
+  });
+
+  it("still hides the FLOATING blob on dedicated chat chrome", () => {
+    // Nothing to dock onto there, and it would cover the page's own composer.
+    expect(
+      shouldShowCopilotFab({
+        chromeHidden: true,
+        collapseToCircle: true,
+        isCollapsingToIcon: false,
+        open: false,
+      })
+    ).toBe(false);
+  });
+
+  it("lets a live voice session take the docked slot", () => {
+    expect(
+      shouldShowCopilotFab({
+        collapseToCircle: false,
+        docked: true,
+        isCollapsingToIcon: false,
+        open: false,
+        voiceSessionActive: true,
       })
     ).toBe(false);
   });

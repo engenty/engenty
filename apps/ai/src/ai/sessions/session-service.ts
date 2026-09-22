@@ -31,6 +31,7 @@ import {
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { isResumeInFlight } from "../conversation/resume-claims.js";
+import { turnContextFromRouteContext } from "../conversation/turn-context.js";
 import { AiSessionError } from "../errors.js";
 import { filterAgentUiFrontendToolsForScope } from "../frontend-tool-gating/filter-agent-ui-for-scope.js";
 import {
@@ -72,11 +73,10 @@ import {
   reconcileOrphanedInterrupt,
 } from "./reconcile-orphaned-interrupt.js";
 import {
+  enrichToolsSpaceForAgentRun,
   type RunSpaceResolution,
   resolvedRunSpace,
-  resolvePersonalSpaceId,
   resolveRunSpace,
-  resolveRunSpaceById,
   toolsSpaceFromResolution,
 } from "./run-space.js";
 import {
@@ -307,44 +307,15 @@ export function createThreadService(opts: ThreadServiceOptions) {
     // (PLAN-spaces.md Phase C3a). Everything downstream — the workspace root,
     // the tool catalog, the execute gate, the runtime prompt — reads this one
     // answer, so they cannot disagree about which space the run is in.
-    let spaceResolution = await resolveRunSpace({
+    const spaceResolution = await resolveRunSpace({
       scope: input.scope,
       thread: session,
       threadId: input.threadId,
       ...(input.runId ? { runId: input.runId } : {}),
     });
-    // A PERSONAL agent has no tenant-wide mode (PLAN-space-chats.md S4b).
-    //
-    // `global` means the thread made no space claim — a row from before Phase
-    // C2's backfill, or one minted in the window before the shell's space list
-    // resolved. Left alone it resolves the TENANT DEFAULT, i.e. the shared
-    // Company space, so a chat nobody placed anywhere would quietly reach
-    // every module mounted there. The personal space is where such a chat
-    // belongs; it is the rule C2 backfilled these threads with and the one the
-    // shell applies outside `/s/…`.
-    //
-    // Still fail-SOFT if the caller has no personal space (an install predating
-    // Phase P): a warn and today's behaviour beats a copilot that cannot chat.
-    if (
-      spaceResolution.kind === "global" &&
-      rootConfig?.agentScope === "personal"
-    ) {
-      const personalSpaceId = await resolvePersonalSpaceId(input.scope);
-      if (personalSpaceId) {
-        spaceResolution = await resolveRunSpaceById({
-          scope: input.scope,
-          spaceId: personalSpaceId,
-          ...(input.runId ? { runId: input.runId } : {}),
-        });
-      } else {
-        workspaceLogger.warn("personal_chat_without_space", {
-          agent_id: session.agent_id,
-          run_id: input.runId ?? null,
-          tenant_id: input.scope.tenantId,
-          thread_id: input.threadId,
-        });
-      }
-    }
+    // Copilot outside `/s/…` stays `{kind:"global"}`. Connector reach is the
+    // agent's grants plus all-spaces accounts (see enrichToolsSpaceForAgentRun),
+    // not a silent fallback to Company or the personal space.
     if (input.runId) {
       await ensureAgentRunStarted(opts.getRunStore?.() ?? null, {
         id: input.runId,
@@ -455,10 +426,17 @@ export function createThreadService(opts: ThreadServiceOptions) {
       grant: frontendToolGrant,
     });
     const nativeFrontendTools = createNativeFrontendTools(mergedDefinitions);
+    const toolsSpace = await enrichToolsSpaceForAgentRun({
+      agentId: session.agent_id,
+      preferredConnectorIds: rootConfig?.connectorIds ?? [],
+      scope: input.scope,
+      space: toolsSpaceFromResolution(spaceResolution),
+    });
     const assembleOptions = {
       extraTools: nativeFrontendTools,
       mastra: opts.mastra,
       modelConfig,
+      space: toolsSpace,
       // Root-only resolve context (PLAN-agent-hooks D5): lets a function
       // agent render over this thread's persisted `agent_state` instead of
       // its bare/default face, so `useThreadState` setters (e.g. a
@@ -496,6 +474,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       spaceId: session.space_id,
       threadId: input.threadId,
       store,
+      turnContext: turnContextFromRouteContext(session.route_context),
     });
     const agent = await (opts.assembleDynamicAgent ?? assembleDynamicAgent)(
       registry,
@@ -528,6 +507,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       subAgentSandboxProviders,
       session,
       store,
+      toolsSpace,
     };
   }
 
@@ -1342,6 +1322,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
         subAgentSandboxProviders,
         session,
         store,
+        toolsSpace,
       } = await resolveAgentForSessionMemory({
         ...input,
         runId,
@@ -1439,7 +1420,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
             // catalog tools hide what is not here and `engenty_tool_execute`
             // refuses it. Unresolved is a refusal, not absence; null is
             // intentional tenant-global.
-            space: toolsSpaceFromResolution(spaceResolution),
+            space: toolsSpace,
           }),
           () => agent.generate(modelMessages as never, invocationOptions)
         );

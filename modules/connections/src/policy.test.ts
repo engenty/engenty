@@ -59,6 +59,7 @@ function connection(
   overrides: Partial<ConnectionSummary> = {}
 ): ConnectionSummary {
   return {
+    all_spaces: false,
     auth_kind: "browser",
     autonomous_mode: "full",
     connector_id: "testmail",
@@ -423,9 +424,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     it("lets a granted agent reach an account it does not own", async () => {
       const policy = createConnectionsProfilePolicy(othersPersonalRepo(true));
       const decision = await policy(asAgent());
-      expect(decision?.reason ?? "").not.toContain(
-        "connection_personal_not_owner"
-      );
+      expect(decision?.action).not.toBe("deny");
     });
 
     it("denies the same agent without the grant — default is none", async () => {
@@ -466,7 +465,7 @@ describe("connections profile policy — who owns the approval UX", () => {
   });
 });
 
-describe("personal-space owner resolution (§2.1)", () => {
+describe("personal-space owner resolution no longer widens reach", () => {
   beforeEach(() => {
     __resetConnectorRegistryForTests();
     registerTestConnector();
@@ -480,19 +479,15 @@ describe("personal-space owner resolution (§2.1)", () => {
   const SPACE = "00000000-0000-4000-8000-00000000aaaa";
   const TRIGGER = "00000000-0000-4000-8000-00000000bbbb";
 
-  it("denies a headless run on a personal account without the hook", async () => {
+  it("denies a headless run on an unmounted personal account", async () => {
     const policy = createConnectionsProfilePolicy(repo());
     const decision = await policy(
       policyInput({ principalId: "svc-1", principalType: "service" })
     );
     expect(decision?.action).toBe("deny");
-    expect(decision?.reason).toContain("connection_personal_not_owner");
   });
 
-  it("lets a verified owner-bound run reach the owner's account — asks stay", async () => {
-    // The hook says the run acts for the account's owner; the sharing clamp
-    // opens, and the WRITE still lands on the approval lane like any
-    // unattended ask — owner reach is not approval reach.
+  it("does not treat a verified space owner as extra account reach", async () => {
     const seen: unknown[] = [];
     const policy = createConnectionsProfilePolicy(
       repo(),
@@ -518,12 +513,35 @@ describe("personal-space owner resolution (§2.1)", () => {
         triggerId: TRIGGER,
       },
     ]);
+    expect(decision?.action).toBe("deny");
+  });
+
+  it("lets a space-mounted account through for a headless run — asks stay", async () => {
+    const mounted = () =>
+      Promise.resolve(
+        new Map<string, SpaceConnectionAccess | null>([[CONNECTION_ID, null]])
+      );
+    const policy = createConnectionsProfilePolicy(repo(), mounted, () =>
+      Promise.resolve(USER)
+    );
+    const decision = await policy(
+      policyInput({
+        principalId: "svc-1",
+        principalType: "service",
+        spaceId: SPACE,
+        triggerId: TRIGGER,
+      })
+    );
     expect(decision?.action).toBe("require_approval");
     expect(decision?.reason).toContain("connection_approval_pending");
   });
 
-  it("reads freely when the owner's ceiling allows it", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), undefined, () =>
+  it("reads freely when the mounted account's ceiling allows it", async () => {
+    const mounted = () =>
+      Promise.resolve(
+        new Map<string, SpaceConnectionAccess | null>([[CONNECTION_ID, null]])
+      );
+    const policy = createConnectionsProfilePolicy(repo(), mounted, () =>
       Promise.resolve(USER)
     );
     const decision = await policy(
@@ -536,21 +554,5 @@ describe("personal-space owner resolution (§2.1)", () => {
       })
     );
     expect(decision?.action).toBe("allow");
-  });
-
-  it("stays denied when the hook cannot verify (returns null)", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), undefined, () =>
-      Promise.resolve(null)
-    );
-    const decision = await policy(
-      policyInput({
-        principalId: "svc-1",
-        principalType: "service",
-        spaceId: SPACE,
-        triggerId: TRIGGER,
-      })
-    );
-    expect(decision?.action).toBe("deny");
-    expect(decision?.reason).toContain("connection_personal_not_owner");
   });
 });

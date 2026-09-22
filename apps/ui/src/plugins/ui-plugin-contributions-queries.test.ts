@@ -28,12 +28,6 @@ vi.mock("@engenty/company-profile/ui/plugin", () => ({ default: () => {} }));
 vi.mock("@engenty/engenty-copilot/ui/plugin", () => ({
   default: (engenty: {
     UI: {
-      registerCopilotApp: (item: {
-        id: string;
-        label: string;
-        pluginId?: string;
-        to: string;
-      }) => void;
       registerRoute: (item: {
         id: string;
         path: string;
@@ -41,14 +35,9 @@ vi.mock("@engenty/engenty-copilot/ui/plugin", () => ({
       }) => void;
     };
   }) => {
-    engenty.UI.registerCopilotApp({
-      id: "engenty_copilot_app",
-      label: "Engenty Copilot",
-      to: "/mdl/engenty-copilot/chat/new",
-    });
     engenty.UI.registerRoute({
-      id: "engenty_copilot_chat",
-      path: "/mdl/engenty-copilot/chat/new",
+      id: "engenty_copilot_memory_settings",
+      path: "/mdl/engenty-copilot/memory",
       component: () => null,
     });
   },
@@ -76,14 +65,14 @@ describe("ui plugin contribution invalidation", () => {
 
     expect(data.contributions.routes).toContainEqual(
       expect.objectContaining({
-        id: "engenty_copilot_chat",
-        path: "/mdl/engenty-copilot/chat/new",
+        id: "engenty_copilot_memory_settings",
+        path: "/mdl/engenty-copilot/memory",
         pluginId: "engenty-copilot",
       })
     );
   });
 
-  it("keeps the Copilot app contribution visible even when tenant state disables the plugin", async () => {
+  it("keeps the Copilot plugin's routes even when tenant state disables the plugin", async () => {
     vi.mocked(getPlugins).mockResolvedValue([
       {
         id: "engenty-copilot",
@@ -120,11 +109,11 @@ describe("ui plugin contribution invalidation", () => {
     }
     const data = await queryFn({ signal: undefined } as never);
 
-    expect(data.contributions.copilotApps).toContainEqual(
+    expect(data.contributions.routes).toContainEqual(
       expect.objectContaining({
-        id: "engenty_copilot_app",
+        id: "engenty_copilot_memory_settings",
+        path: "/mdl/engenty-copilot/memory",
         pluginId: "engenty-copilot",
-        to: "/mdl/engenty-copilot/chat/new",
       })
     );
   });
@@ -168,7 +157,6 @@ describe("ui plugin contribution invalidation", () => {
             pluginId: "projects",
           },
         ],
-        copilotApps: [],
         adminMenuItems: [
           {
             id: "contacts_menu",
@@ -250,7 +238,6 @@ describe("ui plugin contribution invalidation", () => {
           },
         ],
         brandSource,
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -303,7 +290,6 @@ describe("ui plugin contribution invalidation", () => {
           },
         ],
         adminMenuItems: [],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],

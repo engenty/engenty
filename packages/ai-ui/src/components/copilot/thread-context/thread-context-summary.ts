@@ -7,9 +7,9 @@ import {
 import { resolveAgentDisplayName } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import { ACTIVE_COPILOT_AGENT_ID } from "../../../agent-provider/host-keys.js";
 import {
-  copilotChatSubRunPath,
-  spaceCopilotChatPath,
-} from "../../../copilot/copilot-chat-paths.js";
+  copilotRiverPath,
+  copilotRiverSubRunPath,
+} from "../../../copilot/copilot-river-paths.js";
 import { conversationEngagement } from "../../../features/agent-desk/agent-desk-url.js";
 import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
 import { readChatAttachmentPart } from "../../../lib/chat-attachment-part.js";
@@ -89,7 +89,8 @@ function spaceAgentContextHref(
 ): string {
   const thread = childThreadId?.trim() ?? "";
   if (agentId === ACTIVE_COPILOT_AGENT_ID) {
-    return spaceCopilotChatPath(spaceKey, thread);
+    // The river: one conversation, so the child thread names no page of its own.
+    return copilotRiverPath(spaceKey);
   }
   const desk = spaceAgentDeskPath(spaceKey, agentId);
   if (!thread) {
@@ -402,9 +403,8 @@ function threadAgentHref(input: {
   if (spaceKey) {
     return spaceAgentContextHref(spaceKey, input.agentId, input.childThreadId);
   }
-  const thread = input.threadId?.trim() ?? "";
-  if (thread) {
-    return copilotChatSubRunPath(thread, input.toolCallId);
+  if (input.threadId?.trim()) {
+    return copilotRiverSubRunPath(input.toolCallId);
   }
   return;
 }

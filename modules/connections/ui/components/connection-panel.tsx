@@ -35,7 +35,7 @@ export function ConnectionPanel({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-medium text-base">{label}</h3>
         <StatusBadge connection={connection} />
-        {connection.sharing === "org" ? (
+        {connection.all_spaces ? (
           <Badge variant="outline">{t("sharing.orgBadge")}</Badge>
         ) : null}
       </div>

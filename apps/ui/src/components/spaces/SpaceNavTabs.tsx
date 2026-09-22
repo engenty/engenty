@@ -36,7 +36,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { SpaceArtifactsSection } from "@/components/spaces/SpaceArtifactsSection";
 import { SpaceConversationSections } from "@/components/spaces/SpaceConversationSections";
-import { SpaceCopilotWorkRows } from "@/components/spaces/SpaceCopilotWorkRows";
 import { SpaceDataTree } from "@/components/spaces/SpaceDataTree";
 import { SpaceFilesSection } from "@/components/spaces/SpaceFilesSection";
 import { SpaceMembersSection } from "@/components/spaces/SpaceMembersSection";
@@ -105,13 +104,6 @@ export function SpaceNavTabs({
   const mountedIds = useMemo(
     () => new Set(mounted.map((module) => module.id)),
     [mounted]
-  );
-  const copilotApps = useMemo(
-    () =>
-      (contributions.copilotApps ?? []).filter((app) =>
-        mountedIds.has(app.pluginId)
-      ),
-    [contributions.copilotApps, mountedIds]
   );
   const pluginTabs = useMemo(
     () =>
@@ -232,24 +224,14 @@ export function SpaceNavTabs({
 
       {section === "work" ? (
         <div className="flex flex-col gap-3">
-          {/* The list leads with the rows you reach for most: Copilot, the
-              door into its module sidebar, then Favoriten; then this person's
-              sections and the built-ins. One component, because dragging a
-              row into Favoriten crosses the Copilot row. */}
+          {/* Favoriten first, then this person's sections and the built-ins;
+              the copilot's river heads Privat. */}
           <SpaceConversationSections
             canAdd={canEdit}
             canManage={canEdit}
             spaceId={spaceId}
             spaceKey={spaceKey}
-          >
-            {copilotApps.length > 0 ? (
-              <SpaceCopilotWorkRows
-                activeModuleId={activeModuleId}
-                apps={copilotApps}
-                spaceKey={spaceKey}
-              />
-            ) : null}
-          </SpaceConversationSections>
+          />
           {/* The space's own things, after its conversations and before the
               modules that produce records: a pinned artifact is at hand the
               way a favourite conversation is. */}

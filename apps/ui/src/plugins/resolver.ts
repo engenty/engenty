@@ -6,7 +6,6 @@ import type {
   UiAdminMenuItemContribution,
   UiChatCommandContribution,
   UiContributions,
-  UiCopilotAppContribution,
   UiDashboardWidgetContribution,
   UiDevelopmentPanelContribution,
   UiI18nNamespaceContribution,
@@ -274,64 +273,6 @@ function normalizeAdminMenuItems(items: UiAdminMenuItemContribution[]) {
           pluginId: item.pluginId,
           remediation:
             "Register the parent admin menu contribution or remove parentId.",
-          sourceInfo: sourceInfoFor(item),
-        })
-      ),
-    ],
-  };
-}
-
-function normalizeCopilotApps(items: UiCopilotAppContribution[]) {
-  const sorted = [...items].sort((left, right) => {
-    const leftRank = left.pluginId === "engenty-copilot" ? 0 : 1;
-    const rightRank = right.pluginId === "engenty-copilot" ? 0 : 1;
-    if (leftRank !== rightRank) {
-      return leftRank - rightRank;
-    }
-    return byOrderThenLabel(left, right);
-  });
-  const dedupeById = dedupeByKey({
-    items: sorted,
-    key: (item) => item.id,
-  });
-  const dedupeByPath = dedupeByKey({
-    items: dedupeById.deduped,
-    key: (item) => item.to,
-  });
-  const [first, ...additional] = dedupeByPath.deduped;
-
-  return {
-    items: first ? [first] : [],
-    diagnostics: [
-      ...dedupeById.duplicates.map((item) =>
-        diagnostic({
-          code: "plugin.registration.duplicate_copilot_app",
-          level: "warn",
-          message: `duplicate copilot app id "${item.id}" from plugin "${item.pluginId}" was ignored.`,
-          pluginId: item.pluginId,
-          remediation: "Register exactly one copilot app contribution.",
-          sourceInfo: sourceInfoFor(item),
-        })
-      ),
-      ...dedupeByPath.duplicates.map((item) =>
-        diagnostic({
-          code: "plugin.registration.duplicate_path",
-          level: "warn",
-          message: `duplicate copilot app path "${item.to}" from plugin "${item.pluginId}" was ignored.`,
-          pluginId: item.pluginId,
-          remediation:
-            "Move one copilot app contribution to a unique path or disable the duplicate contribution.",
-          sourceInfo: sourceInfoFor(item),
-        })
-      ),
-      ...additional.map((item) =>
-        diagnostic({
-          code: "plugin.registration.multiple_copilot_apps",
-          level: "warn",
-          message: `additional copilot app "${item.id}" from plugin "${item.pluginId}" was ignored.`,
-          pluginId: item.pluginId,
-          remediation:
-            "Only the single Engenty copilot plugin should register the shell copilot app.",
           sourceInfo: sourceInfoFor(item),
         })
       ),
@@ -785,13 +726,6 @@ export async function resolveUiPlugins(params: {
       kind: "admin menu",
     }
   );
-  const copilotApps = removeStaleOwnedContributions(
-    filtered.copilotApps ?? [],
-    {
-      ...cleanupParams,
-      kind: "copilot app",
-    }
-  );
   const dashboardWidgets = removeStaleOwnedContributions(
     filtered.dashboardWidgets,
     {
@@ -863,7 +797,6 @@ export async function resolveUiPlugins(params: {
 
   const routesNormalized = normalizeRoutes(routes);
   const menuNormalized = normalizeAdminMenuItems(adminMenuItems);
-  const copilotAppsNormalized = normalizeCopilotApps(copilotApps);
   const dashboardWidgetsNormalized =
     normalizeDashboardWidgets(dashboardWidgets);
   const developmentPanelsNormalized =
@@ -907,20 +840,6 @@ export async function resolveUiPlugins(params: {
       placement: placement ?? DEFAULT_PLUGIN_PLACEMENT,
     };
   });
-  // A copilot app carries placement too (PLAN-spaces.md Phase C1). It does NOT
-  // arrive through `adminMenuItems`, so the placement filter in navigation.ts
-  // could not see it: the copilot would have stayed on the global rail no
-  // matter what its manifest said. No diagnostic here — the copilot app is
-  // registered by the same plugin whose menu item (if it has one) already
-  // reports a missing placement, and a second warning naming the same manifest
-  // would only make the first one look like two problems.
-  const copilotAppsWithPlacement = copilotAppsNormalized.items.map((item) => ({
-    ...item,
-    placement:
-      item.placement ??
-      pluginsById.get(item.pluginId)?.placement ??
-      DEFAULT_PLUGIN_PLACEMENT,
-  }));
   const tabsNormalized = normalizeTabs(tabs);
   const spaceTabsNormalized = normalizeSpaceTabs(spaceTabs);
   const chatCommandsNormalized = normalizeChatCommands(chatCommands);
@@ -928,7 +847,6 @@ export async function resolveUiPlugins(params: {
   diagnostics.push(
     ...routesNormalized.diagnostics,
     ...menuNormalized.diagnostics,
-    ...copilotAppsNormalized.diagnostics,
     ...dashboardWidgetsNormalized.diagnostics,
     ...developmentPanelsNormalized.diagnostics,
     ...i18nNamespacesNormalized.diagnostics,
@@ -947,7 +865,6 @@ export async function resolveUiPlugins(params: {
       brandSource: filtered.brandSource,
       chatCommands: chatCommandsNormalized.items,
       copilotArticleHrefResolver: filtered.copilotArticleHrefResolver,
-      copilotApps: copilotAppsWithPlacement,
       copilotContributions,
       dashboardWidgets: dashboardWidgetsNormalized.items,
       developmentPanels: developmentPanelsNormalized.items,

@@ -30,6 +30,7 @@ import {
 } from "../sessions/run-space.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { resolveUserDisplayNames } from "../sessions/user-display-names.js";
+import { type AlterEgo, alterEgoMetadata } from "./alter-ego.js";
 import {
   HUMAN_TURN_ROOM_PATCH,
   ROOM_AGENT_TURNS_KEY,
@@ -47,7 +48,12 @@ export const ROOM_AUTHOR_AGENT_KEY = "author_agent_id";
 export const ROOM_AUTHOR_AGENT_NAME_KEY = "author_agent_name";
 
 export type RoomSender =
-  | { agentId: string; name: string }
+  | {
+      agentId: string;
+      /** Whose copilot posts, when the agent is one (alter-ego.ts). */
+      alterEgo?: AlterEgo | null;
+      name: string;
+    }
   | { name: string; userId: string };
 
 export interface DeliverToRoomInput {
@@ -194,6 +200,7 @@ export async function deliverToRoom(
       ? {
           [ROOM_AUTHOR_AGENT_KEY]: sender.agentId,
           [ROOM_AUTHOR_AGENT_NAME_KEY]: sender.name,
+          ...alterEgoMetadata(sender.alterEgo),
         }
       : {},
     parts: [

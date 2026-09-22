@@ -178,8 +178,11 @@ export function createConnectionsModuleClientFromRepo(
   getRepo: (tenantId: string) => ConnectionsRepo,
   options: ConnectionsModuleClientOptions
 ) {
-  function requireConnector(connectorId: string): ConnectorDefinition {
-    const connector = getConnectorDefinition(connectorId);
+  function requireConnector(
+    connectorId: string,
+    tenantId?: string | null
+  ): ConnectorDefinition {
+    const connector = getConnectorDefinition(connectorId, tenantId);
     if (!connector) {
       throw new ConnectionsActionError(
         "connection_not_connected",
@@ -228,7 +231,10 @@ export function createConnectionsModuleClientFromRepo(
         if (connection.status !== "active") {
           continue;
         }
-        const def = getConnectorDefinition(connection.connector_id);
+        const def = getConnectorDefinition(
+          connection.connector_id,
+          params.tenantId
+        );
         if (!def?.files) {
           continue;
         }
@@ -262,7 +268,10 @@ export function createConnectionsModuleClientFromRepo(
       if (!connection) {
         return false;
       }
-      return Boolean(getConnectorDefinition(connection.connector_id)?.storage);
+      return Boolean(
+        getConnectorDefinition(connection.connector_id, params.tenantId)
+          ?.storage
+      );
     },
 
     /** List a folder in a file-capable connection (read-gated like any action). */
@@ -395,9 +404,9 @@ export function createConnectionsModuleClientFromRepo(
             `no connection with id ${params.connectionId}`
           );
         }
-        connector = requireConnector(connection.connector_id);
+        connector = requireConnector(connection.connector_id, params.tenantId);
       } else if (params.connectorId) {
-        connector = requireConnector(params.connectorId);
+        connector = requireConnector(params.connectorId, params.tenantId);
       } else {
         throw new Error(
           "connections module client: callAction needs connectionId or connectorId"
@@ -455,7 +464,10 @@ export function createConnectionsModuleClientFromRepo(
           `no active connection with id ${params.connectionId}`
         );
       }
-      const connector = requireConnector(connection.connector_id);
+      const connector = requireConnector(
+        connection.connector_id,
+        params.tenantId
+      );
       const stream = connector.stream;
       if (!stream) {
         throw new ConnectionsActionError(

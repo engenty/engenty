@@ -9,7 +9,7 @@ import {
   resolveAgentEngenty,
 } from "@engenty/ai-core/browser";
 import { registerAgentDisplayNames } from "@engenty/ai-ui";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { compareSpaceAgents, isSpaceRosterAgent } from "./space-agent-nav";
 import {
   useSpaceAgentCatalogQuery,
@@ -84,8 +84,10 @@ export function useSpaceRosterAgents(spaceId: string | null): {
   // Transcript rows and the thread-context box are handed agent IDs by the
   // run, never names. Publishing the catalog here is what stops them from
   // rendering "Inbox.Overview" — the catalog is loaded on every space surface
-  // anyway, and this is the one place all of them go through.
-  useMemo(() => {
+  // anyway, and this is the one place all of them go through. An EFFECT, not
+  // a memo: the registry is a store other components subscribe to, and
+  // writing it mid-render is a setState on them while this one renders.
+  useEffect(() => {
     registerAgentDisplayNames(
       (catalogQuery.data ?? []).map((agent) => [agent.id, agent.name] as const)
     );

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  assistantModuleIds,
   SPACE_DATA_SEGMENT,
   spaceNavLevel,
   spaceSectionFor,
@@ -65,30 +64,9 @@ describe("which level the sidebar shows", () => {
   it("follows you INTO a module opened from the Work list", () => {
     expect(spaceNavLevel("contacts", [PLAN_TAB])).toBe("module");
     expect(spaceNavLevel("knowledge-base", [PLAN_TAB])).toBe("module");
-    expect(spaceNavLevel("engenty-copilot", [PLAN_TAB])).toBe("module");
   });
 
   it("stays at the space level where no module is open", () => {
     expect(spaceNavLevel(undefined, [PLAN_TAB])).toBe("space");
-  });
-
-  it("still follows you into Copilot when a space tab is also registered", () => {
-    expect(spaceNavLevel("engenty-copilot", [PLAN_TAB])).toBe("module");
-  });
-});
-
-describe("which modules are assistants", () => {
-  it("reads them off the copilot apps, whose plugin id IS the module id", () => {
-    const ids = assistantModuleIds([
-      { pluginId: "engenty-copilot" },
-      { pluginId: "chatbot" },
-    ]);
-    expect(ids.has("engenty-copilot")).toBe(true);
-    expect(ids.has("chatbot")).toBe(true);
-    expect(ids.has("contacts")).toBe(false);
-  });
-
-  it("is empty when nothing contributed a chat surface", () => {
-    expect(assistantModuleIds([]).size).toBe(0);
   });
 });

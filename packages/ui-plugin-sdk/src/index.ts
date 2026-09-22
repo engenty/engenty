@@ -103,24 +103,6 @@ export interface UiCopilotContribution {
   title?: string;
 }
 
-export interface UiCopilotAppContribution {
-  icon?: UiIconComponent;
-  id: string;
-  label: string;
-  labelKey?: string;
-  order?: number;
-  /**
-   * Shell placement, enriched at UI resolve time like the admin-menu row's.
-   * A copilot app does NOT travel through `adminMenuItems`, so without this the
-   * rail's placement filter cannot see it and a space-placed chat stays on the
-   * global rail regardless of its manifest (PLAN-spaces.md Phase C1).
-   */
-  placement?: PluginPlacement;
-  pluginId: UiPluginId;
-  sourceInfo?: PluginSourceInfo;
-  to: string;
-}
-
 export interface UiRouteContribution {
   component: ComponentType;
   id: string;
@@ -438,7 +420,6 @@ export interface UiContributions {
    */
   brandSource?: UiBrandSource;
   chatCommands: UiChatCommandContribution[];
-  copilotApps: UiCopilotAppContribution[];
   /**
    * Optional resolver a module can contribute to turn a (scope slug,
    * article id/slug) pair into a copilot-surfaced article href, mirroring the
@@ -527,7 +508,6 @@ export interface UiEventMap {
   "ui.backgroundComponents": UiBackgroundComponentContribution[];
   "ui.chatCommands": UiChatCommandContribution[];
   "ui.contributionsResolved": UiContributions;
-  "ui.copilotApps": UiCopilotAppContribution[];
   "ui.copilotContributions": UiCopilotContribution[];
   "ui.dashboardWidgets": UiDashboardWidgetContribution[];
   "ui.developmentPanels": UiDevelopmentPanelContribution[];
@@ -599,14 +579,6 @@ export interface EngentyUiApi {
     labelKey?: string;
     order?: number;
     surface?: string;
-  }) => void;
-  registerCopilotApp: (input: {
-    id: string;
-    label: string;
-    labelKey?: string;
-    to: string;
-    icon?: UiIconComponent;
-    order?: number;
   }) => void;
   registerCopilotArticleHrefResolver: (input: {
     resolve: (slug: string, articleIdOrSlug: string) => string;

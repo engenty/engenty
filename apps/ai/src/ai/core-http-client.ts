@@ -73,7 +73,7 @@ export interface EngentySpaceMount {
   /** Agent mounts only: the agent whose room this agent's reports also reach. */
   reportsTo?: string | null;
   resourceKey: string;
-  resourceType: "agent" | "connection" | "module" | "skill";
+  resourceType: "agent" | "connection" | "module" | "plugin" | "skill";
   spaceId: string;
 }
 

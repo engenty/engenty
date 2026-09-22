@@ -71,16 +71,8 @@ export function SpaceModulePicker({
             : entry.label),
       });
     }
-    for (const entry of contributions.copilotApps) {
-      map.set(entry.pluginId, {
-        icon: entry.icon ?? map.get(entry.pluginId)?.icon,
-        label: entry.labelKey
-          ? t(entry.labelKey, { defaultValue: entry.label })
-          : entry.label,
-      });
-    }
     return map;
-  }, [contributions.adminMenuItems, contributions.copilotApps, t]);
+  }, [contributions.adminMenuItems, t]);
 
   // Mount dependencies: adding Projects
   // ticks Tasks along; Tasks cannot leave while Projects stays.

@@ -25,6 +25,7 @@ import {
   useSpaceSkillCatalogQuery,
 } from "@/lib/spaces-queries";
 import { FILE_CONNECTOR_IDS } from "./space-capability-recommendations";
+import { pluginsFromConnectors } from "./space-plugin-catalog";
 
 export interface SpaceCatalogItem {
   category: string;
@@ -184,26 +185,15 @@ export interface SpaceMountCatalog {
    */
   lockedKeys: ReadonlySet<string>;
   modules: SpaceCatalogItem[];
+  /** Connector ids (builtins + tenant imports), mountable without an account. */
+  plugins: SpaceCatalogItem[];
   skills: SpaceCatalogItem[];
 }
 
 /** Everything mountable, with the space's own mounts folded in. */
 export function useSpaceMountCatalog(
   mounts: readonly SpaceMount[],
-  enabled = true,
-  options: {
-    /**
-     * Whether the space being configured is somebody's PERSONAL space.
-     *
-     * Decision 7 (PLAN-spaces.md CN.1): personal accounts stay in the personal
-     * space. A shared space is offered org accounts only — not because the
-     * server would allow otherwise (the sharing clamp already refuses a
-     * non-owner at execution), but because offering a mailbox that everyone in
-     * the space would then be able to work with is a sharing act the picker
-     * should not make casually available. Defaults to false, the stricter side.
-     */
-    isPersonal?: boolean;
-  } = {}
+  enabled = true
 ): SpaceMountCatalog {
   const catalogQuery = useSpaceSetupCatalogQuery(enabled);
   const agentsQuery = useSpaceAgentCatalogQuery(enabled);
@@ -292,12 +282,8 @@ export function useSpaceMountCatalog(
    */
   const connections = useMemo(() => {
     const connectors = connectorsQuery.data ?? [];
-    const accounts = [...connectionMetaById(connectors).values()]
-      // Decision 7 — a shared space takes org accounts only. The catalog
-      // has already limited this to accounts the CALLER may see, so what
-      // is dropped here is only ever the caller's own personal ones.
-      .filter((meta) => options.isPersonal || meta.sharing !== "personal")
-      .map((meta) => ({
+    const accounts = [...connectionMetaById(connectors).values()].map(
+      (meta) => ({
         category: "integrations",
         connectorId: meta.connectorId,
         description:
@@ -305,7 +291,8 @@ export function useSpaceMountCatalog(
         hasFiles: meta.hasFiles,
         id: meta.id,
         name: meta.label,
-      }));
+      })
+    );
     const connectedConnectors = new Set(
       accounts.map((account) => account.connectorId)
     );
@@ -321,7 +308,12 @@ export function useSpaceMountCatalog(
         needsConnect: true,
       }));
     return withMountedExtras([...accounts, ...pending], mounts, "connection");
-  }, [connectorsQuery.data, mounts, options.isPersonal]);
+  }, [connectorsQuery.data, mounts]);
+
+  const plugins = useMemo(
+    () => pluginsFromConnectors(connectorsQuery.data ?? [], mounts),
+    [connectorsQuery.data, mounts]
+  );
 
   const lockedKeys = useMemo(() => {
     const keys = new Set(
@@ -345,6 +337,7 @@ export function useSpaceMountCatalog(
       connectorsQuery.isPending,
     lockedKeys,
     modules,
+    plugins,
     skills,
   };
 }

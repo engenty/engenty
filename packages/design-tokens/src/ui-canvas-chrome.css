@@ -379,6 +379,23 @@ html.dark .ui-chrome-sharp {
   }
 
   /**
+   * Modal surface. Frosted glass: a real alpha (color-mix against
+   * `transparent` often bakes an opaque fill) plus a blur of the page
+   * directly behind the panel. The overlay only dims; it does not blur
+   * the viewport.
+   */
+  .ui-dialog-surface {
+    background-color: oklch(from var(--card) l c h / 0.84);
+    border: 1px solid oklch(100% 0 0 / 0.7);
+    box-shadow:
+      0 0 0 100vmax oklch(0% 0 0 / 0.32),
+      0 24px 48px oklch(0% 0 0 / 0.16),
+      inset 0 1px 0 oklch(100% 0 0 / 0.8);
+    -webkit-backdrop-filter: blur(16px) saturate(1.7);
+    backdrop-filter: blur(16px) saturate(1.7);
+  }
+
+  /**
    * Slim, always-visible scrollbar for small scrollports inside chrome (a
    * dialog field, a compact list). The platform default is either invisible
    * until you scroll — which hides that there IS more — or wide enough to

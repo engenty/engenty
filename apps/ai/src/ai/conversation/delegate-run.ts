@@ -25,10 +25,14 @@ import {
   getEngentyToolsRunContext,
   withEnvCoreBaseUrl,
 } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import { isUnresolvedSpaceGate } from "../../../ai/tools/engenty-tools/lib/space-gate.js";
+import {
+  isGlobalConnectorGate,
+  isUnresolvedSpaceGate,
+} from "../../../ai/tools/engenty-tools/lib/space-gate.js";
 import { MESSAGE_AGENT_TOOL_ID } from "../../../ai/tools/message-agent-tool.js";
 import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
+import { isRoomThread } from "../../dal/threads/types.js";
 import { notifyRunSuspended } from "../../notifications/run-notifications.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createUserBrowserTools } from "../browser/user-browser-tools.js";
@@ -47,6 +51,7 @@ import {
   type RuntimeModelConfig,
   resolveAgentModelId,
 } from "../registry/index.js";
+import { resolveAlterEgo } from "../rooms/alter-ego.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
 import { getServiceAccessToken } from "../service-credential.js";
@@ -476,9 +481,21 @@ export async function runDelegatedConversation(
           agentScope: childConfig?.agentScope,
           thread: childThread,
         });
+        const childAlterEgo =
+          childConfig?.agentScope === "personal" &&
+          childThread &&
+          isRoomThread(childThread.route_context)
+            ? await resolveAlterEgo({
+                agentId: input.childAgentId,
+                store: input.store,
+                tenantId: input.scope.tenantId,
+                threadId: input.childThreadId,
+              })
+            : null;
         const { memory, memoryProcessors, memoryTools } =
           createEngentySessionMemoryRuntime({
             agentId: input.childAgentId,
+            alterEgo: childAlterEgo,
             ...(childConfig?.name ? { agentName: childConfig.name } : {}),
             observationalModelId: input.modelConfig?.memoryModelId,
             scope: input.scope,
@@ -558,11 +575,14 @@ export async function runDelegatedConversation(
         // The acting user's browser (D11): the run's space names whom the run
         // acts for; a service principal is "headless" for the unattended gate.
         const browserSpace = childToolsContext.space;
+        const resolvedBrowserSpace =
+          browserSpace &&
+          !isUnresolvedSpaceGate(browserSpace) &&
+          !isGlobalConnectorGate(browserSpace)
+            ? browserSpace
+            : null;
         const browserTools = await createUserBrowserTools({
-          browser:
-            browserSpace && !isUnresolvedSpaceGate(browserSpace)
-              ? (browserSpace.browser ?? null)
-              : null,
+          browser: resolvedBrowserSpace?.browser ?? null,
           ...(tracker
             ? {
                 emit: (name: string, value: Record<string, unknown>) => {
@@ -575,10 +595,7 @@ export async function runDelegatedConversation(
               }
             : {}),
           headless: scopeAttributionUserId(input.scope) === null,
-          spaceId:
-            browserSpace && !isUnresolvedSpaceGate(browserSpace)
-              ? browserSpace.spaceId
-              : null,
+          spaceId: resolvedBrowserSpace?.spaceId ?? null,
           tenantId: input.scope.tenantId,
           textModelId: childModelConfig?.gradedModelIds?.low ?? null,
         });

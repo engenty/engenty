@@ -7,6 +7,7 @@ import {
   connectorScopeAllows,
   connectorScopeDenialReason,
   describeSelectionFailure,
+  isAccountReachableInRun,
   resolveConnectionActionPolicy,
   resolveConnectorOperation,
   selectConnectionForAccount,
@@ -20,9 +21,9 @@ import type {
  * The authoritative gate for connector operations, registered as an async
  * profile policy in core:
  *
- * - `deny` clamps (personal/not-owner, non-owner group cap, autonomous mode,
- *   user-configured deny, and — CN.3 — an account the run's space does not
- *   mount) are enforced for every principal.
+ * - `deny` clamps (autonomous mode, user-configured deny, and — CN.3 — an
+ *   account the run cannot reach via space mount ∪ all-spaces ∪ agent grant)
+ *   are enforced for every principal.
  * - INTERACTIVE user principals with an `ask` outcome return `null`: live chat
  *   approval stays with the AI-side native suspend/resume pre-gate.
  * - autonomous callers — agent/service principals, AND user-token calls whose
@@ -62,7 +63,10 @@ export function createConnectionsProfilePolicy(
   }) => Promise<string | null>
 ): PluginProfilePolicy {
   return async (input: PluginPolicyInput) => {
-    const match = resolveConnectorOperation(input.operationId);
+    const match = resolveConnectorOperation(
+      input.operationId,
+      input.auth.tenantId
+    );
     if (!match) {
       return null;
     }
@@ -106,10 +110,9 @@ export function createConnectionsProfilePolicy(
     const agentGrants = agentId
       ? await repo.listAgentGrantedConnectionIds({ agentId })
       : null;
-    // §2.1 — a run in a PERSONAL space acts with its owner's reach. Verified,
-    // not claimed: the hook checks the routine's stored space binding, because
-    // owner reach ADDS candidates and the space header alone must stay
-    // narrowing-only. Null for every user principal and every unbound run.
+    // §2.1 owner stand-in is kept for approval addressing / autonomy
+    // ceiling (`actsForSpaceOwner`); it does not add reach. Reach is mounts ∪
+    // all-spaces ∪ agent grants.
     const spaceId = input.auth.spaceId?.trim();
     const spaceOwnerUserId =
       spaceId && getVerifiedSpaceOwner
@@ -127,11 +130,9 @@ export function createConnectionsProfilePolicy(
       ...(agentGrants ? { agentGrantedConnectionIds: agentGrants } : {}),
       ...(spaceOwnerUserId ? { spaceOwnerUserId } : {}),
     });
-    // CN.3 — the WHERE axis. Mounts name accounts, so a space that works
-    // info@company.com cannot reach a colleague's mailbox on the same
-    // connector. Applied as an intersection over candidates the principal may
-    // already use, which is what makes it safe to take the space id from the
-    // request: it can only remove.
+    // CN.3 — the WHERE axis. Reach is the union of this space's mounts,
+    // all-spaces accounts, and the acting agent's grants (so copilot-granted
+    // Gmail survives standing in Marketing). `sharing` is unused.
     const mounted =
       spaceId && getMountedConnectionAccess
         ? await getMountedConnectionAccess({
@@ -139,9 +140,16 @@ export function createConnectionsProfilePolicy(
             tenantId: input.auth.tenantId,
           })
         : null;
-    const candidates = mounted
-      ? allCandidates.filter((c) => mounted.has(c.id))
-      : allCandidates;
+    const mountedIds = mounted ? new Set(mounted.keys()) : null;
+    const candidates = allCandidates.filter((c) =>
+      isAccountReachableInRun({
+        agentGrantedIds: agentGrants,
+        agentId,
+        connection: c,
+        mountedIds,
+        principalId: input.auth.principalId,
+      })
+    );
     // Named the space rather than saying "no account found": C3a's lesson is
     // that silent narrowing produces a confident wrong diagnosis — asked to
     // send mail, an agent told the user the connector had no tool at all. The

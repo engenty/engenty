@@ -22,7 +22,7 @@
 // not, and sitting above the title they read as the loudest thing in the block.
 import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import { cn, DetailPageHeader } from "@engenty/ui-core";
+import { BlobAvatar, cn, DetailPageHeader } from "@engenty/ui-core";
 import { CornerDownRight, Crown, Users } from "lucide-react";
 import { useOptionalAgentHostByKey } from "../../agent-provider/engenty-agent.js";
 import { AgentFace } from "../../components/agent-face.js";
@@ -151,9 +151,14 @@ function StatusDot({ hostKey }: { hostKey?: string }) {
   );
 }
 
-/** A private line names the agent — "only you and X"; the other tiers do not. */
+/**
+ * A private line names the agent — "only you and X"; the other tiers do not.
+ * The copilot's is "only you": it is the person's own, not a line to someone.
+ */
 function readersName(props: AgentDeskHeaderProps): string | undefined {
-  return props.visibility === "private" ? props.agent.name : undefined;
+  return props.visibility === "private" && props.chatKind !== "copilot"
+    ? props.agent.name
+    : undefined;
 }
 
 function CompactHeader(props: AgentDeskHeaderProps) {
@@ -233,19 +238,32 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
     // here only pushed the identity off that edge.
     <div className="relative w-full shrink-0 pt-20 pb-4">
       {/* The engenty hangs in the margin beside the lane, so it does not
-          indent the name out of the message column. That margin only exists
-          on a wide window; below `xl` it stands above the name instead. */}
+          indent the name out of the message column. That margin is the lane
+          box (`@container/chat-lane`), not the window: a wide viewport with
+          the space column and an end pane open is still too narrow, and the
+          mark was clipping on the column edge. 54rem is the 42rem lane plus
+          5.5rem of overhang each side, with a little air so the face stays
+          inside the scrollport. Narrower, it stands above the name. */}
       <span
         aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
-        className="mb-2 block xl:absolute xl:top-20 xl:left-[-5.5rem] xl:mb-0"
+        className="mb-2 block @min-[54rem]/chat-lane:absolute @min-[54rem]/chat-lane:top-20 @min-[54rem]/chat-lane:-left-[5.5rem] @min-[54rem]/chat-lane:mb-0"
         role="img"
       >
-        <AgentFace
-          avatarUrl={agent.avatarUrl}
-          kind={agent.engenty}
-          name={agent.name}
-          size={60}
-        />
+        {agent.role === "copilot" ? (
+          // The copilot is the blob from the app bar, not an engenty.
+          <BlobAvatar
+            character="ember"
+            className="[&_.blob-shadow]:hidden"
+            size={56}
+          />
+        ) : (
+          <AgentFace
+            avatarUrl={agent.avatarUrl}
+            kind={agent.engenty}
+            name={agent.name}
+            size={60}
+          />
+        )}
       </span>
       <DetailPageHeader
         containerClassName="max-w-none px-0 pt-0 pb-0 sm:px-0 md:px-0 md:pb-0"

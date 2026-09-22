@@ -72,6 +72,10 @@ export type StoredAuthConfig =
   | {
       kind: "oauth2";
       auth_url: string;
+      /** Registry `detect.auth.oauth.dcr` — register a client on first authenticate. */
+      dcr?: boolean;
+      /** RFC 7591 registration endpoint when `dcr` is true. */
+      registration_endpoint?: string;
       scope_separator?: string;
       scopes: string[];
       token_url: string;
@@ -118,5 +122,6 @@ export interface ImportedConnectorRecord {
   source_url: string;
   spec_hash: string;
   status: "enabled" | "disabled";
+  tenant_id: string;
   tool_prefix: string;
 }

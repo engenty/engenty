@@ -42,7 +42,7 @@ export interface CopilotDrawerPositionMenuProps {
   gripPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onCopyThread?: () => void | Promise<void>;
   onSelectDockPosition?: (value: CopilotDockMode) => void;
-  /** Navigate to full-page chat (`/mdl/engenty-copilot/chat`). */
+  /** Open the river's own page (`/copilot`, or `/s/<key>/copilot` in a space). */
   onSelectFullscreen?: () => void;
   positionDrawerLabel?: string;
   positionFullscreenLabel?: string;

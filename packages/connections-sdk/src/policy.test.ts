@@ -75,7 +75,7 @@ describe("resolveConnectionActionPolicy", () => {
     });
   });
 
-  it("personal connection denies non-owners regardless of policy", () => {
+  it("does not deny a non-owner based on the unused sharing column", () => {
     const result = resolveConnectionActionPolicy({
       action: { group: "read", id: "a" },
       connection: connection(),
@@ -83,46 +83,21 @@ describe("resolveConnectionActionPolicy", () => {
       overrides: [{ policy: "allow", selector: "a" }],
       principal: user(OTHER),
     });
-    expect(result).toEqual({
-      decision: "deny",
-      reason: "connection_personal_not_owner",
-    });
+    expect(result).toEqual({ decision: "allow" });
   });
 
-  it("org connection caps non-owners at non_owner_max_group", () => {
+  it("does not cap non-owners with non_owner_max_group", () => {
     const conn = connection({
       non_owner_max_group: "read",
       sharing: "org",
     });
     expect(
       resolveConnectionActionPolicy({
-        action: { group: "read", id: "a" },
-        connection: conn,
-        isAutonomous: false,
-        overrides: [],
-        principal: user(OTHER),
-      })
-    ).toEqual({ decision: "allow" });
-    expect(
-      resolveConnectionActionPolicy({
         action: { group: "write", id: "b" },
         connection: conn,
         isAutonomous: false,
         overrides: [],
         principal: user(OTHER),
-      })
-    ).toEqual({
-      decision: "deny",
-      reason: "connection_non_owner_group_cap",
-    });
-    // The owner is not capped.
-    expect(
-      resolveConnectionActionPolicy({
-        action: { group: "write", id: "b" },
-        connection: conn,
-        isAutonomous: false,
-        overrides: [],
-        principal: user(OWNER),
       })
     ).toEqual({ decision: "ask" });
   });
@@ -301,7 +276,7 @@ describe("actsForSpaceOwner (personal-space owner resolution, §2.1)", () => {
     principalType: "service",
   } as const;
 
-  it("passes the sharing clamp for the space owner's personal account", () => {
+  it("passes autonomous_mode for the space owner's account", () => {
     // The stand-in covers the clamp only; autonomous_mode still decides, so
     // an owner whose account is off stays off in their own space too.
     expect(
@@ -349,9 +324,7 @@ describe("actsForSpaceOwner (personal-space owner resolution, §2.1)", () => {
     });
   });
 
-  it("does nothing for a personal account the space owner does not own", () => {
-    // The caller derives the flag per connection; a false flag leaves the
-    // clamp exactly as before.
+  it("does not sharing-clamp a personal account the space owner does not own", () => {
     expect(
       resolveConnectionActionPolicy({
         action: { group: "read", id: "a" },
@@ -361,9 +334,6 @@ describe("actsForSpaceOwner (personal-space owner resolution, §2.1)", () => {
         overrides: [],
         principal: service,
       })
-    ).toEqual({
-      decision: "deny",
-      reason: "connection_personal_not_owner",
-    });
+    ).toEqual({ decision: "allow" });
   });
 });

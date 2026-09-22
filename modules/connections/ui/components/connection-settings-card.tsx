@@ -17,6 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
 } from "@engenty/ui-core";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -24,24 +25,17 @@ import type {
   CatalogConnection,
   CatalogConnector,
   ConnectionAutonomousMode,
-  ConnectionSharing,
-  ConnectorActionGroup,
 } from "../api.js";
 import {
   useDisconnectConnectionMutation,
   useUpdateConnectionSettingsMutation,
 } from "../queries.js";
 
-/** Sentinel for the `null` (no cap) value in the non-owner-cap select. */
-const NO_CAP_VALUE = "none";
-
 const AUTONOMOUS_MODES: ConnectionAutonomousMode[] = [
   "off",
   "read_only",
   "full",
 ];
-
-const NON_OWNER_CAPS = [NO_CAP_VALUE, "read", "write", "destructive"] as const;
 
 export interface ConnectionSettingsCardProps {
   connection: CatalogConnection;
@@ -50,8 +44,8 @@ export interface ConnectionSettingsCardProps {
 }
 
 /**
- * Sharing / autonomous-mode / non-owner-cap / display-name settings plus the
- * disconnect action for one connection.
+ * All-spaces / autonomous-mode / display-name settings plus the disconnect
+ * action for one connection.
  */
 export function ConnectionSettingsCard({
   connection,
@@ -122,65 +116,27 @@ export function ConnectionSettingsCard({
           />
         </div>
 
-        <div className="flex items-center gap-4">
-          <Label className="w-44 shrink-0 text-sm" htmlFor={fieldId("sharing")}>
-            {t("sharing.label")}
-          </Label>
-          <Select
-            disabled={busy}
-            onValueChange={(value) =>
-              saveSettings({ sharing: value as ConnectionSharing })
-            }
-            value={connection.sharing}
+        <div className="flex items-start gap-4">
+          <Label
+            className="w-44 shrink-0 pt-2.5 text-sm"
+            htmlFor={fieldId("all-spaces")}
           >
-            <SelectTrigger className="max-w-[320px]" id={fieldId("sharing")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="personal">{t("sharing.personal")}</SelectItem>
-              <SelectItem value="org">{t("sharing.org")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {connection.sharing === "org" ? (
-          <div className="flex items-start gap-4">
-            <Label
-              className="w-44 shrink-0 pt-2.5 text-sm"
-              htmlFor={fieldId("cap")}
-            >
-              {t("settings.nonOwnerMaxGroup")}
-            </Label>
-            <div className="max-w-[320px] flex-1 space-y-1">
-              <Select
-                disabled={busy}
-                onValueChange={(value) =>
-                  saveSettings({
-                    non_owner_max_group:
-                      value === NO_CAP_VALUE
-                        ? null
-                        : (value as ConnectorActionGroup),
-                  })
-                }
-                value={connection.non_owner_max_group ?? NO_CAP_VALUE}
-              >
-                <SelectTrigger className="w-full" id={fieldId("cap")}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {NON_OWNER_CAPS.map((cap) => (
-                    <SelectItem key={cap} value={cap}>
-                      {t(`settings.nonOwnerCap.${cap}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-xs">
-                {t("settings.nonOwnerMaxGroupHelp")}
-              </p>
-            </div>
+            {t("sharing.allSpaces")}
+          </Label>
+          <div className="max-w-[320px] flex-1 space-y-1">
+            <Switch
+              checked={connection.all_spaces === true}
+              disabled={busy || connector.auth_kind === "browser"}
+              id={fieldId("all-spaces")}
+              onCheckedChange={(checked) =>
+                saveSettings({ all_spaces: checked })
+              }
+            />
+            <p className="text-muted-foreground text-xs">
+              {t("sharing.allSpacesHelp")}
+            </p>
           </div>
-        ) : null}
+        </div>
 
         <div className="flex items-start gap-4">
           <Label

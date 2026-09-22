@@ -698,10 +698,18 @@ export function registerRegistryRoutes(
     }
     try {
       const agentId = c.req.param("id");
-      const existing = await store.getAgentConfig(
+      // Hired agents live in the store. Builtin/module agents (engenty.copilot)
+      // often have no row yet — fall back to the composite registry so a
+      // connectorIds (or other) PATCH can create the row from that definition.
+      let existing = await store.getAgentConfig(
         resolved.scope.tenantId,
         agentId
       );
+      if (!existing && getRegistry) {
+        existing = await getRegistry(resolved.scope.tenantId).getAgentConfig(
+          agentId
+        );
+      }
       if (!existing) {
         return c.json({ error: "agent_registry.notFound" }, 404);
       }

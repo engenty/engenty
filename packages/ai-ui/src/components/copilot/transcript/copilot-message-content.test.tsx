@@ -55,7 +55,7 @@ describe("CopilotMessageContent sub-agent delegations", () => {
     fireEvent.click(screen.getByTestId("sub-agent-header-trigger"));
     expect(
       screen.getByRole("link", { name: "Full view" }).getAttribute("href")
-    ).toBe("/mdl/engenty-copilot/chat/thread-1?subRun=sub-1");
+    ).toBe("/copilot?subRun=sub-1");
   });
 });
 

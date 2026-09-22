@@ -2,6 +2,7 @@ import {
   createFrontendToolDefinition,
   RunAgentInputSchema,
   readAgentUiStateSnapshot,
+  readRunRouteContext,
 } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
@@ -96,33 +97,39 @@ describe("buildAppsAiRunInput", () => {
       Object.keys(
         (input.forwardedProps as { engenty: Record<string, unknown> }).engenty
       ).sort()
-    ).toEqual(["ui_state"]);
+    ).toEqual(["route_context", "ui_state"]);
   });
 
-  // forwardedProps carries only what the server reads (effort, model_id).
-  // Route scope is deliberately NOT sent here; the agent's
-  // route facts come from `ui_state` and `context`. Pinned so it does not drift
-  // back in unnoticed — an unread key on every run is pure wire weight.
-  it("does not send route scope in forwardedProps", () => {
+  // forwardedProps carries only what the server reads: effort, model_id, the
+  // UI snapshot, and the turn's route context. The server prefers that last
+  // one over the thread's stored `route_context` for the run's space and
+  // language and stamps it on the user turn — the copilot's one thread is
+  // walked through many spaces. Pinned so no unread key drifts in.
+  it("sends the turn's route context, scope included, and nothing else", () => {
     const input = buildAppsAiRunInput({
       frontendTools: [],
       message: { id: "user-1", role: "user", content: "Hello" },
       modelId: null,
-      pathname: "/mdl/engenty-copilot/chat/new",
+      pathname: "/s/engrd/copilot",
       routeContext: {
         ...routeContext,
-        scope: { kb_id: "kb-1" },
+        scope: { space_id: "space-engrd", ui_language: "de" },
       },
       threadId: "session-1",
       state: {},
     });
 
-    expect(input.forwardedProps).toMatchObject({ engenty: {} });
+    expect(readRunRouteContext(input.forwardedProps)).toEqual({
+      moduleId: "engenty-copilot",
+      pathname: "/s/engrd/copilot",
+      routeKey: "chat",
+      scope: { space_id: "space-engrd", ui_language: "de" },
+    });
     expect(
       Object.keys(
         (input.forwardedProps as { engenty: Record<string, unknown> }).engenty
       ).sort()
-    ).toEqual(["ui_state"]);
+    ).toEqual(["route_context", "ui_state"]);
   });
 
   it("uses the provided app-shell state snapshot", () => {

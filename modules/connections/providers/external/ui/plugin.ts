@@ -8,10 +8,8 @@ import {
 import { LegacyImportRedirect, SetupIndexRedirect } from "./setup-redirects.js";
 
 /**
- * UI for the external-connectors import console (superadmin). Lives under
- * `/setup` — install-owner / platform ops, not Agents workspace or tenant
- * Settings. Imported connectors render through the standard connections
- * console with no extra UI.
+ * UI for the external-connectors list at `/setup/connectors` (tenant admin).
+ * Search and paste-URL import live in the plugin marketplace.
  */
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerRoute({

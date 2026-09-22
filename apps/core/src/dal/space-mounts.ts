@@ -1,8 +1,9 @@
 /**
  * `core.space_mount` — mount = grant (PLAN-spaces.md Phase 3).
  *
- * A space declares AVAILABILITY for four resource kinds: modules, agents, skills
- * and connections. Availability is a filter over ONE tenant library, never a copy
+ * A space declares AVAILABILITY for five resource kinds: modules, agents, skills,
+ * connections (account UUIDs), and plugins (connector ids with no account yet).
+ * Availability is a filter over ONE tenant library, never a copy
  * and never a second store — skills stay at `tenants/<t>/ai/skills/…` and agents
  * stay in `core.agents`; a mount only says which of them this space can touch.
  *
@@ -20,7 +21,10 @@ import {
   SPACE_AGENT_LIMIT,
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveConnectorIdsForConnections } from "./space-connection-lookup.js";
+import {
+  listAllSpacesConnectorIds,
+  resolveConnectorIdsForConnections,
+} from "./space-connection-lookup.js";
 
 /**
  * Which agents each module OWNS — mounting the module mounts them, so a
@@ -50,6 +54,7 @@ export const SPACE_RESOURCE_TYPES = [
   "agent",
   "skill",
   "connection",
+  "plugin",
 ] as const;
 export type SpaceResourceType = (typeof SPACE_RESOURCE_TYPES)[number];
 
@@ -342,7 +347,7 @@ export interface SpaceResourceSurface {
 }
 
 /**
- * THE function: everything available in a space, across all four kinds.
+ * THE function: everything available in a space, across all resource kinds.
  *
  * The setup dialog renders its counts from this and the agent assembler narrows
  * from this. Two queries would drift; one cannot.
@@ -363,11 +368,16 @@ export async function resolveSpaceResourceSurface(
       .filter((mount) => mount.resourceType === "connection")
       .map((mount) => mount.resourceKey)
   );
+  const allSpacesConnectorIds = await listAllSpacesConnectorIds(
+    client,
+    tenantId
+  );
   return surfaceFromMounts(
     spaceId,
     mounts,
     connectorIds,
-    moduleAgentIdsFromSeeds()
+    moduleAgentIdsFromSeeds(),
+    allSpacesConnectorIds
   );
 }
 
@@ -378,7 +388,9 @@ export function surfaceFromMounts(
   /** Connector id per mounted connection id; empty when nothing resolved. */
   connectorIdsByConnectionId: ReadonlyMap<string, string> = new Map(),
   /** Agents each mounted module brings with it; see {@link moduleAgentIdsFromSeeds}. */
-  agentIdsByModule: ReadonlyMap<string, readonly string[]> = new Map()
+  agentIdsByModule: ReadonlyMap<string, readonly string[]> = new Map(),
+  /** Connector ids of all-spaces accounts (not space_mount rows). */
+  extraConnectorIds: readonly string[] = []
 ): SpaceResourceSurface {
   const modules = mounts
     .filter((mount) => mount.resourceType === "module")
@@ -433,16 +445,20 @@ export function surfaceFromMounts(
   }
   const skills = keysOf("skill");
   const connections = keysOf("connection");
+  const plugins = keysOf("plugin");
   // Capabilities stay CONNECTOR-shaped: `module.connections.write.<connectorId>`
   // is the selector CON-02 scopes roles with, and inventing a per-account
   // variant here would produce ids nothing matches. An account whose connector
   // did not resolve contributes nothing — see the lookup's note on failing shut.
+  // Plugin mounts (connector id, no account yet) count as enabled plugins.
   const connectors = [
-    ...new Set(
-      connections
+    ...new Set([
+      ...plugins,
+      ...extraConnectorIds,
+      ...connections
         .map((connectionId) => connectorIdsByConnectionId.get(connectionId))
-        .filter((connectorId): connectorId is string => Boolean(connectorId))
-    ),
+        .filter((connectorId): connectorId is string => Boolean(connectorId)),
+    ]),
   ].sort();
   return {
     agentReportsTo,

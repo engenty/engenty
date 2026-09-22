@@ -180,3 +180,30 @@ export function agentUiStateForwardedProps(
 ): { ui_state?: AgentUiStateSnapshotV1 } {
   return snapshot ? { ui_state: snapshot } : {};
 }
+
+/**
+ * The run's own route context (`forwardedProps.engenty.route_context`): the
+ * same shape a thread stores in `route_context` — module, route key, pathname
+ * and a `scope` with `space_id` / `ui_language` — but for THIS turn.
+ *
+ * A thread remembers where it was created; a person's one conversation with
+ * their copilot is walked through many spaces, so each run says where it is.
+ * The server prefers this over the thread's stored context for the run's
+ * space, its language and the place stamped on the user turn.
+ */
+export function readRunRouteContext(
+  forwardedProps: unknown
+): Record<string, unknown> | undefined {
+  if (!(isRecord(forwardedProps) && isRecord(forwardedProps.engenty))) {
+    return;
+  }
+  const candidate = forwardedProps.engenty.route_context;
+  return isRecord(candidate) ? candidate : undefined;
+}
+
+/** Namespaced carrier for the run's route context, beside `ui_state`. */
+export function runRouteContextForwardedProps(
+  routeContext: Record<string, unknown> | undefined
+): { route_context?: Record<string, unknown> } {
+  return routeContext ? { route_context: routeContext } : {};
+}

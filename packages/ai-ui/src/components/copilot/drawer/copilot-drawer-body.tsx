@@ -7,13 +7,16 @@ import { useUiCoreMediaQuery } from "@engenty/ui-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isInterruptResolvedLocally } from "../../../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
 import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
-import { resolveFullscreenCopilotChatPath } from "../../../copilot/copilot-chat-paths.js";
+import { queueCopilotComposerDraft } from "../../../copilot/copilot-composer-draft-intent.js";
 import {
-  focusInlineAsk,
   focusWorkComposer,
   registerWorkComposerFocus,
 } from "../../../copilot/copilot-inline-ask.js";
-import { useCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
+import { useCopilotRiver } from "../../../copilot/copilot-river.js";
+import {
+  copilotRiverPathForPathname,
+  isCopilotRiverPathname,
+} from "../../../copilot/copilot-river-paths.js";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import { CopilotBrowserPanel } from "../../../features/browser/copilot-browser-panel.js";
 import { useMentionAgentCandidates } from "../../../hooks/use-mention-agent-candidates.js";
@@ -41,7 +44,6 @@ import {
   debugCopilotSurface,
   formatCopilotRouteStatusLabel,
   getDockedModePreference,
-  isTalkConversationPathname,
   normalizeCopilotPositionMenuValue,
   openCopilotShell,
 } from "./copilot-drawer-utils";
@@ -51,7 +53,6 @@ import {
   companionWhoOptionId,
 } from "./copilot-who-chooser";
 import { CopilotWindowTitleBar } from "./copilot-window-title-bar";
-import { useCopilotDrawerAgentChooser } from "./use-copilot-drawer-agent-chooser";
 import { useCopilotDrawerLayout } from "./use-copilot-drawer-layout";
 import { useCopilotDrawerSuggestionsApply } from "./use-copilot-drawer-suggestions-apply";
 
@@ -87,10 +88,8 @@ export function CopilotDrawerBody({
   selectedCountLabel = "selected",
   suggestedUpdatesLabel = "Suggested updates",
   thinkingLabel = "Thinking ...",
-  clearLabel,
   agentDebugPayload,
   triggerType = "message_copilot",
-  requestedAgentId,
   composerLeadingControl: composerLeadingControlProp,
   dockMode: shellDockMode,
   copilotDockRef,
@@ -109,20 +108,10 @@ export function CopilotDrawerBody({
   positionSidebarLabel = "Sidebar",
   positionWindowLabel = "Window",
   agentChooserLabels,
-  agentSessionChooserEnabled = false,
-  chooserMenuAgentId = null,
-  chooserMenuSessions = [],
-  chooserMenuSessionsLoading = false,
-  floatingChatCanonicalMessagesLoading = false,
-  floatingChatRouteBinding = false,
   headerChrome = "default",
-  onChooserMenuAgentIdChange,
   onSandboxCommandInterruptApprove,
   onSandboxCommandInterruptReject,
   openInterruptFromSession,
-  recentSessionsChooser = false,
-  registeredAgents = [],
-  registeredAgentsLoading = false,
   injectedSession,
   workPanelContent,
   whoOptions,
@@ -135,11 +124,13 @@ export function CopilotDrawerBody({
   const session = injectedSession;
   const shell = useCopilotShellOrNull();
   const realtimeVoice = useCopilotVoice();
-  const threadBinding = useCopilotThreadBinding();
+  const river = useCopilotRiver();
   const isMobile = useUiCoreMediaQuery("(max-width: 767px)");
+  const talkPathname = copilotContext?.pathname ?? "";
+  // The river's own page: the conversation IS the main area there, so the
+  // companion has nothing to add and the blob points at the composer instead.
+  const onRiverPage = isCopilotRiverPathname(talkPathname);
   const serviceBaseUrl = (serviceBaseUrlProp ?? "").trim().replace(/\/$/, "");
-  const appsAiSessionsApi =
-    serviceBaseUrl.length > 0 ? `${serviceBaseUrl}/ai/threads` : "";
 
   const isPanelModeControlled = controlledPanelMode !== undefined;
   const [internalPanelMode, setInternalPanelMode] =
@@ -178,12 +169,8 @@ export function CopilotDrawerBody({
     compactContextOptions.find(
       (contextOption) => contextOption.id === selectedCompactContextId
     ) ?? compactContextOptions[0];
-  const currentRouteContextOption =
-    compactContextOptions.find((option) => option.id === "current") ??
-    compactContextOptions[0];
-  const activeCopilotContext = agentSessionChooserEnabled
-    ? (currentRouteContextOption?.routeContext ?? copilotContext)
-    : (selectedCompactContext?.routeContext ?? copilotContext);
+  const activeCopilotContext =
+    selectedCompactContext?.routeContext ?? copilotContext;
   const recentCompactContexts = recentCompactContextIds.reduce<
     CopilotCompactContextOption[]
   >((contexts, contextId) => {
@@ -257,20 +244,6 @@ export function CopilotDrawerBody({
     ]
   );
 
-  const defaultAgentChooserLabels = useMemo(
-    () => ({
-      emptySessions: "No sessions yet",
-      generalCopilot: "Engenty",
-      newSession: "New session",
-      selectAgent: "Choose agent",
-      sessionsHeading: "Sessions",
-    }),
-    []
-  );
-  const agentChooserLabelsEffective =
-    agentChooserLabels ?? defaultAgentChooserLabels;
-
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const mentionAgentCandidates = useMentionAgentCandidates();
   const activeThreadId = session.activeThreadId;
   // Same paged query the active provider hydrates from — this only reads the
@@ -278,33 +251,6 @@ export function CopilotDrawerBody({
   const { olderMessages } = useEngentyThread(ENGENTY_COPILOT_HOST_KEY, {
     threadId: activeThreadId,
   });
-  const setActiveThreadId = session.setActiveThreadId;
-  const threadIdRef = useRef<string | null>(activeThreadId);
-  threadIdRef.current = activeThreadId;
-
-  const { handleAgentChooserNewSession, renderAgentSessionChooser } =
-    useCopilotDrawerAgentChooser({
-      activeThreadId,
-      agentChooserLabels: agentChooserLabelsEffective,
-      agentSessionChooserEnabled,
-      appsAiSessionsApi,
-      chooserMenuAgentId,
-      chooserMenuSessions,
-      chooserMenuSessionsLoading,
-      clearDrawerComposerState: session.clearDrawerComposerState,
-      floatingChatCanonicalMessagesLoading,
-      floatingChatRouteBinding,
-      getHeaders,
-      onChooserMenuAgentIdChange,
-      recentSessionsChooser,
-      registeredAgents,
-      registeredAgentsLoading,
-      selectedAgentId,
-      setActiveThreadId,
-      setSelectedAgentId,
-      threadIdRef,
-    });
-
   const showCompactLauncher = false;
 
   const surfaceInstanceKey = `${effectiveMode}:${surfaceEpoch}:${session.activeThreadId}`;
@@ -348,27 +294,6 @@ export function CopilotDrawerBody({
     injected: session,
   });
 
-  const handleHeaderNewChat = useCallback(() => {
-    if (agentSessionChooserEnabled) {
-      const fallback = registeredAgents[0]?.id ?? requestedAgentId ?? null;
-      const target = selectedAgentId ?? fallback;
-      if (target) {
-        handleAgentChooserNewSession(target);
-        setComposerFocusToken((token) => token + 1);
-        return;
-      }
-    }
-    session.handleNewChat();
-    setComposerFocusToken((token) => token + 1);
-  }, [
-    agentSessionChooserEnabled,
-    handleAgentChooserNewSession,
-    registeredAgents,
-    requestedAgentId,
-    selectedAgentId,
-    session.handleNewChat,
-  ]);
-
   const handleHeaderClose = useCallback(() => {
     collapseToCompactLauncher();
   }, [collapseToCompactLauncher]);
@@ -396,18 +321,15 @@ export function CopilotDrawerBody({
   } as const;
 
   const handleSelectFullscreen = useCallback(() => {
-    const path = resolveFullscreenCopilotChatPath(session.activeThreadId);
-    threadBinding.navigate?.(path);
-  }, [session.activeThreadId, threadBinding.navigate]);
+    river.navigate?.(copilotRiverPathForPathname(talkPathname));
+  }, [river.navigate, talkPathname]);
 
   const copilotPositionDropdown = setPreferredDockMode ? (
     <CopilotDrawerPositionMenu
       {...positionMenuCopyProps}
       compactTrigger={headerChrome === "contentBlend"}
       onSelectDockPosition={layout.handleDockPositionSelect}
-      onSelectFullscreen={
-        threadBinding.navigate ? handleSelectFullscreen : undefined
-      }
+      onSelectFullscreen={river.navigate ? handleSelectFullscreen : undefined}
       positionDrawerLabel={positionDrawerLabel}
       positionFullscreenLabel={positionFullscreenLabel}
       positionHeadingLabel={positionHeadingLabel}
@@ -495,16 +417,12 @@ export function CopilotDrawerBody({
     onToggleBrowserPanel: isFloatingStyle
       ? undefined
       : () => setBrowserPanelOpen((open) => !open),
-    ...(agentSessionChooserEnabled
-      ? { agentSessionChooser: renderAgentSessionChooser("panel") }
-      : {
-          contextOptions: compactContextOptions,
-          contextMenuLabel: "Context",
-          onSelectContext: handleCompactContextChange,
-          recentContextMenuLabel: "Recent",
-          recentContextOptions: recentCompactContexts,
-          selectedContextId: selectedCompactContextId,
-        }),
+    contextOptions: compactContextOptions,
+    contextMenuLabel: "Context",
+    onSelectContext: handleCompactContextChange,
+    recentContextMenuLabel: "Recent",
+    recentContextOptions: recentCompactContexts,
+    selectedContextId: selectedCompactContextId,
     routeStatusLabel:
       compactContextOptions.length > 0
         ? undefined
@@ -582,12 +500,10 @@ export function CopilotDrawerBody({
     selectedCountLabel,
     suggestedUpdatesLabel,
     artifactLoadFailedLabel,
-    clearLabel,
     triggerType,
     panelMode: panelModeForHeader,
     composerFocusKey: `${session.threadResetKey ?? 0}:${composerFocusToken}`,
     headerChrome,
-    onNewChat: handleHeaderNewChat,
     onApplySuggestions: handleApplySuggestions,
     onCancel: handleCancel,
     onStop: session.cancelRun,
@@ -608,7 +524,7 @@ export function CopilotDrawerBody({
   }, [effectiveMode]);
 
   const sidebarDockContextControl =
-    effectiveMode === "sidebar" && !agentSessionChooserEnabled ? (
+    effectiveMode === "sidebar" ? (
       <CopilotContextDropdown
         contextLabel="Context"
         onSelect={handleCompactContextChange}
@@ -701,51 +617,59 @@ export function CopilotDrawerBody({
     []
   );
 
-  const talkPathname = copilotContext?.pathname ?? "";
-
-  const handleOpenChat = useCallback(() => {
-    openCopilotShell({
-      isMobile,
-      isTalkPage: isTalkConversationPathname(talkPathname),
-      mergeLayout: copilotLayout?.mergeLayout,
-      preferredDockMode,
-      setOpen: onOpenChange,
-      setPreferredDockMode,
-    });
-  }, [
-    copilotLayout?.mergeLayout,
-    isMobile,
-    onOpenChange,
-    preferredDockMode,
-    setPreferredDockMode,
-    talkPathname,
-  ]);
-
-  const handleOpenPrompt = useCallback(() => {
-    if (focusInlineAsk()) {
+  /**
+   * Blob flyout → **Copilot**: the river, where it belongs on this page —
+   * the companion beside the page, or on the river's own page nothing to open:
+   * the conversation is already the main area, so the composer takes focus.
+   */
+  const openRiver = useCallback(() => {
+    if (onRiverPage) {
+      focusWorkComposer();
       return;
     }
-    const opened = openCopilotShell({
+    openCopilotShell({
       isMobile,
-      isTalkPage: isTalkConversationPathname(talkPathname),
+      isTalkPage: false,
       mergeLayout: copilotLayout?.mergeLayout,
       preferredDockMode,
       setOpen: onOpenChange,
       setPreferredDockMode,
     });
-    if (opened === "work") {
-      requestAnimationFrame(() => {
-        focusWorkComposer();
-      });
-    }
+    setComposerFocusToken((token) => token + 1);
   }, [
     copilotLayout?.mergeLayout,
     isMobile,
     onOpenChange,
+    onRiverPage,
     preferredDockMode,
     setPreferredDockMode,
-    talkPathname,
   ]);
+
+  /**
+   * Blob flyout → **Prompt**: a first line for the river. Queued rather than
+   * set, because the composer that should hold it may be one placement away
+   * from being mounted.
+   */
+  const handleSubmitPrompt = useCallback(
+    (text: string) => {
+      queueCopilotComposerDraft(ENGENTY_COPILOT_HOST_KEY, text);
+      openRiver();
+      requestAnimationFrame(() => {
+        queueCopilotComposerDraft(ENGENTY_COPILOT_HOST_KEY, text);
+        focusWorkComposer();
+      });
+    },
+    [openRiver]
+  );
+
+  /** Blob click: open or close the river beside the page. */
+  const handleFabClick = useCallback(() => {
+    if (onRiverPage) {
+      focusWorkComposer();
+      return;
+    }
+    layout.handleFabTriggerClick();
+  }, [layout.handleFabTriggerClick, onRiverPage]);
 
   useEffect(() => {
     if (!open) {
@@ -771,7 +695,6 @@ export function CopilotDrawerBody({
       module,
       open,
       panelMode,
-      requestedAgentId,
       routeKey,
       scope,
     });
@@ -782,7 +705,6 @@ export function CopilotDrawerBody({
     module,
     open,
     panelMode,
-    requestedAgentId,
     routeKey,
     scope,
   ]);
@@ -796,16 +718,9 @@ export function CopilotDrawerBody({
 
   const windowTitleBar = isFloatingStyle ? (
     <CopilotWindowTitleBar
-      agentSessionChooser={
-        workPanelContent || !agentSessionChooserEnabled
-          ? undefined
-          : renderAgentSessionChooser("panel")
-      }
-      clearLabel={clearLabel}
       closeLabel={closeLabel}
       dragHandleLabel="Drag to move"
       onClose={handleHeaderClose}
-      onNewChat={workPanelContent ? undefined : handleHeaderNewChat}
       positionMenu={copilotPositionDropdown}
       whoChooser={
         whoOptions && whoOptions.length > 0 ? (
@@ -835,25 +750,24 @@ export function CopilotDrawerBody({
       effectiveMode={effectiveMode}
       handleCompactContextChange={handleCompactContextChange}
       injected={session}
+      isActive={open || onRiverPage}
       layout={layout}
       mainContentReady={mainContentReady}
       mainContentRef={mainContentRef}
+      onFabClick={handleFabClick}
       onOpenChange={onOpenChange}
-      onOpenChat={handleOpenChat}
-      onOpenPrompt={handleOpenPrompt}
+      onOpenCopilot={openRiver}
+      onSubmitPrompt={handleSubmitPrompt}
       open={open}
       panelContent={panelContent}
       panelContentProps={panelContentProps as CopilotPanelContentProps}
       preferredDockMode={preferredDockMode}
       recentCompactContexts={recentCompactContexts}
-      renderCopilotThreadChooser={renderAgentSessionChooser}
       selectedCompactContext={selectedCompactContext}
       selectedCompactContextId={selectedCompactContextId}
       setPreferredDockMode={setPreferredDockMode}
       surfaceInstanceKey={surfaceInstanceKey}
-      threadChooserEnabled={agentSessionChooserEnabled}
       title={title}
-      whoOptions={whoOptions}
       windowTitleBar={windowTitleBar}
     />
   );

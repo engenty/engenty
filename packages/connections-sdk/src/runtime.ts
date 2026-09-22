@@ -12,7 +12,10 @@ import { createConnectorClientEnv } from "./client-env-resolver.js";
 import { executeConnectorAction } from "./execute.js";
 import { filesCapabilityActions } from "./files-capability.js";
 import type { ClientEnvResolver } from "./oauth2.js";
-import { registerConnectorDefinition } from "./registry.js";
+import {
+  getConnectorDefinition,
+  registerConnectorDefinition,
+} from "./registry.js";
 import { createConnectionsRepo } from "./repo.js";
 import {
   listMountedConnectionAccess,
@@ -125,13 +128,17 @@ function buildActionOperation(params: {
             triggerId: auth.triggerId ?? null,
           })
         : null;
+      const liveConnector =
+        getConnectorDefinition(connector.id, auth.tenantId) ?? connector;
+      const liveAction =
+        liveConnector.actions.find((a) => a.id === action.id) ?? action;
       const { output } = await executeConnectorAction({
         account,
-        action,
+        action: liveAction,
         // CN.5 — the agent driving this call, so a grant on someone's personal
         // account is honoured here exactly as the profile policy honours it.
         ...(auth.agentId ? { agentId: auth.agentId } : {}),
-        connector,
+        connector: liveConnector,
         input: actionInput,
         isAutonomous: false,
         log: (msg, data) => ctx.logger.info(msg, data ?? {}),

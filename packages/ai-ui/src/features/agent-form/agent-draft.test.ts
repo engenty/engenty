@@ -32,12 +32,23 @@ describe("agent-draft", () => {
     expect(draft.agentScope).toBe("shared");
     expect(draft.engenty).toBe("round");
     expect(draft.spaceIds).toEqual([]);
+    expect(draft.connectorIds).toEqual([]);
   });
 
   it("round-trips an agent config through the form draft", () => {
     const draft = createAgentDraft(config);
 
     expect(buildAgentConfigFromDraft(draft)).toEqual(config);
+  });
+
+  it("round-trips a preferred connector subset", () => {
+    const withConnectors: CustomAgentConfig = {
+      ...config,
+      connectorIds: ["google-gmail", "slack"],
+    };
+    expect(buildAgentConfigFromDraft(createAgentDraft(withConnectors))).toEqual(
+      withConnectors
+    );
   });
 
   it("round-trips starter chips including German overrides", () => {

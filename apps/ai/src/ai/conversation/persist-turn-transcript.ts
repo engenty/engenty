@@ -25,9 +25,12 @@
 // already been written by memory, and every write here is an upsert-or-update.
 import type { ThreadStore } from "../../dal/threads/index.js";
 import type { AiSessionScope } from "../sessions/types.js";
+import { type TurnContext, turnContextMetadata } from "./turn-context.js";
 
 export async function persistTurnTranscript(input: {
   attachmentParts?: readonly unknown[];
+  /** Where the user turn was said — stamped on its row (turn-context.ts). */
+  context?: TurnContext | null;
   /**
    * The run reached end-of-generation, so Mastra memory has already written this
    * turn's assistant message under its own id. Only the interrupted paths (and a
@@ -75,6 +78,7 @@ export async function persistTurnTranscript(input: {
       await input.store.appendMessage({
         authorUserId: input.scope.userId ?? null,
         ...(userMessageId ? { id: userMessageId } : {}),
+        metadata: turnContextMetadata(input.context),
         parts,
         role: "user",
         tenantId: input.scope.tenantId,

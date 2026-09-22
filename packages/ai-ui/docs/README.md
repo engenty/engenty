@@ -19,7 +19,7 @@ Source lives under `packages/ai-ui/src/`:
 |------|------|---------|
 | **AG-UI client** | `ag-ui/` | Conversation reducer, SSE transport, `apps/ai` session hooks, tool-call merge, frontend-tool dispatch. |
 | **Agent provider** | `agent-provider/` | `EngentyAI`, `EngentyAgent`, host registry (`useAgentHost`), affinity and lane binding. |
-| **Copilot (product)** | `copilot/` | `ActiveCopilotProvider`, thread binding, composer draft recovery, route helpers for main copilot lane. |
+| **Copilot (product)** | `copilot/` | `CopilotRiverProvider` (the one thread per user), composer draft recovery, river path helpers. |
 | **Threads** | `threads/` | Host-scoped thread lists, active-thread persistence (`engenty:threads:active`), Supabase realtime invalidation. |
 | **Components** | `components/` | Copilot chrome (`copilot/`), AI Elements (`ai-elements/`), dev AG-UI inspector. |
 | **Features** | `features/` | Admin agents workspace, AI settings, dynamic registry editors. |
@@ -34,7 +34,7 @@ Public exports are re-exported from `packages/ai-ui/src/index.ts` with Tier 1/2 
 | Tier | Audience | Examples |
 |------|----------|----------|
 | **Tier 1 — embed** | Modules, chatbot embeds, KB lanes | `EngentyAI`, `EngentyAgent`, `useAgentHost`, `useEngentyThreads`, `useEngentyFrontendTool`, `CopilotTranscript`, `Message`, `registerToolCallUi` |
-| **Tier 2 — product copilot** | Main `engenty:copilot` shell and full-page chat | `ActiveCopilotProvider`, `useCopilotThreadBinding`, `useCopilotThreadActions`, `CopilotDrawerInjectedSession` |
+| **Tier 2 — product copilot** | Main `engenty:copilot` shell and the river page | `CopilotRiverProvider`, `useCopilotRiver`, `CopilotDrawerInjectedSession` |
 | **Admin plugin** | Operator UI via UI catalog | `@engenty/ai-ui/plugin`, `routes/`, `features/`, `lib/admin/*` |
 
 See [Architecture](./architecture) for integrator inputs (`hostKey`, `agentTypeKey`, `serviceBaseUrl`) and neighborhood boundaries.
@@ -61,7 +61,7 @@ import {
 import {
   EngentyAI,
   EngentyAgent,
-  ActiveCopilotProvider,
+  CopilotRiverProvider,
   useEngentyThreads,
   useEngentyAgUiConversation,
   CopilotTranscript,

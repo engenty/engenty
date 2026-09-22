@@ -77,32 +77,6 @@ function writeMap(area: StorageArea, map: Record<string, string>): void {
   }
 }
 
-/**
- * The map key a host's active thread is stored under, narrowed to one space.
- *
- * A space-bound host (the copilot — see `EngentyThreadHostProfile.spaceBound`)
- * remembers a DIFFERENT active thread per space, because "the chat I was last
- * in" is a fact about a place. Without the narrowing, the dock opened in
- * Marketing resumes the thread left open in Company, and every tool that run
- * reaches for comes from Company's surface — the thread's own space is what
- * `resolveRunSpace` reads, not the URL.
- *
- * `@` rather than `:` because host keys already contain colons
- * (`agent-desk:<space>:<agent>`); a separator that appears inside the key it is
- * appended to is a parse ambiguity waiting to be relied on.
- *
- * No space (or a host that is not space-bound) yields the bare host key, so
- * every existing binding keeps resolving to exactly where it already is.
- */
-export function activeThreadStorageKey(
-  hostKey: string,
-  spaceId?: string | null
-): string {
-  const key = hostKey.trim();
-  const space = spaceId?.trim();
-  return space ? `${key}@${space}` : key;
-}
-
 export function readActiveThreadIdForHost(hostKey: string): string | null {
   const key = hostKey.trim();
   const tabMap = readMap("session", { allowClearedSentinel: true });

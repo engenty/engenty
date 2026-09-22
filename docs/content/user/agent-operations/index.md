@@ -9,7 +9,7 @@ Most of what the copilot does belongs to a [module](/docs/user/modules). The res
 here: the capabilities it has everywhere, regardless of which screen you are on.
 
 - **[Workspace search](/docs/user/agent-operations/search)** — one search across everything indexed, plus the catalog the copilot uses to find its own tools.
-- **[Connections](/docs/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, and setting what agents may do with them.
+- **[Connections](/docs/user/agent-operations/connections)** — linking Google, Microsoft, Slack and others, attaching an account to a space, every space, or an agent (including the copilot), and setting what agents may do with them.
 - **[Connected services](/docs/user/agent-operations/connected-services)** — what agents can actually do inside those accounts.
 - **[Secrets](/docs/user/agent-operations/secrets)** — credentials agents can use without you pasting them into chat.
 - **[Apps](/docs/user/agent-operations/apps)** — small tools an agent can build, release and run.

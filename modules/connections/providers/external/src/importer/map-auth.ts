@@ -44,21 +44,9 @@ export function mapAuthFromSecuritySchemes(
 ): StoredAuthConfig | null {
   const entries = Object.entries(schemes);
 
-  const oauth = entries.find(
-    ([, s]) => s.type === "oauth2" && s.flows?.authorizationCode
-  );
-  if (oauth) {
-    const flow = oauth[1].flows?.authorizationCode;
-    if (flow?.authorizationUrl && flow.tokenUrl) {
-      return {
-        auth_url: flow.authorizationUrl,
-        kind: "oauth2",
-        scopes: Object.keys(flow.scopes ?? {}),
-        token_url: flow.tokenUrl,
-      };
-    }
-  }
-
+  // Prefer a static API key / bearer when the spec also advertises OAuth —
+  // personal access tokens work without an admin-registered developer app.
+  // Figma REST is the canonical case (PersonalAccessToken + OAuth2).
   const bearer = entries.find(
     ([, s]) => s.type === "http" && s.scheme?.toLowerCase() === "bearer"
   );
@@ -94,6 +82,21 @@ export function mapAuthFromSecuritySchemes(
     };
   }
 
+  const oauth = entries.find(
+    ([, s]) => s.type === "oauth2" && s.flows?.authorizationCode
+  );
+  if (oauth) {
+    const flow = oauth[1].flows?.authorizationCode;
+    if (flow?.authorizationUrl && flow.tokenUrl) {
+      return {
+        auth_url: flow.authorizationUrl,
+        kind: "oauth2",
+        scopes: Object.keys(flow.scopes ?? {}),
+        token_url: flow.tokenUrl,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -108,11 +111,19 @@ export function mapAuthFromRegistry(
     (oauth.grantTypes.length === 0 ||
       oauth.grantTypes.includes("authorization_code"))
   ) {
+    const dcr =
+      oauth.dcr === true && Boolean(oauth.registrationEndpoint?.trim());
     return {
       auth_url: oauth.authorizationEndpoint,
       kind: "oauth2",
       scopes: oauth.scopes,
       token_url: oauth.tokenEndpoint,
+      ...(dcr
+        ? {
+            dcr: true,
+            registration_endpoint: oauth.registrationEndpoint,
+          }
+        : {}),
     };
   }
   return null;

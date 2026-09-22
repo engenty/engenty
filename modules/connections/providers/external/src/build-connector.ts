@@ -9,6 +9,7 @@ import { z } from "zod";
 import { headersFromRequired } from "./import-service.js";
 import { executeHttpAction } from "./invoke/http-invoker.js";
 import { mcpCallTool } from "./invoke/mcp-client.js";
+import { connectionsRedirectUri, registerDynamicClient } from "./oauth-dcr.js";
 import type { ImportedConnectorRecord, NormalizedAction } from "./types.js";
 
 /**
@@ -22,7 +23,7 @@ import type { ImportedConnectorRecord, NormalizedAction } from "./types.js";
  * MCP request headers: the connector's required headers first, then the
  * credential — auth must win a name collision, never the other way round.
  */
-function mcpHeaders(
+export function mcpHeaders(
   record: ImportedConnectorRecord,
   accessToken: string
 ): Record<string, string> {
@@ -104,18 +105,54 @@ function buildAction(
 
 function buildAuth(
   record: ImportedConnectorRecord,
-  live: () => ImportedConnectorRecord
+  live: () => ImportedConnectorRecord,
+  persistOAuthClient?: (creds: {
+    clientId: string;
+    clientSecret: string;
+  }) => Promise<void>
 ): ConnectorAuth {
   const stored = record.auth_config;
   if (stored.kind === "oauth2") {
+    const dcr =
+      stored.dcr === true && Boolean(stored.registration_endpoint?.trim());
     return {
       kind: "oauth2",
       oauth2: {
         authUrl: stored.auth_url,
         baseScopes: stored.scopes,
+        dynamicClientRegistration: dcr,
+        registerClient:
+          dcr && persistOAuthClient
+            ? async () => {
+                const current = live();
+                // Public DCR clients store only client_id_enc (empty secret).
+                if (current.client_id_enc) {
+                  return;
+                }
+                const endpoint =
+                  current.auth_config.kind === "oauth2"
+                    ? current.auth_config.registration_endpoint
+                    : stored.registration_endpoint;
+                if (!endpoint) {
+                  throw new Error(
+                    `imported connector ${current.id} has no OAuth registration endpoint`
+                  );
+                }
+                const registered = await registerDynamicClient({
+                  clientName: current.name,
+                  redirectUri: connectionsRedirectUri(),
+                  registrationEndpoint: endpoint,
+                  scopes:
+                    current.auth_config.kind === "oauth2"
+                      ? current.auth_config.scopes
+                      : stored.scopes,
+                });
+                await persistOAuthClient(registered);
+              }
+            : undefined,
         resolveClientCredentials: () => {
           const current = live();
-          if (!(current.client_id_enc && current.client_secret_enc)) {
+          if (!current.client_id_enc) {
             return Promise.reject(
               new Error(
                 `imported connector ${current.id} has no OAuth client credentials — set them in the import console`
@@ -124,7 +161,9 @@ function buildAuth(
           }
           return Promise.resolve({
             clientId: decryptToken(current.client_id_enc),
-            clientSecret: decryptToken(current.client_secret_enc),
+            clientSecret: current.client_secret_enc
+              ? decryptToken(current.client_secret_enc)
+              : "",
           });
         },
         scopeSeparator: stored.scope_separator ?? " ",
@@ -175,7 +214,11 @@ export interface BuiltImportedConnector {
 
 export function buildImportedConnector(
   record: ImportedConnectorRecord,
-  resolveLive?: () => ImportedConnectorRecord | undefined
+  resolveLive?: () => ImportedConnectorRecord | undefined,
+  persistOAuthClient?: (creds: {
+    clientId: string;
+    clientSecret: string;
+  }) => Promise<void>
 ): BuiltImportedConnector {
   const live = () => resolveLive?.() ?? record;
   const actions: ConnectorAction[] = [];
@@ -190,12 +233,13 @@ export function buildImportedConnector(
   }
   const connector = defineConnector({
     actions,
-    auth: buildAuth(record, live),
+    auth: buildAuth(record, live, persistOAuthClient),
     description: `${record.name} — imported from ${record.domain} (${record.source_kind})`,
     icon: "plug",
     id: record.id,
     moduleId: "connections-external",
     name: record.name,
+    tenantId: record.tenant_id,
     toolPrefix: record.tool_prefix,
   });
   return { connector, skippedActions };

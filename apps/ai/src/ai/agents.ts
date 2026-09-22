@@ -33,8 +33,10 @@ export function createDefaultAiRegistry(
     : undefined;
   return new CompositeAiRegistry([
     // Precedence: tenant DB rows > function agents > module agent.json >
-    // builtins. A function agent replaces a module's data config of the same
-    // id (PLAN-agent-hooks D7); a tenant DB row still overrides both.
+    // builtins for agents that exist in only one layer. A function agent
+    // replaces a module's data config of the same id (PLAN-agent-hooks D7).
+    // A tenant row that shares an id with a code agent overlays `connectorIds`
+    // onto that definition — it does not replace tools, kind, or source.
     new DatabaseProvider(options.databaseStore, { tenantId: options.tenantId }),
     new FunctionAgentProvider(
       moduleLoader

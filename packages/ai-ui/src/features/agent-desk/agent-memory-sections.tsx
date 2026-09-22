@@ -21,7 +21,7 @@ export function AgentMemorySection({
 }: {
   agentId: string;
   editable: boolean;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   const query = useAgentMemoryQuery({ agentId, spaceId });
   const save = useSaveAgentMemoryMutation({ agentId, spaceId });
@@ -49,7 +49,7 @@ export function AgentTasksSection({
 }: {
   agentId: string;
   editable: boolean;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   const query = useAgentTasksQuery({ agentId, spaceId });
   const save = useSaveAgentTasksMutation({ agentId, spaceId });

@@ -58,6 +58,7 @@ import {
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
 import { setRunEventPubSub } from "./ai/sessions/run-event-bus.js";
+import { resolveRuntimeModelConfig } from "./ai/sessions/runtime-model-config.js";
 import {
   activateStudioTenant,
   resolveStudioPlayAlsContext,
@@ -122,6 +123,7 @@ import { registerTaskJobExecutor } from "./api/task-background-dispatch.js";
 import { startTaskDispatchConsumer } from "./api/task-dispatch-consumer.js";
 import { registerTaskFieldUpdateRoutes } from "./api/task-field-updates-routes.js";
 import { startTeamChatMentionConsumer } from "./api/team-chat-mention-consumer.js";
+import { registerThreadChapterRoutes } from "./api/thread-chapter-routes.js";
 import { registerThreadRoutes } from "./api/thread-routes.js";
 import { registerThreadRunRoutes } from "./api/thread-run-routes.js";
 import { registerUsageRoutes } from "./api/usage-routes.js";
@@ -590,6 +592,22 @@ export async function createApp(options: CreateAppOptions = {}) {
     });
     registerSpaceHomeRoutes(app, {
       getRunStore: () => agentRunStore,
+      scopeResolver,
+      store: threadStore,
+    });
+    registerThreadChapterRoutes(app, {
+      aiService,
+      resolveModelId: async (scope) => {
+        const config = await resolveRuntimeModelConfig(
+          {
+            getUsageStore: () => aiUsageStore,
+            resolveTenantModelConfig:
+              createTenantModelConfigResolverFromEnv() ?? undefined,
+          },
+          scope
+        );
+        return config.memoryModelId ?? config.chatModelId ?? null;
+      },
       scopeResolver,
       store: threadStore,
     });

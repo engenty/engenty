@@ -174,6 +174,7 @@ export const fileSourceSummarySchema = z.object({
   connectorName: z.string(),
   label: z.string(),
   sharing: z.string(),
+  allSpaces: z.boolean().optional(),
 });
 
 export const browseEntrySchema = z.object({

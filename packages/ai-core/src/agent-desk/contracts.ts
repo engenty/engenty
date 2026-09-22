@@ -96,7 +96,8 @@ export interface AgentDeskFeed {
   engagements: AgentDeskEngagement[];
   lane_counts: AgentDeskLaneCounts;
   next_cursor: string | null;
-  space_id: string;
+  /** Null for a desk outside any space — the copilot's, whose one thread follows the person. */
+  space_id: string | null;
 }
 
 export function emptyAgentDeskLaneCounts(): AgentDeskLaneCounts {

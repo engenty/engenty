@@ -64,7 +64,7 @@ export function resolveCurrentPageModule(
       if (isSpaceReservedSegment(segment)) {
         return;
       }
-      // A space URL carries the SHORT segment (`/s/company/copilot/…`); the
+      // A space URL carries the SHORT segment (`/s/company/kb/…`); the
       // agent needs the module ID, because that is what the skill catalog and
       // the tool contracts are keyed by.
       return spaceModuleIdFromUrlSegment(segment);

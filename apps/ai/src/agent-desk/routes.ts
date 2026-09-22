@@ -49,7 +49,8 @@ const querySchema = z.object({
   cursor: z.string().max(2048).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   locale: z.string().trim().min(2).max(16).default("en"),
-  space_id: uuidString,
+  // Absent for the copilot's desk (service.ts `buildSpacelessDeskFeed`).
+  space_id: uuidString.optional(),
 });
 
 const tasksResultSchema = z.array(
@@ -254,7 +255,9 @@ export function registerAgentDeskRoutes(
   const getMemoryStore = options.getMemoryStore ?? getMemoryResourceStore;
   const memoryQuerySchema = z.object({
     agent_id: z.string().trim().min(1).max(128),
-    space_id: uuidString,
+    // A personal-scope agent's pads (the copilot's) are one row per person,
+    // wherever they stand; a shared agent's are per space and need it.
+    space_id: uuidString.optional(),
   });
   const memoryBodySchema = z.object({
     memory: z.string().max(AGENT_MEMORY_MAX_CHARS * 4),
@@ -274,7 +277,7 @@ export function registerAgentDeskRoutes(
     return {
       agentId: query.agent_id,
       sharedObservations: resolveSharedObservationsScope(config),
-      spaceId: query.space_id,
+      spaceId: query.space_id ?? null,
       tenantId,
       userId,
     };

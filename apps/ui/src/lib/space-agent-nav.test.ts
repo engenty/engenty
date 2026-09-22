@@ -13,9 +13,9 @@ import {
 } from "./space-agent-nav";
 
 describe("resolveSpaceAgentDestination", () => {
-  it("keeps the baseline Copilot in its full-page chat", () => {
+  it("opens the copilot's river inside the space", () => {
     expect(resolveSpaceAgentDestination("engenty.copilot", "company")).toBe(
-      "/s/company/copilot/chat"
+      "/s/company/copilot"
     );
   });
 
@@ -34,15 +34,15 @@ describe("resolveSpaceAgentDestination", () => {
   it("encodes Space keys", () => {
     expect(
       resolveSpaceAgentDestination("engenty.copilot", "Sales / DACH")
-    ).toBe("/s/Sales%20%2F%20DACH/copilot/chat");
+    ).toBe("/s/Sales%20%2F%20DACH/copilot");
   });
 });
 
 describe("resolveSpaceAgentDeskRedirect", () => {
-  it("redirects only the legacy Copilot desk to canonical Space chat", () => {
+  it("sends only the copilot off a desk, to its river", () => {
     expect(
       resolveSpaceAgentDeskRedirect(ENGENTY_COPILOT_AGENT_ID, "company")
-    ).toBe("/s/company/copilot/chat");
+    ).toBe("/s/company/copilot");
     expect(
       resolveSpaceAgentDeskRedirect(ENGENTY_COORDINATOR_AGENT_ID, "company")
     ).toBeNull();
@@ -86,7 +86,7 @@ describe("isSpaceAgentNavActive", () => {
     ).toBe(true);
     expect(
       isSpaceAgentNavActive(
-        "/s/company/copilot/chat",
+        "/s/company/copilot",
         ENGENTY_COORDINATOR_AGENT_ID,
         "company"
       )
@@ -158,10 +158,10 @@ describe("isSpaceRosterAgent", () => {
 describe("where ONE conversation opens", () => {
   const THREAD = "33333333-3333-4333-8333-333333333333";
 
-  it("puts the copilot's thread in the PATH, where its chat reads it", () => {
+  it("names no thread for the copilot — the river is the only one", () => {
     expect(
       resolveSpaceChatDestination(ENGENTY_COPILOT_AGENT_ID, "company", THREAD)
-    ).toBe(`/s/company/copilot/chat/${THREAD}`);
+    ).toBe("/s/company/copilot");
   });
 
   it("puts a desk's thread in `?engagement=`, where a desk reads it", () => {

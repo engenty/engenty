@@ -72,14 +72,6 @@ export {
   getLastAssistantMessage,
 } from "./copilot/composer/agent-status-ticker/index.js";
 export {
-  CopilotAgentPicker,
-  type CopilotAgentPickerAgent,
-} from "./copilot/composer/copilot-agent-picker.js";
-export {
-  CopilotAgentThreadChooser,
-  type CopilotAgentThreadChooserThread,
-} from "./copilot/composer/copilot-agent-thread-chooser.js";
-export {
   CopilotCompactComposerShell,
   type CopilotCompactComposerShellProps,
 } from "./copilot/composer/copilot-compact-composer-shell.js";
@@ -88,7 +80,6 @@ export {
   type StarterPromptItem,
 } from "./copilot/composer/copilot-composer.js";
 export { CopilotComposerSection } from "./copilot/composer/copilot-composer-section.js";
-export { CopilotRecentThreadsChooser } from "./copilot/composer/copilot-recent-threads-chooser.js";
 export {
   type ChatSlashCommand,
   type ChatSlashCommandKind,

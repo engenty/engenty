@@ -1,7 +1,7 @@
 /**
- * Browser-side API for the external-connectors import console. All endpoints
- * are plain `registerHttpRoute` handlers (raw JSON, no envelope) and are
- * superadmin-gated server-side; error bodies are `{ error: string }`.
+ * Browser-side API for tenant-imported connectors. All endpoints are plain
+ * `registerHttpRoute` handlers (raw JSON, no envelope) and are tenant-admin
+ * gated server-side; error bodies are `{ error: string }`.
  */
 import { ApiClientResponseError, requestApiJson } from "@engenty/api-client";
 
@@ -71,6 +71,13 @@ export interface DiscoveredSource {
 }
 
 export interface DiscoverDomainResult {
+  credentials: Array<{
+    generate_url: string | null;
+    label: string;
+    setup: string | null;
+    type: string;
+  }>;
+  description: string | null;
   domain: string;
   oauth_found: boolean;
   sources: DiscoveredSource[];

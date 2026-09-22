@@ -154,6 +154,7 @@ export interface InboxThreadDigestResult {
 
 /** One connected mail account (a connection) as shown in the inbox UI. */
 export interface InboxAccount {
+  all_spaces?: boolean;
   autonomous_mode: "full" | "off" | "read_only";
   connection_id: string;
   connector_id: string;

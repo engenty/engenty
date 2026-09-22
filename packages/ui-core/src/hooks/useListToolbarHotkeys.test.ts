@@ -1,26 +1,51 @@
 /** @vitest-environment happy-dom */
-import { cleanup, renderHook } from "@testing-library/react";
+import { HotkeyManager } from "@tanstack/react-hotkeys";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { useListToolbarHotkeys } from "./useListToolbarHotkeys.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  LIST_TOOLBAR_HOTKEYS,
+  useListToolbarHotkeys,
+} from "./useListToolbarHotkeys.js";
 
 afterEach(() => {
   cleanup();
 });
 
-function dispatchModKey(key: string, init: { shiftKey?: boolean } = {}) {
-  window.dispatchEvent(
-    new KeyboardEvent("keydown", {
-      key,
-      metaKey: true,
-      shiftKey: init.shiftKey ?? false,
-      bubbles: true,
-      cancelable: true,
-    })
+function isMacPlatform(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    /mac/i.test(navigator.platform || navigator.userAgent)
   );
 }
 
+function dispatchModKey(
+  key: string,
+  init: { shiftKey?: boolean; target?: EventTarget } = {}
+) {
+  const isMac = isMacPlatform();
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    ctrlKey: !isMac,
+    key,
+    metaKey: isMac,
+    shiftKey: init.shiftKey ?? false,
+  });
+  (init.target ?? document).dispatchEvent(event);
+  return event;
+}
+
 describe("useListToolbarHotkeys", () => {
+  beforeEach(() => {
+    HotkeyManager.resetInstance();
+  });
+
+  afterEach(() => {
+    HotkeyManager.resetInstance();
+    document.body.innerHTML = "";
+  });
+
   it("focuses and selects the search input on Mod+F", () => {
     const input = document.createElement("input");
     document.body.append(input);
@@ -31,11 +56,12 @@ describe("useListToolbarHotkeys", () => {
     const select = vi.spyOn(input, "select");
 
     renderHook(() => useListToolbarHotkeys({ searchInputRef }));
-    dispatchModKey("f");
+    act(() => {
+      dispatchModKey("f");
+    });
 
     expect(focus).toHaveBeenCalled();
     expect(select).toHaveBeenCalled();
-    input.remove();
   });
 
   it("opens filters on Mod+Shift+F", () => {
@@ -44,7 +70,9 @@ describe("useListToolbarHotkeys", () => {
     };
     const onOpenFilters = vi.fn();
     renderHook(() => useListToolbarHotkeys({ searchInputRef, onOpenFilters }));
-    dispatchModKey("f", { shiftKey: true });
+    act(() => {
+      dispatchModKey("f", { shiftKey: true });
+    });
     expect(onOpenFilters).toHaveBeenCalledTimes(1);
   });
 
@@ -55,22 +83,26 @@ describe("useListToolbarHotkeys", () => {
     const preventDefault = vi.fn();
     renderHook(() => useListToolbarHotkeys({ searchInputRef }));
 
+    const isMac = isMacPlatform();
     const event = new KeyboardEvent("keydown", {
-      key: "f",
-      metaKey: true,
-      shiftKey: true,
       bubbles: true,
       cancelable: true,
+      ctrlKey: !isMac,
+      key: "f",
+      metaKey: isMac,
+      shiftKey: true,
     });
     Object.defineProperty(event, "preventDefault", { value: preventDefault });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
     expect(preventDefault).not.toHaveBeenCalled();
   });
 
   it("opens new item on Mod+N", () => {
     const onNewItem = vi.fn();
     renderHook(() => useListToolbarHotkeys({ onNewItem }));
-    dispatchModKey("n");
+    act(() => {
+      dispatchModKey("n");
+    });
     expect(onNewItem).toHaveBeenCalledTimes(1);
   });
 
@@ -78,14 +110,59 @@ describe("useListToolbarHotkeys", () => {
     const preventDefault = vi.fn();
     renderHook(() => useListToolbarHotkeys({}));
 
+    const isMac = isMacPlatform();
     const event = new KeyboardEvent("keydown", {
-      key: "n",
-      metaKey: true,
       bubbles: true,
       cancelable: true,
+      ctrlKey: !isMac,
+      key: "n",
+      metaKey: isMac,
     });
     Object.defineProperty(event, "preventDefault", { value: preventDefault });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
     expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("ignores list shortcuts while focus is inside a dialog", () => {
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    const field = document.createElement("input");
+    dialog.append(field);
+    document.body.append(dialog);
+    const onNewItem = vi.fn();
+    renderHook(() => useListToolbarHotkeys({ onNewItem }));
+    act(() => {
+      dispatchModKey("n", { target: field });
+    });
+    expect(onNewItem).not.toHaveBeenCalled();
+  });
+
+  it("registers list chords with Lists group metadata", () => {
+    const onNewItem = vi.fn();
+    const searchInputRef: RefObject<HTMLInputElement | null> = {
+      current: null,
+    };
+    renderHook(() =>
+      useListToolbarHotkeys({
+        onNewItem,
+        onOpenFilters: vi.fn(),
+        searchInputRef,
+      })
+    );
+    const registrations = [
+      ...HotkeyManager.getInstance().registrations.state.values(),
+    ];
+    const byHotkey = new Map(
+      registrations.map((entry) => [entry.hotkey, entry])
+    );
+    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.search)?.options.meta?.group).toBe(
+      "Lists"
+    );
+    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.filters)?.options.meta?.name).toBe(
+      "Open list filters"
+    );
+    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.newItem)?.options.meta?.name).toBe(
+      "New item"
+    );
   });
 });

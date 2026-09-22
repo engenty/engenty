@@ -126,6 +126,7 @@ export const inboxAccountSchema = z.object({
   display_name: z.string().nullable(),
   external_account: z.string().nullable(),
   owner_user_id: z.string().nullable(),
+  all_spaces: z.boolean().optional(),
   sharing: z.enum(["personal", "org"]),
   stream_supported: z.boolean(),
   sync_state: inboxSyncStateSchema.nullable(),

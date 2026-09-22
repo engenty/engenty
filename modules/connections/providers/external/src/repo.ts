@@ -5,23 +5,30 @@ const SCHEMA = "module_external_connectors";
 const TABLE = "imported_connectors";
 
 /**
- * DAL for imported connector records. The schema is service_role-only (no
- * `authenticated` grants) — all reads/writes flow through module routes and
- * boot-time registration, mirroring the connections token-table posture.
+ * DAL for imported connector records. Tenant-scoped: boot still lists every
+ * tenant (service lane) so definitions can register under `${tenantId}::${id}`;
+ * request routes filter by the caller's tenant.
  */
 export interface ExternalConnectorsRepo {
-  delete(id: string): Promise<void>;
+  delete(tenantId: string, id: string): Promise<void>;
   /** The existing import of a registry surface, if the domain already has one. */
   findByRegistrySurface(
+    tenantId: string,
     domain: string,
     slug: string
   ): Promise<ImportedConnectorRecord | null>;
-  get(id: string): Promise<ImportedConnectorRecord | null>;
+  get(tenantId: string, id: string): Promise<ImportedConnectorRecord | null>;
   insert(record: ImportedConnectorRecord): Promise<void>;
-  list(): Promise<ImportedConnectorRecord[]>;
+  list(tenantId: string): Promise<ImportedConnectorRecord[]>;
+  /** Boot: every enabled import across tenants. */
   listEnabled(): Promise<ImportedConnectorRecord[]>;
-  setStatus(id: string, status: "enabled" | "disabled"): Promise<void>;
+  setStatus(
+    tenantId: string,
+    id: string,
+    status: "enabled" | "disabled"
+  ): Promise<void>;
   update(
+    tenantId: string,
     id: string,
     patch: Partial<
       Pick<
@@ -75,13 +82,17 @@ export function createExternalConnectorsRepo(
   };
 
   return {
-    async delete(id) {
-      throwOnError(await table().delete().eq("id", id), "delete");
+    async delete(tenantId, id) {
+      throwOnError(
+        await table().delete().eq("tenant_id", tenantId).eq("id", id),
+        "delete"
+      );
     },
-    async findByRegistrySurface(domain, slug) {
+    async findByRegistrySurface(tenantId, domain, slug) {
       const result = throwOnError(
         await table()
           .select("*")
+          .eq("tenant_id", tenantId)
           .eq("domain", domain)
           .eq("registry_surface_slug", slug)
           .maybeSingle(),
@@ -89,9 +100,13 @@ export function createExternalConnectorsRepo(
       );
       return result.data ? toRecord(result.data) : null;
     },
-    async get(id) {
+    async get(tenantId, id) {
       const result = throwOnError(
-        await table().select("*").eq("id", id).maybeSingle(),
+        await table()
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .eq("id", id)
+          .maybeSingle(),
         "get"
       );
       return result.data ? toRecord(result.data) : null;
@@ -99,9 +114,12 @@ export function createExternalConnectorsRepo(
     async insert(record) {
       throwOnError(await table().insert(record), "insert");
     },
-    async list() {
+    async list(tenantId) {
       const result = throwOnError(
-        await table().select("*").order("imported_at", { ascending: true }),
+        await table()
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("imported_at", { ascending: true }),
         "list"
       );
       return ((result.data as unknown[] | null) ?? []).map(toRecord);
@@ -116,11 +134,17 @@ export function createExternalConnectorsRepo(
       );
       return ((result.data as unknown[] | null) ?? []).map(toRecord);
     },
-    async setStatus(id, status) {
-      throwOnError(await table().update({ status }).eq("id", id), "setStatus");
+    async setStatus(tenantId, id, status) {
+      throwOnError(
+        await table().update({ status }).eq("tenant_id", tenantId).eq("id", id),
+        "setStatus"
+      );
     },
-    async update(id, patch) {
-      throwOnError(await table().update(patch).eq("id", id), "update");
+    async update(tenantId, id, patch) {
+      throwOnError(
+        await table().update(patch).eq("tenant_id", tenantId).eq("id", id),
+        "update"
+      );
     },
   };
 }

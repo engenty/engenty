@@ -14,9 +14,10 @@ import type {
   SpaceHomeState,
   SpaceHomeThread,
 } from "@engenty/ai-ui";
-import type {
-  SpaceConversationItem,
-  SpaceConversationSidebarModel,
+import {
+  isRiverItem,
+  type SpaceConversationItem,
+  type SpaceConversationSidebarModel,
 } from "@/lib/space-conversation-sections";
 
 const STATE_RANK: Record<SpaceHomeState, number> = {
@@ -130,6 +131,11 @@ export function resolveSpaceHomeCards(input: {
   const cards: SpaceHomeCard[] = [];
   const quiet: SpaceConversationItem[] = [];
   for (const { item, pinned } of ordered) {
+    // The river is the person's, not the space's: it heads Privat in the
+    // sidebar of every space, but the home lists what happens HERE.
+    if (isRiverItem(item)) {
+      continue;
+    }
     const states = statesFor(item, byThread, byAgent);
     const allJobs = states
       .flatMap((state) => state.jobs)

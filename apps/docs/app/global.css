@@ -12,6 +12,13 @@
  * Every section (User Guide, Installation, Developer, Roadmap, WIP) has a tone,
  * set as `data-tone` on the docs layout container, and the whole page follows.
  */
+/* biome-ignore-all lint/style/noDescendingSpecificity: this sheet overrides
+   Fumadocs region by region — top nav, sidebar, TOC, page body, the lobby —
+   so a later low-specificity rule and an earlier higher-specificity one name
+   different elements and never land on the same node. The two pairs that sit
+   in one rule block share its declarations either way, and where `.docs-lobby`
+   does meet `.docs-hero .docs-lobby` the more specific rule winning is what
+   the note above it asks for. */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Jersey+20&family=Jersey+25&display=swap");

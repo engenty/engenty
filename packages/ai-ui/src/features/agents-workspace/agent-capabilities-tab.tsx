@@ -58,9 +58,7 @@ export function AgentCapabilitiesTab({
           t={t}
         />
       </SettingsFormSection>
-      {/* Connected accounts this agent may use in unattended runs (CN.5).
-          Here, on Capabilities, because that is the tab that answers "what can
-          this agent do" — and lending it a mailbox is exactly that. */}
+      {/* Plugins this agent may use (space-enabled subset + personal accounts). */}
       <SettingsFormSection
         cardClassName="overflow-hidden p-0 sm:p-0"
         description={t("agentConnections.description")}

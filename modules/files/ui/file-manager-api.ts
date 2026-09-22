@@ -50,6 +50,7 @@ export interface FileSpaceListing {
 
 /** A connection that can be mounted as a file source. */
 export interface FileSourceSummary {
+  allSpaces?: boolean;
   connectionId: string;
   connectorIcon: string | null;
   connectorId: string;

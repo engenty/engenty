@@ -26,6 +26,8 @@ export interface RegistryAgentRow {
   agent_scope?: "personal" | "shared" | null;
   /** Generated portrait storage key; null = blob silhouette. */
   avatar_url?: string | null;
+  /** Preferred connector ids; empty = all plugins enabled on the active space. */
+  connector_ids?: string[];
   /** Link to the core.agents security principal; provisioned lazily. */
   core_agent_id?: string | null;
   created_at: string;
@@ -145,6 +147,7 @@ function agentRowWriteColumns(config: AgentConfig) {
     remote_handle: config.remoteHandle ?? null,
     sandbox: config.workspace?.sandbox ?? null,
     skill_ids: config.skillIds ?? [],
+    connector_ids: config.connectorIds ?? [],
     starters: config.starters ?? [],
     sub_agents: config.subAgents ?? [],
     tool_ids: config.toolIds ?? [],
@@ -211,6 +214,7 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     instructions: row.instructions,
     toolIds: row.tool_ids,
     skillIds: row.skill_ids,
+    connectorIds: Array.isArray(row.connector_ids) ? row.connector_ids : [],
     subAgents: row.sub_agents,
     ...(row.agent_scope ? { agentScope: row.agent_scope } : {}),
     ...(isEffort(row.effort) ? { effort: row.effort } : {}),

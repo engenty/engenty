@@ -100,7 +100,11 @@ describe("useCopilotVoiceInputHotkey", () => {
     const manager = HotkeyManager.getInstance();
     const registrations = [...manager.registrations.state.values()];
     expect(
-      registrations.some((entry) => entry.hotkey === COPILOT_VOICE_INPUT_HOTKEY)
+      registrations.some(
+        (entry) =>
+          entry.hotkey === COPILOT_VOICE_INPUT_HOTKEY &&
+          entry.options.meta?.group === "Copilot"
+      )
     ).toBe(true);
 
     act(() => {

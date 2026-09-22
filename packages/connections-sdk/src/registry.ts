@@ -10,6 +10,10 @@ import type { ConnectorDefinition } from "./types.js";
  * module-level Map would give each module a private copy. The registry
  * therefore lives on `globalThis` under a `Symbol.for` key, which is shared
  * across all module-cache copies in the process.
+ *
+ * Imported (integrations.sh / MCP / OpenAPI) definitions carry `tenantId` and
+ * are stored under `${tenantId}::${id}` so one tenant's import is not listed
+ * or executed as another's. Builtins have no tenantId and use `id` as the key.
  */
 const REGISTRY_KEY = Symbol.for("engenty.connections.connector-registry");
 
@@ -19,6 +23,12 @@ function registry(): RegistryMap {
   const host = globalThis as { [REGISTRY_KEY]?: RegistryMap };
   host[REGISTRY_KEY] ??= new Map();
   return host[REGISTRY_KEY];
+}
+
+function registryKey(
+  def: Pick<ConnectorDefinition, "id" | "tenantId">
+): string {
+  return def.tenantId ? `${def.tenantId}::${def.id}` : def.id;
 }
 
 export function registerConnectorDefinition(def: ConnectorDefinition): void {
@@ -31,7 +41,7 @@ export function registerConnectorDefinition(def: ConnectorDefinition): void {
   }
   // Idempotent on purpose: dev-reload re-runs plugin factories; the latest
   // definition wins.
-  registry().set(def.id, def);
+  registry().set(registryKey(def), def);
 }
 
 /**
@@ -39,26 +49,56 @@ export function registerConnectorDefinition(def: ConnectorDefinition): void {
  * operations cannot be unregistered — they dead-end at policy resolution once
  * the definition is gone; a restart fully clears them.
  */
-export function removeConnectorDefinition(id: string): void {
-  registry().delete(id);
+export function removeConnectorDefinition(
+  id: string,
+  tenantId?: string | null
+): void {
+  registry().delete(tenantId ? `${tenantId}::${id}` : id);
 }
 
 export function getConnectorDefinition(
-  id: string
+  id: string,
+  tenantId?: string | null
 ): ConnectorDefinition | undefined {
-  return registry().get(id);
+  const map = registry();
+  if (tenantId) {
+    const scoped = map.get(`${tenantId}::${id}`);
+    if (scoped) {
+      return scoped;
+    }
+  }
+  const builtin = map.get(id);
+  if (builtin && !builtin.tenantId) {
+    return builtin;
+  }
+  return;
 }
 
-export function listConnectorDefinitions(): ConnectorDefinition[] {
-  return [...registry().values()].sort((a, b) => a.name.localeCompare(b.name));
+/** Builtins plus this tenant's imports. Omit tenantId to list builtins only. */
+export function listConnectorDefinitions(
+  tenantId?: string | null
+): ConnectorDefinition[] {
+  return [...registry().values()]
+    .filter((def) => !def.tenantId || def.tenantId === tenantId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function connectorsForResolve(tenantId?: string | null): ConnectorDefinition[] {
+  if (!tenantId) {
+    return [...registry().values()].filter((def) => !def.tenantId);
+  }
+  return listConnectorDefinitions(tenantId);
 }
 
 /** Find the connector + action that own a projected operation id. */
-export function resolveConnectorOperation(operationId: string): {
+export function resolveConnectorOperation(
+  operationId: string,
+  tenantId?: string | null
+): {
   action: ConnectorDefinition["actions"][number];
   connector: ConnectorDefinition;
 } | null {
-  for (const connector of registry().values()) {
+  for (const connector of connectorsForResolve(tenantId)) {
     const prefix = `${connector.toolPrefix}_`;
     if (!operationId.startsWith(prefix)) {
       continue;

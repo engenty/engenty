@@ -10,8 +10,8 @@ services (Gmail, Google Drive, Outlook, Slack, …) to Engenty. It owns OAuth,
 token custody, and a per-action permission model — connector modules only
 *declare* a service's actions and never touch tokens or approval logic.
 
-Working design notes live in `docs/wip/connections-framework.md`; this page is
-the stable developer reference.
+Working design notes in `docs/wip/connections-framework.md` predate the
+space/agent attachment model; this page is the stable developer reference.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ modules/connections/providers/slack        connector: slack
 modules/connections/providers/hubspot      connector: hubspot (api_key / private app)
 modules/connections/providers/s3           connector: s3 (api_key auth, files capability)
 modules/connections/providers/local-files  connector: local-files (browser auth, FSA bridge)
-modules/connections/providers/external     imported OpenAPI/MCP connectors
+modules/connections/providers/external     tenant-scoped imported OpenAPI/MCP connectors
 ```
 
 Connector providers are **nested workspace plugins** under
@@ -64,22 +64,80 @@ Every action belongs to a group, and the group fixes the operation contract:
 `buildOperationContracts` in core), so classifying an action honestly is what
 makes it available (or not) to Code Mode.
 
-## The permission model — three axes
+## The permission model — reach, action policy, run context
 
-Effective policy for one call = the intersection of three axes, resolved in
-`@engenty/connections-sdk` (`resolveConnectionActionPolicy`):
+A **plugin** is a connector definition (builtin Gmail, or a tenant-imported
+OpenAPI/MCP surface). A **connection** is one authenticated account on that
+plugin (`module_connections.connections`). `owner_user_id` is who signed in.
+Where the account may be used is a separate attachment, not a personal/org
+toggle.
 
-1. **Action policy** — `allow | ask | deny` per action. Resolution order:
-   action-id override → group override (`group:<name>`) → group default
-   (`read → allow`, `write`/`destructive → ask`). Overrides are stored per
-   connection in `module_connections.connection_action_policies` and edited in
-   the UI matrix (Settings → Connections).
-2. **Sharing** — `personal` (owner only; anyone else is denied) or `org`
-   (tenant-wide). Org connections can cap non-owners with
-   `non_owner_max_group` (e.g. others get `read` only). Group-based sharing is
-   deferred until the auth model has groups.
+Effective policy for one call is **reach first**, then action policy, then
+unattended clamps. Connector prefixes and account candidates are both a
+**union**, not an intersection:
+
+```mermaid
+flowchart TD
+  plugin[Plugin definition]
+  plugin --> spacePlugin["Space plugin mount<br/>resource_type=plugin"]
+  plugin --> connUuid["Space account mount<br/>resource_type=connection"]
+  plugin --> allSpaces["Account all_spaces"]
+  plugin --> grant["connection_agent_grants"]
+  spacePlugin --> prefixes[Connector prefixes]
+  connUuid --> prefixes
+  connUuid --> accounts[Account candidates]
+  allSpaces --> prefixes
+  allSpaces --> accounts
+  grant --> prefixes
+  grant --> accounts
+```
+
+1. **Account reach** — decided *before* `resolveConnectionActionPolicy` (see
+   `isAccountReachableInRun` and `connectorPrefixesForAgent` in
+   `@engenty/connections-sdk`). Distinguish plugin enablement (the *service*
+   is on this space) from account candidates (which *mailbox*):
+
+   | Attachment | Stored as | What it adds |
+   | --- | --- | --- |
+   | Space plugin enablement | `core.space_mount` `resource_type = 'plugin'`, `resource_key` = connector id | Connector prefix only. The space enabled this service with no account yet ("added, needs authentication"). |
+   | Space-shared account | `core.space_mount` `resource_type = 'connection'`, `resource_key` = account UUID | This mailbox is shared with **this** space: prefix + account. Every specialist there may use it, and the copilot may while the person is standing in that space. |
+   | All spaces | `module_connections.connections.all_spaces` | Prefix + account in every space of the tenant and on `{kind:"global"}` agent runs. One flag, not a mount row per space. |
+   | Agent grant | `module_connections.connection_agent_grants` | Prefix + account for **that agent**, even when the standing space did not mount it. |
+
+   An agent's preferred plugin list (`ai.engenty_ai_agents.connector_ids`)
+   further filters *which connectors* the agent may call. Empty = every plugin
+   enabled on the active space (plus all-spaces prefixes). Non-empty =
+   intersection of that list with the space/all-spaces set, **then** the
+   agent's granted-account prefixes are always re-added.
+
+   `sharing` (`personal` \| `org`) and `non_owner_max_group` remain on the
+   row as leftover columns. Access, RLS, and `resolveConnectionActionPolicy`
+   do not read them. `connection_personal_not_owner` and the org non-owner cap
+   are gone.
+
+   That attachment model is **not** the personal Space (`/s/me`). A personal
+   space is `core.spaces.owner_user_id IS NOT NULL` (private, no members).
+   `/s/me` resolves it. Old `sharing=personal` meant "only the authenticating
+   user may use this account anywhere"; that flag no longer authorizes
+   anything.
+
+2. **Action policy** — `allow | ask | deny` per action, resolved in
+   `resolveConnectionActionPolicy`. Resolution order: action-id override →
+   group override (`group:<name>`) → group default (`read → allow`,
+   `write`/`destructive → ask`). Overrides are stored per connection in
+   `module_connections.connection_action_policies` and edited in the UI
+   matrix (Settings → Connections).
+
 3. **Run context** — per connection `autonomous_mode: off | read_only | full`
-   clamps what agent/service principals may do when no user is present.
+   clamps what agent/service principals may do when no user is present. The
+   space's `agent_access` on a connection mount (`none | read | write`) is the
+   other half of that clamp for unattended runs in that space: the lower of
+   the two wins. A space that never set a level falls through to the account
+   setting alone.
+
+RLS for authenticated members: accounts they own, accounts flagged
+`all_spaces`, and accounts mounted on a space they can enter. Encrypted token
+columns stay off the authenticated grant.
 
 ### Where each axis is enforced
 
@@ -87,7 +145,7 @@ There is exactly **one authoritative gate**: an async profile policy the
 connections module registers in core (`registerProfilePolicy`), evaluated on
 every operation invoke:
 
-- `deny` outcomes (personal/not-owner, non-owner cap, autonomous clamps,
+- `deny` outcomes (account not reachable in this run, autonomous clamps,
   user-configured deny) → HTTP 403 for *every* principal type.
 - `ask` for **user principals** → the policy returns `null`; the AI-side
   pre-gate owns the chat UX (native tool-level suspend/resume, invoker
@@ -100,13 +158,16 @@ every operation invoke:
   `approvalPolicy: "defer"`, which passes gated calls through to core and
   shapes the 202 into a structured `approval_pending` tool result plus a
   tenant-inbox notification (`connection_approval_requested`). The connection
-  owner (org: tenant admins) decides in Admin → Connections — "Approve always"
-  also writes an `allow` override so the retry passes.
+  owner (all-spaces: owner or tenant admin) decides in Admin → Connections —
+  "Approve always" also writes an `allow` override so the retry passes.
 - `allow` overrides → the policy returns an explicit allow, which bypasses
   core's default approval requirement for non-user principals.
 
-Defense in depth: the connector runtime re-checks the policy before executing,
-so a route that skipped the policy layer still cannot run a denied action.
+Defense in depth: the connector runtime re-checks reach and policy before
+executing, so a route that skipped the policy layer still cannot run a denied
+action. Agent grants are resolved from `x-engenty-agent-id` before candidate
+listing, so a copilot-only mailbox is a candidate inside a space that never
+mounted it.
 
 ## Building a connector module
 
@@ -253,7 +314,7 @@ Credentials are stored AES-256-GCM encrypted in the same token column as OAuth
 tokens with `token_expires_at = null`, so they flow through the DAL unchanged
 and are never refreshed. `browser` connectors hold no server-side secret —
 their action handlers bridge into the user's browser (see the local-files
-connector) — and are forced to `personal` sharing.
+connector) — and cannot be flagged `all_spaces` (they are device-local).
 
 ## The files capability
 
@@ -292,10 +353,34 @@ do not poll. When no tab is showing the folder, actions fail fast with
 
 ## Imported connectors: OpenAPI and MCP
 
-Not every connector is hand-written. `modules/connections/providers/external`
-imports one at admin request from an **OpenAPI spec** or an **MCP server**, and
-what it produces is an ordinary `ConnectorDefinition` — so the catalog, agent
-tools, Space mounts, policies, approvals and audit all apply unchanged. An
+Two different MCP surfaces exist. Do not mix them up:
+
+| | First-party MCP resource server | Imported MCP / OpenAPI plugins |
+| --- | --- | --- |
+| Direction | **Outbound.** Engenty exposes itself to external MCP clients. | **Inbound.** A remote spec or MCP server becomes a connector *inside* Engenty. |
+| Where | Core `GET`/`POST` `/mcp` (`packages/mcp-server`, `ENGENTY_MCP_RESOURCE_URL`) | `modules/connections/providers/external` |
+| What the agent sees | Not a connector. External tools talk *to* Engenty. | Ordinary `<toolPrefix>_<actionId>` operations, same as Gmail. |
+
+This section is inbound imports only.
+
+Not every connector is hand-written. Builtins (Gmail, Drive, Outlook, Slack,
+GitHub, HubSpot, S3, local-files, …) are **code**, always listed, and have no
+`tenant_id`. Everything else is a tenant-scoped **import**: an admin pulls an
+OpenAPI spec or MCP server (search via [integrations.sh](https://integrations.sh)
+`/surface`, or paste a URL) and the external provider materializes an ordinary
+`ConnectorDefinition`. Rows live in
+`module_external_connectors.imported_connectors` with a required `tenant_id`
+(primary key `(tenant_id, id)`). The process-global registry keys them
+`${tenantId}::${id}` so one tenant's import is not listed or executed as
+another's. Builtins stay `id` with no tenant prefix.
+
+The catalog a tenant sees is **builtins ∪ that tenant's imports**. An import
+is sticky across spaces of that tenant; it is not enabled on a space until
+someone mounts the plugin or an account. `/setup/connectors` is the admin
+console over the tenant import API, not a platform-wide catalog.
+
+What an import produces is an ordinary connector — so agent tools, Space
+plugin/account mounts, policies, approvals and audit all apply unchanged. An
 agent never learns that a tool came from an MCP server; it calls
 `<toolPrefix>_<actionId>` like any other operation.
 
@@ -326,40 +411,57 @@ Two properties worth keeping:
   headers. Every call opens a client and releases it in `finally`, terminating
   the streamable session, so a failed `tools/call` leaks no server-side session.
 
-## Connectors in a Space
+## Connectors in a Space, on an agent, and on the copilot river
 
-A Space mounts connectors one **provider-account at a time**, so a connector
-operation is gated twice before it reaches core:
+A Space still answers two questions, but the prefix set is the **union**
+described above — plugin enablement, connection UUID mounts, `all_spaces`, and
+the acting agent's grants — not "mounted account ids ∩ grants":
 
 | Question | Checked against |
 | --- | --- |
-| May this Space use Gmail at all? | the Space's mounted connector **tool prefixes** (`space-gate.ts`) |
-| Which mailbox? | the Space's mounted **connection ids** (`core.space_mount`) |
+| May this run use Gmail at all? | the run's connector **tool prefixes** (`space-gate.ts`, filled by `enrichToolsSpaceForAgentRun`) |
+| Which mailbox? | mounted connection ids ∪ `all_spaces` ∪ `connection_agent_grants` (`isAccountReachableInRun`) |
 
 Prefix matching is longest-match-wins, because ids are minted as
 `<toolPrefix>_<actionId>` and a connector whose prefix prefixes another's
 (`g` vs `gmail`) must not swallow it. Discovery is filtered by the same rule —
-an unmounted connector's operations are hidden from `engenty_tools_search` and
-refused by `engenty_tool_execute`; hiding alone would be decoration, refusing
-alone would waste a turn. See the
+an unavailable connector's operations are hidden from `engenty_tools_search`
+and refused by `engenty_tool_execute`; hiding alone would be decoration,
+refusing alone would waste a turn. See the
 Spaces runtime contract (`docs/agent/spaces-runtime.md`).
+
+**Copilot (the river).** `engenty.copilot` is one private conversation per
+person (`POST /ai/threads/dm` with no `space_id`). A turn is placed by
+**where the person is standing** (`route_context`), not by a thread-owned
+space. Connector reach for that turn is the standing space's enabled plugins
+and shared accounts, **plus** accounts granted to the copilot (and any
+`all_spaces` accounts). There is no per-space copilot thread to hang plugins
+on. Outside `/s/…` live chat and assemble agree on `{kind:"global"}`: grants
+plus all-spaces only — not a silent fallback to Company or to `/s/me`.
+
+A verified personal-space owner stand-in (`resolveVerifiedSpaceOwnerForRun`)
+still exists for unattended runs *in* `/s/me` (approval addressing and the
+autonomy ceiling). It is not a replacement for `sharing`, and it does not add
+connector reach.
 
 ## Operations reference
 
 | Operation | Purpose |
 | --- | --- |
 | `connections_catalog` | Connectors + caller's connections + policy matrix (drives the UI) |
-| `connections_update_settings` | Sharing, autonomous mode, non-owner cap, display name |
+| `connections_update_settings` | `all_spaces`, autonomous mode, display name. `sharing` / `non_owner_max_group` are still accepted and stored; access does not read them. |
 | `connections_set_policy` | Set/clear an `allow\|ask\|deny` override (action id or `group:<g>`) |
 | `connections_disconnect` | Delete a connection (tokens destroyed) |
 | `connections_approvals_list` / `connections_approvals_decide` | Autonomous approval queue |
 | `connections_granted_operations` | Durably-allowed operation ids, merged into chat approval grants |
+| `connections_agent_grants_list` / `connections_agent_grant_set` | Accounts this agent may use even when the standing space did not mount them |
 
 ## Gotchas
 
 - **Cross-plugin singletons don't work.** Core loads each plugin through its
   own jiti instance (fresh module cache), so the connector registry lives on
   `globalThis` under `Symbol.for("engenty.connections.connector-registry")`.
+  Imported definitions are keyed `${tenantId}::${id}`; builtins use `id`.
   Any future cross-module registry needs the same treatment.
 - **New schema ⇒ restart Supabase.** PostgREST only reads `[api].schemas` at
   start. The failure signature is
@@ -367,8 +469,11 @@ Spaces runtime contract (`docs/agent/spaces-runtime.md`).
   `supabase stop` + `start` (never `--no-backup`).
 - **Profile policies may be async** since this framework landed
   (`evaluatePolicy` awaits them) — keep them fast; they run on every invoke.
-- **Delegated agent principals resolve to the org connection.** Personal
-  connections match on the principal id, which for autonomous/delegated runs
-  is the service/agent principal — mapping through the delegation chain is a
-  known follow-up, as is automatic task re-dispatch when an approval is
-  granted.
+- **Reach is a union.** An agent grant that still had to intersect space
+  mounts would make "enable on copilot" vanish the moment the person opened
+  Marketing. Grants, `all_spaces`, and space mounts are `OR`. A non-empty
+  `connector_ids` list on the agent is the only intersection, and grants are
+  re-added after it.
+- **Automatic task re-dispatch when an approval is granted** is still a
+  follow-up. Approvals address the connection owner (or a tenant admin on an
+  all-spaces account).

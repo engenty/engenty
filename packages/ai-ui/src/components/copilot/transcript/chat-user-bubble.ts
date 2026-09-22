@@ -50,6 +50,8 @@ function firstTextPart(parts: readonly unknown[] | undefined): string {
  */
 export function chatSpeakerKey(msg: {
   authorName?: string | null;
+  /** Whose copilot wrote this, when the author is someone's alter ego. */
+  alterEgoUserName?: string | null;
   id?: string;
   parts?: readonly unknown[];
   role: string;

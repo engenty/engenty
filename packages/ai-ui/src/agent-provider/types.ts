@@ -57,18 +57,6 @@ export type AgentToolInvalidationMap = ReadonlyMap<
 
 export interface EngentyAIProps {
   /**
-   * The space a SPACE-BOUND host's active thread belongs to
-   * (PLAN-space-chats.md) — today, the copilot's.
-   *
-   * The copilot uses one host key everywhere, so without this the dock opened
-   * in Marketing resumes the thread you left in Company, and the run reads its
-   * tools from Company because the space comes off the THREAD row. Pass the
-   * copilot's own answer (`resolveCopilotSpaceId`), not the route's: outside a
-   * space the copilot belongs to the PERSONAL space, and the route's fallback
-   * is the tenant default.
-   */
-  activeThreadSpaceId?: string | null;
-  /**
    * Maps a copilot tool id to the React Query roots its execution invalidates,
    * so agent writes (e.g. `manage_project` → `["projects"]`) refresh the UI
    * without a reload. Assembled from module live bindings in the host app.

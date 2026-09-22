@@ -1,9 +1,5 @@
 import { DockSettingsIcon, DockSetupIcon } from "@engenty/ui-core";
-import type {
-  UiContributions,
-  UiCopilotAppContribution,
-  UiIconComponent,
-} from "@engenty/ui-plugin-sdk";
+import type { UiContributions, UiIconComponent } from "@engenty/ui-plugin-sdk";
 import { PLUGIN_CATEGORIES, pluginCategoryRank } from "@engenty/ui-plugin-sdk";
 import {
   Bell,
@@ -97,33 +93,6 @@ function mapTopLevelEntryToNavItem(
   };
 }
 
-function mapCopilotAppToNavItem(
-  app: UiCopilotAppContribution,
-  t: TranslateFn
-): NavigationItem {
-  return {
-    id: app.id,
-    to: app.to,
-    label: resolveContributionLabel(app, t),
-    icon: app.icon ?? Box,
-  };
-}
-
-function buildCopilotNavItems(
-  copilotApps: UiContributions["copilotApps"],
-  t: TranslateFn
-): NavigationItem[] {
-  return (
-    [...copilotApps]
-      // Copilot is space-placed for mounts, but `/mdl/engenty-copilot` is the
-      // personal desk: it still gets a rail tile pointing at that canonical
-      // path. Settings-placed chat surfaces stay off the rail.
-      .filter((app) => app.placement !== "settings")
-      .sort((left, right) => (left.order ?? 10_000) - (right.order ?? 10_000))
-      .map((app) => mapCopilotAppToNavItem(app, t))
-  );
-}
-
 function adminMenuContributionSortKey(entry: AdminMenuEntry): number {
   const byId = ADMIN_MENU_SORT_RANK_BY_ID[entry.id];
   if (byId !== undefined) {
@@ -187,8 +156,8 @@ export function buildNavigationSections(
   // The section id stays `"modules"` on purpose — `applyDockModuleOrder`
   // filters on it, so renaming it would silently break tenant-curated rail
   // order and the persisted `shell.dock_module_order`, for a cosmetic gain.
-  // Empty on a default install (no in-repo module declares "global") and KEPT
-  // DELIBERATELY — see the matching note on the copilot-apps filter above.
+  // Empty on a default install (no in-repo module declares "global"), which
+  // drops the whole zone — `sectionsWithItems` never renders an empty heading.
   const moduleMenuEntries = contributions.adminMenuItems.filter(
     (entry) => entry.section === "modules" && entry.placement === "global"
   );
@@ -206,7 +175,6 @@ export function buildNavigationSections(
   const moduleItems = moduleTopLevel.map((entry) =>
     mapTopLevelEntryToNavItem(entry, moduleMenuEntries, t)
   );
-  const copilotNavItems = buildCopilotNavItems(contributions.copilotApps, t);
   // Admin-section entries (/admin/* consoles: Engenty, files, context graph)
   // are tenant-admin surfaces — hidden for members. Engenty is ordered first
   // via ADMIN_MENU_SORT_RANK_BY_ID (not the primary top rail). Audit logs are
@@ -311,12 +279,14 @@ export function buildNavigationSections(
   return sectionsWithItems([
     // The `primary` section is GONE (Phase 5a ③): Tasks/Projects moved into
     // the space and left it empty. Zone ③ is spaces → tools you carry
-    // BETWEEN spaces, plus Copilot, which keeps a rail home even though
-    // its chats are per-space. Records modules stay off the rail.
+    // BETWEEN spaces. Records modules stay off the rail, and so does Copilot:
+    // it is reached inside a space (the Work list) and from the blob at the
+    // personal end of the bar — a third door beside the spaces read as a
+    // fourth kind of thing on a rail that is otherwise spaces and apps.
     {
       id: "modules",
       label: t("navigation.apps"),
-      items: [...copilotNavItems, ...moduleItems],
+      items: moduleItems,
     },
     {
       id: "admin",

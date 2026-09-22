@@ -7,7 +7,9 @@ import {
   assembleRecord,
   assertNoRegistryVariables,
   connectorIdFromSlug,
+  prepareSource,
   resolveRequiredHeaders,
+  surfaceRequiresAuth,
   toolPrefixFromSlug,
   validateConnectorNaming,
 } from "./import-service.js";
@@ -69,6 +71,7 @@ const baseParams = {
   prepared,
   sourceKind: "openapi" as const,
   sourceUrl: "https://things.example/openapi.json",
+  tenantId: "11111111-1111-4111-8111-111111111111",
   toolPrefix: "things",
 };
 
@@ -95,6 +98,7 @@ describe("assembleRecord", () => {
     expect(record.actions).toHaveLength(2);
     expect(record.client_id_enc).toBeNull();
     expect(warnings).toEqual([]);
+    expect(record.tenant_id).toBe(baseParams.tenantId);
   });
 
   it("applies the action filter and rejects empty results", () => {
@@ -276,6 +280,36 @@ describe("mcp transport on the record", () => {
     });
     expect(record.mcp_transport).toBe("streamable-http");
     expect(record.auth_config.kind).toBe("oauth2");
+    expect(record.auth_config).toMatchObject({
+      dcr: true,
+      registration_endpoint: "https://api.resend.com/oauth/register",
+    });
+  });
+
+  it("stores an auth-required MCP connector with no actions until sign-in", () => {
+    const discover = surfaceFixture("resend");
+    const surface = findSurfaceForSource(
+      discover,
+      "https://mcp.resend.com/mcp"
+    );
+    const { record, warnings } = assembleRecord({
+      ...baseParams,
+      discover,
+      prepared: {
+        deferred_mcp_tools: true,
+        normalized: {
+          ...mcpPrepared.normalized,
+          actions: [],
+        },
+        spec_hash: "deferred",
+      },
+      sourceKind: "mcp",
+      sourceUrl: "https://mcp.resend.com/mcp",
+      surface,
+    });
+    expect(record.actions).toEqual([]);
+    expect(record.auth_config.kind).toBe("oauth2");
+    expect(warnings.join(" ")).toMatch(/account is connected/u);
   });
 
   it("refuses an MCP surface whose auth alternatives are all unmappable", () => {
@@ -307,5 +341,68 @@ describe("applied spec overrides", () => {
       },
     });
     expect(warnings.join(" ")).toMatch(/registry spec override/u);
+  });
+});
+
+describe("prepareSource MCP deferral", () => {
+  it("treats registry auth status required as needing sign-in", () => {
+    const surface = findSurfaceForSource(
+      surfaceFixture("resend"),
+      "https://mcp.resend.com/mcp"
+    );
+    expect(surfaceRequiresAuth(surface)).toBe(true);
+    expect(
+      surfaceRequiresAuth({
+        auth: { entries: [], status: "none" },
+        connect_url: "https://mcp.deepwiki.com/mcp",
+        docs: null,
+        kind: "mcp",
+        name: "DeepWiki",
+        required_headers: [],
+        slug: "deepwiki-com",
+        spec: null,
+        spec_alternates: [],
+        spec_overrides: [],
+        transports: ["streamable-http"],
+        variables: [],
+      })
+    ).toBe(false);
+  });
+
+  it("does not probe MCP when tools listing is deferred", async () => {
+    const fetchImpl = vi.fn();
+    const result = await prepareSource({
+      deferMcpTools: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sourceKind: "mcp",
+      sourceUrl: "https://mcp.example.com/mcp",
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result.deferred_mcp_tools).toBe(true);
+    expect(result.normalized.actions).toEqual([]);
+  });
+
+  it("returns an empty tool list when anonymous tools/list returns 401", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response("unauthorized", { status: 401 })
+    );
+    const result = await prepareSource({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sourceKind: "mcp",
+      sourceUrl: "https://mcp.example.com/mcp",
+    });
+    expect(result.deferred_mcp_tools).toBe(true);
+    expect(result.normalized.actions).toEqual([]);
+  });
+
+  it("still fails when tools/list returns a non-auth error", async () => {
+    const fetchImpl = vi.fn(async () => new Response("nope", { status: 500 }));
+    await expect(
+      prepareSource({
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        sourceKind: "mcp",
+        sourceUrl: "https://mcp.example.com/mcp",
+      })
+    ).rejects.toThrow(/cannot connect to MCP server/u);
   });
 });

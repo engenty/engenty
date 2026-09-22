@@ -31,7 +31,7 @@ describe("formatCopilotVoiceUiStateInstructions", () => {
     expect(text).toContain("page_module: projects");
     expect(text).toContain("copilot_open: true");
     expect(text).toContain("## App navigation paths (canonical)");
-    expect(text).toContain("`/s/<space_key>/copilot/chat`");
+    expect(text).toContain("`/s/<space_key>/copilot`");
     expect(text).toContain("do not assume `moduleId === segment`");
   });
 

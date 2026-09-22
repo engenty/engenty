@@ -47,8 +47,8 @@ export function spaceRootPath(spaceKey: string): string {
  * A module mounted inside a space: `/s/<key>/<segment>/<rest>`.
  *
  * The segment is the module's short URL alias where it has one — a space URL is
- * meant to be read and typed, so it is `/s/company/copilot/chat`, not
- * `/s/company/engenty-copilot/chat`. Only the URL changes; the module ID is
+ * meant to be read and typed, so it is `/s/company/kb/faqs`, not
+ * `/s/company/knowledge-base/faqs`. Only the URL changes; the module ID is
  * unchanged everywhere it means something (mounts, manifests, tools).
  */
 export function spaceModulePath(

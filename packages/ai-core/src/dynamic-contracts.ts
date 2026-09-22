@@ -352,6 +352,12 @@ export const agentConfigSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9_-]{0,31}$/)
     .nullish(),
   skillIds: z.array(z.string().min(1)).default([]),
+  /**
+   * Preferred connector ids. Empty = every plugin enabled on the active space
+   * (plus this agent's personal accounts). Non-empty = intersection of that
+   * list with the space, plus the agent's granted accounts.
+   */
+  connectorIds: z.array(z.string().min(1)).default([]),
   source: z.enum(["builtin", "module", "database"]).optional(),
   /**
    * Empty-state composer chips. Module manifests may declare up to
@@ -381,7 +387,16 @@ export const agentConfigSchema = z.object({
   workspace: agentWorkspaceConfigSchema.optional(),
 });
 
-export type AgentConfig = z.infer<typeof agentConfigSchema>;
+export type AgentConfig = Omit<
+  z.infer<typeof agentConfigSchema>,
+  "connectorIds"
+> & {
+  /**
+   * Preferred connector ids. Absent or empty = every plugin enabled on the
+   * active space (plus this agent's personal accounts).
+   */
+  connectorIds?: string[];
+};
 
 /**
  * The Worker compute default (PLAN-agent-computers.md §1.1): what a

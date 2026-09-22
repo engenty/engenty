@@ -130,6 +130,29 @@ describe("surfaceFromMounts", () => {
     expect(surface.capabilities).toEqual([]);
   });
 
+  it("treats a plugin mount as an enabled connector with no account", () => {
+    const surface = surfaceFromMounts(SPACE, [
+      mount({ resourceKey: "google-gmail", resourceType: "plugin" }),
+    ]);
+    expect(surface.connections).toEqual([]);
+    expect(surface.connectors).toEqual(["google-gmail"]);
+    expect(surface.capabilities).toEqual([
+      "module.connections.read.google-gmail",
+      "module.connections.write.google-gmail",
+    ]);
+  });
+
+  it("unions all-spaces connector ids into the surface", () => {
+    const surface = surfaceFromMounts(
+      SPACE,
+      [mount({ resourceKey: CONNECTION_A, resourceType: "connection" })],
+      new Map([[CONNECTION_A, "google-gmail"]]),
+      new Map(),
+      ["slack"]
+    );
+    expect(surface.connectors).toEqual(["google-gmail", "slack"]);
+  });
+
   it("returns an empty surface for a space with no mounts", () => {
     const surface = surfaceFromMounts(SPACE, []);
     expect(surface.counts).toEqual({

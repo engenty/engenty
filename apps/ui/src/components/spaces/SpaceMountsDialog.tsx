@@ -2,6 +2,7 @@
  * One mount kind per modal. The setup endpoint reconciles the complete desired
  * set, so every save carries the other kinds through unchanged.
  */
+import { PluginMarketplaceDialog } from "@engenty/connections/ui/marketplace";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -56,13 +57,12 @@ export function SpaceMountsDialog({
   space: Space | null;
 }) {
   const { t } = useTranslation("common");
-  const mountsQuery = useSpaceMountsQuery(open && space ? space.id : null);
+  const marketplaceKind = kind === "connection" || kind === "plugin";
+  const mountsQuery = useSpaceMountsQuery(
+    open && space && !marketplaceKind ? space.id : null
+  );
   const mounts = useMemo(() => mountsQuery.data ?? [], [mountsQuery.data]);
-  // `ownerUserId` is what makes a space personal — decision 7 uses it to decide
-  // whether personal accounts may be offered here at all.
-  const catalog = useSpaceMountCatalog(mounts, open, {
-    isPersonal: space?.ownerUserId != null,
-  });
+  const catalog = useSpaceMountCatalog(mounts, open && !marketplaceKind);
   const catalogModuleIds = useMemo(
     () => new Set(catalog.modules.map((module) => module.id)),
     [catalog.modules]
@@ -117,6 +117,8 @@ export function SpaceMountsDialog({
         return catalog.connections;
       case "module":
         return catalog.modules;
+      case "plugin":
+        return catalog.plugins;
       case "skill":
         return catalog.skills.filter(
           (skill) => !isModuleSkill(skill, catalogModuleIds)
@@ -138,6 +140,17 @@ export function SpaceMountsDialog({
         : [],
     [kind, mounts, selection]
   );
+
+  if (marketplaceKind) {
+    return (
+      <PluginMarketplaceDialog
+        onOpenChange={onOpenChange}
+        open={open && space != null}
+        spaceId={space?.id ?? null}
+        spaceName={space?.name}
+      />
+    );
+  }
 
   const loading = mountsQuery.isPending || catalog.isPending || !seeded;
   const errorMessage = save.error instanceof Error ? save.error.message : null;

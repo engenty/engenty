@@ -31,7 +31,7 @@ export interface MirrorableRoute {
 export interface SpaceMirroredRoute<T extends MirrorableRoute> {
   /**
    * The same route under the module's CANONICAL id, for modules whose URL
-   * segment is an alias (`engenty-copilot` beside `copilot`).
+   * segment is an alias (`knowledge-base` beside `kb`).
    *
    * Kept mounted rather than redirected: a space deep link minted before the
    * alias — a notification, a bookmark, an agent-produced ref — must still open
@@ -91,9 +91,7 @@ export function spaceMirroredRoutes<T extends MirrorableRoute>(
  * Module ids whose legacy `/mdl/*` links should redirect into a space.
  *
  * Read from the plugins that declare `placement: "space"`, via any contribution
- * that carries the enriched value — menu items, and copilot apps since Phase C1
- * (the copilot registers no menu row, so reading only `adminMenuItems` left its
- * links pointing at `/mdl/` after chat became a per-space surface).
+ * that carries the enriched value — the menu items.
  *
  * A module that contributes neither keeps `/mdl/` canonical — the conservative
  * direction: a link that still works is better than one redirected somewhere

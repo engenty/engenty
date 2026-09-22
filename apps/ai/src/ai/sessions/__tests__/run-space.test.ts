@@ -29,6 +29,7 @@ vi.mock("../../core-http-client.js", async (importOriginal) => {
 
 import {
   actingUserIdFromTask,
+  applyAgentConnectorReach,
   candidateRunSpaceId,
   resetRunSpaceCachesForTests,
   resolvedRunSpace,
@@ -336,5 +337,68 @@ describe("actingUserIdFromTask", () => {
       })
     ).toBe(USER);
     expect(actingUserIdFromTask({})).toBeUndefined();
+  });
+});
+
+describe("applyAgentConnectorReach", () => {
+  const all = new Set(["gmail", "gdrive", "slack"]);
+
+  it("unions grants onto a resolved space (river rule)", () => {
+    const space = toolsSpaceFromResolution({
+      kind: "resolved",
+      space: {
+        agentIds: new Set(),
+        allConnectorPrefixes: all,
+        browser: null,
+        connectorPrefixes: new Set(["gdrive"]),
+        moduleIds: new Set(),
+        mountedConnectionIds: new Set(),
+        readOnlyModuleIds: new Set(),
+        spaceId: SPACE_A,
+        surface: surfaceFixture(),
+        topLevelAgentIds: new Set(),
+      },
+    });
+    const next = applyAgentConnectorReach({
+      allConnectorPrefixes: all,
+      allSpacesPrefixes: new Set(),
+      grantPrefixes: new Set(["gmail"]),
+      preferredPrefixes: new Set(),
+      space,
+    });
+    expect(
+      next && !("kind" in next) ? [...next.connectorPrefixes].sort() : []
+    ).toEqual(["gdrive", "gmail"]);
+  });
+
+  it("turns a missing space into a global gate of grants plus all-spaces", () => {
+    const next = applyAgentConnectorReach({
+      allConnectorPrefixes: all,
+      allSpacesPrefixes: new Set(["slack"]),
+      grantPrefixes: new Set(["gmail"]),
+      preferredPrefixes: new Set(),
+      space: null,
+    });
+    expect(next && "kind" in next && next.kind === "global").toBe(true);
+    expect(
+      next && "connectorPrefixes" in next
+        ? [...next.connectorPrefixes].sort()
+        : []
+    ).toEqual(["gmail", "slack"]);
+  });
+
+  it("intersects a preferred plugin list then re-adds grants", () => {
+    const next = applyAgentConnectorReach({
+      allConnectorPrefixes: all,
+      allSpacesPrefixes: new Set(["slack"]),
+      grantPrefixes: new Set(["gmail"]),
+      preferredPrefixes: new Set(["gdrive"]),
+      space: null,
+    });
+    expect(
+      next && "connectorPrefixes" in next
+        ? [...next.connectorPrefixes].sort()
+        : []
+    ).toEqual(["gmail"]);
   });
 });

@@ -8,7 +8,7 @@ import type { FieldSuggestion } from "../interrupts/hitl-approval-card.js";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content.js";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 
-/** Session API supplied by host (`useAgentHost` + `useCopilotThreadActions`); drawer does not own thread persistence. */
+/** Session API supplied by the host (`useAgentHost` on the river); the drawer owns no thread. */
 export interface CopilotDrawerInjectedSession {
   activeThreadId: string | null;
   appendWithHeaders: (text: string) => Promise<void>;
@@ -16,13 +16,11 @@ export interface CopilotDrawerInjectedSession {
   artifactError: string | null;
   awaitingInterrupt?: boolean;
   cancelRun: () => void;
-  clearDrawerComposerState: () => void;
   contextPayload: CopilotRouteContext;
   /** The interrupt card's ✕: hide it now and clear it on the server, without answering. */
   dismissInterrupt?: (open: AgUiOpenInterruptMetadata) => void;
   draft: string;
   error: Error | null;
-  handleNewChat: () => void;
   isApplying: boolean;
   latestSuggestions: FieldSuggestion[];
   lifecycle: string;
@@ -55,7 +53,6 @@ export interface CopilotDrawerInjectedSession {
   resumeRun: () => void;
   selectedCandidateValues: Record<string, string | null>;
   selectedSuggestions: Record<string, boolean>;
-  setActiveThreadId: (threadId: string | null) => void;
   setApplyError: (message: string | null) => void;
   setDraft: Dispatch<SetStateAction<string>>;
   setIsApplying: (value: boolean) => void;

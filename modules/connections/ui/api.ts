@@ -41,6 +41,7 @@ export interface CatalogAction {
 }
 
 export interface CatalogConnection {
+  all_spaces?: boolean;
   autonomous_mode: ConnectionAutonomousMode;
   connector_id: string;
   created_at: string;
@@ -68,6 +69,11 @@ export interface CatalogConnector {
   connections: CatalogConnection[];
   /** Credential form fields (labels only) when `auth_kind === "api_key"`. */
   credential_fields: ConnectorCredentialField[] | null;
+  /**
+   * Imported OAuth connectors that self-register a client (DCR) on first
+   * Authenticate. `configured` stays false until that client exists.
+   */
+  dcr_available?: boolean;
   description: string;
   icon: string | null;
   id: string;
@@ -96,11 +102,10 @@ export interface ConnectionApprovalRequest {
 }
 
 export interface UpdateConnectionSettingsInput {
+  all_spaces?: boolean;
   autonomous_mode?: ConnectionAutonomousMode;
   connection_id: string;
   display_name?: string | null;
-  non_owner_max_group?: ConnectorActionGroup | null;
-  sharing?: ConnectionSharing;
 }
 
 export interface SetConnectionPolicyInput {
@@ -128,6 +133,23 @@ async function invokeTool<T>(
     body: { input },
     signal,
   });
+}
+
+/**
+ * Re-read an imported connector and switch unconfigured OAuth to an API token
+ * when the source spec offers one. `switched: false` means OAuth client
+ * setup is still required.
+ */
+export async function preferImportedToken(
+  connectorId: string
+): Promise<{
+  fields: ConnectorCredentialField[];
+  switched: boolean;
+}> {
+  return requestApiJson(
+    `/api/external-connectors/${encodeURIComponent(connectorId)}/prefer-token`,
+    { method: "POST", body: {} }
+  );
 }
 
 /** Connect an api_key connector by submitting its credential form. */
@@ -199,7 +221,7 @@ export async function decideApprovalRequest(
 export async function getConnectUrl(params: {
   connectorId: string;
   redirectTo: string;
-  sharing: ConnectionSharing;
+  sharing?: ConnectionSharing;
   /**
    * Mount the resulting account into this space on success (CN.4 Flow A), so
    * "Add account" from inside a space ends with the account usable THERE and
@@ -209,7 +231,7 @@ export async function getConnectUrl(params: {
   spaceId?: string | null;
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
-    sharing: params.sharing,
+    sharing: params.sharing ?? "personal",
     redirect_to: params.redirectTo,
   });
   if (params.spaceId) {

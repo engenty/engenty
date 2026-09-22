@@ -20,6 +20,7 @@ const DEFAULT_AGENT_CHAT_TRIGGERS: AiAgentChatTriggers = {
 interface RegistryAgentConfig {
   agentScope?: AiRegisteredAgent["agentScope"];
   avatarUrl?: string | null;
+  connectorIds?: string[];
   description?: string;
   effort?: AiRegisteredAgent["effort"];
   engenty?: AiRegisteredAgent["engenty"];
@@ -76,6 +77,7 @@ export function mapRegistryAgentToRegisteredAgent(
     module_id: moduleId,
     name: agent.name,
     skills: agent.skillIds ?? [],
+    connectorIds: agent.connectorIds ?? [],
     // Whose threads these are — the space's Chats view groups by it, and a
     // dropped field silently reads as `shared`, i.e. it tells a member their
     // own private copilot chats are on display to the whole space.

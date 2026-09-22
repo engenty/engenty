@@ -7,6 +7,7 @@ import {
   MAX_SPEC_BYTES,
   normalizeOpenApiSpec,
 } from "./importer/normalize-openapi.js";
+import { isUnauthorizedMcpError } from "./invoke/mcp-client.js";
 import { createGuardedFetch, fetchTextBounded } from "./net/guarded-fetch.js";
 import {
   type JsonPatchOperation,
@@ -41,6 +42,7 @@ const TOOL_PREFIX_RE = /^[a-z][a-z0-9_]{1,30}$/u;
 
 export function validateConnectorNaming(params: {
   id: string;
+  tenantId?: string | null;
   toolPrefix: string;
 }): void {
   if (!/^[a-z][a-z0-9-]{1,59}$/u.test(params.id)) {
@@ -53,7 +55,7 @@ export function validateConnectorNaming(params: {
       `tool prefix "${params.toolPrefix}" must be snake_case, start with a letter, and stay short`
     );
   }
-  const existing = getConnectorDefinition(params.id);
+  const existing = getConnectorDefinition(params.id, params.tenantId);
   if (existing && existing.moduleId !== "connections-external") {
     throw new ImportValidationError(
       `connector id "${params.id}" collides with built-in connector "${existing.name}"`
@@ -148,13 +150,59 @@ export async function fetchSpecText(
 }
 
 export interface PreparedImport {
+  /**
+   * MCP `tools/list` was skipped or returned 401. Actions stay empty until an
+   * account exists and refresh lists tools with that token.
+   */
+  deferred_mcp_tools?: boolean;
   normalized: NormalizeResult;
   spec_hash: string;
 }
 
+/** Registry surface whose MCP/API calls need a credential. */
+export function surfaceRequiresAuth(
+  surface: RegistrySurface | null | undefined
+): boolean {
+  return surface?.auth.status === "required";
+}
+
+function emptyMcpNormalize(): NormalizeResult {
+  return {
+    actions: [],
+    applied_overrides: 0,
+    base_url: null,
+    description: null,
+    dropped_count: 0,
+    security_schemes: null,
+    skipped: [],
+    title: null,
+  };
+}
+
+export function deferredMcpPrepared(sourceUrl: string): PreparedImport {
+  return {
+    deferred_mcp_tools: true,
+    normalized: emptyMcpNormalize(),
+    spec_hash: createHash("sha256")
+      .update(`deferred-mcp:${sourceUrl}`)
+      .digest("hex"),
+  };
+}
+
 /** Fetch + normalize one source. openapi → spec text; mcp → live tools/list. */
 export async function prepareSource(params: {
+  /**
+   * Skip live `tools/list` (auth-required MCP). Public OpenAPI still fetches.
+   */
+  deferMcpTools?: boolean;
+  /**
+   * Treat an anonymous MCP 401 as a deferred tool list. Refresh-with-token
+   * sets this false so a bad token still fails.
+   */
+  deferOnUnauthorized?: boolean;
   fetchImpl?: typeof fetch;
+  /** Already-rendered MCP credential headers; win over required headers. */
+  mcpHeaders?: Record<string, string>;
   /** Static headers the endpoint requires (registry `requiredHeaders`). */
   requiredHeaders?: StoredRequiredHeader[];
   sourceKind: ExternalSourceKind;
@@ -179,18 +227,31 @@ export async function prepareSource(params: {
         .digest("hex"),
     };
   }
-  const normalized = await normalizeMcpServer({
-    endpoint: params.sourceUrl,
-    fetchImpl,
-    headers: headersFromRequired(params.requiredHeaders ?? []),
-    transport: params.transport ?? null,
-  });
-  return {
-    normalized,
-    spec_hash: createHash("sha256")
-      .update(JSON.stringify(normalized.actions))
-      .digest("hex"),
-  };
+  if (params.deferMcpTools) {
+    return deferredMcpPrepared(params.sourceUrl);
+  }
+  try {
+    const normalized = await normalizeMcpServer({
+      endpoint: params.sourceUrl,
+      fetchImpl,
+      headers: {
+        ...headersFromRequired(params.requiredHeaders ?? []),
+        ...params.mcpHeaders,
+      },
+      transport: params.transport ?? null,
+    });
+    return {
+      normalized,
+      spec_hash: createHash("sha256")
+        .update(JSON.stringify(normalized.actions))
+        .digest("hex"),
+    };
+  } catch (error) {
+    if ((params.deferOnUnauthorized ?? true) && isUnauthorizedMcpError(error)) {
+      return deferredMcpPrepared(params.sourceUrl);
+    }
+    throw error;
+  }
 }
 
 /** Stored required headers as a request header map. */
@@ -224,6 +285,7 @@ export interface AssembleParams {
   sourceUrl: string;
   /** Registry surface the source was resolved from; null for a manual URL. */
   surface?: RegistrySurface | null;
+  tenantId: string;
   toolPrefix: string;
 }
 
@@ -231,7 +293,11 @@ export function assembleRecord(params: AssembleParams): {
   record: ImportedConnectorRecord;
   warnings: string[];
 } {
-  validateConnectorNaming({ id: params.id, toolPrefix: params.toolPrefix });
+  validateConnectorNaming({
+    id: params.id,
+    tenantId: params.tenantId,
+    toolPrefix: params.toolPrefix,
+  });
   const { normalized } = params.prepared;
   const warnings: string[] = [];
   const surface = params.surface ?? null;
@@ -256,9 +322,15 @@ export function assembleRecord(params: AssembleParams): {
   const auth: StoredAuthConfig = mapped.auth;
 
   if (auth.kind === "oauth2" && !params.oauthClient) {
-    warnings.push(
-      "oauth2 connector imported without client credentials — connects will fail until they are set"
-    );
+    if (auth.dcr && auth.registration_endpoint) {
+      warnings.push(
+        "oauth2 client will be registered on first authenticate (dynamic client registration)"
+      );
+    } else {
+      warnings.push(
+        "oauth2 connector imported without client credentials — connects will fail until they are set"
+      );
+    }
   }
 
   const filter = params.actionFilter?.length
@@ -267,10 +339,15 @@ export function assembleRecord(params: AssembleParams): {
   const actions = filter
     ? normalized.actions.filter((action) => filter.has(action.id))
     : normalized.actions;
-  if (actions.length === 0) {
+  const deferredMcp =
+    params.prepared.deferred_mcp_tools === true && params.sourceKind === "mcp";
+  if (actions.length === 0 && !deferredMcp) {
     throw new ImportValidationError(
       "no importable actions (empty spec, all filtered out, or all skipped)"
     );
+  }
+  if (deferredMcp) {
+    warnings.push("tools load once an account is connected");
   }
   if (normalized.dropped_count > 0) {
     warnings.push(
@@ -325,6 +402,7 @@ export function assembleRecord(params: AssembleParams): {
     source_url: params.sourceUrl,
     spec_hash: params.prepared.spec_hash,
     status: "enabled",
+    tenant_id: params.tenantId,
     tool_prefix: params.toolPrefix,
   };
   return { record, warnings };

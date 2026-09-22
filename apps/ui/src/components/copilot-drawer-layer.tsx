@@ -1,7 +1,6 @@
-// Maps the active copilot host onto `<CopilotDrawer />`, composing only
-// what UI-core needs (draft recovery, panel labels).
-// Thread id, transcript, and submit/cancel come from `useAgentHost` +
-// `useCopilotThreadBinding` — no local session bridge.
+// Maps the copilot host onto `<CopilotDrawer />`, composing only what
+// UI-core needs (draft recovery, panel labels). The thread is the river
+// (`useCopilotRiver`); transcript and submit/cancel come from `useAgentHost`.
 
 import {
   approveCopilotOpenInterrupt,
@@ -16,16 +15,13 @@ import {
   type FieldSuggestion,
   registerCopilotComposerDraftSetter,
   type SubmitMessage,
-  TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
   useAgentHost,
   useCopilotAssistantTurnFinish,
   useCopilotComposerDraftRecovery,
   useCopilotInitialMessages,
+  useCopilotRiver,
   useCopilotSuggestionsState,
-  useCopilotThreadActions,
-  useCopilotThreadBinding,
   useEngentyAIContext,
-  useEngentyThreads,
 } from "@engenty/ai-ui";
 import { getCurrentAccessToken } from "@engenty/api-client";
 import type { CopilotDockMode } from "@engenty/app-shell";
@@ -102,16 +98,13 @@ function useDrawerInjectedSession(input: {
   tenantId: string;
   userId: string;
 }): CopilotDrawerInjectedSession {
-  const binding = useCopilotThreadBinding();
+  const river = useCopilotRiver();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
-  const { selectSession, startNewChat } = useCopilotThreadActions();
   const { openInterruptFromSession } = useCopilotInitialMessages(
-    binding.activeThreadId
+    river.threadId
   );
 
-  const recoverySessionKey =
-    binding.activeThreadId ??
-    `${TEMPORARY_ENGENTY_THREAD_ID_PREFIX}${binding.newChatGeneration}`;
+  const recoverySessionKey = river.threadId ?? "river";
   const draftRecovery = useCopilotComposerDraftRecovery({
     messages: host.messages,
     threadId: recoverySessionKey,
@@ -182,29 +175,13 @@ function useDrawerInjectedSession(input: {
     setSelectedSuggestions,
   ]);
 
-  const handleNewChat = useCallback(() => {
-    startNewChat();
-    clearLocalSessionState();
-  }, [startNewChat, clearLocalSessionState]);
-
-  const setActiveThreadId = useCallback(
-    (threadId: string | null) => {
-      if (threadId) {
-        selectSession(threadId);
-        return;
-      }
-      startNewChat();
-    },
-    [selectSession, startNewChat]
-  );
-
   const autoStartedSessionRef = useRef<string | null>(null);
   const autoUserMessage = input.autoUserMessage?.trim() ?? "";
   useEffect(() => {
     if (!input.open || input.startMode !== "auto") {
       return;
     }
-    if (autoStartedSessionRef.current === binding.activeThreadId) {
+    if (autoStartedSessionRef.current === river.threadId) {
       return;
     }
     if (
@@ -214,11 +191,11 @@ function useDrawerInjectedSession(input: {
     ) {
       return;
     }
-    autoStartedSessionRef.current = binding.activeThreadId;
+    autoStartedSessionRef.current = river.threadId;
     submitMessage(autoUserMessage);
   }, [
     autoUserMessage,
-    binding.activeThreadId,
+    river.threadId,
     host.messages.length,
     host.status,
     input.open,
@@ -227,8 +204,7 @@ function useDrawerInjectedSession(input: {
   ]);
 
   return {
-    activeThreadId: binding.activeThreadId,
-    setActiveThreadId,
+    activeThreadId: river.threadId,
     appendWithHeaders,
     applyError,
     artifactError: null,
@@ -240,11 +216,9 @@ function useDrawerInjectedSession(input: {
     respond: host.respond,
     dismissInterrupt: host.dismissInterrupt,
     cancelRun: host.cancel,
-    clearDrawerComposerState: clearLocalSessionState,
     contextPayload: input.routeContext,
     draft: draftRecovery.draft,
     error: host.error,
-    handleNewChat,
     isApplying,
     latestSuggestions,
     lifecycle:
@@ -273,7 +247,7 @@ function useDrawerInjectedSession(input: {
 export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
   const { t } = useTranslation("common");
   const { topbarChrome } = usePageHeader();
-  const binding = useCopilotThreadBinding();
+  const river = useCopilotRiver();
   const host = useAgentHost(ENGENTY_COPILOT_HOST_KEY);
   const shellCtx = useCopilotShellOrNull();
   const spacePath = parseSpacePath(props.location.pathname);
@@ -286,18 +260,14 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     [spacePath?.spaceKey, spacesQuery.data]
   );
   const { agents: rosterAgents } = useSpaceRosterAgents(space?.id ?? null);
-  const { selectSession, startNewChat } = useCopilotThreadActions();
   const { openInterruptFromSession } = useCopilotInitialMessages(
-    binding.activeThreadId
+    river.threadId
   );
   const ai = useEngentyAIContext();
-  const threads = useEngentyThreads(ENGENTY_COPILOT_HOST_KEY, {
-    activeThreadIdOverride: binding.activeThreadId,
-  });
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
 
   const tenantId = props.currentTenant?.id ?? "";
-  const userId = binding.userId;
+  const userId = river.userId;
 
   const injectedSession = useDrawerInjectedSession({
     autoUserMessage: props.copilotAutoUserMessage,
@@ -309,40 +279,8 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     userId,
   });
 
-  // Surface which session this tab's drawer is bound to (falls back to the
-  // static copilot title for new/unbound chats).
-  const boundThreadTitle = useMemo(() => {
-    if (!binding.activeThreadId) {
-      return null;
-    }
-    const row = threads.threads.find(
-      (thread) => thread.id === binding.activeThreadId
-    );
-    return row?.title?.trim() || row?.summary?.trim() || null;
-  }, [binding.activeThreadId, threads.threads]);
-
-  const chooserMenuSessions = useMemo(
-    () =>
-      threads.threads.map((row) => ({
-        id: row.id,
-        current_agent_id: row.agent_id,
-        last_message_at: row.updated_at,
-        status: row.status,
-        summary: row.summary,
-        title: row.title,
-        updated_at: row.updated_at,
-      })),
-    [threads.threads]
-  );
-
   const agentChooserLabels = useMemo(
-    () => ({
-      emptySessions: t("copilot.agentChooser.emptySessions"),
-      generalCopilot: t("copilot.agentChooser.generalCopilot"),
-      newSession: t("copilot.agentChooser.newSession"),
-      selectAgent: t("copilot.agentChooser.selectAgent"),
-      sessionsHeading: t("copilot.agentChooser.sessionsHeading"),
-    }),
+    () => ({ selectAgent: t("copilot.agentChooser.selectAgent") }),
     [t]
   );
 
@@ -380,7 +318,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
   const handleSandboxCommandApprove = useCallback(
     async (open: import("@engenty/ag-ui-bridge").AgUiOpenInterruptMetadata) => {
       await approveCopilotOpenInterrupt({
-        activeThreadId: binding.activeThreadId,
+        activeThreadId: river.threadId,
         executeFrontendTool,
         onSuccess: props.onCopilotApplySuccess,
         open,
@@ -388,7 +326,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
       });
     },
     [
-      binding.activeThreadId,
+      river.threadId,
       executeFrontendTool,
       host.resumeInterrupt,
       props.onCopilotApplySuccess,
@@ -422,15 +360,10 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     >
       <CopilotDrawer
         agentChooserLabels={agentChooserLabels}
-        agentSessionChooserEnabled
         agentUi={props.agentUi}
         applySelectedLabel={t("copilot.applySelected")}
         artifactLoadFailedLabel={t("copilot.artifactLoadFailed")}
         cancelLabel={t("copilot.cancel")}
-        chatRouteCopilotContext={props.copilotContext}
-        chooserMenuSessions={chooserMenuSessions}
-        chooserMenuSessionsLoading={threads.isLoading}
-        clearLabel={t("copilot.newChat")}
         compactLabel={t("copilot.compact")}
         composerLeadingControl={<CopilotEffortControl />}
         composerPlaceholder={t("copilot.typeMessage")}
@@ -442,7 +375,6 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         copyThreadLabel={t("copilot.copyThread")}
         dockMode={props.dockMode}
         dragHandleLabel={t("copilot.dragHandle")}
-        floatingChatRouteBinding
         getHeaders={defaultGetHeaders}
         headerChrome={topbarChrome === "band" ? "default" : "contentBlend"}
         injectedSession={{
@@ -471,8 +403,6 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         positionSidebarLabel={t("copilot.position.sidebar")}
         positionWindowLabel={t("copilot.position.window")}
         preferredDockMode={props.shell?.preferredDockMode ?? null}
-        recentSessionsChooser
-        requestedAgentId={props.requestedAgentId}
         reviewPromptLabel={t("copilot.reviewPrompt")}
         routeKey={props.copilotContext.routeKey}
         runtimeTenantId={tenantId || null}
@@ -484,9 +414,7 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         startMode={props.startMode}
         suggestedUpdatesLabel={t("copilot.suggestedUpdates")}
         thinkingLabel={t("copilot.thinking")}
-        title={
-          boundThreadTitle ?? props.contribution?.title ?? t("copilot.title")
-        }
+        title={props.contribution?.title ?? t("copilot.title")}
         triggerType={props.triggerType}
         whoOptions={whoOptions}
         workPanelContent={workPanelContent}

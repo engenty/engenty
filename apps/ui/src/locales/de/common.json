@@ -599,7 +599,7 @@
     "columnSource": "Quelle"
   },
   "copilot": {
-    "title": "Globaler Copilot",
+    "title": "Copilot",
     "attachments": {
       "add": "Fotos oder Dateien hinzufügen",
       "uploading": "Anhänge werden hochgeladen…",
@@ -620,11 +620,7 @@
       "remove": "Referenz entfernen"
     },
     "agentChooser": {
-      "emptySessions": "Keine Sitzungen",
-      "generalCopilot": "Engenty",
-      "newSession": "Neue Sitzung",
-      "selectAgent": "Agent wählen",
-      "sessionsHeading": "Sitzungen"
+      "selectAgent": "Agent wählen"
     },
     "threadChooser": {
       "emptyThreads": "Noch keine Chats",
@@ -634,7 +630,6 @@
     "open": "Copilot",
     "breadcrumbUntitledChat": "Unbenannter Chat",
     "openSessionsSidebar": "Sitzungsliste öffnen",
-    "newChat": "Neuer Chat",
     "newChatPickAgent": "Agent für neuen Chat wählen",
     "newChatStartWithAgent": "Mit anderem Agent starten",
     "decisionAnswered": "Antwort",
@@ -837,6 +832,7 @@
     "developerMode": "Developer Modus",
     "developerTools": "Developer Tools",
     "agUiInspector": "AG-UI Inspector",
+    "shortcuts": "Tastenkürzel",
     "logout": "Abmelden",
     "switchBack": "Zurückwechseln",
     "actingAs": "Angemeldet als {{name}}",
@@ -1069,7 +1065,9 @@
       "addPackage": "Paket hinzufügen",
       "removePackage": "Paket entfernen",
       "connectionsTitle": "Verbindungen",
-      "connectionsHint": "Verbundene Konten, die dieser Space erreicht. Ein Space erreicht nur die hier eingebundenen Konnektoren.",
+      "connectionsHint": "Verbundene Konten, die dieser Space erreicht. Aktiviere ein Plugin, authentifiziere ein Konto, oder teile ein Konto mit jedem Space.",
+      "pluginsTitle": "Plugins",
+      "pluginsHint": "Konnektor-Definitionen in diesem Space, auch solche, die noch kein Konto haben.",
       "appearanceLabel": "Farbe und Icon",
       "appearanceHint": "Woran dieser Space in der Leiste erkannt wird, bevor jemand den Namen liest.",
       "privateLabel": "Privater Space",
@@ -1292,9 +1290,21 @@
       },
       "extensions": {
         "title": "Erweiterungen",
-        "empty": "In diesem Space ist noch kein zusätzliches Konto eingebunden.",
-        "add": "Konto hinzufügen",
-        "all": "Alle"
+        "empty": "In diesem Space ist noch nichts verbunden.",
+        "add": "Verbinden",
+        "connect": "Verbinden",
+        "all": "Alle",
+        "dialogTitle": "Erweiterungen",
+        "back": "Zurück",
+        "dialogDescription": "Verbindungen und Skills für diesen Space.",
+        "tabPlugins": "Verbindungen",
+        "tabSkills": "Skills",
+        "skillsHint": "Pakete sind Gruppen von Playbooks. Ein Paket öffnen, um einzelne Skills zu wählen.",
+        "skillsCount": "{{count}} Skills",
+        "skillsCountOne": "{{count}} Skill",
+        "skillsPartial": "{{selected}} von {{count}}",
+        "skillsSave": "Skills speichern",
+        "skillsSaving": "Speichern…"
       },
       "files": {
         "title": "Dateien",
@@ -1345,6 +1355,8 @@
       "saveFailed": "Speichern nicht möglich. Bitte erneut versuchen.",
       "chooseSkills": "Skills auswählen",
       "chooseConnections": "Verbindungen auswählen",
+      "choosePlugins": "Plugins auswählen",
+      "needsAuth": "Authentifizierung nötig",
       "generalTitle": "Allgemein",
       "generalHint": "Wie sich dieser Space für das übrige Team verhält.",
       "securityTitle": "Sicherheit",
@@ -1644,7 +1656,7 @@
     "conversations": {
       "agents": "Engenties",
       "rooms": "Räume",
-      "dms": "Direkt",
+      "dms": "Privat",
       "list": "Unterhaltungen",
       "pin": "Anheften",
       "unpin": "Lösen",
@@ -1663,6 +1675,7 @@
       "openDm": "Direktnachricht",
       "newDm": "Neue Direktnachricht",
       "dmLine": "Nur du",
+      "riverLine": "Nur du · überall",
       "newRoomWith": "Neuer Gruppenchat mit {{name}}",
       "hide": "Aus der Seitenleiste ausblenden",
       "leave": "Verlassen",

@@ -203,6 +203,13 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     listUnattendedThreadsForSpace: vi.fn(async () => []),
     addAgentMember: vi.fn(async () => {}),
     listAgentMembers: vi.fn(async () => []),
+    markAgentOnBehalfOf: vi.fn(async () => {}),
+    listCompactions: vi.fn(async () => []),
+    getCompaction: vi.fn(async () => null),
+    latestCompactionEnd: vi.fn(async () => null),
+    insertCompaction: vi.fn(async () => {
+      throw new Error("not in this test");
+    }),
     listDmsForUser: vi.fn(async () => []),
     listRoomsForSpace: vi.fn(async () => []),
     listSpaceRoomsDirectory: vi.fn(async () => []),

@@ -64,7 +64,7 @@ One package mixes **framework runtime** and **product admin**. Consumers pick th
 | `threads/` | Runtime | `useEngentyThreads` — CopilotKit-shaped thread list; active id map `engenty:threads:active` |
 | `components/copilot/` | Runtime | Drawer, panel, composer, transcript, tool-call registry, interrupts |
 | `components/ai-elements/` | Runtime | `Message`, `PromptInput`, `Shimmer` |
-| `copilot/` | Product | `ActiveCopilotProvider`, controller, thread binding — main copilot shell only |
+| `copilot/` | Product | `CopilotRiverProvider`, river paths — main copilot shell only |
 | `features/` | Admin | Agents workspace, AI settings editors |
 | `routes/` | Admin | React Router pages under `/admin/ai/…` |
 | `lib/runtime/` | Runtime + admin | Shared `apps/ai` HTTP (`ai-service-client`, registry, runs, sessions) |
@@ -108,17 +108,16 @@ Main copilot shell wiring — not for generic module embeds:
 
 | API | Purpose |
 |-----|---------|
-| `ActiveCopilotProvider` | Single controller for drawer/floating/bottom/full-page view modes |
-| `useCopilotThreadBinding` | `engenty:copilot` lane binding and URL sync |
-| `useCopilotThreadActions` | New chat, select thread, clear-all coordination |
-| `useCopilotSelectedThread` | Full-page chat hydration gate |
+| `CopilotRiverProvider` | Opens the user's one copilot thread (the river) and mounts the `engenty:copilot` host on it |
+| `useCopilotRiver` | The river's id, pathname and navigate, for every copilot surface |
+| `CopilotDesk` | The copilot's page: the river drawn with the specialist desk's frame (`DeskFrame`) |
 | `active-copilot-controller.ts` | Pure session rules, last-active persistence, new-chat generation |
 
 `apps/ui/src/copilot/app-active-copilot-provider.tsx` mounts the provider above `AppLayout`. Full-page chat lives in `modules/engenty-copilot`.
 
 ### Drawer injected session
 
-`CopilotDrawer` does not own thread persistence. The host supplies a `CopilotDrawerInjectedSession` built from `useAgentHost` + `useCopilotThreadBinding` + `useCopilotThreadActions`:
+`CopilotDrawer` does not own a thread. The host supplies a `CopilotDrawerInjectedSession` built from `useAgentHost` + `useCopilotRiver`:
 
 | Field | Role |
 |-------|------|

@@ -1,13 +1,12 @@
 /**
  * The conversation list of the Work tab (PLAN-agent-rooms.md §10): Favoriten
  * on top, then this person's sections, then the built-ins — Engenties (the
- * desks, which are the roster), Räume (the rooms they are in),
- * Direkt (their DMs). Every row is a conversation; an agent is
- * here through its desk.
+ * desks, which are the roster), Räume (the rooms they are in), Privat (their
+ * DMs, headed by the river: their copilot). Every row is a conversation; an
+ * agent is here through its desk.
  *
  * Owns what the rows share: the actions context, the drag context, the
- * name dialog and the new-room dialog. `children` (the Copilot row) lead,
- * Favoriten follow, then the sections — one drag context over all of it.
+ * name dialog and the new-room dialog — one drag context over all of it.
  */
 import {
   AgentDeskNewRoomDialog,
@@ -18,7 +17,7 @@ import {
 import { useTranslation } from "@engenty/i18n/ui";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import type { ConversationNavItem } from "@engenty/user-settings";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { arrayMoveIds } from "@/lib/space-agent-nav-order";
 import { useSpaceAudience } from "@/lib/space-audience";
@@ -46,7 +45,6 @@ import {
 export function SpaceConversationSections({
   canAdd,
   canManage,
-  children,
   spaceId,
   spaceKey,
 }: {
@@ -54,11 +52,6 @@ export function SpaceConversationSections({
   canAdd: boolean;
   /** Hired-agent removal and room management beyond one's own rooms. */
   canManage: boolean;
-  /**
-   * Rendered above Favoriten — the Copilot row sits there. A render prop,
-   * because both halves must live inside one drag context.
-   */
-  children?: ReactNode;
   spaceId: string | null;
   spaceKey: string;
 }) {
@@ -201,13 +194,12 @@ export function SpaceConversationSections({
   }, [canManage, currentUserId, navigate, openDm, sidebar, spaceId, spaceKey]);
 
   if (!(spaceId && actions)) {
-    return <>{children}</>;
+    return null;
   }
 
   return (
     <SpaceConversationSidebarProvider value={actions}>
       <SpaceConversationDnd containers={containers} onDrop={onDrop}>
-        {children}
         <SpaceFavorites
           audience={audience}
           items={model.favorites}

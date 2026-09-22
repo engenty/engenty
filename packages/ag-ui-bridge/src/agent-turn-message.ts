@@ -16,6 +16,8 @@ export interface AgentTurnMessageLike {
     kind?: "message" | "reply";
     threadId: string;
   } | null;
+  /** Whose copilot wrote this, when the author is someone's alter ego. */
+  alterEgoUserName?: string | null;
   /**
    * A row saying a built App version is waiting for a person to activate it —
    * names the preview artifact the row renders, review banner and all.

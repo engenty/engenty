@@ -10,7 +10,7 @@
  * personal vs tenant-default is `DefaultPlaceRedirect` (`/` and unmatched
  * URLs) — not `/s/me`.
  */
-import { COPILOT_CHAT_ROOT } from "@engenty/engenty-copilot/paths";
+import { COPILOT_RIVER_PATH } from "@engenty/ai-ui";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { isPersonalSpace } from "@/lib/api/spaces-client";
 import { spaceRootPath } from "@/lib/space-routes";
@@ -35,7 +35,7 @@ export function PersonalSpaceRedirect() {
     // No space at all is a broken install (every tenant has a Company space by
     // trigger), not a state to design a screen for. Do not bounce to `/` —
     // that route now lands in a space too and would loop.
-    return <Navigate replace to={COPILOT_CHAT_ROOT} />;
+    return <Navigate replace to={COPILOT_RIVER_PATH} />;
   }
 
   // Carry the rest of the path through, so `/s/me/tasks/briefing` lands on the

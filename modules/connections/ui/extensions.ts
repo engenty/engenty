@@ -12,6 +12,11 @@ export interface ConnectorConnectButtonProps {
   connectorId: string;
   /** Whether the caller already has at least one connection of this connector. */
   hasConnections: boolean;
+  /**
+   * Marketplace (and other inline connect surfaces): called after a successful
+   * connect so the caller can enable/mount on a space or grant on an agent.
+   */
+  onConnected?: (connectionId?: string) => void | Promise<void>;
   /** Where to return to after connecting (for redirect-style flows). */
   redirectTo: string;
   /**
@@ -69,4 +74,30 @@ export function getConnectionExtras(
   connectorId: string
 ): ComponentType<ConnectorExtrasProps> | undefined {
   return registry().extras.get(connectorId);
+}
+
+/** Agent Capabilities / desk Connections card — one marketplace, two entry points. */
+export interface AgentPluginPanelProps {
+  agentId: string;
+}
+
+const AGENT_PLUGIN_PANEL_KEY = Symbol.for(
+  "engenty.connections.plugin-marketplace-panel"
+);
+
+export function registerAgentPluginPanel(
+  component: ComponentType<AgentPluginPanelProps>
+): void {
+  const g = globalThis as Record<symbol, unknown>;
+  g[AGENT_PLUGIN_PANEL_KEY] = component;
+  globalThis.dispatchEvent(new Event("engenty-agent-plugin-panel"));
+}
+
+export function getAgentPluginPanel():
+  | ComponentType<AgentPluginPanelProps>
+  | undefined {
+  const g = globalThis as Record<symbol, unknown>;
+  return g[AGENT_PLUGIN_PANEL_KEY] as
+    | ComponentType<AgentPluginPanelProps>
+    | undefined;
 }

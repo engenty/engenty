@@ -39,6 +39,7 @@ function bindOperation(options: { existingState?: unknown; stream?: boolean }) {
           connector_id: "google-gmail",
           id: CONNECTION,
           owner_user_id: OWNER,
+          all_spaces: false,
           sharing: "personal",
           status: "active",
         },

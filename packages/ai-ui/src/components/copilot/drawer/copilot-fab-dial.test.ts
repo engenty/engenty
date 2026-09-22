@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   computeDialPositions,
+  computePromptAnchor,
   DIAL_BUTTON_SIZE,
   DIAL_CLEARANCE_PX,
+  PROMPT_INPUT_HEIGHT,
+  PROMPT_INPUT_WIDTH,
 } from "./copilot-fab-dial";
 
 function fabRect(box: {
@@ -101,5 +104,66 @@ describe("computeDialPositions", () => {
       fab.left + fab.width / 2 - DIAL_BUTTON_SIZE / 2
     );
     expect(first?.labelSide).toBe("left");
+  });
+});
+
+describe("computePromptAnchor", () => {
+  const fab = {
+    bottom: 420,
+    height: 56,
+    left: 8,
+    right: 64,
+    top: 364,
+    width: 56,
+  };
+  const bar = {
+    bottom: 800,
+    height: 800,
+    left: 0,
+    right: 72,
+    top: 0,
+    width: 72,
+  };
+  const viewport = { height: 800, width: 1200 };
+
+  it("clears the whole bar on a left dock, not just the blob", () => {
+    const anchor = computePromptAnchor({ bar, dock: "left", fab, viewport });
+    expect(anchor.left).toBeGreaterThanOrEqual(bar.right);
+  });
+
+  it("sits on the canvas side of a right dock", () => {
+    const rightBar = { ...bar, left: 1128, right: 1200 };
+    const rightFab = { ...fab, left: 1136, right: 1192 };
+    const anchor = computePromptAnchor({
+      bar: rightBar,
+      dock: "right",
+      fab: rightFab,
+      viewport,
+    });
+    expect(anchor.left + PROMPT_INPUT_WIDTH).toBeLessThanOrEqual(rightBar.left);
+  });
+
+  it("never leaves the viewport", () => {
+    const anchor = computePromptAnchor({
+      bar: null,
+      dock: null,
+      fab: {
+        bottom: 799,
+        height: 56,
+        left: 1180,
+        right: 1236,
+        top: 743,
+        width: 56,
+      },
+      viewport,
+    });
+    expect(anchor.left).toBeGreaterThanOrEqual(0);
+    expect(anchor.left + PROMPT_INPUT_WIDTH).toBeLessThanOrEqual(
+      viewport.width
+    );
+    expect(anchor.top).toBeGreaterThanOrEqual(0);
+    expect(anchor.top + PROMPT_INPUT_HEIGHT).toBeLessThanOrEqual(
+      viewport.height
+    );
   });
 });

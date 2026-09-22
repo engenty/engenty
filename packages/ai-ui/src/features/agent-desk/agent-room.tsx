@@ -26,6 +26,7 @@ import {
   ArtifactPaneToggle,
   WorkspaceArtifactPane,
 } from "../../artifacts/workspace-artifact-pane.js";
+import { alterEgoLabel } from "../../components/alter-ego-label.js";
 import {
   type ChatSpaceAudience,
   ChatVisibilityBand,
@@ -198,7 +199,11 @@ export function AgentRoom(props: {
   const title =
     room?.title?.trim() ||
     members
-      .map((member) => byId.get(member.agent_id)?.name ?? member.agent_id)
+      .map((member) =>
+        member.on_behalf_of_user_name
+          ? alterEgoLabel(member.on_behalf_of_user_name, t)
+          : (byId.get(member.agent_id)?.name ?? member.agent_id)
+      )
       .join(", ");
   // Its members only, or as wide as the Space (open — or, in a private
   // Space, as far as that Space's people reach).

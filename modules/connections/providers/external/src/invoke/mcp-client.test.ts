@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { McpRequestError, mcpCallTool, mcpListTools } from "./mcp-client.js";
+import {
+  isUnauthorizedMcpError,
+  McpRequestError,
+  mcpCallTool,
+  mcpListTools,
+} from "./mcp-client.js";
 
 /**
  * Fake streamable-HTTP MCP server. Speaks just enough of the transport for the
@@ -190,5 +195,19 @@ describe("mcp adapter", () => {
         (request) => (request.init.method ?? "GET").toUpperCase() === "GET"
       )
     ).toBe(true);
+  });
+});
+
+describe("isUnauthorizedMcpError", () => {
+  it("detects 401 status and unauthorized messages", () => {
+    expect(isUnauthorizedMcpError(new McpRequestError("nope", 401))).toBe(true);
+    expect(
+      isUnauthorizedMcpError(
+        new Error("cannot connect to MCP server x: HTTP 401")
+      )
+    ).toBe(true);
+    expect(isUnauthorizedMcpError(new McpRequestError("nope", 500))).toBe(
+      false
+    );
   });
 });

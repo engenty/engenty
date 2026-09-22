@@ -85,7 +85,7 @@ export function CopilotPanelContent({
   selectedCountLabel,
   suggestedUpdatesLabel,
   artifactLoadFailedLabel,
-  clearLabel = "New chat",
+  clearLabel,
   triggerType,
   panelMode,
   onNewChat,
@@ -133,7 +133,6 @@ export function CopilotPanelContent({
   browserPanelLabel,
   browserPanelOpen = false,
   onToggleBrowserPanel,
-  agentSessionChooser,
   mentionAgentCandidates,
   mentionRefSearch,
   onComposerMentionAgent,
@@ -150,7 +149,6 @@ export function CopilotPanelContent({
   voiceInputEnabled = true,
   voiceInputLang,
 }: CopilotPanelContentProps) {
-  const showAgentChooser = Boolean(agentSessionChooser);
   const showHeaderContext = Boolean(
     contextOptions &&
       contextOptions.length > 0 &&
@@ -224,7 +222,6 @@ export function CopilotPanelContent({
 
   const header = (
     <CopilotPanelInlineHeader
-      agentSessionChooser={agentSessionChooser}
       attachLabel={attachLabel}
       browserPanelLabel={browserPanelLabel}
       browserPanelOpen={browserPanelOpen}
@@ -246,7 +243,6 @@ export function CopilotPanelContent({
       recentContextMenuLabel={recentContextMenuLabel}
       recentContextOptions={recentContextOptions}
       selectedContextId={selectedContextId}
-      showAgentChooser={showAgentChooser}
       showHeaderContext={showHeaderContext}
       title={title}
     />
@@ -293,18 +289,15 @@ export function CopilotPanelContent({
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
       }
     >
-      {!minimalChrome &&
-        routeStatusLabel &&
-        !showHeaderContext &&
-        !showAgentChooser && (
-          <p
-            aria-live="polite"
-            className="shrink-0 rounded-md bg-muted/50 px-2 py-1 text-muted-foreground text-xs"
-            role="status"
-          >
-            {routeStatusLabel}
-          </p>
-        )}
+      {!minimalChrome && routeStatusLabel && !showHeaderContext && (
+        <p
+          aria-live="polite"
+          className="shrink-0 rounded-md bg-muted/50 px-2 py-1 text-muted-foreground text-xs"
+          role="status"
+        >
+          {routeStatusLabel}
+        </p>
+      )}
       {browserPanelOpen && browserPanel ? (
         <div className="shrink-0">{browserPanel}</div>
       ) : null}
@@ -340,6 +333,10 @@ export function CopilotPanelContent({
         >
           <div
             className={cn(
+              // The lane centers in this box. The desk header hangs its
+              // engenty into the side margin only when this box is wide
+              // enough (`@min-[54rem]/chat-lane` in AgentDeskHeader).
+              "@container/chat-lane",
               compact
                 ? "space-y-1"
                 : composerDockStyle
@@ -492,7 +489,12 @@ export function CopilotPanelContent({
         // float reserve rides ON TOP of that gutter: as a bare inline
         // `padding-right` it would win over the class and leave the composer
         // flush on the right only.
-        className={cn(contentBodyGutter === "flush" && "px-3")}
+        className={cn(
+          // Same lane box as the transcript, for the empty landing: the
+          // identity header renders here, not in the hidden scrollport.
+          "@container/chat-lane",
+          contentBodyGutter === "flush" && "px-3"
+        )}
         style={composerFloatPad}
       >
         <CopilotPanelComposerBlock

@@ -58,6 +58,7 @@ import {
 } from "../registry/index.js";
 import { frontendToolGrantForRun } from "../sessions/frontend-tool-grant.js";
 import {
+  enrichToolsSpaceForAgentRun,
   type RunSpaceResolution,
   resolvedRunSpace,
   resolveRunSpaceForThread,
@@ -230,6 +231,22 @@ interface ResumeConverter {
  * Same agent identity + goal as the original run: the re-executed gated tool
  * must hit core as the agent so a just-persisted goal grant matches.
  */
+async function toolsSpaceForResume(
+  input: ResumeConversationRunInput,
+  spaceResolution: RunSpaceResolution
+) {
+  const agentId = input.agentId;
+  const config = agentId
+    ? await input.registry?.getAgentConfig?.(agentId)
+    : undefined;
+  return enrichToolsSpaceForAgentRun({
+    agentId: agentId ?? "",
+    preferredConnectorIds: config?.connectorIds ?? [],
+    scope: input.scope,
+    space: toolsSpaceFromResolution(spaceResolution),
+  });
+}
+
 async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
   const coreAgentId = await resolveCoreAgentId(
     input.scope.tenantId,
@@ -244,11 +261,12 @@ async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
     store: input.store,
     threadId: input.threadId,
   });
+  const toolsSpace = await toolsSpaceForResume(input, spaceResolution);
   return withEnvCoreBaseUrl({
     ...getEngentyToolsRunContext(),
     ...(coreAgentId ? { agentId: coreAgentId } : {}),
     agentTypeKey: input.agentId,
-    space: toolsSpaceFromResolution(spaceResolution),
+    space: toolsSpace,
     approvalGrants: mergeApprovalGrants(
       readToolApprovalGrants(input.sessionMetadata ?? {}),
       await loadConnectionApprovalGrants({
@@ -464,6 +482,7 @@ async function resumeFromSnapshot(
     });
     const runSpace = resolvedRunSpace(spaceResolution);
     const agentConfig = await input.registry.getAgentConfig?.(input.agentId);
+    const toolsSpace = await toolsSpaceForResume(input, spaceResolution);
     const frontendToolGrant = frontendToolGrantForRun({
       agentId: input.agentId,
       config: agentConfig,
@@ -564,7 +583,7 @@ async function resumeFromSnapshot(
       ...browserTools,
     };
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
-      space: toolsSpaceFromResolution(spaceResolution),
+      space: toolsSpace,
       ...(instructionExtras ? { instructionExtras } : {}),
       ...(runtimeContextInstructions ? { runtimeContextInstructions } : {}),
       memoryProcessors: memoryRuntime.memoryProcessors,

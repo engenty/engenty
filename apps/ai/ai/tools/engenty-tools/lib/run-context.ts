@@ -3,7 +3,11 @@ import type { ToolExecutionContext } from "@mastra/core/tools";
 import { getEngentyCoreBaseUrlFromEnv } from "../../../../src/ai/core-http-client.js";
 // The gate owns the SHAPE as well as the rule: one type means a new dimension
 // of the surface cannot be added to the carrier and forgotten in the check.
-import { isUnresolvedSpaceGate, type SpaceGateContext } from "./space-gate.js";
+import {
+  isGlobalConnectorGate,
+  isUnresolvedSpaceGate,
+  type SpaceGateContext,
+} from "./space-gate.js";
 import type { ToolRiskLevel } from "./tool-approval.js";
 
 /**
@@ -161,7 +165,7 @@ export function addMountedAgentToRunSpace(
   space: SpaceGateContext | null | undefined,
   agentId: string
 ): void {
-  if (!space || isUnresolvedSpaceGate(space)) {
+  if (!space || isUnresolvedSpaceGate(space) || isGlobalConnectorGate(space)) {
     return;
   }
   if (space.agentIds instanceof Set) {

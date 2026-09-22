@@ -74,6 +74,13 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     listUnattendedThreadsForSpace: vi.fn(async () => []),
     addAgentMember: vi.fn(async () => {}),
     listAgentMembers: vi.fn(async () => []),
+    markAgentOnBehalfOf: vi.fn(async () => {}),
+    listCompactions: vi.fn(async () => []),
+    getCompaction: vi.fn(async () => null),
+    latestCompactionEnd: vi.fn(async () => null),
+    insertCompaction: vi.fn(async () => {
+      throw new Error("not in this test");
+    }),
     listDmsForUser: vi.fn(async () => []),
     listRoomsForSpace: vi.fn(async () => []),
     listSpaceRoomsDirectory: vi.fn(async () => []),
@@ -554,6 +561,48 @@ describe("EngentySessionMemoryStorage", () => {
       parts: [{ type: "text", text: "Hello" }],
       authorUserId: userId,
     });
+  });
+
+  it("stamps the user turn with where it was said, so the river can be cut into chapters", async () => {
+    const store = makeStore();
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      store,
+      turnContext: {
+        module_id: "offers",
+        pathname: "/s/engrd/offers/ENG-041",
+        route_key: "detail",
+        space_id: "00000000-0000-4000-8000-000000000003",
+      },
+    });
+
+    await storage.saveMessages({
+      messages: [
+        {
+          id: "mastra-message",
+          role: "user",
+          createdAt: new Date("2026-05-17T00:00:01.000Z"),
+          threadId,
+          resourceId: userId,
+          content: { format: 2, parts: [{ type: "text", text: "Hello" }] },
+        },
+      ],
+    });
+
+    expect(store.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "user",
+        metadata: {
+          context: {
+            module_id: "offers",
+            pathname: "/s/engrd/offers/ENG-041",
+            route_key: "detail",
+            space_id: "00000000-0000-4000-8000-000000000003",
+          },
+        },
+      })
+    );
   });
 
   it("persists the authenticated speaker when Mastra resourceId is the thread", async () => {

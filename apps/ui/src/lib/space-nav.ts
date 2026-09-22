@@ -4,7 +4,7 @@
  *
  * Work and Data belong to the space itself:
  *
- *  - **Work** is the space root: the copilot composer and the mount list.
+ *  - **Work** is the space root: the conversations and the mount list.
  *  - **Data** is the space's own tree (PLAN-space-data.md D1), not a module.
  *
  * Everything after them is a plugin calling `registerSpaceTab`. Tasks registers
@@ -17,10 +17,7 @@
  * control the user just used. A module opened from the Work list is different
  * — it is somewhere you went INTO, so the column follows you there.
  */
-import type {
-  UiCopilotAppContribution,
-  UiSpaceTabContribution,
-} from "@engenty/ui-plugin-sdk";
+import type { UiSpaceTabContribution } from "@engenty/ui-plugin-sdk";
 
 /** `/s/<key>/data` — the space's own page, reserved against module segments. */
 export const SPACE_DATA_SEGMENT = "data";
@@ -33,23 +30,6 @@ export interface SpaceNavLocation {
   moduleId?: string | undefined;
   /** The raw first segment after the space key, reserved segments included. */
   segment?: string | undefined;
-}
-
-/**
- * Modules that are an ASSISTANT you talk to rather than a place you browse.
- *
- * One definition, read by every surface that has to tell the two apart: the
- * Modules list omits them (Copilot has its own Work row; hired engenties are
- * the roster). Opening one still drills into the module level, same as Contacts
- * — its own sidebar, not mixed into the space column.
- *
- * A copilot app IS that declaration — a module contributes one exactly when it
- * offers a chat surface — and its plugin id is the module id.
- */
-export function assistantModuleIds(
-  copilotApps: readonly Pick<UiCopilotAppContribution, "pluginId">[]
-): ReadonlySet<string> {
-  return new Set(copilotApps.map((app) => app.pluginId));
 }
 
 /** The module a space tab opens — `moduleId` when set, otherwise the plugin. */
@@ -66,10 +46,10 @@ export function spaceTabModuleId(
  * `"space"` — the tabs, and (under Work) the module list.
  * `"module"` — only the open module's own nav, with a back arrow.
  *
- * Copilot is a module you go INTO, the same as Contacts: mixing its thread list
- * into the space column is the thing the back arrow exists to avoid. A
+ * A module (Contacts) is somewhere you go INTO, so the column follows. A
  * contributed tab (Plan) stays at the space level because its TAB is already
- * the navigation.
+ * the navigation. The copilot's page (`/s/<key>/copilot`) is the SPACE's — a
+ * reserved segment, no module id — so it never reaches this question.
  */
 export function spaceNavLevel(
   moduleId: string | undefined,

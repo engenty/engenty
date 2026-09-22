@@ -5,8 +5,8 @@ import {
 } from "./agent-desk-api.js";
 
 export const agentDeskKeys = {
-  feed: (spaceId: string, agentId: string, locale: string) =>
-    ["agent-desk", "feed", spaceId, agentId, locale] as const,
+  feed: (spaceId: string | null, agentId: string, locale: string) =>
+    ["agent-desk", "feed", spaceId ?? "", agentId, locale] as const,
   generatedStarters: (spaceId: string, agentId: string, locale: string) =>
     ["agent-desk", "starters", spaceId, agentId, locale] as const,
 };
@@ -15,10 +15,11 @@ export function useAgentDeskFeed(input: {
   agentId: string;
   enabled?: boolean;
   locale: string;
-  spaceId: string;
+  /** Null for the copilot's desk outside a space (service `buildSpacelessDeskFeed`). */
+  spaceId: string | null;
 }) {
   return useQuery({
-    enabled: (input.enabled ?? true) && Boolean(input.agentId && input.spaceId),
+    enabled: (input.enabled ?? true) && Boolean(input.agentId),
     queryFn: ({ signal }) =>
       getAgentDeskFeed(
         {

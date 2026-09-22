@@ -87,8 +87,20 @@ export interface ConnectorOAuth2Config {
    *  env pair or `resolveClientCredentials` must be provided. */
   clientIdEnv?: string;
   clientSecretEnv?: string;
+  /**
+   * True when the connector can mint its own OAuth client via RFC 7591
+   * dynamic client registration. Catalog `configured` stays false until a
+   * client id/secret exist; the connect route calls `registerClient` first.
+   */
+  dynamicClientRegistration?: boolean;
   /** Extra static query params for the authorization URL. */
   extraAuthParams?: Record<string, string>;
+  /**
+   * Register an OAuth client (DCR) and persist id/secret so
+   * `resolveClientCredentials` succeeds. Called once from the connect route
+   * when credentials are missing. Idempotent when a client is already stored.
+   */
+  registerClient?: () => Promise<void>;
   /**
    * Resolve the connected account label (email, workspace name, ...) shown in
    * the UI, using a fresh access token.
@@ -104,6 +116,7 @@ export interface ConnectorOAuth2Config {
    */
   resolveClientCredentials?: () => Promise<{
     clientId: string;
+    /** Empty string for public clients registered via DCR `none`. */
     clientSecret: string;
   }>;
   /** Scope string separator; Google/MS use " " (default), Slack uses ",". */
@@ -354,12 +367,19 @@ export interface ConnectorDefinition {
   storageProviderScopes?: string[];
   /** Optional inbound stream (module consumption API only). */
   stream?: ConnectorStreamCapability;
+  /**
+   * Tenant that imported this connector. Absent on curated builtins, which are
+   * always listed. Imported definitions are keyed per tenant in the registry.
+   */
+  tenantId?: string;
   /** Operation/tool id prefix, snake_case (e.g. `gmail`). */
   toolPrefix: string;
 }
 
 /** Connection row as exposed to module code and the UI — tokens never leave the DAL. */
 export interface ConnectionSummary {
+  /** Available in every space of the tenant (and on global agent runs). */
+  all_spaces: boolean;
   auth_kind: ConnectorAuthKind;
   autonomous_mode: ConnectionAutonomousMode;
   connector_id: string;
@@ -371,6 +391,10 @@ export interface ConnectionSummary {
   id: string;
   non_owner_max_group: ConnectorActionGroup | null;
   owner_user_id: string | null;
+  /**
+   * Legacy column. Access no longer reads this; use space mounts, `all_spaces`,
+   * and `connection_agent_grants`.
+   */
   sharing: ConnectionSharing;
   status: "active" | "error" | "revoked";
   tenant_id: string;

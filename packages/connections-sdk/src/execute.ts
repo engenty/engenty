@@ -11,6 +11,7 @@ import type { ClientEnvResolver } from "./oauth2.js";
 import { refreshAccessToken } from "./oauth2.js";
 import type { ConnectionPolicyPrincipal } from "./policy.js";
 import { resolveConnectionActionPolicy } from "./policy.js";
+import { isAccountReachableInRun } from "./reach.js";
 import type { ConnectionsRepo } from "./repo.js";
 import type { SpaceConnectionAccess } from "./space-mounts.js";
 import type {
@@ -45,9 +46,8 @@ export interface ExecuteConnectorActionParams {
   moduleId?: string;
   /**
    * The run's space mounts with their levels (CN.3 + B1), when the caller has
-   * a space. Narrows candidates to the mounted accounts and applies the mount
-   * level in the policy re-check — the parity this executor owed the profile
-   * policy, which has always done both. Null/absent = no space, no narrowing.
+   * a space. Candidates are the union of mounted accounts, all-spaces accounts
+   * already folded into this map, and agent grants. Null/absent = no space.
    * Direct `connectionId` addressing (module consumers) is not narrowed here;
    * those operations carry their own space policy.
    */
@@ -70,8 +70,7 @@ export interface ExecuteConnectorActionParams {
   /**
    * The VERIFIED personal-space owner this run acts for
    * (PLAN-space-computer.md §2.1) — from `resolveVerifiedSpaceOwnerForRun`,
-   * never a raw claim. Widens candidates to the owner's personal accounts and
-   * satisfies the sharing clamp for exactly those; every other axis applies.
+   * never a raw claim. Widens candidates to the owner's accounts.
    */
   spaceOwnerUserId?: string | null;
   taskId?: string | null;
@@ -263,12 +262,18 @@ async function resolveTargetConnection(
       ? {}
       : { spaceOwnerUserId: params.spaceOwnerUserId }),
   });
-  // CN.3 parity with the profile policy: a space mounts ACCOUNTS, and a call
-  // in that space may only use one of them. Intersection over what the
-  // principal already reaches, so the space id can still only remove.
-  const candidates = params.mountedConnectionAccess
-    ? allCandidates.filter((c) => params.mountedConnectionAccess?.has(c.id))
-    : allCandidates;
+  const mountedIds = params.mountedConnectionAccess
+    ? new Set(params.mountedConnectionAccess.keys())
+    : null;
+  const candidates = allCandidates.filter((c) =>
+    isAccountReachableInRun({
+      agentGrantedIds: params.agentGrants,
+      agentId: params.agentId,
+      connection: c,
+      mountedIds,
+      principalId: params.principal.principalId,
+    })
+  );
   if (allCandidates.length > 0 && candidates.length === 0) {
     throw new ConnectionsActionError(
       "connection_not_in_space",

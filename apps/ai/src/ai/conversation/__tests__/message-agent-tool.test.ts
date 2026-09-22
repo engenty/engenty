@@ -439,6 +439,7 @@ describe("createMessageAgentTool", () => {
           addAgentMember: vi.fn(async ({ agentId }: { agentId: string }) => {
             added.push(agentId);
           }),
+          markAgentOnBehalfOf: vi.fn(async () => {}),
           appendMessage: vi.fn(async () => ({ message: {} })),
           createThread: vi.fn(async (thread: Record<string, unknown>) => ({
             thread: {

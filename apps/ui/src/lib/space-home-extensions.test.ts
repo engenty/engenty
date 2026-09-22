@@ -15,22 +15,29 @@ const meta = (
 });
 
 describe("selectSpaceHomeExtensionRows", () => {
-  it("lists mounted accounts by the mailbox, not the connector", () => {
+  it("lists mounted accounts, plugins, and skills — not modules", () => {
     const rows = selectSpaceHomeExtensionRows(
       [
         { resourceKey: "mod-tasks", resourceType: "module" },
         { resourceKey: "conn-gmail", resourceType: "connection" },
         { resourceKey: "skill-custom", resourceType: "skill" },
+        { resourceKey: "google-gmail", resourceType: "plugin" },
       ],
-      new Map([["conn-gmail", meta()]])
-    );
-    expect(rows).toEqual([
+      new Map([["conn-gmail", meta()]]),
       {
-        connectorId: "google-gmail",
-        connectorName: "Gmail",
-        id: "conn-gmail",
-        label: "me@example.com",
-      },
+        plugins: new Map([["google-gmail", "Gmail"]]),
+        skills: new Map([["skill-custom", "Triage"]]),
+      }
+    );
+    expect(rows.map((row) => row.label)).toEqual([
+      "Gmail",
+      "me@example.com",
+      "Triage",
+    ]);
+    expect(rows.map((row) => row.kind)).toEqual([
+      "plugin",
+      "connection",
+      "skill",
     ]);
   });
 
@@ -44,6 +51,7 @@ describe("selectSpaceHomeExtensionRows", () => {
         connectorId: null,
         connectorName: null,
         id: "conn-hidden",
+        kind: "connection",
         label: "conn-hidden",
       },
     ]);

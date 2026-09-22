@@ -63,7 +63,7 @@ export function AgentDeskPane({
   moduleLabel?: string;
   onClose: () => void;
   panel: AgentDeskPanel | null;
-  spaceId: string;
+  spaceId: string | null;
 }) {
   const { t } = useTranslation("ai-ui");
   const target = useWorkspaceEndPaneTarget();

@@ -1,10 +1,10 @@
-// Drawer-side host for the active copilot. Mounted beside AppLayout via
-// `CopilotShellUiHost`; `ActiveCopilotProvider` wraps layout in App.tsx so
-// full-page chat and the drawer share the same lane via `useAgentHost` + copilot hooks.
+// Companion-side host for the copilot. Mounted beside AppLayout via
+// `CopilotShellUiHost`; `CopilotRiverProvider` wraps the layout in App.tsx so
+// the river's page and the companion share one host via `useAgentHost`.
 
 import {
   ACTIVE_COPILOT_AGENT_ID,
-  isTalkConversationPathname,
+  isCopilotRiverPathname,
   openCopilotShell,
 } from "@engenty/ai-ui";
 import {
@@ -13,7 +13,6 @@ import {
   useCopilotShellOrNull,
 } from "@engenty/app-shell";
 import { useRegisterCopilotFrontendTools } from "@engenty/engenty-copilot/ai/frontend-tools/register";
-import { isFullPageCopilotChatRoute } from "@engenty/engenty-copilot/paths";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
@@ -28,7 +27,7 @@ import { workspaceContextOptions } from "@/lib/workspace-context-query";
 import { useUiPluginContributions } from "@/plugins";
 
 // Dev-only console trace for the copilot UI dock-mode / open state, so route
-// transitions (especially `/mdl/engenty-copilot/chat/*` ↔ everywhere else)
+// transitions (especially onto and off the river's page)
 // are easy to follow alongside `[copilot-layout]` persistence logs.
 function logCopilotUiState(message: string, payload: Record<string, unknown>) {
   if (process.env.ENV !== "development") {
@@ -82,12 +81,16 @@ function useRequestedAgentDevGuard(input: {
 }
 
 export function CopilotProviderContent() {
-  const { i18n } = useTranslation("common");
+  const { i18n, t } = useTranslation("common");
   const { setTheme } = useTheme();
   const { currentTenant } = useWorkspaceContext();
   const location = useLocation();
-  const isDedicatedChatSurface =
-    isFullPageCopilotChatRoute(location.pathname) ||
+  // Pages that already show a conversation full width: the river's own page
+  // and a module's hub chat. The companion has nothing to add there, so its
+  // chrome hides; the layer itself stays mounted so the blob, Prompt and Voice
+  // keep working from the app bar.
+  const chromeHidden =
+    isCopilotRiverPathname(location.pathname) ||
     isModuleHubChatRoute(location.pathname);
   const queryClient = useQueryClient();
   const shell = useCopilotShellOrNull();
@@ -133,7 +136,7 @@ export function CopilotProviderContent() {
   const openCopilotShellAction = useCallback(() => {
     openCopilotShell({
       chromeHidden: shell?.chromeHidden,
-      isTalkPage: isTalkConversationPathname(location.pathname),
+      isTalkPage: isCopilotRiverPathname(location.pathname),
       mergeLayout: shell?.copilotLayout.mergeLayout,
       preferredDockMode: shell?.preferredDockMode ?? null,
       setOpen,
@@ -268,21 +271,18 @@ export function CopilotProviderContent() {
   );
 
   useEffect(() => {
-    if (isDedicatedChatSurface) {
+    if (chromeHidden) {
       return;
     }
     const params = new URLSearchParams(location.search);
     if (params.get("copilot") === "open" && !open) {
       openCopilotShellAction();
     }
-  }, [isDedicatedChatSurface, location.search, open, openCopilotShellAction]);
+  }, [chromeHidden, location.search, open, openCopilotShellAction]);
 
-  // Full-page chat owns the only visible copilot slot. The drawer layer
-  // unmounts below; `hideCopilotChrome` on the shell collapses the empty
-  // sidebar column without flipping persisted `copilot.layout.open`.
   useEffect(() => {
     logCopilotUiState("shell snapshot", {
-      chromeHidden: isDedicatedChatSurface,
+      chromeHidden,
       dockMode,
       open,
       pathname: location.pathname,
@@ -290,15 +290,11 @@ export function CopilotProviderContent() {
     });
   }, [
     dockMode,
-    isDedicatedChatSurface,
+    chromeHidden,
     open,
     location.pathname,
     shell?.preferredDockMode,
   ]);
-
-  if (isDedicatedChatSurface) {
-    return null;
-  }
 
   const copilotLayoutReady =
     shell?.copilotLayout.layoutHydrated !== false &&

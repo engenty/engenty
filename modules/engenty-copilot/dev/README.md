@@ -16,7 +16,7 @@ decisions that don't belong in `@engenty/ai-ui` / `ag-ui-bridge`.
 ## Package docs
 
 - [`packages/ag-ui-bridge/docs/frontend-tools.md`](../../../packages/ag-ui-bridge/docs/frontend-tools.md) — frontend tool definitions + catalog
-- `@engenty/ai-ui` — `ActiveCopilotProvider`, thread binding, composer draft recovery (`local-recovery.ts`)
+- `@engenty/ai-ui` — `CopilotRiverProvider` (one thread per user), composer draft recovery (`local-recovery.ts`)
 
 ## Hard rule
 

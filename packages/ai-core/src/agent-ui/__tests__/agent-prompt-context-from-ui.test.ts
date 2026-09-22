@@ -190,12 +190,12 @@ describe("module and space resolution inside a space", () => {
         makeSnapshot({
           route: {
             module_id: "",
-            pathname: "/s/company/engenty-copilot/chat/abc",
-            route_key: "chat",
+            pathname: "/s/company/knowledge-base/faqs/f1",
+            route_key: "detail",
           },
         })
       )
-    ).toBe("engenty-copilot");
+    ).toBe("knowledge-base");
   });
 
   it("still resolves the legacy /mdl and /module shapes", () => {
@@ -226,33 +226,33 @@ describe("module and space resolution inside a space", () => {
   });
 
   it("resolves a short space segment back to the module ID", () => {
-    // `/s/company/copilot/…` is the URL; `engenty-copilot` is what the skill
+    // `/s/company/kb/…` is the URL; `knowledge-base` is what the skill
     // catalog and the tool contracts are keyed by.
     expect(
       resolveCurrentPageModule(
         makeSnapshot({
           route: {
             module_id: "",
-            pathname: "/s/company/copilot/chat/x",
-            route_key: "chat",
+            pathname: "/s/company/kb/faqs/f1",
+            route_key: "detail",
           },
         })
       )
-    ).toBe("engenty-copilot");
+    ).toBe("knowledge-base");
   });
 
-  it("still resolves the pre-alias space URL", () => {
+  it("does not call the copilot's page in a space a module page", () => {
     expect(
       resolveCurrentPageModule(
         makeSnapshot({
           route: {
             module_id: "",
-            pathname: "/s/company/engenty-copilot/chat/x",
+            pathname: "/s/company/copilot",
             route_key: "chat",
           },
         })
       )
-    ).toBe("engenty-copilot");
+    ).toBeUndefined();
   });
 
   it("reads the space key, and nothing outside /s/", () => {

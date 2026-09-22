@@ -9,8 +9,12 @@ import { isHorizontalAppBarPosition } from "../types/shell-app-bar-position";
 
 /**
  * Empty mount target at the personal end of the desktop app bar. Copilot
- * portals its blob here. Hidden on mobile (the sheet keeps the old FAB) and
- * on dedicated full-page chat (that page owns the surface).
+ * portals its blob here. Hidden on mobile, where the sheet keeps the old FAB.
+ *
+ * It stays mounted on Copilot's own full page. `chromeHidden` means that page
+ * owns the COMPANION surface, not that the app bar loses its blob: the blob is
+ * the only way to reach Voice, Prompt, New chat and Global Copilot, and a bar
+ * that ends at the avatar on one page and not the next reads as a bug.
  */
 export function CopilotRailDockAnchor({ label }: { label?: string }) {
   const ctx = useCopilotShellOrNull();
@@ -33,7 +37,7 @@ export function CopilotRailDockAnchor({ label }: { label?: string }) {
     [ctx]
   );
 
-  if (!ctx || ctx.chromeHidden || !isDesktop) {
+  if (!(ctx && isDesktop)) {
     return null;
   }
 

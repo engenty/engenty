@@ -237,5 +237,19 @@ describe("thread store — rooms", () => {
     const eqs = calls.thread?.filter((c) => c.op === "eq").map((c) => c.args);
     expect(eqs).toContainEqual(["created_by_user_id", "user-1"]);
     expect(eqs).toContainEqual(["route_context->>dm", "true"]);
+    expect(eqs).toContainEqual(["space_id", SPACE]);
+  });
+
+  it("lists the river — the DM with no Space — when asked for none", async () => {
+    const { calls, client } = makeClient({ thread: [] });
+    await createThreadStore(client).listDmsForUser({
+      spaceId: null,
+      tenantId: TENANT,
+      userId: "user-1",
+    });
+    const eqs = calls.thread?.filter((c) => c.op === "eq").map((c) => c.args);
+    expect(eqs).not.toContainEqual(expect.arrayContaining(["space_id"]));
+    const iss = calls.thread?.filter((c) => c.op === "is").map((c) => c.args);
+    expect(iss).toContainEqual(["space_id", null]);
   });
 });

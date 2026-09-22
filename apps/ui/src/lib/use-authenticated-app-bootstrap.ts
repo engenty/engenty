@@ -15,13 +15,11 @@ import { useUiPluginContributions } from "@/plugins";
 
 function extractNamespacesFromContributions(contributions: {
   adminMenuItems: { labelKey?: string }[];
-  copilotApps: { labelKey?: string }[];
   settingsItems: { labelKey?: string }[];
 }): string[] {
   const namespaces = new Set<string>();
   for (const item of [
     ...contributions.adminMenuItems,
-    ...contributions.copilotApps,
     ...contributions.settingsItems,
   ]) {
     const key = item.labelKey;

@@ -2,7 +2,11 @@ import type {
   ConnectionsModuleClient,
   ConnectorDefinition,
 } from "@engenty/connections-sdk";
-import { resolveSpaceRecordAccounts } from "@engenty/connections-sdk";
+import {
+  connectionRecordOwnerUserId,
+  isAccountReachableInRun,
+  resolveSpaceRecordAccounts,
+} from "@engenty/connections-sdk";
 import {
   createRecordLinker,
   type PluginAuthContext,
@@ -405,15 +409,15 @@ export function registerInboxGatewayMethods(
       // cannot reveal anything, and null leaves the list as it was.
       const mounted = await spaceConnectionIds(auth);
       const accounts = connections
-        // Personal accounts of other users are not this caller's business —
-        // unless the owner granted the acting agent this account (CN.5).
-        .filter(
-          (connection) =>
-            connection.sharing === "org" ||
-            connection.owner_user_id === userId ||
-            agentGrantedIds?.has(connection.id) === true
+        .filter((connection) =>
+          isAccountReachableInRun({
+            agentGrantedIds,
+            agentId: auth.agentId,
+            connection,
+            mountedIds: mounted,
+            principalId: userId,
+          })
         )
-        .filter((connection) => !mounted || mounted.has(connection.id))
         // Streamless connectors can never sync mail — keep them off the page.
         .filter((connection) =>
           Boolean(getConnector(connection.connector_id)?.stream)
@@ -425,6 +429,7 @@ export function registerInboxGatewayMethods(
           display_name: connection.display_name,
           external_account: connection.external_account,
           owner_user_id: connection.owner_user_id,
+          all_spaces: connection.all_spaces,
           sharing: connection.sharing,
           stream_supported: true,
           sync_state: stateByConnection.get(connection.id) ?? null,
@@ -461,18 +466,14 @@ export function registerInboxGatewayMethods(
         throw new Error("inbox: unknown connection");
       }
       const userId = actingUserId(auth);
-      if (
-        connection.sharing === "personal" &&
-        connection.owner_user_id !== userId
-      ) {
+      if (connection.owner_user_id !== userId && !connection.all_spaces) {
         throw new Error(
-          "inbox: only the owner can change a personal account's sync settings"
+          "inbox: only the owner can change this account's sync settings"
         );
       }
       const repo = repoForAuth(auth);
       return repo.syncState.upsertSettings(parsed.connection_id, {
-        owner_user_id:
-          connection.sharing === "personal" ? connection.owner_user_id : null,
+        owner_user_id: connectionRecordOwnerUserId(connection),
         ...(parsed.backfill_days === undefined
           ? {}
           : { backfill_days: parsed.backfill_days }),
@@ -551,8 +552,7 @@ export function registerInboxGatewayMethods(
       // has no owner to scope it to. Same rule the sync path applies when it
       // creates the row lazily — stated in one more place because this one
       // creates it FIRST.
-      owner_user_id:
-        connection.sharing === "personal" ? connection.owner_user_id : null,
+      owner_user_id: connectionRecordOwnerUserId(connection),
       // Only turn sync on when this is a new binding. A mailbox someone
       // deliberately paused must not restart because the Space was edited.
       ...(existing ? {} : { sync_enabled: true }),

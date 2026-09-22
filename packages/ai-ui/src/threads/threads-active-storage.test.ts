@@ -1,9 +1,7 @@
 /** @vitest-environment happy-dom */
 import { afterEach, describe, expect, it } from "vitest";
 import { ENGENTY_COPILOT_HOST_KEY } from "../agent-provider/host-keys.js";
-import { resolveEngentyThreadHostProfile } from "./thread-host-profile.js";
 import {
-  activeThreadStorageKey,
   readActiveThreadIdForHost,
   writeActiveThreadIdForHost,
 } from "./threads-active-storage.js";
@@ -80,77 +78,5 @@ describe("threads-active-storage", () => {
       JSON.stringify({ [ENGENTY_COPILOT_HOST_KEY]: SESSION_B })
     );
     expect(readActiveThreadIdForHost(ENGENTY_COPILOT_HOST_KEY)).toBeNull();
-  });
-});
-
-describe("space-scoped active threads", () => {
-  afterEach(() => {
-    window.localStorage.clear();
-    window.sessionStorage.clear();
-  });
-
-  const SPACE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-  const SPACE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-
-  it("leaves the bare host key alone when there is no space", () => {
-    expect(activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY)).toBe(
-      ENGENTY_COPILOT_HOST_KEY
-    );
-    expect(activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, null)).toBe(
-      ENGENTY_COPILOT_HOST_KEY
-    );
-    expect(activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, "  ")).toBe(
-      ENGENTY_COPILOT_HOST_KEY
-    );
-  });
-
-  it("keeps one active thread PER SPACE — the whole point", () => {
-    // The bug this exists for: open the dock in Marketing, resume Company's
-    // thread, and the run reads Company's tools because the space comes off
-    // the thread row.
-    writeActiveThreadIdForHost(
-      activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_A),
-      SESSION_A
-    );
-    writeActiveThreadIdForHost(
-      activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_B),
-      SESSION_B
-    );
-
-    expect(
-      readActiveThreadIdForHost(
-        activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_A)
-      )
-    ).toBe(SESSION_A);
-    expect(
-      readActiveThreadIdForHost(
-        activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_B)
-      )
-    ).toBe(SESSION_B);
-  });
-
-  it("answers nothing for a space that has no chat yet", () => {
-    writeActiveThreadIdForHost(
-      activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_A),
-      SESSION_A
-    );
-    expect(
-      readActiveThreadIdForHost(
-        activeThreadStorageKey(ENGENTY_COPILOT_HOST_KEY, SPACE_B)
-      )
-    ).toBeNull();
-  });
-
-  it("marks the copilot space-bound and nothing else", () => {
-    // The provider only narrows the key for hosts that say so; a desk host
-    // already carries its space IN the host key.
-    expect(
-      resolveEngentyThreadHostProfile(ENGENTY_COPILOT_HOST_KEY).spaceBound
-    ).toBe(true);
-    expect(
-      resolveEngentyThreadHostProfile(`agent-desk:${SPACE_A}:analyst`)
-        .spaceBound
-    ).toBeFalsy();
-    expect(resolveEngentyThreadHostProfile("kb:search").spaceBound).toBeFalsy();
   });
 });

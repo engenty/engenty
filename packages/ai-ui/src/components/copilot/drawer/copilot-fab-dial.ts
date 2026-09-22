@@ -97,3 +97,61 @@ export function computeDialPositions(input: {
     };
   });
 }
+
+/** Floating prompt input box (px). Wide enough for a sentence, not a paragraph. */
+export const PROMPT_INPUT_WIDTH = 360;
+export const PROMPT_INPUT_HEIGHT = 48;
+
+/**
+ * Where the floating prompt input sits.
+ *
+ * Same clearance rule as the dial — it belongs in the canvas, beside the blob,
+ * never on the app bar — but it is one wide box rather than a stack, so it is
+ * CENTRED on the blob along the bar instead of growing away from it.
+ */
+export function computePromptAnchor(input: {
+  bar?: FabRect | null;
+  dock: AppBarPosition | null;
+  fab: FabRect;
+  viewport?: { height: number; width: number };
+}): { left: number; top: number } {
+  const vw = input.viewport?.width ?? 1200;
+  const vh = input.viewport?.height ?? 800;
+  const { dock, fab } = input;
+  const bar = input.bar ?? fab;
+  const margin = 8;
+  const fabCenterX = fab.left + fab.width / 2;
+  const fabCenterY = fab.top + fab.height / 2;
+  const centredLeft = fabCenterX - PROMPT_INPUT_WIDTH / 2;
+  const centredTop = fabCenterY - PROMPT_INPUT_HEIGHT / 2;
+
+  let left = centredLeft;
+  let top = centredTop;
+
+  if (dock === "left") {
+    left = Math.max(fab.right, bar.right) + DIAL_CLEARANCE_PX;
+  } else if (dock === "right") {
+    left =
+      Math.min(fab.left, bar.left) - DIAL_CLEARANCE_PX - PROMPT_INPUT_WIDTH;
+  } else if (dock === "top") {
+    top = Math.max(fab.bottom, bar.bottom) + DIAL_CLEARANCE_PX;
+  } else if (dock === "bottom") {
+    top = Math.min(fab.top, bar.top) - DIAL_CLEARANCE_PX - PROMPT_INPUT_HEIGHT;
+  } else {
+    // Mobile corner FAB: above it, the way the dial stacks there.
+    top = fab.top - 24 - PROMPT_INPUT_HEIGHT;
+  }
+
+  return {
+    left: clamp(
+      left,
+      margin,
+      Math.max(margin, vw - PROMPT_INPUT_WIDTH - margin)
+    ),
+    top: clamp(
+      top,
+      margin,
+      Math.max(margin, vh - PROMPT_INPUT_HEIGHT - margin)
+    ),
+  };
+}

@@ -44,6 +44,8 @@ export interface AiRegisteredAgent {
   /** Generated portrait storage key; blob silhouette when absent. */
   avatarUrl?: string | null;
   chat_triggers?: AiAgentChatTriggers;
+  /** Preferred connector ids; empty = all plugins enabled on the active space. */
+  connectorIds?: string[];
   description: string | null;
   /**
    * How much thinking this agent's work deserves — the tier-level counterpart
@@ -390,6 +392,8 @@ export interface CustomAgentConfig {
   agentScope?: "personal" | "shared";
   /** Generated portrait storage key; blob silhouette when absent. */
   avatarUrl?: string | null;
+  /** Preferred connector ids; empty = all plugins enabled on the active space. */
+  connectorIds?: string[];
   description?: string;
   engenty?: AgentEngentyKind;
   id: string;

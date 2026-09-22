@@ -620,7 +620,7 @@ export function createInboxRepoSupabase(
       return { new_messages: 0 };
     }
     const ownerUserId =
-      connection.sharing === "personal" ? connection.owner_user_id : null;
+      connection.all_spaces === true ? null : connection.owner_user_id;
 
     const providerIds = items.map((item) => item.provider_message_id);
     const { data: existingRows, error: existingError } = await messages()

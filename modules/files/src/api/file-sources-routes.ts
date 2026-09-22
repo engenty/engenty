@@ -10,6 +10,7 @@ import type {
   ConnectionsModuleClient,
 } from "@engenty/connections-sdk";
 import {
+  connectionVisibleToUser,
   mountConnectionInSpace,
   resolveSpaceRecordAccounts,
 } from "@engenty/connections-sdk";
@@ -222,8 +223,8 @@ export function registerFileSourcesRoutes(
       const all = await client.listFileSources({
         tenantId: ctx.auth.tenantId,
       });
-      const visible = all.filter(
-        (c) => c.sharing === "org" || c.owner_user_id === ctx.auth?.principalId
+      const visible = all.filter((c) =>
+        connectionVisibleToUser(c, ctx.auth?.principalId)
       );
       return {
         sources: visible.map((c) => ({
@@ -232,6 +233,7 @@ export function registerFileSourcesRoutes(
           connectorId: c.connector_id,
           connectorName: c.connector_name,
           label: c.display_name ?? c.external_account ?? c.connector_name,
+          allSpaces: c.all_spaces,
           sharing: c.sharing,
         })),
       };
@@ -304,9 +306,10 @@ export function registerFileSourcesRoutes(
       });
       const connection = sources.find((c) => c.id === connectionId);
       if (
-        !connection ||
-        (connection.sharing !== "org" &&
-          connection.owner_user_id !== ctx.auth.principalId)
+        !(
+          connection &&
+          connectionVisibleToUser(connection, ctx.auth.principalId)
+        )
       ) {
         return hono.json({ error: "connection not available" }, 404);
       }
@@ -381,9 +384,10 @@ export function registerFileSourcesRoutes(
       });
       const connection = sources.find((c) => c.id === body.connectionId);
       if (
-        !connection ||
-        (connection.sharing !== "org" &&
-          connection.owner_user_id !== ctx.auth.principalId)
+        !(
+          connection &&
+          connectionVisibleToUser(connection, ctx.auth.principalId)
+        )
       ) {
         return hono.json({ error: "connection not available" }, 404);
       }

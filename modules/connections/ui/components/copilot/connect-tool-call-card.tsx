@@ -31,6 +31,7 @@ interface ConnectRequestOutput {
     icon: string | null;
     auth_kind: "oauth2" | "api_key" | "browser";
   };
+  dcr_available?: boolean;
 }
 
 function parse(output: unknown): ConnectRequestOutput | null {
@@ -82,6 +83,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
   }
   const { connector, configured } = data;
   const connected = data.connected || flowState === "connected";
+  const canConnect = configured || Boolean(data.dcr_available);
 
   const onResult = (result: ConnectCompleteResult) => {
     // Ignore results for a different connector (stale popup) — but accept a
@@ -127,7 +129,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
             ? t("chatCard.connected")
             : flowState === "error"
               ? t("chatCard.connectFailed")
-              : configured
+              : canConnect
                 ? t("chatCard.connectPrompt")
                 : t("chatCard.notConfigured")}
         </p>
@@ -144,7 +146,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
           <CheckCircle2 className="size-4.5 text-emerald-600 dark:text-emerald-400" />
         </span>
-      ) : configured ? (
+      ) : canConnect ? (
         <ConnectButton
           connectorId={connector.id}
           flow="popup"

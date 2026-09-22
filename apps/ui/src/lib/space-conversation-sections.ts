@@ -60,6 +60,16 @@ export interface SpaceConversationSidebarModel {
   sections: SpaceConversationSectionModel[];
 }
 
+/**
+ * The river: the person's one conversation with their copilot — a DM with no
+ * Space, because the copilot follows them everywhere. It heads Private in
+ * every space and, like a desk, cannot be hidden: it is the one row that is
+ * always true of this person.
+ */
+export function isRiverItem(item: SpaceConversationItem): boolean {
+  return item.kind === "dm" && item.dm.session.space_id === null;
+}
+
 /** The built-in a row lands in when nobody filed it anywhere. */
 export function builtInSectionFor(
   kind: SpaceConversationItem["kind"]
@@ -184,6 +194,7 @@ export function resolveSpaceConversationSections(input: {
     }
     if (
       item.kind !== "desk" &&
+      !isRiverItem(item) &&
       isConversationHidden(slice, item.key, item.updatedAt)
     ) {
       continue;
@@ -218,7 +229,15 @@ export function resolveSpaceConversationSections(input: {
             left.kind === "desk" && right.kind === "desk"
               ? compareSpaceAgents(left.agent, right.agent)
               : compareByActivity(left, right)
-        : compareByActivity;
+        : id === "dms"
+          ? (left: SpaceConversationItem, right: SpaceConversationItem) =>
+              // The river first, always; the rest by activity.
+              isRiverItem(left) === isRiverItem(right)
+                ? compareByActivity(left, right)
+                : isRiverItem(left)
+                  ? -1
+                  : 1
+          : compareByActivity;
     return {
       id,
       items: orderItems(membership.get(id) ?? [], slice.itemOrder[id], rest),

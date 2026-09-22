@@ -310,43 +310,6 @@ describe("resolveUiPlugins", () => {
     ).toBe(false);
   });
 
-  it("keeps only one shell copilot app contribution", async () => {
-    const catalog = [
-      createCatalogEntry("engenty-copilot", (engenty) => {
-        engenty.UI.registerCopilotApp({
-          id: "engenty_copilot_app",
-          label: "Engenty Copilot",
-          to: "/mdl/engenty-copilot/chat/new",
-        });
-      }),
-      createCatalogEntry("other-ai", (engenty) => {
-        engenty.UI.registerCopilotApp({
-          id: "other_ai_app",
-          label: "Aardvark AI",
-          to: "/mdl/other-ai/chat/new",
-        });
-      }),
-    ];
-
-    const result = await resolveUiPlugins({
-      catalog,
-      plugins: [
-        { id: "engenty-copilot", enabled: true, loaded: true },
-        { id: "other-ai", enabled: true, loaded: true },
-      ],
-    });
-
-    expect(result.contributions.copilotApps.map((item) => item.id)).toEqual([
-      "engenty_copilot_app",
-    ]);
-    expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: "plugin.registration.multiple_copilot_apps",
-        pluginId: "other-ai",
-      })
-    );
-  });
-
   it("adds stable diagnostic codes, remediation, and source info", async () => {
     const Page = () => null;
     const result = await resolveUiPlugins({

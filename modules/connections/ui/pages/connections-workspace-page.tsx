@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import type {
   CatalogConnection,
@@ -36,6 +36,7 @@ import type {
   ConnectionsCatalog,
 } from "../api.js";
 import { StatusBadge } from "../components/connection-panel.js";
+import { PluginMarketplaceDialog } from "../components/marketplace/plugin-marketplace-dialog.js";
 import { NewConnectionButton } from "../components/new-connection-button.js";
 import { useConnectionsWorkspaceAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
@@ -56,19 +57,19 @@ export function ConnectionsWorkspacePage() {
   const shellNav = useAgentsWorkspaceShellNav({ ...nav, selectedAgentId: "" });
   const catalogQuery = useConnectionsCatalogQuery();
   const navigate = useNavigate();
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
 
   useConnectResultToast();
 
   usePageConfig({
     actions: (
       <div className="flex items-center gap-2">
-        {/* Import console is superadmin-gated on its own page and API. */}
         <Button
-          onClick={() => navigate("/setup/connectors")}
+          onClick={() => setMarketplaceOpen(true)}
           size="sm"
           variant="outline"
         >
-          {t("admin.importConnector")}
+          {t("marketplace.open")}
         </Button>
         <NewConnectionButton
           connectors={catalogQuery.data?.connectors ?? []}
@@ -112,6 +113,10 @@ export function ConnectionsWorkspacePage() {
       ) : (
         <ConnectionsTable rows={rows} />
       )}
+      <PluginMarketplaceDialog
+        onOpenChange={setMarketplaceOpen}
+        open={marketplaceOpen}
+      />
     </EngentyCanvasPageChrome>
   );
 }
@@ -167,7 +172,9 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
               </TableCell>
               <TableCell>
                 <Badge variant="outline">
-                  {t(`sharing.${connection.sharing}`)}
+                  {t(
+                    connection.all_spaces ? "sharing.org" : "sharing.personal"
+                  )}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm">

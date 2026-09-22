@@ -76,7 +76,10 @@ import {
 } from "./engenty-tools/lib/caller-scope.js";
 import { resolveRegistryAgent } from "./engenty-tools/lib/registry-agent.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
-import { isUnresolvedSpaceGate } from "./engenty-tools/lib/space-gate.js";
+import {
+  isGlobalConnectorGate,
+  isUnresolvedSpaceGate,
+} from "./engenty-tools/lib/space-gate.js";
 import {
   type NativeRequestDecisionResumeData,
   requestDecisionResumeSchema,
@@ -357,7 +360,11 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     // standing work here. A global run stays tenant-wide by intention.
     const space =
       ctx.space && !isUnresolvedSpaceGate(ctx.space) ? ctx.space : null;
-    if (space && !(space.agentIds?.has(agentId) ?? false)) {
+    if (
+      space &&
+      !isGlobalConnectorGate(space) &&
+      !(space.agentIds?.has(agentId) ?? false)
+    ) {
       return {
         ok: false,
         note: `${agentId} is not mounted in this Space, so it cannot own a routine here. Mount it via space_setup or pick a specialist from registry_agents_list.`,

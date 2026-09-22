@@ -51,6 +51,8 @@ export {
   getAgentUiStateSnapshotByteLength,
   isAgentUiStateSnapshotV1,
   readAgentUiStateSnapshot,
+  readRunRouteContext,
+  runRouteContextForwardedProps,
 } from "./agent-ui-state.js";
 export type {
   EngentyDebugInitialPromptPayload,

@@ -37,20 +37,16 @@ import {
 
 /**
  * Whether the caller may manage this connection. Mirrors the server's
- * `assertOwnerOrThrow`: personal → owner only; org → any caller with the
- * module write capability.
+ * `assertOwnerOrThrow`: owner, or all-spaces plus tenant admin.
  */
 export function canManageConnection(
-  connection: Pick<CatalogConnection, "owner_user_id" | "sharing">,
+  connection: Pick<CatalogConnection, "all_spaces" | "owner_user_id">,
   currentUserId: string | null
 ): boolean {
-  if (connection.sharing === "org") {
+  if (connection.owner_user_id === currentUserId) {
     return true;
   }
-  return (
-    connection.owner_user_id !== null &&
-    connection.owner_user_id === currentUserId
-  );
+  return connection.all_spaces === true;
 }
 
 /**

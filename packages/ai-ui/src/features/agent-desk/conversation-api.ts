@@ -9,6 +9,9 @@ import { requestAiServiceJson } from "../../lib/runtime/ai-service-client.js";
 
 export interface RoomAgentMember {
   agent_id: string;
+  /** Set on a copilot: whose. The room shows it as that person's copilot. */
+  on_behalf_of_user_id?: string | null;
+  on_behalf_of_user_name?: string | null;
   role: "host" | "member";
 }
 
@@ -111,6 +114,12 @@ export interface SpaceRoomRow {
     id: string;
     metadata?: Record<string, unknown>;
     route_context?: Record<string, unknown>;
+    /**
+     * Null on exactly one DM: the river, the viewer's conversation with their
+     * copilot, which has no space because the copilot follows them everywhere.
+     * It is listed in every space's conversations.
+     */
+    space_id: string | null;
     title: string | null;
     updated_at: string;
     visibility: RoomVisibility;

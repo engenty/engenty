@@ -601,4 +601,90 @@ describe("registry-routes", () => {
       tenantId: "tenant-1",
     });
   });
+
+  it("patches a builtin agent with no store row by upserting the registry definition", async () => {
+    const app = new Hono();
+    const builtin = {
+      agentScope: "personal" as const,
+      id: "engenty.copilot",
+      instructions: "You are the copilot.",
+      kind: "interface" as const,
+      model: "openai/gpt-4.1-mini",
+      name: "Engenty Copilot",
+      skillIds: ["work-routing"],
+      source: "builtin" as const,
+      toolIds: ["skill"],
+    };
+    const upsertAgent = vi
+      .fn()
+      .mockImplementation((_tenantId: string, agent: unknown) =>
+        Promise.resolve(agent)
+      );
+    registerRegistryRoutes(app, {
+      getRegistry: () =>
+        ({
+          getAgentConfig: vi.fn(async (id: string) =>
+            id === "engenty.copilot" ? builtin : undefined
+          ),
+          getTool: vi.fn(),
+        }) as any,
+      getStore: () =>
+        ({
+          getAgentConfig: vi.fn().mockResolvedValue(undefined),
+          upsertAgent,
+        }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request("/ai/registry/agents/engenty.copilot", {
+      body: JSON.stringify({ connectorIds: ["google-gmail"] }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      agent: {
+        connectorIds: ["google-gmail"],
+        id: "engenty.copilot",
+        toolIds: ["skill"],
+      },
+    });
+    expect(upsertAgent).toHaveBeenCalledWith(
+      "tenant-1",
+      expect.objectContaining({
+        connectorIds: ["google-gmail"],
+        id: "engenty.copilot",
+        instructions: "You are the copilot.",
+        toolIds: ["skill"],
+      })
+    );
+  });
+
+  it("still 404s a PATCH when neither the store nor the registry has the agent", async () => {
+    const app = new Hono();
+    const upsertAgent = vi.fn();
+    registerRegistryRoutes(app, {
+      getRegistry: () =>
+        ({
+          getAgentConfig: vi.fn().mockResolvedValue(undefined),
+          getTool: vi.fn(),
+        }) as any,
+      getStore: () =>
+        ({
+          getAgentConfig: vi.fn().mockResolvedValue(undefined),
+          upsertAgent,
+        }) as any,
+      scopeResolver: createScopeResolver(),
+    });
+
+    const res = await app.request("/ai/registry/agents/missing.agent", {
+      body: JSON.stringify({ connectorIds: ["slack"] }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(res.status).toBe(404);
+    expect(upsertAgent).not.toHaveBeenCalled();
+  });
 });

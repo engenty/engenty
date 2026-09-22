@@ -24,7 +24,7 @@ The subpath re-exports `packages/app-shell/src/lib/navigation.ts` via `src/navig
 
 Called during app bootstrap (e.g. `apps/ui` authenticated bootstrap) with:
 
-- `UiContributions` from the UI plugin catalog (`adminMenuItems`, `copilotApps`, `settingsItems`)
+- `UiContributions` from the UI plugin catalog (`adminMenuItems`, `settingsItems`)
 - `options.isSuperAdmin` / `options.isTenantAdmin` for Settings vs Setup
 - `options.canSwitchTenant` — superadmins with more than one tenant get Settings → Tenant
 - `t` — i18n translate function for `labelKey` entries

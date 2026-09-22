@@ -3,6 +3,10 @@ import type {
   CopilotLayoutSnapshotV1,
 } from "@engenty/app-shell";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
+import {
+  COPILOT_RIVER_PATH,
+  isCopilotRiverPathname,
+} from "../../../copilot/copilot-river-paths.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { CopilotRouteContext } from "../session/copilot-route-context.js";
 
@@ -118,21 +122,18 @@ export function resolveCopilotCompanionOpen(input: {
 }
 
 /**
- * Dedicated conversation pages: desk, room, or Copilot full-page chat.
+ * Dedicated conversation pages: a desk, a room, or the river's own page.
  * Roster `/agents` and hire `/agents/new` are not Talk.
  */
 export function isTalkConversationPathname(pathname: string): boolean {
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments[0] === "mdl" && segments[1] === "engenty-copilot") {
-    return segments[2] === "chat";
+  if (isCopilotRiverPathname(pathname)) {
+    return true;
   }
+  const segments = pathname.split("/").filter(Boolean);
   if (segments[0] !== "s" || segments.length < 3) {
     return false;
   }
   const section = segments[2] ?? "";
-  if (section === "copilot") {
-    return segments[3] === "chat";
-  }
   if (section === "rooms") {
     return Boolean(segments[3]);
   }
@@ -353,7 +354,7 @@ export function buildCompactContextOptions({
     label: "Global",
     routeContext: {
       moduleId: "engenty-copilot",
-      pathname: "/mdl/engenty-copilot/chat",
+      pathname: COPILOT_RIVER_PATH,
       routeKey: "chat",
       scope: globalScope(baseContext.scope ?? scope),
     },
@@ -362,8 +363,18 @@ export function buildCompactContextOptions({
   return options;
 }
 
-/** FAB is visible on the desktop app-bar dock whenever chrome is shown; mobile
- *  fallback keeps the collapsed corner blob. */
+/**
+ * Whether the blob is on screen.
+ *
+ * The DOCKED blob is app-bar chrome and stays put whatever the main area
+ * holds, `chromeHidden` included: on Copilot's own full page the bar used to
+ * end at the avatar, so the one control that reaches Voice, Prompt, New chat
+ * and Global Copilot vanished exactly where a person is most likely to reach
+ * for it, and the bar changed shape as you walked between pages.
+ *
+ * `chromeHidden` still hides the FLOATING blob, which has no bar to sit on and
+ * would cover the chat page's own composer.
+ */
 export function shouldShowCopilotFab(input: {
   chromeHidden?: boolean;
   collapseToCircle: boolean;
@@ -373,14 +384,14 @@ export function shouldShowCopilotFab(input: {
   /** When a realtime voice session is active the voice FAB takes over. */
   voiceSessionActive?: boolean;
 }): boolean {
-  if (input.chromeHidden) {
-    return false;
-  }
   if (input.voiceSessionActive) {
     return false;
   }
   if (input.docked) {
     return true;
+  }
+  if (input.chromeHidden) {
+    return false;
   }
   if (input.isCollapsingToIcon) {
     return true;

@@ -1,6 +1,8 @@
 import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { Blocks } from "lucide-react";
+import { AgentPluginMarketplacePanel } from "./components/marketplace/agent-plugin-marketplace-panel.js";
+import { registerAgentPluginPanel } from "./extensions.js";
 import { ConnectCompletePage } from "./pages/connect-complete-page.js";
 import {
   CONNECTIONS_SETTINGS_PATH,
@@ -21,6 +23,7 @@ import {
 import { registerConnectionsToolCallUi } from "./register-tool-call-ui.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
+  registerAgentPluginPanel(AgentPluginMarketplacePanel);
   registerConnectionsToolCallUi();
   engenty.i18n.registerNamespace({
     pluginId: "connections",

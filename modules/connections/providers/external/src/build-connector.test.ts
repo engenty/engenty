@@ -75,6 +75,7 @@ function record(
     source_url: "https://pets.example/openapi.json",
     spec_hash: "h",
     status: "enabled",
+    tenant_id: "11111111-1111-4111-8111-111111111111",
     tool_prefix: "pets",
     ...overrides,
   };
@@ -87,6 +88,7 @@ describe("buildImportedConnector", () => {
     expect(connector.id).toBe("ext-pets");
     expect(connector.toolPrefix).toBe("pets");
     expect(connector.moduleId).toBe("connections-external");
+    expect(connector.tenantId).toBe("11111111-1111-4111-8111-111111111111");
 
     const list = connector.actions.find((a) => a.id === "list_pets");
     expect(list?.group).toBe("read");
@@ -122,6 +124,33 @@ describe("buildImportedConnector", () => {
     expect(connector.actions).toHaveLength(2);
   });
 
+  it("materializes a connector with no actions yet", () => {
+    const { connector, skippedActions } = buildImportedConnector(
+      record({ actions: [] })
+    );
+    expect(skippedActions).toEqual([]);
+    expect(connector.actions).toEqual([]);
+  });
+
+  it("resolves a public DCR client with only client_id_enc", async () => {
+    const rec = record({
+      auth_config: {
+        auth_url: "https://pets.example/oauth",
+        kind: "oauth2",
+        scopes: ["read"],
+        token_url: "https://pets.example/token",
+      },
+      client_id_enc: encryptToken("public-1"),
+      client_secret_enc: null,
+    });
+    const { connector } = buildImportedConnector(rec);
+    if (connector.auth.kind !== "oauth2") {
+      throw new Error("expected oauth2");
+    }
+    const creds = await connector.auth.oauth2.resolveClientCredentials?.();
+    expect(creds).toEqual({ clientId: "public-1", clientSecret: "" });
+  });
+
   it("resolves oauth2 client credentials from the live record", async () => {
     const rec = record({
       auth_config: {
@@ -139,6 +168,59 @@ describe("buildImportedConnector", () => {
     }
     const creds = await connector.auth.oauth2.resolveClientCredentials?.();
     expect(creds).toEqual({ clientId: "client-1", clientSecret: "secret-1" });
+  });
+
+  it("marks DCR connectors so Authenticate can register a client", () => {
+    const rec = record({
+      auth_config: {
+        auth_url: "https://pets.example/oauth",
+        dcr: true,
+        kind: "oauth2",
+        registration_endpoint: "https://pets.example/register",
+        scopes: ["read"],
+        token_url: "https://pets.example/token",
+      },
+    });
+    const { connector } = buildImportedConnector(rec);
+    if (connector.auth.kind !== "oauth2") {
+      throw new Error("expected oauth2");
+    }
+    expect(connector.auth.oauth2.dynamicClientRegistration).toBe(true);
+    expect(connector.auth.oauth2.registerClient).toBeUndefined();
+  });
+
+  it("registers a DCR client and persists it on the live record", async () => {
+    const rec = record({
+      auth_config: {
+        auth_url: "https://pets.example/oauth",
+        dcr: true,
+        kind: "oauth2",
+        registration_endpoint: "https://pets.example/register",
+        scopes: ["read"],
+        token_url: "https://pets.example/token",
+      },
+    });
+    const persist = vi.fn(async () => undefined);
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ client_id: "dyn-id", client_secret: "dyn-sec" }),
+          { headers: { "content-type": "application/json" }, status: 201 }
+        )
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    vi.stubEnv("ENGENTY_API_BASE_URL", "https://api.engenty.example");
+    const { connector } = buildImportedConnector(rec, undefined, persist);
+    if (connector.auth.kind !== "oauth2") {
+      throw new Error("expected oauth2");
+    }
+    await connector.auth.oauth2.registerClient?.();
+    expect(persist).toHaveBeenCalledWith({
+      clientId: "dyn-id",
+      clientSecret: "dyn-sec",
+    });
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("routes handler execution through the live record resolver", async () => {

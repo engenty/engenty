@@ -11,7 +11,6 @@
  * canonical path — sending the inbox into a space would be a lie about where it
  * lives.
  */
-import { COPILOT_MODULE_ID } from "@engenty/engenty-copilot/paths";
 import { useQuery } from "@engenty/query-client";
 import { Navigate, useLocation } from "react-router-dom";
 import { resolveRecordSpace } from "@/lib/api/spaces-client";
@@ -27,11 +26,6 @@ export function LegacyModuleRedirect({
   const location = useLocation();
   const link = parseLegacyModuleLink(location.pathname);
 
-  // The copilot's `/mdl/` path is the personal desk. Do not bounce it into a
-  // remembered or personal space — threads still carry `space_id`, but the
-  // surface stays at tenant root.
-  const isCopilotLink = link?.moduleId === COPILOT_MODULE_ID;
-
   // A module's OWN link, followed from inside a space, needs no lookup at all.
   // `/mdl/tasks/briefing` names no record, so rule 1 below (the record's own
   // space) cannot apply and rule 2 already has the answer synchronously. Asking
@@ -40,11 +34,10 @@ export function LegacyModuleRedirect({
   // component then rendered BLANK for a whole request round trip — with the URL
   // outside `/s/…`, so the space's sidebar unmounted and came back too. It read
   // as a page reload because, visually, that is what it was.
-  const remembered =
-    link && !isCopilotLink && !link.recordId ? rememberedSpaceKey() : null;
+  const remembered = link && !link.recordId ? rememberedSpaceKey() : null;
 
   const query = useQuery({
-    enabled: Boolean(link) && !remembered && !isCopilotLink,
+    enabled: Boolean(link) && !remembered,
     queryFn: ({ signal }) =>
       resolveRecordSpace(
         {
@@ -73,9 +66,6 @@ export function LegacyModuleRedirect({
         }
       />
     );
-  }
-  if (isCopilotLink) {
-    return <Fallback />;
   }
   if (query.isPending) {
     // Deliberately blank rather than a spinner: this resolves in one request and

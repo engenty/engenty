@@ -7,6 +7,7 @@ import {
   type RunAgentInput,
   RunAgentInputSchema,
   readAgentUiStateSnapshot,
+  readRunRouteContext,
 } from "@engenty/ag-ui-bridge";
 import {
   AI_EFFORT_LEVELS,
@@ -868,7 +869,9 @@ export function registerThreadRunRoutes(
         // Snapshot lane only: the runtime instructions the start lane sets on
         // its controller. `route_context` carries the user's UI language, so
         // without it the continuation answers a German user in English.
-        routeContext: session.route_context,
+        routeContext:
+          readRunRouteContext(body.data.forwardedProps) ??
+          session.route_context,
         runContext: body.data.context,
         runStore,
         scope: scope.scope,
@@ -1407,7 +1410,13 @@ export function registerThreadRunRoutes(
             session,
             threadId: child.threadId,
           }),
-        routeContext: session.route_context,
+        // The run's own place first — the thread only remembers where it was
+        // created, and the copilot's one thread is walked through many spaces.
+        // It decides the run's space, its language and the place stamped on
+        // the user turn (turn-context.ts).
+        routeContext:
+          readRunRouteContext(body.data.forwardedProps) ??
+          session.route_context,
         runContext:
           hsChatContextEntries.length > 0
             ? [...(body.data.context ?? []), ...hsChatContextEntries]

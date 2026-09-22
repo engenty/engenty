@@ -80,9 +80,51 @@ export type ThreadAgentRole = "host" | "member";
 export interface ThreadAgentRow {
   agent_id: string;
   created_at: string;
+  /**
+   * On a copilot member row: whose copilot sits here. A person's copilot in a
+   * room is their alter ego — the room reads "Matthias' Copilot" — while the
+   * conversation between the two of them stays their own.
+   */
+  on_behalf_of_user_id: string | null;
   role: ThreadAgentRole;
   tenant_id: string;
   thread_id: string;
+}
+
+/** How a chapter of the river was cut: on request, or on the calendar. */
+export type ThreadCompactionKind = "daily" | "manual" | "weekly";
+
+/** A space whose turns a chapter covers — the id, and the key the URL showed. */
+export interface ThreadCompactionSpace {
+  id: string;
+  key: string | null;
+}
+
+/** One thing to keep in mind after a chapter, and where it came up. */
+export interface ThreadCompactionNote {
+  space_key: string | null;
+  text: string;
+}
+
+/**
+ * A chapter of a person's river: a stretch of their one copilot conversation,
+ * summarised once and kept — with the spaces it happened in and what is worth
+ * remembering afterwards (migration 20260921170000_copilot_river.sql).
+ */
+export interface ThreadCompactionRow {
+  created_at: string;
+  id: string;
+  keep_in_mind: ThreadCompactionNote[];
+  kind: ThreadCompactionKind;
+  message_count: number;
+  range_end: string;
+  range_start: string;
+  spaces: ThreadCompactionSpace[];
+  summary: string;
+  tenant_id: string;
+  thread_id: string;
+  title: string;
+  user_id: string;
 }
 
 /**

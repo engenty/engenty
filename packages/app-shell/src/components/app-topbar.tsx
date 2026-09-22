@@ -27,7 +27,7 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { findActiveNavLabel } from "../lib/navigation";
 import type { NavigationSection, ShellSidebarConfig } from "../types/shell";
@@ -119,18 +119,6 @@ export function AppTopbar({
 }: AppTopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Global CMD+K / Ctrl+K shortcut to toggle app menu
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        onAppMenuOpenChange(!appMenuOpen);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [appMenuOpen, onAppMenuOpenChange]);
 
   const currentTitle =
     findActiveNavLabel(location.pathname, location.search, sections) ??
@@ -454,7 +442,7 @@ export function AppTopbar({
           className="overflow-hidden p-0 sm:max-w-[420px]"
           showCloseButton={false}
         >
-          <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+          <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2">
             <CommandInput placeholder="Search apps…" />
             <CommandList className="max-h-[min(60vh,400px)]">
               <CommandEmpty>No results found.</CommandEmpty>

@@ -4,7 +4,7 @@
  * the dock now. Send people to a Space home instead: last visited, then
  * personal, then the tenant default.
  */
-import { COPILOT_CHAT_ROOT } from "@engenty/engenty-copilot/paths";
+import { COPILOT_RIVER_PATH } from "@engenty/ai-ui";
 import { Navigate } from "react-router-dom";
 import { pickLandingSpace, rememberedSpaceKey } from "@/lib/landing-space";
 import { spaceRootPath } from "@/lib/space-routes";
@@ -20,7 +20,7 @@ export function DefaultPlaceRedirect() {
   const target = pickLandingSpace(spacesQuery.data ?? [], rememberedSpaceKey());
   if (!target) {
     // No space at all is a broken install, not a state to design a screen for.
-    return <Navigate replace to={COPILOT_CHAT_ROOT} />;
+    return <Navigate replace to={COPILOT_RIVER_PATH} />;
   }
   return <Navigate replace to={spaceRootPath(target.key)} />;
 }

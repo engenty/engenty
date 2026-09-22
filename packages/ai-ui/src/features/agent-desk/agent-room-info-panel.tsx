@@ -21,6 +21,8 @@ import {
 import { PauseCircle, Plus, User, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { AgentFace } from "../../components/agent-face.js";
+import { AlterEgoFace } from "../../components/alter-ego-face.js";
+import { alterEgoLabel } from "../../components/alter-ego-label.js";
 import { EngentyCluster } from "../../components/engenty-cluster.js";
 import type { AgentDeskSwitchAgent } from "./agent-desk-switcher.js";
 import {
@@ -260,20 +262,27 @@ export function AgentRoomInfoPanel(props: {
         <ul className="flex flex-col">
           {props.members.map((member) => {
             const agent = byId.get(member.agent_id);
-            const name = agent?.name ?? member.agent_id;
+            const alterEgoName = member.on_behalf_of_user_name ?? null;
+            const name = alterEgoName
+              ? alterEgoLabel(alterEgoName, t)
+              : (agent?.name ?? member.agent_id);
             return (
               <li
                 className="flex items-center gap-2 py-1.5 text-sm"
                 data-testid="agent-room-member"
                 key={member.agent_id}
               >
-                <AgentFace
-                  avatarUrl={agent?.avatarUrl}
-                  className="[&_.e-shadow]:hidden"
-                  kind={agent?.engenty ?? "round"}
-                  name={name}
-                  size={24}
-                />
+                {alterEgoName ? (
+                  <AlterEgoFace size={24} userName={alterEgoName} />
+                ) : (
+                  <AgentFace
+                    avatarUrl={agent?.avatarUrl}
+                    className="[&_.e-shadow]:hidden"
+                    kind={agent?.engenty ?? "round"}
+                    name={name}
+                    size={24}
+                  />
+                )}
                 <span className="min-w-0 flex-1 truncate">{name}</span>
                 {member.role === "host" ? (
                   <span className="text-muted-foreground text-xs">

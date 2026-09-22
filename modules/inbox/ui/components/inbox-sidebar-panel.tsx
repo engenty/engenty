@@ -185,9 +185,9 @@ export function InboxSidebarPanel() {
                       >
                         <AtSign className="size-4" />
                         <span className="truncate">{accountLabel(entry)}</span>
-                        {entry.sharing === "org" ? (
+                        {entry.all_spaces ? (
                           <Badge className="ml-auto" variant="secondary">
-                            {t("filters.org")}
+                            {t("filters.allSpaces")}
                           </Badge>
                         ) : null}
                       </Link>

@@ -7,7 +7,7 @@
 import { cn } from "@engenty/ui-core";
 import { useContext, useMemo } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
-import { copilotChatSubRunPath } from "../../../copilot/copilot-chat-paths.js";
+import { copilotRiverSubRunPath } from "../../../copilot/copilot-river-paths.js";
 import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
 import { ObjectRefMentions } from "../../../objects/object-ref-mentions.js";
 import {
@@ -239,7 +239,7 @@ function resolveSubAgentFullPageHref(input: {
   ) {
     return null;
   }
-  return copilotChatSubRunPath(threadId, toolCallId);
+  return copilotRiverSubRunPath(toolCallId);
 }
 
 function renderToolCallCardRow(input: {

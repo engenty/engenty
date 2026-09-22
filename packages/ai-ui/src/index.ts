@@ -1,7 +1,7 @@
 // @engenty/ai-ui public barrel — see packages/ai-ui/docs/architecture.md for Tier 1/2/3 boundaries.
 //
 // Tier 1 (embed API): re-exported from ./embed.js — safe for modules and third-party embeds.
-// Tier 2 (product): ActiveCopilotProvider, copilot thread binding, admin routes, local recovery.
+// Tier 2 (product): the copilot river, admin routes, local recovery.
 // Tier 3 (transitional ui-core re-exports): removed — copilot + AI Elements live in ai-ui (Phase 2).
 
 export {
@@ -133,6 +133,8 @@ export {
   PromptInputTextarea,
   PromptInputTools,
 } from "./components/ai-elements/prompt-input/index.js";
+export { AlterEgoFace, alterEgoInitials } from "./components/alter-ego-face.js";
+export { alterEgoLabel } from "./components/alter-ego-label.js";
 export {
   type ChatKind,
   ChatKindBadge,
@@ -251,22 +253,6 @@ export {
   type ThreadStatusIconSize,
   threadStatusBadgeClassName,
 } from "./components/thread-status/thread-status.js";
-export {
-  ACTIVE_COPILOT_NEW_CHAT_GENERATION_STORAGE_KEY,
-  type ActiveCopilotHostThreadIdInput,
-  type ActiveCopilotHostThreadIdResult,
-  type ActiveCopilotStableSessionKeyInput,
-  bumpActiveCopilotNewChatGeneration,
-  isActiveCopilotChatIndexPathname,
-  readActiveCopilotNewChatGeneration,
-  resolveActiveCopilotHostThreadId,
-  resolveActiveCopilotStableSessionKey,
-  resolveAuthoritativeChatThreadIdFromPathname,
-} from "./copilot/active-copilot-controller.js";
-export {
-  ActiveCopilotProvider,
-  type ActiveCopilotProviderProps,
-} from "./copilot/active-copilot-provider.js";
 // --- Tier 2: product copilot shell (engenty:copilot lane orchestration) ---
 export {
   type ApproveCopilotOpenInterruptParams,
@@ -274,17 +260,6 @@ export {
   type CopilotOpenInterruptExecuteFrontendTool,
   type CopilotOpenInterruptResumeInterrupt,
 } from "./copilot/approve-copilot-open-interrupt.js";
-export {
-  COPILOT_CHAT_NEW,
-  COPILOT_CHAT_ROOT,
-  COPILOT_SUB_RUN_QUERY,
-  canonicalCopilotChatPathname,
-  copilotChatSubRunPath,
-  defaultCopilotSessionPath,
-  readCopilotSubRunToolCallId,
-  resolveFullscreenCopilotChatPath,
-  spaceCopilotChatPath,
-} from "./copilot/copilot-chat-paths.js";
 export {
   registerCopilotComposerDraftSetter,
   setCopilotComposerDraft,
@@ -296,10 +271,23 @@ export {
   registerWorkComposerFocus,
 } from "./copilot/copilot-inline-ask.js";
 export {
-  CopilotThreadBindingProvider,
-  type CopilotThreadBindingProviderProps,
-  useCopilotThreadBinding,
-} from "./copilot/copilot-thread-binding-provider.js";
+  type CopilotRiverContextValue,
+  CopilotRiverProvider,
+  type CopilotRiverProviderProps,
+  openCopilotRiver,
+  useCopilotRiver,
+  useOptionalCopilotRiver,
+} from "./copilot/copilot-river.js";
+export {
+  COPILOT_RIVER_PATH,
+  COPILOT_RIVER_SEGMENT,
+  COPILOT_SUB_RUN_QUERY,
+  copilotRiverPath,
+  copilotRiverPathForPathname,
+  copilotRiverSubRunPath,
+  isCopilotRiverPathname,
+  readCopilotSubRunToolCallId,
+} from "./copilot/copilot-river-paths.js";
 export {
   CopilotVoiceProvider,
   useCopilotVoice,
@@ -347,6 +335,24 @@ export {
   type SubAgentDelegationDetail,
   selectSubAgentDelegationFromMessages,
 } from "./copilot/sub-agent-run/select-sub-agent-delegation.js";
+export {
+  ThreadChapterCard,
+  ThreadChaptersList,
+  ThreadChaptersMenu,
+} from "./copilot/thread-chapters.js";
+export {
+  formatThreadChapterRange,
+  readThreadChapterId,
+  THREAD_CHAPTER_QUERY,
+  type ThreadChapter,
+  type ThreadChapterKind,
+  type ThreadChapterNote,
+  type ThreadChapterSpace,
+  type ThreadChapters,
+  threadChapterKeys,
+  useCompactThreadMutation,
+  useThreadChaptersQuery,
+} from "./copilot/thread-chapters-api.js";
 export { useCopilotAssistantTurnFinish } from "./copilot/use-copilot-assistant-turn-finish.js";
 export {
   resolveCopilotRecoveryThreadKey,
@@ -360,11 +366,6 @@ export {
   type QueuedCopilotMessage,
   useCopilotMessageQueue,
 } from "./copilot/use-copilot-message-queue.js";
-export { useCopilotSelectedThread } from "./copilot/use-copilot-selected-thread.js";
-export {
-  useCopilotOnThreadCreated,
-  useCopilotThreadActions,
-} from "./copilot/use-copilot-thread-actions.js";
 export * from "./embed.js";
 export { AgentDesk } from "./features/agent-desk/agent-desk.js";
 export {
@@ -406,6 +407,10 @@ export {
   useSpaceConversationsQuery,
   useUpdateRoomMutation,
 } from "./features/agent-desk/conversation-api.js";
+export {
+  CopilotDesk,
+  type CopilotDeskSpace,
+} from "./features/agent-desk/copilot-desk.js";
 export {
   type SendDeskMessageInput,
   type SendDeskMessageResult,

@@ -81,7 +81,37 @@ export interface UnresolvedSpaceGate {
   spaceId?: undefined;
 }
 
-export type SpaceGateContext = SpaceGateSurface | UnresolvedSpaceGate;
+export type SpaceGateContext =
+  | SpaceGateSurface
+  | UnresolvedSpaceGate
+  | GlobalConnectorGate;
+
+/**
+ * Copilot (or any agent) outside a space: modules stay tenant-global, but
+ * connectors are only the agent's grants plus all-spaces accounts (intersected
+ * with a non-empty preferred plugin list). Distinct from a missing `space`
+ * (legacy "allow every connector") so live chat and assemble can agree.
+ */
+export interface GlobalConnectorGate {
+  /**
+   * Never present. Existing `.spaceId` / mount-set readers must see global as
+   * "no resolved Space".
+   */
+  agentIds?: undefined;
+  allConnectorPrefixes: ReadonlySet<string>;
+  connectorPrefixes: ReadonlySet<string>;
+  kind: "global";
+  moduleIds?: undefined;
+  readOnlyModuleIds?: undefined;
+  spaceId?: undefined;
+  topLevelAgentIds?: undefined;
+}
+
+export function isGlobalConnectorGate(
+  space: SpaceGateContext | null | undefined
+): space is GlobalConnectorGate {
+  return space != null && "kind" in space && space.kind === "global";
+}
 
 export function isUnresolvedSpaceGate(
   space: SpaceGateContext | null | undefined
@@ -114,6 +144,30 @@ function connectorPrefixFor(
   return best;
 }
 
+function checkConnectorAgainstPrefixes(
+  operationId: string,
+  space: Pick<SpaceGateSurface, "allConnectorPrefixes" | "connectorPrefixes">
+): SpaceGateResult | null {
+  const connectorPrefix = connectorPrefixFor(
+    operationId,
+    space.allConnectorPrefixes
+  );
+  if (!connectorPrefix) {
+    return null;
+  }
+  if (space.connectorPrefixes.has(connectorPrefix)) {
+    return null;
+  }
+  return {
+    error: "connector_not_in_space",
+    message:
+      `The ${connectorPrefix} connection is not available here, so ${operationId} cannot run. ` +
+      "It is not part of this agent's enabled plugins or this space. " +
+      "Do not retry it. If you carry `space_setup`, offer to add it (`action='add'`, accounts: [{ id, access }]) — the user may add an account they own themselves; otherwise say an admin can add it in the space's setup.",
+    ok: false,
+  };
+}
+
 /** Modules that are not module mounts — see the note on platform tools above. */
 function isPlatformModule(moduleId: string | undefined): boolean {
   return !moduleId || moduleId === "core" || moduleId === "engenty-core";
@@ -144,7 +198,7 @@ export function isModuleVisibleInSpace(
   if (isUnresolvedSpaceGate(space)) {
     return isPlatformModule(moduleId);
   }
-  if (!space || isPlatformModule(moduleId)) {
+  if (isGlobalConnectorGate(space) || !space || isPlatformModule(moduleId)) {
     return true;
   }
   return space.moduleIds.has(moduleId as string);
@@ -193,6 +247,12 @@ export function spaceScopeNote(space?: SpaceGateContext | null): string | null {
       "unavailable. Platform tools and open-ended chat remain usable."
     );
   }
+  if (isGlobalConnectorGate(space)) {
+    return (
+      "This run is not in a space. Connector tools are limited to accounts enabled " +
+      "on this agent and accounts shared with every space. Apps are otherwise unrestricted."
+    );
+  }
   if (!space) {
     return null;
   }
@@ -236,6 +296,9 @@ export function checkOperationAgainstSpace(input: {
       ok: false,
     };
   }
+  if (isGlobalConnectorGate(space)) {
+    return checkConnectorAgainstPrefixes(input.operationId, space);
+  }
   if (!space) {
     return null;
   }
@@ -244,22 +307,15 @@ export function checkOperationAgainstSpace(input: {
   // alone would either allow the whole provider (all of Google because Gmail
   // is mounted) or refuse a mounted connector because its module was not
   // separately mounted. The per-connector mount is the finer-grained truth.
-  const connectorPrefix = connectorPrefixFor(
+  const connectorRefusal = checkConnectorAgainstPrefixes(
     input.operationId,
-    space.allConnectorPrefixes
+    space
   );
-  if (connectorPrefix) {
-    if (space.connectorPrefixes.has(connectorPrefix)) {
-      return null;
-    }
-    return {
-      error: "connector_not_in_space",
-      message:
-        `The ${connectorPrefix} connection is not available in this space, so ${input.operationId} cannot run here. ` +
-        "The account may well be connected for the team — it is simply not part of this space. " +
-        "Do not retry it. If you carry `space_setup`, offer to add it (`action='add'`, accounts: [{ id, access }]) — the user may add an account they own themselves; otherwise say an admin can add it in the space's setup.",
-      ok: false,
-    };
+  if (
+    connectorRefusal ||
+    connectorPrefixFor(input.operationId, space.allConnectorPrefixes)
+  ) {
+    return connectorRefusal;
   }
   if (isPlatformModule(input.moduleId)) {
     return null;

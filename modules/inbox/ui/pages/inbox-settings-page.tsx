@@ -200,7 +200,7 @@ function AccountRow({ account }: { account: InboxAccount }) {
                 account.connector_id}
             </span>
             <Badge variant="secondary">
-              {t(`filters.${account.sharing === "org" ? "org" : "personal"}`)}
+              {t(account.all_spaces ? "filters.allSpaces" : "filters.personal")}
             </Badge>
           </div>
           <span className="text-muted-foreground text-xs">

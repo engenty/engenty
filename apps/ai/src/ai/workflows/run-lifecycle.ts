@@ -66,7 +66,7 @@ export function settledSpaceId(
   if (!space || isUnresolvedSpaceGate(space)) {
     return null;
   }
-  return space.spaceId;
+  return space.spaceId ?? null;
 }
 
 /** Longest summary the desk card will show before it stops being a summary. */

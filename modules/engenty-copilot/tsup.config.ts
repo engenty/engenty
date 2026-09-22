@@ -10,7 +10,6 @@ export default defineConfig({
     "src/lib/copilot-workspace.ts",
     "src/lib/ensure-copilot-user-workspace-prefix.ts",
     "ui/plugin.ts",
-    "ui/paths.ts",
     "ui/components/chat/copilot-effort-control.tsx",
     "ui/components/chat/copilot-model-chooser-control.tsx",
   ],

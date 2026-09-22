@@ -53,10 +53,19 @@ export function useBlobCharacterCycle() {
   return character;
 }
 
+/** The body's natural height in px; its width is 7/6 of it. */
+export const BLOB_AVATAR_NATURAL_HEIGHT_PX = 48;
+
 export interface BlobAvatarProps {
   /** Character by name ("pilot") or index; defaults to the shared cycle. */
   character?: BlobCharacter;
   className?: string;
+  /**
+   * Body height in px. The blob is drawn at its natural 48px and scaled as
+   * one — eye, bubbles and shadow keep their proportions, which sizing the
+   * box alone would not give (the accents sit at fixed pixel offsets).
+   */
+  size?: number;
   state?: BlobState;
 }
 
@@ -66,6 +75,7 @@ export interface BlobAvatarProps {
 export function BlobAvatar({
   character: characterProp,
   className,
+  size = BLOB_AVATAR_NATURAL_HEIGHT_PX,
   state = "idle",
 }: BlobAvatarProps) {
   const cycledCharacter = useBlobCharacterCycle();
@@ -84,12 +94,23 @@ export function BlobAvatar({
   }, [state]);
 
   const isActive = state !== "idle";
+  const scale = size / BLOB_AVATAR_NATURAL_HEIGHT_PX;
+  const scaled = scale !== 1;
   return (
-    <div aria-hidden="true" className={cn("pointer-events-none", className)}>
+    <div
+      aria-hidden="true"
+      className={cn("pointer-events-none", className)}
+      style={
+        scaled
+          ? { height: size, width: (size * 7) / 6, position: "relative" }
+          : undefined
+      }
+    >
       <div
         className={cn(
           "blob-shape relative flex h-12 w-14 items-center justify-center bg-ember text-primary-foreground",
-          jumping && "blob-jump"
+          jumping && "blob-jump",
+          scaled && "absolute top-0 left-0 origin-top-left"
         )}
         data-character={character}
         onAnimationEnd={(event) => {
@@ -97,6 +118,7 @@ export function BlobAvatar({
             setJumping(false);
           }
         }}
+        style={scaled ? { scale: String(scale) } : undefined}
       >
         <BlobStateLayers state={state} />
         <BlobAccents character={character} isActive={isActive} />

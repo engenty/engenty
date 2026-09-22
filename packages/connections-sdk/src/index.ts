@@ -32,9 +32,11 @@ export { filesCapabilityActions } from "./files-capability.js";
 export {
   buildAuthorizationUrl,
   type ClientEnvResolver,
+  createOAuth2Pkce,
   exchangeAuthorizationCode,
   hasOAuth2ClientCredentials,
   type OAuth2Env,
+  type OAuth2Pkce,
   type OAuth2Tokens,
   refreshAccessToken,
   resolveOAuth2Credentials,
@@ -46,6 +48,14 @@ export {
   type ResolvedConnectionPolicy,
   resolveConnectionActionPolicy,
 } from "./policy.js";
+export {
+  type ConnectionReachSummary,
+  connectionRecordOwnerUserId,
+  connectionVisibleToUser,
+  connectorPrefixesForAgent,
+  isAccountReachableInRun,
+  shouldMigrateOrgAccountToAllSpaces,
+} from "./reach.js";
 export {
   __resetConnectorRegistryForTests,
   getConnectorDefinition,
@@ -68,7 +78,9 @@ export {
 export {
   listMountedConnectionAccess,
   listMountedConnectionIds,
+  listMountedPluginIds,
   mountConnectionInSpace,
+  mountPluginInSpace,
   resolveSpaceRecordAccounts,
   resolveVerifiedSpaceOwnerForRun,
   type SpaceConnectionAccess,

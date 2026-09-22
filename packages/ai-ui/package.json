@@ -20,8 +20,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --clean --external @firecrawl/anydoc-wasm --external @llamaindex/liteparse-wasm",
-    "dev": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --watch --external @firecrawl/anydoc-wasm --external @llamaindex/liteparse-wasm",
+    "build": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --clean --external @firecrawl/anydoc-wasm --external @llamaindex/liteparse-wasm --external @tanstack/react-hotkeys --external @tanstack/hotkeys",
+    "dev": "tsup src/index.ts src/embed.ts src/plugin.tsx --format esm --watch --external @firecrawl/anydoc-wasm --external @llamaindex/liteparse-wasm --external @tanstack/react-hotkeys --external @tanstack/hotkeys",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "biome check ."

@@ -18,10 +18,20 @@ import type { ObjectDisplayIntent } from "../../objects/object-display-intent.js
  * simply navigates.
  */
 export function useDeskObjectDisplayIntent(
-  hostKey: string
+  hostKey: string,
+  options?: {
+    /**
+     * The copilot's page only: a link that leaves for a module route opens
+     * the companion first, so the same river is still there on the other
+     * side. A specialist's desk simply navigates.
+     */
+    navigateFromChat?: ObjectDisplayIntent["navigateFromChat"];
+  }
 ): ObjectDisplayIntent {
+  const navigateFromChat = options?.navigateFromChat;
   return useMemo<ObjectDisplayIntent>(
     () => ({
+      ...(navigateFromChat ? { navigateFromChat } : {}),
       applyDisplayHint: (refs, hint, opts) => {
         const first = refs[0];
         if (!first) {
@@ -41,6 +51,6 @@ export function useDeskObjectDisplayIntent(
           title: opts?.title,
         }),
     }),
-    [hostKey]
+    [hostKey, navigateFromChat]
   );
 }

@@ -20,6 +20,7 @@ export const SPACE_RESOURCE_KINDS = [
   "agent",
   "skill",
   "connection",
+  "plugin",
 ] as const;
 export type SpaceResourceKind = (typeof SPACE_RESOURCE_KINDS)[number];
 

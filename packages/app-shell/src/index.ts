@@ -89,6 +89,10 @@ export {
   useShellSecondaryNav,
 } from "./context/shell-secondary-nav-context";
 export {
+  ShortcutsDialogProvider,
+  useShortcutsDialog,
+} from "./context/shortcuts-dialog-context";
+export {
   DEFAULT_UI_GUIDE_ACTIONS,
   dismissUiGuideSession,
   formatUiGuideFollowUpMessage,

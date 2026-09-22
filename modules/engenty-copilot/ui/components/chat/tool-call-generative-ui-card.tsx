@@ -1,7 +1,7 @@
 import {
   ToolCallCardBase,
   type ToolCallCardProps,
-  useCopilotThreadBinding,
+  useCopilotRiver,
   useCopilotToolCallActions,
   useEngentyAIContext,
 } from "@engenty/ai-ui";
@@ -185,7 +185,7 @@ export function matchesSubAgentSessionOutput(output: unknown): boolean {
 
 export function SubAgentSessionToolCallCard(props: ToolCallCardProps) {
   const { output, toolName, ...rest } = props;
-  const binding = useCopilotThreadBinding();
+  const river = useCopilotRiver();
   const ai = useEngentyAIContext();
   const subSessionId = getSubSessionId(output);
   const summary = getOptionalString(output, "summary");
@@ -198,13 +198,13 @@ export function SubAgentSessionToolCallCard(props: ToolCallCardProps) {
         serviceBaseUrl: ai.serviceBaseUrl,
         threadId: subSessionId ?? "",
         signal,
-        tenantId: binding.tenantId,
-        userId: binding.userId,
+        tenantId: river.tenantId,
+        userId: river.userId,
       }),
     queryKey: agentSessionMessagesQueryKey({
       threadId: subSessionId ?? "",
-      tenantId: binding.tenantId,
-      userId: binding.userId,
+      tenantId: river.tenantId,
+      userId: river.userId,
     }),
   });
   if (!subSessionId) {

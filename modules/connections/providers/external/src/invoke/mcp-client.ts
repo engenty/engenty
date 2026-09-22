@@ -47,10 +47,41 @@ export const mcpToolSchema = z
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
 export class McpRequestError extends Error {
-  constructor(message: string) {
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null = null) {
     super(message);
     this.name = "McpRequestError";
+    this.status = status;
   }
+}
+
+function httpStatusFromUnknown(error: unknown): number | null {
+  if (error instanceof McpRequestError && error.status !== null) {
+    return error.status;
+  }
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code: unknown }).code;
+    if (typeof code === "number" && code >= 400 && code < 600) {
+      return code;
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  const http = message.match(/\bHTTP\s+(\d{3})\b/iu);
+  if (http) {
+    return Number(http[1]);
+  }
+  const unauthorized = message.match(/\b(401)\b/u);
+  return unauthorized ? Number(unauthorized[1]) : null;
+}
+
+/** Anonymous MCP handshake / tools/list was refused as unauthorized. */
+export function isUnauthorizedMcpError(error: unknown): boolean {
+  if (httpStatusFromUnknown(error) === 401) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b401\b|unauthorized/iu.test(message);
 }
 
 export interface McpSessionParams {
@@ -130,7 +161,8 @@ async function withMcpClient<T>(
       return await fn(session.client);
     } catch (error) {
       throw new McpRequestError(
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
+        httpStatusFromUnknown(error)
       );
     } finally {
       // Best effort in both steps: the session is already gone if either
@@ -146,7 +178,8 @@ async function withMcpClient<T>(
   throw new McpRequestError(
     `cannot connect to MCP server ${params.endpoint}: ${
       lastError instanceof Error ? lastError.message : String(lastError)
-    }`
+    }`,
+    httpStatusFromUnknown(lastError)
   );
 }
 

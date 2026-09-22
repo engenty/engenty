@@ -249,7 +249,7 @@ describe("extractThreadAgents", () => {
       {
         agentId: "file_analyst",
         agentName: "File Analyst",
-        href: "/mdl/engenty-copilot/chat/thread-1?subRun=fa-1",
+        href: "/copilot?subRun=fa-1",
         toolCallId: "fa-1",
       },
     ]);
@@ -274,9 +274,7 @@ describe("extractThreadAgents", () => {
     const agents = extractThreadAgents(messages, "thread-1");
     expect(agents[0]?.agentId).toBe("sales.researcher");
     expect(agents[0]?.toolCallId).toBe("msg-1");
-    expect(agents[0]?.href).toBe(
-      "/mdl/engenty-copilot/chat/thread-1?subRun=msg-1"
-    );
+    expect(agents[0]?.href).toBe("/copilot?subRun=msg-1");
   });
 
   it("links Space specialists to their desk, opening the child thread", () => {
@@ -363,7 +361,7 @@ describe("extractThreadAgents", () => {
     ).toEqual([
       {
         agentId: "engenty.copilot",
-        href: "/s/Sales%20%2F%20DACH/copilot/chat/221230c5-01c1-4b59-a3d1-1ee418a33b61",
+        href: "/s/Sales%20%2F%20DACH/copilot",
       },
       {
         agentId: "engenty.coordinator",

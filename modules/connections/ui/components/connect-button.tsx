@@ -1,15 +1,8 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@engenty/ui-core";
-import { ChevronDown } from "lucide-react";
+import { Button } from "@engenty/ui-core";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { ConnectionSharing } from "../api.js";
 import { getConnectUrl } from "../api.js";
 import {
   CONNECT_COMPLETE_PATH,
@@ -18,11 +11,16 @@ import {
 } from "../connect-popup.js";
 
 export interface ConnectButtonProps {
+  className?: string;
   connectorId: string;
   /** `popup` keeps the current page (chat) and resolves via `onResult`. */
   flow?: "redirect" | "popup";
   /** Connections already exist — label the button "Add account" instead. */
   hasConnections?: boolean;
+  /** Overrides Connect / Add account (marketplace uses Authenticate). */
+  label?: string;
+  /** Node rendered before the label (marketplace “add account” row). */
+  leading?: ReactNode;
   /** Popup flow: called when the OAuth popup completes or is closed. */
   onResult?: (result: ConnectCompleteResult) => void;
   /** Same-app path the OAuth callback returns to (`?connected=1` / `?error=`). Redirect flow only. */
@@ -35,7 +33,7 @@ export interface ConnectButtonProps {
    * tenant-level connect, which belongs to no space.
    */
   spaceId?: string | null;
-  variant?: "default" | "outline";
+  variant?: "default" | "ghost" | "outline";
 }
 
 const POPUP_FEATURES = "popup,width=600,height=720";
@@ -49,7 +47,6 @@ const POPUP_CLOSED_GRACE_MS = 300;
  * Starts the OAuth flow: fetches the provider auth URL, then either redirects
  * the browser there (default) or drives it in a popup window that reports
  * back via postMessage (`flow="popup"`, used by the in-chat connect card).
- * The dropdown chooses the sharing mode of the new connection.
  */
 export function ConnectButton({
   connectorId,
@@ -59,7 +56,10 @@ export function ConnectButton({
   redirectTo = "/settings/connections",
   size = "sm",
   spaceId = null,
+  label,
+  leading,
   variant = "default",
+  className,
 }: ConnectButtonProps) {
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
@@ -107,7 +107,7 @@ export function ConnectButton({
     cleanupRef.current = cleanup;
   };
 
-  const connect = async (sharing: ConnectionSharing) => {
+  const connect = async () => {
     setConnecting(true);
     // Open synchronously inside the click gesture so popup blockers allow it;
     // the auth URL is assigned once fetched.
@@ -125,7 +125,6 @@ export function ConnectButton({
               ? // Popup blocked — fall back to a full redirect returning here.
                 `${window.location.pathname}${window.location.search}`
               : redirectTo,
-        sharing,
         spaceId,
       });
       if (popup) {
@@ -137,39 +136,33 @@ export function ConnectButton({
     } catch (error) {
       popup?.close();
       setConnecting(false);
+      const message =
+        error instanceof Error ? error.message : String(error);
       toast.error(
-        t("toasts.connectStartFailed", {
-          error: error instanceof Error ? error.message : String(error),
-        })
+        /dynamic client registration failed \(403\)/i.test(message)
+          ? t("toasts.dcrForbidden", {
+              defaultValue:
+                "This service only accepts approved apps for sign-in. Engenty is not on that list, so Authenticate cannot start. Use the REST connection with a personal access token instead.",
+            })
+          : t("toasts.connectStartFailed", { error: message })
       );
     }
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          disabled={connecting}
-          size={size}
-          type="button"
-          variant={variant}
-        >
-          {connecting
-            ? t("catalog.connecting")
-            : hasConnections
-              ? t("catalog.addAccount")
-              : t("catalog.connect")}
-          <ChevronDown className="ml-1 h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => void connect("personal")}>
-          {t("catalog.connectPersonal")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void connect("org")}>
-          {t("catalog.connectOrg")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      className={className}
+      disabled={connecting}
+      onClick={() => void connect()}
+      size={size}
+      type="button"
+      variant={variant}
+    >
+      {leading}
+      {connecting
+        ? t("catalog.connecting")
+        : (label ??
+          (hasConnections ? t("catalog.addAccount") : t("catalog.connect")))}
+    </Button>
   );
 }

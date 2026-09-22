@@ -32,22 +32,11 @@ import {
 } from "./engenty-threads-realtime.js";
 import { resolveEngentyThreadHostProfile } from "./thread-host-profile.js";
 import {
-  activeThreadStorageKey,
   readActiveThreadIdForHost,
   writeActiveThreadIdForHost,
 } from "./threads-active-storage.js";
 
 export interface EngentyThreadsProviderProps {
-  /**
-   * The space a SPACE-BOUND host's active thread belongs to
-   * (PLAN-space-chats.md). Only the copilot is space-bound today; every other
-   * host ignores this and keeps its bare host key.
-   *
-   * Must be the space the COPILOT considers itself in — the personal space
-   * outside `/s/…`, not the tenant default — or the dock outside a space binds
-   * to a space nobody chose. `resolveCopilotSpaceId` is that answer.
-   */
-  activeThreadSpaceId?: string | null;
   children: ReactNode;
   /** Supabase client for realtime list invalidation; omit when unavailable. */
   realtimeClient?: EngentyThreadsRealtimeClient | null;
@@ -56,17 +45,6 @@ export interface EngentyThreadsProviderProps {
 }
 
 interface EngentyThreadsContextValue {
-  /**
-   * The space a space-bound host's active thread is remembered under — the
-   * copilot's own answer, not the route's fallback.
-   *
-   * Published rather than re-derived by consumers on purpose: the entry
-   * redirect has to read the SAME key the provider writes, and computing it a
-   * second time from `currentSpace` gets a different answer outside `/s/…`
-   * (tenant default vs personal space). The symptom would be a chat entry that
-   * never resumes what you were last in, which reads as the binding being lost.
-   */
-  activeThreadSpaceId: string | null;
   archiveThread: (hostKey: string, threadId: string) => Promise<void>;
   clearThreads: (hostKey: string) => Promise<void>;
   deleteThread: (hostKey: string, threadId: string) => Promise<void>;
@@ -99,22 +77,7 @@ const EngentyThreadsContext = createContext<EngentyThreadsContextValue | null>(
 
 export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
   const ai = useEngentyAIContext();
-  const activeThreadSpaceId = props.activeThreadSpaceId ?? null;
   const [activeRevision, setActiveRevision] = useState(0);
-  /**
-   * Where this host's active thread is remembered.
-   *
-   * Every read AND every write goes through this, which is the point: scoping
-   * one side only would have the dock reading a key nothing ever wrote, and
-   * silently losing the binding on every navigation.
-   */
-  const storageKeyFor = useCallback(
-    (hostKey: string) =>
-      resolveEngentyThreadHostProfile(hostKey).spaceBound
-        ? activeThreadStorageKey(hostKey, activeThreadSpaceId)
-        : hostKey,
-    [activeThreadSpaceId]
-  );
   const [draftThreadsByHost, setDraftThreadsByHost] = useState<
     Record<string, AppsAiThreadRecord[]>
   >({});
@@ -156,18 +119,18 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
 
   const setActiveThreadId = useCallback(
     (hostKey: string, threadId: string | null) => {
-      writeActiveThreadIdForHost(storageKeyFor(hostKey), threadId);
+      writeActiveThreadIdForHost(hostKey, threadId);
       bumpActiveRevision();
     },
-    [bumpActiveRevision, storageKeyFor]
+    [bumpActiveRevision]
   );
 
   const getActiveThreadId = useCallback(
     (hostKey: string) => {
       void activeRevision;
-      return readActiveThreadIdForHost(storageKeyFor(hostKey));
+      return readActiveThreadIdForHost(hostKey);
     },
-    [activeRevision, storageKeyFor]
+    [activeRevision]
   );
 
   const getDraftThreads = useCallback(
@@ -237,10 +200,9 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
         serviceBaseUrl: ai.serviceBaseUrl,
         threadId,
       });
-      const storageKey = storageKeyFor(hostKey);
-      const active = readActiveThreadIdForHost(storageKey);
+      const active = readActiveThreadIdForHost(hostKey);
       if (active === threadId) {
-        writeActiveThreadIdForHost(storageKey, null);
+        writeActiveThreadIdForHost(hostKey, null);
         bumpActiveRevision();
       }
       invalidateThreads(hostKey);
@@ -250,7 +212,6 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
       ai.serviceBaseUrl,
       bumpActiveRevision,
       invalidateThreads,
-      storageKeyFor,
     ]
   );
 
@@ -263,10 +224,9 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
         serviceBaseUrl: ai.serviceBaseUrl,
         threadId,
       });
-      const storageKey = storageKeyFor(hostKey);
-      const active = readActiveThreadIdForHost(storageKey);
+      const active = readActiveThreadIdForHost(hostKey);
       if (active === threadId) {
-        writeActiveThreadIdForHost(storageKey, null);
+        writeActiveThreadIdForHost(hostKey, null);
         bumpActiveRevision();
       }
       const listQueryKey = engentyThreadsListQueryKey({
@@ -286,7 +246,6 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
       ai.serviceBaseUrl,
       bumpActiveRevision,
       invalidateThreads,
-      storageKeyFor,
     ]
   );
 
@@ -325,7 +284,7 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
         throw error;
       }
 
-      writeActiveThreadIdForHost(storageKeyFor(hostKey), null);
+      writeActiveThreadIdForHost(hostKey, null);
       bumpActiveRevision();
       if (ai.queryClient) {
         ai.queryClient.setQueryData(listQueryKey, []);
@@ -336,7 +295,6 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
       ai.serviceBaseUrl,
       bumpActiveRevision,
       invalidateThreads,
-      storageKeyFor,
     ]
   );
 
@@ -389,7 +347,6 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
 
   const value = useMemo<EngentyThreadsContextValue>(
     () => ({
-      activeThreadSpaceId,
       archiveThread,
       clearThreads,
       deleteThread,
@@ -415,7 +372,6 @@ export function EngentyThreadsProvider(props: EngentyThreadsProviderProps) {
       userId: props.userId,
     }),
     [
-      activeThreadSpaceId,
       archiveThread,
       ai.isTransportReady,
       ai.queryClient,

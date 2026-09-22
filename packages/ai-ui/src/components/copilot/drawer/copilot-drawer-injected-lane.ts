@@ -20,7 +20,6 @@ export interface CopilotDrawerInjectedLane {
   contextPayload: CopilotRouteContext;
   draft: string;
   error: Error | null;
-  handleNewChat: () => void;
   isApplying: boolean;
   latestSuggestions: FieldSuggestion[];
   lifecycle: string;

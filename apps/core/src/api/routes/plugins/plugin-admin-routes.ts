@@ -313,6 +313,7 @@ export function registerPluginAdminRoutes(params: {
         id: plugin.id,
         name: plugin.name ?? plugin.id,
         description: plugin.description,
+        emoji: plugin.emoji ?? null,
         version: plugin.version,
         kind: plugin.kind,
         category: plugin.category,

@@ -65,7 +65,7 @@ async function syncConnection(
     (await repo.syncState.get(connection.id)) ??
     (await repo.syncState.upsertSettings(connection.id, {
       owner_user_id:
-        connection.sharing === "personal" ? connection.owner_user_id : null,
+        connection.all_spaces === true ? null : connection.owner_user_id,
     }));
   if (!state.sync_enabled) {
     result.skipped = "sync_disabled";

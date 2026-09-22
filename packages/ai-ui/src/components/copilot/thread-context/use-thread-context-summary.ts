@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useAgentDisplayNamesVersion } from "../../../ag-ui/agent-display-names.js";
 import { useOptionalAgentHostByKey } from "../../../agent-provider/engenty-agent.js";
 import { useArtifactsListQuery } from "../../../artifacts/artifacts-api.js";
-import { useOptionalCopilotThreadBinding } from "../../../copilot/copilot-thread-binding-provider.js";
+import { useOptionalCopilotRiver } from "../../../copilot/copilot-river.js";
 import { useObjectWidgets } from "../../../objects/object-widget-registry.js";
 import {
   buildThreadContextSummary,
@@ -19,13 +19,12 @@ import type { ThreadContextSummary } from "./thread-context-types.js";
  */
 export function useThreadContextSummary(hostKey: string): ThreadContextSummary {
   // Desk, room, and the copilot all float this card. Only the copilot wraps
-  // CopilotThreadBindingProvider; only a mounted EngentyAgent has a host.
+  // CopilotRiverProvider; only a mounted EngentyAgent has a host.
   // Requiring either one crashed the specialist desk (the card sits *around*
   // the chat host, not inside it).
-  const binding = useOptionalCopilotThreadBinding();
+  const river = useOptionalCopilotRiver();
   const host = useOptionalAgentHostByKey(hostKey);
-  const threadId =
-    host?.threadId?.trim() || binding?.activeThreadId?.trim() || null;
+  const threadId = host?.threadId?.trim() || river?.threadId?.trim() || null;
   const artifactsQuery = useArtifactsListQuery("thread", threadId);
   const widgets = useObjectWidgets();
   // The summary resolves agent NAMES while it builds. Those arrive with the

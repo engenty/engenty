@@ -300,7 +300,7 @@
       "readers": "Die Mitglieder des Raums sehen das"
     },
     "copilot": {
-      "label": "Persönlicher Copilot",
+      "label": "Copilot",
       "hint": "Dein eigener Assistent — niemand sonst sieht das",
       "readers": "Nur du siehst das"
     }
@@ -364,13 +364,14 @@
     }
   },
   "agentConnections": {
-    "description": "Konten, die dieser Agent selbständig nutzen darf – in Hintergrundaufgaben und Routinen. Zugriff geben heißt nicht zustimmen: Autonomiemodus und Regeln pro Aktion gelten weiterhin.",
+    "description": "Plugins und Konten, die dieser Agent nutzen darf. Eine leere Plugin-Liste bedeutet jedes im Space aktivierte Plugin plus die persönlichen Konten dieses Agenten.",
     "empty": "Noch keine Konten. Dieser Agent kann nur Verbindungen nutzen, die du ihm hier gibst.",
     "grantAction": "Zugriff geben",
-    "personalBadge": "Persönlich",
+    "personalBadge": "Auf diesem Agenten",
+    "allSpacesBadge": "Alle Spaces",
     "revoke": "Zugriff entfernen",
     "saveFailed": "Zugriff konnte nicht geändert werden. Bitte erneut versuchen.",
-    "title": "Verbindungen"
+    "title": "Plugins"
   },
   "agentDesk": {
     "actions": {
@@ -410,7 +411,7 @@
       "help": "Alle Befehle anzeigen"
     },
     "composerPlaceholder": "Nachricht an {{name}}…",
-    "connectors": "Konnektoren",
+    "connectors": "Verbindungen",
     "drawer": {
       "back": "Zurück",
       "collapse": "Einstellungen wieder verkleinern",
@@ -457,6 +458,28 @@
       "nameLabel": "Name",
       "descriptionPlaceholder": "Wofür dieser Agent da ist…",
       "noConnectors": "Keine Verbindungen.",
+      "connect": "Verbinden",
+      "connectTitle": "Erweiterungen",
+      "connectBack": "Zurück",
+      "connectDescription": "Verbindungen und Skills für {{name}}.",
+      "connectPlugins": "Verbindungen",
+      "connectInstallSkill": "Von skills.sh installieren",
+      "filterAll": "Alle",
+      "filterAdded": "Hinzugefügt",
+      "filterMarketplace": "Marketplace",
+      "skillsSearch": "Skills suchen…",
+      "skillsSearchMarketplace": "skills.sh durchsuchen…",
+      "noMatchingSkills": "Keine passenden Skills.",
+      "searchInMarketplace": "Im Marketplace suchen",
+      "marketplaceIntro": "Suchen Sie auf skills.sh nach einem Skill. Installieren Sie ihn in diesen Workspace und speichern Sie, um ihn an den Agenten zu binden.",
+      "marketplaceFeatured": "Empfohlen",
+      "skillsAddPackage": "Paket hinzufügen",
+      "skillsRemovePackage": "Paket entfernen",
+      "skillsMore": "… {{count}} weitere",
+      "skillsCount": "{{count}} Skills",
+      "skillsCountOne": "{{count}} Skill",
+      "skillsPartial": "{{selected}} von {{count}}",
+      "connectSkillsReadOnly": "Die Skills dieses Agents gehören zu seinem Modul. Verbindungen lassen sich trotzdem hinzufügen.",
       "noDescription": "Noch keine Beschreibung.",
       "noSkills": "Keine Skills gebunden.",
       "openAdmin": "Alle Einstellungen öffnen",
@@ -559,7 +582,24 @@
     "wizard": {
       "answerOrCancel": "Schritt beantworten oder abbrechen.",
       "utterancePlaceholder": "Auf diesen Schritt antworten…"
-    }
+    },
+    "copilot": {
+      "title": "Copilot",
+      "composerPlaceholder": "Nachricht an den Copilot…",
+      "emptyStateTitle": "Wie kann ich helfen?",
+      "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen."
+    },
+    "subAgent": {
+      "backToChat": "Zurück zum Chat",
+      "fullView": "Vollansicht",
+      "input": "Eingabe",
+      "log": "Protokoll",
+      "notFound": "Dieser Sub-Agent-Lauf ist im Transcript nicht mehr verfügbar.",
+      "output": "Ausgabe",
+      "running": "Läuft…"
+    },
+    "loading": "Agent-Desk wird geladen…",
+    "loadFailed": "Dieser Agent-Desk konnte nicht geladen werden."
   },
   "agentDetail": {
     "addRoutine": "Routine hinzufügen",
@@ -2125,5 +2165,32 @@
       "placeholder": "Suchen…",
       "searching": "Suche…"
     }
+  },
+  "river": {
+    "chapters": "Kapitel",
+    "compactNow": "Jetzt zusammenfassen",
+    "compacting": "Fasse zusammen…",
+    "nothingToCompact": "Nichts Neues seit dem letzten Kapitel.",
+    "empty": "Noch keine Kapitel. Der Fluss wird täglich und wöchentlich in Kapitel geschnitten – oder jetzt, wenn du es sagst.",
+    "weekOf": "Woche vom {{date}}",
+    "keepInMind": "Im Kopf behalten",
+    "backToNow": "Zurück zu jetzt",
+    "everywhere": "Außerhalb eines Space",
+    "kind": {
+      "daily": "Tag",
+      "weekly": "Woche",
+      "manual": "Auf Wunsch"
+    }
+  },
+  "alterEgo": {
+    "label": "{{name}}s Copilot",
+    "labelSibilant": "{{name}}' Copilot"
+  },
+  "workingMemory": {
+    "title": "Gedächtnis",
+    "subtitle": "Das stets verfügbare Profil, das der Copilot über dich pflegt. Es aktualisiert sich selbst; Zurücksetzen ist die einzige Bearbeitung.",
+    "reset": "Zurücksetzen",
+    "loading": "Lädt…",
+    "empty": "Noch kein Profil."
   }
 }

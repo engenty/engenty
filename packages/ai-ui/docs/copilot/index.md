@@ -52,7 +52,7 @@ import {
 | `clearDrawerComposerState` | Clear composer draft and local UI state only — does not delete the server thread |
 | `messages`, `status`, `submitMessage`, `cancelRun` | Lane state from `useAgentHost` |
 
-`apps/ui/src/components/copilot-drawer-layer.tsx` maps `useAgentHost(ENGENTY_COPILOT_HOST_KEY)` + `useCopilotThreadBinding` + `useCopilotThreadActions` onto this shape.
+`apps/ui/src/components/copilot-drawer-layer.tsx` maps `useAgentHost(ENGENTY_COPILOT_HOST_KEY)` + `useCopilotRiver` onto this shape.
 
 Orchestrator-era names (`controlledFloatingChatSession`, `storeId`, `useCopilotAgentSelection`) are retired — use `activeThreadId` and host-scoped threads (`useEngentyThreads`).
 
@@ -72,7 +72,7 @@ Orchestrator-era names (`controlledFloatingChatSession`, `storeId`, `useCopilotA
 - `clearCopilotPersistedClientStorage` — bulk reset helper (used when clearing all chats)
 - Active thread per host: `readActiveThreadIdForHost` / `writeActiveThreadIdForHost` (`engenty:threads:active`)
 
-Product chat identity and thread lists are owned by `@engenty/ai-ui` hooks (`useAgentHost`, `useEngentyThreads`, `ActiveCopilotProvider`). Shell layout persistence types live in `@engenty/app-shell`.
+Product chat identity is owned by `@engenty/ai-ui` (`useAgentHost`, `CopilotRiverProvider`: one thread per user, no thread list). Shell layout persistence types live in `@engenty/app-shell`.
 
 ## Tool-call timeline (ChainOfThought)
 

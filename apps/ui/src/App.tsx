@@ -3,6 +3,7 @@ import {
   CopilotVoiceFab,
   EngentyAI,
   formatCopilotRunError,
+  isCopilotRiverPathname,
   resolveEngentyAiServiceBaseUrl,
 } from "@engenty/ai-ui";
 import { ApiClientResponseError } from "@engenty/api-client";
@@ -22,7 +23,6 @@ import {
   ServiceUnavailablePage,
   useCoreAuthSession,
 } from "@engenty/auth-ui";
-import { isFullPageCopilotChatRoute } from "@engenty/engenty-copilot/paths";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { PostgresChangeRealtimeClient } from "@engenty/live-cache";
 import { NotificationBell } from "@engenty/notifications-ui";
@@ -53,7 +53,6 @@ import { SpacesRailZone } from "@/components/spaces/SpacesRailZone";
 import { AppActiveCopilotProvider } from "@/copilot/app-active-copilot-provider";
 import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
 import { GuideOverlayHostWithBridge } from "@/copilot/guide-overlay-host-with-bridge";
-import { useCopilotSpaceId } from "@/copilot/use-copilot-space-id";
 import { DesktopBridge } from "@/desktop/DesktopBridge";
 import { useAppBarThemeMenu } from "@/hooks/use-app-bar-theme-menu";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
@@ -98,14 +97,8 @@ function EngentyAiShellProvider({
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
   const stateSnapshot = useAgentUiStateSnapshot();
   // Which space the copilot's PERSISTED active thread is remembered under.
-  // Same answer the binding provider files new threads with, from one hook, so
-  // the dock cannot resume Company's chat while standing in Marketing
-  // (PLAN-space-chats.md).
-  const copilotSpaceId = useCopilotSpaceId();
-
   return (
     <EngentyAI
-      activeThreadSpaceId={copilotSpaceId}
       agentToolInvalidation={agentToolInvalidation}
       executeFrontendTool={executeFrontendTool}
       formatRequestError={formatCopilotRunError}
@@ -443,7 +436,7 @@ function App() {
       <CopilotShellProvider
         copilotLayout={copilotLayoutPersistence}
         hideCopilotChrome={
-          isFullPageCopilotChatRoute(location.pathname) ||
+          isCopilotRiverPathname(location.pathname) ||
           isModuleHubChatRoute(location.pathname)
         }
         pathname={location.pathname}
@@ -586,7 +579,7 @@ function App() {
             <AgUiAgentInspectorWidget serviceBaseUrl={aiServiceBaseUrl} />
             <CopilotVoiceFab
               hidden={
-                isFullPageCopilotChatRoute(location.pathname) ||
+                isCopilotRiverPathname(location.pathname) ||
                 isModuleHubChatRoute(location.pathname)
               }
             />

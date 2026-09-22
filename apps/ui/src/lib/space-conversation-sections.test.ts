@@ -1,7 +1,10 @@
 import type { SpaceDmRow, SpaceRoomRow } from "@engenty/ai-ui";
 import { emptySpacesConversationNavSpace } from "@engenty/user-settings";
 import { describe, expect, it } from "vitest";
-import { resolveSpaceConversationSections } from "./space-conversation-sections";
+import {
+  isRiverItem,
+  resolveSpaceConversationSections,
+} from "./space-conversation-sections";
 import type { SpaceRosterAgent } from "./use-space-roster-agents";
 
 const agent = (id: string, name: string): SpaceRosterAgent => ({
@@ -17,23 +20,34 @@ const room = (id: string, updatedAt: string): SpaceRoomRow => ({
     agent_id: "tim",
     created_by_user_id: "me",
     id,
+    space_id: "space-1",
     title: id,
     updated_at: updatedAt,
     visibility: "space",
   },
 });
 
-const dm = (id: string, agentId: string, updatedAt: string): SpaceDmRow => ({
+const dm = (
+  id: string,
+  agentId: string,
+  updatedAt: string,
+  spaceId: string | null = "space-1"
+): SpaceDmRow => ({
   agent_id: agentId,
   session: {
     agent_id: agentId,
     created_by_user_id: "me",
     id,
+    space_id: spaceId,
     title: null,
     updated_at: updatedAt,
     visibility: "private",
   },
 });
+
+/** The river: the copilot's DM, which has no space. */
+const river = (updatedAt: string) =>
+  dm("river", "engenty.copilot", updatedAt, null);
 
 const roster = [
   agent("tom", "Tom"),
@@ -151,6 +165,29 @@ describe("resolveSpaceConversationSections", () => {
     expect(model.sections[1]?.items.map((item) => item.key)).toEqual([
       "thread:loud",
     ]);
+  });
+
+  it("the river heads Privat whatever its activity, and never hides", () => {
+    const slice = {
+      ...emptySpacesConversationNavSpace(),
+      hidden: { "thread:river": "2026-09-05T00:00:00Z" },
+    };
+    const model = resolveSpaceConversationSections({
+      activityByAgentId: new Map(),
+      agents: roster,
+      dms: [
+        dm("busy", "tom", "2026-09-09T00:00:00Z"),
+        river("2026-09-01T00:00:00Z"),
+      ],
+      rooms: [],
+      slice,
+    });
+    const dms = model.sections.find((section) => section.id === "dms");
+    expect(dms?.items.map((item) => item.key)).toEqual([
+      "thread:river",
+      "thread:busy",
+    ]);
+    expect(dms?.items.map(isRiverItem)).toEqual([true, false]);
   });
 
   it("a placement into a section that no longer exists falls back to the kind", () => {

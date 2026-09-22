@@ -21,6 +21,7 @@ function connection(overrides: Partial<ConnectionSummary>): ConnectionSummary {
     id: "conn-1",
     non_owner_max_group: null,
     owner_user_id: "user-1",
+    all_spaces: false,
     sharing: "personal",
     status: "active",
     tenant_id: "tenant-1",

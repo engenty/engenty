@@ -48,6 +48,63 @@ export interface AgentDeskServiceDependencies {
   }) => Promise<ThreadRow[]>;
 }
 
+/**
+ * The desk of a PERSONAL-scope agent — the copilot — seen from nowhere in
+ * particular: identity, skills and starters, no engagements. Its conversation
+ * is the river, one per person, which the page binds itself; there is no
+ * space surface to read connectors or tasks from, and no list to open a
+ * thread from. Any other agent has no desk outside a space.
+ */
+async function buildSpacelessDeskFeed(input: {
+  agentId: string;
+  dependencies: AgentDeskServiceDependencies;
+  locale?: string;
+  userFirstName?: string;
+}): Promise<AgentDeskFeed> {
+  const agentConfig = await input.dependencies.getAgent(input.agentId);
+  if (!agentConfig) {
+    throw new AgentDeskNotFoundError("agent_not_found");
+  }
+  if (agentConfig.agentScope !== "personal") {
+    throw new AgentDeskNotFoundError("agent_not_mounted");
+  }
+  const decorated = decorateAgentWithRole(agentConfig);
+  return {
+    agent: {
+      agentScope: "personal",
+      can_assign_work: false,
+      can_ask: true,
+      connectors: [],
+      description: decorated.description ?? null,
+      ...(decorated.avatarUrl ? { avatarUrl: decorated.avatarUrl } : {}),
+      engenty: resolveAgentEngenty(decorated.id, decorated.engenty),
+      id: decorated.id,
+      managed_by_module: decorated.managed_by_module,
+      model: decorated.model ?? null,
+      name: decorated.name,
+      role: decorated.role,
+      skills: agentDeskCapabilityChips(decorated.skillIds),
+      source: decorated.source ?? null,
+      starters: selectAgentDeskStarters(
+        decorated.starters ?? [],
+        input.locale ?? "en",
+        {
+          connectors: [],
+          firstVisit: false,
+          hasOpenTasks: false,
+          modules: [],
+          spaceName: "",
+          userFirstName: input.userFirstName,
+        }
+      ),
+    },
+    engagements: [],
+    lane_counts: emptyAgentDeskLaneCounts(),
+    next_cursor: null,
+    space_id: null,
+  };
+}
+
 export class AgentDeskNotFoundError extends Error {
   readonly code: "agent_not_found" | "agent_not_mounted";
 
@@ -147,10 +204,15 @@ export async function buildAgentDeskFeed(input: {
   dependencies: AgentDeskServiceDependencies;
   limit: number;
   locale?: string;
-  spaceId: string;
+  /** Absent for the copilot's desk: its one thread is the person's, not a space's. */
+  spaceId?: string | null;
   userFirstName?: string;
 }): Promise<AgentDeskFeed> {
-  const { dependencies, agentId, spaceId } = input;
+  const { dependencies, agentId } = input;
+  if (!input.spaceId) {
+    return await buildSpacelessDeskFeed(input);
+  }
+  const spaceId = input.spaceId;
   const [surface, spaces] = await Promise.all([
     dependencies.getSpaceSurface(spaceId),
     dependencies.listSpaces(),

@@ -494,6 +494,7 @@ export {
   TooltipTrigger,
 } from "./components/ui/tooltip";
 export {
+  LIST_TOOLBAR_HOTKEYS,
   type UseListToolbarHotkeysOptions,
   useListToolbarHotkeys,
 } from "./hooks/useListToolbarHotkeys";
@@ -503,6 +504,10 @@ export {
   useTableSelection,
 } from "./hooks/useTableSelection";
 export { useUiCoreMediaQuery } from "./hooks/useUiCoreMediaQuery";
+export {
+  HOTKEY_GROUP,
+  type HotkeyGroup,
+} from "./hotkeys/hotkey-meta";
 export * from "./icons/dock-icons";
 export type { EmojiIconPreset } from "./lib/emoji-icon";
 export {

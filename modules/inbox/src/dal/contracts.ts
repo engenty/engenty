@@ -25,6 +25,7 @@ export type EmitInboxEvent = (
 
 /** The connection facts the upsert path needs (a `ConnectionSummary` subset). */
 export interface InboxSyncConnection {
+  all_spaces?: boolean;
   id: string;
   owner_user_id: string | null;
   sharing: "org" | "personal";

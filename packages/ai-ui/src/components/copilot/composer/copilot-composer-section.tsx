@@ -1,9 +1,9 @@
 "use client";
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, DropdownMenuSeparator } from "@engenty/ui-core";
+import { Button, cn } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
-import { ImageIcon, MessageSquarePlus, Mic, MicOff, XIcon } from "lucide-react";
+import { ImageIcon, Mic, MicOff, XIcon } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
@@ -77,8 +77,6 @@ export interface CopilotComposerSectionProps {
   mentionRefSearch?: MentionRefSearch;
   onComposerMentionAgent?: (agentId: string) => void;
   onMultilineChange?: (multiline: boolean) => void;
-  /** Start a fresh conversation from the composer (+) menu. Omit to hide it. */
-  onNewChat?: () => void;
   /**
    * A `/command` whose workflow is a wizard is pressed by the client — no
    * message goes to the agent. The host decides what follows: a desk docks
@@ -121,7 +119,6 @@ export function CopilotComposerSection({
   mentionAgentCandidates,
   mentionRefSearch,
   onComposerMentionAgent,
-  onNewChat,
   onPressWizardCommand,
   slashCommands,
   setDraft,
@@ -268,14 +265,6 @@ export function CopilotComposerSection({
       }
     },
     [t]
-  );
-
-  const handleNewChatSelect = useCallback(
-    (event: Event) => {
-      event.preventDefault();
-      onNewChat?.();
-    },
-    [onNewChat]
   );
 
   const handleSubmit = useCallback(
@@ -510,15 +499,6 @@ export function CopilotComposerSection({
           size="icon-sm"
         />
         <PromptInputActionMenuContent align="start" className="z-45 w-56">
-          {onNewChat ? (
-            <>
-              <PromptInputActionMenuItem onSelect={handleNewChatSelect}>
-                <MessageSquarePlus className="size-4 shrink-0" />
-                {t("copilot.newChat")}
-              </PromptInputActionMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
           <PromptInputActionMenuItem onSelect={handleAddAttachments}>
             {t("copilot.attachments.add")}
           </PromptInputActionMenuItem>

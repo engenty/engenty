@@ -16,8 +16,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/navigation.ts --format esm --clean",
-    "dev": "tsup src/index.ts src/navigation.ts --format esm --watch",
+    "build": "tsup src/index.ts src/navigation.ts --format esm --clean --external @tanstack/react-hotkeys --external @tanstack/hotkeys",
+    "dev": "tsup src/index.ts src/navigation.ts --format esm --watch --external @tanstack/react-hotkeys --external @tanstack/hotkeys",
     "test": "vitest run",
     "lint": "echo 'No lint yet'",
     "typecheck": "tsc --noEmit"
@@ -31,6 +31,7 @@
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
     "@floating-ui/dom": "^1.8.0",
+    "@tanstack/react-hotkeys": "0.10.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.46.0",
     "react-router-dom": "^7.18.4",

@@ -26,10 +26,12 @@
  * already-validated task Space — never a client-supplied substitute.
  */
 import { createLogger } from "@engenty/telemetry";
-import type {
-  SpaceGateContext,
-  SpaceGateSurface,
-  UnresolvedSpaceGate,
+import {
+  type GlobalConnectorGate,
+  isUnresolvedSpaceGate,
+  type SpaceGateContext,
+  type SpaceGateSurface,
+  type UnresolvedSpaceGate,
 } from "../../../ai/tools/engenty-tools/lib/space-gate.js";
 import {
   EngentyCoreClient,
@@ -213,6 +215,140 @@ export function toolsSpaceFromResolution(
     topLevelAgentIds: space.topLevelAgentIds,
   };
   return surface;
+}
+
+function prefixesForConnectorIds(
+  ids: Iterable<string>,
+  prefixesById: ReadonlyMap<string, string>
+): Set<string> {
+  const out = new Set<string>();
+  for (const id of ids) {
+    const prefix = prefixesById.get(id);
+    if (prefix) {
+      out.add(prefix);
+    }
+  }
+  return out;
+}
+
+/**
+ * Union space plugins, all-spaces accounts, and this agent's grants; then
+ * apply an optional preferred connector-id list. Pure so tests can drive it
+ * without a core round trip.
+ */
+export function applyAgentConnectorReach(params: {
+  allConnectorPrefixes: ReadonlySet<string>;
+  allSpacesPrefixes: ReadonlySet<string>;
+  grantPrefixes: ReadonlySet<string>;
+  preferredPrefixes: ReadonlySet<string>;
+  space: SpaceGateContext | null;
+}): SpaceGateContext | null {
+  const space = params.space;
+  if (isUnresolvedSpaceGate(space)) {
+    return space;
+  }
+  const surface: SpaceGateSurface | null =
+    space != null && !("kind" in space) ? space : null;
+  const enabled = new Set(params.allSpacesPrefixes);
+  if (surface) {
+    for (const prefix of surface.connectorPrefixes) {
+      enabled.add(prefix);
+    }
+  }
+  const allowed =
+    params.preferredPrefixes.size === 0
+      ? new Set([...enabled, ...params.grantPrefixes])
+      : new Set([
+          ...[...enabled].filter((prefix) =>
+            params.preferredPrefixes.has(prefix)
+          ),
+          ...params.grantPrefixes,
+        ]);
+  if (surface) {
+    return { ...surface, connectorPrefixes: allowed };
+  }
+  const global: GlobalConnectorGate = {
+    allConnectorPrefixes: params.allConnectorPrefixes,
+    connectorPrefixes: allowed,
+    kind: "global",
+  };
+  return global;
+}
+
+/**
+ * Restrict connector tools for this agent: grants ∪ space mounts ∪ all-spaces,
+ * intersected with a non-empty preferred plugin list. `{kind:"global"}` is
+ * this surface — never a silent fallback to Company or the personal space.
+ */
+export async function enrichToolsSpaceForAgentRun(params: {
+  agentId: string;
+  preferredConnectorIds?: readonly string[];
+  scope: AiSessionScope;
+  space: SpaceGateContext | null;
+}): Promise<SpaceGateContext | null> {
+  if (isUnresolvedSpaceGate(params.space)) {
+    return params.space;
+  }
+  const accessToken = scopeAccessToken(params.scope)?.trim();
+  const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+  if (!(accessToken && coreBaseUrl)) {
+    return applyAgentConnectorReach({
+      allConnectorPrefixes: params.space?.allConnectorPrefixes ?? new Set(),
+      allSpacesPrefixes: new Set(),
+      grantPrefixes: new Set(),
+      preferredPrefixes: new Set(),
+      space: params.space,
+    });
+  }
+  const client = new EngentyCoreClient({ accessToken, coreBaseUrl });
+  const prefixesById = await resolveConnectorPrefixes(
+    client,
+    params.scope.tenantId
+  );
+  const [grantsResult, catalogResult] = await Promise.all([
+    client
+      .invokeTool<
+        { agent_id: string },
+        { grants?: Array<{ connector_id?: string | null }> }
+      >("connections_agent_grants_list", { agent_id: params.agentId })
+      .catch(() => ({ grants: [] as Array<{ connector_id?: string | null }> })),
+    client
+      .invokeTool<
+        Record<string, never>,
+        {
+          connectors?: Array<{
+            connections?: Array<{ all_spaces?: boolean }>;
+            id?: string;
+          }>;
+        }
+      >("connections_catalog", {})
+      .catch(() => ({ connectors: [] })),
+  ]);
+  const grantPrefixes = prefixesForConnectorIds(
+    (grantsResult.grants ?? [])
+      .map((grant) => grant.connector_id)
+      .filter((id): id is string => Boolean(id)),
+    prefixesById
+  );
+  const allSpacesIds: string[] = [];
+  for (const connector of catalogResult.connectors ?? []) {
+    if (
+      connector.id &&
+      connector.connections?.some((connection) => connection.all_spaces)
+    ) {
+      allSpacesIds.push(connector.id);
+    }
+  }
+  return applyAgentConnectorReach({
+    allConnectorPrefixes: new Set(prefixesById.values()),
+    allSpacesPrefixes: prefixesForConnectorIds(allSpacesIds, prefixesById),
+    grantPrefixes,
+    preferredPrefixes: prefixesForConnectorIds(
+      params.preferredConnectorIds ?? [],
+      prefixesById
+    ),
+    space: params.space,
+  });
 }
 
 /**
@@ -560,6 +696,13 @@ export async function resolveRunSpaceById(input: {
  * where the message would be about spaces instead of about the thread.
  */
 export async function resolveRunSpaceForThread(input: {
+  /**
+   * The RUN's route context, when the caller has one fresher than the
+   * thread's. A thread with no space of its own — the copilot's river — is
+   * placed by where the person is standing for this turn, and only there.
+   * A thread's own `space_id` still wins: a desk cannot be walked elsewhere.
+   */
+  routeContext?: Record<string, unknown> | null;
   runId?: string;
   scope: AiSessionScope;
   store: {
@@ -587,7 +730,10 @@ export async function resolveRunSpaceForThread(input: {
   }
   return resolveRunSpace({
     scope: input.scope,
-    thread,
+    thread: {
+      route_context: input.routeContext ?? thread.route_context,
+      space_id: thread.space_id,
+    },
     threadId: input.threadId,
     ...(input.runId ? { runId: input.runId } : {}),
   });

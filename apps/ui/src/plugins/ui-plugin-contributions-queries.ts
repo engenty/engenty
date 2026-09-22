@@ -235,10 +235,6 @@ export function pruneStaleUiPluginContributionsData(
     data.contributions.adminMenuItems,
     pluginId
   );
-  const copilotApps = removePluginOwnedItems(
-    data.contributions.copilotApps,
-    pluginId
-  );
   const copilotContributions = removePluginOwnedItems(
     data.contributions.copilotContributions,
     pluginId
@@ -281,7 +277,6 @@ export function pruneStaleUiPluginContributionsData(
   const removed =
     routes.removed +
     adminMenuItems.removed +
-    copilotApps.removed +
     copilotContributions.removed +
     dashboardWidgets.removed +
     backgroundComponents.removed +
@@ -308,7 +303,6 @@ export function pruneStaleUiPluginContributionsData(
       ...data.contributions,
       routes: routes.items,
       adminMenuItems: adminMenuItems.items,
-      copilotApps: copilotApps.items,
       copilotContributions: copilotContributions.items,
       dashboardWidgets: dashboardWidgets.items,
       backgroundComponents: backgroundComponents.items,

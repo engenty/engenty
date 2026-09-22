@@ -2,17 +2,17 @@
 
 **Status:** shipped. Product contract for the main copilot host — not a migration plan.
 
-**Code:** `packages/ai-ui/src/agent-provider/host-keys.ts` (`ENGENTY_COPILOT_HOST_KEY`, `ACTIVE_COPILOT_AGENT_ID`), `ActiveCopilotProvider` / `CopilotThreadBindingProvider` in `@engenty/ai-ui`, `AppActiveCopilotProvider` in `apps/ui`.
+**Code:** `packages/ai-ui/src/agent-provider/host-keys.ts` (`ENGENTY_COPILOT_HOST_KEY`, `ACTIVE_COPILOT_AGENT_ID`), `CopilotRiverProvider` in `@engenty/ai-ui`, `AppActiveCopilotProvider` in `apps/ui`.
 
 ## Vocabulary
 
 | Term | Meaning |
 |------|---------|
 | `hostKey` | Client registry handle for one AG-UI controller (`engenty:copilot`, `kb:search`, …) |
-| `threadId` | Durable server transcript id |
+| `threadId` | Durable server transcript id — for the copilot, THE RIVER: one per user per tenant, the copilot's space-less DM |
 | `agentId` | Which agent config/tools run (`engenty.copilot`, …) |
 
-**Rule:** one active `threadId` per `hostKey`. Many server threads over time; the thread list picks which id is bound.
+**Rule:** one `threadId` per `hostKey`. On `engenty:copilot` it is always the river; there is no thread list and nothing to pick.
 
 ## Product decisions
 
@@ -21,13 +21,13 @@
 | 1 | Main host key | **`engenty:copilot`** — not `copilot:drawer` / `copilot:panel` |
 | 2 | KB search / talk | Separate host **`kb:search`** in `modules/knowledge-base` |
 | 3 | Navigation | Same transcript across routes; `routeContext` updates only |
-| 4 | Full-page URL | Deep-links `threadId` on the shared host; drawer + full-page show the same thread |
-| 5 | Multi-window | Active-thread selection is per-tab (`sessionStorage` authoritative, `localStorage` seed); same-thread tabs sync via realtime / run attach |
-| 6 | Visible UI slot | One shell surface at a time; full-page chat closes floating/drawer chrome |
+| 4 | Full-page URL | `/copilot` and `/s/<key>/copilot` name no thread; companion + page show the river |
+| 5 | Multi-window | Every tab is on the river; tabs sync via realtime / run attach |
+| 6 | Visible UI slot | One shell surface at a time; the river's page hides the companion chrome (`chromeHidden`), the blob stays |
 | 7 | `contribution.requestedAgentId` | Dev warn + ignore on main host; lane stays **`engenty.copilot`**. Composer `@agent` mentions may pass `requestedAgentId` on submit, but the session layer does not honor it |
 | 8 | Module actions (e.g. Enhance) | **Not** the main copilot host — today they run as dispatched **actions** (`WorkflowButton` / workforce), not as `{module}:action:…` `EngentyAgent` mounts |
 | 9 | Model chooser | UI detail on the main host (expert control) — not a host split |
-| 10 | Full-page entry | Resume last-active thread (else latest listed); `/new` only via explicit New chat |
+| 10 | Full-page entry | The river, always; no `/new` — the river is cut into chapters, not into threads |
 
 **Distinction:** `hostKey` `engenty:copilot` (UI handle) vs `agentId` `engenty.copilot` (registry id).
 
@@ -39,10 +39,10 @@
 
 ## Session rules
 
-1. One active `threadId` on `engenty:copilot` at a time.
+1. The river is the only `threadId` on `engenty:copilot`.
 2. Route changes keep the transcript; only context changes.
-3. `/mdl/engenty-copilot/chat/:threadId` deep-links; otherwise last active (then latest). `/new` is explicit.
-4. Shell chrome closed while full-page chat is primary; host stays mounted.
+3. `/copilot` and `/s/<key>/copilot` open the river; the space in the URL stamps the turn's context, not the thread.
+4. Companion chrome hidden while the river's page is primary; host stays mounted.
 5. KB / other hosts own their own threads and must not mutate `engenty:copilot`.
 
 ## Future multi-pane (not v1)

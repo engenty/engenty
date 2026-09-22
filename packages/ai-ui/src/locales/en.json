@@ -300,7 +300,7 @@
       "readers": "The room's members see this"
     },
     "copilot": {
-      "label": "Personal Copilot",
+      "label": "Copilot",
       "hint": "Your own assistant — nobody else sees this",
       "readers": "Only you see this"
     }
@@ -364,13 +364,14 @@
     }
   },
   "agentConnections": {
-    "description": "Accounts this agent may use on its own, in background tasks and routines. Granting access is not the same as approving what it does with it — autonomous mode and per-action rules still apply.",
+    "description": "Plugins and accounts this agent may use. Empty plugin list means every plugin enabled on the space, plus this agent’s personal accounts.",
     "empty": "No accounts yet. This agent can only use connections you grant it here.",
     "grantAction": "Grant access",
-    "personalBadge": "Personal",
+    "personalBadge": "On this agent",
+    "allSpacesBadge": "All spaces",
     "revoke": "Remove access",
     "saveFailed": "Could not change access. Try again.",
-    "title": "Connections"
+    "title": "Plugins"
   },
   "agentDesk": {
     "actions": {
@@ -410,7 +411,7 @@
       "help": "Browse all commands"
     },
     "composerPlaceholder": "Message {{name}}…",
-    "connectors": "Connectors",
+    "connectors": "Connections",
     "drawer": {
       "back": "Back",
       "collapse": "Restore settings panel size",
@@ -457,6 +458,28 @@
       "nameLabel": "Name",
       "descriptionPlaceholder": "What this agent does…",
       "noConnectors": "No connections.",
+      "connect": "Connect",
+      "connectTitle": "Extensions",
+      "connectBack": "Back",
+      "connectDescription": "Connections and skills for {{name}}.",
+      "connectPlugins": "Connections",
+      "connectInstallSkill": "Install from skills.sh",
+      "filterAll": "All",
+      "filterAdded": "Added",
+      "filterMarketplace": "Marketplace",
+      "skillsSearch": "Search skills…",
+      "skillsSearchMarketplace": "Search skills.sh…",
+      "noMatchingSkills": "No matching skills.",
+      "searchInMarketplace": "Search in Marketplace",
+      "marketplaceIntro": "Search skills.sh for a skill. Install it into this workspace, then save to bind it to the agent.",
+      "marketplaceFeatured": "Featured",
+      "skillsAddPackage": "Add package",
+      "skillsRemovePackage": "Remove package",
+      "skillsMore": "… {{count}} more",
+      "skillsCount": "{{count}} skills",
+      "skillsCountOne": "{{count}} skill",
+      "skillsPartial": "{{selected}} of {{count}}",
+      "connectSkillsReadOnly": "This agent's skills are part of its module. Connections can still be added.",
       "noDescription": "No description yet.",
       "noSkills": "No skills bound.",
       "openAdmin": "Open full settings",
@@ -559,7 +582,24 @@
     "wizard": {
       "answerOrCancel": "Answer the step above or cancel the run.",
       "utterancePlaceholder": "Reply to this step…"
-    }
+    },
+    "copilot": {
+      "title": "Copilot",
+      "composerPlaceholder": "Message the copilot…",
+      "emptyStateTitle": "How can I help?",
+      "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace."
+    },
+    "subAgent": {
+      "backToChat": "Back to chat",
+      "fullView": "Full view",
+      "input": "Input",
+      "log": "Log",
+      "notFound": "This sub-agent run is no longer available in the transcript.",
+      "output": "Output",
+      "running": "Running…"
+    },
+    "loading": "Loading agent desk…",
+    "loadFailed": "This agent desk could not be loaded."
   },
   "agentDetail": {
     "addRoutine": "Add routine",
@@ -2125,5 +2165,32 @@
       "placeholder": "Search…",
       "searching": "Searching…"
     }
+  },
+  "river": {
+    "chapters": "Chapters",
+    "compactNow": "Compact now",
+    "compacting": "Compacting…",
+    "nothingToCompact": "Nothing new since the last chapter.",
+    "empty": "No chapters yet. The river is cut into chapters every day and every week, or now, when you ask.",
+    "weekOf": "Week of {{date}}",
+    "keepInMind": "Keep in mind",
+    "backToNow": "Back to now",
+    "everywhere": "Outside any space",
+    "kind": {
+      "daily": "Day",
+      "weekly": "Week",
+      "manual": "On request"
+    }
+  },
+  "alterEgo": {
+    "label": "{{name}}'s Copilot",
+    "labelSibilant": "{{name}}' Copilot"
+  },
+  "workingMemory": {
+    "title": "Memory",
+    "subtitle": "The always-in-context profile the copilot maintains about you. It updates itself; reset is the only edit.",
+    "reset": "Reset",
+    "loading": "Loading…",
+    "empty": "No profile yet."
   }
 }

@@ -40,20 +40,6 @@ describe("space route mirrors", () => {
     expect([...ids]).toEqual(["offers"]);
   });
 
-  it("reads it off a copilot app too, which contributes no menu row", () => {
-    // The copilot's only contribution is a copilot app, so a caller passing
-    // just `adminMenuItems` sees no placement for it and keeps `/mdl/` — which
-    // is how chat would stay outside every space if the call site omitted it.
-    // The function is contribution-shaped on purpose. `/mdl/engenty-copilot`
-    // is still the personal desk: the route wrapper skips the redirect, this
-    // helper only reports placement.
-    const ids = spacePlacedModuleIds([
-      { placement: "global", pluginId: "inbox" },
-      { placement: "space", pluginId: "engenty-copilot" },
-    ]);
-    expect([...ids]).toEqual(["engenty-copilot"]);
-  });
-
   it("splits a legacy link into module, record and rest", () => {
     expect(parseLegacyModuleLink("/mdl/offers/123/draft")).toEqual({
       moduleId: "offers",
@@ -94,14 +80,14 @@ describe("short URL segments", () => {
   it("mirrors an aliased module under its short segment", () => {
     const [mirror] = spaceMirroredRoutes([
       {
-        id: "copilot-chat",
-        path: "/mdl/engenty-copilot/chat/:threadId",
-        pluginId: "engenty-copilot",
+        id: "kb-faq",
+        path: "/mdl/knowledge-base/faqs/:id",
+        pluginId: "knowledge-base",
       },
     ]);
-    expect(mirror?.path).toBe("copilot/chat/:threadId");
+    expect(mirror?.path).toBe("kb/faqs/:id");
     // Space deep links minted before the alias must still open the page.
-    expect(mirror?.legacyPath).toBe("engenty-copilot/chat/:threadId");
+    expect(mirror?.legacyPath).toBe("knowledge-base/faqs/:id");
   });
 
   it("leaves an unaliased module alone, and mounts it exactly once", () => {
@@ -113,6 +99,6 @@ describe("short URL segments", () => {
   });
 
   it("aliases a bare module route with no sub-path", () => {
-    expect(spaceMirrorPath("/mdl/engenty-copilot")).toBe("copilot");
+    expect(spaceMirrorPath("/mdl/knowledge-base")).toBe("kb");
   });
 });

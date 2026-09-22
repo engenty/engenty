@@ -260,6 +260,7 @@ async function assembleDynamicAgentWithAncestors(
     Boolean(
       space &&
         !isUnresolvedSpaceGate(space) &&
+        !("kind" in space) &&
         space.topLevelAgentIds?.has(config.id)
     );
   const declaredToolIds = carriesFloor

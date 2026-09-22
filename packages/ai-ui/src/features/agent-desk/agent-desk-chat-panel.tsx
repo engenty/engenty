@@ -1,5 +1,6 @@
 "use client";
 
+import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import type {
   AgentDeskAgent,
   AgentDeskCapabilityChip,
@@ -28,6 +29,7 @@ import { normalizeCopilotPositionMenuValue } from "../../components/copilot/draw
 import { CopilotPanelContent } from "../../components/copilot/panel/copilot-panel-content.js";
 import type { CopilotPanelContentProps } from "../../components/copilot/panel/copilot-panel-content-types.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
+import { formatCopilotThreadCopyText } from "../../components/copilot/transcript/copilot-thread-copy.js";
 import { TranscriptLoadOlder } from "../../components/copilot/transcript/transcript-load-older.js";
 import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-composer-draft-intent.js";
 import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
@@ -120,7 +122,24 @@ export function AgentDeskChatPanel(props: {
   openInterruptFromSession: ReturnType<
     typeof useAgentDeskThread
   >["openInterruptFromSession"];
-  spaceId: string;
+  /** `@agent` candidates — the copilot's, which can address any agent. */
+  mentionAgentCandidates?: CopilotPanelContentProps["mentionAgentCandidates"];
+  /** The empty chat's greeting; the desk's own when absent. */
+  emptyStateSubtitle?: string;
+  emptyStateTitle?: string;
+  /**
+   * Realtime voice (the copilot's): its turns splice into the transcript,
+   * its call strip replaces the composer while a session runs, and its
+   * control sits beside the effort chooser.
+   */
+  realtimeVoice?: {
+    composerLeadingControl?: ReactNode;
+    composerOverride?: ReactNode;
+    session: { isActive: boolean };
+    transcriptMessages: readonly (AgentTurnMessageLike & { id: string })[];
+  };
+  /** Null on the copilot's desk outside a space: no wizards, no run feed. */
+  spaceId: string | null;
   /**
    * Whether an empty chat offers the agent's starters. A room does not: its
    * openers are the host's, written for a person alone with it.
@@ -163,9 +182,12 @@ export function AgentDeskChatPanel(props: {
   );
   const generatedQuery = useAgentDeskGeneratedStarters({
     agentId: props.agentId,
-    enabled: withStarters && host.copilotMessages.length === 0,
+    enabled:
+      withStarters &&
+      props.spaceId !== null &&
+      host.copilotMessages.length === 0,
     locale,
-    spaceId: props.spaceId,
+    spaceId: props.spaceId ?? "",
   });
   const starterPrompts = useMemo(
     () =>
@@ -182,6 +204,16 @@ export function AgentDeskChatPanel(props: {
   const threadKey =
     host.threadId ??
     `${TEMPORARY_ENGENTY_THREAD_ID_PREFIX}${host.threadResetKey}`;
+  // Live voice turns are spliced into the transcript the panel renders, so
+  // the lane must read the same list when it looks for a parked chooser.
+  const voiceTurns = props.realtimeVoice?.transcriptMessages;
+  const messages = useMemo(
+    () =>
+      voiceTurns && voiceTurns.length > 0
+        ? [...host.copilotMessages, ...voiceTurns]
+        : host.copilotMessages,
+    [host.copilotMessages, voiceTurns]
+  );
   const status =
     host.pendingSend && host.status === "ready" ? "submitted" : host.status;
 
@@ -241,7 +273,7 @@ export function AgentDeskChatPanel(props: {
   const lane = useChatLaneComposer({
     dockedGate,
     host,
-    messages: host.copilotMessages,
+    messages,
     openInterruptFromSession: props.openInterruptFromSession,
     status,
     tenantId: currentTenant?.id ?? "",
@@ -251,14 +283,19 @@ export function AgentDeskChatPanel(props: {
 
   // `/command` for a wizard: press it here, no agent turn. The run's first
   // step then docks through the same hook a routine fire's would.
+  const spaceId = props.spaceId;
   const onPressWizardCommand = useCallback(
     (request: PressWizardCommandRequest) => {
+      if (!spaceId) {
+        // A wizard runs in a space; outside one the command has nowhere to go.
+        return;
+      }
       setPressPending(true);
       void pressWizardCommand({
         argsText: request.argsText,
         command: request.command,
         refs: request.refs,
-        spaceId: props.spaceId,
+        spaceId,
         workflowId: request.command.workflowId,
       })
         .then((result) => {
@@ -271,7 +308,7 @@ export function AgentDeskChatPanel(props: {
         })
         .finally(() => setPressPending(false));
     },
-    [invalidateDeskFeed, props.spaceId]
+    [invalidateDeskFeed, spaceId]
   );
   // Object panels and widgets prefill THIS composer ("Ask the agent to…") the
   // same way module pages prefill the copilot's — keyed by host, so a record
@@ -362,7 +399,18 @@ export function AgentDeskChatPanel(props: {
       icon={ListChecks}
       label={t("agentDesk.wizard.answerOrCancel")}
     />
-  ) : undefined;
+  ) : (
+    props.realtimeVoice?.composerOverride
+  );
+  const threadCopyText = useMemo(
+    () => formatCopilotThreadCopyText(messages),
+    [messages]
+  );
+  const handleCopyThread = useCallback(async () => {
+    if (threadCopyText) {
+      await navigator.clipboard.writeText(threadCopyText);
+    }
+  }, [threadCopyText]);
   const transcriptLoading =
     props.isLoadingMessages ||
     isAwaitingAgUiInitialHydrate({
@@ -388,7 +436,14 @@ export function AgentDeskChatPanel(props: {
     autoScrollKey: host.threadId ?? host.threadResetKey,
     awaitingInterrupt: host.awaitingInterrupt,
     composerFocusKey: host.threadResetKey,
-    composerLeadingControl: props.composerLeadingControl,
+    composerLeadingControl: props.realtimeVoice?.composerLeadingControl ? (
+      <div className="flex min-w-0 items-center gap-1">
+        {props.composerLeadingControl}
+        {props.realtimeVoice.composerLeadingControl}
+      </div>
+    ) : (
+      props.composerLeadingControl
+    ),
     composerOverride,
     composerPlaceholder: wizardGate
       ? t("agentDesk.wizard.utterancePlaceholder")
@@ -409,10 +464,17 @@ export function AgentDeskChatPanel(props: {
       props.companion || !props.scrollHeader ? undefined : (
         <div className={CHAT_LANE_COLUMN_CLASS}>{props.scrollHeader}</div>
       ),
+    ...(props.emptyStateSubtitle
+      ? { emptyStateSubtitle: props.emptyStateSubtitle }
+      : {}),
+    ...(props.emptyStateTitle
+      ? { emptyStateTitle: props.emptyStateTitle }
+      : {}),
     engentyKind: props.agentEngenty,
     error: host.error,
+    mentionAgentCandidates: props.mentionAgentCandidates,
     mentionRefSearch: props.mentionRefSearch,
-    messages: host.copilotMessages,
+    messages,
     onCancel: lane.stopAndClearQueue,
     onPressWizardCommand,
     onSandboxCommandApprove: lane.onSandboxCommandApprove,
@@ -426,6 +488,10 @@ export function AgentDeskChatPanel(props: {
     pendingUserText: host.pendingUserText,
     positionMenu: shell ? (
       <CopilotDrawerPositionMenu
+        canCopyThread={threadCopyText.length > 0}
+        copyThreadCopiedLabel={tc("copilot.copyThreadCopied")}
+        copyThreadLabel={tc("copilot.copyThread")}
+        onCopyThread={handleCopyThread}
         onSelectDockPosition={(mode) => {
           shell.setPreferredDockMode(mode);
           shell.setOpen(true);
@@ -445,6 +511,14 @@ export function AgentDeskChatPanel(props: {
       <div aria-hidden className="hidden" />
     ),
     respond: host.respond,
+    resumeInterrupt: (feedback) =>
+      host.resumeInterrupt({
+        artifactId: feedback.artifactId,
+        choiceId: feedback.choiceId,
+        choiceLabel: feedback.choiceLabel,
+        interruptId: feedback.interruptId,
+        payload: feedback.payload,
+      }),
     selectedSuggestions: NO_SELECTION,
     setDraft: lane.setDraft,
     setSelectedSuggestions: noop,
@@ -458,6 +532,12 @@ export function AgentDeskChatPanel(props: {
     // Reasoning/tool deltas don't change `messages` — feed raw stream activity
     // so the no-response guard never errors a live run.
     streamActivityCount: host.events.length,
+    subAgentFullViewLabel: t("agentDesk.subAgent.fullView"),
+    subAgentSectionLabels: {
+      input: t("agentDesk.subAgent.input"),
+      log: t("agentDesk.subAgent.log"),
+      output: t("agentDesk.subAgent.output"),
+    },
     submitMessage: lane.submitMessage,
     // "Wird gesendet…" is true only until the run picks the message up: the
     // optimistic bubble stays for the whole turn, so reading `pendingSend`
@@ -485,14 +565,14 @@ export function AgentDeskChatPanel(props: {
         <TranscriptLoadOlder olderMessages={props.olderMessages} />
       </>
     ),
-    transcriptFooter: (
+    transcriptFooter: spaceId ? (
       <AgentDeskRunActivity
         agentId={props.agentId}
         locale={locale}
-        spaceId={props.spaceId}
+        spaceId={spaceId}
         threadId={host.threadId}
       />
-    ),
+    ) : undefined,
     transcriptLoading,
   };
 

@@ -6,6 +6,8 @@ import type {
   AgentSessionStatus,
   ThreadAgentRole,
   ThreadAgentRow,
+  ThreadCompactionKind,
+  ThreadCompactionRow,
   ThreadMessageRole,
   ThreadMessageRow,
   ThreadParticipantRole,
@@ -903,18 +905,22 @@ export function createThreadStore(source: DbSource) {
      */
     async listDmsForUser(params: {
       limit?: number;
-      spaceId: string;
+      /** A Space's DMs, or `null` for the ones with no Space — the copilot's river. */
+      spaceId: string | null;
       tenantId: string;
       userId: string;
     }): Promise<ThreadRow[]> {
-      const { data: threads, error } = await dbFor(params.tenantId)
+      const scoped = dbFor(params.tenantId)
         .from("thread")
         .select()
         .eq("tenant_id", params.tenantId)
-        .eq("space_id", params.spaceId)
         .eq("created_by_user_id", params.userId)
         .eq(`route_context->>${THREAD_DM_KEY}`, "true")
-        .is("archived_at", null)
+        .is("archived_at", null);
+      const { data: threads, error } = await (params.spaceId
+        ? scoped.eq("space_id", params.spaceId)
+        : scoped.is("space_id", null)
+      )
         .order("updated_at", { ascending: false })
         .limit(params.limit ?? 100);
       if (error) {
@@ -923,9 +929,14 @@ export function createThreadStore(source: DbSource) {
       return ((threads as DbThreadRow[]) ?? []).map(mapThreadRow);
     },
 
-    /** Let an agent speak in a room. Idempotent; a host stays a host. */
+    /**
+     * Let an agent speak in a room. Idempotent; a host stays a host.
+     * `onBehalfOfUserId` names the person whose copilot the agent is — the
+     * alter ego the room shows (types.ts `ThreadAgentRow`).
+     */
     async addAgentMember(params: {
       agentId: string;
+      onBehalfOfUserId?: string | null;
       tenantId: string;
       threadId: string;
     }): Promise<void> {
@@ -934,6 +945,7 @@ export function createThreadStore(source: DbSource) {
         .upsert(
           {
             agent_id: params.agentId,
+            on_behalf_of_user_id: params.onBehalfOfUserId ?? null,
             role: "member" satisfies ThreadAgentRole,
             tenant_id: params.tenantId,
             thread_id: params.threadId,
@@ -942,6 +954,28 @@ export function createThreadStore(source: DbSource) {
         );
       if (error) {
         throw new Error(`thread_agent upsert: ${error.message}`);
+      }
+    },
+
+    /**
+     * Name the person an agent sits in this room for (rooms/alter-ego.ts).
+     * Reaches the host row too: a room the copilot opened from the river has
+     * it as host, and the RPC that opened it knows nothing of alter egos.
+     */
+    async markAgentOnBehalfOf(params: {
+      agentId: string;
+      onBehalfOfUserId: string;
+      tenantId: string;
+      threadId: string;
+    }): Promise<void> {
+      const { error } = await dbFor(params.tenantId)
+        .from("thread_agent")
+        .update({ on_behalf_of_user_id: params.onBehalfOfUserId })
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .eq("agent_id", params.agentId);
+      if (error) {
+        throw new Error(`thread_agent alter ego: ${error.message}`);
       }
     },
 
@@ -979,6 +1013,84 @@ export function createThreadStore(source: DbSource) {
         throw new Error(`thread_agent select: ${error.message}`);
       }
       return ((data ?? []) as ThreadAgentRow[]).map((row) => ({ ...row }));
+    },
+
+    // ── Chapters of the river (types.ts `ThreadCompactionRow`) ──────────────
+
+    /** Every chapter of a thread, newest first. */
+    async listCompactions(params: {
+      limit?: number;
+      tenantId: string;
+      threadId: string;
+    }): Promise<ThreadCompactionRow[]> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_compaction")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .order("range_end", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(params.limit ?? 200);
+      if (error) {
+        throw new Error(`thread_compaction select: ${error.message}`);
+      }
+      return ((data ?? []) as ThreadCompactionRow[]).map((row) => ({ ...row }));
+    },
+
+    async getCompaction(params: {
+      id: string;
+      tenantId: string;
+      threadId: string;
+    }): Promise<ThreadCompactionRow | null> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_compaction")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .eq("id", params.id)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`thread_compaction get: ${error.message}`);
+      }
+      return (data as ThreadCompactionRow | null) ?? null;
+    },
+
+    /** Where the last chapter of these kinds ends — the next one starts there. */
+    async latestCompactionEnd(params: {
+      kinds: readonly ThreadCompactionKind[];
+      tenantId: string;
+      threadId: string;
+    }): Promise<string | null> {
+      if (params.kinds.length === 0) {
+        return null;
+      }
+      const { data, error } = await dbFor(params.tenantId)
+        .from("thread_compaction")
+        .select("range_end")
+        .eq("tenant_id", params.tenantId)
+        .eq("thread_id", params.threadId)
+        .in("kind", [...params.kinds])
+        .order("range_end", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`thread_compaction latest: ${error.message}`);
+      }
+      return (data as { range_end: string } | null)?.range_end ?? null;
+    },
+
+    async insertCompaction(
+      input: Omit<ThreadCompactionRow, "created_at" | "id">
+    ): Promise<ThreadCompactionRow> {
+      const { data, error } = await dbFor(input.tenant_id)
+        .from("thread_compaction")
+        .insert({ ...input })
+        .select()
+        .single();
+      if (error) {
+        throw new Error(`thread_compaction insert: ${error.message}`);
+      }
+      return data as ThreadCompactionRow;
     },
 
     /** The people in a room, owner first. */

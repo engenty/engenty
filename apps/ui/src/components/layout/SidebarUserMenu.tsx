@@ -2,6 +2,7 @@ import { openAgUiAgentInspector } from "@engenty/ai-ui";
 import {
   RAIL_TILE_GLYPH_HOVER_CLASSNAME,
   useAppBarChromeContext,
+  useShortcutsDialog,
 } from "@engenty/app-shell";
 import {
   getImpersonationState,
@@ -35,6 +36,7 @@ import {
   Check,
   ChevronsUpDown,
   Code2,
+  Keyboard,
   Laptop,
   LogOut,
   Moon,
@@ -150,6 +152,7 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
 
   // Open the menu away from the app bar, whichever edge it is docked on.
   const { tooltipSide: awayFromBar } = useAppBarChromeContext();
+  const { setOpen: setShortcutsOpen } = useShortcutsDialog();
 
   const actorLabel =
     impersonation?.actor.display_name?.trim() ||
@@ -354,6 +357,17 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator className="my-0 bg-sidebar-border" />
+
+        <DropdownMenuGroup className="py-1">
+          <DropdownMenuItem
+            data-agent-user-menu-item-shortcuts
+            onClick={() => setShortcutsOpen(true)}
+          >
+            <Keyboard className="mr-2 size-4" />
+            <span>{t("userMenu.shortcuts")}</span>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
 
         {showDeveloperMenu ? (

@@ -800,31 +800,45 @@ export function SpaceSettingsPage() {
     [mounts, skillMeta]
   );
 
-  const connectionRows: MountRow[] = useMemo(
-    () =>
-      mounts
-        .filter((mount) => mount.resourceType === "connection")
-        .map((mount) => {
-          const meta = connectionMeta.get(mount.resourceKey);
-          return {
-            // What this space's engentys may do with the account
-            // (PLAN-connections-ux.md C1). Absent when the space never chose —
-            // the account's own setting decides then, which is usually why an
-            // engenty still cannot use it, so the row says nothing rather than
-            // claiming a level.
-            access: mount.agentAccess ?? null,
-            // A mount whose account the viewer cannot see (someone else's
-            // personal one, or a deleted row) shows its raw key rather than
-            // vanishing — an invisible mount is one nobody can remove.
-            description: meta?.connectorName ?? null,
-            icon: Plug as UiIconComponent,
-            id: `connection:${mount.resourceKey}`,
-            label: meta?.label ?? mount.resourceKey,
-          };
-        })
-        .sort((left, right) => left.label.localeCompare(right.label)),
-    [connectionMeta, mounts]
-  );
+  const pluginRows: MountRow[] = useMemo(() => {
+    const connectorNames = new Map(
+      (connectorsQuery.data ?? []).map((connector) => [
+        connector.id,
+        connector.title ?? connector.name ?? connector.id,
+      ])
+    );
+    const mountedConnectorIds = new Set<string>();
+    const accountRows: MountRow[] = mounts
+      .filter((mount) => mount.resourceType === "connection")
+      .map((mount) => {
+        const meta = connectionMeta.get(mount.resourceKey);
+        if (meta?.connectorId) {
+          mountedConnectorIds.add(meta.connectorId);
+        }
+        return {
+          access: mount.agentAccess ?? null,
+          description: meta?.connectorName ?? null,
+          icon: Plug as UiIconComponent,
+          id: `connection:${mount.resourceKey}`,
+          label: meta?.label ?? mount.resourceKey,
+        };
+      });
+    const pending = mounts
+      .filter(
+        (mount) =>
+          mount.resourceType === "plugin" &&
+          !mountedConnectorIds.has(mount.resourceKey)
+      )
+      .map((mount) => ({
+        description: t("spaces.settings.needsAuth"),
+        icon: Plug as UiIconComponent,
+        id: `plugin:${mount.resourceKey}`,
+        label: connectorNames.get(mount.resourceKey) ?? mount.resourceKey,
+      }));
+    return [...accountRows, ...pending].sort((left, right) =>
+      left.label.localeCompare(right.label)
+    );
+  }, [connectionMeta, connectorsQuery.data, mounts, t]);
 
   // No `secondaryNavHeaderSlot` and no Setup crumb: this page is INSIDE the
   // space, so the column keeps the space's own switcher and Work/Data/Plan tabs.
@@ -1207,29 +1221,14 @@ export function SpaceSettingsPage() {
 
           <SettingsFormSection
             cardVariant="flush"
-            description={t("spaces.setup.connectionsHint")}
-            title={t("spaces.setup.connectionsTitle")}
+            description={t("spaces.setup.pluginsHint")}
+            title={t("spaces.setup.pluginsTitle")}
           >
-            {/* Two entries, because there are two different needs. The picker
-                grants an account that already exists; "Add account" is for
-                when there is nothing to pick yet — the case an empty space
-                actually starts in. The space rides the URL so the account
-                comes back mounted HERE (CN.4 Flow A). */}
             <MountCard
-              action={t("spaces.settings.chooseConnections")}
+              action={t("spaces.settings.choosePlugins")}
               isPending={mountsQuery.isPending}
-              onConfigure={editKind("connection")}
-              rows={connectionRows}
-              secondaryAction={
-                spaceId && spaceKey
-                  ? {
-                      label: t("spaces.settings.addAccount", {
-                        defaultValue: "Add account",
-                      }),
-                      to: `/settings/connections?space=${encodeURIComponent(spaceId)}&back=${encodeURIComponent(`/s/${spaceKey}/settings`)}`,
-                    }
-                  : null
-              }
+              onConfigure={editKind("plugin")}
+              rows={pluginRows}
             />
           </SettingsFormSection>
 

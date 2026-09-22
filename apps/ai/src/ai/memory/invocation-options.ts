@@ -2,7 +2,14 @@ import type { AgentExecutionOptionsBase } from "@mastra/core/agent";
 import type { MastraMemory } from "@mastra/core/memory";
 import type { Processor } from "@mastra/core/processors";
 import type { ThreadStore } from "../../dal/threads/index.js";
+import type { TurnContext } from "../conversation/turn-context.js";
 import { AiSessionError } from "../errors.js";
+import {
+  createRecallChaptersTool,
+  RECALL_CHAPTERS_TOOL_ID,
+  riverTimeZone,
+} from "../river/index.js";
+import type { AlterEgo } from "../rooms/alter-ego.js";
 import {
   createEmptyReplyCompletion,
   withRunTimeouts,
@@ -49,6 +56,8 @@ export interface EngentySessionMemoryRuntimeInput
   /** The agent's display name, stamped on the rows it writes so the other
    *  members of a room read its turns under a name. */
   agentName?: string;
+  /** The person this agent writes for in a room (rooms/alter-ego.ts). */
+  alterEgo?: AlterEgo | null;
   /**
    * Configured routing-tier model id. Observational memory uses the AI
    * Gateway with this id (or the platform routing default).
@@ -61,6 +70,14 @@ export interface EngentySessionMemoryRuntimeInput
   persistCurrentUserTurn?: boolean;
   sharedObservations?: "personal" | "space" | "disabled";
   store: ThreadStore;
+  /**
+   * Give the agent `recall_chapters` over this thread: the conversations
+   * that go on without end — the river, a desk line, a DM (ai/river). Off
+   * on a run, a pair or a room thread, which have no chapters.
+   */
+  threadChapters?: boolean;
+  /** Where this run's user turn was said — stamped on its row (turn-context.ts). */
+  turnContext?: TurnContext | null;
   // Durable attachment parts for the current user turn, appended to the user
   // message on persist (Mastra saves the turn text-only). See the storage.
   userAttachmentParts?: readonly unknown[];
@@ -137,6 +154,8 @@ export function createEngentySessionMemoryRuntime(
     ...(input.persistCurrentUserTurn === false
       ? { persistCurrentUserTurn: false }
       : {}),
+    ...(input.turnContext ? { turnContext: input.turnContext } : {}),
+    ...(input.alterEgo ? { alterEgo: input.alterEgo } : {}),
   });
   const identity = {
     agentId: input.agentId,
@@ -174,9 +193,21 @@ export function createEngentySessionMemoryRuntime(
     ...(agentMemory ? [agentMemory.processor] : []),
     ...(agentTasks ? [agentTasks.processor] : []),
   ];
-  const memoryTools: Partial<AgentMemoryTools & AgentTasksTools> = {
+  const memoryTools: Partial<AgentMemoryTools & AgentTasksTools> & {
+    [RECALL_CHAPTERS_TOOL_ID]?: ReturnType<typeof createRecallChaptersTool>;
+  } = {
     ...(agentMemory?.tools ?? {}),
     ...(agentTasks?.tools ?? {}),
+    ...(input.threadChapters
+      ? {
+          [RECALL_CHAPTERS_TOOL_ID]: createRecallChaptersTool({
+            store: input.store,
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+            timeZone: riverTimeZone(),
+          }),
+        }
+      : {}),
   };
   return {
     memory: createEngentySessionMastraMemory({

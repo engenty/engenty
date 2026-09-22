@@ -8,9 +8,12 @@
 // `agent_id`. People are `ai.thread_participant`; the owner stays. The
 // purpose lives in the thread's metadata (rooms/room-turns.ts).
 //
-// A DM (`route_context.dm`) is one person's private line with one agent in a
-// Space: one per person, agent and Space, a stable id, opened on first use
-// and returned as-is after that. It is never named and never listed empty.
+// A DM (`route_context.dm`) is one person's private line with one agent: one
+// per person and agent, a stable id, opened on first use and returned as-is
+// after that. A shared specialist lives in a Space, so its DM is per Space. A
+// personal agent — the copilot — is one person's wherever they stand, so its
+// DM has no Space at all: it is the river, the one conversation that follows
+// them through the app, and it heads the Private list in every Space.
 //
 // Access is the thread's: whoever may write a room may change it.
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
@@ -81,18 +84,22 @@ const addMemberBodySchema = z.object({ agent_id: agentIdString });
 const addPersonBodySchema = z.object({ user_id: uuidString });
 const openDmBodySchema = z.object({
   agent_id: agentIdString,
-  space_id: uuidString,
+  /** Required for a shared specialist; absent for a personal agent's river. */
+  space_id: uuidString.optional(),
 });
 
-/** The one DM a person has with an agent in a Space — the same id every time. */
+/**
+ * The one DM a person has with an agent — the same id every time. Per Space
+ * for a shared specialist; `spaceId: null` is a personal agent's river.
+ */
 export function dmThreadId(input: {
   agentId: string;
-  spaceId: string;
+  spaceId: string | null;
   tenantId: string;
   userId: string;
 }): string {
   return stableUuid(
-    `dm:${input.tenantId}:${input.spaceId}:${input.agentId}:${input.userId}`
+    `dm:${input.tenantId}:${input.spaceId ?? "everywhere"}:${input.agentId}:${input.userId}`
   );
 }
 
@@ -156,14 +163,15 @@ export function registerRoomRoutes(
         return c.json({ error: "agent_threads.forbidden" }, 403);
       }
       const tenantId = scope.scope.tenantId;
-      const [rooms, dms] = await Promise.all([
-        store.listRoomsForSpace({
-          spaceId,
-          tenantId,
-          viewerUserId: scope.scope.userId,
-        }),
-        store.listDmsForUser({ spaceId, tenantId, userId: scope.scope.userId }),
+      const userId = scope.scope.userId;
+      const [rooms, spaceDms, everywhereDms] = await Promise.all([
+        store.listRoomsForSpace({ spaceId, tenantId, viewerUserId: userId }),
+        store.listDmsForUser({ spaceId, tenantId, userId }),
+        store.listDmsForUser({ spaceId: null, tenantId, userId }),
       ]);
+      // A tenant-wide DM — the copilot's river — is this person's in every
+      // Space, so it heads the list wherever they stand.
+      const dms = [...everywhereDms, ...spaceDms];
       return c.json({
         dms: dms.map((thread) => ({
           agent_id: thread.agent_id,
@@ -232,20 +240,26 @@ export function registerRoomRoutes(
     if (!body.success) {
       return c.json({ error: "agent_threads.invalidBody" }, 400);
     }
-    const { agent_id: agentId, space_id: spaceId } = body.data;
+    const { agent_id: agentId } = body.data;
     try {
-      if (!(await canEnterSpaceDefault(scope.scope, spaceId))) {
-        return c.json({ error: "agent_threads.forbidden" }, 403);
-      }
       const tenantId = scope.scope.tenantId;
       const config = await opts.getRegistry?.(tenantId).getAgentConfig(agentId);
       if (opts.getRegistry && !config) {
         return c.json({ error: "agent_threads.notFound" }, 404);
       }
-      // A personal agent's every thread is one person's already; a DM adds
-      // nothing to it and would list twice.
-      if (config?.agentScope === "personal") {
-        return c.json({ error: "agent_threads.noDm" }, 422);
+      // A personal agent is one person's wherever they stand: its DM is the
+      // river, tenant-wide, and naming a Space for it is a contradiction. A
+      // shared specialist is a Space's, so its DM needs one.
+      const personal = config?.agentScope === "personal";
+      if (personal && body.data.space_id) {
+        return c.json({ error: "agent_threads.personalDmHasNoSpace" }, 400);
+      }
+      const spaceId = personal ? null : (body.data.space_id ?? null);
+      if (!(personal || spaceId)) {
+        return c.json({ error: "agent_threads.invalidBody" }, 400);
+      }
+      if (spaceId && !(await canEnterSpaceDefault(scope.scope, spaceId))) {
+        return c.json({ error: "agent_threads.forbidden" }, 403);
       }
       const threadId = dmThreadId({
         agentId,

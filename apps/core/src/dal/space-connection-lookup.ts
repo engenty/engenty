@@ -102,3 +102,27 @@ export async function resolveConnectionFacts(
     ])
   );
 }
+
+/** Connector ids of accounts flagged for every space in this tenant. */
+export async function listAllSpacesConnectorIds(
+  client: SupabaseClient,
+  tenantId: string
+): Promise<string[]> {
+  const result = await client
+    .schema("module_connections")
+    .from("connections")
+    .select("connector_id")
+    .eq("tenant_id", tenantId)
+    .eq("all_spaces", true)
+    .eq("status", "active");
+  if (result.error) {
+    return [];
+  }
+  return [
+    ...new Set(
+      ((result.data ?? []) as Array<{ connector_id: string }>).map(
+        (row) => row.connector_id
+      )
+    ),
+  ];
+}

@@ -20,7 +20,9 @@ describe("mapAuth", () => {
     expect(result).toEqual({
       auth: {
         auth_url: "https://api.resend.com/oauth/authorize",
+        dcr: true,
         kind: "oauth2",
+        registration_endpoint: "https://api.resend.com/oauth/register",
         scopes: ["full_access", "emails:send"],
         token_url: "https://api.resend.com/oauth/token",
       },
@@ -46,6 +48,37 @@ describe("mapAuth", () => {
         name: "Authorization",
         value_template: "Bearer {{stripe_api_key}}",
       },
+    });
+  });
+
+  it("prefers a personal access token over OAuth when both are in the spec", () => {
+    const result = mapAuth({
+      securitySchemes: {
+        OAuth2: {
+          flows: {
+            authorizationCode: {
+              authorizationUrl: "https://www.figma.com/oauth",
+              scopes: { "files:read": "" },
+              tokenUrl: "https://api.figma.com/v1/oauth/token",
+            },
+          },
+          type: "oauth2",
+        },
+        PersonalAccessToken: {
+          in: "header",
+          name: "X-Figma-Token",
+          type: "apiKey",
+        },
+      },
+      sourceKind: "openapi",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.auth).toMatchObject({
+      kind: "api_key",
+      placement: { in: "header", name: "X-Figma-Token" },
     });
   });
 

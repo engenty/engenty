@@ -16,29 +16,54 @@ export interface SpaceHomeExtensionAccount {
   label: string;
 }
 
+export type SpaceHomeExtensionKind = "connection" | "plugin" | "skill";
+
 export interface SpaceHomeExtensionRow {
   connectorId: string | null;
   connectorName: string | null;
   id: string;
+  kind: SpaceHomeExtensionKind;
   label: string;
 }
 
 export function selectSpaceHomeExtensionRows(
   mounts: readonly Pick<SpaceMount, "resourceKey" | "resourceType">[],
-  metaById: ReadonlyMap<string, SpaceHomeExtensionAccount>
+  metaById: ReadonlyMap<string, SpaceHomeExtensionAccount>,
+  names: {
+    plugins?: ReadonlyMap<string, string>;
+    skills?: ReadonlyMap<string, string>;
+  } = {}
 ): SpaceHomeExtensionRow[] {
-  return mounts
-    .filter((mount) => mount.resourceType === "connection")
-    .map((mount) => {
+  const rows: SpaceHomeExtensionRow[] = [];
+  for (const mount of mounts) {
+    if (mount.resourceType === "connection") {
       const meta = metaById.get(mount.resourceKey);
-      return {
+      rows.push({
         connectorId: meta?.connectorId ?? null,
         connectorName: meta?.connectorName ?? null,
         id: mount.resourceKey,
+        kind: "connection",
         label: meta?.label ?? mount.resourceKey,
-      };
-    })
-    .sort((left, right) => left.label.localeCompare(right.label));
+      });
+    } else if (mount.resourceType === "plugin") {
+      rows.push({
+        connectorId: mount.resourceKey,
+        connectorName: null,
+        id: mount.resourceKey,
+        kind: "plugin",
+        label: names.plugins?.get(mount.resourceKey) ?? mount.resourceKey,
+      });
+    } else if (mount.resourceType === "skill") {
+      rows.push({
+        connectorId: null,
+        connectorName: null,
+        id: mount.resourceKey,
+        kind: "skill",
+        label: names.skills?.get(mount.resourceKey) ?? mount.resourceKey,
+      });
+    }
+  }
+  return rows.sort((left, right) => left.label.localeCompare(right.label));
 }
 
 /**

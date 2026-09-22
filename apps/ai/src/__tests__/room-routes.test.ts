@@ -53,6 +53,7 @@ function harness() {
         members.set(agentId, "member");
       }
     }),
+    markAgentOnBehalfOf: vi.fn(async () => {}),
     addUserParticipant: vi.fn(async ({ userId: id }: { userId: string }) => {
       if (!people.has(id)) {
         people.set(id, "member");
@@ -337,6 +338,13 @@ describe("room routes", () => {
       tenantId,
       userId,
     });
+    // The river — the copilot's DM with no Space — is asked for too, so it can
+    // head the list in every Space.
+    expect(store.listDmsForUser).toHaveBeenCalledWith({
+      spaceId: null,
+      tenantId,
+      userId,
+    });
     const body = (await res.json()) as {
       dms: { agent_id: string; session: { id: string } }[];
       rooms: { members: unknown[]; session: { id: string } }[];
@@ -430,17 +438,48 @@ describe("room routes", () => {
     ).toBe(created.session.id);
   });
 
-  it("no DM with a personal agent or an unknown one", async () => {
-    const { app } = harness();
-    const personal = await app.request(
+  it("a personal agent's DM is the river: tenant-wide, one per person, never in a Space", async () => {
+    const { app, store } = harness();
+    store.getThread.mockResolvedValueOnce(null as never);
+    const river = await app.request(
+      new Request("http://x/ai/threads/dm", {
+        body: JSON.stringify({ agent_id: "copilot" }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      })
+    );
+    expect(river.status).toBe(201);
+    expect(store.upsertThread).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "copilot",
+        routeContext: { dm: true },
+        spaceId: null,
+        visibility: "private",
+      })
+    );
+    const placed = await app.request(
       new Request("http://x/ai/threads/dm", {
         body: JSON.stringify({ agent_id: "copilot", space_id: spaceId }),
         headers: { "content-type": "application/json" },
         method: "POST",
       })
     );
-    expect(personal.status).toBe(422);
-    expect(await personal.json()).toEqual({ error: "agent_threads.noDm" });
+    expect(placed.status).toBe(400);
+    expect(await placed.json()).toEqual({
+      error: "agent_threads.personalDmHasNoSpace",
+    });
+  });
+
+  it("a shared specialist's DM needs its Space; an unknown agent has none", async () => {
+    const { app } = harness();
+    const unplaced = await app.request(
+      new Request("http://x/ai/threads/dm", {
+        body: JSON.stringify({ agent_id: "master" }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      })
+    );
+    expect(unplaced.status).toBe(400);
     const unknown = await app.request(
       new Request("http://x/ai/threads/dm", {
         body: JSON.stringify({ agent_id: "nobody", space_id: spaceId }),

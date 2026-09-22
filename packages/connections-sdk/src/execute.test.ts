@@ -15,6 +15,7 @@ function connection(
   overrides: Partial<ConnectionSummary> & { id: string }
 ): ConnectionSummary {
   return {
+    all_spaces: false,
     auth_kind: "oauth2",
     autonomous_mode: "off",
     connector_id: "google-gmail",
@@ -74,19 +75,15 @@ function fakeRepo(state: FakeRepoState) {
     listApprovalRequests: async () =>
       (state.pending ?? []) as ApprovalRequestRecord[],
     listCandidateConnections: async (params: {
+      agentGrantedConnectionIds?: ReadonlySet<string>;
       connectorId: string;
       principalId: string;
       spaceOwnerUserId?: string | null;
     }) =>
       state.connections.filter(
-        (c) =>
-          c.status === "active" &&
-          c.connector_id === params.connectorId &&
-          (c.sharing === "org" ||
-            c.owner_user_id === params.principalId ||
-            (params.spaceOwnerUserId != null &&
-              c.owner_user_id === params.spaceOwnerUserId))
+        (c) => c.status === "active" && c.connector_id === params.connectorId
       ),
+    listAgentGrantedConnectionIds: async () => new Set<string>(),
     listPolicyOverrides: async (ids: string[]) =>
       (state.overrides ?? []).filter((o) => ids.includes(o.connection_id)),
     withFreshAccessToken: async (
@@ -204,10 +201,10 @@ describe("executeConnectorAction", () => {
       id: "c-personal",
     });
     const org = connection({
+      all_spaces: true,
       external_account: "office@x.com",
       id: "c-org",
       owner_user_id: "admin-1",
-      sharing: "org",
     });
     const { repo } = fakeRepo({ connections: [personal, org] });
     const result = await executeConnectorAction({
@@ -228,10 +225,10 @@ describe("executeConnectorAction", () => {
       connections: [
         connection({ external_account: "alice@x.com", id: "c-1" }),
         connection({
+          all_spaces: true,
           external_account: "office@x.com",
           id: "c-2",
           owner_user_id: "admin-1",
-          sharing: "org",
         }),
       ],
     });
@@ -527,25 +524,49 @@ describe("executeConnectorAction — space parity (§2.1 / CN.3)", () => {
     ).rejects.toMatchObject({ code: "connection_denied" });
   });
 
-  it("stays personal-clamped without a verified owner", async () => {
+  it("unions an agent grant with space mounts (river rule)", async () => {
+    const granted = connection({
+      autonomous_mode: "full",
+      id: "c-grant",
+      owner_user_id: "someone-else",
+    });
+    const { repo } = fakeRepo({ connections: [granted] });
+    repo.listAgentGrantedConnectionIds = async () => new Set(["c-grant"]);
+    repo.listCandidateConnections = async (params: {
+      agentGrantedConnectionIds?: ReadonlySet<string>;
+      connectorId: string;
+    }) => (params.agentGrantedConnectionIds?.has("c-grant") ? [granted] : []);
+    const result = await executeConnectorAction({
+      action: makeAction(),
+      agentId: "engenty.copilot",
+      connector,
+      input: {},
+      isAutonomous: true,
+      mountedConnectionAccess: new Map(),
+      principal: service,
+      repo,
+      tenantId: "tenant-1",
+    });
+    expect(result.connection.id).toBe("c-grant");
+  });
+
+  it("direct connectionId still executes without a space mount", async () => {
     const target = connection({
       autonomous_mode: "full",
       id: "c-own",
       owner_user_id: "owner-9",
     });
     const { repo } = fakeRepo({ connections: [target] });
-    await expect(
-      executeConnectorAction({
-        action: makeAction(),
-        connector,
-        // Directly addressed so the candidate filter cannot hide the clamp.
-        connectionId: "c-own",
-        input: {},
-        isAutonomous: true,
-        principal: service,
-        repo,
-        tenantId: "tenant-1",
-      })
-    ).rejects.toMatchObject({ code: "connection_denied" });
+    const result = await executeConnectorAction({
+      action: makeAction(),
+      connector,
+      connectionId: "c-own",
+      input: {},
+      isAutonomous: true,
+      principal: service,
+      repo,
+      tenantId: "tenant-1",
+    });
+    expect(result.connection.id).toBe("c-own");
   });
 });

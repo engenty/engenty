@@ -11,6 +11,18 @@ type DraftSetter = (text: string) => void;
 
 const settersByHost = new Map<string, DraftSetter[]>();
 
+/**
+ * A draft waiting for its composer to mount.
+ *
+ * The blob's floating prompt can start a chat that lives on ANOTHER PAGE, so
+ * by the time the text exists the composer that should hold it is one
+ * navigation away and no setter is registered yet. Handing the text to the
+ * next composer for that host is what stops the prompt being typed and then
+ * silently dropped. Drained on the first registration, so a navigation that
+ * never lands leaves nothing behind but one unread string.
+ */
+const pendingByHost = new Map<string, string>();
+
 /** Register the mounted composer's draft setter. Latest registration wins. */
 export function registerCopilotComposerDraftSetter(
   hostKey: string,
@@ -19,6 +31,11 @@ export function registerCopilotComposerDraftSetter(
   const setters = settersByHost.get(hostKey) ?? [];
   setters.push(setter);
   settersByHost.set(hostKey, setters);
+  const pending = pendingByHost.get(hostKey);
+  if (pending !== undefined) {
+    pendingByHost.delete(hostKey);
+    setter(pending);
+  }
   return () => {
     const current = settersByHost.get(hostKey);
     if (!current) {
@@ -46,4 +63,15 @@ export function setCopilotComposerDraft(
   }
   latest(text);
   return true;
+}
+
+/**
+ * Prefill the composer for a host key, or hold the text for the next one to
+ * mount there. Use this whenever the composer may not exist yet.
+ */
+export function queueCopilotComposerDraft(hostKey: string, text: string): void {
+  if (setCopilotComposerDraft(hostKey, text)) {
+    return;
+  }
+  pendingByHost.set(hostKey, text);
 }

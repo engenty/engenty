@@ -186,7 +186,7 @@ function ConnectorCard({
                   t("catalog.connected")}
               </span>
               <StatusBadge connection={connection} />
-              {connection.sharing === "org" ? (
+              {connection.all_spaces ? (
                 <Badge variant="outline">{t("sharing.orgBadge")}</Badge>
               ) : null}
             </div>
@@ -236,7 +236,7 @@ function ConnectorConnectAffordance({
   // the connect flow would fail, so surface "Needs setup" instead of Connect.
   if (
     connector.auth_kind === "oauth2" &&
-    !(connector.configured || hasConnection)
+    !(connector.configured || connector.dcr_available || hasConnection)
   ) {
     return <NeedsSetupAffordance />;
   }
@@ -305,13 +305,13 @@ function NeedsSetupAffordance() {
   );
 }
 
-/** Connections the caller can see: own personal ones plus org-shared ones. */
+/** Connections the caller can see: own accounts plus all-spaces. */
 export function visibleConnections(
   connector: CatalogConnector,
   currentUserId: string | null
 ): CatalogConnection[] {
   return connector.connections.filter(
-    (c) => c.sharing === "org" || c.owner_user_id === currentUserId
+    (c) => c.all_spaces === true || c.owner_user_id === currentUserId
   );
 }
 

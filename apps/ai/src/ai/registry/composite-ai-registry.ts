@@ -19,17 +19,23 @@ export class CompositeAiRegistry implements AiRegistry {
     id: string,
     context?: AgentResolveContext
   ): Promise<AgentConfig | undefined> {
+    let codeConfig: AgentConfig | undefined;
+    let databaseConfig: AgentConfig | undefined;
     for (const provider of this.providers) {
       const config = await provider.getAgentConfig(id, context);
-      if (config) {
-        // The Worker compute default (PLAN-agent-computers.md §1.1), applied
-        // at the read seam so every consumer — chat, delegation, headless
-        // runs, the registry API — sees one answer. Providers stay dumb;
-        // declarations (a sandbox block, `enabled:false`) always win.
-        return applyWorkerSandboxDefault(config);
+      if (!config) {
+        continue;
+      }
+      if (provider.providerId === "database") {
+        databaseConfig = config;
+        continue;
+      }
+      if (!codeConfig) {
+        codeConfig = config;
       }
     }
-    return;
+    const merged = overlayTenantConnectorIds(codeConfig, databaseConfig);
+    return merged ? applyWorkerSandboxDefault(merged) : undefined;
   }
 
   async getTool(id: string): Promise<MastraToolDefinition | undefined> {
@@ -43,19 +49,59 @@ export class CompositeAiRegistry implements AiRegistry {
   }
 
   async listAgentConfigs(): Promise<AgentConfig[]> {
-    const configsById = new Map<string, AgentConfig>();
+    const codeById = new Map<string, AgentConfig>();
+    const databaseById = new Map<string, AgentConfig>();
+    const order: string[] = [];
+    const seen = new Set<string>();
     for (const provider of this.providers) {
       if (!hasListAgentConfigs(provider)) {
         continue;
       }
+      const fromDatabase = provider.providerId === "database";
       for (const config of await provider.listAgentConfigs()) {
-        if (!configsById.has(config.id)) {
-          configsById.set(config.id, applyWorkerSandboxDefault(config));
+        const normalized = applyWorkerSandboxDefault(config);
+        if (fromDatabase) {
+          databaseById.set(config.id, normalized);
+        } else if (!codeById.has(config.id)) {
+          codeById.set(config.id, normalized);
+        }
+        if (!seen.has(config.id)) {
+          seen.add(config.id);
+          order.push(config.id);
         }
       }
     }
-    return [...configsById.values()];
+    return order.flatMap((id) => {
+      const merged = overlayTenantConnectorIds(
+        codeById.get(id),
+        databaseById.get(id)
+      );
+      return merged ? [merged] : [];
+    });
   }
+}
+
+/**
+ * A tenant row for a code agent (builtin / module / function) stores
+ * `connectorIds` and other PATCH fields, but must not replace the code
+ * definition. Snapshotting the copilot into `engenty_ai_agents` would freeze
+ * tools, drop `toolGating` / `interfaceRole` (those columns are not written),
+ * and flip `source` to `database`. Overlay the preferred-plugin list only.
+ *
+ * Hired agents exist only in the database: there is no code config, so the
+ * row is the definition.
+ */
+export function overlayTenantConnectorIds(
+  codeConfig: AgentConfig | undefined,
+  databaseConfig: AgentConfig | undefined
+): AgentConfig | undefined {
+  if (codeConfig && databaseConfig) {
+    return {
+      ...codeConfig,
+      connectorIds: databaseConfig.connectorIds ?? [],
+    };
+  }
+  return codeConfig ?? databaseConfig;
 }
 
 function hasListAgentConfigs(

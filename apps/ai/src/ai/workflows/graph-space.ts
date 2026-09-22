@@ -1,5 +1,8 @@
 import type { SpaceGateContext } from "../../../ai/tools/engenty-tools/lib/space-gate.js";
-import { isUnresolvedSpaceGate } from "../../../ai/tools/engenty-tools/lib/space-gate.js";
+import {
+  isGlobalConnectorGate,
+  isUnresolvedSpaceGate,
+} from "../../../ai/tools/engenty-tools/lib/space-gate.js";
 
 /**
  * JSON-safe Space carried on the graph request context.
@@ -13,6 +16,11 @@ export type SerializedGraphSpace =
       claimed_space_id: string;
       kind: "unresolved";
       reason: "forbidden" | "not_found" | "unavailable";
+    }
+  | {
+      allConnectorPrefixes: string[];
+      connectorPrefixes: string[];
+      kind: "global";
     }
   | {
       agentIds: string[];
@@ -35,6 +43,13 @@ export function serializeGraphSpace(
       claimed_space_id: space.claimed_space_id,
       kind: "unresolved",
       reason: space.reason,
+    };
+  }
+  if (isGlobalConnectorGate(space)) {
+    return {
+      allConnectorPrefixes: [...space.allConnectorPrefixes],
+      connectorPrefixes: [...space.connectorPrefixes],
+      kind: "global",
     };
   }
   return {
@@ -74,6 +89,13 @@ export function deserializeGraphSpace(
       claimed_space_id: value.claimed_space_id,
       kind: "unresolved",
       reason: value.reason,
+    };
+  }
+  if (value.kind === "global") {
+    return {
+      allConnectorPrefixes: stringSet(value.allConnectorPrefixes),
+      connectorPrefixes: stringSet(value.connectorPrefixes),
+      kind: "global",
     };
   }
   if (value.kind === "resolved" && typeof value.spaceId === "string") {

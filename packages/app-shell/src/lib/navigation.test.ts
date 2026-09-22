@@ -9,7 +9,7 @@ import {
 
 describe("navigation", () => {
   describe("buildNavigationSections", () => {
-    it("leads the apps section with copilot, then global modules", () => {
+    it("lists global modules only — Copilot is not a rail app", () => {
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -25,16 +25,6 @@ describe("navigation", () => {
             to: "/mdl/contacts",
           },
         ],
-        copilotApps: [
-          {
-            id: "engenty_copilot_app",
-            placement: "global",
-            label: "Engenty Copilot",
-            pluginId: "engenty-copilot",
-            to: "/mdl/engenty-copilot/chat",
-            icon: () => null,
-          },
-        ],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -44,14 +34,14 @@ describe("navigation", () => {
         settingsItems: [],
       });
 
-      // The `primary` section is gone (PLAN-spaces.md Phase 5a): Today/copilot
-      // is the first item of the apps zone, not a section of its own.
+      // The `primary` section is gone (PLAN-spaces.md Phase 5a), and Copilot
+      // is not an app beside the spaces either: it is reached inside a space
+      // and from the blob at the personal end of the bar.
       expect(sections.map((section) => section.id)).toEqual([
         "modules",
         "admin",
       ]);
       expect(sections[0]?.items.map((item) => item.to)).toEqual([
-        "/mdl/engenty-copilot/chat",
         "/mdl/contacts",
       ]);
     });
@@ -88,16 +78,6 @@ describe("navigation", () => {
             to: "/mdl/contacts",
           },
         ],
-        copilotApps: [
-          {
-            id: "engenty_copilot_app",
-            placement: "global",
-            label: "Engenty Copilot",
-            pluginId: "engenty-copilot",
-            to: "/mdl/engenty-copilot/chat",
-            icon: () => null,
-          },
-        ],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -111,15 +91,13 @@ describe("navigation", () => {
       // so they are absent from the rail rather than moved within it — the
       // filter is `placement`, not a hard-coded pair of menu ids.
       expect(sections[0]?.items.map((item) => item.to)).toEqual([
-        "/mdl/engenty-copilot/chat",
         "/mdl/contacts",
       ]);
     });
 
-    it("keeps a space-placed copilot on the rail as its home", () => {
-      // Records modules leave the rail when they move into a space. Copilot
-      // does not: `/mdl/engenty-copilot` is the personal desk, and the compact
-      // rail is how you reach it from inside a space.
+    it("keeps a copilot app off the rail whatever its placement", () => {
+      // A copilot app is an assistant you talk to, not a place on the rail —
+      // neither placement puts a tile beside the spaces.
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -135,16 +113,6 @@ describe("navigation", () => {
             to: "/mdl/contacts",
           },
         ],
-        copilotApps: [
-          {
-            id: "engenty_copilot_app",
-            placement: "space",
-            label: "Engenty Copilot",
-            pluginId: "engenty-copilot",
-            to: "/mdl/engenty-copilot/chat",
-            icon: () => null,
-          },
-        ],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -155,14 +123,13 @@ describe("navigation", () => {
       });
 
       expect(sections[0]?.items.map((item) => item.to)).toEqual([
-        "/mdl/engenty-copilot/chat",
         "/mdl/contacts",
       ]);
     });
 
-    it("keeps the apps zone for Copilot when every records module lives in a space", () => {
-      // Records modules leave the rail; Copilot stays, so zone ③ is not
-      // empty on a default install. An empty section would still be dropped.
+    it("drops the apps zone when every records module lives in a space", () => {
+      // Records modules leave the rail and Copilot was never on it, so a
+      // tenant whose every module is space-placed has no apps zone at all.
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -176,16 +143,6 @@ describe("navigation", () => {
             placement: "space",
             section: "modules",
             to: "/mdl/tasks",
-          },
-        ],
-        copilotApps: [
-          {
-            id: "engenty_copilot_app",
-            placement: "space",
-            label: "Engenty Copilot",
-            pluginId: "engenty-copilot",
-            to: "/mdl/engenty-copilot/chat",
-            icon: () => null,
           },
         ],
         copilotContributions: [],
@@ -197,14 +154,11 @@ describe("navigation", () => {
         settingsItems: [],
       });
 
-      expect(sections.map((section) => section.id)).toContain("modules");
-      expect(sections[0]?.items.map((item) => item.to)).toEqual([
-        "/mdl/engenty-copilot/chat",
-      ]);
+      expect(sections.map((section) => section.id)).not.toContain("modules");
       expect(sections.every((section) => section.items.length > 0)).toBe(true);
     });
 
-    it("drops the apps zone when Copilot is absent and every module lives in a space", () => {
+    it("drops the apps zone when no module is global", () => {
       const sections = buildNavigationSections({
         routes: [],
         backgroundComponents: [],
@@ -220,7 +174,6 @@ describe("navigation", () => {
             to: "/mdl/tasks",
           },
         ],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -252,7 +205,6 @@ describe("navigation", () => {
             to: "/mdl/legacy",
           },
         ],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -305,7 +257,6 @@ describe("navigation", () => {
             order: 10,
           },
         ],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -412,7 +363,6 @@ describe("navigation", () => {
             order: 11,
           },
         ],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -469,16 +419,6 @@ describe("navigation", () => {
             to: "/mdl/inbox",
           },
         ],
-        copilotApps: [
-          {
-            id: "engenty_copilot_app",
-            placement: "global" as const,
-            label: "Engenty Copilot",
-            pluginId: "engenty-copilot",
-            to: "/mdl/engenty-copilot/chat",
-            icon: () => null,
-          },
-        ],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -492,7 +432,6 @@ describe("navigation", () => {
         isTenantAdmin: true,
       });
       expect(adminSections[0]?.items.map((item) => item.to)).toEqual([
-        "/mdl/engenty-copilot/chat",
         "/mdl/inbox",
       ]);
       expect(adminSections[0]?.items.map((item) => item.to)).not.toContain(
@@ -530,7 +469,6 @@ describe("navigation", () => {
         chatCommands: [],
         tabs: [],
         adminMenuItems: [],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -565,7 +503,6 @@ describe("navigation", () => {
         chatCommands: [],
         tabs: [],
         adminMenuItems: [],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -630,7 +567,6 @@ describe("navigation", () => {
         chatCommands: [],
         tabs: [],
         adminMenuItems: [],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -709,7 +645,6 @@ describe("navigation", () => {
         chatCommands: [],
         tabs: [],
         adminMenuItems: [],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],
@@ -757,7 +692,6 @@ describe("navigation", () => {
             chatCommands: [],
             tabs: [],
             adminMenuItems: [],
-            copilotApps: [],
             copilotContributions: [],
             dashboardWidgets: [],
             developmentPanels: [],
@@ -875,7 +809,6 @@ describe("navigation", () => {
               icon: TasksIcon,
             },
           ],
-          copilotApps: [],
           copilotContributions: [],
           dashboardWidgets: [],
           developmentPanels: [],
@@ -930,7 +863,6 @@ describe("navigation", () => {
             to: "/admin/files",
           },
         ],
-        copilotApps: [],
         copilotContributions: [],
         dashboardWidgets: [],
         developmentPanels: [],

@@ -9,7 +9,6 @@ import type {
   UiBrandSource,
   UiChatCommandContribution,
   UiContributions,
-  UiCopilotAppContribution,
   UiCopilotContribution,
   UiDashboardWidgetContribution,
   UiDevelopmentPanelContribution,
@@ -30,7 +29,6 @@ interface MutableUiContributions {
   backgroundComponents: UiBackgroundComponentContribution[];
   brandSource?: UiBrandSource;
   chatCommands: UiChatCommandContribution[];
-  copilotApps: UiCopilotAppContribution[];
   copilotArticleHrefResolver?: (
     slug: string,
     articleIdOrSlug: string
@@ -112,7 +110,6 @@ export function createUiPluginRuntime(
       brandSource: undefined,
       copilotArticleHrefResolver: undefined,
       chatCommands: [],
-      copilotApps: [],
       copilotContributions: [],
       dashboardWidgets: [],
       developmentPanels: [],
@@ -297,19 +294,6 @@ export function createEngentyUiApi(
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.copilotContribution"),
       });
     },
-    registerCopilotApp: (input) => {
-      const id = normalizeId(input.id, "copilot app");
-      runtime.contributions.copilotApps.push({
-        id,
-        pluginId: normalizedPluginId,
-        label: input.label.trim(),
-        labelKey: input.labelKey?.trim(),
-        to: normalizePath(input.to, "copilot app"),
-        icon: input.icon,
-        order: input.order,
-        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.copilotApp"),
-      });
-    },
     registerBackgroundComponent: (input) => {
       const id = normalizeId(input.id, "background component");
       runtime.contributions.backgroundComponents.push({
@@ -392,7 +376,6 @@ export async function resolveUiContributions(
     routes,
     adminMenuItems,
     backgroundComponents,
-    copilotApps,
     copilotContributions,
     dashboardWidgets,
     developmentPanels,
@@ -410,9 +393,6 @@ export async function resolveUiContributions(
     ]),
     runtime.hooks.emit("ui.backgroundComponents", [
       ...runtime.contributions.backgroundComponents,
-    ]),
-    runtime.hooks.emit("ui.copilotApps", [
-      ...runtime.contributions.copilotApps,
     ]),
     runtime.hooks.emit("ui.copilotContributions", [
       ...runtime.contributions.copilotContributions,
@@ -450,7 +430,6 @@ export async function resolveUiContributions(
     chatCommands,
     copilotArticleHrefResolver:
       runtime.contributions.copilotArticleHrefResolver,
-    copilotApps,
     copilotContributions,
     dashboardWidgets,
     developmentPanels,

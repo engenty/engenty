@@ -29,6 +29,10 @@
     "./ui/lib/policy": {
       "types": "./ui/lib/policy.ts",
       "default": "./ui/lib/policy.ts"
+    },
+    "./ui/marketplace": {
+      "types": "./ui/components/marketplace/plugin-marketplace-dialog.tsx",
+      "default": "./ui/components/marketplace/plugin-marketplace-dialog.tsx"
     }
   },
   "engenty": {

@@ -26,21 +26,34 @@ import { connectionsKeys } from "../queries.js";
 export function ConnectCredentialsDialog({
   connector,
   hasConnections,
+  hideTrigger = false,
+  onConnected,
+  onOpenChange,
+  open: openProp,
 }: {
-  connector: Pick<CatalogConnector, "credential_fields" | "id" | "name">;
+  connector: Pick<CatalogConnector, "id" | "name"> & {
+    credential_fields?: CatalogConnector["credential_fields"];
+  };
   hasConnections: boolean;
+  /** Controlled dialog without the default Connect trigger (marketplace). */
+  hideTrigger?: boolean;
+  onConnected?: (connectionId: string) => void | Promise<void>;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
 }) {
   const { t } = useTranslation("connections");
   const queryClient = useQueryClient();
   const fields = connector.credential_fields ?? [];
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [busy, setBusy] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
 
   const submit = async () => {
     setBusy(true);
     try {
-      await connectWithCredentials(connector.id, {
+      const result = await connectWithCredentials(connector.id, {
         credentials: values,
         sharing: "personal",
       });
@@ -50,6 +63,7 @@ export function ConnectCredentialsDialog({
       setOpen(false);
       setValues({});
       toast.success(t("toasts.connected", { name: connector.name }));
+      await onConnected?.(result.connection_id);
     } catch (error) {
       toast.error(
         t("toasts.connectStartFailed", {
@@ -67,15 +81,17 @@ export function ConnectCredentialsDialog({
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
-      <DialogTrigger asChild>
-        <Button
-          size="sm"
-          type="button"
-          variant={hasConnections ? "outline" : "default"}
-        >
-          {t("catalog.connect")}
-        </Button>
-      </DialogTrigger>
+      {hideTrigger ? null : (
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            type="button"
+            variant={hasConnections ? "outline" : "default"}
+          >
+            {t("catalog.connect")}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{connector.name}</DialogTitle>

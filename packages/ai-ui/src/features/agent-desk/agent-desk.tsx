@@ -1,9 +1,7 @@
 import { spaceRoomPathname } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import { uiPageScrollClassName } from "@engenty/ui-core";
-import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
+import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import {
-  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -18,7 +16,6 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-import { WorkspaceArtifactPane } from "../../artifacts/workspace-artifact-pane.js";
 import { AgentFace } from "../../components/agent-face.js";
 import {
   type ChatKind,
@@ -31,19 +28,16 @@ import {
   useChatVisibilityCopy,
 } from "../../components/copilot/chat-visibility.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
-import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
-import {
-  THREAD_CONTEXT_FLOAT_GAP_PX,
-  THREAD_CONTEXT_TOP_CLEARANCE_VAR,
-} from "../../components/copilot/thread-context/thread-context-types.js";
 import {
   clearPendingHostMessage,
   pendingHostMessageFromState,
   resolvePendingHostMessage,
   writePendingHostMessage,
 } from "../../copilot/host-message-handoff.js";
-import { ObjectDisplayIntentProvider } from "../../objects/object-display-intent.js";
-import { UserBrowserPane } from "../browser/user-browser-pane.js";
+import {
+  ThreadChapterCard,
+  ThreadChaptersMenu,
+} from "../../copilot/thread-chapters.js";
 import { AgentDeskActions } from "./agent-desk-actions.js";
 import { AgentDeskChat } from "./agent-desk-chat.js";
 import {
@@ -51,18 +45,9 @@ import {
   isAgentDeskChatSurface,
   resolveAgentDeskDefault,
 } from "./agent-desk-defaults.js";
-import {
-  AGENT_DESK_PANEL_STATE_KEYS,
-  type AgentDeskPanel,
-  parseAgentDeskPanel,
-} from "./agent-desk-drawer.js";
 import { AgentDeskEngagementList } from "./agent-desk-engagement-list.js";
-import {
-  AgentDeskHeader,
-  type AgentDeskRelation,
-} from "./agent-desk-header.js";
+import type { AgentDeskRelation } from "./agent-desk-header.js";
 import { AgentDeskNewRoomDialog } from "./agent-desk-new-room-dialog.js";
-import { AgentDeskPane } from "./agent-desk-pane.js";
 import {
   type AgentDeskSwitchAgent,
   AgentDeskSwitcher,
@@ -77,42 +62,13 @@ import {
   useOpenDmMutation,
   useSpaceConversationsQuery,
 } from "./conversation-api.js";
+import { DeskFrame, DeskMessage, DeskPageBody } from "./desk-frame.js";
 import { useAgentDeskFeed } from "./use-agent-desk-feed.js";
+import { useAgentDeskPanel } from "./use-agent-desk-panel.js";
 import { useDeskObjectDisplayIntent } from "./use-desk-object-display-intent.js";
 
 const NO_BREADCRUMBS: PageBreadcrumb[] = [];
 const NO_ROSTER: readonly AgentDeskSwitchAgent[] = [];
-
-/** The engagement list of an agent that has no chat, as a scrolling column. */
-function PageBody({ children }: { children: ReactNode }) {
-  return (
-    <div className={uiPageScrollClassName}>
-      <div className="mx-auto w-full max-w-5xl px-page py-6">{children}</div>
-    </div>
-  );
-}
-
-function DeskMessage({
-  children,
-  tone = "muted",
-}: {
-  children: string;
-  tone?: "error" | "muted";
-}) {
-  return (
-    <div className="grid min-h-48 place-items-center px-page text-center">
-      <p
-        className={
-          tone === "error"
-            ? "text-destructive text-sm"
-            : "text-muted-foreground text-sm"
-        }
-      >
-        {children}
-      </p>
-    </div>
-  );
-}
 
 export function AgentDesk(props: {
   agentId: string;
@@ -213,32 +169,7 @@ export function AgentDesk(props: {
   const threadId = threadIdFromEngagement(selected);
   const asking = searchParams.get("action") === "ask";
   // The drawer over the chat, if one is open. `tab` is the key links minted
-  // before the drawer carry; it resolves the same way.
-  const panel = parseAgentDeskPanel(
-    searchParams.get("panel") ?? searchParams.get("tab")
-  );
-  const openPanel = useCallback(
-    (next: AgentDeskPanel) => {
-      setSearchParams((current) => {
-        const params = new URLSearchParams(current);
-        params.set("panel", next);
-        params.delete("tab");
-        return params;
-      });
-    },
-    [setSearchParams]
-  );
-  const closePanel = useCallback(() => {
-    setSearchParams((current) => {
-      const params = new URLSearchParams(current);
-      params.delete("panel");
-      params.delete("tab");
-      for (const key of AGENT_DESK_PANEL_STATE_KEYS) {
-        params.delete(key);
-      }
-      return params;
-    });
-  }, [setSearchParams]);
+  const { closePanel, openPanel, panel } = useAgentDeskPanel();
   const objectDisplayIntent = useDeskObjectDisplayIntent(hostKey);
   const deskDefault = feedQuery.data
     ? resolveAgentDeskDefault(feedQuery.data)
@@ -266,41 +197,6 @@ export function AgentDesk(props: {
   const canManage = Boolean(
     feedQuery.data && canManageAgents && canManageAgent(feedQuery.data.agent)
   );
-  // Compact overlay in the topbar band once the identity has scrolled. The
-  // large identity stays in the transcript — swapping its height used to
-  // oscillate the scroller at one content length.
-  const [headerCollapsed, setHeaderCollapsed] = useState(() =>
-    Boolean(threadId)
-  );
-  const onTranscriptTopVisibility = useCallback((visible: boolean) => {
-    setHeaderCollapsed(!visible);
-  }, []);
-  // A layout effect on purpose: the chat panel reports an empty transcript
-  // (identity in view, no band) in a plain effect, which runs after this —
-  // so on a switch to an empty thread its word is the last one.
-  useLayoutEffect(() => {
-    setHeaderCollapsed(Boolean(threadId));
-  }, [threadId]);
-  // The band is opaque and sits over the top of the chat, so the floating
-  // context card has to clear it, not just the topbar. Its height depends on
-  // how the badges wrap, so it is measured rather than guessed.
-  const bandObserver = useRef<ResizeObserver | null>(null);
-  const [bandHeightPx, setBandHeightPx] = useState(0);
-  const bandRef = useCallback((node: HTMLDivElement | null) => {
-    bandObserver.current?.disconnect();
-    bandObserver.current = null;
-    if (!node) {
-      setBandHeightPx(0);
-      return;
-    }
-    setBandHeightPx(node.offsetHeight);
-    const observer = new ResizeObserver(() => {
-      setBandHeightPx(node.offsetHeight);
-    });
-    observer.observe(node);
-    bandObserver.current = observer;
-  }, []);
-  useEffect(() => () => bandObserver.current?.disconnect(), []);
   const actions = feedQuery.data ? (
     <AgentDeskActions
       agentId={feedQuery.data.agent.id}
@@ -308,6 +204,8 @@ export function AgentDesk(props: {
       canAsk={feedQuery.data.agent.can_ask}
       canAssignWork={feedQuery.data.agent.can_assign_work}
       canManage={canManage}
+      // Only a bound conversation has chapters; an engagement list has none.
+      chapters={threadId ? <ThreadChaptersMenu threadId={threadId} /> : null}
       hostKey={hostKey}
       isCustomAgent={feedQuery.data.agent.source === "database"}
       locale={locale}
@@ -433,23 +331,6 @@ export function AgentDesk(props: {
     ]
   );
 
-  usePageConfig({
-    actions,
-    breadcrumbs,
-    contentStackBackground: "paper",
-    routeBreadcrumbAction,
-    // The header is a white band, so the transparent topbar floats over it
-    // and the two blend — as on the admin personnel file. The header's own top
-    // clearance keeps the title clear of the topbar's controls.
-    topbarOverlap: true,
-    // A private chat's band is the other theme; the crumbs and actions
-    // floating over it flip with it, and only while the band is up.
-    topbarTone:
-      chatIsConversation && headerCollapsed && visibility === "private"
-        ? "flip"
-        : "default",
-  });
-
   useEffect(() => {
     if (!(shouldBindLatestConversation && newestConversation)) {
       return;
@@ -483,136 +364,92 @@ export function AgentDesk(props: {
   const { agent, engagements } = feedQuery.data;
   const defaultEngagementId =
     deskDefault?.kind === "desk" ? deskDefault.engagement?.id : undefined;
-  const scrollHeader = (
-    <AgentDeskHeader
-      agent={agent}
-      chatKind={chatKind}
-      collapsed={false}
-      hostKey={hostKey}
-      lastActivityAt={openEngagement?.sort_at ?? null}
-      memberCount={spaceAudience?.peopleCount}
-      moduleLabel={moduleLabel}
-      relation={relation}
-      spaceName={spaceName}
-      visibility={chatSurface ? visibility : null}
-    />
-  );
-  // Non-chat agents never had a chat to show; their Chat position falls back to
-  // the engagement list they always had.
-  const chatBody = chatIsConversation ? (
-    <AgentDeskChat
-      agentConnectors={agent.connectors}
-      agentDescription={agent.description}
-      agentEngenty={agent.engenty}
-      agentId={agent.id}
-      agentName={agent.name}
-      agentRole={agent.role}
-      agentScope={agent.agentScope}
-      agentSkills={agent.skills}
-      agentStarters={agent.starters}
-      composerLeadingControl={composerLeadingControl}
-      {...(composerPlaceholder ? { composerPlaceholder } : {})}
-      contextPane={false}
-      mentionRefSearch={mentionRefSearch}
-      onPendingConsumed={consumePendingSubmit}
-      onThreadCreated={(createdThreadId) => {
-        if (resolvePendingHostMessage(hostKey, location.state)) {
-          deferredCreatedThreadId.current = createdThreadId;
-          return;
-        }
-        bindCreatedThread(createdThreadId, false);
-      }}
-      onTranscriptTopVisibility={onTranscriptTopVisibility}
-      pendingSubmit={pendingSubmit}
-      scrollHeader={scrollHeader}
-      spaceId={spaceId}
-      threadId={threadId}
-    />
-  ) : (
-    <PageBody>
-      {engagements.length > 0 ? (
-        <AgentDeskEngagementList
-          defaultEngagementId={defaultEngagementId}
-          engagements={engagements}
-        />
-      ) : (
-        <div className="ui-card-panel px-5 py-8 text-center">
-          <p className="font-medium text-sm">No work here yet</p>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Assign work to get started.
-          </p>
-        </div>
-      )}
-    </PageBody>
-  );
-
   return (
-    <div
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden"
-      style={
-        {
-          [THREAD_CONTEXT_TOP_CLEARANCE_VAR]: bandHeightPx
-            ? `${bandHeightPx + THREAD_CONTEXT_FLOAT_GAP_PX}px`
-            : undefined,
-        } as CSSProperties
-      }
-    >
-      {chatIsConversation && headerCollapsed ? (
-        // Above the transcript's own top fade (z-10, a later sibling that
-        // would otherwise wash over the band's top edge), under the topbar
-        // (z-20).
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-[15]"
-          ref={bandRef}
-        >
-          <AgentDeskHeader
-            agent={agent}
-            chatKind={chatKind}
-            collapsed
-            hostKey={hostKey}
-            lastActivityAt={openEngagement?.sort_at ?? null}
-            memberCount={spaceAudience?.peopleCount}
-            moduleLabel={moduleLabel}
-            relation={relation}
-            spaceName={spaceName}
-            visibility={visibility}
-          />
-        </div>
-      ) : null}
-      {/* Identity scrolls with the transcript; the context card is overlaid
-          (sticky in the pane) so the main column is one scroller. */}
-      <ObjectDisplayIntentProvider value={objectDisplayIntent}>
-        <ThreadContextPane
-          {...(chatIsConversation ? {} : { header: scrollHeader })}
-          hostKey={hostKey}
-          layout="column"
-        >
-          {chatBody}
-        </ThreadContextPane>
-      </ObjectDisplayIntentProvider>
-      {/* The person's browser in the end-pane slot beside the artifact pane,
-          whatever the desk shows — conversation or engagement list — so the
-          monitor toggle always has somewhere to open (PLAN-user-browser.md
-          §2.6). */}
-      <UserBrowserPane spaceId={spaceId} />
-      {/* Scoped to the open conversation, not the copilot's thread: the desk
-          shows what THIS agent produced here, and the same subscription lets
-          the agent bring an artefact it is working on to the front. */}
-      <WorkspaceArtifactPane
-        extraScope={{ id: agent.id, type: "agent" }}
-        hostKey={hostKey}
-        scope={{ id: threadId, type: "thread" }}
-      />
-      <AgentDeskPane
-        agent={agent}
+    <>
+      <DeskFrame
+        actions={actions}
+        breadcrumbs={breadcrumbs}
         canEditPads={Boolean(feedQuery.data && canManageAgents)}
         canManage={canManage}
+        chapterCard={
+          chatIsConversation && threadId ? (
+            <ThreadChapterCard threadId={threadId} />
+          ) : null
+        }
+        chatIsConversation={chatIsConversation}
+        header={{
+          agent,
+          chatKind,
+          hostKey,
+          lastActivityAt: openEngagement?.sort_at ?? null,
+          memberCount: spaceAudience?.peopleCount,
+          moduleLabel,
+          relation,
+          spaceName,
+          visibility: chatSurface ? visibility : null,
+        }}
+        hostKey={hostKey}
         locale={locale}
-        moduleLabel={moduleLabel}
-        onClose={closePanel}
+        objectDisplayIntent={objectDisplayIntent}
+        onClosePanel={closePanel}
         panel={panel}
+        routeBreadcrumbAction={routeBreadcrumbAction}
+        spaceAudience={spaceAudience}
         spaceId={spaceId}
-      />
+        threadId={threadId}
+        visibility={visibility}
+      >
+        {({ onTranscriptTopVisibility, scrollHeader }) =>
+          // Non-chat agents never had a chat to show; their Chat position falls
+          // back to the engagement list they always had.
+          chatIsConversation ? (
+            <AgentDeskChat
+              agentConnectors={agent.connectors}
+              agentDescription={agent.description}
+              agentEngenty={agent.engenty}
+              agentId={agent.id}
+              agentName={agent.name}
+              agentRole={agent.role}
+              agentScope={agent.agentScope}
+              agentSkills={agent.skills}
+              agentStarters={agent.starters}
+              composerLeadingControl={composerLeadingControl}
+              {...(composerPlaceholder ? { composerPlaceholder } : {})}
+              contextPane={false}
+              mentionRefSearch={mentionRefSearch}
+              onPendingConsumed={consumePendingSubmit}
+              onThreadCreated={(createdThreadId) => {
+                if (resolvePendingHostMessage(hostKey, location.state)) {
+                  deferredCreatedThreadId.current = createdThreadId;
+                  return;
+                }
+                bindCreatedThread(createdThreadId, false);
+              }}
+              onTranscriptTopVisibility={onTranscriptTopVisibility}
+              pendingSubmit={pendingSubmit}
+              scrollHeader={scrollHeader}
+              spaceId={spaceId}
+              threadId={threadId}
+            />
+          ) : (
+            <DeskPageBody>
+              {engagements.length > 0 ? (
+                <AgentDeskEngagementList
+                  defaultEngagementId={defaultEngagementId}
+                  engagements={engagements}
+                />
+              ) : (
+                <div className="ui-card-panel px-5 py-8 text-center">
+                  <p className="font-medium text-sm">No work here yet</p>
+                  <p className="mt-1 text-muted-foreground text-sm">
+                    Assign work to get started.
+                  </p>
+                </div>
+              )}
+            </DeskPageBody>
+          )
+        }
+      </DeskFrame>
       {newRoomOpen ? (
         <AgentDeskNewRoomDialog
           host={{ engenty: agent.engenty, id: agent.id, name: agent.name }}
@@ -625,6 +462,6 @@ export function AgentDesk(props: {
           spaceId={spaceId}
         />
       ) : null}
-    </div>
+    </>
   );
 }

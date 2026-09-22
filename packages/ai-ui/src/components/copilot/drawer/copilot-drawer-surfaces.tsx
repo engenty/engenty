@@ -10,7 +10,6 @@ import {
   SidePanelTitle,
 } from "@engenty/ui-core";
 import type { ReactNode, RefObject } from "react";
-import { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
@@ -18,10 +17,7 @@ import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import { shouldShowCopilotFab } from "./copilot-drawer-utils";
-import {
-  CopilotFabTrigger,
-  type CopilotWhoOption,
-} from "./copilot-fab-trigger";
+import { CopilotFabTrigger } from "./copilot-fab-trigger";
 import { CopilotWindowSurface } from "./copilot-window-surface";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
 
@@ -48,49 +44,53 @@ export interface CopilotDrawerSurfaceTreeProps {
     status: CopilotPanelContentProps["status"];
     submitMessage: CopilotPanelContentProps["submitMessage"];
   };
+  /** Blob "on" state. Defaults to `open`; a talk page sets it too. */
+  isActive?: boolean;
   layout: UseCopilotDrawerLayoutResult;
   mainContentReady: boolean;
   mainContentRef: RefObject<HTMLElement | null> | undefined;
+  /** Blob click. Falls back to the layout's open/collapse toggle. */
+  onFabClick?: () => void;
   onOpenChange: (open: boolean) => void;
-  onOpenChat?: () => void;
-  onOpenPrompt?: () => void;
+  onOpenCopilot?: () => void;
+  onSubmitPrompt?: (text: string) => void;
   open: boolean;
   panelContent: ReactNode;
   panelContentProps: CopilotPanelContentProps;
   preferredDockMode?: CopilotDockMode | null;
   recentCompactContexts: CopilotCompactContextOption[];
-  renderCopilotThreadChooser: (variant: "compact" | "panel") => ReactNode;
   selectedCompactContext: CopilotCompactContextOption | undefined;
   selectedCompactContextId: string;
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
   surfaceInstanceKey: string;
-  threadChooserEnabled: boolean;
   title: string | undefined;
-  whoOptions?: CopilotWhoOption[];
   /** Window chrome: who chooser, session, new chat, position, close. */
   windowTitleBar?: ReactNode;
 }
 
 function renderFabTrigger(input: {
+  active: boolean;
   docked: boolean;
-  onOpenChat?: () => void;
-  onOpenPrompt?: () => void;
+  onOpenCopilot?: () => void;
   onStartVoice?: () => void;
+  onSubmitPrompt?: (text: string) => void;
   open: boolean;
+  promptPlaceholder?: string;
   title: string | undefined;
   triggerClick: () => void;
-  whoOptions?: CopilotWhoOption[];
 }) {
   return (
     <CopilotFabTrigger
       ariaLabel={input.title ?? "Open copilot"}
       docked={input.docked}
-      isActive={input.open}
+      isActive={input.active}
       onClick={input.triggerClick}
-      onOpenChat={input.onOpenChat}
-      onOpenPrompt={input.onOpenPrompt}
+      onOpenCopilot={input.onOpenCopilot}
       onStartVoice={input.onStartVoice}
-      whoOptions={input.whoOptions}
+      onSubmitPrompt={input.onSubmitPrompt}
+      {...(input.promptPlaceholder
+        ? { promptPlaceholder: input.promptPlaceholder }
+        : {})}
     />
   );
 }
@@ -161,14 +161,16 @@ export function CopilotDrawerSurfaceTree({
   dragHandleLabel,
   effectiveMode,
   layout,
+  onFabClick,
   onOpenChange,
-  onOpenChat,
-  onOpenPrompt,
+  composerPlaceholder,
+  isActive,
+  onOpenCopilot,
+  onSubmitPrompt,
   open,
   panelContent,
   surfaceInstanceKey,
   title,
-  whoOptions,
   windowTitleBar,
 }: CopilotDrawerSurfaceTreeProps) {
   const { session: voiceSession } = useCopilotVoice();
@@ -187,20 +189,17 @@ export function CopilotDrawerSurfaceTree({
     voiceSessionActive: voiceSession.isActive,
   });
 
-  const handleOpenPrompt = useCallback(() => {
-    onOpenPrompt?.();
-  }, [onOpenPrompt]);
-
   const fabTrigger = showFab
     ? renderFabTrigger({
+        active: isActive ?? open,
         docked,
-        onOpenChat,
-        onOpenPrompt: handleOpenPrompt,
+        onOpenCopilot,
         onStartVoice: voiceSession.start,
+        onSubmitPrompt,
         open,
+        promptPlaceholder: composerPlaceholder,
         title,
-        triggerClick: layout.handleFabTriggerClick,
-        whoOptions,
+        triggerClick: onFabClick ?? layout.handleFabTriggerClick,
       })
     : null;
   const dockedFab =

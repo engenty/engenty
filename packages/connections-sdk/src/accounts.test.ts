@@ -9,6 +9,7 @@ function connection(
   overrides: Partial<ConnectionSummary> & { id: string }
 ): ConnectionSummary {
   return {
+    all_spaces: false,
     auth_kind: "oauth2",
     autonomous_mode: "off",
     connector_id: "google-gmail",

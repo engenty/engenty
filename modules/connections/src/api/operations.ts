@@ -2,6 +2,7 @@ import type { ConnectionsRepo } from "@engenty/connections-sdk";
 import {
   ACTION_GROUP_DEFAULT_POLICY,
   connectionAccountLabel,
+  connectionVisibleToUser,
   connectorOperationId,
   executeConnectorAction,
   getConnectorDefinition,
@@ -131,13 +132,11 @@ export function registerConnectionsOperations(
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const { principalId, tenantId } = ctx.auth;
+      const { tenantId } = ctx.auth;
       const repo = getRepo(ctx.auth);
-      const connectors = listConnectorDefinitions();
+      const connectors = listConnectorDefinitions(tenantId);
       const connections = await repo.listConnections({ tenantId });
-      const visible = connections.filter(
-        (c) => c.sharing === "org" || c.owner_user_id === principalId
-      );
+      const visible = connections;
       const overrides = await repo.listPolicyOverrides(
         visible.map((c) => c.id)
       );
@@ -171,6 +170,9 @@ export function registerConnectionsOperations(
             stream: Boolean(connector.stream),
           },
           configured: configuredByConnector.get(connector.id) ?? true,
+          dcr_available:
+            connector.auth.kind === "oauth2" &&
+            Boolean(connector.auth.oauth2.dynamicClientRegistration),
           actions: connector.actions.map((action) => ({
             default_policy: ACTION_GROUP_DEFAULT_POLICY[action.group],
             description: action.description,
@@ -235,7 +237,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const { connector_id } = input as { connector_id: string };
-      const connector = getConnectorDefinition(connector_id);
+      const connector = getConnectorDefinition(connector_id, ctx.auth.tenantId);
       if (!connector) {
         throw new Error(`Unknown connector: ${connector_id}`);
       }
@@ -246,6 +248,9 @@ export function registerConnectionsOperations(
               hooks.settings.clientEnv(ctx.auth.tenantId)
             )
           : true;
+      const dcrAvailable =
+        connector.auth.kind === "oauth2" &&
+        Boolean(connector.auth.oauth2.dynamicClientRegistration);
       const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: connector_id,
         principalId: ctx.auth.principalId,
@@ -260,6 +265,7 @@ export function registerConnectionsOperations(
         },
         configured,
         connected: candidates.length > 0,
+        dcr_available: dcrAvailable,
         accounts: candidates.map(connectionAccountLabel),
       };
     },
@@ -276,7 +282,7 @@ export function registerConnectionsOperations(
     summary:
       "List the connected accounts usable for a connector (for the `account` param of its actions)",
     description:
-      "Accounts the caller can address on a connector's actions via the optional `account` input param, with their sharing mode. Use when an action fails with connection_ambiguous.",
+      "Accounts the caller can address on a connector's actions via the optional `account` input param. Use when an action fails with connection_ambiguous.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
@@ -326,15 +332,10 @@ export function registerConnectionsOperations(
         if (connection.status !== "active") {
           continue;
         }
-        if (
-          !(
-            connection.sharing === "org" ||
-            connection.owner_user_id === principalId
-          )
-        ) {
+        if (!connectionVisibleToUser(connection, principalId)) {
           continue;
         }
-        const def = getConnectorDefinition(connection.connector_id);
+        const def = getConnectorDefinition(connection.connector_id, tenantId);
         if (!def?.storage) {
           continue;
         }
@@ -397,7 +398,10 @@ export function registerConnectionsOperations(
           "No such connection in this tenant."
         );
       }
-      const connector = getConnectorDefinition(connection.connector_id);
+      const connector = getConnectorDefinition(
+        connection.connector_id,
+        ctx.auth.tenantId
+      );
       const action = connector?.actions.find((a) => a.id === "files_write");
       if (!(connector && action)) {
         // 400: the connection is real, the request asks it for something it
@@ -440,10 +444,12 @@ export function registerConnectionsOperations(
     // already connected from Files. Granting to the active Space happens in
     // the handler so agents can then use it.
     spacePolicy: ACCOUNT_MOUNTED,
-    summary: "Update sharing, autonomous mode, or display name of a connection",
+    summary:
+      "Update all-spaces, autonomous mode, or display name of a connection",
     riskLevel: "medium",
     requiredCapabilities: ["module.connections.write"],
     inputSchema: connectionIdSchema.extend({
+      all_spaces: z.boolean().optional(),
       autonomous_mode: z.enum(["off", "read_only", "full"]).optional(),
       display_name: z.string().max(200).nullable().optional(),
       non_owner_max_group: groupSchema.nullable().optional(),
@@ -454,6 +460,7 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const parsed = input as z.infer<typeof connectionIdSchema> & {
+        all_spaces?: boolean;
         autonomous_mode?: "off" | "read_only" | "full";
         display_name?: string | null;
         non_owner_max_group?: "read" | "write" | "destructive" | null;
@@ -462,21 +469,22 @@ export function registerConnectionsOperations(
       const repo = getRepo(ctx.auth);
       await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
       await grantToActiveSpace(hooks, ctx.auth, parsed.connection_id);
-      if (parsed.sharing === "org") {
+      if (parsed.all_spaces) {
         const connection = await repo.getConnection({
           connectionId: parsed.connection_id,
           tenantId: ctx.auth.tenantId,
         });
         const def = connection
-          ? getConnectorDefinition(connection.connector_id)
+          ? getConnectorDefinition(connection.connector_id, ctx.auth.tenantId)
           : undefined;
         if (def?.auth.kind === "browser") {
           throw new Error(
-            "browser connectors are device-local and cannot be shared org-wide"
+            "browser connectors are device-local and cannot be shared with every space"
           );
         }
       }
       await repo.updateConnectionSettings({
+        allSpaces: parsed.all_spaces,
         autonomousMode: parsed.autonomous_mode,
         connectionId: parsed.connection_id,
         displayName: parsed.display_name,
@@ -679,14 +687,15 @@ export function registerConnectionsOperations(
       const repo = getRepo(ctx.auth);
       const connections = await repo.listConnections({ tenantId });
       const usable = connections.filter(
-        (c) =>
-          c.status === "active" &&
-          (c.sharing === "org" || c.owner_user_id === principalId)
+        (c) => c.status === "active" && connectionVisibleToUser(c, principalId)
       );
       const overrides = await repo.listPolicyOverrides(usable.map((c) => c.id));
       const granted = new Set<string>();
       for (const connection of usable) {
-        const connector = getConnectorDefinition(connection.connector_id);
+        const connector = getConnectorDefinition(
+          connection.connector_id,
+          tenantId
+        );
         if (!connector) {
           continue;
         }
@@ -744,7 +753,7 @@ export function registerConnectionsOperations(
       // this cannot become a way to enumerate a colleague's mailboxes.
       const visible = new Map(
         connections
-          .filter((c) => c.sharing === "org" || c.owner_user_id === principalId)
+          .filter((c) => connectionVisibleToUser(c, principalId))
           .map((c) => [c.id, c])
       );
       const grants = (await repo.listAgentGrants()).filter((grant) =>
@@ -763,6 +772,7 @@ export function registerConnectionsOperations(
             created_at: grant.created_at,
             display_name: connection?.display_name ?? null,
             external_account: connection?.external_account ?? null,
+            all_spaces: connection?.all_spaces ?? false,
             sharing: connection?.sharing ?? null,
           };
         }),
@@ -855,22 +865,15 @@ async function assertOwnerOrThrow(
   if (connection.owner_user_id === auth.principalId) {
     return;
   }
-  if (connection.sharing === "personal") {
+  if (!connection.all_spaces) {
     throw forbiddenError(
       "connection_not_owner",
-      "This is someone else's personal connection."
+      "Only the connection's owner can change this."
     );
   }
-  // PLAN-spaces.md CN.6/2 — an ORG connection is not therefore self-servable.
-  // The comment here used to say tenant-admin capability gated this, and the
-  // operation-level `module.connections.write` does not: every member holds it
-  // (`module.*` is in the member profile), so any colleague could rewrite the
-  // action policies on the company mailbox, raise the non-owner cap, or flip
-  // it to personal. Ownership or real tenant administration — `core.*` is
-  // deliberately absent from the member profile, so this separates them.
-  //
-  // An owner-less org connection (the owner left the company) stays manageable
-  // by admins, which is the reason this is not simply "owner only".
+  // All-spaces accounts: owner or tenant admin. Not every member — `module.*`
+  // is in the member profile, so this separates them. An owner-less account
+  // (the owner left) stays manageable by admins.
   if (!capabilityCovers([...(auth.capabilities ?? [])], "core.users.manage")) {
     throw forbiddenError(
       "connection_not_owner",

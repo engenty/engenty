@@ -599,7 +599,7 @@
     "columnSource": "Source"
   },
   "copilot": {
-    "title": "Global Copilot",
+    "title": "Copilot",
     "attachments": {
       "add": "Add photos or files",
       "uploading": "Uploading attachments…",
@@ -620,11 +620,7 @@
       "remove": "Remove reference"
     },
     "agentChooser": {
-      "emptySessions": "No sessions yet",
-      "generalCopilot": "Engenty",
-      "newSession": "New session",
-      "selectAgent": "Choose agent",
-      "sessionsHeading": "Sessions"
+      "selectAgent": "Choose agent"
     },
     "threadChooser": {
       "emptyThreads": "No chats yet",
@@ -634,7 +630,6 @@
     "open": "Copilot",
     "breadcrumbUntitledChat": "Untitled chat",
     "openSessionsSidebar": "Open sessions list",
-    "newChat": "New chat",
     "newChatPickAgent": "Choose agent for new chat",
     "newChatStartWithAgent": "Start with another agent",
     "decisionAnswered": "Answer",
@@ -837,6 +832,7 @@
     "developerMode": "Developer mode",
     "developerTools": "Developer Tools",
     "agUiInspector": "AG-UI Inspector",
+    "shortcuts": "Shortcuts",
     "logout": "Sign out",
     "switchBack": "Switch back",
     "actingAs": "Acting as {{name}}",
@@ -1069,7 +1065,9 @@
       "addPackage": "Add package",
       "removePackage": "Remove package",
       "connectionsTitle": "Connections",
-      "connectionsHint": "Connected accounts this space may reach. A space reaches only the connectors mounted here.",
+      "connectionsHint": "Connected accounts this space may reach. Enable a plugin here, then authenticate; or flag an account for every space.",
+      "pluginsTitle": "Plugins",
+      "pluginsHint": "Connector definitions enabled in this space, including ones that still need an account.",
       "appearanceLabel": "Colour and icon",
       "appearanceHint": "How this space is recognised on the rail, before anyone reads its name.",
       "privateLabel": "Private space",
@@ -1286,9 +1284,21 @@
       },
       "extensions": {
         "title": "Extensions",
-        "empty": "No extra account is mounted in this space yet.",
-        "add": "Add an account",
-        "all": "All"
+        "empty": "Nothing is connected in this space yet.",
+        "add": "Connect",
+        "connect": "Connect",
+        "all": "All",
+        "dialogTitle": "Extensions",
+        "back": "Back",
+        "dialogDescription": "Connections and skills for this space.",
+        "tabPlugins": "Connections",
+        "tabSkills": "Skills",
+        "skillsHint": "Packages are sets of playbooks. Open one to pick individual skills.",
+        "skillsCount": "{{count}} skills",
+        "skillsCountOne": "{{count}} skill",
+        "skillsPartial": "{{selected}} of {{count}}",
+        "skillsSave": "Save skills",
+        "skillsSaving": "Saving…"
       },
       "files": {
         "title": "Files",
@@ -1339,6 +1349,8 @@
       "saveFailed": "Could not save. Try again.",
       "chooseSkills": "Choose skills",
       "chooseConnections": "Choose connections",
+      "choosePlugins": "Choose plugins",
+      "needsAuth": "Needs authentication",
       "generalTitle": "General",
       "generalHint": "How this space behaves for the rest of the team.",
       "securityTitle": "Security",
@@ -1638,7 +1650,7 @@
     "conversations": {
       "agents": "Engenties",
       "rooms": "Rooms",
-      "dms": "Direct",
+      "dms": "Private",
       "list": "Conversations",
       "pin": "Pin",
       "unpin": "Unpin",
@@ -1657,6 +1669,7 @@
       "openDm": "Direct message",
       "newDm": "New direct message",
       "dmLine": "Only you",
+      "riverLine": "Only you · everywhere",
       "newRoomWith": "New group chat with {{name}}",
       "hide": "Hide from sidebar",
       "leave": "Leave",

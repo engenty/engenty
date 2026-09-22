@@ -153,8 +153,6 @@ export {
   COPILOT_DOCK_COMPOSER_CARD_CLASS,
   COPILOT_LAYOUT_USER_SETTING_NAME,
   COPILOT_WHO_ID,
-  CopilotAgentThreadChooser,
-  type CopilotAgentThreadChooserThread,
   type CopilotChatOnFinish,
   CopilotComposerSection,
   CopilotDrawer,
@@ -261,11 +259,8 @@ export {
   useMarkInboxNotificationMutation,
 } from "./features/inbox/inbox-queries.js";
 export {
-  type CopilotTasksDto,
   parseWorkingMemoryProfile,
-  useCopilotTasksQuery,
   useResetWorkingMemoryMutation,
-  useSaveCopilotTasksMutation,
   useWorkingMemoryQuery,
   type WorkingMemoryDto,
   workingMemoryKeys,
@@ -420,7 +415,6 @@ export {
 } from "./objects/object-widget-registry.js";
 // --- Host-scoped thread list (CopilotKit-shaped) ---
 export {
-  activeThreadStorageKey,
   type CreateEngentyThreadOptions,
   ENGENTY_THREAD_HOST_KEY_FIELD,
   type EngentyThreadRecord,

@@ -2,7 +2,7 @@ import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 
 const PREFIX = "[copilot:chat-new]";
 
-/** Dev-only trace for `/mdl/engenty-copilot/chat/new` → session URL flow. */
+/** Dev-only trace for the copilot's thread/session hand-off. */
 export function logCopilotChatNew(
   event: string,
   fields?: Record<string, unknown>

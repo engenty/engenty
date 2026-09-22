@@ -1,7 +1,73 @@
 [
   {
+    "version": "v0.2.15",
+    "timestamp": 1790067639,
+    "commits": [
+      {
+        "id": "bec3d3f",
+        "message": "open a token form when imported setup cannot start OAuth",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "68cb3f4",
+        "message": "install catalog connections and browse skills the same way",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "eeb0785",
+        "message": "keep the engenty mark inside a narrow chat column",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e8d8a5b",
+        "message": "show registry logos, descriptions, and sign-in steps",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0f66668",
+        "message": "add an Extensions marketplace for spaces and agents",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "32ea4d3",
+        "message": "replace personal/org sharing with a space plugin marketplace",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4fbc6c9",
+        "message": "one desk for the copilot and the specialists — chapters on both",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c3e4fdf",
+        "message": "add Shortcuts to the user menu",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5051d42",
+        "message": "add a searchable keyboard shortcuts palette",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6667f9b",
+        "message": "the river — one private conversation per person, with chapters and an alter ego",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.14",
-    "timestamp": 1789934256,
+    "timestamp": 1789934257,
     "commits": [
       {
         "id": "eb6828a",

@@ -1,5 +1,6 @@
 "use client";
 
+import { HOTKEY_GROUP } from "@engenty/ui-core";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import type { RefObject } from "react";
 import { useCallback } from "react";
@@ -71,7 +72,8 @@ export function useCopilotVoiceInputHotkey({
     enabled: isActive,
     meta: {
       description: "Toggle voice dictation in the copilot composer",
-      name: "Copilot voice input (Mod+.)",
+      group: HOTKEY_GROUP.copilot,
+      name: "Toggle voice dictation",
     },
     target: scopeRef,
   });

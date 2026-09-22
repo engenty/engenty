@@ -823,6 +823,7 @@ export function createPluginRecord(params: {
     id: params.manifest.id,
     name: params.manifest.name,
     description: params.manifest.description,
+    ...(params.manifest.emoji ? { emoji: params.manifest.emoji } : {}),
     version: params.manifest.version,
     sourceType: params.candidate.sourceType,
     rootDir: params.candidate.rootDir,

@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import type { ConnectorDefinition, ConnectorOAuth2Config } from "./types.js";
 
 export interface OAuth2Tokens {
@@ -9,7 +10,14 @@ export interface OAuth2Tokens {
 
 export interface OAuth2Env {
   clientId: string;
+  /** Empty for public clients (DCR `token_endpoint_auth_method: none`). */
   clientSecret: string;
+}
+
+export interface OAuth2Pkce {
+  codeChallenge: string;
+  codeChallengeMethod: "S256";
+  codeVerifier: string;
 }
 
 /**
@@ -29,6 +37,19 @@ async function readClientEnv(
   }
   const resolved = await resolveEnv?.(key);
   return resolved ?? process.env[key];
+}
+
+/** RFC 7636 S256 PKCE pair for public (and confidential) authorization-code clients. */
+export function createOAuth2Pkce(): OAuth2Pkce {
+  const codeVerifier = randomBytes(32).toString("base64url");
+  const codeChallenge = createHash("sha256")
+    .update(codeVerifier)
+    .digest("base64url");
+  return {
+    codeChallenge,
+    codeChallengeMethod: "S256",
+    codeVerifier,
+  };
 }
 
 export async function resolveOAuth2Env(
@@ -55,15 +76,22 @@ export async function resolveOAuth2Credentials(
   resolveEnv?: ClientEnvResolver
 ): Promise<OAuth2Env> {
   if (config.resolveClientCredentials) {
-    return await config.resolveClientCredentials();
+    const creds = await config.resolveClientCredentials();
+    if (!creds.clientId?.trim()) {
+      throw new Error("OAuth client credentials missing: no client_id");
+    }
+    return {
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret ?? "",
+    };
   }
   return resolveOAuth2Env(config, resolveEnv);
 }
 
 /**
- * True when the connector's OAuth client credentials resolve to non-empty
- * values (env or injected settings) — i.e. the connect flow can start. Never
- * throws; returns false when unconfigured.
+ * True when the connector's OAuth client can start a connect flow. Env-backed
+ * connectors still need both id and secret; imported / DCR clients only need a
+ * client id (public clients omit the secret). Never throws.
  */
 export async function hasOAuth2ClientCredentials(
   config: ConnectorOAuth2Config,
@@ -72,7 +100,7 @@ export async function hasOAuth2ClientCredentials(
   if (config.resolveClientCredentials) {
     try {
       const creds = await config.resolveClientCredentials();
-      return Boolean(creds.clientId && creds.clientSecret);
+      return Boolean(creds.clientId?.trim());
     } catch {
       return false;
     }
@@ -84,6 +112,7 @@ export async function hasOAuth2ClientCredentials(
 
 export async function buildAuthorizationUrl(params: {
   connector: ConnectorDefinition;
+  pkce?: Pick<OAuth2Pkce, "codeChallenge" | "codeChallengeMethod">;
   redirectUri: string;
   scopes: string[];
   state: string;
@@ -103,6 +132,13 @@ export async function buildAuthorizationUrl(params: {
     params.scopes.join(oauth2.scopeSeparator ?? " ")
   );
   url.searchParams.set("state", params.state);
+  if (params.pkce) {
+    url.searchParams.set("code_challenge", params.pkce.codeChallenge);
+    url.searchParams.set(
+      "code_challenge_method",
+      params.pkce.codeChallengeMethod
+    );
+  }
   for (const [key, value] of Object.entries(oauth2.extraAuthParams ?? {})) {
     url.searchParams.set(key, value);
   }
@@ -154,12 +190,16 @@ async function postTokenEndpoint(
   resolveEnv?: ClientEnvResolver
 ): Promise<OAuth2Tokens> {
   const env = await resolveOAuth2Credentials(config, resolveEnv);
+  const form: Record<string, string> = {
+    client_id: env.clientId,
+    ...body,
+  };
+  // Public clients omit client_secret; sending an empty value breaks some AS.
+  if (env.clientSecret) {
+    form.client_secret = env.clientSecret;
+  }
   const response = await fetchImpl(config.tokenUrl, {
-    body: new URLSearchParams({
-      client_id: env.clientId,
-      client_secret: env.clientSecret,
-      ...body,
-    }),
+    body: new URLSearchParams(form),
     // Some providers (GitHub) default the token response to form-encoding and
     // only return JSON when the request opts in via `Accept: application/json`;
     // `tokenRequestHeaders` lets a connector add that header (parseTokenResponse
@@ -183,18 +223,23 @@ async function postTokenEndpoint(
 
 export function exchangeAuthorizationCode(params: {
   code: string;
+  codeVerifier?: string;
   config: ConnectorOAuth2Config;
   fetchImpl?: typeof fetch;
   redirectUri: string;
   resolveEnv?: ClientEnvResolver;
 }): Promise<OAuth2Tokens> {
+  const body: Record<string, string> = {
+    code: params.code,
+    grant_type: "authorization_code",
+    redirect_uri: params.redirectUri,
+  };
+  if (params.codeVerifier) {
+    body.code_verifier = params.codeVerifier;
+  }
   return postTokenEndpoint(
     params.config,
-    {
-      code: params.code,
-      grant_type: "authorization_code",
-      redirect_uri: params.redirectUri,
-    },
+    body,
     params.fetchImpl ?? fetch,
     params.resolveEnv
   );
