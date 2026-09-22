@@ -149,10 +149,13 @@ export function createEmptyReplyCompletion(
     description: "The assistant wrote a reply the user can read.",
     id: EMPTY_REPLY_SCORER_ID,
     name: "Reply present",
-    async run(input: { output?: unknown }) {
+    async run(input: { input?: { messages?: unknown }; output?: unknown }) {
       const text = typeof input.output === "string" ? input.output.trim() : "";
       if (text) {
         return { reason: "Reply written.", score: 1 };
+      }
+      if (endsOnModelError(input.input?.messages)) {
+        return { reason: "The model call failed; ending the turn.", score: 1 };
       }
       if (nudgesLeft <= 0) {
         return { reason: "No reply after nudge; ending the turn.", score: 1 };
@@ -162,4 +165,24 @@ export function createEmptyReplyCompletion(
     },
   } as unknown as CompletionScorer;
   return { scorers: [scorer], strategy: "all" };
+}
+
+/**
+ * Mastra scores a step that ended in a provider error too: it has already
+ * streamed the terminal `error` chunk (which ends the AG-UI run) and recorded
+ * an `error` part on the last message. Nudging then runs a second model call
+ * nobody is listening to — the run is reported failed while its reply lands
+ * in memory unseen.
+ */
+function endsOnModelError(messages: unknown): boolean {
+  if (!Array.isArray(messages)) {
+    return false;
+  }
+  const parts = (
+    messages.at(-1) as { content?: { parts?: unknown } } | undefined
+  )?.content?.parts;
+  return (
+    Array.isArray(parts) &&
+    parts.some((part) => (part as { type?: unknown })?.type === "error")
+  );
 }

@@ -97,4 +97,27 @@ describe("createEmptyReplyCompletion", () => {
       score: 1,
     });
   });
+
+  it("does not nudge a step that ended in a provider error", async () => {
+    const completion = createEmptyReplyCompletion();
+    const scorer = completion.scorers[0] as unknown as {
+      run: (input: unknown) => Promise<{ score: number }>;
+    };
+    const erroredTurn = [
+      { content: { parts: [{ text: "hi", type: "text" }] }, role: "user" },
+      {
+        content: {
+          parts: [{ error: { message: "at capacity" }, type: "error" }],
+        },
+        role: "assistant",
+      },
+    ];
+    await expect(
+      scorer.run({ input: { messages: erroredTurn }, output: "" })
+    ).resolves.toMatchObject({ score: 1 });
+    // The nudge is still there for a genuinely silent step.
+    await expect(runScorer(completion, "")).resolves.toMatchObject({
+      score: 0,
+    });
+  });
 });

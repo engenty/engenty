@@ -463,6 +463,38 @@ describe("run guards: a silent finish gets one more step, then a name", () => {
     expect(wireText).toBe("here you go");
   });
 
+  it("does not nudge a step the provider failed", async () => {
+    // Live repro: xAI "model at capacity". The error chunk already ended the
+    // AG-UI run; a nudge ran a second call nobody listened to and the run
+    // settled ~1 min later, failed, with its reply hidden in memory.
+    const calls: number[] = [];
+    const agent = textAgent("", async () => {
+      calls.push(calls.length + 1);
+      return {
+        stream: simulateReadableStream<unknown>({
+          chunks:
+            calls.length === 1
+              ? [
+                  { type: "stream-start", warnings: [] },
+                  { type: "error", error: { message: "at capacity" } },
+                ]
+              : [
+                  { type: "stream-start", warnings: [] },
+                  { type: "text-start", id: "t1" },
+                  { type: "text-delta", id: "t1", delta: "unseen" },
+                  { type: "text-end", id: "t1" },
+                  { type: "finish", finishReason: "stop", usage },
+                ],
+        }),
+      };
+    });
+
+    const { outcome } = await drive(agent);
+
+    expect(calls).toHaveLength(1);
+    expect(outcome.runError).toContain("at capacity");
+  });
+
   it("names the run when the model stays silent after the nudge", async () => {
     const agent = textAgent("", async () => ({
       stream: simulateReadableStream({
