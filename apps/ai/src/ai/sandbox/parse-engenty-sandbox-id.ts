@@ -14,7 +14,7 @@ export interface ParsedEngentySandboxId {
   sandbox_id: string;
   scope_key: string;
   scope_suffix: string;
-  /** The space a `space`/`browser` service belongs to; null otherwise. */
+  /** The space a `space` service belongs to; null otherwise. */
   space_id: string | null;
   /** The tenant a `space`/`browser` service belongs to; null otherwise. */
   tenant_id: string | null;
@@ -48,22 +48,21 @@ function splitSessionSuffix(
 const UUID_PATTERN_SOURCE =
   "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 
-// A `space` suffix is `<tenantId>-<spaceId>`, both UUIDs, so the split is by
-// their fixed shape — same approach as the session suffix. A `browser` suffix
-// carries a third UUID, the user the browser belongs to; a two-UUID browser id
-// is a pre-per-user container still on some host, parsed so the catalog can
-// show and remove it, never started again.
-function splitSpaceSuffix(
+// A `space` suffix is `<tenantId>-<spaceId>` and a `browser` suffix is
+// `<tenantId>-<userId>`: two UUIDs either way, so the split is by their
+// fixed shape — same approach as the session suffix.
+function splitTwoUuidSuffix(
   suffix: string
-): { spaceId: string; tenantId: string; userId: string | null } | null {
+): { first: string; second: string } | null {
   const match = new RegExp(
-    `^(${UUID_PATTERN_SOURCE})-(${UUID_PATTERN_SOURCE})(?:-(${UUID_PATTERN_SOURCE}))?$`
+    `^(${UUID_PATTERN_SOURCE})-(${UUID_PATTERN_SOURCE})$`
   ).exec(suffix);
   if (!match) {
     return null;
   }
-  return { spaceId: match[2], tenantId: match[1], userId: match[3] ?? null };
+  return { first: match[1], second: match[2] };
 }
+
 export function parseEngentySandboxId(
   sandboxId: string
 ): ParsedEngentySandboxId | null {
@@ -79,19 +78,17 @@ export function parseEngentySandboxId(
     lifecycle === "session" ? splitSessionSuffix(scopeSuffix) : null;
   const split =
     lifecycle === "space" || lifecycle === "browser"
-      ? splitSpaceSuffix(scopeSuffix)
+      ? splitTwoUuidSuffix(scopeSuffix)
       : null;
-  // A machine id has exactly two UUIDs; a third one is not a machine.
-  const space = lifecycle === "space" && split?.userId ? null : split;
   return {
     agent_id: session?.agentId ?? null,
     lifecycle,
     sandbox_id: trimmed,
     scope_key: scopeKey,
     scope_suffix: scopeSuffix,
-    space_id: space?.spaceId ?? null,
-    tenant_id: space?.tenantId ?? null,
+    space_id: lifecycle === "space" ? (split?.second ?? null) : null,
+    tenant_id: split?.first ?? null,
     thread_id: session?.threadId ?? null,
-    user_id: lifecycle === "browser" ? (space?.userId ?? null) : null,
+    user_id: lifecycle === "browser" ? (split?.second ?? null) : null,
   };
 }

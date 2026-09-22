@@ -706,17 +706,11 @@
         }
       }
     },
-    "reviewPrompt": "Prüfe den Prompt unten und klicke auf Senden, um zu starten.",
     "thinking": "Denkt nach ...",
     "statusTicker": {
       "expandSteps": "Letzte Schritte anzeigen",
       "collapseSteps": "Letzte Schritte ausblenden"
     },
-    "applySelected": "Auswahl anwenden",
-    "cancel": "Abbrechen",
-    "suggestedUpdates": "Vorgeschlagene Aktualisierungen",
-    "selected": "ausgewählt",
-    "artifactLoadFailed": "Vorschlags-Artefakt konnte nicht geladen werden",
     "compact": "Kompakt",
     "dragHandle": "Zum Verschieben ziehen",
     "copyThread": "Thread kopieren",
@@ -737,6 +731,10 @@
       "toolCompleted": "Tool abgeschlossen",
       "completed": "Abgeschlossen",
       "failed": "Fehlgeschlagen"
+    },
+    "context": {
+      "menu": "Kontext",
+      "recent": "Zuletzt"
     }
   },
   "sidebar": {
@@ -1388,23 +1386,6 @@
       "agentsDelegated_other": "Von anderen Engentys genutzt ({{count}})",
       "computeTitle": "Computer",
       "computeHint": "Wo die Engentys dieses Space ihre Befehle ausführen.",
-      "browserTitle": "Dein Browser",
-      "browserHint": "Ein angemeldeter Browser, den Engentys in deinem Namen steuern. Logins bleiben zwischen Läufen erhalten.",
-      "browserStart": "Starten",
-      "browserOpen": "Öffnen",
-      "browserStop": "Stoppen",
-      "browserSignOut": "Abmelden",
-      "browserSignedOut": "Browser abgemeldet — alle Logins vergessen.",
-      "browserFailed": "Browser konnte nicht gestartet werden.",
-      "browserAutostart": "Engentys dürfen ihn ohne Nachfrage starten",
-      "browserAutostartHint": "Aus: Ein Engenty, der ins Web muss, fragt dich im Chat, bevor dein Browser startet.",
-      "browserUnattended": "Engentys dürfen ihn nutzen, wenn ich weg bin",
-      "browserUnattendedHint": "Routinen und Aufgaben dürfen deinen angemeldeten Browser ohne dich steuern. Aus: sie halten an und fragen.",
-      "browserState": {
-        "absent": "Nicht gestartet",
-        "running": "Läuft",
-        "stopped": "Schläft"
-      },
       "agentsPlatform_one": "Kommt mit Engenty ({{count}})",
       "agentsPlatform_other": "Kommen mit Engenty ({{count}})",
       "computeSharedLabel": "Gemeinsamer Computer",
@@ -1426,8 +1407,7 @@
         "defaultHint": "Der Company-Space ist die Eingangstür des Mandanten und kann nicht gelöscht werden.",
         "defaultBody": "Lege einen weiteren Space an, wenn du einen eigenen Arbeitsbereich brauchst. Der Company-Space bleibt."
       },
-      "descriptionPlaceholder": "Wofür ist dieser Space?",
-      "browserViewTitle": "Dein Browser"
+      "descriptionPlaceholder": "Wofür ist dieser Space?"
     },
     "data": {
       "derived": "Abgeleitet",

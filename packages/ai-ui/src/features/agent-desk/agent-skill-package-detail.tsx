@@ -2,8 +2,8 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { Check } from "lucide-react";
 import type { AiSkillRecord } from "../../lib/admin/ai-runtime-types.js";
-import type { SkillPack } from "./agent-skill-packages-model.js";
 import { PackIcon } from "./agent-skill-pack-icon.js";
+import type { SkillPack } from "./agent-skill-packages-model.js";
 
 export function AgentSkillPackageDetail({
   emoji,
@@ -50,7 +50,10 @@ export function AgentSkillPackageDetail({
         </h3>
         <ul className="overflow-hidden rounded-xl bg-muted/70">
           {pack.skills.map((skill) => (
-            <li className="border-border/70 border-b last:border-b-0" key={skill.name}>
+            <li
+              className="border-border-soft border-b last:border-b-0"
+              key={skill.name}
+            >
               <SkillRow
                 onToggle={onToggle}
                 selected={selected.has(skill.name)}

@@ -5,8 +5,9 @@
 // through the normal `tools` map rather than `Agent({ browser })`, because the
 // wrapper is the one place where the seat, the unattended gate, the audit
 // event and the last-use stamp live. D11: the set is attached only when the
-// acting user has a browser (running or stopped) in this space, or has
-// allowed agents to start one (`autostart`). Without either, a run gets one
+// acting user has a browser (running or stopped), or has allowed agents to
+// start one (`autostart`). The browser is the person's, in every space and
+// outside any. Without either, a run gets one
 // small `browser_start` tool that asks the person for permission to start —
 // everything else keeps the ~18 KB of schema out of its prompt.
 
@@ -62,7 +63,7 @@ const BROWSER_DECLINE_START_CHOICE_ID = "browser_decline_start";
 export const BROWSER_ACTION_EVENT_NAME = "engenty.browser.action";
 
 export interface UserBrowserToolsInput {
-  /** From the resolved space: whose browser, and their standing consents. */
+  /** Whose browser, and their standing consents (`resolveRunBrowser`). */
   browser:
     | { autostart?: boolean; unattended: boolean; userId: string }
     | null
@@ -71,7 +72,6 @@ export interface UserBrowserToolsInput {
   emit?: (name: string, value: Record<string, unknown>) => void;
   /** No human at the keyboard: routine fires, task jobs, delegated children. */
   headless: boolean;
-  spaceId: string | null | undefined;
   tenantId: string;
   /**
    * The run's low-tier model (`modelConfig.gradedModelIds.low`) for the fast
@@ -195,10 +195,7 @@ function createRequestUserTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: {
-            sandbox_id: input.sandboxId,
-            space_id: input.identity.spaceId,
-          },
+          browser: { sandbox_id: input.sandboxId },
         });
         releaseFrontendToolSuspendSlot(lockKey, ticket);
       } catch (error) {
@@ -342,10 +339,7 @@ function createStartTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: {
-            space_id: input.identity.spaceId,
-            start_request: true,
-          },
+          browser: { start_request: true },
         });
         releaseFrontendToolSuspendSlot(lockKey, ticket);
       } catch (error) {
@@ -364,7 +358,7 @@ function createStartTool(input: {
  * ask-tool again. Any other answer, or no browser identity, does nothing.
  */
 export async function startUserBrowserOnResume(
-  input: Pick<UserBrowserToolsInput, "browser" | "spaceId" | "tenantId">,
+  input: Pick<UserBrowserToolsInput, "browser" | "tenantId">,
   resumeData: unknown
 ): Promise<void> {
   const choice =
@@ -374,11 +368,10 @@ export async function startUserBrowserOnResume(
   if (choice !== BROWSER_ALLOW_START_CHOICE_ID) {
     return;
   }
-  if (!(input.browser && input.spaceId)) {
+  if (!input.browser) {
     return;
   }
   const identity: UserBrowserIdentity = {
-    spaceId: input.spaceId,
     tenantId: input.tenantId,
     userId: input.browser.userId,
   };
@@ -594,19 +587,18 @@ function createRunFastTool(params: {
 
 /**
  * The browser toolset for a run (D11): the full wrapped set when the acting
- * user has a browser here (running or stopped) or allows agents to start one
+ * user has a browser (running or stopped) or allows agents to start one
  * (`autostart` — the wrapper's wake-on-first-use then creates it); only
  * `browser_start` (ask the person) when they have neither; `{}` with no
- * acting user or no space.
+ * acting user.
  */
 export async function createUserBrowserTools(
   input: UserBrowserToolsInput
 ): Promise<Record<string, MastraToolDefinition>> {
-  if (!(input.browser && input.spaceId)) {
+  if (!input.browser) {
     return {};
   }
   const identity: UserBrowserIdentity = {
-    spaceId: input.spaceId,
     tenantId: input.tenantId,
     userId: input.browser.userId,
   };
@@ -675,15 +667,14 @@ export async function createUserBrowserTools(
 
 /** Run end: the agent's seat goes with the run. */
 export function releaseUserBrowserForRun(
-  input: Pick<UserBrowserToolsInput, "browser" | "spaceId" | "tenantId">,
+  input: Pick<UserBrowserToolsInput, "browser" | "tenantId">,
   runId: string
 ): void {
-  if (!(input.browser && input.spaceId)) {
+  if (!input.browser) {
     return;
   }
   releaseAgentSeat(
     buildUserBrowserSandboxId({
-      spaceId: input.spaceId,
       tenantId: input.tenantId,
       userId: input.browser.userId,
     }),

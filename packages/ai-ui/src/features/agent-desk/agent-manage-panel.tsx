@@ -37,6 +37,7 @@ import { AgentEngentyPicker } from "../agent-form/agent-engenty-picker.js";
 import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
 import { AgentIdentityRow } from "../agents-workspace/agent-identity-card.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
+import { UserBrowserSection } from "../browser/user-browser-section.js";
 import { WorkingMemoryProfileSection } from "../memory/working-memory-profile-section.js";
 import {
   AgentConnectDialog,
@@ -314,9 +315,13 @@ export function AgentManagePanel({
           `enabled: false` for one without); a person who can manage the
           space may correct them, whichever module or hire the agent is. */}
       {agent.agentScope === "personal" ? (
-        // The copilot's profile of its person — working memory it keeps
-        // itself; reset is the only human edit.
-        <WorkingMemoryProfileSection />
+        // The person's own things, on their copilot's pane: the profile it
+        // keeps of them (reset is the only human edit) and their browser
+        // with its standing consents.
+        <>
+          <WorkingMemoryProfileSection />
+          <UserBrowserSection />
+        </>
       ) : null}
       <AgentInstructionsSection agentId={agent.id} editable={canEditPads} />
       <AgentMemorySection

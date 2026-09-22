@@ -35,6 +35,10 @@ import type { ThreadStore } from "../../dal/threads/index.js";
 import { isRoomThread } from "../../dal/threads/types.js";
 import { notifyRunSuspended } from "../../notifications/run-notifications.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
+import {
+  type RunBrowserSource,
+  resolveRunBrowser,
+} from "../browser/run-browser.js";
 import { createUserBrowserTools } from "../browser/user-browser-tools.js";
 import { resolveHeartbeatInstructions } from "../instructions/heartbeat-layer.js";
 import { buildHeadlessWorkspace } from "../jobs/headless-workspace.js";
@@ -573,16 +577,21 @@ export async function runDelegatedConversation(
         // resume reports "could not find a suspended run for runId".
         const runMastra = input.mastra ?? getHeadlessSnapshotMastra();
         // The acting user's browser (D11): the run's space names whom the run
-        // acts for; a service principal is "headless" for the unattended gate.
+        // acts for; outside any space the scope's own person does; a service
+        // principal is "headless" for the unattended gate.
         const browserSpace = childToolsContext.space;
-        const resolvedBrowserSpace =
-          browserSpace &&
-          !isUnresolvedSpaceGate(browserSpace) &&
-          !isGlobalConnectorGate(browserSpace)
-            ? browserSpace
-            : null;
+        const browserSource: RunBrowserSource = isUnresolvedSpaceGate(
+          browserSpace
+        )
+          ? { kind: "unresolved" }
+          : browserSpace && !isGlobalConnectorGate(browserSpace)
+            ? { kind: "resolved", space: browserSpace }
+            : { kind: "global" };
         const browserTools = await createUserBrowserTools({
-          browser: resolvedBrowserSpace?.browser ?? null,
+          browser: await resolveRunBrowser({
+            scope: input.scope,
+            source: browserSource,
+          }),
           ...(tracker
             ? {
                 emit: (name: string, value: Record<string, unknown>) => {
@@ -595,7 +604,6 @@ export async function runDelegatedConversation(
               }
             : {}),
           headless: scopeAttributionUserId(input.scope) === null,
-          spaceId: resolvedBrowserSpace?.spaceId ?? null,
           tenantId: input.scope.tenantId,
           textModelId: childModelConfig?.gradedModelIds?.low ?? null,
         });

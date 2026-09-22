@@ -1,6 +1,7 @@
-// The user's browser: one headless-Chromium service container PER USER PER
-// SPACE (`engenty-browser-<tenant>-<space>-<user>`), driven over CDP by
-// apps/ai in that user's name. A SERVICE, not an exec sandbox — nothing
+// The user's browser: one headless-Chromium service container PER USER
+// (`engenty-browser-<tenant>-<user>`), driven over CDP by apps/ai in that
+// user's name wherever they work — a space is where a run happens to use
+// it, not what the browser belongs to. A SERVICE, not an exec sandbox — nothing
 // executes commands in it, so it is created with the docker CLI carrying
 // Mastra's sandbox labels (the catalog, Reset and the sweeps find it like any
 // other container) and nothing of Mastra's exec machinery. It exists only when the user asked
@@ -8,9 +9,9 @@
 // agents browse through host-side tools, never through raw CDP from a sandbox.
 //
 // Continuity lives in the PROFILE BIND, not the container: cookies and
-// logged-in sessions sit under `spaces/<space>/ai/browser/profile/<user>/`, so
-// they survive stops, Resets and image upgrades — and belong to exactly one
-// person. Reachability is two networks: the browser's own sealed egress
+// logged-in sessions sit under `tenants/<tenant>/ai/browser/profile/<user>/`,
+// so they survive stops, Resets and image upgrades — and belong to exactly
+// one person, in every space. Reachability is two networks: the browser's own sealed egress
 // network (all traffic through the logged browser proxy) and the view
 // network it is attached to after start, where only engenty-ai lives.
 
@@ -38,15 +39,14 @@ const DEFAULT_MAX_PER_TENANT = 4;
 const DEFAULT_MAX_PER_USER = 2;
 const USER_BROWSER_ID_PREFIX = "engenty-browser-";
 export const SPACE_BROWSER_CDP_PORT = 9222;
-/** Where the browser saves files; bound to the space's downloads staging. */
+/** Where the browser saves files; bound to the person's downloads staging. */
 export const USER_BROWSER_DOWNLOADS_CONTAINER_PATH = "/downloads";
-/** Where a space machine sees every user's browser downloads. */
-export const SPACE_BROWSER_DOWNLOADS_MOUNT_PATH = "/sandbox/browser-downloads";
+/** Where a space machine sees every person's browser downloads. */
+export const USER_BROWSER_DOWNLOADS_MOUNT_PATH = "/sandbox/browser-downloads";
 
 export type UserBrowserState = "absent" | "running" | "stopped";
 
 export interface UserBrowserIdentity {
-  spaceId: string;
   tenantId: string;
   userId: string;
 }
@@ -119,7 +119,7 @@ export function isUserBrowserSandboxId(sandboxId: string): boolean {
 export function buildUserBrowserSandboxId(
   identity: UserBrowserIdentity
 ): string {
-  return `${USER_BROWSER_ID_PREFIX}${identity.tenantId}-${identity.spaceId}-${identity.userId}`;
+  return `${USER_BROWSER_ID_PREFIX}${identity.tenantId}-${identity.userId}`;
 }
 
 /**
@@ -191,30 +191,26 @@ export function resolveUserBrowserProfilePath(
 ): string {
   return resolveLocalMountBasePath(
     identity.tenantId,
-    `ai/browser/profile/${identity.userId}/`,
-    identity.spaceId
+    `ai/browser/profile/${identity.userId}/`
   );
 }
 
 /**
- * The space's browser downloads root on the host. One directory per space
- * with a subdirectory per user: the browser binds its own subdirectory at
- * `/downloads`, the space machine binds the root at
- * `/sandbox/browser-downloads`, so a file the browser saved is the same byte
- * a machine run reads under `/sandbox/browser-downloads/<user>/`.
+ * The tenant's browser downloads root on the host. One subdirectory per
+ * person: the browser binds its own subdirectory at `/downloads`, every
+ * space machine binds the root at `/sandbox/browser-downloads`, so a file
+ * the browser saved is the same byte a machine run reads under
+ * `/sandbox/browser-downloads/<user>/` — whichever space the run is in.
  */
-export function resolveSpaceBrowserDownloadsRootPath(
-  tenantId: string,
-  spaceId: string
-): string {
-  return resolveLocalMountBasePath(tenantId, "ai/browser/downloads/", spaceId);
+export function resolveUserBrowserDownloadsRootPath(tenantId: string): string {
+  return resolveLocalMountBasePath(tenantId, "ai/browser/downloads/");
 }
 
 function resolveUserBrowserDownloadsPath(
   identity: UserBrowserIdentity
 ): string {
   return path.join(
-    resolveSpaceBrowserDownloadsRootPath(identity.tenantId, identity.spaceId),
+    resolveUserBrowserDownloadsRootPath(identity.tenantId),
     identity.userId
   );
 }
@@ -362,7 +358,7 @@ async function connectViewNetwork(
 }
 
 /**
- * Start (or wake) the user's browser in this space. Declared, never
+ * Start (or wake) the user's browser. Declared, never
  * implicit: only the browser route calls this — a chat turn must not conjure
  * a service. Idempotent by container identity: Docker reuses the labelled
  * container and `start()` wakes a stopped one, profile intact.
@@ -455,7 +451,6 @@ export async function startUserBrowser(
   markUserBrowserUsed(sandboxId);
   logger.info("user browser started", {
     sandboxId,
-    spaceId: identity.spaceId,
     userId: identity.userId,
   });
   return {
@@ -510,7 +505,6 @@ export async function signOutUserBrowser(
   }
   logger.info("user browser signed out", {
     sandboxId: status.sandboxId,
-    spaceId: identity.spaceId,
     userId: identity.userId,
   });
   return status;

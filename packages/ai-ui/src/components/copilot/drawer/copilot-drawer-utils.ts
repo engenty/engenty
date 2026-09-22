@@ -36,26 +36,6 @@ export function normalizeCopilotPositionMenuValue(
   return "sidebar";
 }
 
-export function getSuggestionsSignature(
-  suggestions: Array<{
-    field: string;
-    value?: unknown;
-    candidates?: Array<{ value?: unknown }> | undefined;
-    source_url?: string | null;
-  }>
-) {
-  return JSON.stringify(
-    suggestions.map((suggestion) => ({
-      field: suggestion.field,
-      value: suggestion.value ?? null,
-      candidates:
-        suggestion.candidates?.map((candidate) => candidate.value ?? null) ??
-        [],
-      source_url: suggestion.source_url ?? null,
-    }))
-  );
-}
-
 export function debugCopilotSurface(
   event: string,
   payload: Record<string, unknown>
@@ -206,11 +186,8 @@ function stripEntityScope(
     entity_title: _entityTitle,
     contact_snapshot: _contactSnapshot,
     routeKey: _routeKey,
-    copilotAutoUserMessage: _copilotAutoUserMessage,
     copilotRequestedActionId: _copilotRequestedActionId,
     copilotRequestedAgentId: _copilotRequestedAgentId,
-    copilotStartMode: _copilotStartMode,
-    copilotTriggerType: _copilotTriggerType,
     ...nextScope
   } = scope;
 

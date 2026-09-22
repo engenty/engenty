@@ -17,8 +17,8 @@ import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { resolveSandboxStorageLayout } from "../sandbox/sandbox-storage-paths.js";
 import type { SandboxExtraMount } from "../sandbox/sandbox-types.js";
 import {
-  resolveSpaceBrowserDownloadsRootPath,
-  SPACE_BROWSER_DOWNLOADS_MOUNT_PATH,
+  resolveUserBrowserDownloadsRootPath,
+  USER_BROWSER_DOWNLOADS_MOUNT_PATH,
 } from "../sandbox/space-browser.js";
 import { isSkillWorkspaceMount } from "./allowed-skills.js";
 import {
@@ -334,17 +334,18 @@ export async function createEngentyAgentWorkspace(
     // deploys from it); the machine only binds it. Empty storage prefix, so
     // the sandbox's own sync never uploads a repository to object storage.
     if (lifecycle === "space" && spec.sandboxIdentity.spaceId) {
-      // Every user's browser downloads for this space, bound read-write so
-      // a file a browser saved is the same byte the machine reads under
-      // /sandbox/browser-downloads/<user>/. Empty storage prefix: the bytes
-      // are the browser's, never synced to object storage by the sandbox.
+      // Every person's browser downloads in this tenant, bound read-write
+      // so a file a browser saved is the same byte the machine reads under
+      // /sandbox/browser-downloads/<user/>. A browser is per person, not
+      // per space, so the root is the tenant's. Empty storage prefix: the
+      // bytes are the browser's, never synced to object storage by the
+      // sandbox.
       extraMounts.push({
-        containerPath: SPACE_BROWSER_DOWNLOADS_MOUNT_PATH,
+        containerPath: USER_BROWSER_DOWNLOADS_MOUNT_PATH,
         layout: {
           fileStorageRelativePath: "",
-          stagingPath: resolveSpaceBrowserDownloadsRootPath(
-            spec.sandboxIdentity.tenantId,
-            spec.sandboxIdentity.spaceId
+          stagingPath: resolveUserBrowserDownloadsRootPath(
+            spec.sandboxIdentity.tenantId
           ),
         },
       });

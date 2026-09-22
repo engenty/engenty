@@ -211,7 +211,9 @@ export function PluginMarketplace({
     return (
       <>
         {actions.errorMessage ? (
-          <p className="mb-2 text-destructive text-xs">{actions.errorMessage}</p>
+          <p className="mb-2 text-destructive text-xs">
+            {actions.errorMessage}
+          </p>
         ) : null}
         <MarketplaceDetail
           agentId={agentId}
@@ -247,7 +249,9 @@ export function PluginMarketplace({
             details.id === "figma-mcp-server"
               ? () =>
                   setDetailsId(
-                    data.plugins.some((plugin) => plugin.id === "figma-rest-api")
+                    data.plugins.some(
+                      (plugin) => plugin.id === "figma-rest-api"
+                    )
                       ? "figma-rest-api"
                       : "registry:figma.com"
                   )

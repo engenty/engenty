@@ -34,7 +34,7 @@ Public exports are re-exported from `packages/ai-ui/src/index.ts` with Tier 1/2 
 | Tier | Audience | Examples |
 |------|----------|----------|
 | **Tier 1 — embed** | Modules, chatbot embeds, KB lanes | `EngentyAI`, `EngentyAgent`, `useAgentHost`, `useEngentyThreads`, `useEngentyFrontendTool`, `CopilotTranscript`, `Message`, `registerToolCallUi` |
-| **Tier 2 — product copilot** | Main `engenty:copilot` shell and the river page | `CopilotRiverProvider`, `useCopilotRiver`, `CopilotDrawerInjectedSession` |
+| **Tier 2 — product copilot** | Main `engenty:copilot` shell and the river page | `CopilotRiverProvider`, `useCopilotRiver`, `CopilotDesk`, `AgentDeskChatPanel` |
 | **Admin plugin** | Operator UI via UI catalog | `@engenty/ai-ui/plugin`, `routes/`, `features/`, `lib/admin/*` |
 
 See [Architecture](./architecture) for integrator inputs (`hostKey`, `agentTypeKey`, `serviceBaseUrl`) and neighborhood boundaries.

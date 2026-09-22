@@ -59,8 +59,7 @@ export function AgentSkillMarketplace({
   const searching = searchEnabled;
 
   const isInstalled = useCallback(
-    (name: string) =>
-      existingSkillNames.has(name) || justInstalled.has(name),
+    (name: string) => existingSkillNames.has(name) || justInstalled.has(name),
     [existingSkillNames, justInstalled]
   );
 
@@ -136,7 +135,7 @@ export function AgentSkillMarketplace({
     );
   }
 
-  if (!provider && !providersQuery.isLoading) {
+  if (!(provider || providersQuery.isLoading)) {
     return (
       <p className="px-2 py-6 text-center text-muted-foreground text-sm">
         {t("skillsInstallModal.noProviders", {
@@ -157,7 +156,10 @@ export function AgentSkillMarketplace({
 
   if (searchQuery.isError) {
     return (
-      <p className="px-2 py-6 text-center text-destructive text-sm" role="alert">
+      <p
+        className="px-2 py-6 text-center text-destructive text-sm"
+        role="alert"
+      >
         {t("skillsInstallModal.searchFailed", {
           defaultValue: "Search failed. Please try again.",
         })}

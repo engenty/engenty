@@ -1,27 +1,20 @@
 // The "screen" beside the chat (PLAN-user-browser.md §2.6): the person's own
-// browser in the Space the copilot is working in — its state, a Start when
-// there is none, and the live view with takeover when it runs. Opened from
+// browser — one, wherever they work — its state, a Start when there is
+// none, and the live view with takeover when it runs. Opened from
 // the monitor button in the copilot header (card), or hosted inside the
 // desk's browser pane, whose top bar carries the title and close (pane).
 import { useTranslation } from "@engenty/i18n/ui";
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import { Button, cn } from "@engenty/ui-core";
 import { Globe, Pause, Play } from "lucide-react";
 import { createPortal } from "react-dom";
 import {
-  readUserBrowser,
-  startUserBrowser,
-  stopUserBrowser,
+  useUserBrowserMutations,
+  useUserBrowserStatusQuery,
 } from "./user-browser-api.js";
 import { UserBrowserView } from "./user-browser-view.js";
 
-export function userBrowserQueryKey(spaceId: string) {
-  return ["user-browser", spaceId] as const;
-}
-
 export function CopilotBrowserPanel({
   chromeSlot,
-  spaceId,
   variant = "card",
 }: {
   /**
@@ -29,8 +22,6 @@ export function CopilotBrowserPanel({
    * browser running the panel puts the pane's name there instead.
    */
   chromeSlot?: HTMLElement | null;
-  /** Null when the copilot is not inside a Space: the panel says so. */
-  spaceId: string | null;
   /**
    * `card` sits inside a chat column with its own title row; `pane` fills
    * the desk's browser pane, whose top bar already names and closes it.
@@ -38,30 +29,11 @@ export function CopilotBrowserPanel({
   variant?: "card" | "pane";
 }) {
   const { t } = useTranslation("ai-ui");
-  const queryClient = useQueryClient();
-  const status = useQuery({
-    enabled: Boolean(spaceId),
-    queryFn: ({ signal }) => readUserBrowser(spaceId as string, signal),
-    queryKey: userBrowserQueryKey(spaceId ?? ""),
-    refetchInterval: 30_000,
-  });
-  const refresh = () =>
-    spaceId
-      ? queryClient.invalidateQueries({
-          queryKey: userBrowserQueryKey(spaceId),
-        })
-      : Promise.resolve();
-  const start = useMutation({
-    mutationFn: () => startUserBrowser(spaceId as string),
-    onSuccess: refresh,
-  });
-  const stop = useMutation({
-    mutationFn: () => stopUserBrowser(spaceId as string),
-    onSuccess: refresh,
-  });
+  const status = useUserBrowserStatusQuery(30_000);
+  const { start, stop } = useUserBrowserMutations();
   const state = status.data?.state ?? "absent";
   const busy = start.isPending || stop.isPending;
-  const running = Boolean(spaceId) && state === "running";
+  const running = state === "running";
   // In the pane the view's own toolbar carries Stop; the state row is for
   // the card, and for the pane while there is nothing to show yet.
   const viewOwnsToolbar = variant === "pane" && running;
@@ -109,11 +81,9 @@ export function CopilotBrowserPanel({
             </>
           ) : null}
           <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
-            {spaceId
-              ? t(`browser.panel.state.${state}`)
-              : t("browser.panel.noSpace")}
+            {t(`browser.panel.state.${state}`)}
           </span>
-          {spaceId && state === "running" ? (
+          {state === "running" ? (
             <Button
               aria-label={t("browser.panel.stop")}
               className="size-7"
@@ -124,7 +94,7 @@ export function CopilotBrowserPanel({
             >
               <Pause aria-hidden className="size-3.5" />
             </Button>
-          ) : spaceId ? (
+          ) : (
             <Button
               className="h-7 text-xs"
               disabled={busy}
@@ -135,15 +105,14 @@ export function CopilotBrowserPanel({
               <Play aria-hidden className="mr-1 size-3" />
               {t("browser.panel.start")}
             </Button>
-          ) : null}
+          )}
         </div>
       )}
-      {spaceId && running ? (
+      {running ? (
         <UserBrowserView
           chromeSlot={chromeSlot}
           className="min-h-0 flex-1"
           onStop={viewOwnsToolbar ? () => stop.mutate() : undefined}
-          spaceId={spaceId}
           stopPending={busy}
         />
       ) : (
@@ -152,11 +121,9 @@ export function CopilotBrowserPanel({
             <p className="text-destructive">{t("browser.panel.startFailed")}</p>
           ) : null}
           <p className="text-muted-foreground">
-            {spaceId
-              ? state === "stopped"
-                ? t("browser.panel.asleepHint")
-                : t("browser.panel.hint")
-              : t("browser.panel.noSpaceHint")}
+            {state === "stopped"
+              ? t("browser.panel.asleepHint")
+              : t("browser.panel.hint")}
           </p>
           <ol className="list-decimal space-y-1.5 pl-4 text-muted-foreground">
             <li>{t("browser.panel.steps.start")}</li>

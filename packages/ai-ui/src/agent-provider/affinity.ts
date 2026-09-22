@@ -11,10 +11,7 @@ export interface EngentyAgentAffinityKeyInput {
 
 const AFFINITY_EXCLUDED_SCOPE_KEYS = new Set([
   "contact_snapshot",
-  "copilotAutoUserMessage",
   "copilotRequestedAgentId",
-  "copilotStartMode",
-  "copilotTriggerType",
   "copilot_new_chat_generation",
   "project_snapshot",
   "task_snapshot",

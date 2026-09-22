@@ -12,7 +12,6 @@ export const BROWSER_TICKET_TTL_MS = 60_000;
 export interface BrowserTicketPayload {
   exp: number;
   sandbox_id: string;
-  space_id: string;
   tenant_id: string;
   user_id: string;
 }
@@ -60,8 +59,7 @@ export function verifyBrowserTicket(
       payload.exp < now() ||
       typeof payload.sandbox_id !== "string" ||
       typeof payload.user_id !== "string" ||
-      typeof payload.tenant_id !== "string" ||
-      typeof payload.space_id !== "string"
+      typeof payload.tenant_id !== "string"
     ) {
       return null;
     }

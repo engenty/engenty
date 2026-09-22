@@ -10,7 +10,7 @@ Legacy **`@ai-sdk-tools/artifacts`** streaming has been removed. Product chat ru
 ## Current UI
 
 - **`HitlApprovalCard`** in `@engenty/ai-ui` (`components/copilot/interrupts/hitl-approval-card.tsx`) renders field suggestion review/apply chrome; embed via `@engenty/ai-ui/embed`.
-- **`CopilotPanelContent`** accepts `latestSuggestions`, selection state, and apply handlers.
+- Field suggestions are transcript tool cards (`propose-updates-tool-call-card.tsx`) applied through the run's own interrupt; the panel has no separate review/apply state.
 - Modules pass an empty list today until a new HITL feed lands (tool-row payload, open interrupt, or dedicated AG-UI state).
 
 ## Bounded-choice HITL (active)

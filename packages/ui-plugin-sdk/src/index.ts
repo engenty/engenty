@@ -48,15 +48,6 @@ export interface UiCopilotStarterPrompt {
   prompt: string;
 }
 
-export interface UiCopilotApplyContext {
-  pathname: string;
-  scope: Record<string, unknown>;
-}
-
-export type UiCopilotApplyHandler = (
-  patch: Record<string, string | null>
-) => Promise<void>;
-
 /** Minimal query client surface used after copilot assistant turns (no TanStack peer here). */
 export interface CopilotAssistantTurnFinishQueryClient {
   invalidateQueries: (filters: {
@@ -67,15 +58,11 @@ export interface CopilotAssistantTurnFinishQueryClient {
 
 /** Copilot contribution from a module. Resolved by pathname/scope. */
 export interface UiCopilotContribution {
-  applySuggestions?: (
-    patch: Record<string, string | null>,
-    context: { scope: Record<string, unknown> }
-  ) => Promise<void>;
   matches: (context: CopilotMatchContext) => boolean;
   moduleId: string;
   /**
-   * Called after suggestions are applied successfully.
-   * Use to invalidate module-owned query caches or refresh local module state.
+   * Called after the copilot's approved action ran on this page (a sandbox
+   * command the person approved). Use to invalidate module-owned query caches.
    */
   onApplySuccess?: (args: {
     queryClient: CopilotAssistantTurnFinishQueryClient;
@@ -94,9 +81,6 @@ export interface UiCopilotContribution {
   /** Plugin that registered this contribution. */
   pluginId?: string;
   requestedAgentId?: string;
-  resolveApplySuggestions?: (
-    context: UiCopilotApplyContext
-  ) => UiCopilotApplyHandler | null | undefined;
   routeKey: string;
   sourceInfo?: PluginSourceInfo;
   starterPrompts?: UiCopilotStarterPrompt[];

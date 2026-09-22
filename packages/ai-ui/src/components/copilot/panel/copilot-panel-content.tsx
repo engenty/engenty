@@ -14,11 +14,6 @@ import type { CopilotPanelContentProps } from "./copilot-panel-content-types";
 import { CopilotDebugDetails } from "./copilot-panel-debug-details";
 import { CopilotPanelInlineHeader } from "./copilot-panel-header";
 import {
-  CopilotPanelHitlAppliedBlock,
-  CopilotPanelHitlPopover,
-  CopilotPanelHitlTranscriptBlock,
-} from "./copilot-panel-hitl-section";
-import {
   COPILOT_TRANSCRIPT_TOP_FADE_CLASS,
   resolveCopilotEmptyLandingAlign,
   resolveCopilotTranscriptBottomPaddingClass,
@@ -59,38 +54,19 @@ export function CopilotPanelContent({
   threadId = null,
   subAgentFullViewLabel,
   subAgentSectionLabels,
-  startMode,
   draft,
   setDraft,
   submitMessage,
   composerPlaceholder,
   starterPrompts,
-  reviewPromptLabel,
   thinkingLabel,
-  latestSuggestions,
-  selectedCandidateValues,
-  selectedSuggestions,
-  setSelectedCandidateValues,
-  setSelectedSuggestions,
-  isApplying,
-  applyError,
-  appliedSuggestions = [],
-  artifactError,
-  applySelectedLabel,
-  cancelLabel,
   centerEmptyLanding: centerEmptyLandingProp,
   chatKind = null,
   emptyLandingAlign: emptyLandingAlignProp,
   emptyStateHeader,
-  selectedCountLabel,
-  suggestedUpdatesLabel,
-  artifactLoadFailedLabel,
   clearLabel,
-  triggerType,
   panelMode,
   onNewChat,
-  onApplySuggestions,
-  onCancel,
   onStop,
   onPanelModeChange,
   onClose,
@@ -156,12 +132,7 @@ export function CopilotPanelContent({
       selectedContextId != null
   );
 
-  const toolCardDensity =
-    triggerType === "message_copilot" ? "default" : "compact";
-  const showHitlInTranscript =
-    latestSuggestions.length > 0 && triggerType === "message_copilot";
-  const showHitlInPopover =
-    latestSuggestions.length > 0 && triggerType !== "message_copilot";
+  const toolCardDensity = "default";
   const showEmptyLanding =
     composerDockStyle &&
     messages.length === 0 &&
@@ -359,15 +330,6 @@ export function CopilotPanelContent({
             )}
             style={threadContextFloatPad}
           >
-            {!minimalChrome &&
-              messages.length === 0 &&
-              !error &&
-              startMode === "manual" &&
-              draft.trim().length > 0 && (
-                <p className="text-muted-foreground text-sm">
-                  {reviewPromptLabel}
-                </p>
-              )}
             {transcriptHeader ? (
               <div className={cn(transcriptContainerClassName, "empty:hidden")}>
                 {transcriptHeader}
@@ -424,37 +386,6 @@ export function CopilotPanelContent({
                 />
               </div>
             )}
-            {showHitlInTranscript ? (
-              <CopilotPanelHitlTranscriptBlock
-                applySelectedLabel={applySelectedLabel}
-                cancelLabel={cancelLabel}
-                isApplying={isApplying}
-                latestSuggestions={latestSuggestions}
-                onApplySuggestions={onApplySuggestions}
-                onCancel={onCancel}
-                selectedCandidateValues={selectedCandidateValues}
-                selectedCountLabel={selectedCountLabel}
-                selectedSuggestions={selectedSuggestions}
-                setSelectedCandidateValues={setSelectedCandidateValues}
-                setSelectedSuggestions={setSelectedSuggestions}
-                suggestedUpdatesLabel={suggestedUpdatesLabel}
-              />
-            ) : null}
-            {latestSuggestions.length === 0 ? (
-              <CopilotPanelHitlAppliedBlock
-                appliedSuggestions={appliedSuggestions}
-                selectedCountLabel={selectedCountLabel}
-                suggestedUpdatesLabel={suggestedUpdatesLabel}
-              />
-            ) : null}
-            {applyError && (
-              <p className="text-destructive text-sm">{applyError}</p>
-            )}
-            {artifactError && (
-              <p className="text-destructive text-sm">
-                {artifactLoadFailedLabel}: {artifactError}
-              </p>
-            )}
             {transcriptFooter ? (
               // `empty:hidden` because the slot is an ELEMENT that decides for
               // itself whether it has anything to say — without it a component
@@ -466,22 +397,6 @@ export function CopilotPanelContent({
           </div>
         </ScrollArea>
       </div>
-      {showHitlInPopover ? (
-        <CopilotPanelHitlPopover
-          applySelectedLabel={applySelectedLabel}
-          cancelLabel={cancelLabel}
-          isApplying={isApplying}
-          latestSuggestions={latestSuggestions}
-          onApplySuggestions={onApplySuggestions}
-          onCancel={onCancel}
-          selectedCandidateValues={selectedCandidateValues}
-          selectedCountLabel={selectedCountLabel}
-          selectedSuggestions={selectedSuggestions}
-          setSelectedCandidateValues={setSelectedCandidateValues}
-          setSelectedSuggestions={setSelectedSuggestions}
-          suggestedUpdatesLabel={suggestedUpdatesLabel}
-        />
-      ) : null}
       <div
         // A flush body draws no side gutter of its own — the transcript's
         // scroll area carries it. Repeat it here, or the composer runs to
@@ -522,7 +437,7 @@ export function CopilotPanelContent({
           messages={messages}
           onComposerMentionAgent={onComposerMentionAgent}
           onPressWizardCommand={onPressWizardCommand}
-          onStop={onStop ?? onCancel}
+          onStop={onStop}
           setDraft={setDraft}
           slashCommands={slashCommands}
           starterPrompts={starterPrompts}

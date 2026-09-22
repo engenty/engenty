@@ -128,9 +128,9 @@ export function ComputersPage() {
                           ? "User browser"
                           : (row.agent_id ?? "unknown")}
                     </span>
-                    {row.lifecycle === "browser" ? (
+                    {row.lifecycle === "browser" && row.user_id ? (
                       <span className="ml-2 font-mono text-muted-foreground text-xs">
-                        {row.user_id ? row.user_id.slice(0, 8) : "legacy"}
+                        {row.user_id.slice(0, 8)}
                       </span>
                     ) : null}
                     {row.title ? (

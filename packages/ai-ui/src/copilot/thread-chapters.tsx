@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
-import { BookOpen, Scissors, X } from "lucide-react";
+import { ListClock, Scissors, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -103,7 +103,7 @@ export function ThreadChaptersList({
     <div className="flex min-w-0 flex-col gap-1" data-testid="thread-chapters">
       <div className="flex items-center justify-between gap-2 px-2 pb-1">
         <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-          {t("river.chapters")}
+          {t("river.history")}
         </span>
         <Button
           className="h-7 gap-1.5 px-2 text-xs"
@@ -174,17 +174,17 @@ export function ThreadChaptersMenu({ threadId }: { threadId: string | null }) {
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
         <Button
-          aria-label={t("river.chapters")}
+          aria-label={t("river.history")}
           className={cn(
             topbarIconButtonClassName,
             "!size-7 !w-7 !min-w-7 !px-0"
           )}
           size="icon"
-          title={t("river.chapters")}
+          title={t("river.history")}
           type="button"
           variant="ghost"
         >
-          <BookOpen className="size-4" />
+          <ListClock className="size-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-2">

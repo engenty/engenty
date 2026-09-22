@@ -16,7 +16,6 @@ import { useRegisterCopilotFrontendTools } from "@engenty/engenty-copilot/ai/fro
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
-import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -83,7 +82,6 @@ function useRequestedAgentDevGuard(input: {
 export function CopilotProviderContent() {
   const { i18n, t } = useTranslation("common");
   const { setTheme } = useTheme();
-  const { currentTenant } = useWorkspaceContext();
   const location = useLocation();
   // Pages that already show a conversation full width: the river's own page
   // and a module's hub chat. The companion has nothing to add there, so its
@@ -106,13 +104,6 @@ export function CopilotProviderContent() {
   const currentLanguage = i18n.language?.startsWith("de") ? "de" : "en";
   const agentUiStateSnapshot = useAgentUiStateSnapshot();
   const frontendTools = useAgentUiFrontendTools();
-  const agentUi = useMemo(
-    () => ({
-      frontend_tools: frontendTools,
-      state_snapshot: agentUiStateSnapshot,
-    }),
-    [agentUiStateSnapshot, frontendTools]
-  );
 
   const persistAppearance = useCallback(async (key: string, value: unknown) => {
     await setUserSetting(
@@ -195,31 +186,6 @@ export function CopilotProviderContent() {
     ]
   );
 
-  const onApplySuggestions = useCallback(
-    async (patch: Record<string, string | null>) => {
-      const scope = copilotContext.scope ?? {};
-      const draftApplyHandler = contribution?.resolveApplySuggestions?.({
-        pathname: location.pathname,
-        scope,
-      });
-      if (draftApplyHandler) {
-        await draftApplyHandler(patch);
-        return;
-      }
-      if (!contribution?.applySuggestions) {
-        throw new Error("No apply handler configured.");
-      }
-      await contribution.applySuggestions(patch, { scope });
-    },
-    [
-      contribution,
-      contribution?.resolveApplySuggestions,
-      contribution?.applySuggestions,
-      copilotContext.scope,
-      location.pathname,
-    ]
-  );
-
   const onCopilotApplySuccess = useCallback(() => {
     const handler = contribution?.onApplySuccess;
     if (!handler) {
@@ -237,9 +203,6 @@ export function CopilotProviderContent() {
     queryClient,
   ]);
 
-  const hasApply =
-    contribution?.resolveApplySuggestions != null ||
-    contribution?.applySuggestions != null;
   const launchScope = copilotContext.scope;
   const scopeRequestedAgentId = readStringScopeValue(
     launchScope,
@@ -255,21 +218,6 @@ export function CopilotProviderContent() {
         ? "contribution"
         : null,
   });
-  const startMode =
-    readStringScopeValue(launchScope, "copilotStartMode") === "auto"
-      ? "auto"
-      : "manual";
-  const triggerType = (() => {
-    const value = readStringScopeValue(launchScope, "copilotTriggerType");
-    return value === "button" || value === "shortcut"
-      ? value
-      : "message_copilot";
-  })();
-  const copilotAutoUserMessage = readStringScopeValue(
-    launchScope,
-    "copilotAutoUserMessage"
-  );
-
   useEffect(() => {
     if (chromeHidden) {
       return;
@@ -305,24 +253,15 @@ export function CopilotProviderContent() {
 
   return (
     <CopilotDrawerLayer
-      agentUi={agentUi}
       contribution={contribution}
-      copilotAutoUserMessage={copilotAutoUserMessage}
       copilotContext={copilotContext}
-      currentTenant={currentTenant}
       dockMode={dockMode}
-      hasApply={hasApply}
-      launchScope={launchScope}
       location={location}
-      onApplySuggestions={onApplySuggestions}
       onCopilotApplySuccess={onCopilotApplySuccess}
       open={open}
-      requestedAgentId={requestedAgentId}
       setOpen={setOpen}
       setPreferredDockMode={setPreferredDockMode}
       shell={shell}
-      startMode={startMode}
-      triggerType={triggerType}
     />
   );
 }

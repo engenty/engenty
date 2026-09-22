@@ -1,13 +1,13 @@
-import { useTranslation } from "@engenty/i18n/ui";
 import { requestApiJson } from "@engenty/api-client";
+import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { Button, cn, Input } from "@engenty/ui-core";
 import { Check, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { AiSkillRecord } from "../../lib/admin/ai-runtime-types.js";
 import { AgentSkillMarketplace } from "./agent-skill-marketplace.js";
-import { AgentSkillPackageDetail } from "./agent-skill-package-detail.js";
 import { PackIcon } from "./agent-skill-pack-icon.js";
+import { AgentSkillPackageDetail } from "./agent-skill-package-detail.js";
 import {
   groupSkills,
   packMatchesQuery,
@@ -83,10 +83,7 @@ export function AgentSkillPackages({
       <div className="flex flex-wrap gap-1.5">
         {(
           [
-            [
-              "all",
-              t("agentDesk.manage.filterAll", { defaultValue: "All" }),
-            ],
+            ["all", t("agentDesk.manage.filterAll", { defaultValue: "All" })],
             [
               "added",
               t("agentDesk.manage.filterAdded", { defaultValue: "Added" }),

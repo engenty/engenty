@@ -246,7 +246,7 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
           inside the scrollport. Narrower, it stands above the name. */}
       <span
         aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
-        className="mb-2 block @min-[54rem]/chat-lane:absolute @min-[54rem]/chat-lane:top-20 @min-[54rem]/chat-lane:-left-[5.5rem] @min-[54rem]/chat-lane:mb-0"
+        className="@min-[54rem]/chat-lane:absolute @min-[54rem]/chat-lane:top-20 @min-[54rem]/chat-lane:-left-[5.5rem] @min-[54rem]/chat-lane:mb-0 mb-2 block"
         role="img"
       >
         {agent.role === "copilot" ? (

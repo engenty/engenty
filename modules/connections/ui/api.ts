@@ -140,9 +140,7 @@ async function invokeTool<T>(
  * when the source spec offers one. `switched: false` means OAuth client
  * setup is still required.
  */
-export async function preferImportedToken(
-  connectorId: string
-): Promise<{
+export async function preferImportedToken(connectorId: string): Promise<{
   fields: ConnectorCredentialField[];
   switched: boolean;
 }> {

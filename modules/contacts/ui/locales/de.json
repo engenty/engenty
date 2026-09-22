@@ -287,12 +287,7 @@
     "detach": "Abkoppeln",
     "initialPrompt": "Kontakt mit öffentlichen Informationen anreichern (Firmendaten, Rollen, Kontakt).",
     "send": "Senden",
-    "reviewPrompt": "Prüfe den Prompt unten und klicke auf Senden, um zu starten.",
     "thinking": "Denkt nach ...",
-    "applySelected": "Auswahl anwenden",
-    "suggestedUpdates": "Vorgeschlagene Aktualisierungen",
-    "selected": "ausgewählt",
-    "artifactLoadFailed": "Vorschlags-Artefakt konnte nicht geladen werden",
     "prompts": {
       "roles": "Schlage vor, welche Rollen (client, partner, supplier, team) aufgrund öffentlicher Informationen zu diesem Eintrag passen.",
       "website": "Finde die offizielle Website, Rechtsform und Registrierungsdaten für diesen Eintrag."

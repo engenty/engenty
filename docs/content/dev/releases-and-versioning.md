@@ -29,6 +29,7 @@ gives you exact build identity. A build surfaces as, e.g., `0.2.0 (a1b2c3d)`.
 Cutting a release is **local and interactive** — one command bumps the version,
 writes the changelog, commits, and tags. Nothing is pushed or built yet;
 **pushing the tag** is the separate step that ships it (see [Shipping](#shipping-build--deploy)).
+Keep the tag on your machine until CI verify is green on the release commit.
 
 ```bash
 pnpm release               # full: changelog + bump package.json + commit + tag
@@ -61,14 +62,18 @@ change the template there, not in the script.
 ## Shipping (build & deploy)
 
 Deploys are **release-gated**: the image build + Coolify deploy run **only when a
-`v*` tag is pushed**, never on a plain push to `main`. So shipping is one push:
+`v*` tag is pushed**, never on a plain push to `main`. Ship in two steps so a
+red verify never rides out with the tag:
 
 ```bash
-git push origin main --follow-tags
+git push origin main          # start CI only
+# wait until Actions → CI → verify is green on that commit
+git push origin vX.Y.Z        # then ship the annotated tag from `pnpm release`
 ```
 
-`--follow-tags` sends the release commit **and** the annotated tag `pnpm release`
-just made. That tag push triggers
+`--follow-tags` still works, but it sends the tag in the same push as the
+commit — use it only when you already know that commit is green. The tag push
+triggers
 [`.github/workflows/build-images.yml`](https://github.com/engenty/engenty-pro/blob/main/.github/workflows/build-images.yml):
 
 1. Builds the seven deploy images — `edge`, `ai`, `migrate`, `docs`, `sandbox`,

@@ -15,7 +15,7 @@ Runtime wiring (AG-UI session harness, thread binding, host registry) lives in `
 
 | Path | Responsibility |
 |------|----------------|
-| `drawer/` | `CopilotDrawer`, dock modes, `CopilotDrawerInjectedSession` |
+| `drawer/` | `CopilotDrawer`, dock modes — the lane is `AgentDeskChatPanel` |
 | `panel/` | `CopilotPanelContent`, `CopilotPanelHeader`, docked panel scroll |
 | `composer/` | `CopilotComposer`, agent picker, compact launcher, mention popover |
 | `composer/agent-status-ticker/` | `AgentStatusTicker`, `deriveAgentStatusTicker` — status line behind composer |
@@ -29,7 +29,6 @@ Runtime wiring (AG-UI session harness, thread binding, host registry) lives in `
 ```tsx
 import {
   CopilotDrawer,
-  type CopilotDrawerInjectedSession,
   CopilotPanelContent,
   CopilotComposer,
   CopilotTranscript,

@@ -4,6 +4,14 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.16] - 2026-09-22
+- ADDED **[copilot]** The desk's ⋮ menu steps aside to sidebar or window over the space
+- ADDED **[browser]** A person's browser is one — per user, not per space
+- CHANGED **[copilot]** The companion draws the desk's lane — the dead suggestions chain is gone
+- FIXED **[connections]** Drop unreachable marketplace filter checks
+- FIXED **[ui]** Replace retired border-border/70 in Extensions detail
+- OTHER **[desk]** The chapter menu is History/Verlauf behind a list-clock icon
+
 ## [0.2.15] - 2026-09-22
 - ADDED **[connections]** Open a token form when imported setup cannot start OAuth
 - ADDED **[extensions]** Install catalog connections and browse skills the same way

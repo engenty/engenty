@@ -706,17 +706,11 @@
         }
       }
     },
-    "reviewPrompt": "Review the prompt below and click Send to start.",
     "thinking": "Thinking ...",
     "statusTicker": {
       "expandSteps": "Show recent steps",
       "collapseSteps": "Hide recent steps"
     },
-    "applySelected": "Apply selected",
-    "cancel": "Cancel",
-    "suggestedUpdates": "Suggested updates",
-    "selected": "selected",
-    "artifactLoadFailed": "Failed to load suggestions artifact",
     "compact": "Compact",
     "dragHandle": "Drag to move",
     "copyThread": "Copy thread",
@@ -737,6 +731,10 @@
       "toolCompleted": "Tool completed",
       "completed": "Completed",
       "failed": "Failed"
+    },
+    "context": {
+      "menu": "Context",
+      "recent": "Recent"
     }
   },
   "sidebar": {
@@ -1382,23 +1380,6 @@
       "agentsDelegated_other": "Used by other Engentys ({{count}})",
       "computeTitle": "Computer",
       "computeHint": "Where this Space's Engentys run their commands.",
-      "browserTitle": "Your browser",
-      "browserHint": "A logged-in browser Engentys drive in your name. Logins stay between runs.",
-      "browserStart": "Start",
-      "browserOpen": "Open",
-      "browserStop": "Stop",
-      "browserSignOut": "Sign out",
-      "browserSignedOut": "Browser signed out — every login forgotten.",
-      "browserFailed": "Could not start the browser.",
-      "browserAutostart": "Let Engentys start it without asking",
-      "browserAutostartHint": "Off: an Engenty that needs the web asks you in the chat before your browser starts.",
-      "browserUnattended": "Let Engentys use it while I am away",
-      "browserUnattendedHint": "Routines and tasks may drive your logged-in browser without you watching. Off: they stop and ask.",
-      "browserState": {
-        "absent": "Not started",
-        "running": "Running",
-        "stopped": "Asleep"
-      },
       "agentsPlatform_one": "Comes with Engenty ({{count}})",
       "agentsPlatform_other": "Come with Engenty ({{count}})",
       "computeSharedLabel": "Shared computer",
@@ -1420,8 +1401,7 @@
         "defaultHint": "The company space is the tenant's front door and cannot be deleted.",
         "defaultBody": "Create another space if you need a separate work area. The company space stays."
       },
-      "descriptionPlaceholder": "What is this space for?",
-      "browserViewTitle": "Your browser"
+      "descriptionPlaceholder": "What is this space for?"
     },
     "data": {
       "derived": "Derived",

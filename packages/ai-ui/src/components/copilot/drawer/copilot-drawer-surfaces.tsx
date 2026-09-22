@@ -13,7 +13,6 @@ import type { ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
-import type { CopilotPanelContentProps } from "../panel/copilot-panel-content";
 import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import { shouldShowCopilotFab } from "./copilot-drawer-utils";
@@ -34,16 +33,6 @@ export interface CopilotDrawerSurfaceTreeProps {
   dragHandleLabel: string;
   effectiveMode: CopilotDockMode;
   handleCompactContextChange: (contextId: string) => void;
-  injected: {
-    activeThreadId: string | null;
-    draft: string;
-    error?: { message?: string | null } | null;
-    messages: CopilotPanelContentProps["messages"];
-    pendingUserText?: string | null;
-    setDraft: CopilotPanelContentProps["setDraft"];
-    status: CopilotPanelContentProps["status"];
-    submitMessage: CopilotPanelContentProps["submitMessage"];
-  };
   /** Blob "on" state. Defaults to `open`; a talk page sets it too. */
   isActive?: boolean;
   layout: UseCopilotDrawerLayoutResult;
@@ -56,7 +45,6 @@ export interface CopilotDrawerSurfaceTreeProps {
   onSubmitPrompt?: (text: string) => void;
   open: boolean;
   panelContent: ReactNode;
-  panelContentProps: CopilotPanelContentProps;
   preferredDockMode?: CopilotDockMode | null;
   recentCompactContexts: CopilotCompactContextOption[];
   selectedCompactContext: CopilotCompactContextOption | undefined;
@@ -210,7 +198,10 @@ export function CopilotDrawerSurfaceTree({
         : fabTrigger;
   const collapseMorph = renderCollapseMorph(layout);
 
-  if (!open) {
+  // A page that already shows the conversation full width (the river's own
+  // page, a hub chat) owns the surface: nothing to draw beside it, and the
+  // persisted `open` stays as it is for the next page.
+  if (!open || shell?.chromeHidden) {
     return (
       <>
         {dockedFab}

@@ -27,10 +27,6 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createCoreUsersDal } from "../../dal/core-users.js";
-import {
-  getSpaceBrowserGrant,
-  upsertSpaceBrowserGrant,
-} from "../../dal/space-browser-grants.js";
 import { resolveConnectionFacts } from "../../dal/space-connection-lookup.js";
 import {
   addSpaceMember,
@@ -80,6 +76,7 @@ import {
   type Space,
   updateSpace,
 } from "../../dal/spaces.js";
+import { getUserBrowserGrant } from "../../dal/user-browser-grants.js";
 import { createDatabaseAdapter } from "../../infra/index.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireAuth, requireSuperAdmin } from "./authz.js";
@@ -101,15 +98,6 @@ const NIL_USER_ID = "00000000-0000-0000-0000-000000000000";
 const logger = createLogger({ name: "spaces-routes" });
 
 /** `x-engenty-task-id` must be a task UUID; anything else is ignored. */
-const browserGrantBodySchema = z
-  .object({
-    autostart: z.boolean().optional(),
-    unattended: z.boolean().optional(),
-  })
-  .refine(
-    (body) => body.autostart !== undefined || body.unattended !== undefined,
-    { message: "Nothing to set" }
-  );
 
 const TASK_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1693,21 +1681,18 @@ export function registerSpacesRoutes(params: {
     // pure `surfaceFromMounts` projection.
     // The acting person's browser consent rides the surface for the same
     // reason: a headless run learns whether it may drive that person's
-    // browser unattended from the one call it already makes. The acting
-    // person is the token's user, or — for a service principal firing a
-    // routine — the routine's author, read from the routine row itself
-    // (never from a header). A task job names nobody here and gets no grant.
+    // browser unattended from the one call it already makes. The grant is
+    // the person's, tenant-wide (their browser is one, in every space). The
+    // acting person is the token's user, or — for a service principal
+    // firing a routine — the routine's author, read from the routine row
+    // itself (never from a header). A task job names nobody here and gets
+    // no grant.
     const actingUserId =
       authResult.auth.principalType === "user"
         ? authResult.auth.userId
         : await routineBoundActingUserId(c, tenantId);
     const browserGrant = actingUserId
-      ? await getSpaceBrowserGrant(
-          db(tenantId),
-          tenantId,
-          space.id,
-          actingUserId
-        )
+      ? await getUserBrowserGrant(db(tenantId), tenantId, actingUserId)
       : null;
     return jsonApiSuccess(c, {
       ...(await resolveSpaceResourceSurface(db(tenantId), tenantId, space.id)),
@@ -1718,86 +1703,6 @@ export function registerSpacesRoutes(params: {
           }
         : null,
       computerNetworkTier: space.computerNetworkTier,
-    });
-  });
-
-  /**
-   * The caller's OWN browser consent in this space (PLAN-user-browser.md D3).
-   * Keyed on the token's user — nobody reads or sets another person's; a
-   * service principal has no browser and gets 403.
-   */
-  app.get("/api/spaces/:spaceId/browser-grant", async (c) => {
-    const authResult = await requireAuth(c, config);
-    if ("error" in authResult) {
-      return authResult.error;
-    }
-    const tenantId = authResult.auth.tenantId;
-    if (!tenantId) {
-      return jsonApiError(c, 403, { message: "No tenant" });
-    }
-    if (authResult.auth.principalType !== "user" || !authResult.auth.userId) {
-      return jsonApiError(c, 403, { message: "Not a user" });
-    }
-    const access = await requireSpaceAccess(
-      c,
-      tenantId,
-      authResult.auth,
-      c.req.param("spaceId")
-    );
-    if ("error" in access) {
-      return access.error;
-    }
-    const grant = await getSpaceBrowserGrant(
-      db(tenantId),
-      tenantId,
-      access.space.id,
-      authResult.auth.userId
-    );
-    return jsonApiSuccess(c, {
-      autostart: grant?.autostart ?? false,
-      space_id: access.space.id,
-      unattended: grant?.unattended ?? false,
-    });
-  });
-
-  app.put("/api/spaces/:spaceId/browser-grant", async (c) => {
-    const authResult = await requireAuth(c, config);
-    if ("error" in authResult) {
-      return authResult.error;
-    }
-    const tenantId = authResult.auth.tenantId;
-    if (!tenantId) {
-      return jsonApiError(c, 403, { message: "No tenant" });
-    }
-    if (authResult.auth.principalType !== "user" || !authResult.auth.userId) {
-      return jsonApiError(c, 403, { message: "Not a user" });
-    }
-    const access = await requireSpaceAccess(
-      c,
-      tenantId,
-      authResult.auth,
-      c.req.param("spaceId")
-    );
-    if ("error" in access) {
-      return access.error;
-    }
-    const parsed = browserGrantBodySchema.safeParse(
-      await c.req.json().catch(() => ({}))
-    );
-    if (!parsed.success) {
-      return jsonApiError(c, 400, { message: "Invalid browser grant" });
-    }
-    const grant = await upsertSpaceBrowserGrant(
-      db(tenantId),
-      tenantId,
-      access.space.id,
-      authResult.auth.userId,
-      parsed.data
-    );
-    return jsonApiSuccess(c, {
-      autostart: grant.autostart,
-      space_id: access.space.id,
-      unattended: grant.unattended,
     });
   });
 

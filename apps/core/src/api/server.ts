@@ -112,6 +112,7 @@ import { registerDevLoginRoutes } from "./routes/auth/dev-login-routes.js";
 import { registerDeviceFlowRoutes } from "./routes/auth/device-flow-routes.js";
 import { registerImpersonateRoutes } from "./routes/auth/impersonate-routes.js";
 import { registerBillingRoutes } from "./routes/billing-routes.js";
+import { registerBrowserGrantRoutes } from "./routes/browser-grant-routes.js";
 import { registerCoreAiRemovedRoutes } from "./routes/core-ai-removed-routes.js";
 import { registerDashboardRoutes } from "./routes/dashboard/index.js";
 import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-routes.js";
@@ -677,6 +678,7 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
   });
   registerSettingsRoutes({ app, config });
+  registerBrowserGrantRoutes({ app, config });
   registerSpacesRoutes({
     app,
     // Placing an account in a space raises that account's own ceiling, and that

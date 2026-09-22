@@ -287,12 +287,7 @@
     "detach": "Detach",
     "initialPrompt": "Enrich this contact with public information (company details, roles, contact info).",
     "send": "Send",
-    "reviewPrompt": "Review the prompt below and click Send to start.",
     "thinking": "Thinking ...",
-    "applySelected": "Apply selected",
-    "suggestedUpdates": "Suggested updates",
-    "selected": "selected",
-    "artifactLoadFailed": "Failed to load suggestions artifact",
     "prompts": {
       "roles": "Suggest which roles (client, partner, supplier, team) fit this entity based on public information.",
       "website": "Find official website, legal form, and registration details for this entity."

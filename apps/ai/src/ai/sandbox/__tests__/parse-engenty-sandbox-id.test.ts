@@ -49,31 +49,26 @@ describe("parseEngentySandboxId", () => {
     });
   });
 
-  it("parses a user browser id into tenant, space and user", () => {
+  it("parses a user browser id into tenant and user — no space", () => {
     const tenant = "00000000-0000-4000-8000-0000000000aa";
-    const space = "00000000-0000-4000-8000-0000000000bb";
     const user = "00000000-0000-4000-8000-0000000000cc";
     expect(
-      parseEngentySandboxId(`engenty-browser-${tenant}-${space}-${user}`)
+      parseEngentySandboxId(`engenty-browser-${tenant}-${user}`)
     ).toMatchObject({
       lifecycle: "browser",
-      space_id: space,
+      space_id: null,
       tenant_id: tenant,
       user_id: user,
     });
   });
 
-  it("parses a legacy per-space browser id without a user", () => {
+  it("does not read a per-space browser id from before the per-user cut", () => {
     const tenant = "00000000-0000-4000-8000-0000000000aa";
     const space = "00000000-0000-4000-8000-0000000000bb";
+    const user = "00000000-0000-4000-8000-0000000000cc";
     expect(
-      parseEngentySandboxId(`engenty-browser-${tenant}-${space}`)
-    ).toMatchObject({
-      lifecycle: "browser",
-      space_id: space,
-      tenant_id: tenant,
-      user_id: null,
-    });
+      parseEngentySandboxId(`engenty-browser-${tenant}-${space}-${user}`)
+    ).toMatchObject({ lifecycle: "browser", tenant_id: null, user_id: null });
   });
 
   it("never reports a user for a space computer", () => {

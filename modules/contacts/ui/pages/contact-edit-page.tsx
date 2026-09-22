@@ -12,8 +12,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { ContactFormFields } from "../components/contact-form-fields.jsx";
-import { applyContactsSuggestions } from "../copilot-contribution.js";
-import { setContactsDraftApplyHandler } from "../copilot-draft-bridge.js";
 import { useContactsEditAgentUiSlice } from "../hooks/use-contacts-agent-ui-slice.js";
 import { useContactsModuleSecondaryShellNav } from "../hooks/use-contacts-module-secondary-shell-nav.js";
 import { previewDisplayNameFromForm } from "../lib/contact-profile-name-form.js";
@@ -30,7 +28,6 @@ import {
   entityToFormValues,
   formValuesToPatch,
 } from "./contact-form.js";
-import { applySuggestionPatchToContactFormValues } from "./contact-form-suggestion-patch.js";
 
 const CONTACT_AGENT_UI_FIELDS = [
   "name_prefix",
@@ -123,32 +120,6 @@ export function ContactEditPage() {
     resolver: zodResolver(schema),
     defaultValues: defaultContactCreateFormValues,
   });
-
-  // Bridge copilot apply-suggestions into the live edit form so a generated
-  // patch updates form fields (user still saves explicitly).
-  useEffect(() => {
-    if (!id) {
-      return;
-    }
-    const applySuggestionsToEditDraft = async (
-      patch: Record<string, string | null>
-    ) => {
-      await applyContactsSuggestions(patch, { scope: { entityId: id } });
-      const nextValues = applySuggestionPatchToContactFormValues(
-        form.getValues(),
-        patch
-      );
-      for (const [key, value] of Object.entries(nextValues)) {
-        form.setValue(key as keyof ContactCreateFormValues, value, {
-          shouldDirty: key === "roles",
-        });
-      }
-    };
-    setContactsDraftApplyHandler(applySuggestionsToEditDraft);
-    return () => {
-      setContactsDraftApplyHandler(null);
-    };
-  }, [id, form]);
 
   useEffect(() => {
     if (!id) {

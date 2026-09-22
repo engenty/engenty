@@ -44,6 +44,8 @@ export interface UseChatLaneComposerParams {
    */
   messages: CopilotPanelContentProps["messages"];
   /** Interrupt persisted on the session, for gates that never enter the stream. */
+  /** After a sandbox command is approved — the surface it came from refreshes. */
+  onSandboxApproved?: () => void;
   openInterruptFromSession: AgUiOpenInterruptMetadata | null;
   /** Run status with `pendingSend` already folded in. */
   status: CopilotRunStatus;
@@ -225,11 +227,17 @@ export function useChatLaneComposer(
       await approveCopilotOpenInterrupt({
         activeThreadId: host.threadId,
         executeFrontendTool,
+        onSuccess: params.onSandboxApproved,
         open,
         resumeInterrupt: (feedback) => host.resumeInterrupt(feedback),
       });
     },
-    [executeFrontendTool, host.resumeInterrupt, host.threadId]
+    [
+      executeFrontendTool,
+      host.resumeInterrupt,
+      host.threadId,
+      params.onSandboxApproved,
+    ]
   );
 
   const onSandboxCommandReject = useCallback(

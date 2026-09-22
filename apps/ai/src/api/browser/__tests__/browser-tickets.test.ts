@@ -7,8 +7,7 @@ import {
 } from "../browser-tickets.js";
 
 const payload = {
-  sandbox_id: "engenty-browser-t-s-u",
-  space_id: "s",
+  sandbox_id: "engenty-browser-t-u",
   tenant_id: "t",
   user_id: "u",
 };

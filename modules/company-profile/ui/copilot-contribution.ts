@@ -1,5 +1,4 @@
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
-import { getCompanyProfileDraftApplyHandler } from "./copilot-draft-bridge.js";
 
 export const companyProfileCopilotContribution: UiCopilotContribution = {
   moduleId: "company-profile",
@@ -23,5 +22,4 @@ export const companyProfileCopilotContribution: UiCopilotContribution = {
   matches: (context) =>
     context.pathname === "/mdl/company-profile/settings" &&
     context.scope?.currentModule === "company-profile",
-  resolveApplySuggestions: () => getCompanyProfileDraftApplyHandler(),
 };

@@ -212,7 +212,7 @@ export function DeskFrame(props: DeskFrameProps) {
           whatever the desk shows — conversation or engagement list — so the
           monitor toggle always has somewhere to open (PLAN-user-browser.md
           §2.6). */}
-      <UserBrowserPane spaceId={props.spaceId} />
+      <UserBrowserPane />
       {/* Scoped to the open conversation: the desk shows what THIS agent
           produced here, and the same subscription lets the agent bring an
           artefact it is working on to the front. */}

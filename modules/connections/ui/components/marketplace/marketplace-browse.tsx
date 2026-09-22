@@ -78,9 +78,7 @@ export function MarketplaceBrowse({
             : recommended
           : [];
   const showRegistry =
-    canImport &&
-    searching &&
-    (filter === "all" || filter === "marketplace");
+    canImport && searching && (filter === "all" || filter === "marketplace");
   const showGrid = filter !== "mcp" && filter !== "marketplace";
   const showFeatured = filter === "marketplace" && !searching;
 
@@ -214,16 +212,14 @@ export function MarketplaceBrowse({
           showPaste={false}
         />
       ) : null}
-      {showGrid &&
-      shown.length === 0 &&
-      !(searching && (filter === "all" || filter === "marketplace")) ? (
+      {showGrid && shown.length === 0 && !(searching && filter === "all") ? (
         <div className="flex flex-col items-center gap-2 px-2 py-6">
           <p className="text-center text-muted-foreground text-sm">
             {searching
               ? t("marketplace.noMatches")
               : t("marketplace.searchPrompt")}
           </p>
-          {searching && canImport && filter !== "marketplace" ? (
+          {searching && canImport ? (
             <button
               className="text-sm underline"
               onClick={() => setFilter("marketplace")}

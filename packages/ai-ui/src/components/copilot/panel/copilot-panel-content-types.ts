@@ -9,18 +9,13 @@ import type { ChatKind } from "../chat-kind-badge.js";
 import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { CopilotDecisionInterruptFeedback } from "../interrupts/copilot-tool-call-actions";
-import type { FieldSuggestion } from "../interrupts/hitl-approval-card";
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 
 export type CopilotEmptyLandingAlign = "center" | "start";
 
 export interface CopilotPanelContentProps {
   agentDebugPayload?: unknown;
-  appliedSuggestions?: FieldSuggestion[];
-  applyError: string | null;
-  applySelectedLabel: string;
-  artifactError: string | null;
-  artifactLoadFailedLabel: string;
+
   attachLabel: string;
   /** When false, the status flap will not auto-expand after a run completes.
    *  Defaults to true. Set false when the reply is already visible in an
@@ -36,7 +31,7 @@ export interface CopilotPanelContentProps {
   browserPanel?: ReactNode;
   browserPanelLabel?: string;
   browserPanelOpen?: boolean;
-  cancelLabel: string;
+
   /** When false, empty-state composer stays bottom-aligned (widget / embed chat). Default: centered dock landing. */
   centerEmptyLanding?: boolean;
   /** The badge in the header saying what kind of conversation this is. */
@@ -111,8 +106,7 @@ export interface CopilotPanelContentProps {
   headerChrome?: CopilotHeaderChrome;
   /** Header variant: docked uses SidePanelHeader, floating uses draggable-style bar. */
   headerVariant?: "docked" | "floating";
-  isApplying: boolean;
-  latestSuggestions: FieldSuggestion[];
+
   /** Optional @-mention targets for the composer (id + display + handle without `@`). */
   mentionAgentCandidates?: Array<{ handle: string; id: string; name: string }>;
   /** Async typed-mention search (users/contacts/objects/artifacts) for reference chips. */
@@ -120,8 +114,7 @@ export interface CopilotPanelContentProps {
   messages: readonly (AgentTurnMessageLike & { id: string })[];
   /** When true, hide route status and "Review the prompt..." text. Used for bottom dock. */
   minimalChrome?: boolean;
-  onApplySuggestions: () => void;
-  onCancel: () => void;
+
   onClose: () => void;
   /** When user picks an agent from the @ mention list, sync shell agent selection (e.g. full-page chat). */
   onComposerMentionAgent?: (agentId: string) => void;
@@ -164,7 +157,7 @@ export interface CopilotPanelContentProps {
     feedback: CopilotDecisionInterruptFeedback
   ) => void;
   resumeInterrupt?: (feedback: CopilotDecisionInterruptFeedback) => void;
-  reviewPromptLabel: string;
+
   /**
    * Optional status line when no context dropdown is shown (rare).
    * Prefer `contextOptions` + header dropdown for normal surfaces.
@@ -172,19 +165,14 @@ export interface CopilotPanelContentProps {
   routeStatusLabel?: string;
   selectedCandidateValues?: Record<string, string | null>;
   selectedContextId?: string;
-  selectedCountLabel: string;
-  selectedSuggestions: Record<string, boolean>;
+
   setDraft: Dispatch<SetStateAction<string>>;
   setSelectedCandidateValues?: (
     v:
       | Record<string, string | null>
       | ((prev: Record<string, string | null>) => Record<string, string | null>)
   ) => void;
-  setSelectedSuggestions: (
-    v:
-      | Record<string, boolean>
-      | ((prev: Record<string, boolean>) => Record<string, boolean>)
-  ) => void;
+
   /**
    * Sender names on user bubbles. Shared rooms pass true; personal /
    * Copilot chats leave this off so a 1:1 transcript does not label every turn.
@@ -193,7 +181,7 @@ export interface CopilotPanelContentProps {
   /** Slash-command catalog for the composer ("/" at message start opens the menu). */
   slashCommands?: import("../composer/copilot-slash-command.js").ChatSlashCommand[];
   starterPrompts?: StarterPromptItem[];
-  startMode: "manual" | "auto";
+
   status: "ready" | "streaming" | "submitted" | "error";
   /** Count of received AG-UI stream events; any growth proves the stream is
    *  alive and restarts the no-response guard (reasoning/tool deltas don't
@@ -204,7 +192,7 @@ export interface CopilotPanelContentProps {
   /** Input / output / log section titles on sub-agent cards + full-page monitor. */
   subAgentSectionLabels?: SubAgentRunSectionLabels;
   submitMessage: SubmitMessage;
-  suggestedUpdatesLabel: string;
+
   thinkingLabel: string;
   /** Active apps/ai thread id for composer usage meter. */
   threadId?: string | null;
@@ -229,7 +217,7 @@ export interface CopilotPanelContentProps {
   /** Accessible label for {@link transcriptLoading} (visually hidden). */
   transcriptLoadingLabel?: string;
   transcriptSurface?: "default" | "chat";
-  triggerType: "message_copilot" | "button" | "shortcut";
+
   voiceInputEnabled?: boolean;
   voiceInputLang?: string;
 }

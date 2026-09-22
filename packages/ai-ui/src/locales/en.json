@@ -585,6 +585,8 @@
     },
     "copilot": {
       "title": "Copilot",
+      "showAsSidebar": "Show as sidebar",
+      "showAsWindow": "Show as window",
       "composerPlaceholder": "Message the copilot…",
       "emptyStateTitle": "How can I help?",
       "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace."
@@ -2071,10 +2073,8 @@
       "title": "Your browser",
       "start": "Start",
       "stop": "Stop",
-      "hint": "Start a logged-in browser for this Space. Engentys drive it in your name; you can take over any time.",
+      "hint": "Start a logged-in browser. Engentys drive it in your name wherever you work; you can take over any time.",
       "startFailed": "Could not start the browser.",
-      "noSpace": "No Space",
-      "noSpaceHint": "Open a Space to use your browser there.",
       "toggle": "Show your browser",
       "state": {
         "absent": "Not started",
@@ -2086,13 +2086,25 @@
       "collapsePane": "Restore browser panel size",
       "asleepHint": "Your browser is asleep — logins are kept. Start wakes it.",
       "steps": {
-        "start": "Start a browser for this Space — here, or when an Engenty asks you for one in the chat. It is yours alone: its logins, cookies and downloads belong to you.",
+        "start": "Start your browser — here, or when an Engenty asks you for one in the chat. It is yours alone, in every Space: its logins, cookies and downloads belong to you.",
         "watch": "Ask an Engenty for anything on the web. It drives this browser in your name and you watch it here, live.",
         "takeOver": "Take over whenever you need to: log in, solve a captcha, click around. The Engenty pauses.",
         "handBack": "Hand back and the Engenty continues from the page you left it on.",
-        "unattended": "Routines and other unattended runs may use it only after you switch on “Let Engentys use it while I am away” in Space settings → Computer.",
-        "signOut": "Stop puts it to sleep (logins kept, also automatically after 15 minutes idle). Sign out in Space settings forgets every login."
+        "unattended": "Routines and other unattended runs may use it only after you switch on “Let Engentys use it while I am away” in your Copilot's settings.",
+        "signOut": "Stop puts it to sleep (logins kept, also automatically after 15 minutes idle). Sign out in your Copilot's settings forgets every login."
       }
+    },
+    "settings": {
+      "title": "Your browser",
+      "hint": "A logged-in browser Engentys drive in your name, in every Space. Logins stay between runs.",
+      "open": "Open",
+      "signOut": "Sign out",
+      "signedOut": "Signed out — every login forgotten.",
+      "failed": "That did not work. Try again.",
+      "autostart": "Let Engentys start it without asking",
+      "autostartHint": "Off: an Engenty that needs the web asks you in the chat before your browser starts.",
+      "unattended": "Let Engentys use it while I am away",
+      "unattendedHint": "Routines and tasks may drive your logged-in browser without you watching. Off: they stop and ask."
     },
     "view": {
       "title": "Your browser",
@@ -2167,11 +2179,11 @@
     }
   },
   "river": {
-    "chapters": "Chapters",
+    "history": "History",
     "compactNow": "Compact now",
     "compacting": "Compacting…",
-    "nothingToCompact": "Nothing new since the last chapter.",
-    "empty": "No chapters yet. The river is cut into chapters every day and every week, or now, when you ask.",
+    "nothingToCompact": "Nothing new since the last entry.",
+    "empty": "No history yet. The conversation is summarized every day and every week, or now, when you ask.",
     "weekOf": "Week of {{date}}",
     "keepInMind": "Keep in mind",
     "backToNow": "Back to now",

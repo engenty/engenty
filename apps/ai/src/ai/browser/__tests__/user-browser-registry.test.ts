@@ -21,11 +21,10 @@ import {
 } from "../user-browser-registry.js";
 
 const identity = {
-  spaceId: "00000000-0000-4000-8000-0000000000bb",
   tenantId: "00000000-0000-4000-8000-0000000000aa",
   userId: "00000000-0000-4000-8000-0000000000cc",
 };
-const SANDBOX_ID = `engenty-browser-${identity.tenantId}-${identity.spaceId}-${identity.userId}`;
+const SANDBOX_ID = `engenty-browser-${identity.tenantId}-${identity.userId}`;
 
 describe("user browser seat", () => {
   afterEach(() => {

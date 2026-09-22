@@ -68,6 +68,8 @@ export function AgentDeskActions(props: {
   /** The conversation's chapters, one icon (thread-chapters.tsx). */
   chapters?: ReactNode;
   hostKey: string;
+  /** Items the desk adds at the top of the ⋮ menu, before the shared ones. */
+  menuStart?: ReactNode;
   /** Only a custom (database-backed) agent has an edit form to open. */
   isCustomAgent: boolean;
   locale: string;
@@ -196,6 +198,12 @@ export function AgentDeskActions(props: {
             {t("artifacts.openPane")}
           </DropdownMenuItem>
           <DropdownMenuSeparator className="md:hidden" />
+          {props.menuStart ? (
+            <>
+              {props.menuStart}
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           {props.canAsk && (props.onOpenDm || props.onNewRoom) ? (
             <>
               {props.onOpenDm ? (

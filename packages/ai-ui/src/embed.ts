@@ -156,7 +156,6 @@ export {
   type CopilotChatOnFinish,
   CopilotComposerSection,
   CopilotDrawer,
-  type CopilotDrawerInjectedSession,
   CopilotDrawerPositionMenu,
   type CopilotDrawerPositionMenuProps,
   type CopilotLayoutPersistDockMode,
@@ -224,7 +223,6 @@ export {
   type ToolCallCardDensity,
   type ToolCallCardProps,
   toHumanValue,
-  useCopilotSuggestionsState,
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";

@@ -455,15 +455,15 @@ export { useEffortModelBindings } from "./features/ai-effort/use-effort-model-bi
 export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
 export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
-export {
-  CopilotBrowserPanel,
-  userBrowserQueryKey,
-} from "./features/browser/copilot-browser-panel.js";
+export { CopilotBrowserPanel } from "./features/browser/copilot-browser-panel.js";
 export {
   mintUserBrowserTicket,
   readUserBrowser,
+  signOutUserBrowser,
   startUserBrowser,
   stopUserBrowser,
+  USER_BROWSER_QUERY_KEY,
+  type UserBrowserGrant,
   type UserBrowserState,
   type UserBrowserStatus,
 } from "./features/browser/user-browser-api.js";
@@ -471,6 +471,7 @@ export {
   UserBrowserPane,
   UserBrowserPaneToggle,
 } from "./features/browser/user-browser-pane.js";
+export { UserBrowserSection } from "./features/browser/user-browser-section.js";
 export {
   type UserBrowserSeat,
   UserBrowserView,

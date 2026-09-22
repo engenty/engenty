@@ -21,7 +21,7 @@ import {
   type AgentEngentyKind,
   resolveAgentEngenty,
 } from "@engenty/ai-core/browser";
-import { UserBrowserView, useEffectiveAiSettingsQuery } from "@engenty/ai-ui";
+import { useEffectiveAiSettingsQuery } from "@engenty/ai-ui";
 import { SpaceIconFace } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -32,15 +32,9 @@ import {
   parseAgentApprovalMode,
   parseComputerNetworkTier,
 } from "@engenty/plugin-sdk";
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   Badge,
-  Button,
   cn,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   EditableText,
   Engenty,
   SettingsFormSection,
@@ -56,7 +50,6 @@ import {
 import {
   Boxes,
   ChevronRight,
-  Globe,
   Pencil,
   Plug,
   Plus,
@@ -74,14 +67,6 @@ import { SpaceMembersCard } from "@/components/spaces/SpaceMembersCard";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
 import { connectionMetaById } from "@/components/spaces/space-mount-catalog";
 import type { SpaceMount } from "@/lib/api/spaces-client";
-import {
-  getSpaceBrowserGrant,
-  putSpaceBrowserGrant,
-  readUserBrowser,
-  signOutUserBrowser,
-  startUserBrowser,
-  stopUserBrowser,
-} from "@/lib/api/spaces-client";
 import {
   resolveSpaceAgentKind,
   type SpaceAgentKind,
@@ -328,163 +313,6 @@ function MountCard({
         </Link>
       ) : null}
     </div>
-  );
-}
-
-/**
- * The person's OWN browser in this Space (PLAN-user-browser.md §2.6): one
- * logged-in Chromium per user per Space, driven by Engentys in that person's
- * name. Start / Open (live view with takeover) / Stop / Sign out, and the
- * unattended switch — the standing consent for agents to use it while the
- * person is away. Every action is keyed on the caller server-side; nobody
- * sees anyone else's row here.
- */
-function SpaceBrowserRow({ spaceId }: { spaceId: string }) {
-  const { t } = useTranslation("common");
-  const queryClient = useQueryClient();
-  const [viewOpen, setViewOpen] = useState(false);
-  const statusQuery = useQuery({
-    queryFn: () => readUserBrowser(spaceId),
-    queryKey: ["user-browser", spaceId],
-    refetchInterval: viewOpen ? false : 30_000,
-  });
-  const grantQuery = useQuery({
-    queryFn: ({ signal }) => getSpaceBrowserGrant(spaceId, signal),
-    queryKey: ["space-browser-grant", spaceId],
-  });
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["user-browser", spaceId] });
-  const start = useMutation({
-    mutationFn: () => startUserBrowser(spaceId),
-    onError: () => toast.error(t("spaces.settings.browserFailed")),
-    onSuccess: refresh,
-  });
-  const stop = useMutation({
-    mutationFn: () => stopUserBrowser(spaceId),
-    onSuccess: refresh,
-  });
-  const signOut = useMutation({
-    mutationFn: () => signOutUserBrowser(spaceId),
-    onSuccess: () => {
-      toast.success(t("spaces.settings.browserSignedOut"));
-      return refresh();
-    },
-  });
-  const grant = useMutation({
-    mutationFn: (patch: { autostart?: boolean; unattended?: boolean }) =>
-      putSpaceBrowserGrant(spaceId, patch),
-    onError: () => toast.error(t("spaces.settings.saveFailed")),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ["space-browser-grant", spaceId],
-      }),
-  });
-  const state = statusQuery.data?.state ?? "absent";
-  const busy =
-    start.isPending || stop.isPending || signOut.isPending || grant.isPending;
-  return (
-    <>
-      <div className="flex flex-col gap-3 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <SettingsOverviewIcon Icon={Globe as UiIconComponent} />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate font-medium text-foreground text-sm">
-              {t("spaces.settings.browserTitle")}
-            </span>
-            <span className="truncate text-muted-foreground text-xs">
-              {t(`spaces.settings.browserState.${state}`)}
-              {" · "}
-              {t("spaces.settings.browserHint")}
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {state === "running" ? (
-              <>
-                <Button
-                  className="h-8 text-xs"
-                  disabled={busy}
-                  onClick={() => setViewOpen(true)}
-                  size="sm"
-                  variant="default"
-                >
-                  {t("spaces.settings.browserOpen")}
-                </Button>
-                <Button
-                  className="h-8 text-xs"
-                  disabled={busy}
-                  onClick={() => stop.mutate()}
-                  size="sm"
-                  variant="outline"
-                >
-                  {t("spaces.settings.browserStop")}
-                </Button>
-              </>
-            ) : (
-              <Button
-                className="h-8 text-xs"
-                disabled={busy}
-                onClick={() => start.mutate()}
-                size="sm"
-                variant="outline"
-              >
-                {t("spaces.settings.browserStart")}
-              </Button>
-            )}
-            {state === "absent" ? null : (
-              <Button
-                className="h-8 text-xs"
-                disabled={busy}
-                onClick={() => signOut.mutate()}
-                size="sm"
-                variant="ghost"
-              >
-                {t("spaces.settings.browserSignOut")}
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3 pl-9">
-          <Switch
-            aria-label={t("spaces.settings.browserAutostart")}
-            checked={grantQuery.data?.autostart ?? false}
-            disabled={grantQuery.isLoading || grant.isPending}
-            onCheckedChange={(next) => grant.mutate({ autostart: next })}
-          />
-          <div className="flex min-w-0 flex-col">
-            <span className="text-foreground text-sm">
-              {t("spaces.settings.browserAutostart")}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {t("spaces.settings.browserAutostartHint")}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 pl-9">
-          <Switch
-            aria-label={t("spaces.settings.browserUnattended")}
-            checked={grantQuery.data?.unattended ?? false}
-            disabled={grantQuery.isLoading || grant.isPending}
-            onCheckedChange={(next) => grant.mutate({ unattended: next })}
-          />
-          <div className="flex min-w-0 flex-col">
-            <span className="text-foreground text-sm">
-              {t("spaces.settings.browserUnattended")}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {t("spaces.settings.browserUnattendedHint")}
-            </span>
-          </div>
-        </div>
-      </div>
-      <Dialog onOpenChange={setViewOpen} open={viewOpen}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>{t("spaces.settings.browserViewTitle")}</DialogTitle>
-          </DialogHeader>
-          {viewOpen ? <UserBrowserView spaceId={spaceId} /> : null}
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 
@@ -1201,7 +1029,6 @@ export function SpaceSettingsPage() {
                     </span>
                   </div>
                 </div>
-                <SpaceBrowserRow spaceId={spaceId} />
               </div>
             </SettingsFormSection>
           ) : null}

@@ -169,7 +169,10 @@ export function registerConnectionsOAuthRoutes(
           connector_id: connector.id,
           expires_at: new Date(Date.now() + FLOW_TTL_MS).toISOString(),
           nonce,
-          redirect_to: packFlowRedirect(query?.redirect_to ?? null, pkce.codeVerifier),
+          redirect_to: packFlowRedirect(
+            query?.redirect_to ?? null,
+            pkce.codeVerifier
+          ),
           requested_scopes: scopes,
           sharing,
           space_id: spaceId,

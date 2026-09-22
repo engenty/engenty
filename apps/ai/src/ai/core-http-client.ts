@@ -85,11 +85,14 @@ export interface EngentySpaceSurface {
   agentReportsTo?: Record<string, string>;
   agents: string[];
   /**
-   * The acting person's consent for THEIR browser in this space
-   * (PLAN-user-browser.md D3): may an agent drive it while they are away.
-   * Null when they never set one, or when the caller acts for nobody (a
-   * task job); absent on a core that predates it. Never a widening: no
-   * grant means a headless run stops with `needs_user`.
+   * The acting person's consent for THEIR browser (PLAN-user-browser.md
+   * D3): may an agent drive it while they are away. The grant is the
+   * person's, tenant-wide — it rides the surface because that is the one
+   * call a headless run already makes, and core names the acting person
+   * (a routine's author) from the routine row, never from a header. Null
+   * when they never set one, or when the caller acts for nobody (a task
+   * job). Never a widening: no grant means a headless run stops with
+   * `needs_user`.
    */
   browserGrant?: { autostart?: boolean; unattended: boolean } | null;
   capabilities: string[];
@@ -618,6 +621,25 @@ export class EngentyCoreClient {
   getSpaceSurface(spaceId: string) {
     return this.request<EngentySpaceSurface>(
       `/api/spaces/${encodeURIComponent(spaceId)}/surface`
+    );
+  }
+
+  /**
+   * The caller's own browser consent (PLAN-user-browser.md D3) — for a run
+   * outside any space, which has no surface to carry it. Owner-only on
+   * core's side: a service principal gets 403.
+   */
+  getMyBrowserGrant() {
+    return this.request<{ autostart: boolean; unattended: boolean }>(
+      "/api/me/browser-grant"
+    );
+  }
+
+  /** Set one or both consents; an omitted flag keeps its value. */
+  putMyBrowserGrant(patch: { autostart?: boolean; unattended?: boolean }) {
+    return this.request<{ autostart: boolean; unattended: boolean }>(
+      "/api/me/browser-grant",
+      { body: JSON.stringify(patch), method: "PUT" }
     );
   }
 

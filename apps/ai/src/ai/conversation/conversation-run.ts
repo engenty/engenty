@@ -33,6 +33,7 @@ import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
 import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import { isRoomThread, threadKind } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
+import { resolveRunBrowser } from "../browser/run-browser.js";
 import {
   createUserBrowserTools,
   releaseUserBrowserForRun,
@@ -484,14 +485,18 @@ export async function startConversationRun(
           ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
         })
       : { extraTools: {}, skipNativeSubAgents: false };
-    // The acting user's browser, when they have one in this space (D11).
-    // Audit rides the run-event lane as agent steps only.
+    // The acting user's browser, when they have one (D11) — in this space
+    // or, for the river, outside any. Audit rides the run-event lane as
+    // agent steps only.
+    const runBrowser = await resolveRunBrowser({
+      scope: input.scope,
+      source: spaceResolution,
+    });
     const browserTools = await createUserBrowserTools({
-      browser: runSpace?.browser ?? null,
+      browser: runBrowser,
       emit: (name, value) =>
         emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
       headless: false,
-      spaceId: runSpace?.spaceId ?? null,
       tenantId: input.scope.tenantId,
       textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
     });
@@ -717,11 +722,7 @@ export async function startConversationRun(
       // The agent's seat goes with the run (§2.3); a suspended run's owner
       // may be taking over right now, and must not find the seat held.
       releaseUserBrowserForRun(
-        {
-          browser: runSpace?.browser ?? null,
-          spaceId: runSpace?.spaceId ?? null,
-          tenantId: input.scope.tenantId,
-        },
+        { browser: runBrowser, tenantId: input.scope.tenantId },
         input.runId
       );
     }

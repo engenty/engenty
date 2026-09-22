@@ -160,7 +160,7 @@ export function MarketplaceDetail({
             </ul>
           )}
           {accounts.length > 0 ? (
-            <div className="border-border/70 border-t">
+            <div className="border-border-soft border-t">
               <MarketplaceConnect
                 appearance="addRow"
                 hasConnections
@@ -270,7 +270,7 @@ export function MarketplaceDetail({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-border/70 border-b px-3 py-2.5 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-border-soft border-b px-3 py-2.5 last:border-b-0">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="truncate font-medium">{value}</dd>
     </div>
@@ -310,7 +310,7 @@ function AccountCard({
     uses.includes("thisAgent") ? t("marketplace.usedThisAgent") : null,
   ].filter(Boolean);
   return (
-    <li className="flex items-center justify-between gap-3 border-border/70 border-b px-3 py-3 last:border-b-0">
+    <li className="flex items-center justify-between gap-3 border-border-soft border-b px-3 py-3 last:border-b-0">
       <span className="min-w-0 truncate font-medium text-sm">
         {accountLabel(account, pluginName)}
       </span>

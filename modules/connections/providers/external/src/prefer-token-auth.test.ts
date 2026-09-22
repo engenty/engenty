@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import { selectTokenAuth, tokenCredentialFields } from "./prefer-token-auth.js";
 
 const figmaToken = {
-  fields: [
-    { key: "api_key", label: "API key", required: true, secret: true },
-  ],
+  fields: [{ key: "api_key", label: "API key", required: true, secret: true }],
   kind: "api_key" as const,
   placement: {
     in: "header" as const,

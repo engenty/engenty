@@ -8,7 +8,11 @@ import {
   previewSource,
   searchRegistry,
 } from "./marketplace-api.js";
-import { inferSourceKind, kebabIdFrom, snakePrefixFrom } from "./marketplace-model.js";
+import {
+  inferSourceKind,
+  kebabIdFrom,
+  snakePrefixFrom,
+} from "./marketplace-model.js";
 import { RegistryLogo } from "./marketplace-row.js";
 
 export function MarketplaceImport({

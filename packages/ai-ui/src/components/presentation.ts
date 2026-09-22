@@ -95,7 +95,6 @@ export {
   type CopilotRouteContext,
   formatCopilotRouteStatusLabel,
 } from "./copilot/drawer/copilot-drawer.js";
-export type { CopilotDrawerInjectedSession } from "./copilot/drawer/copilot-drawer-injected-session.js";
 export {
   CopilotDrawerPositionMenu,
   type CopilotDrawerPositionMenuProps,
@@ -165,7 +164,6 @@ export {
   parseCopilotLayoutSnapshot,
   reconcileCopilotLayoutSnapshot,
 } from "./copilot/session/copilot-layout-snapshot.js";
-export { useCopilotSuggestionsState } from "./copilot/session/use-copilot-suggestions-state.js";
 export {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,

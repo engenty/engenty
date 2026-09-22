@@ -1,12 +1,54 @@
 [
   {
+    "version": "v0.2.16",
+    "timestamp": 1790086013,
+    "commits": [
+      {
+        "id": "bab58d6",
+        "message": "drop unreachable marketplace filter checks",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0f743db",
+        "message": "replace retired border-border/70 in Extensions detail",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f5669d3",
+        "message": "the desk's ⋮ menu steps aside to sidebar or window over the space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "21a4bcc",
+        "message": "a person's browser is one — per user, not per space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8716566",
+        "message": "the chapter menu is History/Verlauf behind a list-clock icon",
+        "group": "Other",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.15",
-    "timestamp": 1790067639,
+    "timestamp": 1790067640,
     "commits": [
       {
         "id": "bec3d3f",
         "message": "open a token form when imported setup cannot start OAuth",
         "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dc4f2b7",
+        "message": "the companion draws the desk's lane — the dead suggestions chain is gone",
+        "group": "Changed",
         "breaking": false
       },
       {

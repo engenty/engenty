@@ -395,15 +395,10 @@ function KbHubChatPageContent(props: {
     >
       <CopilotPanelContent
         agentDebugPayload={undefined}
-        applyError={null}
-        applySelectedLabel={tc("copilot.applySelected")}
-        artifactError={null}
-        artifactLoadFailedLabel={tc("copilot.artifactLoadFailed")}
         attachLabel={tc("copilot.position.sidebar")}
         autoScrollKey={session.activeThreadId ?? session.threadResetKey}
         awaitingInterrupt={session.awaitingInterrupt}
         bodyOnly
-        cancelLabel={tc("copilot.cancel")}
         closeLabel={tc("copilot.position.heading")}
         composerDockStyle
         composerPlaceholder={tc("copilot.typeMessage")}
@@ -416,12 +411,8 @@ function KbHubChatPageContent(props: {
         emptyStateTitle={kbName}
         enableStatusFlap={false}
         error={session.error}
-        isApplying={false}
-        latestSuggestions={[]}
         messages={session.copilotMessages}
         minimalChrome
-        onApplySuggestions={async () => {}}
-        onCancel={() => {}}
         onClose={() => {}}
         onNewChat={() => {
           performFullSessionReset();
@@ -437,20 +428,13 @@ function KbHubChatPageContent(props: {
         pendingUserText={session.pendingUserText}
         positionMenu={<div aria-hidden className="hidden" />}
         respond={session.respond}
-        reviewPromptLabel={tc("copilot.reviewPrompt")}
-        selectedCountLabel={tc("copilot.selected")}
-        selectedSuggestions={{}}
         setDraft={setDraft}
-        setSelectedSuggestions={() => {}}
         starterPrompts={chatStarterPrompts}
-        startMode="manual"
         status={panelStatus}
         submitMessage={submitMessage}
-        suggestedUpdatesLabel={tc("copilot.suggestedUpdates")}
         thinkingLabel={tc("copilot.thinking")}
         transcriptContainerClassName={CHAT_LANE_TRANSCRIPT_CLASS}
         transcriptSurface="chat"
-        triggerType="message_copilot"
       />
     </div>
   );

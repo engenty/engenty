@@ -19,9 +19,10 @@ import {
   useShellSecondaryNav,
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import { BlobAvatar } from "@engenty/ui-core";
+import { BlobAvatar, DropdownMenuItem } from "@engenty/ui-core";
 import { DockChatIcon } from "@engenty/ui-icons";
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
+import { PanelRight, PictureInPicture2 } from "lucide-react";
 import { type ReactNode, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -132,6 +133,37 @@ export function CopilotDesk(props: {
     navigateFromChat,
   });
 
+  // Inside a space the full page can step aside: the same river as the
+  // companion, sidebar or window, over the space's own desktop.
+  const showAsCompanion = useCallback(
+    (mode: "sidebar" | "window") => {
+      if (!(copilotShell && spaceKey)) {
+        return;
+      }
+      copilotShell.copilotLayout.mergeLayout?.({
+        collapseToCircle: false,
+        open: true,
+      });
+      copilotShell.setPreferredDockMode?.(mode);
+      copilotShell.setOpen(true);
+      navigate(`/s/${encodeURIComponent(spaceKey)}`);
+    },
+    [copilotShell, navigate, spaceKey]
+  );
+  const companionMenuItems =
+    copilotShell && spaceKey ? (
+      <>
+        <DropdownMenuItem onSelect={() => showAsCompanion("sidebar")}>
+          <PanelRight className="mr-2 size-4" />
+          {t("agentDesk.copilot.showAsSidebar")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => showAsCompanion("window")}>
+          <PictureInPicture2 className="mr-2 size-4" />
+          {t("agentDesk.copilot.showAsWindow")}
+        </DropdownMenuItem>
+      </>
+    ) : null;
+
   // `?subRun=` swaps the lane for the monitor view; same host, same river.
   const subRunToolCallId = readCopilotSubRunToolCallId(location.search);
   const subAgentDelegation = useMemo(
@@ -232,6 +264,7 @@ export function CopilotDesk(props: {
           hostKey={hostKey}
           isCustomAgent={false}
           locale={locale}
+          menuStart={companionMenuItems}
           onOpenPanel={openPanel}
           spaceId={space?.id ?? null}
           spaceKey={spaceKey}

@@ -95,7 +95,6 @@ export function UserBrowserView({
   className,
   onSeatChange,
   onStop,
-  spaceId,
   stopPending,
 }: {
   /**
@@ -108,7 +107,6 @@ export function UserBrowserView({
   onSeatChange?: (seat: Seat) => void;
   /** Present = the toolbar carries a Stop (sleep) button. */
   onStop?: () => void;
-  spaceId: string;
   stopPending?: boolean;
 }) {
   const { t } = useTranslation("ai-ui");
@@ -132,7 +130,7 @@ export function UserBrowserView({
   }, []);
 
   const connect = useMutation({
-    mutationFn: () => mintUserBrowserTicket(spaceId),
+    mutationFn: () => mintUserBrowserTicket(),
     onError: () => {
       setStatus("error");
       setError(t("browser.view.unavailable"));

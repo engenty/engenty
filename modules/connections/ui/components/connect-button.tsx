@@ -136,8 +136,7 @@ export function ConnectButton({
     } catch (error) {
       popup?.close();
       setConnecting(false);
-      const message =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       toast.error(
         /dynamic client registration failed \(403\)/i.test(message)
           ? t("toasts.dcrForbidden", {

@@ -21,6 +21,7 @@ import {
   chatLanePanelBaseProps,
   useChatLaneComposer,
 } from "../../components/copilot/chat-lane/index.js";
+import type { StarterPromptItem } from "../../components/copilot/composer/copilot-composer.js";
 import type { PressWizardCommandRequest } from "../../components/copilot/composer/copilot-composer-section.js";
 import type { ChatSlashCommand } from "../../components/copilot/composer/copilot-slash-command.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
@@ -138,8 +139,49 @@ export function AgentDeskChatPanel(props: {
     session: { isActive: boolean };
     transcriptMessages: readonly (AgentTurnMessageLike & { id: string })[];
   };
+  /**
+   * The companion's chrome — its header (title, context switcher, browser
+   * toggle, close / position) and body style — laid over the lane's own
+   * props last. The desk page sets none of it; the drawer sets all of it.
+   */
+  companionChrome?: Partial<
+    Pick<
+      CopilotPanelContentProps,
+      | "attachLabel"
+      | "bodyOnly"
+      | "browserPanel"
+      | "browserPanelLabel"
+      | "browserPanelOpen"
+      | "centerEmptyLanding"
+      | "chatKind"
+      | "closeLabel"
+      | "compactContextControl"
+      | "contextMenuLabel"
+      | "contextOptions"
+      | "detachLabel"
+      | "headerChrome"
+      | "headerVariant"
+      | "onClose"
+      | "onPanelModeChange"
+      | "onSelectContext"
+      | "onToggleBrowserPanel"
+      | "panelMode"
+      | "positionMenu"
+      | "recentContextMenuLabel"
+      | "recentContextOptions"
+      | "routeStatusLabel"
+      | "selectedContextId"
+      | "title"
+    >
+  >;
+  /** Bumped to focus the composer from outside (the blob's Prompt, Work focus). */
+  composerFocusToken?: number;
+  /** After a sandbox command is approved — the page it came from refreshes. */
+  onSandboxApproved?: () => void;
   /** Null on the copilot's desk outside a space: no wizards, no run feed. */
   spaceId: string | null;
+  /** The surface's own openers, in place of the agent's (a module's copilot contribution). */
+  starterPromptsOverride?: StarterPromptItem[];
   /**
    * Whether an empty chat offers the agent's starters. A room does not: its
    * openers are the host's, written for a person alone with it.
@@ -274,6 +316,7 @@ export function AgentDeskChatPanel(props: {
     dockedGate,
     host,
     messages,
+    onSandboxApproved: props.onSandboxApproved,
     openInterruptFromSession: props.openInterruptFromSession,
     status,
     tenantId: currentTenant?.id ?? "",
@@ -435,7 +478,7 @@ export function AgentDeskChatPanel(props: {
     ...chatLanePanelBaseProps(tc),
     autoScrollKey: host.threadId ?? host.threadResetKey,
     awaitingInterrupt: host.awaitingInterrupt,
-    composerFocusKey: host.threadResetKey,
+    composerFocusKey: `${host.threadResetKey}:${props.composerFocusToken ?? 0}`,
     composerLeadingControl: props.realtimeVoice?.composerLeadingControl ? (
       <div className="flex min-w-0 items-center gap-1">
         {props.composerLeadingControl}
@@ -475,7 +518,6 @@ export function AgentDeskChatPanel(props: {
     mentionAgentCandidates: props.mentionAgentCandidates,
     mentionRefSearch: props.mentionRefSearch,
     messages,
-    onCancel: lane.stopAndClearQueue,
     onPressWizardCommand,
     onSandboxCommandApprove: lane.onSandboxCommandApprove,
     onSandboxCommandReject: lane.onSandboxCommandReject,
@@ -519,15 +561,13 @@ export function AgentDeskChatPanel(props: {
         interruptId: feedback.interruptId,
         payload: feedback.payload,
       }),
-    selectedSuggestions: NO_SELECTION,
     setDraft: lane.setDraft,
-    setSelectedSuggestions: noop,
     showAuthorLabels: transcriptShowsSenderLabels({
       agentScope: props.agentScope,
       routeContext: props.thread?.route_context ?? null,
     }),
     slashCommands,
-    starterPrompts,
+    starterPrompts: props.starterPromptsOverride ?? starterPrompts,
     status: composerStatus,
     // Reasoning/tool deltas don't change `messages` — feed raw stream activity
     // so the no-response guard never errors a live run.
@@ -576,13 +616,20 @@ export function AgentDeskChatPanel(props: {
     transcriptLoading,
   };
 
+  // The companion's chrome, minus what it left unset: an explicit
+  // `undefined` would otherwise shadow the lane's own value.
+  const definedChrome = Object.fromEntries(
+    Object.entries(props.companionChrome ?? {}).filter(
+      ([, value]) => value !== undefined
+    )
+  ) as Partial<CopilotPanelContentProps>;
   const laneNode = (
     <div
       // No top clearance any more: the desk header is a real header now, so
       // the topbar no longer overlaps this lane.
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
-      <CopilotPanelContent {...panelProps} />
+      <CopilotPanelContent {...panelProps} {...definedChrome} />
     </div>
   );
   // The desk lays the context card out as its own column beside header AND
@@ -609,8 +656,3 @@ function ReadOnlyThreadNotice({
     </div>
   );
 }
-
-/** No inline HITL suggestion cards on a specialist lane. */
-const NO_SELECTION: Record<string, boolean> = {};
-
-function noop() {}

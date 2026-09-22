@@ -101,8 +101,10 @@ export function RegistryLogo({
     <img
       alt=""
       className={cn("size-8 shrink-0 rounded-md object-contain", className)}
+      height={32}
       onError={() => setFailed(true)}
       src={`https://integrations.sh/logo/${encodeURIComponent(domain)}`}
+      width={32}
     />
   );
 }

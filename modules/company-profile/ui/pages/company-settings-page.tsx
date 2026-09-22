@@ -4,7 +4,6 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Save } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CompanyProfileSettingsForm } from "../components/company-profile/company-profile-settings-form.js";
-import { setCompanyProfileDraftApplyHandler } from "../copilot-draft-bridge.js";
 import { useCompanySettingsAgentUiSlice } from "../hooks/use-company-profile-agent-ui-slice.js";
 import { useCompanyProfileForm } from "../hooks/use-company-profile-form.js";
 import {
@@ -39,20 +38,6 @@ export function CompanySettingsPage() {
     syncedQueryRef.current = serializedData;
     form.resetDraft(query.data);
   }, [form.resetDraft, query.data]);
-
-  useEffect(() => {
-    const applySuggestionsToDraft = async (
-      patch: Record<string, string | null>
-    ) => {
-      setSaveError(null);
-      form.applyPatch(patch);
-    };
-
-    setCompanyProfileDraftApplyHandler(applySuggestionsToDraft);
-    return () => {
-      setCompanyProfileDraftApplyHandler(null);
-    };
-  }, [form.applyPatch]);
 
   const saveSettings = async () => {
     setSaveError(null);

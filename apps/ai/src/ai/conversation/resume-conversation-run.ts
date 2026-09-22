@@ -41,6 +41,7 @@ import {
 import type { AgentRunStore, ThreadStore } from "../../dal/threads/index.js";
 import type { AgentSessionStatus } from "../../dal/threads/types.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
+import { resolveRunBrowser } from "../browser/run-browser.js";
 import {
   createUserBrowserTools,
   startUserBrowserOnResume,
@@ -559,20 +560,19 @@ async function resumeFromSnapshot(
       : { extraTools: {}, skipNativeSubAgents: false };
     // An "Allow" on the browser_start card creates the browser first, so the
     // toolset below is the full browser_* set, not the ask-tool again.
+    const runBrowser = await resolveRunBrowser({
+      scope: input.scope,
+      source: spaceResolution,
+    });
     await startUserBrowserOnResume(
-      {
-        browser: resolvedRunSpace(spaceResolution)?.browser ?? null,
-        spaceId: resolvedRunSpace(spaceResolution)?.spaceId ?? null,
-        tenantId: input.scope.tenantId,
-      },
+      { browser: runBrowser, tenantId: input.scope.tenantId },
       input.resumeData
     );
     const browserTools = await createUserBrowserTools({
-      browser: resolvedRunSpace(spaceResolution)?.browser ?? null,
+      browser: runBrowser,
       emit: (name, value) =>
         emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
       headless: false,
-      spaceId: resolvedRunSpace(spaceResolution)?.spaceId ?? null,
       tenantId: input.scope.tenantId,
       textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
     });

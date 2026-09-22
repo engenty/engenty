@@ -155,7 +155,7 @@ function parseOwnMessage(raw: string): OwnMessage | null {
  * the browser is not up. Never throws: the strip just keeps what it has.
  */
 async function runTabs(
-  identity: { spaceId: string; tenantId: string; userId: string },
+  identity: { tenantId: string; userId: string },
   input: { action: TabsMessage["action"]; index?: number; url?: string }
 ): Promise<TabInfo[] | null> {
   try {
@@ -198,11 +198,7 @@ export function registerBrowserStreamWs(
         opts.ticketSecret
       );
       const identity = ticket
-        ? {
-            spaceId: ticket.space_id,
-            tenantId: ticket.tenant_id,
-            userId: ticket.user_id,
-          }
+        ? { tenantId: ticket.tenant_id, userId: ticket.user_id }
         : null;
       const getToolset = () =>
         identity ? getUserBrowser(identity) : undefined;

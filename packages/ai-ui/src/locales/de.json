@@ -585,6 +585,8 @@
     },
     "copilot": {
       "title": "Copilot",
+      "showAsSidebar": "Als Seitenleiste zeigen",
+      "showAsWindow": "Als Fenster zeigen",
       "composerPlaceholder": "Nachricht an den Copilot…",
       "emptyStateTitle": "Wie kann ich helfen?",
       "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen."
@@ -2071,10 +2073,8 @@
       "title": "Dein Browser",
       "start": "Starten",
       "stop": "Stoppen",
-      "hint": "Starte einen angemeldeten Browser für diesen Space. Engentys steuern ihn in deinem Namen; du kannst jederzeit übernehmen.",
+      "hint": "Starte einen angemeldeten Browser. Engentys steuern ihn in deinem Namen, wo immer du arbeitest; du kannst jederzeit übernehmen.",
       "startFailed": "Browser konnte nicht gestartet werden.",
-      "noSpace": "Kein Space",
-      "noSpaceHint": "Öffne einen Space, um deinen Browser dort zu nutzen.",
       "toggle": "Deinen Browser zeigen",
       "state": {
         "absent": "Nicht gestartet",
@@ -2086,13 +2086,25 @@
       "collapsePane": "Browser-Panel wieder verkleinern",
       "asleepHint": "Dein Browser schläft — Anmeldungen bleiben erhalten. Starten weckt ihn.",
       "steps": {
-        "start": "Starte einen Browser für diesen Space — hier, oder wenn ein Engenty dich im Chat darum bittet. Er gehört nur dir: Anmeldungen, Cookies und Downloads sind deine.",
+        "start": "Starte deinen Browser — hier, oder wenn ein Engenty dich im Chat darum bittet. Er gehört nur dir, in jedem Space: Anmeldungen, Cookies und Downloads sind deine.",
         "watch": "Bitte einen Engenty um etwas im Web. Er steuert diesen Browser in deinem Namen, und du siehst hier live zu.",
         "takeOver": "Übernimm, wann immer nötig: anmelden, ein Captcha lösen, herumklicken. Der Engenty wartet.",
         "handBack": "Gib zurück, und der Engenty macht auf der Seite weiter, auf der du ihn gelassen hast.",
-        "unattended": "Routinen und andere unbeaufsichtigte Läufe dürfen ihn erst nutzen, wenn du in den Space-Einstellungen → Computer „Engentys dürfen ihn nutzen, während ich weg bin“ einschaltest.",
-        "signOut": "Stoppen legt ihn schlafen (Anmeldungen bleiben, nach 15 Minuten ohne Nutzung auch automatisch). Abmelden in den Space-Einstellungen vergisst jede Anmeldung."
+        "unattended": "Routinen und andere unbeaufsichtigte Läufe dürfen ihn erst nutzen, wenn du in den Einstellungen deines Copilots „Engentys dürfen ihn nutzen, wenn ich weg bin“ einschaltest.",
+        "signOut": "Stoppen legt ihn schlafen (Anmeldungen bleiben, nach 15 Minuten ohne Nutzung auch automatisch). Abmelden in den Einstellungen deines Copilots vergisst jede Anmeldung."
       }
+    },
+    "settings": {
+      "title": "Dein Browser",
+      "hint": "Ein angemeldeter Browser, den Engentys in deinem Namen steuern – in jedem Space. Logins bleiben zwischen Läufen erhalten.",
+      "open": "Öffnen",
+      "signOut": "Abmelden",
+      "signedOut": "Abgemeldet – alle Logins vergessen.",
+      "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
+      "autostart": "Engentys dürfen ihn ohne Nachfrage starten",
+      "autostartHint": "Aus: Ein Engenty, der ins Web muss, fragt dich im Chat, bevor dein Browser startet.",
+      "unattended": "Engentys dürfen ihn nutzen, wenn ich weg bin",
+      "unattendedHint": "Routinen und Aufgaben dürfen deinen angemeldeten Browser ohne dich steuern. Aus: sie halten an und fragen."
     },
     "view": {
       "title": "Dein Browser",
@@ -2167,11 +2179,11 @@
     }
   },
   "river": {
-    "chapters": "Kapitel",
+    "history": "Verlauf",
     "compactNow": "Jetzt zusammenfassen",
     "compacting": "Fasse zusammen…",
-    "nothingToCompact": "Nichts Neues seit dem letzten Kapitel.",
-    "empty": "Noch keine Kapitel. Der Fluss wird täglich und wöchentlich in Kapitel geschnitten – oder jetzt, wenn du es sagst.",
+    "nothingToCompact": "Nichts Neues seit dem letzten Eintrag.",
+    "empty": "Noch kein Verlauf. Die Unterhaltung wird täglich und wöchentlich zusammengefasst – oder jetzt, wenn du es sagst.",
     "weekOf": "Woche vom {{date}}",
     "keepInMind": "Im Kopf behalten",
     "backToNow": "Zurück zu jetzt",

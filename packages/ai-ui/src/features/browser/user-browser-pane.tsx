@@ -49,7 +49,7 @@ export function UserBrowserPaneToggle({ className }: { className?: string }) {
   );
 }
 
-export function UserBrowserPane({ spaceId }: { spaceId: string | null }) {
+export function UserBrowserPane() {
   const { t } = useTranslation("ai-ui");
   const open = useUserBrowserPaneOpen();
   const expanded = useUserBrowserPaneExpanded();
@@ -123,11 +123,7 @@ export function UserBrowserPane({ spaceId }: { spaceId: string | null }) {
           </PaneTopBar>
         }
       >
-        <CopilotBrowserPanel
-          chromeSlot={chromeSlot}
-          spaceId={spaceId}
-          variant="pane"
-        />
+        <CopilotBrowserPanel chromeSlot={chromeSlot} variant="pane" />
       </Pane>
     </WorkspaceEndPaneItem>,
     target

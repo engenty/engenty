@@ -23,7 +23,7 @@ tools.
 | Session sandbox | `engenty-session-<threadId>-<agentId>` | conversation × agent | session teardown |
 | Task sandbox | `engenty-task-<tenant>-<space\|"tenant">-<taskIdentifier>` | task checkout | task teardown |
 | Space computer | `engenty-space-<tenant>-<space>` | Space | never — stopped when idle, removed only on Reset or Space deletion |
-| User browser | `engenty-browser-<tenant>-<space>-<user>` | person × Space | stopped when idle; removed on Reset |
+| User browser | `engenty-browser-<tenant>-<user>` | person | stopped when idle; removed on Reset |
 
 Ids are parsed by `apps/ai/src/ai/sandbox/parse-engenty-sandbox-id.ts`;
 every container carries Mastra's `mastra.sandbox.id` label, which is how the
@@ -89,36 +89,42 @@ same bytes.
 
 ## A person's browser
 
-One headless-Chromium container **per user per Space**, driven over CDP by
-`apps/ai` **in that person's name**. A service, not an exec sandbox — nothing
-executes commands in it.
+One headless-Chromium container **per person**, driven over CDP by `apps/ai`
+**in that person's name** wherever they work — in any Space, and outside every
+one (the copilot's river). A service, not an exec sandbox — nothing executes
+commands in it.
 
 - It exists only when the person asked for it, and it **never joins a machine's
   network**: agents browse through host-side `browser_*` tools, never raw CDP
   from a sandbox.
 - Continuity is the profile bind
-  (`tenants/<tenant>/spaces/<space>/ai/browser/profile/<user>/`) — cookies and
-  logins survive stops, Resets and image upgrades, and belong to exactly one
-  person.
+  (`tenants/<tenant>/ai/browser/profile/<user>/`) — cookies and logins survive
+  stops, Resets and image upgrades, and belong to exactly one person. One
+  login serves every Space.
 - Two networks: its own egress network (`ENGENTY_BROWSER_EGRESS_NETWORK`,
   default `bridge`; all traffic through the logged browser proxy when
   `ENGENTY_BROWSER_EGRESS_PROXY_URL` is set — open and logged, not the sandbox
   allowlist) and the view network it is attached to after start
   (`ENGENTY_BROWSER_VIEW_NETWORK`), where only `engenty-ai` lives. Without a
   view network, apps/ai dials the published loopback CDP port.
-- Downloads land in `/downloads` in the browser and appear to a space computer
-  run at `/sandbox/browser-downloads/<user>/` — the same bytes, not a copy.
+- Downloads land in `/downloads` in the browser
+  (`tenants/<tenant>/ai/browser/downloads/<user>/`) and appear to every space
+  computer run in the tenant at `/sandbox/browser-downloads/<user>/` — the
+  same bytes, not a copy.
 - Idle stop after `ENGENTY_BROWSER_IDLE_STOP_MS` (15 min), with its own last-use
   stamp and sweep. Ceilings: `ENGENTY_BROWSER_MAX_PER_TENANT` (4),
   `ENGENTY_BROWSER_MAX_PER_USER` (2). Over the ceiling, Start answers 429.
 
 **Consent is part of the tool surface.** The `browser_*` tools are attached only
-when the acting person already has a browser in this Space or has allowed agents
-to start one. Otherwise the run gets a single `browser_start` tool that asks —
+when the acting person already has a browser or has allowed agents to start
+one. Otherwise the run gets a single `browser_start` tool that asks —
 keeping the rest of the schema out of every other prompt. Two standing consents
 are separate: `autostart` (an agent may create the browser) and `unattended` (an
-agent may drive it with nobody at the keyboard). A run that acts for nobody gets
-no browser tools at all. Every step is audited as `engenty.browser.action`, with
+agent may drive it with nobody at the keyboard). Both are the person's,
+tenant-wide (`core.user_browser_grants`, set on the copilot's settings pane):
+inside a Space they ride the surface the run fetches anyway; outside one the run
+reads `GET /api/me/browser-grant`. A run that acts for nobody gets no browser
+tools at all. Every step is audited as `engenty.browser.action`, with
 arguments recorded as shape, not payload.
 
 **One seat, and the agent can pass it.** The person and the agent never drive
@@ -187,7 +193,7 @@ It runs as uid 1000 (`ENGENTY_SANDBOX_UID`) with `HOME=/opt/sandbox` — *not*
 | `/data` | the Space's module records, staged (below) |
 | `/cache/{uv,bun,npm}` | per-Space package caches; each tool's cache env var points here |
 | `/sandbox/apps/<slug>/{src,data}` | the Space's Apps — the same files the running App reads; `app-host` owns the tree |
-| `/sandbox/browser-downloads/<user>/` | every user's browser downloads for this Space |
+| `/sandbox/browser-downloads/<user>/` | every person's browser downloads in the tenant |
 
 The caches, `/data` and the Apps and downloads binds carry an **empty storage
 prefix** so the sandbox's own object-storage sync never uploads a wheel, a
@@ -294,7 +300,7 @@ becomes container-aware.
 | `GET /ai/sandboxes` | the Computers view: every container for the caller's scope, with state, age and queue depth |
 | `POST /ai/sandboxes/stop` | stop named space computers (`docker stop`; installed state stays) |
 | `DELETE /ai/sandboxes` | Reset — `docker rm`, the only thing that discards a machine's installed state |
-| `GET`/`POST /ai/sandboxes/browser`, `POST …/browser/stop`, `…/browser/ticket`, `…/browser/sign-out` | a person's browser, including the live-view ticket |
+| `GET`/`POST /ai/sandboxes/browser`, `POST …/browser/stop`, `…/browser/ticket`, `…/browser/sign-out`, `GET`/`PUT …/browser/grant` | a person's browser, its live-view ticket and its consents |
 
 Two sweeps run on the staging reaper's tick: idle space computers are stopped,
 idle user browsers are stopped on their own TTL. On AI shutdown, space

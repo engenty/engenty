@@ -304,6 +304,18 @@ async function main() {
     return;
   }
 
+  // Catch the same gates CI's verify job runs before we mint a tag that
+  // would otherwise ship red. Shell-chrome is cheap and has already bitten
+  // a tagged release; expand here if other local gates stay this fast.
+  out(`\n${c.dim("preflight")} pnpm check:shell-chrome`);
+  try {
+    execSync("pnpm check:shell-chrome", { cwd: ROOT, stdio: "inherit" });
+  } catch {
+    die(
+      "check:shell-chrome failed — fix the reported patterns, then re-run `pnpm release`."
+    );
+  }
+
   // Bump, commit, tag.
   const pkg = JSON.parse(readFileSync(PKG, "utf8"));
   pkg.version = version;
@@ -319,13 +331,19 @@ async function main() {
   // tags, so the recommended push below carries the tag with the commit.
   git(`tag -a ${tag} -m "chore(release): ${tag}"`);
   out(`\n${c.green("✔")} Released ${c.b(tag)} locally. Nothing pushed yet.`);
-  out(c.dim("  Ship it:  git push origin main --follow-tags"));
+  out(c.dim("  1. Push the commit only:  git push origin main"));
+  out(c.dim("  2. Wait until CI verify is green on that commit."));
+  out(c.dim(`  3. Then ship:  git push origin ${tag}`));
   out(
     c.dim(
       `  → pushing the ${tag} tag triggers the image build + Coolify deploy (build-images.yml).`
     )
   );
-  out(c.dim("  Plain pushes to main run CI only — no build, no deploy."));
+  out(
+    c.dim(
+      "  Do not use --follow-tags until verify has passed — a red CI on the release commit still ships."
+    )
+  );
 }
 
 main().catch((e) => die(e?.message || String(e)));

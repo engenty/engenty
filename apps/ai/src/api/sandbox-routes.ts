@@ -2,6 +2,10 @@ import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import {
+  EngentyCoreClient,
+  getEngentyCoreBaseUrlFromEnv,
+} from "../ai/core-http-client.js";
+import {
   destroyEngentySandboxesForScope,
   listEngentySandboxesForScope,
   stopEngentySpaceComputersForScope,
@@ -15,6 +19,7 @@ import {
   UserBrowserLimitError,
 } from "../ai/sandbox/space-browser.js";
 import { getSpaceComputerQueueDepths } from "../ai/sandbox/space-computer.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentRunStore } from "../dal/threads/agent-run-store.js";
 import type { ThreadStore } from "../dal/threads/index.js";
@@ -34,9 +39,14 @@ const stopComputersBodySchema = z.object({
   sandbox_ids: z.array(z.string().min(1).max(256)).min(1),
 });
 
-const browserBodySchema = z.object({
-  space_id: z.string().uuid(),
-});
+const browserGrantBodySchema = z
+  .object({
+    autostart: z.boolean().optional(),
+    unattended: z.boolean().optional(),
+  })
+  .refine(
+    (body) => body.autostart !== undefined || body.unattended !== undefined
+  );
 
 export function registerSandboxRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
@@ -90,10 +100,11 @@ export function registerSandboxRoutes(
     }
   });
 
-  // The caller's OWN browser in a space (PLAN-user-browser.md §2.2): every
-  // route below keys the container on `scope.userId`, so a user can only ever
-  // read, start, stop or sign out the browser that acts in their name. The
-  // tenant comes from the scope too, so the id cannot cross tenants.
+  // The caller's OWN browser (PLAN-user-browser.md §2.2): every route below
+  // keys the container on `scope.userId`, so a user can only ever read,
+  // start, stop or sign out the browser that acts in their name. The tenant
+  // comes from the scope too, so the id cannot cross tenants. No body: the
+  // browser is the person's, in every space.
   const readBrowserIdentity = async (
     c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>
   ) => {
@@ -101,20 +112,8 @@ export function registerSandboxRoutes(
     if (!scope.ok) {
       return { ok: false as const, response: scope.response };
     }
-    const raw =
-      c.req.method === "GET"
-        ? { space_id: c.req.query("space_id") }
-        : await c.req.json().catch(() => ({}));
-    const body = browserBodySchema.safeParse(raw);
-    if (!body.success) {
-      return {
-        ok: false as const,
-        response: c.json({ error: "agent_sandboxes.invalidBody" }, 400),
-      };
-    }
     return {
       identity: {
-        spaceId: body.data.space_id,
         tenantId: scope.scope.tenantId,
         userId: scope.scope.userId,
       },
@@ -203,7 +202,6 @@ export function registerSandboxRoutes(
       const ticket = mintBrowserTicket(
         {
           sandbox_id: status.sandboxId,
-          space_id: identity.identity.spaceId,
           tenant_id: identity.identity.tenantId,
           user_id: identity.identity.userId,
         },
@@ -219,6 +217,70 @@ export function registerSandboxRoutes(
         c,
         "mintBrowserTicket failed",
         "agent_sandboxes.browserTicketFailed",
+        err
+      );
+    }
+  });
+
+  // The caller's standing consents for their browser — core's row, reached
+  // through the one service the browser UI already talks to. Owner-only on
+  // core's side; apps/ai forwards the caller's own token.
+  const coreClientFor = async (
+    c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>
+  ) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return { ok: false as const, response: scope.response };
+    }
+    const accessToken = scopeAccessToken(scope.scope)?.trim();
+    const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+    if (!(accessToken && coreBaseUrl)) {
+      return {
+        ok: false as const,
+        response: c.json({ error: "agent_sandboxes.coreUnavailable" }, 503),
+      };
+    }
+    return {
+      client: new EngentyCoreClient({ accessToken, coreBaseUrl }),
+      ok: true as const,
+    };
+  };
+
+  app.get(`${base}/browser/grant`, async (c) => {
+    const core = await coreClientFor(c);
+    if (!core.ok) {
+      return core.response;
+    }
+    try {
+      return c.json(await core.client.getMyBrowserGrant());
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "getMyBrowserGrant failed",
+        "agent_sandboxes.browserGrantFailed",
+        err
+      );
+    }
+  });
+
+  app.put(`${base}/browser/grant`, async (c) => {
+    const core = await coreClientFor(c);
+    if (!core.ok) {
+      return core.response;
+    }
+    const body = browserGrantBodySchema.safeParse(
+      await c.req.json().catch(() => ({}))
+    );
+    if (!body.success) {
+      return c.json({ error: "agent_sandboxes.invalidBody" }, 400);
+    }
+    try {
+      return c.json(await core.client.putMyBrowserGrant(body.data));
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "putMyBrowserGrant failed",
+        "agent_sandboxes.browserGrantFailed",
         err
       );
     }

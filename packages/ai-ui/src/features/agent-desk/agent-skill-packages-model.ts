@@ -1,12 +1,12 @@
 import type { AiSkillRecord } from "../../lib/admin/ai-runtime-types.js";
 
-export type SkillPack = {
+export interface SkillPack {
   category: string;
   description: string | null;
   icon: string | null;
   skills: AiSkillRecord[];
   title: string;
-};
+}
 
 export function humanizeSlug(slug: string): string {
   const spaced = slug.replace(/[-_]+/g, " ").trim();

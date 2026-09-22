@@ -117,7 +117,7 @@ Main copilot shell wiring — not for generic module embeds:
 
 ### Drawer injected session
 
-`CopilotDrawer` does not own a thread. The host supplies a `CopilotDrawerInjectedSession` built from `useAgentHost` + `useCopilotRiver`:
+`CopilotDrawer` does not own a thread or a lane: its body reads the river host itself and draws the lane through `AgentDeskChatPanel` (companion trim), the same lane the copilot's page and a specialist's desk use. The app hands it placement, labels and the page's copilot contribution:
 
 | Field | Role |
 |-------|------|

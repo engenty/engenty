@@ -1,5 +1,5 @@
 import { prepareSource, resolveRequiredHeaders } from "./import-service.js";
-import { mapAuth, type MappedAuth } from "./importer/map-auth.js";
+import { type MappedAuth, mapAuth } from "./importer/map-auth.js";
 import { resolveMcpTransport } from "./registry-client.js";
 import { resolveRegistrySource } from "./registry-source.js";
 import type { ExternalConnectorsRepo } from "./repo.js";
