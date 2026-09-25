@@ -20,7 +20,7 @@
 import {
   A2UI_SURFACE_MAX_BYTES,
   validateEngentyA2uiComponents,
-} from "@engenty/a2ui-catalog/spec";
+} from "@engenty/generative-a2ui/spec";
 import {
   parseMapConfig,
   validateDynamicWorkflow,
@@ -60,7 +60,8 @@ export interface GraphValidationIssue {
     | "invalid-ui-surface"
     | "unknown-artifact-type"
     | "unknown-entry-type"
-    | "wait-without-time";
+    | "wait-without-time"
+    | "specialist-output-path";
   /** Entry id when the issue belongs to one node — the canvas badge anchor. */
   entryId?: string;
   message: string;
@@ -864,6 +865,95 @@ function validateGraphEntries(
     }
   }
 
+  issues.push(...specialistOutputPathIssues(def.graph, basePath));
+  return issues;
+}
+
+/** The fields a `run_specialist` step answers with; its own answer is `output`. */
+const SPECIALIST_RESULT_FIELDS = new Set(["output", "run_id", "thread_id"]);
+
+function specialistPathIssue(
+  stepId: string,
+  path: string,
+  entryId: string | undefined
+): GraphValidationIssue {
+  return {
+    code: "specialist-output-path",
+    message: `step "${stepId}" is a run_specialist: its answer is under "output" — read it as {"step":"${stepId}","path":"output"} or "output.<field>", and in a template as \${stepResults.${stepId}.output.<field>}`,
+    path,
+    ...(entryId ? { entryId } : {}),
+  };
+}
+
+/**
+ * A reference into a specialist step that skips `output` resolves to the
+ * envelope or to nothing — live-observed: an approval page bound to the whole
+ * step showed every field empty. Caught here, the author fixes the path.
+ */
+function specialistOutputPathIssues(
+  graph: readonly unknown[],
+  basePath: string
+): GraphValidationIssue[] {
+  const specialistIds = new Set<string>();
+  for (const { entry } of walkEntries(graph, basePath, false)) {
+    const id = entryId(entry);
+    if (id && entry.toolId === RUN_SPECIALIST_PRIMITIVE_ID) {
+      specialistIds.add(id);
+    }
+  }
+  if (specialistIds.size === 0) {
+    return [];
+  }
+  const issues: GraphValidationIssue[] = [];
+  const firstSegment = (path: unknown) =>
+    typeof path === "string" ? (path.split(".")[0] ?? "") : "";
+  for (const { entry, path } of walkEntries(graph, basePath, false)) {
+    if (entry.type !== "mapping" || typeof entry.mapConfig !== "string") {
+      continue;
+    }
+    let config: unknown;
+    try {
+      config = JSON.parse(entry.mapConfig);
+    } catch {
+      continue;
+    }
+    const seen = new Set<string>();
+    const visit = (value: unknown) => {
+      if (typeof value === "string") {
+        for (const match of value.matchAll(
+          /\$\{stepResults\.([\w-]+)(?:\.([\w-]+))?/g
+        )) {
+          const [, stepId = "", field = ""] = match;
+          if (
+            specialistIds.has(stepId) &&
+            !SPECIALIST_RESULT_FIELDS.has(field)
+          ) {
+            seen.add(stepId);
+          }
+        }
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (value && typeof value === "object") {
+        const source = value as Record<string, unknown>;
+        if (
+          typeof source.step === "string" &&
+          specialistIds.has(source.step) &&
+          !SPECIALIST_RESULT_FIELDS.has(firstSegment(source.path))
+        ) {
+          seen.add(source.step);
+        }
+        Object.values(source).forEach(visit);
+      }
+    };
+    visit(config);
+    for (const stepId of seen) {
+      issues.push(specialistPathIssue(stepId, path, entryId(entry)));
+    }
+  }
   return issues;
 }
 

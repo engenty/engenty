@@ -15,6 +15,15 @@ import { validateAgainstJsonSchema } from "./validate.js";
 
 export const outcomeSchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
+  description: z
+    .string()
+    .trim()
+    .max(160)
+    .nullable()
+    .optional()
+    .describe(
+      'What this delivery is for, in a few words the person reads — e.g. "Zusammenfassung an das Vertriebsteam".'
+    ),
   enabled: z.boolean().optional(),
   mode: z.enum(["always", "agent"]),
   provider_id: z.string().min(1).max(128),
@@ -67,6 +76,7 @@ export async function replaceRoutineOutcomes(input: {
     created.push(
       await input.outcomes.create({
         config: body.config ?? {},
+        description: body.description || null,
         enabled: body.enabled ?? true,
         mode: body.mode,
         providerId: body.provider_id,

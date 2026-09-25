@@ -1,12 +1,18 @@
-// A prompt routine's workflow: one specialist node with the prompt baked in.
+// A prompt routine's workflow: the specialist does the work, the platform
+// stores the result.
 //
 // A routine always binds a published workflow — that invariant is what keeps
 // press, schedule and event fires on one dispatcher. A routine that is "just
-// a prompt" keeps it by materializing the smallest workflow there is: the
-// `run_specialist` primitive, briefed with the prompt. The prompt is also kept
-// verbatim in the definition's metadata, so the UI can show and edit it as
-// text without ever opening a canvas. Nothing else is special about the row.
+// a prompt" keeps it by materializing a fixed shape: a `run_specialist` step
+// briefed with the prompt that answers with the result (title, summary,
+// document), then an `artifact_write` step that stores it on the Space. Only
+// the first step is a model; storing never depends on the model remembering
+// to. Delivery (notification, email, the caller's chat) follows in the settle.
+// The prompt is also kept verbatim in the definition's metadata, so the UI can
+// show and edit it as text without ever opening a canvas.
 import type { WorkflowStore } from "../../dal/workflows/workflow-store.js";
+import { ARTIFACT_WRITE_PRIMITIVE_ID } from "./primitive-ids.js";
+import { REPORT_STYLE_GUIDE } from "./report-style.js";
 import {
   AGENT_ENTRY_MARKER,
   translateAgentEntries,
@@ -17,15 +23,131 @@ export const PROMPT_ROUTINE_METADATA_KEY = "prompt_routine";
 export const PROMPT_ROUTINE_MAX_CHARS = 8000;
 
 const NODE_ID = "run";
+const STORE_NODE_ID = "store";
+
+/**
+ * What a run leaves behind: a Markdown page, an HTML report (both stored by
+ * the store step, one page per title), or rows the specialist writes into a
+ * Space table itself — an App on that table shows them.
+ */
+export const PROMPT_ROUTINE_RESULTS = ["page", "report", "data"] as const;
+export type PromptRoutineResult = (typeof PROMPT_ROUTINE_RESULTS)[number];
+
+const SUMMARY_FIELD = {
+  description:
+    "Two or three sentences: what you found or did. It becomes the notification.",
+  type: "string",
+} as const;
+
+const TITLE_FIELD = {
+  description:
+    "The result's title, with the date when it is one of a series. A run with the same title updates that page instead of adding another.",
+  type: "string",
+} as const;
+
+/**
+ * What the chat card shows of a result, whatever format the document is in.
+ * Optional: the card is composed from what is there.
+ */
+const CARD_FIELDS = {
+  attention: {
+    description:
+      "One sentence on the one thing the person must act on or watch, if there is one. Leave out otherwise.",
+    type: "string",
+  },
+  headline: {
+    description:
+      "The most important thing this run found, as a headline of at most ten words — not the document's title.",
+    type: "string",
+  },
+  highlights: {
+    description:
+      "Up to five findings, one sentence each, most important first. Start each with its key term in **bold**.",
+    items: { type: "string" },
+    type: "array",
+  },
+  meta: {
+    description:
+      "One short line of context shown small under the headline: the period covered, what was checked, as of when.",
+    type: "string",
+  },
+  key_figures: {
+    description:
+      "Up to six figures the result turns on. value is short — a number, price, date or one-word state; note adds the context in a few words. Leave out when there are none.",
+    items: {
+      properties: {
+        label: { type: "string" },
+        note: { type: "string" },
+        value: { type: "string" },
+      },
+      required: ["label", "value"],
+      type: "object",
+    },
+    type: "array",
+  },
+  sections: {
+    description:
+      "The document's parts, up to six: each heading and its gist in one sentence.",
+    items: {
+      properties: { line: { type: "string" }, title: { type: "string" } },
+      required: ["title", "line"],
+      type: "object",
+    },
+    type: "array",
+  },
+  status: {
+    description:
+      'The state at a glance in one to three words ("No changes", "Price increase"), with status_tone.',
+    type: "string",
+  },
+  status_tone: {
+    description: "good news, something to watch, or neither.",
+    enum: ["good", "watch", "neutral"],
+    type: "string",
+  },
+} as const;
+
+const DOCUMENT_FIELD: Record<"page" | "report", string> = {
+  page: "The full result in Markdown — what the person opens and reads.",
+  report: `The full result as one complete HTML document, no scripts — what the person opens and reads. ${REPORT_STYLE_GUIDE}`,
+};
+
+/** What the specialist step answers; the store step reads it field by field. */
+export function promptRoutineResultSchema(result: PromptRoutineResult) {
+  if (result === "data") {
+    return {
+      properties: { ...CARD_FIELDS, summary: SUMMARY_FIELD },
+      required: ["summary"],
+      type: "object",
+    };
+  }
+  return {
+    properties: {
+      ...CARD_FIELDS,
+      document: { description: DOCUMENT_FIELD[result], type: "string" },
+      summary: SUMMARY_FIELD,
+      title: TITLE_FIELD,
+    },
+    required: ["title", "summary", "document"],
+    type: "object",
+  };
+}
 
 /** The definition a prompt becomes, ready to validate and store. */
 export function promptWorkflowDefinition(input: {
   agentId: string;
   prompt: string;
+  result?: PromptRoutineResult;
 }): GraphWorkflowDefinition {
   const prompt = input.prompt.trim();
-  const graph = translateAgentEntries([
-    { agentId: input.agentId, id: NODE_ID, type: "agent" },
+  const result = input.result ?? "page";
+  const work = translateAgentEntries([
+    {
+      agentId: input.agentId,
+      id: NODE_ID,
+      outputSchema: promptRoutineResultSchema(result),
+      type: "agent",
+    },
   ]).map((entry) => {
     if (entry.type !== "mapping" || typeof entry.mapConfig !== "string") {
       return entry;
@@ -37,13 +159,58 @@ export function promptWorkflowDefinition(input: {
     mapConfig.brief = { value: prompt };
     return { ...entry, mapConfig: JSON.stringify(mapConfig) };
   });
+  const fromRun = (field: string) => ({
+    path: `output.${field}`,
+    step: NODE_ID,
+  });
+  // Data lands in the table during the work; there is no document to store.
+  const store =
+    result === "data"
+      ? []
+      : [
+          {
+            id: `${STORE_NODE_ID}__prepare`,
+            mapConfig: JSON.stringify({
+              answer: { path: "output", step: NODE_ID },
+              content: fromRun("document"),
+              entry_id: { value: STORE_NODE_ID },
+              store_to: { value: { scope_type: "space" } },
+              summary: fromRun("summary"),
+              title: fromRun("title"),
+              type: { value: result === "report" ? "html" : "markdown" },
+              update_same_title: { value: true },
+              ...(result === "report" ? { house_style: { value: true } } : {}),
+            }),
+            type: "mapping",
+          },
+          {
+            id: STORE_NODE_ID,
+            toolId: ARTIFACT_WRITE_PRIMITIVE_ID,
+            type: "tool",
+          },
+        ];
   return {
-    graph,
+    graph: [...work, ...store],
     id: `prompt:${input.agentId}`,
     metadata: {
-      [PROMPT_ROUTINE_METADATA_KEY]: { agent_id: input.agentId, prompt },
+      [PROMPT_ROUTINE_METADATA_KEY]: {
+        agent_id: input.agentId,
+        prompt,
+        result,
+      },
     },
   };
+}
+
+/** The result a stored prompt routine produces; "page" when it predates the choice. */
+export function resultOfWorkflowGraph(
+  graph: Record<string, unknown> | null | undefined
+): PromptRoutineResult {
+  const metadata = graph?.metadata as Record<string, unknown> | undefined;
+  const entry = metadata?.[PROMPT_ROUTINE_METADATA_KEY] as
+    | { result?: unknown }
+    | undefined;
+  return PROMPT_ROUTINE_RESULTS.find((r) => r === entry?.result) ?? "page";
 }
 
 /** The prompt a stored version carries, or null for a canvas workflow. */
@@ -99,6 +266,8 @@ function workflowName(routineName: string): string {
 export interface MaterializePromptWorkflowInput {
   agentId: string;
   prompt: string;
+  /** What a run leaves behind; a re-brief keeps the current one when absent. */
+  result?: PromptRoutineResult;
   /** The routine's name — the workflow's title, and the seed of its name. */
   routineName: string;
   store: Pick<
@@ -134,23 +303,27 @@ export class PromptWorkflowInvalidError extends Error {
 export async function materializePromptWorkflow(
   input: MaterializePromptWorkflowInput
 ): Promise<{ workflowId: string }> {
-  const definition = promptWorkflowDefinition({
-    agentId: input.agentId,
-    prompt: input.prompt,
-  });
-  const issues = input.validate(definition);
-  if (issues.length > 0) {
-    throw new PromptWorkflowInvalidError(issues);
-  }
   let workflowId = input.workflowId?.trim() || null;
+  let currentResult: PromptRoutineResult | undefined;
   if (workflowId) {
     const current = await input.store.getCurrent({
       id: workflowId,
       tenantId: input.tenantId,
     });
-    if (!(current && isPromptWorkflowGraph(current.version.graph))) {
+    if (current && isPromptWorkflowGraph(current.version.graph)) {
+      currentResult = resultOfWorkflowGraph(current.version.graph);
+    } else {
       workflowId = null;
     }
+  }
+  const definition = promptWorkflowDefinition({
+    agentId: input.agentId,
+    prompt: input.prompt,
+    result: input.result ?? currentResult ?? "page",
+  });
+  const issues = input.validate(definition);
+  if (issues.length > 0) {
+    throw new PromptWorkflowInvalidError(issues);
   }
   if (!workflowId) {
     const row = await input.store.create({

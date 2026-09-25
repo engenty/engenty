@@ -11,7 +11,7 @@
 import {
   A2UI_SURFACE_MAX_BYTES,
   validateEngentyA2uiComponents,
-} from "@engenty/a2ui-catalog/spec";
+} from "@engenty/generative-a2ui/spec";
 
 export interface GateSurface {
   components: Record<string, unknown>[];

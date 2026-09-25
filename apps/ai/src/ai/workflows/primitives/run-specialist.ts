@@ -58,6 +58,7 @@ import {
 import { buildHeadlessWorkspace } from "../../jobs/headless-workspace.js";
 import { createDefaultModuleCapabilityLoader } from "../../module-capability-loader.js";
 import { serviceScopeTokenRefresher } from "../../service-credential.js";
+import { formatRunClock } from "../../sessions/run-clock.js";
 import { createScopeModuleOperationInvoker } from "../../sessions/task-workspace-hook.js";
 import { scopeAccessToken } from "../../sessions/types.js";
 import { resolveGraphRunModelConfig } from "../model-config.js";
@@ -67,6 +68,7 @@ import {
   readGraphRunContext,
   resolveGraphRunScope,
 } from "../run-context.js";
+import { narrateGraphRunActivity } from "../run-events.js";
 import { resolveGraphToolSpace } from "./engenty-tool.js";
 
 export { RUN_SPECIALIST_PRIMITIVE_ID } from "../primitive-ids.js";
@@ -195,13 +197,70 @@ function firstBalancedJsonObject(text: string): string | undefined {
  * plus schema validation on the way out is what makes an agent node's output
  * type-safe enough to chain from.
  */
+/** The short string arguments of a call — enough to say what it does. */
+function shortStringArgs(args: unknown): Record<string, string> {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (typeof value === "string" && value.trim() && value.length <= 200) {
+      out[key] = value.trim();
+    }
+  }
+  return out;
+}
+
+/**
+ * Where a routine run's result goes: the next step stores the answer, rows
+ * go into the Space's table, or — a canvas step with no contract — the run
+ * stores it itself and ends with a short summary. The settle links the result
+ * from the report and the notification, so the person lands on it.
+ */
+/** True when the step answers with the document the next step stores. */
+function answersWithDocument(
+  outputSchema: Record<string, unknown> | undefined
+): boolean {
+  const properties = outputSchema?.properties;
+  return (
+    Boolean(properties) &&
+    typeof properties === "object" &&
+    "document" in (properties as object)
+  );
+}
+
+export function routineResultGuidance(
+  outputSchema: Record<string, unknown> | undefined
+): string {
+  if (answersWithDocument(outputSchema)) {
+    // The next step stores the answer; writing it here too would leave two.
+    return [
+      "## Result",
+      "- Your answer is the result: the next step stores it and links it from the notification. Do not store it yourself.",
+    ].join("\n");
+  }
+  if (outputSchema) {
+    // A data routine: the rows are the result, the answer only reports them.
+    return [
+      "## Result",
+      "- The result is rows in this Space's table: load **space-data**, find the table the brief names with `artifact_read`, and write with `table_write` — the same table every run, created only the first time. Never a page for rows.",
+      "- Your answer is the summary: what you added or changed.",
+    ].join("\n");
+  }
+  return [
+    "## Result",
+    "- Store what the person should read or open with `artifact_write`. When it is the same document every run (a daily page), update that artifact instead of creating another. If you wrote more than one, `show_artifact` the one that is the result.",
+    "- End with two or three sentences: what you found or did. That becomes the notification, and the stored result is linked from it.",
+  ].join("\n");
+}
+
 export function composeSpecialistBrief(
   brief: string,
   input: Record<string, unknown>,
   outputJsonSchema: Record<string, unknown> | undefined,
   subject?: { contextId?: string; contextType?: string }
 ): string {
-  const parts = [brief];
+  const parts = [brief, `\n## Run context\n${formatRunClock()}`];
   const subjectType = subject?.contextType?.trim();
   const subjectId = subject?.contextId?.trim();
   if (subjectType && subjectId) {
@@ -434,10 +493,12 @@ export function createRunSpecialistPrimitive() {
                 ...(outcomeBindings.length > 0
                   ? createOutcomesDeliverTool({
                       bindings: outcomeBindings,
+                      graphRunId: ctx.workflow?.runId ?? null,
                       requestId: runCtx.requestId,
                       routineId: runCtx.routineId,
                       routines: routineStore,
                       tenantId: runCtx.tenantId,
+                      threadId: runCtx.threadId,
                     })
                   : {}),
               }
@@ -486,6 +547,11 @@ export function createRunSpecialistPrimitive() {
               .join("\n")}`
           : null;
 
+        // Where a routine run's result goes.
+        const routineResultSection = runCtx.routineId
+          ? routineResultGuidance(input.output_schema)
+          : null;
+
         // Only a run that opted in may ask; absent policy stays `deny`.
         const approvalPolicy = runCtx.approvalPolicy ?? "deny";
 
@@ -510,7 +576,19 @@ export function createRunSpecialistPrimitive() {
         // a model that asks three times has one thing to approve.
         const pending = new Map<string, ApprovedGatedCall>();
 
+        // The card watching the workflow says what this step is doing now.
+        const graphRunId = ctx.workflow?.runId ?? null;
         const result = await runDelegatedConversation({
+          ...(graphRunId
+            ? {
+                onToolCall: (call: { args: unknown; toolName: string }) =>
+                  narrateGraphRunActivity(graphRunId, {
+                    args: shortStringArgs(call.args),
+                    step: input.agent_type_key,
+                    tool_name: call.toolName,
+                  }),
+              }
+            : {}),
           approvalPolicy,
           // Standing grants, so a fire that needs to run a script or write to a
           // gated module does it instead of parking for an absent human.
@@ -562,6 +640,7 @@ export function createRunSpecialistPrimitive() {
             [
               input.brief,
               ...(previousRunsSection ? [previousRunsSection] : []),
+              ...(routineResultSection ? [routineResultSection] : []),
               ...(runCtx.taskId ? [TASK_SELF_TOOLS_GUIDANCE] : []),
               ...(runCtx.routineId && routineStore
                 ? [
@@ -601,6 +680,11 @@ export function createRunSpecialistPrimitive() {
           space,
           store,
           ...(allowedToolIds ? { allowedToolIds } : {}),
+          // The next step stores the document. Told not to, an agent used to
+          // writing pages stored it anyway — so it does not get the tool.
+          ...(answersWithDocument(input.output_schema)
+            ? { blockedToolIds: ["artifact_write"] }
+            : {}),
         });
 
         if (result.error) {
@@ -654,15 +738,43 @@ export function createRunSpecialistPrimitive() {
           };
         }
 
-        const parsed = extractJsonObject(result.finalText);
-        if (parsed === undefined) {
+        const outputSchema = jsonSchemaToZod(input.output_schema);
+        const readAnswer = (text: string) => {
+          const parsed = extractJsonObject(text);
+          return parsed === undefined ? null : outputSchema.safeParse(parsed);
+        };
+        let validated = readAnswer(result.finalText);
+        if (!validated?.success) {
+          // After a long run the model forgets the format it was asked for at
+          // the start and ends with prose. One short turn on the same thread,
+          // without tools, asks for the answer again — the work is in its
+          // history, so it only has to write it down.
+          const retry = await runDelegatedConversation({
+            allowedToolIds: [],
+            brief: `Your last message was not the result. Answer now with ONLY the JSON object matching this schema — no prose, no code fence:\n${JSON.stringify(input.output_schema)}`,
+            childAgentId: input.agent_type_key,
+            childRunId: randomUUID(),
+            childThreadId: threadId,
+            modelConfig,
+            observe: {
+              runStore: createAgentRunStoreFromEnv(),
+              tenantId: runCtx.tenantId,
+            },
+            registry,
+            ...(runCtx.routineId ? { routineId: runCtx.routineId } : {}),
+            scope,
+            space,
+            store,
+          });
+          if (!retry.error) {
+            validated = readAnswer(retry.finalText);
+          }
+        }
+        if (!validated) {
           throw new Error(
             `graph-action: specialist "${input.agent_type_key}" returned no JSON object for its declared output schema`
           );
         }
-        const validated = jsonSchemaToZod(input.output_schema).safeParse(
-          parsed
-        );
         if (!validated.success) {
           // Fail the node rather than let a wrong shape flow downstream — the
           // whole point of declaring output_schema on the node.

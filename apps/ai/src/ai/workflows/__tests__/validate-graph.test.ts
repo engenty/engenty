@@ -193,6 +193,56 @@ describe("validateGraphAction — run_specialist", () => {
   });
 });
 
+describe("validateGraphAction — reading a specialist's answer", () => {
+  const draft = [
+    mapping("prep", {
+      agent_type_key: { value: "sales.offer-desk" },
+      brief: { value: "draft the offer" },
+      output_schema: { value: objectSchema },
+    }),
+    toolEntry("draft", "run_specialist"),
+  ];
+
+  it("rejects a page bound to the whole step or a template skipping output", () => {
+    // Live-observed: the approval page bound to {step:"draft",path:""} showed
+    // every field empty, because the answer sits under `output`.
+    expect(
+      codes([
+        ...draft,
+        mapping("prep-review", { data: { step: "draft", path: "" } }),
+        toolEntry("review", "approval_gate"),
+      ])
+    ).toContain("specialist-output-path");
+    expect(
+      codes([
+        ...draft,
+        mapping("prep-send", {
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: the workflow's own template syntax
+          brief: { template: "Send ${stepResults.draft.title}" },
+          agent_type_key: { value: "sales.offer-desk" },
+        }),
+        toolEntry("send", "run_specialist"),
+      ])
+    ).toContain("specialist-output-path");
+  });
+
+  it("accepts reads through output", () => {
+    expect(
+      codes([
+        ...draft,
+        mapping("prep-review", { data: { step: "draft", path: "output" } }),
+        toolEntry("review", "approval_gate"),
+        mapping("prep-send", {
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: the workflow's own template syntax
+          brief: { template: "Send ${stepResults.draft.output.title}" },
+          agent_type_key: { value: "sales.offer-desk" },
+        }),
+        toolEntry("send", "run_specialist"),
+      ])
+    ).not.toContain("specialist-output-path");
+  });
+});
+
 describe("validateGraphAction — identity and containment", () => {
   it("rejects a graph that asserts its own tenant", () => {
     const graph = [

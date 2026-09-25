@@ -37,6 +37,7 @@ import { createSpaceSetupTools } from "../../tools/space-setup-tool.js";
 import { createTableTools } from "../../tools/table-tools.js";
 import { createThreadStateTools } from "../../tools/thread-state-tools.js";
 import { createVaultFileTools } from "../../tools/vault-files/index.js";
+import { createWebFetchTool } from "../../tools/web-fetch/index.js";
 import { createWebSearchTool } from "../../tools/web-search/index.js";
 import { createActionProposeTools } from "../../tools/workflow-propose-tool.js";
 import { createWorkflowSelfReviseTools } from "../../tools/workflow-self-revise-tool.js";
@@ -47,6 +48,7 @@ const chatThreadSearchTool = createChatThreadSearchTool();
 const cleanupCsvTool = createCleanupCsvTool();
 const convertImageTool = createConvertImageTool();
 const webSearchTool = createWebSearchTool();
+const webFetchTool = createWebFetchTool();
 
 export const proposeUpdatesTool = buildProposeUpdatesTool(createTool);
 // Native Mastra suspend (parks the run, resumes with the user's choice as this
@@ -86,6 +88,7 @@ export function createEngentyCopilotAgentTools() {
     ...createAgentStatusTools(),
     cleanup_csv: cleanupCsvTool,
     registry_agents_list: registryAgentsListTool,
+    web_fetch: webFetchTool,
     show_objects: createShowObjectsTool(),
     show_ui: createShowUiTool(),
     show_widget: createShowWidgetTool(),

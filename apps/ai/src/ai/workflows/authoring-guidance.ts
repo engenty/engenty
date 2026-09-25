@@ -346,7 +346,9 @@ pick_surface, apply_field_updates, wait_until, artifact_write, artifact_read, sh
 show_ui, show_objects. A run_specialist "brief" must state that
 step's own instruction — to hand it an earlier step's output, use a
 {"template"} combining instruction text with \${stepResults.<id>.<field>},
-never a bare {"step"} reference. Other entry types (no toolId): mapping,
+never a bare {"step"} reference. A run_specialist step's answer sits under
+"output": read it as {"step":"<id>","path":"output"} (e.g. a review page's
+data) or \${stepResults.<id>.output.<field>}. Other entry types (no toolId): mapping,
 conditional, parallel, foreach, loop, workflow, sleep, sleepUntil. Containers
 do not nest and may not hold a mapping — the mapping feeding a branch goes at
 the top level, before the container; a body of several steps is an inline

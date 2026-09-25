@@ -1,5 +1,6 @@
 "use client";
 
+import { readA2uiRenderMeta } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -9,7 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@engenty/ui-core";
-import { Check, Copy, Link2, MoreHorizontal } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Database,
+  Link2,
+  MoreHorizontal,
+  PanelRight,
+} from "lucide-react";
 import {
   type ReactNode,
   type RefObject,
@@ -19,9 +27,46 @@ import {
   useRef,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
+import { useOptionalAgentHost } from "../../../agent-provider/engenty-agent.js";
+import { ENGENTY_COPILOT_HOST_KEY } from "../../../agent-provider/host-keys.js";
+import { activateArtifact } from "../../../artifacts/artifact-store.js";
 import { MessageAction, MessageActions } from "../../ai-elements/message";
 import { extractCopilotMessageCopyText } from "./copilot-thread-copy";
 import { observeElementResize } from "./shared-resize-observer.js";
+
+/**
+ * The stored artifact a message presents — a teaser (`show_ui` with an
+ * artifact_id) or an artifact card — so its menu can act on the asset.
+ */
+function artifactIdOfMessage(parts: readonly unknown[] | undefined) {
+  for (const part of parts ?? []) {
+    const output =
+      part && typeof part === "object"
+        ? (part as { output?: unknown }).output
+        : undefined;
+    const fromTeaser = readA2uiRenderMeta(output)?.artifact_id;
+    if (fromTeaser) {
+      return fromTeaser;
+    }
+    const direct =
+      output && typeof output === "object"
+        ? (output as { artifact_id?: unknown }).artifact_id
+        : undefined;
+    if (typeof direct === "string" && direct.trim()) {
+      return direct.trim();
+    }
+  }
+  return null;
+}
+
+/** `/s/<key>/data?artifact=<id>` for the Space this page is in, else null. */
+function spaceDataArtifactHref(artifactId: string): string | null {
+  const key = window.location.pathname.match(/^\/s\/([^/]+)/)?.[1];
+  return key
+    ? `/s/${key}/data?${new URLSearchParams({ artifact: artifactId })}`
+    : null;
+}
 
 // A bubble at least this many lines tall stacks its actions beside it; a
 // shorter one lines them up. Leaving takes a line less than entering, so a
@@ -41,13 +86,19 @@ function CopilotMessageHoverActions({
   tall: boolean;
 }) {
   const { t } = useTranslation("ai-ui");
-  const [copiedKind, setCopiedKind] = useState<"copy" | "link" | null>(null);
+  const [copiedKind, setCopiedKind] = useState<
+    "copy" | "link" | "artifact" | null
+  >(null);
   const text = useMemo(
     () => extractCopilotMessageCopyText(msg.parts),
     [msg.parts]
   );
+  const artifactId = useMemo(() => artifactIdOfMessage(msg.parts), [msg.parts]);
+  const hostKey = useOptionalAgentHost()?.hostKey ?? ENGENTY_COPILOT_HOST_KEY;
+  const artifactHref = artifactId ? spaceDataArtifactHref(artifactId) : null;
+  const navigate = useNavigate();
 
-  const flashCopied = useCallback((kind: "copy" | "link") => {
+  const flashCopied = useCallback((kind: "copy" | "link" | "artifact") => {
     setCopiedKind(kind);
     window.setTimeout(() => {
       setCopiedKind((current) => (current === kind ? null : current));
@@ -69,7 +120,17 @@ function CopilotMessageHoverActions({
     flashCopied("link");
   }, [flashCopied, msg.id]);
 
-  if (!text) {
+  const handleCopyArtifactLink = useCallback(async () => {
+    if (!artifactHref) {
+      return;
+    }
+    await navigator.clipboard.writeText(
+      new URL(artifactHref, window.location.origin).toString()
+    );
+    flashCopied("artifact");
+  }, [artifactHref, flashCopied]);
+
+  if (!(text || artifactId)) {
     return null;
   }
 
@@ -102,17 +163,19 @@ function CopilotMessageHoverActions({
               )
       )}
     >
-      <MessageAction
-        className="rounded-full"
-        label={copyLabel}
-        onClick={() => {
-          void handleCopy();
-        }}
-        size="icon-xs"
-        tooltip={copyLabel}
-      >
-        <CopyIcon className="size-3.5" />
-      </MessageAction>
+      {text ? (
+        <MessageAction
+          className="rounded-full"
+          label={copyLabel}
+          onClick={() => {
+            void handleCopy();
+          }}
+          size="icon-xs"
+          tooltip={copyLabel}
+        >
+          <CopyIcon className="size-3.5" />
+        </MessageAction>
+      ) : null}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -126,9 +189,41 @@ function CopilotMessageHoverActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-44"
+          className="w-56"
           side={msg.role === "user" ? "left" : "right"}
         >
+          {artifactId ? (
+            <>
+              <DropdownMenuItem
+                onClick={() => activateArtifact(hostKey, artifactId)}
+              >
+                <PanelRight className="size-3.5" />
+                {t("messageActions.openInPane")}
+              </DropdownMenuItem>
+              {artifactHref ? (
+                <DropdownMenuItem onClick={() => navigate(artifactHref)}>
+                  <Database className="size-3.5" />
+                  {t("messageActions.openInData")}
+                </DropdownMenuItem>
+              ) : null}
+              {artifactHref ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    void handleCopyArtifactLink();
+                  }}
+                >
+                  {copiedKind === "artifact" ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Link2 className="size-3.5" />
+                  )}
+                  {copiedKind === "artifact"
+                    ? t("messageActions.linkCopied")
+                    : t("messageActions.copyArtifactLink")}
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : null}
           <DropdownMenuItem
             onClick={() => {
               void handleCopyLink();

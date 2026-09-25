@@ -111,7 +111,7 @@ a data model, rendered natively from a **client-controlled catalog**. UI-as-
 data needs no sandbox, because the agent can only reference approved
 components.
 
-The catalog is `engenty:core/v1`, in `packages/a2ui-catalog`:
+The catalog is `engenty:core/v1`, in `packages/generative-a2ui`:
 
 | Component | Props | Renders |
 |---|---|---|
@@ -155,7 +155,7 @@ case.
 
 ### The renderer is encapsulated
 
-`packages/a2ui-catalog` pins the official React renderer (`@a2ui/react` +
+`packages/generative-a2ui` pins the official React renderer (`@a2ui/react` +
 `@a2ui/web_core`; the A2UI spec is v1.0-RC and still evolving) and keeps two
 hard boundaries:
 
@@ -165,15 +165,15 @@ hard boundaries:
   package, not a rewrite of ai-ui.
 - **The package's `zod` is v3** (what the A2UI schemas are built with), while
   the workspace is on zod 4. Do not import workspace zod helpers inside
-  `a2ui-catalog`, and do not re-export its schemas.
+  `generative-a2ui`, and do not re-export its schemas.
 
-The server side never touches the renderer: `@engenty/a2ui-catalog/spec` is a
+The server side never touches the renderer: `@engenty/generative-a2ui/spec` is a
 dependency-free subpath (component names, prompt guide, validator, message
 builder) that `apps/ai` imports directly.
 
 ### Extending the catalog
 
-Adding a component is three edits in `packages/a2ui-catalog`:
+Adding a component is three edits in `packages/generative-a2ui`:
 
 1. `src/spec.ts` — add the name to `ENGENTY_A2UI_COMPONENT_NAMES` and a line
    to `ENGENTY_A2UI_PROMPT_GUIDE` (that guide *is* the model's documentation).
@@ -204,7 +204,7 @@ covering a composition the existing seven cannot.
 | `packages/ai-ui/src/objects/object-panel-ask-agent-bar.tsx`, `packages/ai-ui/src/copilot/copilot-composer-draft-intent.ts` | Panel→chat affordance |
 | `apps/ai/src/ai/mcp-apps/internal.ts` | Internal origin: template registry, gateway `tools/call`, caps |
 | `apps/ai/ai/tools/show-widget-tool.ts`, `apps/ai/ai/tools/show-ui-tool.ts` | The two tools |
-| `packages/a2ui-catalog/` | Catalog, renderer encapsulation, server-safe `/spec` |
+| `packages/generative-a2ui/` | Catalog, renderer encapsulation, server-safe `/spec` |
 | `packages/ai-core/src/objects/a2ui-render.ts` | `_meta.engenty.a2ui` marker |
 | `packages/ai-ui/src/components/copilot/tool-call/a2ui-tool-call-card.tsx` | The `core.a2ui` chat card |
 | `docs/wip/generative-ui.md` | The original design (incl. A2UI-vs-OpenUI and MCP-Apps-vs-A2UI adjudication) |

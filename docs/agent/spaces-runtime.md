@@ -79,7 +79,8 @@ run:
 - Every run receives `/company` read-only: `/company/files` is the company
   drive (the tenant commons), and `/company/spaces/<key>/` shows the `public/`
   folder of every Space that publishes to the company (`<key>` is the Space
-  key). Agents write the company drive only through `company_files_publish` /
+  key), and `/company/apps/<slug>/` the source (`src/`) of every App those
+  Spaces own — changed only from the owning Space's `/sandbox/apps`. Agents write the company drive only through `company_files_publish` /
   `company_files_remove`, which park on an approval that a holder of
   `core.company_files.manage` decides.
 - `/task` exists only when the run has a task as its subject. `/project` exists

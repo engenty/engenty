@@ -1,36 +1,13 @@
 "use client";
 
-// What a person sees of a turn's work, in place of the step list: one line
-// while it runs, and afterwards — when the model wrote its reasoning down —
-// a closed "Thought it through" they can open.
+// What a person sees of a turn's work afterwards, when the model wrote its
+// reasoning down: a closed "Thought it through" they can open. While it runs,
+// the transcript's status line says what it is doing.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { MessageResponse } from "../../ai-elements/message";
-import { Shimmer } from "../../ai-elements/shimmer";
-import { formatElapsedSeconds } from "../composer/agent-status-ticker/format-elapsed-seconds.js";
-
-export function PersonWorkingLine({
-  elapsedSeconds,
-}: {
-  elapsedSeconds: number;
-}) {
-  const { t } = useTranslation("ai-ui");
-  return (
-    <div
-      className="flex items-center justify-center gap-2 text-muted-foreground text-xs"
-      data-testid="person-working-line"
-    >
-      <Shimmer as="span" duration={2} spread={2}>
-        {t("toolClip.working")}
-      </Shimmer>
-      <span className="tabular-nums">
-        {formatElapsedSeconds(elapsedSeconds)}
-      </span>
-    </div>
-  );
-}
 
 export function PersonThoughtDisclosure({ text }: { text: string }) {
   const { t } = useTranslation("ai-ui");

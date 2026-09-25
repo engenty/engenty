@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { RUN_SPECIALIST_PRIMITIVE_ID } from "../primitive-ids.js";
+import {
+  ARTIFACT_WRITE_PRIMITIVE_ID,
+  RUN_SPECIALIST_PRIMITIVE_ID,
+} from "../primitive-ids.js";
 import {
   isPromptWorkflowGraph,
   materializePromptWorkflow,
@@ -9,14 +12,16 @@ import {
 } from "../prompt-workflow.js";
 
 describe("prompt workflow", () => {
-  it("is one run_specialist node briefed with the prompt", () => {
+  it("runs the specialist on the prompt, then stores its result on the Space", () => {
     const def = promptWorkflowDefinition({
       agentId: "chief-of-staff",
       prompt: "  Check the inbox and summarize what needs me.  ",
     });
-    expect(def.graph).toHaveLength(2);
-    const [prepare, run] = def.graph as Record<string, unknown>[];
-    expect(prepare?.type).toBe("mapping");
+    const [prepare, run, prepareStore, store] = def.graph as Record<
+      string,
+      unknown
+    >[];
+    expect(def.graph).toHaveLength(4);
     const mapConfig = JSON.parse(prepare?.mapConfig as string) as Record<
       string,
       { value?: unknown }
@@ -25,14 +30,56 @@ describe("prompt workflow", () => {
       value: "Check the inbox and summarize what needs me.",
     });
     expect(mapConfig.agent_type_key).toEqual({ value: "chief-of-staff" });
+    expect(mapConfig.output_schema?.value).toMatchObject({
+      required: ["title", "summary", "document"],
+    });
     expect(run).toMatchObject({
       toolId: RUN_SPECIALIST_PRIMITIVE_ID,
+      type: "tool",
+    });
+    // Storing never depends on the model: the store step takes the
+    // specialist's answer field by field.
+    const storeConfig = JSON.parse(prepareStore?.mapConfig as string);
+    expect(storeConfig).toMatchObject({
+      content: { path: "output.document", step: run?.id },
+      store_to: { value: { scope_type: "space" } },
+      summary: { path: "output.summary", step: run?.id },
+      title: { path: "output.title", step: run?.id },
+      type: { value: "markdown" },
+      // A rerun with the same title (same day, same week) is the same page.
+      update_same_title: { value: true },
+    });
+    expect(store).toMatchObject({
+      toolId: ARTIFACT_WRITE_PRIMITIVE_ID,
       type: "tool",
     });
     expect(promptOfWorkflowGraph(def as never)).toBe(
       "Check the inbox and summarize what needs me."
     );
     expect(isPromptWorkflowGraph(def as never)).toBe(true);
+  });
+
+  it("stores a report as HTML and leaves a data routine's rows to the specialist", () => {
+    const report = promptWorkflowDefinition({
+      agentId: "a",
+      prompt: "Weekly numbers",
+      result: "report",
+    });
+    const storeConfig = JSON.parse(
+      (report.graph as Record<string, unknown>[])[2]?.mapConfig as string
+    );
+    expect(storeConfig.type).toEqual({ value: "html" });
+
+    const data = promptWorkflowDefinition({
+      agentId: "a",
+      prompt: "Add today's prices",
+      result: "data",
+    });
+    expect(
+      (data.graph as Record<string, unknown>[]).some(
+        (entry) => entry.toolId === ARTIFACT_WRITE_PRIMITIVE_ID
+      )
+    ).toBe(false);
   });
 
   it("reads null off a canvas workflow", () => {

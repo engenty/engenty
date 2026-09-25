@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AgentConfig } from "@engenty/ai-core";
+import { createLogger } from "@engenty/telemetry";
 import type { MastraDBMessage } from "@mastra/core/agent";
 import type {
   ComputeStateSignalArgs,
@@ -16,6 +17,8 @@ import {
   ENGENTY_REFLECTOR_MAX_OUTPUT_TOKENS,
 } from "./concrete-memory.js";
 import { observationalMemoryLanguageModel } from "./observational-memory-model.js";
+
+const logger = createLogger({ name: "apps/ai/shared-observations" });
 
 export const SHARED_OM_PROCESSOR_ID = "engenty-shared-observational-memory";
 export const SHARED_OM_STATE_ID = "shared-observational-memory";
@@ -187,11 +190,19 @@ class SharedObservationalMemoryProcessor implements Processor {
   }: ProcessOutputResultArgs): Promise<MastraDBMessage[]> {
     const candidates = observationMessages(messages);
     if (candidates.length > 0) {
-      await this.engine.observe({
-        messages: candidates,
-        resourceId: this.#resourceId,
-        threadId: this.#threadId,
-      });
+      // Background: the observer is a model call, and the run should end
+      // when the answer does. A lost observation is re-observed next turn.
+      this.engine
+        .observe({
+          messages: candidates,
+          resourceId: this.#resourceId,
+          threadId: this.#threadId,
+        })
+        .catch((error: unknown) => {
+          logger.warn("shared observation failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
     }
     return messages;
   }

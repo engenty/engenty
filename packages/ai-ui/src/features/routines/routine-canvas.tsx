@@ -193,13 +193,13 @@ export function RoutineCanvas({
             nodeTypes={routineNodeTypes}
             onNodeClick={(_event, node) => {
               // A step opens the Action's canvas, the wake source opens the
-              // triggers dialog, the outcome opens destinations — each band
+              // triggers dialog, a delivery opens the deliveries — each band
               // is its own click target. The host decides WHERE things open.
               if (node.type === "trigger") {
                 onOpenTriggers?.();
                 return;
               }
-              if (node.type === "outcome") {
+              if (node.type === "delivery") {
                 onOpenOutcomes?.();
                 return;
               }

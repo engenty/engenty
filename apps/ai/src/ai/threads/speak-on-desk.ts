@@ -14,6 +14,7 @@ import type { NotificationTitle } from "@engenty/notifications";
 import { createLogger } from "@engenty/telemetry";
 import type { ThreadStore } from "../../dal/threads/thread-store.js";
 import { emitInboxNotification } from "../../notifications/inbox.js";
+import { type ArtifactTeaser, artifactTeaserPart } from "./artifact-teaser.js";
 import { resolveSpecialistChatThread } from "./specialist-chat-thread.js";
 
 const logger = createLogger({ name: "speak-on-desk" });
@@ -26,6 +27,11 @@ export interface SpeakOnDeskInput {
   agentId: string;
   /** The agent's display name — the inbox line and the created thread's title. */
   agentName?: string | null;
+  /**
+   * The result the post is about, rendered as a teaser under the text —
+   * its Open button brings the whole result into the side pane.
+   */
+  artifact?: ArtifactTeaser | null;
   /** Pin the row's time (a welcome sorts at thread creation, not at LLM settle). */
   createdAt?: string;
   /** Stable id when a replayed caller must upsert instead of posting twice. */
@@ -38,6 +44,8 @@ export interface SpeakOnDeskInput {
   notify?:
     | boolean
     | {
+        /** The result the post is about: the inbox row opens it directly. */
+        artifactId?: string | null;
         /** The line under the title; defaults to the post's first line. */
         body?: string | null;
         /** English fallback line, said whole when the title misses a name. */
@@ -110,7 +118,10 @@ export async function speakOnDesk(
     ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     ...(input.messageId ? { id: input.messageId } : {}),
     metadata: { source, ...(input.metadata ?? {}) },
-    parts: [{ text, type: "text" }],
+    parts: [
+      { text, type: "text" },
+      ...(input.artifact ? [artifactTeaserPart(input.artifact)] : []),
+    ],
     role: "assistant",
     tenantId: input.tenantId,
     threadId,
@@ -131,6 +142,7 @@ export async function speakOnDesk(
         kind: "agent_desk_post",
         metadata: {
           agent_id: input.agentId,
+          ...(notify.artifactId ? { artifact_id: notify.artifactId } : {}),
           message_id: message.id,
           thread_agent_id: input.agentId,
           thread_id: threadId,

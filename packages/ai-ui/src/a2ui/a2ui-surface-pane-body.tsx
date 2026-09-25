@@ -1,10 +1,10 @@
 "use client";
 
+import { parseObjectRef } from "@engenty/ai-core/browser";
 import {
   type EngentyA2uiAction,
   EngentyA2uiSurfaceView,
-} from "@engenty/a2ui-catalog";
-import { parseObjectRef } from "@engenty/ai-core/browser";
+} from "@engenty/generative-a2ui";
 import { useCallback } from "react";
 import type { A2uiSurfacePaneTab } from "../artifacts/artifact-store.js";
 import { useCopilotToolCallActions } from "../components/copilot/interrupts/copilot-tool-call-actions";

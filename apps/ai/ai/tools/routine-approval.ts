@@ -18,12 +18,16 @@
 // delegated child) has nobody to answer a card: where the card is required
 // the call refuses and names who can do it instead; where the model merely
 // asked for one, the routine is created and the Space hears about it.
-import { createRequestDecisionArtifact } from "@engenty/ai-core";
+import {
+  createRequestDecisionArtifact,
+  type RequestDecisionArtifact,
+} from "@engenty/ai-core";
 import type { AgentApprovalMode } from "@engenty/plugin-sdk";
 import {
   acquireFrontendToolSuspendSlot,
   releaseFrontendToolSuspendSlot,
 } from "../frontend-tools/frontend-tool-suspend-lock.js";
+import { describeCron } from "./describe-schedule.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
 export type RoutineApprovalOutcome = "create" | "card" | "refuse";
@@ -81,9 +85,9 @@ export const ROUTINE_DECISION_CHOICE_REJECT = "reject";
 function wakeLine(input: RoutineCardInput): string {
   switch (input.kind) {
     case "schedule":
-      return `**Wakes:** \`${input.cron ?? "?"}\` (${input.timezone ?? "UTC"})`;
+      return `**Wakes:** ${describeCron(input.cron)} (${input.timezone ?? "UTC"})`;
     case "event":
-      return `**Wakes:** on \`${input.resource ?? "?"}\` (${input.providerId ?? "module-events"})`;
+      return "**Wakes:** whenever the event it waits for happens";
     case "manual":
       return "**Wakes:** when a person presses it";
     default:
@@ -94,30 +98,54 @@ function wakeLine(input: RoutineCardInput): string {
 /** A destination as the card shows it — the binding a person approves. */
 export interface RoutineCardDestination {
   config?: Record<string, unknown>;
+  description?: string | null;
   mode: "always" | "agent";
   provider_id: string;
 }
+
+/** What a destination does, in words — the provider id is not for people. */
+const DESTINATION_NAMES: Record<string, string> = {
+  "artifact.pointer": "links the stored result",
+  email: "email",
+  "notification.high": "notification",
+  "notification.update": "quiet update in the inbox",
+};
+
+const RESULT_NAMES: Record<
+  NonNullable<RoutineCardInput["resultFormat"]>,
+  string
+> = {
+  data: "rows in a table in Data",
+  page: "a page in Data, one per title",
+  report: "a report in Data, one per title",
+};
+
+const REPORT_NAMES: Record<RoutineCardInput["report"], string> = {
+  ask: "held for your review",
+  desk_card: "a post on the Engenty's desk",
+  quiet: "nothing unless it fails",
+};
 
 /** Standing config a person should read, never a secret. */
 function destinationLabel(destination: RoutineCardDestination): string {
   const config = Object.entries(destination.config ?? {})
     .filter(([key]) => key !== "secret")
     .map(([key, value]) => `${key}: ${String(value)}`);
+  const name =
+    DESTINATION_NAMES[destination.provider_id] ?? destination.provider_id;
   const when =
     destination.mode === "always" ? "every run" : "when the run decides";
-  return [`\`${destination.provider_id}\` (${when})`, ...config].join(" · ");
+  const label = destination.description?.trim()
+    ? `${destination.description.trim()} — ${name}`
+    : name;
+  return [`${label} (${when})`, ...config].join(" · ");
 }
 
 function destinationLines(input: RoutineCardInput): string[] {
   const destinations = input.destinations ?? [];
-  return [
-    `**Destinations:** ${
-      destinations.length > 0
-        ? destinations.map(destinationLabel).join("; ")
-        : "none"
-    }`,
-    `**Reports (fallback without destinations):** ${input.report}`,
-  ];
+  return destinations.length > 0
+    ? [`**Result goes to:** ${destinations.map(destinationLabel).join("; ")}`]
+    : [`**Result goes to:** ${REPORT_NAMES[input.report]}`];
 }
 
 export interface RoutineCardInput {
@@ -128,24 +156,31 @@ export interface RoutineCardInput {
   destinations?: readonly RoutineCardDestination[];
   kind: "schedule" | "event" | "manual" | "agent";
   name: string;
-  outcome?: string | null;
   /** The single-step body, when the routine is a prompt. */
   prompt?: string | null;
   providerId?: string | null;
   report: "quiet" | "desk_card" | "ask";
   resource?: string | null;
+  /** What a prompt routine's runs leave behind. */
+  resultFormat?: "page" | "report" | "data";
   timezone?: string | null;
   /** The Workflow it runs instead, and whether Approve also publishes it. */
   workflow?: { name: string; needsPublish: boolean } | null;
+  /** The graph Approve puts live — drawn as a diagram on the card. */
+  workflowGraph?: unknown;
 }
 
 /** The one card: what it is, when it wakes, what Approve does. */
-export function routineDecisionArtifact(input: RoutineCardInput) {
+export function routineDecisionArtifact(
+  input: RoutineCardInput
+): RequestDecisionArtifact {
   const body = [
     `${input.agentId} wants a standing job.`,
     "",
     wakeLine(input),
-    input.outcome ? `**Done means:** ${input.outcome}` : null,
+    input.resultFormat
+      ? `**Each run leaves:** ${RESULT_NAMES[input.resultFormat]}`
+      : null,
     ...destinationLines(input),
     input.approvalGrants.length > 0
       ? `**May run without asking:** ${input.approvalGrants.join(", ")}`
@@ -178,6 +213,15 @@ export function routineDecisionArtifact(input: RoutineCardInput) {
       ],
       title: `Create routine "${input.name}"?`,
     }),
+    ...(input.workflowGraph
+      ? {
+          preview: {
+            graph: input.workflowGraph,
+            kind: "workflow" as const,
+            title: input.workflow?.name ?? input.name,
+          },
+        }
+      : {}),
   };
 }
 

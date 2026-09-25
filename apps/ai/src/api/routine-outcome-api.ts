@@ -85,6 +85,7 @@ export function registerRoutineOutcomeRoutes(
       }
       await outcomes.create({
         config: body.config ?? {},
+        description: body.description || null,
         enabled: body.enabled ?? true,
         mode: body.mode,
         providerId: body.provider_id,
@@ -146,6 +147,10 @@ export function registerRoutineOutcomeRoutes(
       }
       const merged: OutcomeBody = {
         config: body.config ?? existing.config,
+        description:
+          body.description === undefined
+            ? existing.description
+            : body.description || null,
         enabled: body.enabled ?? existing.enabled,
         mode: body.mode ?? existing.mode,
         provider_id: body.provider_id ?? existing.provider_id,
@@ -155,6 +160,7 @@ export function registerRoutineOutcomeRoutes(
         id: existing.id,
         tenantId: resolved.scope.tenantId,
         config: merged.config ?? {},
+        description: merged.description ?? null,
         enabled: merged.enabled,
         mode: merged.mode,
         providerId: merged.provider_id,

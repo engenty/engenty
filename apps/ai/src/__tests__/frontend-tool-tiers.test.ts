@@ -20,8 +20,6 @@ describe("frontend tool tiers", () => {
     expect(names).toContain("navigate");
     expect(names).toContain("test.openPanel");
     for (const chrome of [
-      "openCopilot",
-      "closeCopilot",
       "setCopilotDockMode",
       "shell_set_theme",
       "i18n_set_locale",

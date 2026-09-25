@@ -60,7 +60,16 @@ export interface ActionRunStep {
   status: "running" | "done";
 }
 
+/** What a running step is doing now — its latest tool call (server-narrated). */
+export interface WorkflowRunActivity {
+  args: Record<string, string>;
+  step: string;
+  toolName: string;
+}
+
 export interface WorkflowRunStatusState {
+  /** The latest tool call of the running step; null when none or settled. */
+  activity: WorkflowRunActivity | null;
   /** Artifact id of a pending field-suggestions proposal (HITL approval), if any. */
   artifactId: string | null;
   error: string | null;
@@ -113,6 +122,7 @@ export function useWorkflowRunStatus(
   const stepsRef = useRef<ActionRunStep[]>([]);
   const suggestionsRef = useRef<FieldSuggestion[]>([]);
   const artifactIdRef = useRef<string | null>(null);
+  const activityRef = useRef<WorkflowRunActivity | null>(null);
   // Once the user stops a run, the stream's trailing RUN_ERROR (the abort) must
   // not flip the phase back to "failed".
   const cancelledRef = useRef(false);
@@ -133,6 +143,7 @@ export function useWorkflowRunStatus(
 
     const commit = (patch: Partial<WorkflowRunStatusState>) => {
       setState((prev) => ({
+        activity: activityRef.current,
         artifactId: artifactIdRef.current,
         error: patch.error ?? prev?.error ?? null,
         phase: patch.phase ?? prev?.phase ?? "running",
@@ -148,6 +159,27 @@ export function useWorkflowRunStatus(
     let outcome: "completed" | "failed" | "transient" | null = null;
 
     const onEvent = (event: AGUIEvent) => {
+      if (event.type === EventType.CUSTOM) {
+        const e = event as { name?: string; value?: unknown };
+        const value = e.value as
+          | { args?: unknown; step?: unknown; tool_name?: unknown }
+          | undefined;
+        if (
+          e.name === "engenty.graph.activity" &&
+          typeof value?.tool_name === "string"
+        ) {
+          activityRef.current = {
+            args:
+              value.args && typeof value.args === "object"
+                ? (value.args as Record<string, string>)
+                : {},
+            step: typeof value.step === "string" ? value.step : "",
+            toolName: value.tool_name,
+          };
+          commit({});
+        }
+        return;
+      }
       if (event.type === EventType.TEXT_MESSAGE_CONTENT) {
         const delta = (event as { delta?: string }).delta ?? "";
         if (delta) {
@@ -196,6 +228,12 @@ export function useWorkflowRunStatus(
         commit({});
         return;
       }
+      if (
+        event.type === EventType.RUN_FINISHED ||
+        event.type === EventType.RUN_ERROR
+      ) {
+        activityRef.current = null;
+      }
       if (event.type === EventType.RUN_FINISHED) {
         stepsRef.current = stepsRef.current.map((step) =>
           step.status === "running" ? { ...step, status: "done" } : step
@@ -243,6 +281,7 @@ export function useWorkflowRunStatus(
         artifactIdRef.current = null;
         outcome = null;
         setState({
+          activity: null,
           artifactId: null,
           error: null,
           phase: "running",

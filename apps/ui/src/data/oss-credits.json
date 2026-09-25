@@ -8,15 +8,21 @@
     },
     {
       "name": "@ai-sdk/openai",
-      "version": "3.0.73",
+      "version": "4.0.67",
       "license": "Apache-2.0",
       "homepage": "https://ai-sdk.dev/docs"
     },
     {
       "name": "@base-ui/react",
-      "version": "1.6.0",
+      "version": "1.8.0",
       "license": "MIT",
       "homepage": "https://base-ui.com"
+    },
+    {
+      "name": "@clack/prompts",
+      "version": "1.8.1",
+      "license": "MIT",
+      "homepage": "https://github.com/bombshell-dev/clack/tree/main/packages/prompts#readme"
     },
     {
       "name": "@dnd-kit/core",
@@ -44,7 +50,7 @@
     },
     {
       "name": "@floating-ui/dom",
-      "version": "1.7.6",
+      "version": "1.8.0",
       "license": "MIT",
       "homepage": "https://floating-ui.com"
     },
@@ -56,21 +62,33 @@
     },
     {
       "name": "@hono/zod-openapi",
-      "version": "1.4.0",
+      "version": "1.6.3",
       "license": "MIT",
       "homepage": "https://github.com/honojs/middleware"
     },
     {
       "name": "@hookform/resolvers",
-      "version": "5.4.0",
+      "version": "5.9.1",
       "license": "MIT",
       "homepage": "https://react-hook-form.com"
     },
     {
+      "name": "@llamaindex/llama-cloud",
+      "version": "2.16.0",
+      "license": "MIT",
+      "homepage": "https://github.com/run-llama/llama-parse-ts#readme"
+    },
+    {
       "name": "@mastra/core",
-      "version": "1.49.0",
+      "version": "1.67.0",
       "license": "Apache-2.0",
       "homepage": "https://mastra.ai"
+    },
+    {
+      "name": "@modelcontextprotocol/ext-apps",
+      "version": "2.0.0",
+      "license": "MIT",
+      "homepage": "https://github.com/modelcontextprotocol/ext-apps"
     },
     {
       "name": "@monaco-editor/react",
@@ -104,49 +122,55 @@
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.108.2",
+      "version": "2.116.0",
       "license": "MIT",
       "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/supabase-js"
     },
     {
+      "name": "@tanstack/react-hotkeys",
+      "version": "0.10.0",
+      "license": "MIT",
+      "homepage": "https://tanstack.com/hotkeys"
+    },
+    {
       "name": "@tiptap/core",
-      "version": "3.27.1",
+      "version": "3.31.3",
       "license": "MIT",
       "homepage": "https://tiptap.dev"
     },
     {
       "name": "@tiptap/markdown",
-      "version": "3.27.1",
+      "version": "3.31.3",
       "license": "MIT",
       "homepage": "https://tiptap.dev"
     },
     {
       "name": "@tiptap/pm",
-      "version": "3.27.1",
+      "version": "3.31.3",
       "license": "MIT",
       "homepage": "https://tiptap.dev"
     },
     {
       "name": "@tiptap/react",
-      "version": "3.27.1",
+      "version": "3.31.3",
       "license": "MIT",
       "homepage": "https://tiptap.dev"
     },
     {
       "name": "@tiptap/starter-kit",
-      "version": "3.27.1",
+      "version": "3.31.3",
       "license": "MIT",
       "homepage": "https://tiptap.dev"
     },
     {
       "name": "@xyflow/react",
-      "version": "12.11.0",
+      "version": "12.11.6",
       "license": "MIT",
       "homepage": "https://reactflow.dev"
     },
     {
       "name": "ai",
-      "version": "6.0.116",
+      "version": "7.0.102",
       "license": "Apache-2.0",
       "homepage": "https://ai-sdk.dev/docs"
     },
@@ -169,6 +193,12 @@
       "homepage": "https://github.com/tj/commander.js#readme"
     },
     {
+      "name": "cronstrue",
+      "version": "3.27.0",
+      "license": "MIT",
+      "homepage": "https://github.com/bradymholt/cronstrue"
+    },
+    {
       "name": "date-fns",
       "version": "4.4.0",
       "license": "MIT",
@@ -176,7 +206,7 @@
     },
     {
       "name": "evlog",
-      "version": "2.19.1",
+      "version": "2.29.0",
       "license": "MIT",
       "homepage": "https://evlog.dev"
     },
@@ -206,19 +236,25 @@
     },
     {
       "name": "hono",
-      "version": "4.12.26",
+      "version": "4.13.8",
       "license": "MIT",
       "homepage": "https://hono.dev"
     },
     {
+      "name": "jose",
+      "version": "6.2.12",
+      "license": "MIT",
+      "homepage": "https://github.com/panva/jose"
+    },
+    {
       "name": "lucide-react",
-      "version": "0.564.0",
+      "version": "1.46.0",
       "license": "ISC",
       "homepage": "https://lucide.dev"
     },
     {
       "name": "motion",
-      "version": "12.40.0",
+      "version": "12.43.0",
       "license": "MIT",
       "homepage": "https://github.com/motiondivision/motion#readme"
     },
@@ -236,61 +272,67 @@
     },
     {
       "name": "nuqs",
-      "version": "2.8.9",
+      "version": "2.10.1",
       "license": "MIT",
       "homepage": "https://nuqs.dev"
     },
     {
       "name": "react",
-      "version": "19.2.7",
+      "version": "19.3.0",
       "license": "MIT",
       "homepage": "https://react.dev/"
     },
     {
       "name": "react-dom",
-      "version": "19.2.7",
+      "version": "19.3.0",
       "license": "MIT",
       "homepage": "https://react.dev/"
     },
     {
       "name": "react-hook-form",
-      "version": "7.80.0",
+      "version": "7.88.0",
       "license": "MIT",
       "homepage": "https://react-hook-form.com"
     },
     {
       "name": "react-router-dom",
-      "version": "7.18.0",
+      "version": "7.18.4",
       "license": "MIT",
       "homepage": "https://github.com/remix-run/react-router#readme"
     },
     {
+      "name": "recharts",
+      "version": "3.8.0",
+      "license": "MIT",
+      "homepage": "https://github.com/recharts/recharts"
+    },
+    {
       "name": "sharp",
-      "version": "0.34.5",
+      "version": "0.35.4",
       "license": "Apache-2.0",
       "homepage": "https://sharp.pixelplumbing.com"
     },
     {
       "name": "sonner",
-      "version": "2.0.7",
+      "version": "2.0.8",
       "license": "MIT",
       "homepage": "https://sonner.emilkowal.ski/"
     },
     {
       "name": "sql.js",
-      "version": "1.14.1",
+      "version": "1.14.2",
       "license": "MIT",
       "homepage": "http://github.com/sql-js/sql.js"
     },
     {
       "name": "streamdown",
-      "version": "2.5.0",
+      "version": "2.6.0",
       "license": "Apache-2.0",
       "homepage": "https://streamdown.ai"
     },
     {
       "name": "tailwind-merge",
-      "version": "3.6.0",
+      "version": "3.7.0",
       "license": "MIT",
       "homepage": "https://github.com/dcastil/tailwind-merge"
     },
@@ -301,6 +343,12 @@
       "homepage": "https://github.com/LiosK/uuidv7#readme"
     },
     {
+      "name": "web-push",
+      "version": "3.6.7",
+      "license": "MPL-2.0",
+      "homepage": "https://github.com/web-push-libs/web-push#readme"
+    },
+    {
       "name": "write-excel-file",
       "version": "4.1.1",
       "license": "MIT",
@@ -308,7 +356,7 @@
     },
     {
       "name": "yaml",
-      "version": "2.9.0",
+      "version": "2.9.1",
       "license": "ISC",
       "homepage": "https://eemeli.org/yaml/"
     },
@@ -333,13 +381,13 @@
       "packages": [
         {
           "name": "@chat-adapter/slack",
-          "version": "4.34.0",
+          "version": "4.40.0",
           "license": "MIT",
           "homepage": "https://chat-sdk.dev/adapters/official/slack"
         },
         {
           "name": "@chat-adapter/telegram",
-          "version": "4.34.0",
+          "version": "4.40.0",
           "license": "MIT",
           "homepage": "https://chat-sdk.dev/adapters/official/telegram"
         },
@@ -350,52 +398,94 @@
           "homepage": "https://github.com/honojs/middleware"
         },
         {
+          "name": "@mastra/agent-browser",
+          "version": "0.5.3",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
+        },
+        {
+          "name": "@mastra/client-js",
+          "version": "1.46.0",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
+        },
+        {
           "name": "@mastra/docker",
-          "version": "0.5.0",
+          "version": "0.8.0",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "@mastra/editor",
-          "version": "0.13.8",
+          "version": "0.15.0",
           "license": "Unknown",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "@mastra/files-sdk",
-          "version": "0.3.0",
+          "version": "0.3.1",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "@mastra/hono",
-          "version": "1.5.9",
+          "version": "1.7.9",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
+        },
+        {
+          "name": "@mastra/langfuse",
+          "version": "1.5.7",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "@mastra/memory",
-          "version": "1.23.1",
+          "version": "1.30.0",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
+        },
+        {
+          "name": "@mastra/observability",
+          "version": "1.17.8",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
+        },
+        {
+          "name": "@mastra/otel-exporter",
+          "version": "1.3.16",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "@mastra/pg",
-          "version": "1.17.0",
+          "version": "1.25.0",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
-          "name": "pg",
-          "version": "8.22.0",
-          "license": "MIT",
-          "homepage": "https://github.com/brianc/node-postgres"
+          "name": "@mastra/server",
+          "version": "1.67.0",
+          "license": "Apache-2.0",
+          "homepage": "https://mastra.ai"
         },
         {
-          "name": "web-push",
-          "version": "3.6.7",
-          "license": "MPL-2.0",
-          "homepage": "https://github.com/web-push-libs/web-push#readme"
+          "name": "@opentelemetry/exporter-trace-otlp-proto",
+          "version": "0.218.0",
+          "license": "Apache-2.0",
+          "homepage": "https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/exporter-trace-otlp-proto"
+        },
+        {
+          "name": "croner",
+          "version": "10.0.1",
+          "license": "MIT",
+          "homepage": "https://croner.56k.guru"
+        },
+        {
+          "name": "pg",
+          "version": "8.23.0",
+          "license": "MIT",
+          "homepage": "https://github.com/brianc/node-postgres"
         }
       ]
     },
@@ -406,13 +496,15 @@
       "packages": [
         {
           "name": "@rivet-dev/agentos",
-          "version": "0.2.14",
-          "license": "Apache-2.0"
+          "version": "0.2.19",
+          "license": "Apache-2.0",
+          "homepage": "https://github.com/rivet-dev/agentos#readme"
         },
         {
           "name": "@rivet-dev/agentos-apps",
-          "version": "0.2.14",
-          "license": "Apache-2.0"
+          "version": "0.2.19",
+          "license": "Apache-2.0",
+          "homepage": "https://github.com/rivet-dev/agentos#readme"
         }
       ]
     },
@@ -422,12 +514,6 @@
       "label": "core",
       "packages": [
         {
-          "name": "@clack/prompts",
-          "version": "1.6.0",
-          "license": "MIT",
-          "homepage": "https://github.com/bombshell-dev/clack/tree/main/packages/prompts#readme"
-        },
-        {
           "name": "@napi-rs/canvas",
           "version": "0.1.80",
           "license": "MIT",
@@ -435,7 +521,7 @@
         },
         {
           "name": "@scalar/hono-api-reference",
-          "version": "0.11.4",
+          "version": "0.11.16",
           "license": "MIT",
           "homepage": "https://github.com/scalar/scalar"
         },
@@ -444,12 +530,6 @@
           "version": "2.7.0",
           "license": "MIT",
           "homepage": "https://github.com/unjs/jiti#readme"
-        },
-        {
-          "name": "jose",
-          "version": "6.2.3",
-          "license": "MIT",
-          "homepage": "https://github.com/panva/jose"
         },
         {
           "name": "pdfjs-dist",
@@ -466,25 +546,25 @@
       "packages": [
         {
           "name": "fumadocs-core",
-          "version": "16.10.5",
+          "version": "16.15.11",
           "license": "MIT",
           "homepage": "https://fumadocs.dev"
         },
         {
           "name": "fumadocs-mdx",
-          "version": "15.0.12",
+          "version": "15.4.1",
           "license": "MIT",
           "homepage": "https://fumadocs.dev"
         },
         {
           "name": "fumadocs-twoslash",
-          "version": "3.2.0",
+          "version": "3.3.1",
           "license": "MIT",
           "homepage": "https://fumadocs.dev"
         },
         {
           "name": "fumadocs-ui",
-          "version": "16.10.5",
+          "version": "16.15.11",
           "license": "MIT",
           "homepage": "https://fumadocs.dev"
         },
@@ -496,13 +576,13 @@
         },
         {
           "name": "next",
-          "version": "16.2.9",
+          "version": "16.3.5",
           "license": "MIT",
           "homepage": "https://nextjs.org"
         },
         {
           "name": "twoslash",
-          "version": "0.3.8",
+          "version": "0.3.9",
           "license": "MIT",
           "homepage": "https://github.com/twoslashes/twoslash"
         }
@@ -521,19 +601,19 @@
         },
         {
           "name": "@tauri-apps/plugin-deep-link",
-          "version": "2.4.9",
+          "version": "2.4.10",
           "license": "MIT OR Apache-2.0",
           "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
         },
         {
           "name": "@tauri-apps/plugin-notification",
-          "version": "2.3.3",
+          "version": "2.4.0",
           "license": "MIT OR Apache-2.0",
           "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
         },
         {
           "name": "@tauri-apps/plugin-opener",
-          "version": "2.5.4",
+          "version": "2.5.5",
           "license": "MIT OR Apache-2.0",
           "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
         },
@@ -546,40 +626,27 @@
       ]
     },
     {
-      "id": "packages/a2ui-catalog",
-      "kind": "package",
-      "label": "a2ui-catalog",
-      "packages": [
-        {
-          "name": "@a2ui/react",
-          "version": "0.10.2",
-          "license": "Apache-2.0",
-          "homepage": "https://a2ui.org/"
-        },
-        {
-          "name": "@a2ui/web_core",
-          "version": "0.10.5",
-          "license": "Apache-2.0",
-          "homepage": "https://a2ui.org/"
-        }
-      ]
-    },
-    {
       "id": "packages/ag-ui-bridge",
       "kind": "package",
       "label": "ag-ui-bridge",
       "packages": [
         {
           "name": "@ag-ui/core",
-          "version": "0.0.57",
+          "version": "0.0.59",
           "license": "MIT",
           "homepage": "https://github.com/ag-ui-protocol/ag-ui#readme"
         },
         {
           "name": "@ag-ui/encoder",
-          "version": "0.0.57",
+          "version": "0.0.59",
           "license": "MIT",
           "homepage": "https://github.com/ag-ui-protocol/ag-ui#readme"
+        },
+        {
+          "name": "rxjs",
+          "version": "7.8.1",
+          "license": "Apache-2.0",
+          "homepage": "https://rxjs.dev"
         }
       ]
     },
@@ -589,8 +656,14 @@
       "label": "ai-core",
       "packages": [
         {
+          "name": "@ai-sdk/anthropic",
+          "version": "4.0.54",
+          "license": "Apache-2.0",
+          "homepage": "https://ai-sdk.dev/docs"
+        },
+        {
           "name": "ajv",
-          "version": "8.18.0",
+          "version": "8.20.0",
           "license": "MIT",
           "homepage": "https://ajv.js.org"
         }
@@ -602,10 +675,22 @@
       "label": "ai-ui",
       "packages": [
         {
-          "name": "@tanstack/react-hotkeys",
-          "version": "0.10.0",
+          "name": "@firecrawl/anydoc-wasm",
+          "version": "0.1.9",
           "license": "MIT",
-          "homepage": "https://tanstack.com/hotkeys"
+          "homepage": "https://github.com/firecrawl/anydoc#readme"
+        },
+        {
+          "name": "@llamaindex/liteparse-wasm",
+          "version": "2.14.6",
+          "license": "Apache-2.0",
+          "homepage": "https://github.com/run-llama/liteparse#readme"
+        },
+        {
+          "name": "@tanstack/react-table",
+          "version": "9.2.4",
+          "license": "MIT",
+          "homepage": "https://tanstack.com/table"
         },
         {
           "name": "react-syntax-highlighter",
@@ -622,19 +707,13 @@
       "packages": [
         {
           "name": "@llamaindex/liteparse",
-          "version": "2.1.2",
+          "version": "2.14.6",
           "license": "Apache-2.0",
           "homepage": "https://github.com/run-llama/liteparse#readme"
         },
         {
-          "name": "@llamaindex/llama-cloud",
-          "version": "2.9.0",
-          "license": "MIT",
-          "homepage": "https://github.com/run-llama/llama-parse-ts#readme"
-        },
-        {
           "name": "mammoth",
-          "version": "1.12.0",
+          "version": "1.12.3",
           "license": "BSD-2-Clause",
           "homepage": "https://github.com/mwilliamson/mammoth.js#readme"
         },
@@ -647,21 +726,28 @@
       ]
     },
     {
+      "id": "packages/document-scanner",
+      "kind": "package",
+      "label": "document-scanner",
+      "packages": [
+        {
+          "name": "zod-to-json-schema",
+          "version": "3.25.2",
+          "license": "ISC",
+          "homepage": "https://github.com/StefanTerdell/zod-to-json-schema#readme"
+        }
+      ]
+    },
+    {
       "id": "packages/document-sources",
       "kind": "package",
       "label": "document-sources",
       "packages": [
         {
           "name": "cron-parser",
-          "version": "5.6.0",
+          "version": "5.10.1",
           "license": "MIT",
           "homepage": "https://github.com/harrisiirak/cron-parser#readme"
-        },
-        {
-          "name": "cronstrue",
-          "version": "3.24.0",
-          "license": "MIT",
-          "homepage": "https://github.com/bradymholt/cronstrue"
         }
       ]
     },
@@ -672,34 +758,28 @@
       "packages": [
         {
           "name": "@supabase/storage-js",
-          "version": "2.108.2",
+          "version": "2.116.0",
           "license": "MIT",
           "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/storage-js"
         }
       ]
     },
     {
-      "id": "packages/generative-ui",
+      "id": "packages/generative-a2ui",
       "kind": "package",
-      "label": "generative-ui",
+      "label": "generative-a2ui",
       "packages": [
         {
-          "name": "@json-render/core",
-          "version": "0.19.0",
+          "name": "@a2ui/react",
+          "version": "0.10.2",
           "license": "Apache-2.0",
-          "homepage": "https://json-render.dev"
+          "homepage": "https://a2ui.org/"
         },
         {
-          "name": "@json-render/react",
-          "version": "0.19.0",
+          "name": "@a2ui/web_core",
+          "version": "0.10.5",
           "license": "Apache-2.0",
-          "homepage": "https://json-render.dev"
-        },
-        {
-          "name": "@json-render/shadcn",
-          "version": "0.19.0",
-          "license": "Apache-2.0",
-          "homepage": "https://json-render.dev"
+          "homepage": "https://a2ui.org/"
         }
       ]
     },
@@ -710,7 +790,7 @@
       "packages": [
         {
           "name": "i18next",
-          "version": "26.3.1",
+          "version": "26.4.2",
           "license": "MIT",
           "homepage": "https://www.i18next.com"
         },
@@ -722,9 +802,35 @@
         },
         {
           "name": "react-i18next",
-          "version": "17.0.8",
+          "version": "17.0.14",
           "license": "MIT",
           "homepage": "https://github.com/i18next/react-i18next"
+        }
+      ]
+    },
+    {
+      "id": "packages/csv-import",
+      "kind": "package",
+      "label": "import",
+      "packages": [
+        {
+          "name": "exceljs",
+          "version": "4.4.0",
+          "license": "MIT",
+          "homepage": "https://github.com/exceljs/exceljs#readme"
+        }
+      ]
+    },
+    {
+      "id": "packages/mcp-server",
+      "kind": "package",
+      "label": "mcp-server",
+      "packages": [
+        {
+          "name": "@modelcontextprotocol/server",
+          "version": "2.0.0",
+          "license": "MIT",
+          "homepage": "https://modelcontextprotocol.io"
         }
       ]
     },
@@ -735,7 +841,7 @@
       "packages": [
         {
           "name": "@react-pdf/renderer",
-          "version": "4.5.1",
+          "version": "4.9.0",
           "license": "MIT",
           "homepage": "https://github.com/diegomura/react-pdf#readme"
         },
@@ -747,7 +853,7 @@
         },
         {
           "name": "liquidjs",
-          "version": "10.27.1",
+          "version": "10.29.0",
           "license": "MIT",
           "homepage": "https://github.com/harttle/liquidjs#readme"
         }
@@ -760,13 +866,13 @@
       "packages": [
         {
           "name": "react-pdf",
-          "version": "10.4.1",
+          "version": "10.5.0",
           "license": "MIT",
           "homepage": "https://github.com/wojtekmaj/react-pdf#readme"
         },
         {
           "name": "react-resizable-panels",
-          "version": "4.12.1",
+          "version": "4.12.4",
           "license": "MIT",
           "homepage": "https://react-resizable-panels.vercel.app/"
         }
@@ -779,34 +885,9 @@
       "packages": [
         {
           "name": "@tanstack/react-query",
-          "version": "5.101.0",
+          "version": "5.103.0",
           "license": "MIT",
           "homepage": "https://tanstack.com/query"
-        }
-      ]
-    },
-    {
-      "id": "packages/telemetry",
-      "kind": "package",
-      "label": "telemetry",
-      "packages": [
-        {
-          "name": "@langfuse/otel",
-          "version": "5.5.3",
-          "license": "MIT",
-          "homepage": "https://github.com/langfuse/langfuse-js#readme"
-        },
-        {
-          "name": "@opentelemetry/api",
-          "version": "1.9.0",
-          "license": "Apache-2.0",
-          "homepage": "https://github.com/open-telemetry/opentelemetry-js/tree/main/api"
-        },
-        {
-          "name": "@opentelemetry/sdk-node",
-          "version": "0.219.0",
-          "license": "Apache-2.0",
-          "homepage": "https://github.com/open-telemetry/opentelemetry-js/tree/main/experimental/packages/opentelemetry-sdk-node"
         }
       ]
     },
@@ -817,55 +898,55 @@
       "packages": [
         {
           "name": "@tiptap/extension-bubble-menu",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-code-block-lowlight",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-highlight",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-image",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-list",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-table",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extension-typography",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/extensions",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
         {
           "name": "@tiptap/suggestion",
-          "version": "3.27.1",
+          "version": "3.31.3",
           "license": "MIT",
           "homepage": "https://tiptap.dev"
         },
@@ -878,15 +959,34 @@
       ]
     },
     {
+      "id": "packages/typesafe-client",
+      "kind": "package",
+      "label": "typesafe-client",
+      "packages": [
+        {
+          "name": "undici",
+          "version": "6.28.1",
+          "license": "MIT",
+          "homepage": "https://undici.nodejs.org"
+        }
+      ]
+    },
+    {
       "id": "packages/ui-core",
       "kind": "package",
       "label": "ui-core",
       "packages": [
         {
           "name": "@ai-sdk/react",
-          "version": "3.0.210",
+          "version": "4.0.105",
           "license": "Apache-2.0",
           "homepage": "https://ai-sdk.dev/docs"
+        },
+        {
+          "name": "@tanstack/hotkeys",
+          "version": "0.8.0",
+          "license": "MIT",
+          "homepage": "https://tanstack.com/hotkeys"
         },
         {
           "name": "cmdk",
@@ -905,6 +1005,12 @@
           "version": "10.0.1",
           "license": "MIT",
           "homepage": "https://daypicker.dev"
+        },
+        {
+          "name": "three",
+          "version": "0.186.0",
+          "license": "MIT",
+          "homepage": "https://threejs.org/"
         }
       ]
     },
@@ -915,7 +1021,7 @@
       "packages": [
         {
           "name": "linkedom",
-          "version": "0.18.12",
+          "version": "0.18.13",
           "license": "ISC",
           "homepage": "https://github.com/WebReflection/linkedom#readme"
         },
@@ -940,15 +1046,27 @@
       "packages": [
         {
           "name": "@executor-js/plugin-openapi",
-          "version": "1.5.29",
+          "version": "1.6.7",
           "license": "MIT",
           "homepage": "https://github.com/UsefulSoftwareCo/executor/tree/main/packages/plugins/openapi"
+        },
+        {
+          "name": "@modelcontextprotocol/client",
+          "version": "2.0.0",
+          "license": "MIT",
+          "homepage": "https://modelcontextprotocol.io"
         },
         {
           "name": "effect",
           "version": "4.0.0-beta.59",
           "license": "MIT",
           "homepage": "https://effect.website"
+        },
+        {
+          "name": "rfc6902",
+          "version": "5.3.0",
+          "license": "MIT",
+          "homepage": "https://github.com/chbrown/rfc6902"
         }
       ]
     },
@@ -959,13 +1077,13 @@
       "packages": [
         {
           "name": "@tauri-apps/plugin-dialog",
-          "version": "2.7.2",
+          "version": "2.7.3",
           "license": "MIT OR Apache-2.0",
           "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
         },
         {
           "name": "@tauri-apps/plugin-fs",
-          "version": "2.5.1",
+          "version": "2.5.2",
           "license": "MIT OR Apache-2.0",
           "homepage": "https://github.com/tauri-apps/plugins-workspace#readme"
         }
@@ -984,7 +1102,7 @@
         },
         {
           "name": "fast-xml-parser",
-          "version": "5.9.3",
+          "version": "5.11.1",
           "license": "MIT",
           "homepage": "https://github.com/NaturalIntelligence/fast-xml-parser#readme"
         }
@@ -1004,19 +1122,32 @@
       ]
     },
     {
+      "id": "modules/expenses",
+      "kind": "module",
+      "label": "expenses",
+      "packages": [
+        {
+          "name": "fflate",
+          "version": "0.8.3",
+          "license": "MIT",
+          "homepage": "https://101arrowz.github.io/fflate"
+        }
+      ]
+    },
+    {
       "id": "modules/knowledge-base",
       "kind": "module",
       "label": "knowledge-base",
       "packages": [
         {
           "name": "@mastra/rag",
-          "version": "2.3.0",
+          "version": "2.6.3",
           "license": "Apache-2.0",
           "homepage": "https://mastra.ai"
         },
         {
           "name": "cytoscape",
-          "version": "3.34.0",
+          "version": "3.34.3",
           "license": "MIT",
           "homepage": "http://js.cytoscape.org"
         },

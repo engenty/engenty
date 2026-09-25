@@ -347,6 +347,18 @@ export function createArtifactOperations(deps?: {
       artifactId = created.artifact.id;
       version = created.version.version;
     }
+    // Which run last wrote it: a routine's report links the result from here
+    // when the run's final answer does not name it.
+    const writingRunId = getEngentyToolsRunContext().runId;
+    if (writingRunId) {
+      await store()
+        .mergeMetadata({
+          artifactId,
+          patch: { last_run_id: writingRunId },
+          tenantId,
+        })
+        .catch(() => undefined);
+    }
 
     const promoted =
       writeScope.scopeType === "thread" ||
@@ -446,6 +458,18 @@ export function createArtifactOperations(deps?: {
       threadId,
       userId,
     });
+    // What the run presents is its result: a routine's report links this
+    // one over anything else the run happened to write.
+    const presentingRunId = getEngentyToolsRunContext().runId;
+    if (presentingRunId) {
+      await store()
+        .mergeMetadata({
+          artifactId: result.artifact.id,
+          patch: { shown_run_id: presentingRunId },
+          tenantId,
+        })
+        .catch(() => undefined);
+    }
     return {
       artifact_id: result.artifact.id,
       title: result.artifact.title,

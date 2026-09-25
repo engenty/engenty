@@ -20,7 +20,6 @@ function routine(): RoutineRow {
     last_result: null,
     module_id: null,
     name: "Mail watch",
-    outcome: null,
     quiet_hours: null,
     report: "desk_card",
     source: "custom",
@@ -38,6 +37,7 @@ function envelope(): OutcomeEnvelope {
     artifact: { id: "art-1", title: "Brief" },
     awaiting_review: false,
     body: "hello",
+    graph_run_id: "77777777-7777-4777-8777-777777777777",
     outcome: "ok",
     reason: null,
     routine_id: routine().id,
@@ -46,6 +46,7 @@ function envelope(): OutcomeEnvelope {
     space_id: routine().space_id,
     status: "completed",
     summary: "hello",
+    thread_id: "88888888-8888-4888-8888-888888888888",
   };
 }
 
@@ -56,6 +57,7 @@ function binding(
   return {
     config,
     created_at: "",
+    description: null,
     enabled: true,
     id: "66666666-6666-4666-8666-666666666666",
     mode: "always",

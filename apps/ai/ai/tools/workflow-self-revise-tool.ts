@@ -7,10 +7,10 @@
 // `owner_agent_id` is the run's own `agentTypeKey`. No owner input, no
 // new-Workflow path: revise what is yours, nothing else.
 //
-// Governance is unchanged: the version is saved unapproved. On an interactive
-// lane the run parks on the same Publish card `workflow_propose` uses, and the
-// resume publishes AS THE HUMAN who answered; headless runs leave it for the
-// canvas. The published version keeps running until then.
+// Whether the new version goes live is the Space's approval mode, as for
+// `workflow_propose`: `auto` publishes it at once as the person in this run;
+// `manual` parks an interactive run on the same Publish card, and headless
+// runs leave it for the canvas. Until then the published version keeps running.
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { createWorkflowStoreFromEnv } from "../../src/ai/index.js";
@@ -34,6 +34,7 @@ import {
   FLOW_PUBLISH_CHOICE_PUBLISH,
   publishFromDecision,
   publishSuspendLockKey,
+  publishWhenAuto,
   workflowPublishResumeSchema,
 } from "./workflow-propose-tool.js";
 
@@ -84,13 +85,12 @@ export function createWorkflowSelfReviseTools(
     [WORKFLOW_SELF_REVISE_TOOL_ID]: createTool({
       id: WORKFLOW_SELF_REVISE_TOOL_ID,
       description:
-        "Propose a new version of a Workflow YOU OWN, when the user asks you to " +
+        "Save a new version of a Workflow YOU OWN, when the user asks you to " +
         "change how one of your Workflows runs. Pass the complete new graph. " +
-        "Nothing runs from this call: the version is saved unapproved and the " +
-        "current one keeps running until a person publishes the new one. In an " +
-        "interactive chat the call pauses on a Publish card; report whether " +
-        "the user published or kept the draft, never assume it. If the call " +
-        "returns issues, fix the graph and call again.",
+        "Where this Space lets agents decide, it is live at once (`published: " +
+        "true`); where a person decides, it waits on a Publish card or stays a " +
+        "draft and the current version keeps running — report which, never " +
+        "assume it. If the call returns issues, fix the graph and call again.",
       inputSchema,
       resumeSchema: workflowPublishResumeSchema,
       execute: async (input, executionContext) => {
@@ -218,6 +218,23 @@ export function createWorkflowSelfReviseTools(
             },
           });
 
+          const live = await publishWhenAuto({
+            agentTypeKey: agentId,
+            spaceId: executionSpaceId(ctx.space) ?? null,
+            tenantId,
+            versionId: version.id,
+          });
+          if (live?.published) {
+            return {
+              ok: true as const,
+              workflow_id: existing.id,
+              version: version.version,
+              surface,
+              published: true,
+              note: `Live now — version ${version.version} is published and every new run uses it.`,
+            };
+          }
+
           if (
             ctx.canSuspendForInteraction &&
             executionContext?.agent?.suspend
@@ -263,7 +280,12 @@ export function createWorkflowSelfReviseTools(
             workflow_id: existing.id,
             version: version.version,
             surface,
+            published: false,
+            ...(live && live.issues.length > 0 ? { issues: live.issues } : {}),
             note:
+              (live && live.issues.length > 0
+                ? "Not published: the person in this run may not do everything the graph does — see issues. "
+                : "") +
               "Saved unapproved. The current version keeps running until a " +
               "human reviews the steps on the canvas and publishes this one — " +
               "you cannot publish it yourself. Say so plainly.",

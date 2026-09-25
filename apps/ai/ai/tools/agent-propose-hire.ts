@@ -267,7 +267,7 @@ export function hireDecisionArtifact(input: {
   skillIds: readonly string[];
   spaceId: string | null;
   toolIds: readonly string[];
-}) {
+}): RequestDecisionArtifact & { durable_inbox: true } {
   const tools = input.toolIds.length > 0 ? input.toolIds.join(", ") : "(none)";
   const skills =
     input.skillIds.length > 0 ? input.skillIds.join(", ") : "(none)";

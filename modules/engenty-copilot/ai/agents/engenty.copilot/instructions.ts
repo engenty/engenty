@@ -6,15 +6,12 @@ import soulMarkdown from "./SOUL.md";
 /** Per-run facts appended after static AGENTS/SOUL layers (also mirrored in harness runtime context). */
 export function buildEngentyCopilotRuntimeContextSection(): string {
   const baseUrl = process.env.ENGENTY_CORE_BASE_URL?.trim() || "/";
-  const today = new Date().toISOString().slice(0, 10);
   return [
     "## Runtime context",
     "",
     `- Base URL: ${baseUrl}`,
-    `- Current date: ${today}`,
-    "- Each run includes an AG-UI UI state snapshot (pathname, page module, selection, copilot shell, and Current page brief: page_type/title/description, list filters/search/total, compact previews, dom_entry_points). Use that for where the user is in the app — not the browser address bar and not engenty_tools_context. For live UI inspection, prefer ui_dom_snapshot scoped to dom_entry_points over ui_screenshot.",
-    "- Tenant and user are request-scoped from the current authorization token; use engenty_tools_context for workspace identity lookups — not route, URL, or Space membership. That tool is tenant/user identity only.",
-    "- The per-run runtime block is authoritative for current_space and space_mounted_modules. An app can exist in the tenant without being mounted in this Space.",
+    "- Where the user is in the app comes from the per-run UI state (page, module, selection, page brief). For live controls use ui_dom_snapshot scoped to its dom_entry_points.",
+    "- engenty_tools_context answers tenant and user identity only.",
   ].join("\n");
 }
 

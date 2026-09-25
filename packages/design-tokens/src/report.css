@@ -1,0 +1,237 @@
+/**
+ * House style for an HTML report an Engenty writes: a document layout and a
+ * few components on the ember primitives. apps/ai adds this file, after
+ * ember-primitives.css, to every report a routine stores, and briefs the
+ * specialist to use these classes and variables instead of its own colors.
+ */
+html {
+  --report-card: #fff;
+  color-scheme: light;
+}
+/* The pane marks the report dark when the app is; ember-primitives.css
+   switches the tokens on the same class. */
+html.dark {
+  --report-card: var(--paper-2);
+  color-scheme: dark;
+}
+body {
+  padding: var(--s-6) var(--s-4) var(--s-12);
+  margin: 0;
+  font: var(--t-body) / 1.6 var(--f-ui);
+  color: var(--ink);
+  background: var(--paper);
+}
+main,
+.report {
+  display: grid;
+  gap: var(--s-8);
+  max-width: 960px;
+  margin: 0 auto;
+}
+section {
+  display: grid;
+  gap: var(--s-3);
+}
+header {
+  display: grid;
+  gap: var(--s-2);
+  padding-bottom: var(--s-5);
+  border-bottom: 1px solid var(--paper-3);
+}
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--f-display);
+  line-height: 1.2;
+  color: var(--ink);
+  text-wrap: balance;
+}
+h1 {
+  font-size: var(--t-h1);
+  font-weight: 700;
+}
+h2 {
+  font-size: var(--t-h2);
+  font-weight: 600;
+}
+h3 {
+  font-size: var(--t-h3);
+  font-weight: 600;
+}
+p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--ink-2);
+}
+a {
+  color: var(--link);
+  text-underline-offset: 2px;
+}
+strong {
+  color: var(--ink);
+}
+code {
+  padding: 1px 4px;
+  font-family: var(--f-mono);
+  font-size: 0.9em;
+  background: var(--paper-3);
+  border-radius: var(--r-2);
+}
+ul,
+ol {
+  display: grid;
+  gap: var(--s-1);
+  padding-left: 1.2em;
+  margin: 0;
+  color: var(--ink-2);
+}
+li::marker {
+  color: var(--ember);
+}
+
+/* Small uppercase label above a heading, and small print. */
+.eyebrow {
+  font: 500 var(--t-micro) / 1.4 var(--f-mono);
+  color: var(--ember-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.meta,
+.muted {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
+/* A white card on the paper. */
+.card {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-5);
+  background: var(--report-card);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-ember-elevated);
+}
+
+/* Cards and stats wrap to the width: one per row on a phone. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--s-3);
+}
+
+/* A key figure: label, value, note. */
+.stat {
+  display: grid;
+  gap: 2px;
+  padding: var(--s-4);
+  background: var(--report-card);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-ember-soft);
+}
+.stat .label {
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stat .value {
+  font: 600 var(--t-h2) / 1.2 var(--f-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.stat .note {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
+/* A status pill: .ok, .warn, .bad, .info. */
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  font: 500 var(--t-micro) / 1.6 var(--f-ui);
+  color: var(--ink-2);
+  white-space: nowrap;
+  background: var(--paper-3);
+  border-radius: var(--r-pill);
+}
+.pill.ok {
+  color: var(--success);
+  background: var(--success-tint);
+}
+.pill.warn {
+  color: var(--ink);
+  background: var(--warning-tint);
+}
+.pill.bad {
+  color: var(--danger);
+  background: var(--danger-tint);
+}
+.pill.info {
+  color: var(--info);
+  background: var(--info-tint);
+}
+
+/* A note that needs attention: accent bar on the left. */
+.callout {
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink);
+  background: var(--ember-tint);
+  border-left: 3px solid var(--ember);
+  border-radius: 0 var(--r-3) var(--r-3) 0;
+}
+.callout.ok {
+  background: var(--success-tint);
+  border-color: var(--success);
+}
+.callout.warn {
+  background: var(--warning-tint);
+  border-color: var(--warning);
+}
+.callout.bad {
+  background: var(--danger-tint);
+  border-color: var(--danger);
+}
+.callout.info {
+  background: var(--info-tint);
+  border-color: var(--info);
+}
+
+/* Tables sit in a white card and scroll sideways on a phone. */
+.table {
+  overflow-x: auto;
+  background: var(--report-card);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-ember-elevated);
+}
+table {
+  width: 100%;
+  font-size: var(--t-ui);
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: var(--s-2) var(--s-3);
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid var(--paper-3);
+}
+th {
+  font: 500 var(--t-micro) / 1.4 var(--f-mono);
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--paper-2);
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 560px) {
+  body {
+    padding: var(--s-4) var(--s-3) var(--s-10);
+  }
+  h1 {
+    font-size: var(--t-h2);
+  }
+}

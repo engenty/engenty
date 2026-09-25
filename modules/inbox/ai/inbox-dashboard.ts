@@ -1,24 +1,19 @@
+import { createClassifierClient, roleModelRef } from "@engenty/ai-core";
 import {
   A2UI_SURFACE_MAX_BYTES,
   aggregateInboxDashboard,
   buildEngentyA2uiMessages,
-  composeInboxDashboard,
+  composeSurface,
   DASHBOARD_BLOCKS,
-  DASHBOARD_LAYOUTS,
   DASHBOARD_THREAD_LIMIT,
   type DashboardBlockId,
-  type DashboardLayout,
   ENGENTY_A2UI_CATALOG_ID,
+  inboxDashboardCandidates,
   validateEngentyA2uiComponents,
-} from "@engenty/a2ui-catalog/spec";
-import { createClassifierClient, roleModelRef } from "@engenty/ai-core";
-import {
-  type NoulQuestion,
-  validateChoiceAnswer,
-} from "@engenty/typesafe-client";
+} from "@engenty/generative-a2ui/spec";
+import type { NoulQuestion } from "@engenty/typesafe-client";
 import type { InboxThreadListItem } from "../src/schema/types.js";
 
-const INCLUDE_FLOOR = 0.45;
 const MAIL_FLOOR = 0.5;
 
 /** Platform classifier when bound and keyed; otherwise null (fail open). */
@@ -30,33 +25,14 @@ function defaultJevClient() {
   }
 }
 
-function isLayout(value: string): value is DashboardLayout {
-  return (DASHBOARD_LAYOUTS as readonly string[]).includes(value);
-}
-
 function isBlock(value: string): value is DashboardBlockId {
   return (DASHBOARD_BLOCKS as readonly string[]).includes(value);
 }
 
-function blockQuestions(): Record<string, NoulQuestion> {
-  const descriptions: Record<DashboardBlockId, string> = {
-    categories: "Show a donut of mail by category.",
-    mail: "Show the important-mail list.",
-    metrics: "Show unread / needs-attention / newsletter KPI tiles.",
-    senders: "Show a bar chart of the top senders.",
-    volume: "Show volume over the last days as an area chart.",
-  };
-  return Object.fromEntries(
-    DASHBOARD_BLOCKS.map((id) => [
-      `include_${id}`,
-      {
-        instructions: descriptions[id],
-        type: "noul" as const,
-      },
-    ])
-  );
-}
-
+/**
+ * The dashboard for a request: Jev picks the blocks and, in the same call,
+ * which mail rows need attention.
+ */
 export async function composeInboxDashboardSurface(params: {
   connection_id?: string;
   prompt: string;
@@ -66,81 +42,39 @@ export async function composeInboxDashboardSurface(params: {
   connection_id?: string;
   data: Record<string, unknown>;
   included: DashboardBlockId[];
-  layout: DashboardLayout;
   title: string;
 }> {
   const data = aggregateInboxDashboard(params.threads);
-  let layout: DashboardLayout = "metrics-and-charts";
-  const included = new Set<DashboardBlockId>(DASHBOARD_BLOCKS);
-  const jev = defaultJevClient();
-  if (jev) {
-    const mailQuestions: Record<string, NoulQuestion> = {};
-    for (let index = 0; index < data.items.length; index++) {
-      mailQuestions[`m${index}`] = {
-        instructions:
-          "This thread needs attention now (a person, a deal, or a decision — not a newsletter or receipt).",
-        type: "noul",
-      };
-    }
-    const response = await jev.systemOne({
-      questions: {
-        layout: {
-          criteria: {
-            "charts-over-list":
-              "Charts first, then the important-mail list. Use when the person asked for a picture or overview.",
-            "list-only":
-              "Just the important-mail list. Use when they asked to see the mail, not a dashboard.",
-            "metrics-and-charts":
-              "KPI tiles, charts, and the list. Use for a full inbox dashboard.",
-          },
-          instructions: "Which page shape fits the request?",
-          type: "choice",
-        },
-        ...blockQuestions(),
-        ...mailQuestions,
-      },
-      state: {
-        prompt: params.prompt,
-        threads: data.items.map((item, index) => ({
-          index,
-          ...item,
-        })),
-      },
-    });
-    try {
-      layout = validateChoiceAnswer(response.answers.layout, DASHBOARD_LAYOUTS)
-        .choice as DashboardLayout;
-    } catch {
-      layout = "metrics-and-charts";
-    }
-    if (!isLayout(layout)) {
-      layout = "metrics-and-charts";
-    }
-    included.clear();
-    for (const id of DASHBOARD_BLOCKS) {
-      const answer = response.answers[`include_${id}`];
-      if (answer?.type === "noul" && answer.noul >= INCLUDE_FLOOR) {
-        included.add(id);
-      }
-    }
-    if (included.size === 0) {
-      included.add("mail");
-    }
-    data.items = data.items.filter((_item, index) => {
-      const answer = response.answers[`m${index}`];
+  const mailQuestions: Record<string, NoulQuestion> = {};
+  for (let index = 0; index < data.items.length; index++) {
+    mailQuestions[`m${index}`] = {
+      instructions:
+        "This thread needs attention now (a person, a deal, or a decision — not a newsletter or receipt).",
+      type: "noul",
+    };
+  }
+  const composed = await composeSurface({
+    candidates: inboxDashboardCandidates(),
+    context: {
+      threads: data.items.map((item, index) => ({ index, ...item })),
+    },
+    data: { ...data },
+    includeFloor: 0.45,
+    jev: defaultJevClient(),
+    prompt: params.prompt,
+    questions: mailQuestions,
+  });
+  if (composed.source === "jev") {
+    const items = data.items.filter((_item, index) => {
+      const answer = composed.answers[`m${index}`];
       return answer?.type === "noul" && answer.noul >= MAIL_FLOOR;
     });
+    composed.data.items = items;
   }
-  const kept = [...included].filter(isBlock);
-  const surface = composeInboxDashboard({
-    data,
-    included: kept,
-    layout,
-  });
   return {
-    ...surface,
-    included: kept,
-    layout,
+    components: composed.components,
+    data: composed.data,
+    included: composed.kept.filter(isBlock),
     title: "Inbox",
     ...(params.connection_id ? { connection_id: params.connection_id } : {}),
   };
@@ -151,7 +85,6 @@ export function dashboardUiResult(input: {
   connection_id?: string;
   data: Record<string, unknown>;
   included: DashboardBlockId[];
-  layout: DashboardLayout;
   title: string;
 }): Record<string, unknown> {
   const issues = validateEngentyA2uiComponents(input.components);
@@ -189,7 +122,6 @@ export function dashboardUiResult(input: {
           live: {
             kind: "inbox_dashboard",
             included: input.included,
-            layout: input.layout,
             ...(input.connection_id
               ? { connection_id: input.connection_id }
               : {}),

@@ -138,12 +138,6 @@ const routineBaseSchema = z.object({
   enabled: z.boolean().optional(),
   name: z.string().min(1).max(255).optional(),
   /**
-   * The routine's PROMISE: what a fire must have achieved to count as done.
-   * Prose, deliberately not a schema — a specialist answers in prose, and an
-   * Action that needs a typed result already has its own output schema.
-   */
-  outcome: z.string().max(4000).nullable().optional(),
-  /**
    * A prompt routine's body. The server keeps a one-node workflow in step
    * with it (`prompt-workflow.ts`); the routine still binds a workflow id.
    */
@@ -493,7 +487,6 @@ export function registerRoutineRoutes(
         description: body.description ?? null,
         enabled: body.enabled ?? true,
         name: body.name,
-        outcome: body.outcome ?? null,
         quietHours: body.quiet_hours ?? null,
         report: body.report ?? "desk_card",
         source: "custom",
@@ -701,7 +694,6 @@ export function registerRoutineRoutes(
                 : {}),
             }),
         ...(body.name === undefined ? {} : { name: body.name }),
-        ...(body.outcome === undefined ? {} : { outcome: body.outcome }),
         ...(body.quiet_hours === undefined
           ? {}
           : { quietHours: body.quiet_hours }),

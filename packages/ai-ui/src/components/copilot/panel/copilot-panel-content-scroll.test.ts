@@ -37,21 +37,20 @@ describe("CopilotPanelContent scroll helpers", () => {
     ).toBe(500);
   });
 
-  it("adds extra bottom safe space while streaming on docked composer", () => {
-    expect(
-      resolveCopilotTranscriptBottomPaddingClass({
+  it("keeps the bottom space when a run ends, so the view does not jump", () => {
+    for (const composerDockStyle of [true, false]) {
+      const before = resolveCopilotTranscriptBottomPaddingClass({
         compact: false,
-        composerDockStyle: true,
-        status: "streaming",
-      })
-    ).toBe("pb-40");
-    expect(
-      resolveCopilotTranscriptBottomPaddingClass({
-        compact: false,
-        composerDockStyle: true,
-        status: "ready",
-      })
-    ).toBe("pb-20");
+        composerDockStyle,
+      });
+      expect(before).not.toBe("");
+      expect(
+        resolveCopilotTranscriptBottomPaddingClass({
+          compact: false,
+          composerDockStyle,
+        })
+      ).toBe(before);
+    }
   });
 
   it("centers the empty landing only for body-only dock composer surfaces", () => {

@@ -120,7 +120,7 @@ export function LimitsBudgetsTab({
 
   const capsSteps = settings.caps?.max_steps ?? null;
   const inheritedSteps = effective?.caps.max_steps.inherited.value;
-  const approvalMode = settings.agent_approval?.mode ?? "manual";
+  const approvalMode = settings.agent_approval?.mode ?? "auto";
   const approvalHintKey =
     approvalMode === "pass-all"
       ? "limits.approval.passAllHint"

@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -197,7 +197,7 @@
       "@a2ui/web_core>zod": "3.25.76",
       "@a2ui/react>zod": "3.25.76",
       "@a2ui/markdown-it>zod": "3.25.76",
-      "@engenty/a2ui-catalog>zod": "3.25.76",
+      "@engenty/generative-a2ui>zod": "3.25.76",
       "@ag-ui/core>zod": "3.25.76",
       "@ag-ui/client>zod": "3.25.76",
       "@fast-csv/format>@types/node": "26.0.0",

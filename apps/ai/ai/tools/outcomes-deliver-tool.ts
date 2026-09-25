@@ -23,11 +23,15 @@ export const OUTCOMES_DELIVER_TOOL_ID = "outcomes_deliver";
 
 export interface OutcomesDeliverToolDeps {
   bindings: RoutineOutcomeRow[];
+  /** The graph run the step belongs to (Mastra's run id is ours). */
+  graphRunId: string | null;
   moduleLoader?: DynamicAiModuleCapabilityLoader;
   requestId: string;
   routineId: string;
   routines: Pick<RoutineStore, "get">;
   tenantId: string;
+  /** The routine's chat, where the run's transcript is. */
+  threadId: string;
 }
 
 function payloadHint(providerId: string): string {
@@ -113,6 +117,7 @@ export function createOutcomesDeliverTool(deps: OutcomesDeliverToolDeps) {
           artifact: null,
           awaiting_review: false,
           body,
+          graph_run_id: deps.graphRunId,
           outcome: null,
           reason: null,
           routine_id: routine.id,
@@ -121,6 +126,7 @@ export function createOutcomesDeliverTool(deps: OutcomesDeliverToolDeps) {
           space_id: routine.space_id,
           status: "completed",
           summary,
+          thread_id: deps.threadId,
         };
         const result = await deliverOutcome({
           binding,

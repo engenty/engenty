@@ -2,7 +2,7 @@ import {
   buildEngentyA2uiMessages,
   ENGENTY_A2UI_CATALOG_ID,
   ENGENTY_A2UI_PROMPT_GUIDE,
-} from "@engenty/a2ui-catalog/spec";
+} from "@engenty/generative-a2ui/spec";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { checkGateSurface } from "../../src/ai/workflows/gate-surface.js";
@@ -40,6 +40,12 @@ export const showUiInputSchema = z.object({
       'Optional data model; component props bind into it with {"path": "/json/pointer"}.'
     ),
   title: z.string().max(160).optional().describe("Short surface title."),
+  artifact_id: z
+    .string()
+    .optional()
+    .describe(
+      "The stored artifact this surface is a teaser of: its title line gets the document icon and opens the artifact in the side pane."
+    ),
 });
 
 export type ShowUiInput = z.infer<typeof showUiInputSchema>;
@@ -70,6 +76,7 @@ export function buildUiSurface(input: ShowUiInput): Record<string, unknown> {
           messages,
           surface_id: surfaceId,
           ...(input.title ? { title: input.title } : {}),
+          ...(input.artifact_id ? { artifact_id: input.artifact_id } : {}),
         },
       },
     },

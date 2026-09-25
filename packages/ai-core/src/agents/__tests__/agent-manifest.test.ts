@@ -21,7 +21,6 @@ describe("agent-manifest helpers", () => {
     );
     expect(manifest.id).toBe(GENERAL_CHAT_AGENT_ID);
     expect(agentInstructions).toContain("You are engenty");
-    expect(agentInstructions).toContain("in-app AI **copilot**");
     expect(manifest.instruction_files).toEqual([
       "AGENTS.md",
       "SOUL.md",

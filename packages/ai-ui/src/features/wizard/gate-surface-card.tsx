@@ -10,13 +10,13 @@
 // full-width, the agent desk docks it above the composer; the card is the
 // same.
 
+import { parseObjectRef } from "@engenty/ai-core/browser";
 import {
   buildEngentyA2uiMessages,
   type EngentyA2uiAction,
   EngentyA2uiSurfaceView,
   type EngentyA2uiSurfaceViewProps,
-} from "@engenty/a2ui-catalog";
-import { parseObjectRef } from "@engenty/ai-core/browser";
+} from "@engenty/generative-a2ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   AlertDialog,

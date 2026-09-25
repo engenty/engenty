@@ -82,6 +82,8 @@ export interface AgUiOpenInterruptMetadata {
   kind?: AgUiOpenInterruptKind;
   /** Decision interrupts only: render checkboxes and accept several choices. */
   multi_select?: boolean;
+  /** Decision interrupts only: what is decided, drawn beside the words. */
+  preview?: { graph: JsonValue; kind: "workflow"; title?: string };
   /** Suspended Mastra run id — reused on resume so the snapshot reloads (native suspend/resume). */
   run_id?: string;
   title: string;
@@ -143,6 +145,27 @@ function readOpenInterruptKind(
   return "decision";
 }
 
+function readDecisionPreview(
+  raw: unknown
+): { preview: NonNullable<AgUiOpenInterruptMetadata["preview"]> } | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  if (record.kind !== "workflow" || !isJsonValue(record.graph)) {
+    return null;
+  }
+  return {
+    preview: {
+      graph: record.graph,
+      kind: "workflow",
+      ...(typeof record.title === "string" && record.title.trim()
+        ? { title: record.title.trim() }
+        : {}),
+    },
+  };
+}
+
 export function readAgUiOpenInterrupt(
   metadata: Record<string, unknown> | null | undefined
 ): AgUiOpenInterruptMetadata | null {
@@ -188,6 +211,7 @@ export function readAgUiOpenInterrupt(
       ? { effort }
       : {}),
     ...(record.multi_select === true ? { multi_select: true } : {}),
+    ...(readDecisionPreview(record.preview) ?? {}),
     ...(typeof expiresAt === "string" && expiresAt.trim()
       ? { expires_at: expiresAt.trim() }
       : {}),

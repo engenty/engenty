@@ -11,11 +11,9 @@ import {
   matchesArtifactToolCall,
 } from "./components/chat/artifact-tool-call-card.js";
 import {
-  matchesGenerativeUiOutput,
   matchesSubAgentSessionOutput,
   SubAgentSessionToolCallCard,
-  ToolCallGenerativeUiCard,
-} from "./components/chat/tool-call-generative-ui-card.js";
+} from "./components/chat/sub-agent-session-tool-call-card.js";
 
 let registered = false;
 
@@ -31,14 +29,6 @@ export function registerEngentyCopilotToolCallUi() {
     priority: 40,
     match: (ctx) => matchesSubAgentSessionOutput(ctx.output),
     Card: SubAgentSessionToolCallCard,
-  });
-
-  registerToolCallUi({
-    id: "engenty-copilot.generative-ui",
-    priority: 40,
-    match: (ctx) => matchesGenerativeUiOutput(ctx.output),
-    Card: ToolCallGenerativeUiCard,
-    standalone: true,
   });
 
   // Legacy transcripts only — see file-download-offer.ts.

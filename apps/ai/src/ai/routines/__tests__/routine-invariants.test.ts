@@ -55,7 +55,6 @@ function routine(overrides: Partial<RoutineRow> = {}): RoutineRow {
     last_result: null,
     module_id: null,
     name: "Daily inbox scan",
-    outcome: null,
     quiet_hours: null,
     report: "desk_card",
     source: "custom",

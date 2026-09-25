@@ -1,7 +1,7 @@
 // DAL for `ai.routines` — the standing arrangement on a mounted specialist.
 //
-// A routine names a workflow (`ai.workflow`) and carries behaviour: the
-// outcome promise, reporting, quiet hours, the unattended allow-list and the
+// A routine names a workflow (`ai.workflow`) and carries behaviour:
+// reporting, quiet hours, the unattended allow-list and the
 // static input. Its wake sources are child rows in `ai.routine_triggers`
 // (see routine-trigger-store.ts) — a routine has 1..n and this store never
 // touches them.
@@ -30,7 +30,6 @@ export interface RoutineRow {
   last_result: string | null;
   module_id: string | null;
   name: string;
-  outcome: string | null;
   quiet_hours: string | null;
   report: RoutineReport;
   source: RoutineSource;
@@ -53,7 +52,6 @@ export interface CreateRoutineInput {
   id?: string;
   moduleId?: string | null;
   name: string;
-  outcome?: string | null;
   quietHours?: string | null;
   report?: RoutineReport;
   source?: RoutineSource;
@@ -71,7 +69,6 @@ export interface UpdateRoutineInput {
   /** The row's status line; `recordFire` is the write that also stamps the fire time. */
   lastResult?: string | null;
   name?: string;
-  outcome?: string | null;
   quietHours?: string | null;
   report?: RoutineReport;
   workflowId?: string;
@@ -120,7 +117,6 @@ function patchFromInput(input: UpdateRoutineInput): Record<string, unknown> {
     ["enabled", "enabled"],
     ["lastResult", "last_result"],
     ["name", "name"],
-    ["outcome", "outcome"],
     ["quietHours", "quiet_hours"],
     ["report", "report"],
     ["workflowId", "workflow_id"],
@@ -152,7 +148,6 @@ export function createRoutineStore(source: DbSource): RoutineStore {
           ...(input.id ? { id: input.id } : {}),
           module_id: input.moduleId ?? null,
           name: input.name,
-          outcome: input.outcome ?? null,
           quiet_hours: input.quietHours ?? null,
           report: input.report ?? "desk_card",
           source: input.source ?? "custom",

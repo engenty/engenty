@@ -1,23 +1,12 @@
-"use client";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import HomePage from "@/app/(home)/page";
+import { baseOptions } from "@/lib/layout.shared";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-/** Fumadocs section tabs use URL hashes (e.g. `/docs#dev`); map them to real routes. */
-const HASH_TO_PATH: Record<string, string> = {
-  dev: "/docs/dev/README",
-  help: "/docs/help/README",
-  wip: "/docs/wip/README",
-};
-
+/** The dev gateway only forwards `/docs/*` to this app, so `/docs` shows the lobby too. */
 export default function DocsIndexPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, "").toLowerCase();
-    const target = (hash && HASH_TO_PATH[hash]) || "/docs/README";
-    router.replace(target);
-  }, [router]);
-
-  return null;
+  return (
+    <HomeLayout {...baseOptions()}>
+      <HomePage />
+    </HomeLayout>
+  );
 }

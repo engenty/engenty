@@ -1,12 +1,11 @@
 // Per-run instructions, injected as a system message before the user turn:
-// canonical Space rules, tenant/user identity + workspace (name, email, role),
+// tenant/user identity + workspace (name, email, role),
 // AG-UI app context (route, selection, shell state), and UI language preference.
 //
 // Shared across the chat runtimes (the legacy harness, the control plane, and the
 // Harness Session) so every run sees the SAME context — without it, a run greets
 // the user but can't answer "what's my email?".
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
-import { SPACE_CONTRACT_PROMPT } from "@engenty/ai-core";
 import type { FrontendToolGrant } from "../../../ai/frontend-tools/catalog.js";
 import type { RoutineStore } from "../../dal/routines/routine-store.js";
 import type { RoutineTriggerStore } from "../../dal/routines/routine-trigger-store.js";
@@ -177,7 +176,6 @@ export async function buildOwnRoutinesInstructions(input: {
         const parts = [
           `${row.name} (routine_id: ${row.id}) — ${wakeSummary(own)}`,
           row.enabled ? null : "DISABLED",
-          row.outcome ? `done means: ${row.outcome}` : null,
           row.last_result ? `last: ${row.last_result}` : null,
         ].filter((part): part is string => part !== null);
         return `- ${parts.join(" — ")}`;
@@ -298,7 +296,6 @@ export async function buildSessionRuntimeInstructions(
       : "";
 
   return [
-    SPACE_CONTRACT_PROMPT,
     workspaceNote ? `${runtimeContext}\n${workspaceNote}` : runtimeContext,
     input.computeInstructions ?? "",
     sharedStyle,

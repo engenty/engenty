@@ -181,6 +181,24 @@ export function WizardRunner({
     };
   }, [afterMutation, gate, previous, runId, snapshot?.answers, travel.mutate]);
 
+  // A run that is not there (a wrong id, a run that is no wizard's, a
+  // version that is gone) settles as an error — without this it stayed a
+  // skeleton forever.
+  if (run.query.isError) {
+    return (
+      <div className={cn("space-y-3", className)} role="alert">
+        <p className="text-muted-foreground text-sm">
+          {t("wizard.runUnavailable")}
+        </p>
+        {onExit ? (
+          <Button onClick={onExit} size="sm" type="button" variant="outline">
+            {t("wizard.done")}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   if (run.query.isLoading || !data) {
     return (
       <div className={cn("space-y-3", className)}>

@@ -58,7 +58,6 @@
     "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
     "@engenty/file-storage": "workspace:*",
-    "@engenty/generative-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",

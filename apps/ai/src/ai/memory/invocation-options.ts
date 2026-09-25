@@ -21,7 +21,7 @@ import { type AgentMemoryTools, createAgentMemory } from "./agent-memory.js";
 import { type AgentTasksTools, createAgentTasks } from "./agent-tasks.js";
 import {
   createEngentySessionMastraMemory,
-  observationalMemoryEnabled,
+  sharedObservationsEnabled,
 } from "./concrete-memory.js";
 import {
   createEngentySessionMemoryStorage,
@@ -164,7 +164,7 @@ export function createEngentySessionMemoryRuntime(
     tenantId: input.scope.tenantId,
     userId: input.scope.userId,
   };
-  const sharedProcessor = observationalMemoryEnabled()
+  const sharedProcessor = sharedObservationsEnabled()
     ? createSharedObservationalMemoryProcessor({
         identity,
         ...(input.observationalModelId

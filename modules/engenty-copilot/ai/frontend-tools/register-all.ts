@@ -1,13 +1,11 @@
 import type { CopilotDockMode } from "@engenty/app-shell";
 import { useRegisterBrowserUseFrontendTools } from "./browser-use/register.js";
-import { useRegisterCloseCopilotFrontendTool } from "./close-copilot/register.js";
 import { useRegisterFocusFieldFrontendTool } from "./focus-field/register.js";
 import {
   type CopilotLocale,
   useRegisterI18nSetLocaleFrontendTool,
 } from "./i18n-set-locale/register.js";
 import { useRegisterNavigateFrontendTool } from "./navigate/register.js";
-import { useRegisterOpenCopilotFrontendTool } from "./open-copilot/register.js";
 import { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
 import { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
 import {
@@ -33,10 +31,6 @@ export function useRegisterCopilotFrontendTools(
   useRegisterNavigateFrontendTool({
     openCopilotShell: options.openCopilotShell,
   });
-  useRegisterOpenCopilotFrontendTool({
-    openCopilotShell: options.openCopilotShell,
-  });
-  useRegisterCloseCopilotFrontendTool({ setOpen: options.setOpen });
   useRegisterSetCopilotDockModeFrontendTool({
     setOpen: options.setOpen,
     setPreferredDockMode: options.setPreferredDockMode,
@@ -59,7 +53,6 @@ export function useRegisterCopilotFrontendTools(
 
 // biome-ignore lint/performance/noBarrelFile: Public browser registration entrypoint.
 export { useRegisterBrowserUseFrontendTools } from "./browser-use/register.js";
-export { useRegisterCloseCopilotFrontendTool } from "./close-copilot/register.js";
 export { useRegisterFocusFieldFrontendTool } from "./focus-field/register.js";
 export {
   type CopilotLocale,
@@ -73,7 +66,6 @@ export {
   type NavigateLike,
   runNavigateFrontendTool,
 } from "./navigate/run.js";
-export { useRegisterOpenCopilotFrontendTool } from "./open-copilot/register.js";
 export { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
 export { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
 export {

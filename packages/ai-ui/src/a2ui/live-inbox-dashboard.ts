@@ -1,19 +1,17 @@
 "use client";
 
+import type { A2uiLiveMeta } from "@engenty/ai-core/browser";
+import { requestApiJson } from "@engenty/api-client";
 import {
   aggregateInboxDashboard,
   buildEngentyA2uiMessages,
   composeInboxDashboard,
   DASHBOARD_BLOCKS,
-  DASHBOARD_LAYOUTS,
   DASHBOARD_THREAD_LIMIT,
   type DashboardBlockId,
-  type DashboardLayout,
   ENGENTY_A2UI_CATALOG_ID,
   type InboxDashboardThread,
-} from "@engenty/a2ui-catalog/spec";
-import type { A2uiLiveMeta } from "@engenty/ai-core/browser";
-import { requestApiJson } from "@engenty/api-client";
+} from "@engenty/generative-a2ui/spec";
 import { subscribePostgresChanges } from "@engenty/live-cache";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useEffect, useRef } from "react";
@@ -23,10 +21,6 @@ import {
   openA2uiSurfacePaneTab,
   useArtifacts,
 } from "../artifacts/artifact-store.js";
-
-function isLayout(value: string): value is DashboardLayout {
-  return (DASHBOARD_LAYOUTS as readonly string[]).includes(value);
-}
 
 function isBlock(value: string): value is DashboardBlockId {
   return (DASHBOARD_BLOCKS as readonly string[]).includes(value);
@@ -79,14 +73,10 @@ async function refreshInboxDashboard(params: {
   const threads = (listed.threads ?? [])
     .map(asThread)
     .filter((row): row is InboxDashboardThread => row !== null);
-  const layout = isLayout(params.live.layout)
-    ? params.live.layout
-    : "metrics-and-charts";
   const included = params.live.included.filter(isBlock);
   const surface = composeInboxDashboard({
     data: aggregateInboxDashboard(threads),
     included: included.length > 0 ? included : ["mail"],
-    layout,
   });
   const { messages } = buildEngentyA2uiMessages({
     components: surface.components,
@@ -103,8 +93,8 @@ async function refreshInboxDashboard(params: {
 }
 
 /**
- * Keep the live A2UI surface tab in step with inbox rows. Layout stays the
- * one Jev picked; only the bound numbers and list refresh.
+ * Keep the live A2UI surface tab in step with inbox rows. The blocks stay the
+ * ones Jev picked; only the bound numbers and list refresh.
  */
 export function useLiveInboxDashboard(hostKey: string): void {
   const { surfaceTabs } = useArtifacts(hostKey);
@@ -118,7 +108,7 @@ export function useLiveInboxDashboard(hostKey: string): void {
   const { currentTenant } = useWorkspaceContext();
   const tenantId = currentTenant?.id ?? null;
   const liveKey = live
-    ? `${live.layout}:${live.included.join(",")}:${live.connection_id ?? ""}`
+    ? `${live.included.join(",")}:${live.connection_id ?? ""}`
     : "";
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

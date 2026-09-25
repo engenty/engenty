@@ -461,6 +461,61 @@ export function createArtifactStore(source: DbSource) {
       return (data as ArtifactRow | null) ?? null;
     },
 
+    /**
+     * A run's result: the artifact it presented (`metadata.shown_run_id`,
+     * stamped by show_artifact), else the one it last wrote
+     * (`metadata.last_run_id`, stamped by artifact_write). How a routine's
+     * report finds the result a run stored without naming it in its answer.
+     */
+    async findByLastRunId(params: {
+      runId: string;
+      tenantId: string;
+    }): Promise<ArtifactRow | null> {
+      for (const key of ["shown_run_id", "last_run_id"]) {
+        const { data, error } = await dbFor(params.tenantId)
+          .from("artifact")
+          .select()
+          .eq("tenant_id", params.tenantId)
+          .eq(`metadata->>${key}`, params.runId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) {
+          throw new Error(`artifact by run: ${error.message}`);
+        }
+        if (data) {
+          return data as ArtifactRow;
+        }
+      }
+      return null;
+    },
+
+    /** The active artifact with this exact title in a scope — the page a series keeps updating. */
+    async findByTitle(params: {
+      scopeId: string;
+      scopeType: ArtifactScopeType;
+      tenantId: string;
+      title: string;
+      type: string;
+    }): Promise<ArtifactRow | null> {
+      const { data, error } = await dbFor(params.tenantId)
+        .from("artifact")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .eq("scope_type", params.scopeType)
+        .eq("scope_id", params.scopeId)
+        .eq("title", params.title)
+        .eq("type", params.type)
+        .eq("status", "active")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`artifact by title: ${error.message}`);
+      }
+      return (data as ArtifactRow | null) ?? null;
+    },
+
     /** Shallow-merge into artifact.metadata (read-modify-write; last writer wins). */
     async mergeMetadata(params: {
       tenantId: string;

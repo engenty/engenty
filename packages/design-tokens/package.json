@@ -6,6 +6,7 @@
     "./ember-primitives.css": "./src/ember-primitives.css",
     "./reader-paper-surface.css": "./src/reader-paper-surface.css",
     "./shadcn-ember.css": "./src/shadcn-ember.css",
-    "./ui-canvas-chrome.css": "./src/ui-canvas-chrome.css"
+    "./ui-canvas-chrome.css": "./src/ui-canvas-chrome.css",
+    "./report.css": "./src/report.css"
   }
 }

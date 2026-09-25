@@ -69,7 +69,6 @@ function memoryStores() {
         last_result: null,
         module_id: input.moduleId ?? null,
         name: input.name,
-        outcome: input.outcome ?? null,
         quiet_hours: input.quietHours ?? null,
         report: input.report ?? "desk_card",
         source: input.source ?? "custom",
@@ -119,7 +118,6 @@ function memoryStores() {
           : { approval_grants: input.approvalGrants }),
         ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
         ...(input.name === undefined ? {} : { name: input.name }),
-        ...(input.outcome === undefined ? {} : { outcome: input.outcome }),
         ...(input.report === undefined ? {} : { report: input.report }),
         ...(input.workflowId === undefined
           ? {}
@@ -176,6 +174,7 @@ function memoryStores() {
       const row: RoutineOutcomeRow = {
         config: input.config ?? {},
         created_at: now(),
+        description: null,
         enabled: input.enabled ?? true,
         id: nextId("outcome"),
         mode: input.mode,
@@ -367,7 +366,6 @@ const fridayReport = {
   cron: "0 8 * * 5",
   kind: "schedule" as const,
   name: "Friday report",
-  outcome: "A report page in Space Data, updated in place.",
   prompt:
     "Write the weekly report from this week's tables into the report page.",
   report: "desk_card" as const,
@@ -398,7 +396,6 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
     expect(output.status).toBe("created");
     const routine = output.routine as Record<string, unknown>;
     expect(routine.agent_id).toBe(OWNER);
-    expect(routine.outcome).toBe(fridayReport.outcome);
     expect(
       (routine.triggers as { kind: string; cron: string | null }[]).map((t) => [
         t.kind,

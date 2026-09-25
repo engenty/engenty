@@ -60,6 +60,11 @@ export interface FireRoutineResult {
 }
 
 export interface FireRoutineInput {
+  /**
+   * The conversation that asked for this fire ("run it now"), when one did.
+   * Its result comes back there as well as to the routine's own chat.
+   */
+  callerThreadId?: string | null;
   /** Extra input for this occurrence — an event payload, mapped. */
   eventInput?: Record<string, unknown>;
   flowGraphs: WorkflowStore;
@@ -185,6 +190,7 @@ export async function fireRoutine(
     // the run itself stays attributed to the compiled action, which is what
     // pins its version.
     deskAgentId: routine.agent_id,
+    ...(input.callerThreadId ? { callerThreadId: input.callerThreadId } : {}),
     input: { ...(routine.workflow_input ?? {}), ...(input.eventInput ?? {}) },
     routineId: routine.id,
     routineTitle: routine.name,
@@ -255,6 +261,8 @@ async function postRoutineStartedMessage(input: {
       authorUserId: null,
       id: stableUuid(`routine-start:${input.runId}`),
       metadata: {
+        // Worded by the chat in the reader's language.
+        engenty_routine_notice: { kind: "started", name: input.routine.name },
         routine_id: input.routine.id,
         run_id: input.runId,
         source: "routine-report",

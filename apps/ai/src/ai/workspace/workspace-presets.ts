@@ -33,6 +33,7 @@ import {
   workWorkspaceRelativePrefix,
 } from "@engenty/file-storage";
 
+import { listCompanyApps } from "./company-apps.js";
 import type { EngentyWorkspaceMountSpec } from "./contracts.js";
 
 // Writable tenant-shared working context (cross-user/session). When a
@@ -92,6 +93,8 @@ export const COMPANY_MOUNT_PATH = "/company";
 export const COMPANY_FILES_MOUNT_PATH = `${COMPANY_MOUNT_PATH}/files`;
 /** Parent of each publishing Space's `public/` folder, by Space key. */
 export const COMPANY_SPACES_MOUNT_PATH = `${COMPANY_MOUNT_PATH}/spaces`;
+/** Parent of the source of every App a publishing Space owns, by slug. */
+export const COMPANY_APPS_MOUNT_PATH = `${COMPANY_MOUNT_PATH}/apps`;
 
 const COMPANY_FILES_MOUNT: AgentWorkspaceMount = {
   access: "ro",
@@ -464,7 +467,17 @@ export function resolveEngentyMountSpecs(
     });
   }
   if (specs.some((spec) => spec.mountPath === COMPANY_FILES_MOUNT_PATH)) {
-    specs.push(...companySpaceMountSpecs(ctx.companySpaces ?? []));
+    const spaces = ctx.companySpaces ?? [];
+    specs.push(...companySpaceMountSpecs(spaces));
+    specs.push(
+      ...listCompanyApps(ctx.tenantId, spaces).map((app) => ({
+        fileStorageRelativePath: "app-source",
+        localPath: app.srcPath,
+        mountPath: `${COMPANY_APPS_MOUNT_PATH}/${app.slug}`,
+        readOnly: true,
+        spaceId: app.spaceId,
+      }))
+    );
   }
   return { dropped, specs };
 }

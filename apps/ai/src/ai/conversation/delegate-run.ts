@@ -113,6 +113,8 @@ export interface RunDelegatedConversationInput {
    * suspend payload, which Mastra clears when a resume claims the task.
    */
   approvedResumeCalls?: readonly ApprovedResumeCall[];
+  /** Tools this run must not have, on top of the leaf's own blocks. */
+  blockedToolIds?: string[];
   brief: string;
   childAgentId: string;
   // Identity for the child run — the caller generates these so it can correlate the
@@ -169,6 +171,8 @@ export interface RunDelegatedConversationInput {
   // Called with human-readable lines as the child works (tool starts, etc.). The
   // `delegate` tool forwards these to the parent run's sub-agent progress card.
   onProgress?: (line: string) => void;
+  /** Each tool call the child makes, with its arguments, as it makes it. */
+  onToolCall?: (call: { args: unknown; toolName: string }) => void;
   /**
    * The parent conversation that spawned this child, when known. Written onto
    * `ai.agent_run.metadata` so the platform observer can indent the child
@@ -625,7 +629,10 @@ export async function runDelegatedConversation(
             ...(input.allowedToolIds
               ? { allowedToolIds: input.allowedToolIds }
               : {}),
-            blockedToolIds: canMessage ? [] : [MESSAGE_AGENT_TOOL_ID],
+            blockedToolIds: [
+              ...(canMessage ? [] : [MESSAGE_AGENT_TOOL_ID]),
+              ...(input.blockedToolIds ?? []),
+            ],
             ...(heartbeatBody || input.extraInstructionBodies?.length
               ? {
                   instructionExtras: {
@@ -720,6 +727,7 @@ export async function runDelegatedConversation(
                 ? { onApprovalRequired: input.onApprovalRequired }
                 : {}),
               ...(input.onProgress ? { onProgress: input.onProgress } : {}),
+              ...(input.onToolCall ? { onToolCall: input.onToolCall } : {}),
             },
             threadId: input.childThreadId,
             ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),

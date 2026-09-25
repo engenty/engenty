@@ -51,7 +51,6 @@ const engentyCopilotUi = path.join(
   "ui"
 );
 const projectsUi = path.join(repoRoot, "modules", "projects", "ui");
-const generativeUi = path.join(repoRoot, "packages", "generative-ui", "src");
 const uiCoreSrc = path.join(repoRoot, "packages", "ui-core", "src");
 const i18nUi = path.join(repoRoot, "packages", "i18n", "src", "ui.tsx");
 
@@ -304,7 +303,6 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
           "src",
           "index.ts"
         ),
-        "@engenty/generative-ui": path.join(generativeUi, "index.ts"),
         "@engenty/pdf-templates/core": path.join(pdfTemplates, "core.ts"),
         "@engenty/pdf-templates": path.join(pdfTemplates, "index.ts"),
         "@engenty/projects/ui/portal": path.join(projectsUi, "portal.ts"),
@@ -372,7 +370,6 @@ export default defineConfig(({ command }) => {
         "@engenty/contacts",
         "@engenty/secrets",
         "@engenty/import",
-        "@engenty/generative-ui",
         "@engenty/knowledge-base",
         "@engenty/engenty-copilot",
         "@engenty/projects",

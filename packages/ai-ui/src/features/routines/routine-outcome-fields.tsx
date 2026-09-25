@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Label, Switch } from "@engenty/ui-core";
+import { Input, Label, Switch } from "@engenty/ui-core";
 import { OutcomeConfigFields } from "./routine-outcome-config-fields.js";
 import {
   defaultConfigFromSchema,
@@ -64,6 +64,19 @@ export function OutcomeFields({
             })}
           </p>
         ) : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-description`}>
+          {t("routines.outcomes.purpose")}
+        </Label>
+        <Input
+          id={`${idPrefix}-description`}
+          maxLength={160}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          placeholder={t("routines.outcomes.purposePlaceholder")}
+          value={value.description}
+        />
       </div>
 
       <div className="space-y-1.5">

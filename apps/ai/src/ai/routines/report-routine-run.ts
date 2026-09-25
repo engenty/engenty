@@ -35,6 +35,7 @@ import {
 } from "../index.js";
 import { resolveTaskJobServiceScope } from "../jobs/task-job-scope.js";
 import { scopeAccessToken } from "../sessions/types.js";
+import type { ArtifactTeaser } from "../threads/artifact-teaser.js";
 import { speakOnDesk } from "../threads/speak-on-desk.js";
 import { resolveSpecialistChatThread } from "../threads/specialist-chat-thread.js";
 import { stableUuid } from "../workflows/dispatch-published-run.js";
@@ -50,7 +51,7 @@ const logger = createLogger({ name: "routine-report" });
 export interface ReportRoutineRunInput {
   /** The artifact the run produced, already resolved to its title — the
    * report names it instead of leaving a bare uuid in the chat. */
-  artifact?: { id: string; title: string } | null;
+  artifact?: ArtifactTeaser | null;
   /**
    * The run is parked until its owner has looked (`report: ask`). The report
    * says so, and the inbox row is the review decision itself rather than an
@@ -195,7 +196,6 @@ const OUTCOME_LABELS: Partial<Record<RunOutcome, string>> = {
 };
 
 export function buildRoutineReportText(input: {
-  artifact?: { id: string; title: string } | null;
   awaitingReview?: boolean;
   body: string | null;
   name: string;
@@ -209,9 +209,6 @@ export function buildRoutineReportText(input: {
     const reason = input.reason?.trim();
     return `${heading}\n\nRun failed${reason ? `: ${reason}` : "."}`;
   }
-  const artifactLine = input.artifact
-    ? `\n\n📄 Artifact: **${input.artifact.title}**`
-    : "";
   const body = input.body?.trim();
   // A completed run whose WORK went wrong explains itself through the reason:
   // outcome and status are different planes, and "rejected" with no why is a
@@ -232,8 +229,8 @@ export function buildRoutineReportText(input: {
   // A run that succeeded without saying anything still gets reported. Silence
   // that looks like success is the shape of failure this cutover kept hitting.
   return body
-    ? `${heading}\n\n${body}${explained}${artifactLine}${reviewLine}`
-    : `${heading}\n\n${reason ?? "Run finished without a written result."}${artifactLine}${reviewLine}`;
+    ? `${heading}\n\n${body}${explained}${reviewLine}`
+    : `${heading}\n\n${reason ?? "Run finished without a written result."}${reviewLine}`;
 }
 
 /**
@@ -390,6 +387,7 @@ export async function reportRoutineRun(
         artifact: input.artifact ?? null,
         awaiting_review: input.awaitingReview === true,
         body: input.summary?.trim() || proseFromLastWord(lastWord),
+        graph_run_id: input.runId,
         outcome: input.outcome ?? null,
         reason: input.reason ?? null,
         routine_id: routine.id,
@@ -398,6 +396,7 @@ export async function reportRoutineRun(
         space_id: routine.space_id,
         status: input.status,
         summary: input.summary?.trim() || null,
+        thread_id: input.threadId,
       };
       const { needsLegacyDeskFloor } = await dispatchSettleOutcomes({
         bindings,
@@ -446,7 +445,6 @@ export async function reportRoutineRun(
       name: routine.name,
       status: input.status,
       ...(input.awaitingReview ? { awaitingReview: true } : {}),
-      ...(input.artifact ? { artifact: input.artifact } : {}),
       ...(input.outcome ? { outcome: input.outcome } : {}),
       ...(input.reason ? { reason: input.reason } : {}),
     });
@@ -461,6 +459,9 @@ export async function reportRoutineRun(
     // replayed settle upserts instead of posting the same report twice.
     await speakOnDesk({
       agentId: routine.agent_id,
+      ...(input.artifact && input.status !== "failed"
+        ? { artifact: input.artifact }
+        : {}),
       messageId: stableUuid(`routine-report:${input.runId}`),
       metadata,
       // A held run's inbox row is the review decision itself — an `update`
@@ -468,6 +469,9 @@ export async function reportRoutineRun(
       notify: input.awaitingReview
         ? false
         : {
+            ...(input.artifact && input.status !== "failed"
+              ? { artifactId: input.artifact.id }
+              : {}),
             summary: `Routine · ${routine.name}: ${input.status === "failed" ? "run failed" : input.summary?.trim() || "finished"}`,
           },
       ownerUserId: routine.created_by_user_id,

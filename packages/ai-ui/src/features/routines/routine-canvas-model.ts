@@ -2,7 +2,7 @@
 //
 // A RENDERER of the model — routine-shape.ts stays the single source of what a
 // routine is. This file only answers where things sit: three left-to-right
-// bands (wake source · what runs · outcome), with the middle band reusing the
+// bands (wake source · what runs · deliveries), with the middle band reusing the
 // canvas's own vertical stacking rules (estimateNodeHeight, LAYOUT_GAP_Y)
 // rather than inventing a second layout engine. Action-target step ids pass
 // through from `actionSpine` untouched, so a later run overlay keyed on entry
@@ -12,7 +12,7 @@ import {
   LAYOUT_GAP_Y,
 } from "../workflow-canvas/graph-model.js";
 import type {
-  OutcomeNodeData,
+  DeliveryNodeData,
   TriggerNodeData,
 } from "./routine-canvas-nodes.js";
 import type { RoutineShape, RoutineShapeTrigger } from "./routine-shape.js";
@@ -24,7 +24,7 @@ export interface RoutineCanvasNode {
   data: Record<string, unknown>;
   id: string;
   position: { x: number; y: number };
-  type: "step" | "outcome" | "trigger";
+  type: "step" | "delivery" | "trigger";
 }
 
 export interface RoutineCanvasEdge {
@@ -47,25 +47,22 @@ const NODE_WIDTH = 260;
 const BAND_GAP_X = 96;
 /** Chip row + one detail line. */
 const TRIGGER_HEIGHT = 58;
-const OUTCOME_BASE_HEIGHT = 74;
-/** line-clamp-4 promise text at xs/relaxed. */
-const OUTCOME_TEXT_HEIGHT = 60;
-const OUTCOME_BINDING_HEIGHT = 16;
-const OUTCOME_HOLD_HEIGHT = 16;
+/** Chip + title + mode line. */
+const DELIVERY_BASE_HEIGHT = 66;
+/** line-clamp-2 description. */
+const DELIVERY_DESCRIPTION_HEIGHT = 32;
 
-function reportLine(mode: RoutineReportMode, isDe: boolean): string {
-  const prefix = isDe ? "Rückmeldung: " : "Reporting: ";
+/** The desk post a routine without deliveries makes instead. */
+function reportTitle(mode: RoutineReportMode, isDe: boolean): string {
   if (mode === "ask") {
-    return (
-      prefix + (isDe ? "Jeder Lauf, mit Rückfrage" : "Every run, and asks")
-    );
+    return isDe
+      ? "Karte am Schreibtisch, wartet auf dich"
+      : "Desk card, waits for you";
   }
   if (mode === "desk_card") {
-    return (
-      prefix + (isDe ? "Karte nach jedem Lauf" : "A desk card after every run")
-    );
+    return isDe ? "Karte am Schreibtisch" : "Desk card";
   }
-  return prefix + (isDe ? "Nur bei Befund" : "Only when something happened");
+  return isDe ? "Nur wenn etwas passiert ist" : "Only when something happened";
 }
 
 function triggerNodeData(trigger: RoutineShapeTrigger): TriggerNodeData {
@@ -86,6 +83,49 @@ function stackHeight(heights: number[], gap: number): number {
     return 0;
   }
   return heights.reduce((sum, h) => sum + h, 0) + gap * (heights.length - 1);
+}
+
+/**
+ * What happens with a run's result, one box each: the routine's deliveries,
+ * or — when it has none — the desk post it falls back to. A routine that
+ * holds for review says so in its own box.
+ */
+function deliveryBoxes(
+  outcome: NonNullable<RoutineShape["outcome"]>,
+  isDe: boolean
+): DeliveryNodeData[] {
+  const label = isDe ? "Zustellung" : "Delivery";
+  const boxes: DeliveryNodeData[] =
+    outcome.bindings.length > 0
+      ? outcome.bindings.map((binding) => ({
+          description: binding.description,
+          enabled: binding.enabled,
+          id: binding.id,
+          label,
+          modeLabel: binding.modeLabel,
+          title: binding.label,
+        }))
+      : [
+          {
+            description: null,
+            enabled: true,
+            id: "report",
+            label,
+            modeLabel: isDe ? "Jeder Lauf" : "Every run",
+            title: reportTitle(outcome.report, isDe),
+          },
+        ];
+  if (outcome.bindings.length > 0 && outcome.holdLine) {
+    boxes.push({
+      description: null,
+      enabled: true,
+      id: "hold",
+      label,
+      modeLabel: isDe ? "Jeder Lauf" : "Every run",
+      title: outcome.holdLine,
+    });
+  }
+  return boxes;
 }
 
 export function routineShapeToCanvas(
@@ -114,14 +154,14 @@ export function routineShapeToCanvas(
   const stepHeights = steps.map((step) =>
     estimateNodeHeight({ subtitle: step.subtitle ?? undefined })
   );
-  const outcomeHeight = shape.outcome
-    ? OUTCOME_BASE_HEIGHT +
-      (shape.outcome.text ? OUTCOME_TEXT_HEIGHT : 0) +
-      (shape.outcome.bindings.length > 0
-        ? 10 + shape.outcome.bindings.length * OUTCOME_BINDING_HEIGHT
-        : 0) +
-      (shape.outcome.holdLine ? OUTCOME_HOLD_HEIGHT : 0)
-    : 0;
+  const deliveries: DeliveryNodeData[] = shape.outcome
+    ? deliveryBoxes(shape.outcome, isDe)
+    : [];
+  const deliveryHeights = deliveries.map(
+    (box) =>
+      DELIVERY_BASE_HEIGHT + (box.description ? DELIVERY_DESCRIPTION_HEIGHT : 0)
+  );
+  const deliveryTotal = stackHeight(deliveryHeights, LAYOUT_GAP_Y);
 
   const triggers = shape.triggers;
   const triggerHeights = triggers.map((trigger) =>
@@ -129,7 +169,7 @@ export function routineShapeToCanvas(
   );
   const triggerTotal = stackHeight(triggerHeights, LAYOUT_GAP_Y);
   const middleTotal = stackHeight(stepHeights, LAYOUT_GAP_Y);
-  const overall = Math.max(middleTotal, triggerTotal, outcomeHeight);
+  const overall = Math.max(middleTotal, triggerTotal, deliveryTotal);
 
   const nodes: RoutineCanvasNode[] = [];
   const edges: RoutineCanvasEdge[] = [];
@@ -198,43 +238,27 @@ export function routineShapeToCanvas(
     }
   }
 
-  // Outcome, vertically centred on the whole picture. A bare Action promises
-  // nothing, so it draws no outcome band.
-  if (shape.outcome) {
+  // Deliveries: one box each, a band to the right, fed by the last step. A
+  // bare Action delivers nothing, so it draws no band.
+  let deliveryY = (overall - deliveryTotal) / 2;
+  for (const [index, box] of deliveries.entries()) {
+    const id = `delivery:${box.id}`;
     nodes.push({
-      data: {
-        bindings: shape.outcome.bindings.map((binding) => ({
-          enabled: binding.enabled,
-          id: binding.id,
-          label: binding.label,
-          modeLabel: binding.modeLabel,
-        })),
-        holdLine: shape.outcome.bindings.length ? shape.outcome.holdLine : null,
-        label: isDe ? "Ergebnis" : "Outcome",
-        placeholder: isDe
-          ? "Noch kein Ergebnis festgelegt."
-          : "No outcome declared yet.",
-        reportLine: shape.outcome.bindings.length
-          ? null
-          : reportLine(shape.outcome.report, isDe),
-        text: shape.outcome.text,
-      } satisfies OutcomeNodeData,
-      id: "outcome",
-      position: {
-        x: middleX + NODE_WIDTH + BAND_GAP_X,
-        y: (overall - outcomeHeight) / 2,
-      },
-      type: "outcome",
+      data: box,
+      id,
+      position: { x: middleX + NODE_WIDTH + BAND_GAP_X, y: deliveryY },
+      type: "delivery",
     });
+    deliveryY += (deliveryHeights[index] ?? 0) + LAYOUT_GAP_Y;
     if (lastStep) {
       edges.push({
-        id: `${lastStep.id}->outcome`,
+        id: `${lastStep.id}->${id}`,
         source: lastStep.id,
         // Out the SIDE — the canvas's existing right anchor — mirroring how
         // the wake source came in. Bottom stays the Action view's own
         // outbound edge.
         sourceHandle: "loop-out",
-        target: "outcome",
+        target: id,
       });
     }
   }

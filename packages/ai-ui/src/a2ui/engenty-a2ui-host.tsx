@@ -9,11 +9,11 @@
 // gate card render a `Row.objectRef`, an `ObjectPicker` or a `Document` the
 // same way.
 
+import { type ObjectRef, parseObjectRef } from "@engenty/ai-core/browser";
 import {
   type EngentyA2uiHost,
   EngentyA2uiHostProvider,
-} from "@engenty/a2ui-catalog";
-import { type ObjectRef, parseObjectRef } from "@engenty/ai-core/browser";
+} from "@engenty/generative-a2ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, Input } from "@engenty/ui-core";
 import { Loader2, X } from "lucide-react";

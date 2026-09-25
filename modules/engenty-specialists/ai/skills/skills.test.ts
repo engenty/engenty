@@ -60,12 +60,12 @@ describe("engenty-specialists managed skills", () => {
   });
 
   it("states the routine contract once, where every engenty reads it", () => {
-    // Prompt XOR Workflow, the promise, the wake sources, and that a person
+    // Prompt XOR Workflow, the deliveries, the wake sources, and that a person
     // may have the last word.
     const routines = ENGENTY_SPECIALISTS_MANAGED_SKILLS.routines;
     expect(routines).toContain("`prompt`");
     expect(routines).toContain("`workflow_id`");
-    expect(routines).toContain("`outcome`");
+    expect(routines).toContain("`outcomes`");
     expect(routines).toContain("`ask_first: true`");
     expect(routines).toContain("Europe/Vienna");
     expect(routines).not.toContain("`instructions`");

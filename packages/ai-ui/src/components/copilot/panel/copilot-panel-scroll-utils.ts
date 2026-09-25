@@ -20,17 +20,13 @@ const COPILOT_AUTOSCROLL_BOTTOM_THRESHOLD = 160;
 export function resolveCopilotTranscriptBottomPaddingClass(input: {
   compact: boolean;
   composerDockStyle: boolean;
-  status: "ready" | "streaming" | "submitted" | "error";
 }): string {
   if (input.compact) {
     return "pb-1";
   }
-  const isActiveRun =
-    input.status === "streaming" || input.status === "submitted";
-  if (input.composerDockStyle) {
-    return isActiveRun ? "pb-40" : "pb-20";
-  }
-  return isActiveRun ? "pb-24" : "pb-6";
+  // The same during a run and after it: space that shrinks when the run ends
+  // collapses the transcript under the reader and moves the view.
+  return input.composerDockStyle ? "pb-20" : "pb-6";
 }
 
 export function getCopilotTranscriptScrollTop(

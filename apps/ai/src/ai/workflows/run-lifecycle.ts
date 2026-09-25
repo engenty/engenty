@@ -29,7 +29,9 @@ import {
   holdRunForReview,
   routineHoldsForReview,
 } from "../routines/review-hold.js";
+import { composeResultCard } from "../threads/result-card.js";
 import type { GraphRunOutcome } from "./dispatch.js";
+import { reportRunToCaller } from "./report-to-caller.js";
 import { forgetGraphRunScope } from "./run-context.js";
 import { emitGraphRunTerminal } from "./run-events.js";
 import { extractRunContractFields } from "./run-outcome.js";
@@ -42,6 +44,8 @@ import {
 const logger = createLogger({ name: "graph-action-lifecycle" });
 
 export interface SettleGraphRunInput {
+  /** The conversation that asked for this run; its result is posted there. */
+  callerThreadId?: string | null;
   /** The person who started the run, when one did — audience for its asks. */
   initiatorUserId?: string | null;
   /** True while invoke_workflow is still inside the owning Task's active run. */
@@ -90,24 +94,70 @@ async function resolveResultArtifact(
   if (!(result && typeof result === "object")) {
     return null;
   }
+  const levels = [result as Record<string, unknown>, nestedOutput(result)];
   let artifactId: string | null = null;
-  for (const key of ["artifact_link", "artifact_id", "artifact"]) {
-    const value = (result as Record<string, unknown>)[key];
-    if (typeof value === "string" && UUID_PATTERN.test(value.trim())) {
-      artifactId = value.trim();
+  for (const level of levels) {
+    for (const key of ["artifact_link", "artifact_id", "artifact"]) {
+      const value = level?.[key];
+      if (typeof value === "string" && UUID_PATTERN.test(value.trim())) {
+        artifactId = value.trim();
+        break;
+      }
+    }
+    if (artifactId) {
       break;
     }
   }
-  if (!artifactId) {
-    return null;
-  }
   try {
     const store = createArtifactStoreFromEnv();
-    const found = await store?.get({ artifactId, tenantId });
-    return found ? { id: artifactId, title: found.artifact.title } : null;
+    if (artifactId) {
+      const found = await store?.get({ artifactId, tenantId });
+      return found ? { id: artifactId, title: found.artifact.title } : null;
+    }
+    // A specialist step answers `{ output, run_id }`; what it stored during
+    // the run is found by the run that wrote it.
+    const runId = (result as Record<string, unknown>).run_id;
+    if (typeof runId === "string" && runId.trim()) {
+      const written = await store?.findByLastRunId({ runId, tenantId });
+      return written ? { id: written.id, title: written.title } : null;
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+/** A specialist step's answer sits under `output` (`{ output, run_id }`). */
+function nestedOutput(result: unknown): Record<string, unknown> | null {
+  const output =
+    result && typeof result === "object"
+      ? (result as Record<string, unknown>).output
+      : null;
+  return output && typeof output === "object"
+    ? (output as Record<string, unknown>)
+    : null;
+}
+
+/**
+ * A summary within {@link SUMMARY_MAX}: whole sentences when one ends inside
+ * the limit, else cut at a word with an ellipsis — never mid-word.
+ */
+function fitSummary(text: string): string | null {
+  const flat = text.trim();
+  if (flat.length <= SUMMARY_MAX) {
+    return flat || null;
+  }
+  const head = flat.slice(0, SUMMARY_MAX);
+  const sentenceEnd = Math.max(
+    head.lastIndexOf(". "),
+    head.lastIndexOf("! "),
+    head.lastIndexOf("? ")
+  );
+  if (sentenceEnd > SUMMARY_MAX / 2) {
+    return head.slice(0, sentenceEnd + 1);
+  }
+  const wordEnd = head.lastIndexOf(" ");
+  return `${head.slice(0, wordEnd > 0 ? wordEnd : SUMMARY_MAX - 1).trimEnd()}…`;
 }
 
 /**
@@ -119,13 +169,22 @@ async function resolveResultArtifact(
  */
 function summarizeRunResult(result: unknown): string | null {
   if (typeof result === "string") {
-    return result.trim().slice(0, SUMMARY_MAX) || null;
+    return fitSummary(result);
   }
   if (result && typeof result === "object") {
-    for (const key of ["summary", "result", "text", "message"]) {
-      const value = (result as Record<string, unknown>)[key];
-      if (typeof value === "string" && value.trim()) {
-        return value.trim().slice(0, SUMMARY_MAX);
+    const output = (result as Record<string, unknown>).output;
+    if (typeof output === "string" && output.trim()) {
+      return fitSummary(output);
+    }
+    for (const level of [
+      result as Record<string, unknown>,
+      nestedOutput(result),
+    ]) {
+      for (const key of ["summary", "result", "text", "message"]) {
+        const value = level?.[key];
+        if (typeof value === "string" && value.trim()) {
+          return fitSummary(value);
+        }
       }
     }
   }
@@ -221,6 +280,8 @@ export async function settleGraphRun(
         ...(owner ? { task_id: owner.taskId } : {}),
         request_id: input.requestId,
         ...(request?.thread_id ? { thread_id: request.thread_id } : {}),
+        // A routine's fire runs in its Engenty's chat: the ask opens there.
+        ...(routine?.agent_id ? { thread_agent_id: routine.agent_id } : {}),
       },
       ownerUserId: routine?.created_by_user_id ?? null,
       routineId: request?.routine_id ?? null,
@@ -468,6 +529,7 @@ export async function settleGraphRun(
         ...(request?.routine_id ? { routine_id: request.routine_id } : {}),
         ...(request?.workflow_id ? { workflow_id: request.workflow_id } : {}),
         ...(request?.thread_id ? { thread_id: request.thread_id } : {}),
+        ...(routine?.agent_id ? { thread_agent_id: routine.agent_id } : {}),
       },
       ownerUserId: routine?.created_by_user_id ?? null,
       payload: { error: (reason ?? "").slice(0, 1000) },
@@ -492,11 +554,44 @@ export async function settleGraphRun(
         : {}),
     });
   }
+  const resolvedArtifact =
+    status === "completed"
+      ? await resolveResultArtifact(input.outcome.result, input.tenantId)
+      : null;
+  // The chat shows a card of the result; the pane shows all of it.
+  const resultArtifact = resolvedArtifact
+    ? {
+        ...resolvedArtifact,
+        card: await composeResultCard({
+          artifactId: resolvedArtifact.id,
+          output:
+            nestedOutput(input.outcome.result) ??
+            (input.outcome.result && typeof input.outcome.result === "object"
+              ? (input.outcome.result as Record<string, unknown>)
+              : null),
+          summary: summarizeRunResult(input.outcome.result),
+          title: resolvedArtifact.title,
+        }),
+      }
+    : null;
+  if (
+    input.callerThreadId &&
+    input.callerThreadId !== request?.thread_id &&
+    !owner
+  ) {
+    await reportRunToCaller({
+      artifact: resultArtifact,
+      callerThreadId: input.callerThreadId,
+      name: routine?.name?.trim() || null,
+      reason: reason ?? null,
+      runId: input.runId,
+      status,
+      summary: summarizeRunResult(input.outcome.result),
+      tenantId: input.tenantId,
+    });
+  }
   if (routines && request?.routine_id && request.thread_id) {
-    const artifact = await resolveResultArtifact(
-      input.outcome.result,
-      input.tenantId
-    );
+    const artifact = resultArtifact;
     await reportRoutineRun({
       summary: summarizeRunResult(input.outcome.result),
       ...(artifact ? { artifact } : {}),

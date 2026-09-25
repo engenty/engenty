@@ -266,6 +266,9 @@ function artifactOpenInterrupt(
       ...((a as { multi_select?: unknown }).multi_select === true
         ? { multi_select: true }
         : {}),
+      ...((a as { preview?: unknown }).preview
+        ? { preview: (a as { preview?: unknown }).preview }
+        : {}),
       interrupt_id: interrupt.interruptId,
       title: a.title,
       tool_call_id: interrupt.toolCallId,

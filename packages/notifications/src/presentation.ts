@@ -180,6 +180,18 @@ export function notificationTarget(record: TargetInput): string | null {
     return inSpace(`tasks/${enc(taskId)}`) ?? `/mdl/tasks/${enc(taskId)}`;
   }
 
+  // A result a run stored: the notification opens the result, not the chat
+  // it was made in. Review rows below still go to the decision.
+  const artifactId = str(meta.artifact_id);
+  if (artifactId && record.kind !== "routine_review") {
+    const artifact = inSpace(
+      `data?${new URLSearchParams({ artifact: artifactId }).toString()}`
+    );
+    if (artifact) {
+      return artifact;
+    }
+  }
+
   // A routine held for review is released from its Engenty's desk (the run
   // activity in the chat it posted to), not from the run page.
   if (record.kind === "routine_review") {
@@ -200,11 +212,33 @@ export function notificationTarget(record: TargetInput): string | null {
     }
   }
 
-  // A parked or failed workflow run: its run page, where the gate is answered.
   const runId =
     record.subject_type === "workflow_run"
       ? record.subject_id
       : str(meta.run_id);
+  // A run an Engenty works in its own chat (a routine's fire): that chat,
+  // with the run open in the pane beside it — the gate is answered there.
+  // Only a wizard has a page of its own.
+  const runThreadId = str(meta.thread_id);
+  const runAgentId = str(meta.thread_agent_id);
+  if (
+    runId &&
+    runThreadId &&
+    runAgentId &&
+    str(meta.workflow_surface) !== "wizard"
+  ) {
+    const search = new URLSearchParams({
+      engagement: `conversation:${runThreadId}`,
+      panel: "runs",
+      run: runId,
+    });
+    const desk = inSpace(`agents/${enc(runAgentId)}?${search.toString()}`);
+    if (desk) {
+      return desk;
+    }
+  }
+
+  // A parked or failed wizard run: its run page, where the gate is answered.
   const workflowId = str(meta.workflow_id);
   if (runId && workflowId) {
     const page = inSpace(`workflows/${enc(workflowId)}/runs/${enc(runId)}`);

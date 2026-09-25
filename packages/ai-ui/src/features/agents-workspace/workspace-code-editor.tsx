@@ -2,7 +2,7 @@
 // `.dark` class (same approach as SkillFileCodeView).
 
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useEffect, useState } from "react";
+import { useDocumentDarkClass } from "../../lib/use-document-dark-class.js";
 
 function languageFromPath(path: string): string {
   const lower = path.toLowerCase();
@@ -43,25 +43,6 @@ function languageFromPath(path: string): string {
     return "python";
   }
   return "plaintext";
-}
-
-function useDocumentDarkClass() {
-  const [isDark, setIsDark] = useState(() =>
-    typeof document === "undefined"
-      ? false
-      : document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const sync = () => setIsDark(root.classList.contains("dark"));
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
 }
 
 export interface WorkspaceCodeEditorProps {

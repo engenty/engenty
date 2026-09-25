@@ -207,6 +207,29 @@ describe("wizardRunState", () => {
 });
 
 describe("WizardRunner", () => {
+  it("says a run it cannot load is unavailable and lets the person leave", () => {
+    const onExit = vi.fn();
+    wizardRun.mockReturnValue({
+      query: {
+        data: undefined,
+        isError: true,
+        isLoading: false,
+        refetch: vi.fn(),
+      },
+      reattach: vi.fn(),
+      refetch: vi.fn(),
+      stream: null,
+    });
+    render(
+      <MemoryRouter>
+        <WizardRunner onExit={onExit} runId="missing" />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button"));
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the gate and resumes with the full step path", () => {
     const { reattach } = mockRun(
       runData({

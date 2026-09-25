@@ -8,6 +8,7 @@ const ROUTINE = "33333333-3333-4333-8333-333333333333";
 const binding: RoutineOutcomeRow = {
   config: {},
   created_at: "",
+  description: null,
   enabled: true,
   id: "66666666-6666-4666-8666-666666666666",
   mode: "agent",
@@ -26,10 +27,12 @@ const disabled: RoutineOutcomeRow = {
 function deliverTool(routines = { get: vi.fn(async () => null) }) {
   return createOutcomesDeliverTool({
     bindings: [binding, disabled],
+    graphRunId: "33333333-3333-4333-8333-333333333333",
     requestId: "22222222-2222-4222-8222-222222222222",
     routineId: ROUTINE,
     routines,
     tenantId: TENANT,
+    threadId: "88888888-8888-4888-8888-888888888888",
   }).outcomes_deliver as {
     description: string;
     execute: (input: unknown, ctx: unknown) => Promise<unknown>;

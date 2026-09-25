@@ -247,20 +247,55 @@ export async function startConversationRun(
     store: input.store,
     threadId: input.threadId,
   });
-  // A person spoke: whatever agents did in this room since, the budget
-  // restarts and a pause lifts (rooms/room-turns.ts).
-  await noteHumanTurnInRoom({
-    scope: input.scope,
-    store: input.store,
-    threadId: input.threadId,
-  });
-  const spaceResolution = await resolveRunSpaceForThread({
-    routeContext: input.routeContext,
-    runId: input.runId,
-    scope: input.scope,
-    store: input.store,
-    threadId: input.threadId,
-  });
+  // Lookups keyed only by ids start together once access is proven; each
+  // is awaited where it was before, so a failure still lands where it did.
+  // A rejection is held until that await, never reported as unhandled.
+  const settleLater = <T>(promise: Promise<T>): Promise<T> => {
+    promise.catch(() => undefined);
+    return promise;
+  };
+  const rootConfigPromise = settleLater(
+    Promise.resolve(input.registry.getAgentConfig?.(input.agentId))
+  );
+  const threadRowPromise = settleLater(
+    Promise.resolve(
+      typeof input.store.getThread === "function"
+        ? input.store.getThread({
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+          })
+        : null
+    )
+  );
+  const instructionExtrasPromise = settleLater(
+    import("../instructions/resolve-agent-instruction-extras.js").then(
+      ({ resolveAgentInstructionExtras }) =>
+        resolveAgentInstructionExtras({
+          agentId: input.agentId,
+          tenantId: input.scope.tenantId,
+          userId: input.scope.userId,
+        })
+    )
+  );
+  const coreAgentIdPromise = settleLater(
+    resolveCoreAgentId(input.scope.tenantId, input.agentId)
+  );
+  const [, spaceResolution] = await Promise.all([
+    // A person spoke: whatever agents did in this room since, the budget
+    // restarts and a pause lifts (rooms/room-turns.ts).
+    noteHumanTurnInRoom({
+      scope: input.scope,
+      store: input.store,
+      threadId: input.threadId,
+    }),
+    resolveRunSpaceForThread({
+      routeContext: input.routeContext,
+      runId: input.runId,
+      scope: input.scope,
+      store: input.store,
+      threadId: input.threadId,
+    }),
+  ]);
   const runSpace = resolvedRunSpace(spaceResolution);
   markRunLive(input.runId);
   const abort = registerActiveRunAbortController(input.runId);
@@ -271,6 +306,8 @@ export async function startConversationRun(
     ? createSessionRunTracker({
         agentId: input.agentId,
         createdByUserId: input.scope.userId,
+        // The tier the next Auto turn weighs a change against.
+        ...(input.effort ? { metadata: { effort: input.effort } } : {}),
         modelId: input.modelId ?? null,
         runId: input.runId,
         runStore: input.runStore,
@@ -379,13 +416,15 @@ export async function startConversationRun(
     // (PLAN-spaces.md Phase C3a). Resolved here rather than passed in because
     // BOTH chat lanes — this one and the resume — have to agree, and a value
     // threaded from two routes is a value that eventually diverges.
-    const rootConfig = await input.registry.getAgentConfig?.(input.agentId);
-    const toolsSpace = await enrichToolsSpaceForAgentRun({
-      agentId: input.agentId,
-      preferredConnectorIds: rootConfig?.connectorIds ?? [],
-      scope: input.scope,
-      space: toolsSpaceFromResolution(spaceResolution),
-    });
+    const rootConfig = await rootConfigPromise;
+    const toolsSpacePromise = settleLater(
+      enrichToolsSpaceForAgentRun({
+        agentId: input.agentId,
+        preferredConnectorIds: rootConfig?.connectorIds ?? [],
+        scope: input.scope,
+        space: toolsSpaceFromResolution(spaceResolution),
+      })
+    );
     // The page-driving grant reads the row and the Space position, so it comes
     // after both are known; the executor and the prompt share this one value.
     const frontendToolGrant = frontendToolGrantForRun({
@@ -399,13 +438,29 @@ export async function startConversationRun(
       grant: frontendToolGrant,
     });
     const frontendTools = createNativeFrontendTools(mergedDefinitions);
-    const threadRow =
-      typeof input.store.getThread === "function"
-        ? await input.store.getThread({
-            tenantId: input.scope.tenantId,
-            threadId: input.threadId,
-          })
-        : null;
+    // Per-run runtime context (route, selection, workspace, modules). Built
+    // BEFORE assembly because it rides an input processor now: folded into the
+    // instructions it sat at the head of the provider's cache prefix, so every
+    // navigation re-billed the whole prompt. See runtime-context-processor.ts.
+    const runtimeInstructionsPromise = settleLater(
+      buildSessionRuntimeInstructions({
+        agentId: input.agentId,
+        agentUi: input.agentUi,
+        ...(input.computeInstructions
+          ? { computeInstructions: input.computeInstructions }
+          : {}),
+        frontendToolGrant,
+        routeContext: input.routeContext ?? null,
+        runContext: input.runContext,
+        scope: input.scope,
+        // The already-resolved surface, so the prompt names the same Space
+        // the tool gate enforces — including unresolved, which must not
+        // degrade to a route-context uuid.
+        spaceResolution,
+        threadId: input.threadId,
+      }).then((text) => text.trim())
+    );
+    const threadRow = await threadRowPromise;
     const sharedRoom = sharedMastraRoomFromThread({
       agentId: input.agentId,
       agentScope: rootConfig?.agentScope,
@@ -493,51 +548,27 @@ export async function startConversationRun(
       agentId: input.agentId,
       source: spaceResolution,
     });
-    const browserTools = await createUserBrowserTools({
-      browser: runBrowser,
-      emit: (name, value) =>
-        emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
-      headless: false,
-      tenantId: input.scope.tenantId,
-      textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
-      classifierModelId: input.modelConfig?.classifierModelId ?? null,
-    });
+    const [browserTools, toolsSpace, instructionExtras, runtimeInstructions] =
+      await Promise.all([
+        createUserBrowserTools({
+          browser: runBrowser,
+          emit: (name, value) =>
+            emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
+          headless: false,
+          tenantId: input.scope.tenantId,
+          textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
+          classifierModelId: input.modelConfig?.classifierModelId ?? null,
+        }),
+        toolsSpacePromise,
+        instructionExtrasPromise,
+        runtimeInstructionsPromise,
+      ]);
     const extraTools = {
       ...frontendTools,
       ...rootDelegation.extraTools,
       ...memoryTools,
       ...browserTools,
     };
-    const { resolveAgentInstructionExtras } = await import(
-      "../instructions/resolve-agent-instruction-extras.js"
-    );
-    const instructionExtras = await resolveAgentInstructionExtras({
-      agentId: input.agentId,
-      tenantId: input.scope.tenantId,
-      userId: input.scope.userId,
-    });
-    // Per-run runtime context (route, selection, workspace, modules). Built
-    // BEFORE assembly because it rides an input processor now: folded into the
-    // instructions it sat at the head of the provider's cache prefix, so every
-    // navigation re-billed the whole prompt. See runtime-context-processor.ts.
-    const runtimeInstructions = (
-      await buildSessionRuntimeInstructions({
-        agentId: input.agentId,
-        agentUi: input.agentUi,
-        ...(input.computeInstructions
-          ? { computeInstructions: input.computeInstructions }
-          : {}),
-        frontendToolGrant,
-        routeContext: input.routeContext ?? null,
-        runContext: input.runContext,
-        scope: input.scope,
-        // The already-resolved surface, so the prompt names the same Space
-        // the tool gate enforces — including unresolved, which must not
-        // degrade to a route-context uuid.
-        spaceResolution,
-        threadId: input.threadId,
-      })
-    ).trim();
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
       space: toolsSpace,
@@ -579,20 +610,24 @@ export async function startConversationRun(
       spaceId: runSpace?.spaceId ?? threadRow?.space_id,
       threadId: input.threadId,
     });
-    await emitTrajectoryHeader({
-      agent,
-      emit,
-      extraSystemNote: MASTRA_RUNTIME_NOTE,
-      modelId: input.modelId,
-      recalledMessages: await recallTrajectoryMessagePointers({
+    const trajectoryHeader = settleLater(
+      recallTrajectoryMessagePointers({
         memory,
         resourceId,
         threadId: input.threadId,
-      }),
-      runtimeInstructions,
-      toolNames: knownToolNames,
-      userMessage: input.prompt,
-    });
+      }).then((recalledMessages) =>
+        emitTrajectoryHeader({
+          agent,
+          emit,
+          extraSystemNote: MASTRA_RUNTIME_NOTE,
+          modelId: input.modelId,
+          recalledMessages,
+          runtimeInstructions,
+          toolNames: knownToolNames,
+          userMessage: input.prompt,
+        })
+      )
+    );
 
     // Answer tool calls left dangling by EARLIER turns (a hallucinated tool name
     // is persisted at state:"call" and never resolves on its own). Doing it here
@@ -601,7 +636,7 @@ export async function startConversationRun(
     // it is waiting on the user, not broken.
     const openInterruptToolCallId =
       readAgUiOpenInterrupt(input.sessionMetadata)?.tool_call_id ?? "";
-    const repaired = await repairDanglingToolCallsInHistory({
+    const repairedPromise = repairDanglingToolCallsInHistory({
       knownToolNames,
       scope: input.scope,
       ...(openInterruptToolCallId
@@ -610,6 +645,7 @@ export async function startConversationRun(
       store: input.store,
       threadId: input.threadId,
     });
+    const [repaired] = await Promise.all([repairedPromise, trajectoryHeader]);
     if (repaired.length > 0) {
       console.warn(
         `[conversation ${input.runId}] answered ${repaired.length} dangling tool call(s): ${repaired
@@ -626,10 +662,7 @@ export async function startConversationRun(
     // Agent identity for core: policies (e.g. the secrets reveal gate) must see
     // the AGENT as principal, not the user whose bearer token it runs under.
     // Goal = the conversation thread; approval grants persist against it.
-    const coreAgentId = await resolveCoreAgentId(
-      input.scope.tenantId,
-      input.agentId
-    );
+    const coreAgentId = await coreAgentIdPromise;
     const toolsRunContext = withEnvCoreBaseUrl({
       ...getEngentyToolsRunContext(),
       ...(coreAgentId ? { agentId: coreAgentId } : {}),

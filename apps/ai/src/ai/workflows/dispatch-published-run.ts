@@ -258,6 +258,9 @@ export async function dispatchPublishedWorkflowRun(
       };
     }
     await settleGraphRun({
+      ...(run.ctx.callerThreadId
+        ? { callerThreadId: run.ctx.callerThreadId }
+        : {}),
       initiatorUserId: run.ctx.userId ?? null,
       outcome,
       outputSchema: current.version.output_schema,

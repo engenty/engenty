@@ -1,11 +1,12 @@
 // The routine's own shape, as data:
 //
-//   [wake source] ──▶ [ what runs ] ──▶ [ outcome ]
+//   [wake source] ──▶ [ what runs ] ──▶ [ delivery ] (one per target)
 //
 // This is a RENDERING of the model, not a second model. A routine is one row in
 // `ai.routines`: the wake source is its own `kind` + cron/event fields, "what
-// runs" is the bound workflow (`workflow_id` — a published Workflow), and the
-// outcome is the promise the routine declares.
+// runs" is the bound workflow (`workflow_id` — a published Workflow), and each
+// delivery (`ai.routine_outcomes`) is something that happens with a run's
+// result. The routine's goal is an instruction to the model, not drawn here.
 //
 // The middle is the bound Action's spine, ALWAYS a list of steps: the picture
 // does not change KIND when the Action grows steps, it only gets longer.
@@ -52,6 +53,8 @@ export interface RoutineShapeMiddle {
 
 /** One destination, as display data under the promise. */
 export interface RoutineShapeBinding {
+  /** What this delivery is for, when someone said. */
+  description: string | null;
   enabled: boolean;
   id: string;
   label: string;
@@ -64,7 +67,6 @@ export interface RoutineShapeOutcome {
   /** Shown when report is `ask`, even if destinations replace the desk post. */
   holdLine: string | null;
   report: RoutineReportMode;
-  text: string | null;
 }
 
 export interface RoutineShape {
@@ -175,6 +177,7 @@ export function outcomeDisplay(
   const isDe = locale.startsWith("de");
   const builtin = BUILTIN_OUTCOME_LABELS[row.provider_id];
   return {
+    description: row.description?.trim() || null,
     enabled: row.enabled,
     id: row.id,
     label:
@@ -287,7 +290,6 @@ export function buildRoutineShape({
           bindings: routineOutcomes(routine, locale),
           holdLine: outcomeHoldLine(routine.report, locale.startsWith("de")),
           report: routine.report,
-          text: routine.outcome,
         }
       : null,
     triggers: routine ? routineTriggers(routine, locale) : [],

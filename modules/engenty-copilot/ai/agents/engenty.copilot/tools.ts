@@ -113,6 +113,7 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   "requestDecision",
   "requestFeedback",
   "web_search",
+  "web_fetch",
   ...ENGENTY_CATALOG_TOOL_IDS,
   ...ENGENTY_VAULT_TOOL_IDS,
   ...ENGENTY_ARTIFACT_TOOL_IDS,
@@ -176,13 +177,7 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
   ],
   // Pages, tables and Apps in the active Space. `table_write` alone is the
   // single heaviest tool the copilot carries.
-  "space-data": [
-    "table_write",
-    "table_read",
-    "artifact_write",
-    "app_build",
-    "cleanup_csv",
-  ],
+  "space-data": ["table_write", "table_read", "app_build", "cleanup_csv"],
   // Adding an app + its account to the Space.
   "space-setup": ["space_setup"],
   // First setup: the Space's Chief of Staff, then its apps and account.
@@ -217,6 +212,10 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
   // Durable tenant Files (Speicher) — a deliverable surface, not a lane the
   // copilot touches unprompted.
   "artifacts-and-downloads": ["vault_files"],
+  // Custom HTML widgets: their schema carries the host bridge, and most
+  // turns never need one. show_ui stays out — a stored result comes with
+  // its teaser in the chat.
+  "rich-ui": ["show_widget"],
   // The public skill registry, and authoring a skill of our own.
   "find-skills": ["skills_find", "skills_install"],
   "engenty-skill-authoring": ["skill_propose"],

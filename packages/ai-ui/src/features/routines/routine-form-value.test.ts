@@ -44,7 +44,6 @@ const routine: RoutineDto = {
   module_id: null,
   name: "Daily Email Sort",
   next_due_at: null,
-  outcome: null,
   outcomes: [],
   quiet_hours: null,
   report: "quiet",
@@ -56,17 +55,14 @@ const routine: RoutineDto = {
   workflow_id: WORKFLOW_ID,
 };
 
-describe("routine outcome + reporting", () => {
-  it("round-trips the declared promise and report floor", () => {
+describe("routine reporting", () => {
+  it("round-trips the report floor", () => {
     const value = routineToFormValue({
       ...routine,
-      outcome: "Inbox is empty and every mail is filed.",
       report: "ask",
     });
-    expect(value.outcome).toBe("Inbox is empty and every mail is filed.");
     expect(value.reportMode).toBe("ask");
     expect(routineFormToPayload(value)).toMatchObject({
-      outcome: "Inbox is empty and every mail is filed.",
       report: "ask",
     });
     expect(routineFormToPayload(value)).not.toHaveProperty("outcomes");
@@ -124,7 +120,6 @@ describe("routine form value mapping", () => {
       agent_id: "tasks.assist",
       description: null,
       name: "Daily Email Sort",
-      outcome: null,
       report: "quiet",
       // The chosen wake source plus the standard manual/agent pair.
       triggers: [

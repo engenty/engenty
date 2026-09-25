@@ -1,10 +1,30 @@
 import { readDecisionResumeAnswer } from "@engenty/ai-core/browser";
+import { getEngentyI18nApi } from "@engenty/i18n/ui";
 import { readAgentDisplayName } from "./agent-display-names.js";
 import {
   isToolApprovalArtifactOutput,
   parseToolApprovalResolution,
   readToolApprovalArtifactTitle,
 } from "./tool-approval.js";
+
+/**
+ * A row's words in the reader's language. The rows are built outside React
+ * (the adapter bakes them into each part), so this reads the app's shared
+ * translator; without one — tests, tools — the English stays.
+ */
+function say(
+  key: string,
+  english: string,
+  values: Record<string, unknown> = {}
+): string {
+  const t = getEngentyI18nApi()?.t;
+  if (t) {
+    return t(`ai-ui:toolRow.${key}`, { ...values, defaultValue: english });
+  }
+  return english.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
+    String(values[name] ?? "")
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -59,13 +79,19 @@ const EXECUTE_ID_KEYS = [
 ] as const;
 
 const ACTION_VERB_MAP: Record<string, string> = {
+  add: "Added",
   backfill: "Backfilled",
   create: "Created",
   delete: "Deleted",
+  fetch: "Fetched",
   get: "Opened",
   list: "Listed",
+  read: "Read",
+  remove: "Removed",
   search: "Searched",
+  send: "Sent",
   update: "Updated",
+  write: "Saved",
 };
 
 const QUOTED_ARG_MAX_LEN = 48;
@@ -178,7 +204,10 @@ export function formatTranscriptToolRow(params: {
   verb: string;
 }): { displayLabel: string; metadata?: string } {
   const displayLabel = params.quoted
-    ? `${params.verb} "${params.quoted}"`
+    ? say("quoted", '{{verb}} "{{quoted}}"', {
+        quoted: params.quoted,
+        verb: params.verb,
+      })
     : params.verb;
   const mode = params.metadataMode ?? "when-quoted";
   const showMetadata =
@@ -192,7 +221,8 @@ export function formatTranscriptToolRow(params: {
 
 function verbForAction(action: string): string {
   const normalized = action.replace(/[_-]+/g, "").toLowerCase();
-  return ACTION_VERB_MAP[normalized] ?? titleCaseAction(action);
+  const english = ACTION_VERB_MAP[normalized];
+  return english ? say(`verb.${normalized}`, english) : titleCaseAction(action);
 }
 
 /** Whether the parsed action maps to a curated verb (vs. titlecase fallback). */
@@ -320,28 +350,32 @@ function resolveMastraWorkspaceToolDisplay(
   switch (action) {
     case "read_file":
       return {
-        displayLabel: basename ? `Read ${basename}` : "Read file",
+        displayLabel: basename
+          ? say("readNamed", "Read {{name}}", { name: basename })
+          : say("readFile", "Read file"),
         metadata: lineRange ?? undefined,
       };
     case "write_file":
       return {
-        displayLabel: basename ? `Wrote ${basename}` : "Wrote file",
+        displayLabel: basename
+          ? say("wroteNamed", "Wrote {{name}}", { name: basename })
+          : say("wroteFile", "Wrote file"),
       };
     case "execute_command":
       return {
-        displayLabel: "Ran shell command",
+        displayLabel: say("ranShell", "Ran shell command"),
         metadata: command ? truncateCommandPreview(command) : undefined,
       };
     case "list_files":
     case "list_dir":
       return {
-        displayLabel: "Listed files",
+        displayLabel: say("listedFiles", "Listed files"),
         metadata: path ? basenamePath(path) || path : undefined,
       };
     case "search_files":
     case "grep":
       return {
-        displayLabel: "Searched files",
+        displayLabel: say("searchedFiles", "Searched files"),
         metadata: query ?? basename ?? undefined,
       };
     default:
@@ -461,7 +495,7 @@ export function resolveTranscriptToolDisplay(
     }
     return {
       resolvedToolName,
-      displayLabel: `Ran ${resolvedToolName}`,
+      displayLabel: say("ran", "Ran {{name}}", { name: resolvedToolName }),
     };
   }
 
@@ -470,7 +504,7 @@ export function resolveTranscriptToolDisplay(
     const moduleId = readString(inputRecord, ["moduleId", "module_id"]);
     if (query) {
       const row = formatTranscriptToolRow({
-        verb: "Searched",
+        verb: say("verb.search", "Searched"),
         quoted: query,
         metadata: moduleId ?? undefined,
         metadataMode: "when-quoted",
@@ -480,12 +514,14 @@ export function resolveTranscriptToolDisplay(
     if (moduleId) {
       return {
         resolvedToolName: wireToolName,
-        displayLabel: `Searched ${moduleId} tools`,
+        displayLabel: say("searchedModuleTools", "Searched {{module}} tools", {
+          module: moduleId,
+        }),
       };
     }
     return {
       resolvedToolName: wireToolName,
-      displayLabel: "Searched tools",
+      displayLabel: say("searchedTools", "Searched tools"),
     };
   }
 
@@ -495,7 +531,7 @@ export function resolveTranscriptToolDisplay(
     const moduleId = readString(inputRecord, ["moduleId", "module_id"]);
     if (query && moduleId) {
       const row = formatTranscriptToolRow({
-        verb: "Discovered",
+        verb: say("verb.discover", "Discovered"),
         quoted: query,
         metadata: moduleId,
         metadataMode: "when-quoted",
@@ -505,19 +541,21 @@ export function resolveTranscriptToolDisplay(
     if (query) {
       return {
         resolvedToolName: wireToolName,
-        displayLabel: `Discovered tools for "${query}"`,
+        displayLabel: say("discoveredFor", 'Discovered tools for "{{query}}"', {
+          query,
+        }),
       };
     }
     return {
       resolvedToolName: wireToolName,
-      displayLabel: "Discovered tools",
+      displayLabel: say("discoveredTools", "Discovered tools"),
     };
   }
 
   if (wireToolName === "engenty_tools_modules") {
     return {
       resolvedToolName: wireToolName,
-      displayLabel: "Listed modules",
+      displayLabel: say("listedModules", "Listed modules"),
     };
   }
 
@@ -525,7 +563,9 @@ export function resolveTranscriptToolDisplay(
     const query = readString(inputRecord, ["query", "search_query", "q"]);
     return {
       resolvedToolName: wireToolName,
-      displayLabel: query ? `Web search: ${query}` : "Web search",
+      displayLabel: query
+        ? say("webSearchQuery", "Web search: {{query}}", { query })
+        : say("webSearch", "Web search"),
     };
   }
 
@@ -540,9 +580,14 @@ export function resolveTranscriptToolDisplay(
       return {
         resolvedToolName: wireToolName,
         ...formatTranscriptToolRow({
-          verb: approval.approved ? "Approved" : "Denied",
+          verb: approval.approved
+            ? say("verb.approved", "Approved")
+            : say("verb.denied", "Denied"),
           quoted: primary,
-          metadata: rest.length > 0 ? `+${rest.length} more` : undefined,
+          metadata:
+            rest.length > 0
+              ? say("more", "+{{count}} more", { count: rest.length })
+              : undefined,
         }),
       };
     }
@@ -551,7 +596,8 @@ export function resolveTranscriptToolDisplay(
       return {
         resolvedToolName: wireToolName,
         displayLabel:
-          readToolApprovalArtifactTitle(params.output) ?? "Approval needed",
+          readToolApprovalArtifactTitle(params.output) ??
+          say("approvalNeeded", "Approval needed"),
       };
     }
     // The row is about the QUESTION. Labelling it with the answer alone
@@ -569,7 +615,7 @@ export function resolveTranscriptToolDisplay(
     }
     return {
       resolvedToolName: wireToolName,
-      displayLabel: resolvedLabel ?? "Decision needed",
+      displayLabel: resolvedLabel ?? say("decisionNeeded", "Decision needed"),
     };
   }
 
@@ -581,7 +627,8 @@ export function resolveTranscriptToolDisplay(
         : null;
     return {
       resolvedToolName: wireToolName,
-      displayLabel: resolvedLabel ?? "Feedback requested",
+      displayLabel:
+        resolvedLabel ?? say("feedbackRequested", "Feedback requested"),
     };
   }
 
@@ -610,7 +657,7 @@ export function resolveTranscriptToolDisplay(
 
   return {
     resolvedToolName: wireToolName,
-    displayLabel: `Ran ${wireToolName}`,
+    displayLabel: say("ran", "Ran {{name}}", { name: wireToolName }),
   };
 }
 

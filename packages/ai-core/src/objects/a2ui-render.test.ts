@@ -11,7 +11,6 @@ describe("readA2uiRenderMeta", () => {
             live: {
               kind: "inbox_dashboard",
               included: ["metrics", "mail"],
-              layout: "list-only",
               connection_id: "conn-1",
             },
             messages: [{ version: "v0.9", createSurface: { surfaceId: "s1" } }],
@@ -25,7 +24,6 @@ describe("readA2uiRenderMeta", () => {
       connection_id: "conn-1",
       included: ["metrics", "mail"],
       kind: "inbox_dashboard",
-      layout: "list-only",
     });
     expect(meta?.title).toBe("Inbox");
   });

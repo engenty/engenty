@@ -383,6 +383,9 @@
     },
     "activity": {
       "completed": "Routine finished",
+      "decide": "Decide",
+      "gateWaiting": "Waiting on you: {{title}}",
+      "runningFor": "Running · {{elapsed}}",
       "dismiss": "Dismiss",
       "failed": "Routine failed",
       "noOutput": "No result.",
@@ -392,9 +395,21 @@
       "reviewPrompt": "Finished — waiting for your review.",
       "markReviewed": "Reviewed",
       "routine": "Routine · {{name}}",
+      "stepStore": "Store the result",
       "starting": "Starting…",
       "stopped": "Routine stopped",
-      "unnamed": "Unnamed routine"
+      "unnamed": "Unnamed routine",
+      "now": {
+        "webSearch": "Searching the web: {{query}}",
+        "webFetch": "Reading {{source}}",
+        "writing": "Writing “{{title}}”",
+        "writingUntitled": "Writing a document",
+        "reading": "Reading a document",
+        "guide": "Reading a guide",
+        "noting": "Taking a note",
+        "lookingUp": "Looking things up in Engenty",
+        "working": "Working …"
+      }
     },
     "brand": "engenty",
     "commands": {
@@ -596,7 +611,16 @@
       "running": "Running…"
     },
     "loading": "Loading agent desk…",
-    "loadFailed": "This agent desk could not be loaded."
+    "loadFailed": "This agent desk could not be loaded.",
+    "routineNotice": {
+      "created": "New routine **{{name}}** · {{when}}.",
+      "workflow": "It runs the Workflow \"{{workflow}}\".",
+      "grants_one": "It may do one action without asking.",
+      "grants_other": "It may do {{count}} actions without asking.",
+      "started": "▸ **Routine · {{name}}** started",
+      "whenEvent": "whenever the event it waits for happens",
+      "whenPressed": "when pressed or asked"
+    }
   },
   "agentDetail": {
     "addRoutine": "Add routine",
@@ -1404,9 +1428,6 @@
       "descriptionPlaceholder": "What this routine does...",
       "agent": "Executing Agent",
       "agentPlaceholder": "Select agent...",
-      "outcome": "Outcome",
-      "outcomePlaceholder": "New posts are in the Post List, duplicates removed, each tagged with its source.",
-      "outcomeHint": "What has to be true when a run ends. The agent reads this as its definition of done — the workflow says what to do, this says what to have achieved.",
       "reportMode": "Reporting",
       "reportModes": {
         "quiet": "Only when something happened",
@@ -1534,7 +1555,9 @@
           "pointer": "Record the artifact this run already produced so other destinations and the desk can name it."
         },
         "webhook": "HTTP POST of the result to a URL you configure."
-      }
+      },
+      "purpose": "What for (optional)",
+      "purposePlaceholder": "e.g. Summary for the sales team"
     },
     "detail": {
       "prompt": "Prompt",
@@ -2209,6 +2232,7 @@
   "wizard": {
     "done": "Done",
     "error": "That did not go through.",
+    "runUnavailable": "This run is not available.",
     "restart": "Start over",
     "start": "Start",
     "state": {
@@ -2277,6 +2301,7 @@
     "appsAdded": "Added app: {{names}}",
     "appsRemoved": "Removed app: {{names}}",
     "remembered": "Made a note",
+    "rememberedGroup": "Made {{count}} notes",
     "page": {
       "home": "the Space home",
       "agents": "Agents",
@@ -2289,6 +2314,9 @@
     }
   },
   "messageActions": {
+    "openInPane": "Open beside the chat",
+    "openInData": "Open in Data",
+    "copyArtifactLink": "Copy document link",
     "copy": "Copy message",
     "copied": "Copied",
     "copyLink": "Copy link",
@@ -2300,5 +2328,45 @@
     "approve": "Approve",
     "reject": "Reject",
     "actionFailed": "Could not record the decision."
+  },
+  "toolRow": {
+    "quoted": "{{verb}} \"{{quoted}}\"",
+    "verb": {
+      "add": "Added",
+      "backfill": "Backfilled",
+      "create": "Created",
+      "delete": "Deleted",
+      "fetch": "Fetched",
+      "get": "Opened",
+      "list": "Listed",
+      "read": "Read",
+      "remove": "Removed",
+      "search": "Searched",
+      "send": "Sent",
+      "update": "Updated",
+      "write": "Saved",
+      "discover": "Discovered",
+      "approved": "Approved",
+      "denied": "Denied"
+    },
+    "readNamed": "Read {{name}}",
+    "readFile": "Read file",
+    "wroteNamed": "Wrote {{name}}",
+    "wroteFile": "Wrote file",
+    "ranShell": "Ran shell command",
+    "listedFiles": "Listed files",
+    "searchedFiles": "Searched files",
+    "ran": "Ran {{name}}",
+    "searchedModuleTools": "Searched {{module}} tools",
+    "searchedTools": "Searched tools",
+    "discoveredFor": "Discovered tools for \"{{query}}\"",
+    "discoveredTools": "Discovered tools",
+    "listedModules": "Listed modules",
+    "webSearchQuery": "Web search: {{query}}",
+    "webSearch": "Web search",
+    "more": "+{{count}} more",
+    "approvalNeeded": "Approval needed",
+    "decisionNeeded": "Decision needed",
+    "feedbackRequested": "Feedback requested"
   }
 }

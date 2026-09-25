@@ -1,4 +1,4 @@
-// Trigger and Outcome join the canvas vocabulary.
+// Trigger and Delivery join the canvas vocabulary.
 //
 // The routine picture is the flow canvas zoomed out one level, so its two new
 // node kinds speak the exact card language WorkflowStepNode established — same
@@ -9,8 +9,8 @@ import { Handle, type NodeProps, Position } from "@xyflow/react";
 import {
   Bot,
   CalendarClock,
-  Flag,
   MousePointerClick,
+  Send,
   Webhook,
   Zap,
 } from "lucide-react";
@@ -71,39 +71,32 @@ export function TriggerNode({ data }: NodeProps & { data: TriggerNodeData }) {
   );
 }
 
-export interface OutcomeBindingChip {
+export interface DeliveryNodeData {
+  /** What this delivery is for, when someone said. */
+  description: string | null;
   enabled: boolean;
   id: string;
+  /** Localized "Delivery" chip. */
   label: string;
+  /** "Every run" / "When the run calls it". */
   modeLabel: string;
-}
-
-export interface OutcomeNodeData {
-  /** Destinations under the promise — provider label + mode. */
-  bindings: OutcomeBindingChip[];
-  /** Localized "Holds for review" when report is ask and bindings exist. */
-  holdLine: string | null;
-  /** Localized "Outcome" chip. */
-  label: string;
-  /** Localized "no outcome declared" placeholder. */
-  placeholder: string;
-  /** Localized report-floor line; null when destinations replace the desk post. */
-  reportLine: string | null;
-  /** The routine's promise, or null when undeclared. */
-  text: string | null;
+  /** What happens: "High-priority update", "Email", "Desk card". */
+  title: string;
   [key: string]: unknown;
 }
 
-export function OutcomeNode({ data }: NodeProps & { data: OutcomeNodeData }) {
+/** One thing that happens with a run's result. */
+export function DeliveryNode({ data }: NodeProps & { data: DeliveryNodeData }) {
   return (
     <div
       // Emerald mixes into --card exactly like the gate's amber — a flat
       // bg-emerald-500/5 would go light-on-light in dark mode.
       className={cn(
         "ui-card-raised w-[260px] border-emerald-500/40",
-        "bg-[color-mix(in_oklch,var(--card)_93%,#10b981)]"
+        "bg-[color-mix(in_oklch,var(--card)_93%,#10b981)]",
+        data.enabled === false && "opacity-60"
       )}
-      data-kind="outcome"
+      data-kind="delivery"
     >
       <Handle
         className="!h-0 !w-0 !border-0 !bg-transparent"
@@ -112,51 +105,21 @@ export function OutcomeNode({ data }: NodeProps & { data: OutcomeNodeData }) {
       />
       <div className="flex items-start gap-2.5 px-3 py-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-          <Flag aria-hidden className="size-4" />
+          <Send aria-hidden className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
           <span className="font-medium text-[10px] text-emerald-700 uppercase tracking-wider dark:text-emerald-300">
             {data.label}
           </span>
-          {data.text ? (
-            <p className="line-clamp-4 whitespace-pre-wrap text-foreground text-xs leading-relaxed">
-              {data.text}
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-xs italic">
-              {data.placeholder}
-            </p>
-          )}
-          {data.bindings.length > 0 ? (
-            <ul className="mt-1.5 space-y-0.5 border-emerald-500/20 border-t pt-1.5">
-              {data.bindings.map((binding) => (
-                <li
-                  className={
-                    binding.enabled === false
-                      ? "truncate text-[10px] text-muted-foreground opacity-60"
-                      : "truncate text-[10px] text-muted-foreground"
-                  }
-                  key={binding.id}
-                >
-                  <span className="font-medium text-foreground">
-                    {binding.label}
-                  </span>
-                  {" · "}
-                  {binding.modeLabel}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {data.holdLine ? (
-            <p className="mt-1.5 text-[10px] text-muted-foreground">
-              {data.holdLine}
+          <p className="truncate font-medium text-foreground text-sm">
+            {data.title}
+          </p>
+          {data.description ? (
+            <p className="line-clamp-2 text-muted-foreground text-xs leading-relaxed">
+              {data.description}
             </p>
           ) : null}
-          {data.reportLine ? (
-            <p className="mt-1.5 border-emerald-500/20 border-t pt-1.5 text-[10px] text-muted-foreground">
-              {data.reportLine}
-            </p>
-          ) : null}
+          <p className="text-[10px] text-muted-foreground">{data.modeLabel}</p>
         </div>
       </div>
     </div>
@@ -166,6 +129,6 @@ export function OutcomeNode({ data }: NodeProps & { data: OutcomeNodeData }) {
 /** The canvas vocabulary plus the routine's two framing kinds. */
 export const routineNodeTypes = {
   ...workflowNodeTypes,
-  outcome: OutcomeNode,
+  delivery: DeliveryNode,
   trigger: TriggerNode,
 };

@@ -637,6 +637,7 @@
     "newChatPickAgent": "Agent für neuen Chat wählen",
     "newChatStartWithAgent": "Mit anderem Agent starten",
     "decisionAnswered": "Antwort",
+    "decisionShowWorkflow": "Ablauf ansehen",
     "decisionCard": {
       "customPrefix": "Eigene Antwort:",
       "inputPlaceholder": "Nummer eingeben oder eigene Antwort…",

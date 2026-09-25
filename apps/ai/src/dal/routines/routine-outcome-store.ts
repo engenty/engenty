@@ -13,6 +13,8 @@ export type RoutineOutcomeMode = "always" | "agent";
 export interface RoutineOutcomeRow {
   config: Record<string, unknown>;
   created_at: string;
+  /** What this delivery is for, in a few words. */
+  description: string | null;
   enabled: boolean;
   id: string;
   mode: RoutineOutcomeMode;
@@ -24,6 +26,7 @@ export interface RoutineOutcomeRow {
 
 export interface CreateRoutineOutcomeInput {
   config?: Record<string, unknown>;
+  description?: string | null;
   enabled?: boolean;
   id?: string;
   mode: RoutineOutcomeMode;
@@ -34,6 +37,7 @@ export interface CreateRoutineOutcomeInput {
 
 export interface UpdateRoutineOutcomeInput {
   config?: Record<string, unknown>;
+  description?: string | null;
   enabled?: boolean;
   mode?: RoutineOutcomeMode;
   providerId?: string;
@@ -66,6 +70,9 @@ function patchFromInput(
   if (input.config !== undefined) {
     patch.config = input.config;
   }
+  if (input.description !== undefined) {
+    patch.description = input.description;
+  }
   if (input.enabled !== undefined) {
     patch.enabled = input.enabled;
   }
@@ -90,6 +97,7 @@ export function createRoutineOutcomeStore(
       const { data, error } = await table(input.tenantId)
         .insert({
           config: input.config ?? {},
+          description: input.description ?? null,
           enabled: input.enabled ?? true,
           ...(input.id ? { id: input.id } : {}),
           mode: input.mode,

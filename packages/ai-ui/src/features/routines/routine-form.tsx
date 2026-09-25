@@ -338,29 +338,15 @@ export function RoutineForm({
         </div>
       </div>
 
-      {/* Ergebnis — the view's outcome node, as its two fields. The Action
-          says what to DO; this says what must be TRUE when the run ends. */}
+      {/* Zustellung — what happens with a run's result. The deliveries
+          themselves are edited on the flow; without any, the report mode
+          below is the desk post a run falls back to. */}
       <div className="space-y-2">
-        <SectionHeading>{isDe ? "Ergebnis" : "Outcome"}</SectionHeading>
+        <SectionHeading>{isDe ? "Zustellung" : "Delivery"}</SectionHeading>
         <div className="ui-card-panel space-y-3 p-3.5">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-outcome`}>
-              {t("routines.form.outcome")}
-            </Label>
-            <Textarea
-              className="min-h-[64px]"
-              id={`${idPrefix}-outcome`}
-              onChange={(e) => set({ outcome: e.target.value })}
-              placeholder={t("routines.form.outcomePlaceholder")}
-              value={value.outcome}
-            />
-            <p className="text-muted-foreground text-xs">
-              {t("routines.form.outcomeHint")}
-            </p>
-            <p className="text-muted-foreground text-xs">
-              {t("routines.form.destinationsHint")}
-            </p>
-          </div>
+          <p className="text-muted-foreground text-xs">
+            {t("routines.form.destinationsHint")}
+          </p>
 
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-report-mode`}>

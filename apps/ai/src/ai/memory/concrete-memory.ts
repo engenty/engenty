@@ -23,6 +23,20 @@ export function observationalMemoryEnabled(
   return env.ENGENTY_AI_OBSERVATIONAL_MEMORY !== "false";
 }
 
+/**
+ * Cross-thread shared observations. Opt-in: the profile and MEMORY.md already
+ * carry what a person wants kept across chats, and this layer costs a read
+ * before every model call plus up to 16k tokens of context.
+ */
+export function sharedObservationsEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return (
+    observationalMemoryEnabled(env) &&
+    env.ENGENTY_AI_SHARED_OBSERVATIONS === "true"
+  );
+}
+
 // The Observer-maintained per-USER profile (resource-scoped working memory):
 // delivered as a state signal each turn so profile updates do not invalidate
 // the provider's system-prefix cache. The main agent has no update tool.

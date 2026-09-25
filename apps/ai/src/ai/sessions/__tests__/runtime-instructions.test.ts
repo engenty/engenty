@@ -1,4 +1,3 @@
-import { SPACE_CONTRACT_PROMPT } from "@engenty/ai-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EngentySpaceSurface } from "../../core-http-client.js";
 import type { RunSpace, RunSpaceResolution } from "../run-space.js";
@@ -144,7 +143,6 @@ describe("buildSessionRuntimeInstructions", () => {
       threadId: "session-1",
     });
 
-    expect(result).toContain(SPACE_CONTRACT_PROMPT);
     expect(result).toContain(
       `- current_space: Marketing (marketing, ${SPACE_ID})`
     );
@@ -168,7 +166,6 @@ describe("buildSessionRuntimeInstructions", () => {
                     id: "routine-1",
                     last_result: "started",
                     name: "Friday report",
-                    outcome: "The report page is updated in place.",
                   },
                   {
                     created_at: "2026-09-02T00:00:00Z",
@@ -176,7 +173,6 @@ describe("buildSessionRuntimeInstructions", () => {
                     id: "routine-2",
                     last_result: null,
                     name: "Contact welcome",
-                    outcome: null,
                   },
                 ]
               : [],
@@ -210,7 +206,7 @@ describe("buildSessionRuntimeInstructions", () => {
     });
     expect(own).toContain("## Your routines");
     expect(own).toContain(
-      "- Friday report (routine_id: routine-1) — `0 8 * * 5` Europe/Vienna — done means: The report page is updated in place. — last: started"
+      "- Friday report (routine_id: routine-1) — `0 8 * * 5` Europe/Vienna — last: started"
     );
     expect(own).toContain(
       "- Contact welcome (routine_id: routine-2) — on `contacts.contact.created` — DISABLED"

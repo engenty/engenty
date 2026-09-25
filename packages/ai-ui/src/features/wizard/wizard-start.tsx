@@ -8,7 +8,7 @@
 // empty schema and a gate as its first node — then this page is skipped and
 // the run starts at once.
 
-import { formSurfaceFromSchema } from "@engenty/a2ui-catalog";
+import { formSurfaceFromSchema } from "@engenty/generative-a2ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation } from "@engenty/query-client";
 import { Skeleton } from "@engenty/ui-core";

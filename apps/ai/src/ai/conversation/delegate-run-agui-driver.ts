@@ -80,6 +80,8 @@ export interface HeadlessRunSinks {
     title: string;
   }) => void;
   onProgress?: (line: string) => void;
+  /** A tool call the run just made, with its arguments — what it is doing now. */
+  onToolCall?: (call: { args: unknown; toolName: string }) => void;
 }
 
 /** A gated tool call the run paused on, addressed by id when it is answered. */
@@ -132,6 +134,8 @@ export interface HeadlessRunState {
   producedArtifactIds: string[];
   streamError: string | null;
   suggestions?: FieldSuggestion[];
+  /** toolCallId → streamed argument JSON, until TOOL_CALL_END. */
+  toolCallArgs: Map<string, string>;
   /** toolCallId → toolCallName, since TOOL_CALL_RESULT carries only the id. */
   toolCallNames: Map<string, string>;
   /** Grant ids of workspace tools that suspended — a park, never a failure. */
@@ -145,6 +149,7 @@ export function createHeadlessRunState(): HeadlessRunState {
     pendingApprovals: [],
     producedArtifactIds: [],
     streamError: null,
+    toolCallArgs: new Map(),
     toolCallNames: new Map(),
     workspaceSuspensions: new Set(),
   };
@@ -236,6 +241,38 @@ export function mapHeadlessAgUiEvent(
         if (typeof toolCallId === "string") {
           state.toolCallNames.set(toolCallId, toolName);
         }
+      }
+      break;
+    }
+
+    case EventType.TOOL_CALL_ARGS: {
+      const toolCallId = event.toolCallId;
+      if (sinks.onToolCall && typeof toolCallId === "string") {
+        state.toolCallArgs.set(
+          toolCallId,
+          (state.toolCallArgs.get(toolCallId) ?? "") +
+            (typeof event.delta === "string" ? event.delta : "")
+        );
+      }
+      break;
+    }
+
+    case EventType.TOOL_CALL_END: {
+      const toolCallId = event.toolCallId;
+      const toolName =
+        typeof toolCallId === "string"
+          ? state.toolCallNames.get(toolCallId)
+          : undefined;
+      if (sinks.onToolCall && typeof toolCallId === "string" && toolName) {
+        const raw = state.toolCallArgs.get(toolCallId) ?? "";
+        state.toolCallArgs.delete(toolCallId);
+        let args: unknown = null;
+        try {
+          args = raw ? JSON.parse(raw) : null;
+        } catch {
+          args = null;
+        }
+        sinks.onToolCall({ args, toolName });
       }
       break;
     }

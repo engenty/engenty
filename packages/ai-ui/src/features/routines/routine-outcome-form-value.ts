@@ -10,6 +10,7 @@ import type {
 
 export interface OutcomeFormValue {
   config: Record<string, unknown>;
+  description: string;
   enabled: boolean;
   mode: RoutineOutcomeMode;
   providerId: string;
@@ -59,6 +60,7 @@ export function schemaObject(
 export function defaultOutcomeFormValue(providerId = ""): OutcomeFormValue {
   return {
     config: {},
+    description: "",
     enabled: true,
     mode: "always",
     providerId,
@@ -81,6 +83,7 @@ export function defaultConfigFromSchema(
 export function outcomeToFormValue(row: RoutineOutcomeDto): OutcomeFormValue {
   return {
     config: row.config ?? {},
+    description: row.description ?? "",
     enabled: row.enabled,
     mode: row.mode,
     providerId: row.provider_id,
@@ -114,6 +117,7 @@ export function outcomeFormToInput(
 ): RoutineOutcomeInput {
   return {
     config: compactOutcomeConfig(value.config),
+    description: value.description.trim() || null,
     enabled: value.enabled,
     mode: value.mode,
     provider_id: value.providerId,

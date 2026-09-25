@@ -292,7 +292,6 @@ export function CopilotPanelContent({
                       resolveCopilotTranscriptBottomPaddingClass({
                         compact,
                         composerDockStyle,
-                        status,
                       })
                     )
                   : cn(
@@ -300,7 +299,6 @@ export function CopilotPanelContent({
                       resolveCopilotTranscriptBottomPaddingClass({
                         compact,
                         composerDockStyle,
-                        status,
                       })
                     )
             )}

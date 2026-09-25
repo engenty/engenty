@@ -35,15 +35,13 @@ const COPILOT_LANE_AGENT_IDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The copilot's OWN chrome — opening, closing and re-docking its panel, the
+ * The copilot's OWN chrome — re-docking its panel, the
  * shell theme and locale. An Engenty on its desk has no copilot panel to move
  * and no business changing the person's theme; it gets the page-driving set
  * (navigate, dialogs, focus, guided tour, browser-use) and nothing about the
  * shell itself.
  */
 const COPILOT_CHROME_FRONTEND_TOOLS: ReadonlySet<string> = new Set([
-  "openCopilot",
-  "closeCopilot",
   "setCopilotDockMode",
   "shell_set_theme",
   "i18n_set_locale",

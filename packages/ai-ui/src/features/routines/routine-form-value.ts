@@ -57,8 +57,6 @@ export interface RoutineFormValue extends TriggerFormValue {
   /** Prompt mode is the default: one instruction, one trigger, no canvas. */
   mode: RoutineBodyMode;
   name: string;
-  /** The promise: what a fire must have achieved to count as done. */
-  outcome: string;
   /** The prompt, in prompt mode. Submitted as `prompt`. */
   prompt: string;
   /** How loudly a finished run reports; the declared floor. */
@@ -104,7 +102,6 @@ export function defaultRoutineFormValue(
     // starts from a prompt.
     mode: defaultActionId ? "workflow" : "prompt",
     name: "",
-    outcome: "",
     prompt: "",
     // `quiet` is the right default for a recurring check: silence when there is
     // nothing to say, a card on the desk when there is.
@@ -170,7 +167,6 @@ export function routineToFormValue(routine: RoutineDto): RoutineFormValue {
     description: routine.description ?? "",
     mode: routine.prompt ? "prompt" : "workflow",
     name: routine.name,
-    outcome: routine.outcome ?? "",
     prompt: routine.prompt ?? "",
     reportMode: routine.report,
   };
@@ -274,7 +270,6 @@ export function routineFormToRoutinePatch(
   return {
     description: value.description.trim() || null,
     name: value.name.trim(),
-    outcome: value.outcome.trim() || null,
     report: value.reportMode,
     ...routineBody(value),
   };

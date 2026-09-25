@@ -6,7 +6,10 @@ import {
   type ModelAllowList,
   renderedToolsOf,
   resolveChatModelId,
+  resolveModelWebTools,
   resolvePurposeModelId,
+  SPACE_CONTRACT_PROMPT,
+  WEB_SEARCH_TOOL_ID,
 } from "@engenty/ai-core";
 import {
   buildEngentyCopilotInstructions,
@@ -51,6 +54,7 @@ import {
 import { createShowObjectsTool } from "../../../ai/tools/show-objects-tool.js";
 import { createShowUiTool } from "../../../ai/tools/show-ui-tool.js";
 import { createShowWidgetTool } from "../../../ai/tools/show-widget-tool.js";
+import { WEB_FETCH_TOOL_ID } from "../../../ai/tools/web-fetch/index.js";
 import { workspaceTransferTools } from "../../../ai/tools/workspace-move/index.js";
 import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 import { AiSessionError } from "../errors.js";
@@ -71,6 +75,7 @@ import {
   createSkillGatedToolsProcessor,
   SKILL_GATED_TOOLS_INSTRUCTIONS,
 } from "./skill-gated-tools-processor.js";
+import { createSkillsListingProcessor } from "./skills-listing-processor.js";
 import { createStreamErrorRetryProcessor } from "./stream-error-retry.js";
 import type { AgentConfig, AiRegistry, MastraToolDefinition } from "./types.js";
 
@@ -388,6 +393,11 @@ async function assembleDynamicAgentWithAncestors(
   if (extras?.appendBodies?.length) {
     instructions = [instructions, ...extras.appendBodies].join("\n\n");
   }
+  // Root runs work in a Space. The contract is static, so it sits here in the
+  // cacheable prompt rather than in the per-run tail.
+  if (attachMemory) {
+    instructions = `${instructions}\n\n${SPACE_CONTRACT_PROMPT}`;
+  }
   if (attachCodeMode) {
     instructions = `${instructions}\n\n${engentyCodeModeInstructions}`;
   }
@@ -416,6 +426,18 @@ async function assembleDynamicAgentWithAncestors(
   // cap recalled history at what THIS model's window leaves after the tool
   // block, the reply and the runtime tail (history-token-budget.ts).
   const modelId = resolveAgentModelId(config, options.modelConfig);
+  // The model's own web search and fetch, where it has them, take the place
+  // of ours under the same name — one step, with the provider's citations.
+  // Only where the agent was given the tool: this changes how, not whether.
+  const modelWebTools = resolveModelWebTools(modelId);
+  if (modelWebTools.webSearch && WEB_SEARCH_TOOL_ID in agentTools) {
+    agentTools[WEB_SEARCH_TOOL_ID] =
+      modelWebTools.webSearch as unknown as MastraToolDefinition;
+  }
+  if (modelWebTools.webFetch && WEB_FETCH_TOOL_ID in agentTools) {
+    agentTools[WEB_FETCH_TOOL_ID] =
+      modelWebTools.webFetch as unknown as MastraToolDefinition;
+  }
   const historyLimit = historyTokenLimit({
     contextTokens:
       (await options.modelConfig?.resolveContextTokens?.(modelId)) ?? null,
@@ -429,6 +451,10 @@ async function assembleDynamicAgentWithAncestors(
     // so they arrive in the same turn. Visibility only — every tool stays
     // attached and stays gated.
     ...(toolGating ? [createSkillGatedToolsProcessor(toolGating)] : []),
+    // No `<available_skills>` block: skills are found with `skill_search`.
+    ...(options.workspace
+      ? [createSkillsListingProcessor(options.workspace)]
+      : []),
     new ToolCallFilter({
       exclude: [ENGENTY_TOOL_EXECUTE_TOOL_ID],
       filterAfterToolSteps: 2,

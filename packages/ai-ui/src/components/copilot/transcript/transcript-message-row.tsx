@@ -30,6 +30,7 @@ import {
 } from "./copilot-message-content";
 import { CopilotMessageHoverBody } from "./copilot-message-hover-actions.js";
 import { MemoryBreakDivider } from "./memory-break-divider.js";
+import { routineNoticeText } from "./routine-notice-text.js";
 import { TranscriptDateDivider } from "./transcript-date-divider.js";
 import type { TranscriptMessage } from "./transcript-layout.js";
 
@@ -210,7 +211,6 @@ function TranscriptMessageBody({
   isLastMessage,
   meetsAbove,
   meetsBelow,
-  raw,
   showAuthorLabels,
   showSenderLabel,
   stackClassName,
@@ -221,9 +221,22 @@ function TranscriptMessageBody({
   threadId,
   toolCardDensity,
   toolDetail,
+  raw: stored,
 }: TranscriptMessageRowProps) {
-  const { t } = useTranslation("ai-ui");
+  const { i18n, t } = useTranslation("ai-ui");
   const chatStyle = useChatStyle();
+  // A routine line the platform posted: said in the reader's language.
+  const raw = stored.routineNotice
+    ? {
+        ...stored,
+        parts: [
+          {
+            text: routineNoticeText(stored.routineNotice, t, i18n.language),
+            type: "text" as const,
+          },
+        ],
+      }
+    : stored;
   // A built App waiting to be activated: the row IS the App, review banner
   // and all, so the decision sits in the conversation that asked for it. The
   // row's text is written for the model's next turn; printing it above the

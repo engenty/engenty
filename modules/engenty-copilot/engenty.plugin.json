@@ -194,10 +194,22 @@
         "secret": true
       },
       {
-        "description": "Set to false to disable Mastra thread and shared observational memory for agent chat. Enabled by default.",
+        "description": "Set to false to disable Mastra thread observational memory for agent chat. Enabled by default.",
         "feature": "ai",
         "group": "AI",
         "key": "ENGENTY_AI_OBSERVATIONAL_MEMORY",
+        "obtain": {
+          "kind": "manual"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": false
+      },
+      {
+        "description": "Set to true to add cross-thread shared observations (per user for personal agents, per Space for shared ones) to every turn. Off by default: it adds a DB read before the model call and up to 16k tokens of context. Needs ENGENTY_AI_OBSERVATIONAL_MEMORY on.",
+        "feature": "ai",
+        "group": "AI",
+        "key": "ENGENTY_AI_SHARED_OBSERVATIONS",
         "obtain": {
           "kind": "manual"
         },

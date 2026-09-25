@@ -3,9 +3,10 @@
  * (official website, contact details, roles, etc.). Import from @engenty/ai-core.
  */
 import { openai } from "@ai-sdk/openai";
-import { generateText, type Tool, type ToolSet } from "ai";
+import { generateText, stepCountIs, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { resolveChatModelId } from "../../../src/config/chat-model-id.js";
+import { resolveModelWebTools } from "./model-web-tools.js";
 
 export const webSearchTool = openai.tools.webSearch() as Tool;
 
@@ -87,25 +88,54 @@ export async function runWebSearch(
     return options.search(parsed);
   }
 
+  // The fallback for a run whose own model has no search: a second call on
+  // the default chat model, with THAT model's search (resolveModelWebTools).
+  // Forcing OpenAI's tool on whatever the default was broke every tenant
+  // whose default is not an OpenAI model.
+  const model = options.model ?? resolveChatModelId({ purpose: "chat" });
+  const search =
+    resolveModelWebTools(model).source === "openai"
+      ? (openai.tools.webSearch({
+          ...(parsed.searchContextSize
+            ? { searchContextSize: parsed.searchContextSize }
+            : {}),
+        }) as Tool)
+      : resolveModelWebTools(model).webSearch;
+  if (!search) {
+    throw new Error(
+      `web_search: the default chat model (${model}) has no web search — route it through the Vercel AI Gateway or an Anthropic model.`
+    );
+  }
   const result = await generateText({
-    model: options.model ?? resolveChatModelId({ purpose: "chat" }),
+    model,
     prompt: `Search the public web for: ${parsed.query}
 
 Return a concise evidence summary and preserve source URLs.`,
-    toolChoice: { toolName: WEB_SEARCH_TOOL_ID, type: "tool" },
-    tools: {
-      [WEB_SEARCH_TOOL_ID]: openai.tools.webSearch({
-        ...(parsed.searchContextSize
-          ? { searchContextSize: parsed.searchContextSize }
-          : {}),
-      }),
-    } as ToolSet,
+    // Not a forced tool choice: provider-run search answers in the step that
+    // called it, and a choice forced on every step would search forever.
+    stopWhen: stepCountIs(3),
+    tools: { [WEB_SEARCH_TOOL_ID]: search } as ToolSet,
   });
 
+  // Provider search reports `sources`; the gateway's search returns its hits
+  // as the tool's output (`{ results: [{ url, title }] }`) instead.
+  const toolHits = result.steps.flatMap((step) =>
+    step.toolResults.flatMap((toolResult) => {
+      const output = (toolResult as { output?: { results?: unknown } }).output;
+      return Array.isArray(output?.results) ? output.results : [];
+    })
+  );
+  const sources = normalizeWebSearchSources([
+    ...(result.sources ?? []),
+    ...toolHits,
+  ]);
   return {
     ok: true,
     query: parsed.query,
-    sources: normalizeWebSearchSources(result.sources),
+    sources: sources.filter(
+      (source, index) =>
+        sources.findIndex((other) => other.url === source.url) === index
+    ),
     text: result.text,
   };
 }

@@ -1,5 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
+import { cn } from "@engenty/ui-core";
 import type { ComponentType } from "react";
+import { useDocumentDarkClass } from "../lib/use-document-dark-class.js";
 import { AppArtifactView } from "./app-artifact-view.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 import { DatabaseArtifactView } from "./database-artifact-view.js";
@@ -80,12 +82,37 @@ function MarkdownArtifactView({ artifact, content }: ArtifactViewProps) {
   );
 }
 
+/** A report written in the house style carries this marker in its <style>. */
+const HOUSE_STYLE_MARKER = "data-engenty-house-style";
+
+/**
+ * The document in the app's theme. The frame cannot see the app's `dark`
+ * class, so a house-style report gets it on its own <html>; its tokens do
+ * the rest. Other HTML keeps the light page it was written for.
+ */
+function themedHtml(content: string, dark: boolean): string {
+  if (!(dark && content.includes(HOUSE_STYLE_MARKER))) {
+    return content;
+  }
+  return content.replace(/<html([^>]*)>/i, (_open, attrs: string) =>
+    /\bclass=["']/i.test(attrs)
+      ? `<html${attrs.replace(/\bclass=(["'])/i, "class=$1dark ")}>`
+      : `<html${attrs} class="dark">`
+  );
+}
+
 function HtmlArtifactView({ content }: ArtifactViewProps) {
+  const dark = useDocumentDarkClass();
+  const html = content ?? "";
+  const house = html.includes(HOUSE_STYLE_MARKER);
   return (
     <iframe
-      className="min-h-0 flex-1 border-0 bg-white"
+      className={cn(
+        "min-h-0 flex-1 border-0",
+        house ? "bg-transparent" : "bg-white"
+      )}
       sandbox="allow-forms allow-popups allow-scripts"
-      srcDoc={content ?? ""}
+      srcDoc={themedHtml(html, dark)}
       title="HTML artifact"
     />
   );

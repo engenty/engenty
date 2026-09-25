@@ -372,7 +372,6 @@ describe("live A2UI surface tabs", () => {
         live: {
           included: ["mail"],
           kind: "inbox_dashboard",
-          layout: "list-only",
         },
         messages: [{ version: "v0.9" }],
         surface_id: "s1",

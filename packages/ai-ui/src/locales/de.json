@@ -383,6 +383,9 @@
     },
     "activity": {
       "completed": "Routine abgeschlossen",
+      "decide": "Entscheiden",
+      "gateWaiting": "Wartet auf dich: {{title}}",
+      "runningFor": "Läuft · {{elapsed}}",
       "dismiss": "Ausblenden",
       "failed": "Routine fehlgeschlagen",
       "noOutput": "Kein Ergebnis.",
@@ -392,9 +395,21 @@
       "reviewPrompt": "Fertig — wartet auf deine Durchsicht.",
       "markReviewed": "Angesehen",
       "routine": "Routine · {{name}}",
+      "stepStore": "Ergebnis ablegen",
       "starting": "Wird gestartet…",
       "stopped": "Routine gestoppt",
-      "unnamed": "Namenlose Routine"
+      "unnamed": "Namenlose Routine",
+      "now": {
+        "webSearch": "Sucht im Web: {{query}}",
+        "webFetch": "Liest {{source}}",
+        "writing": "Schreibt „{{title}}“",
+        "writingUntitled": "Schreibt ein Dokument",
+        "reading": "Liest ein Dokument",
+        "guide": "Liest eine Anleitung",
+        "noting": "Macht sich eine Notiz",
+        "lookingUp": "Sucht in Engenty",
+        "working": "Arbeitet …"
+      }
     },
     "brand": "engenty",
     "commands": {
@@ -596,7 +611,16 @@
       "running": "Läuft…"
     },
     "loading": "Agent-Desk wird geladen…",
-    "loadFailed": "Dieser Agent-Desk konnte nicht geladen werden."
+    "loadFailed": "Dieser Agent-Desk konnte nicht geladen werden.",
+    "routineNotice": {
+      "created": "Neue Routine **{{name}}** · {{when}}.",
+      "workflow": "Sie führt den Workflow „{{workflow}}“ aus.",
+      "grants_one": "Sie darf eine Aktion ohne Rückfrage ausführen.",
+      "grants_other": "Sie darf {{count}} Aktionen ohne Rückfrage ausführen.",
+      "started": "▸ **Routine · {{name}}** gestartet",
+      "whenEvent": "sobald das Ereignis eintritt",
+      "whenPressed": "auf Knopfdruck oder auf Zuruf"
+    }
   },
   "agentDetail": {
     "addRoutine": "Routine hinzufügen",
@@ -1404,9 +1428,6 @@
       "descriptionPlaceholder": "Was diese Routine tut...",
       "agent": "Ausführender Agent",
       "agentPlaceholder": "Agenten auswählen...",
-      "outcome": "Ergebnis",
-      "outcomePlaceholder": "Neue Beiträge stehen in der Post-Liste, Duplikate entfernt, jeder mit seiner Quelle markiert.",
-      "outcomeHint": "Was am Ende eines Laufs zutreffen muss. Der Agent liest das als seine Definition von „fertig“ — der Workflow sagt, was zu tun ist, das hier, was erreicht sein soll.",
       "reportMode": "Rückmeldung",
       "reportModes": {
         "quiet": "Nur wenn etwas passiert ist",
@@ -1534,7 +1555,9 @@
           "pointer": "Hält fest, welches Artefakt der Lauf schon erzeugt hat, damit andere Zustellungen und der Schreibtisch es nennen können."
         },
         "webhook": "HTTP-POST des Ergebnisses an eine URL, die du einstellst."
-      }
+      },
+      "purpose": "Wofür (optional)",
+      "purposePlaceholder": "z.B. Zusammenfassung an das Vertriebsteam"
     },
     "detail": {
       "prompt": "Prompt",
@@ -2209,6 +2232,7 @@
   "wizard": {
     "done": "Fertig",
     "error": "Das hat nicht geklappt.",
+    "runUnavailable": "Dieser Lauf ist nicht verfügbar.",
     "restart": "Neu starten",
     "start": "Starten",
     "state": {
@@ -2277,6 +2301,7 @@
     "appsAdded": "App hinzugefügt: {{names}}",
     "appsRemoved": "App entfernt: {{names}}",
     "remembered": "Etwas gemerkt",
+    "rememberedGroup": "{{count}} Dinge gemerkt",
     "page": {
       "home": "Space-Startseite",
       "agents": "Agenten",
@@ -2289,6 +2314,9 @@
     }
   },
   "messageActions": {
+    "openInPane": "In Seitenleiste öffnen",
+    "openInData": "In Daten öffnen",
+    "copyArtifactLink": "Link zum Dokument kopieren",
     "copy": "Nachricht kopieren",
     "copied": "Kopiert",
     "copyLink": "Link kopieren",
@@ -2300,5 +2328,45 @@
     "approve": "Freigeben",
     "reject": "Ablehnen",
     "actionFailed": "Entscheidung konnte nicht gespeichert werden."
+  },
+  "toolRow": {
+    "quoted": "{{verb}}: „{{quoted}}“",
+    "verb": {
+      "add": "Hinzugefügt",
+      "backfill": "Nachgetragen",
+      "create": "Erstellt",
+      "delete": "Gelöscht",
+      "fetch": "Abgerufen",
+      "get": "Geöffnet",
+      "list": "Aufgelistet",
+      "read": "Gelesen",
+      "remove": "Entfernt",
+      "search": "Gesucht",
+      "send": "Gesendet",
+      "update": "Aktualisiert",
+      "write": "Gespeichert",
+      "discover": "Gefunden",
+      "approved": "Freigegeben",
+      "denied": "Abgelehnt"
+    },
+    "readNamed": "{{name}} gelesen",
+    "readFile": "Datei gelesen",
+    "wroteNamed": "{{name}} geschrieben",
+    "wroteFile": "Datei geschrieben",
+    "ranShell": "Befehl ausgeführt",
+    "listedFiles": "Dateien aufgelistet",
+    "searchedFiles": "Dateien durchsucht",
+    "ran": "{{name}} ausgeführt",
+    "searchedModuleTools": "Werkzeuge in {{module}} gesucht",
+    "searchedTools": "Werkzeuge gesucht",
+    "discoveredFor": "Werkzeuge für „{{query}}“ gefunden",
+    "discoveredTools": "Werkzeuge gefunden",
+    "listedModules": "Module aufgelistet",
+    "webSearchQuery": "Websuche: {{query}}",
+    "webSearch": "Websuche",
+    "more": "+{{count}} weitere",
+    "approvalNeeded": "Freigabe nötig",
+    "decisionNeeded": "Entscheidung nötig",
+    "feedbackRequested": "Rückmeldung erbeten"
   }
 }

@@ -1,6 +1,6 @@
 # `/company` and `/space/public` — plan
 
-Status: implemented (2026-09-25), except Phase 3. Replaces the tenant-wide read-write `/shared`.
+Status: implemented (2026-09-25). Replaces the tenant-wide read-write `/shared`.
 
 ## Problem
 
@@ -37,8 +37,8 @@ What a company actually wants is the file-server shape:
   renamed key moves the folder.
 - A Space sees its own public folder at `/space/public` and, when it
   publishes, also under `/company/spaces/<key>/` (read-only).
-- Phase 3 (not built) adds `/company/apps/<slug>/` (read-only `src/` of Apps owned by
-  other Spaces). `/skills` and `/data` stay where they are: `/skills` is
+- `/company/apps/<slug>/` (phase 3) is the read-only `src/` of every App a
+  publishing Space owns. `/skills` and `/data` stay where they are: `/skills` is
   filtered per Space and bot, `/data` already routes writes through
   operations.
 
@@ -134,11 +134,18 @@ machinery applies (`workspacePublishApprovalGate` in
    (upload/delete for people who can enter that Space); linked from the Space
    settings toggle.
 
-### Phase 3 — `/company/apps/<slug>` (not built)
+### Phase 3 — `/company/apps/<slug>` (built)
 
-Read-only `src/` of every active App whose `module_apps.apps.space_id` is
-another Space; the owning Space keeps `/sandbox/apps/<slug>` read-write
-(unchanged). Needs no schema change.
+Read-only `src/` of every App a publishing Space owns; the owning Space keeps
+`/sandbox/apps/<slug>` read-write (unchanged). No schema change and no read of
+the Apps module's tables: the App's folder in app-host's tree
+(`<space drive>/apps/<slug>/src`) is its placement, and slugs are unique per
+tenant (`workspace/company-apps.ts`). The same `publish_to_company` switch
+covers a Space's Apps, so a private Space's Apps stay out. File tools serve the
+folder read-only from the host; the computer gets it in the `/company` copy
+without `.git`, `node_modules` or symlinks, and an App that is removed (or
+whose Space stops publishing) drops out on the next refresh. All Apps in the
+folder show, whatever their status in the Apps module; `data/` never does.
 
 ## Tests
 

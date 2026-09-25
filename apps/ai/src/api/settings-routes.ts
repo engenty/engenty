@@ -152,7 +152,7 @@ function approvalModeEntry(
   return {
     source: tenant ? "tenant" : "default",
     tenant,
-    value: tenant ?? "manual",
+    value: tenant ?? "auto",
   };
 }
 

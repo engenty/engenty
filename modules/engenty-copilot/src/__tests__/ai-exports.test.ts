@@ -62,8 +62,6 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "navigate",
       "shell_set_theme",
       "i18n_set_locale",
-      "openCopilot",
-      "closeCopilot",
       "setCopilotDockMode",
       "openDialog",
       "focusField",
@@ -134,13 +132,11 @@ describe("@engenty/engenty-copilot AI exports", () => {
     expect(ENGENTY_INSTRUCTIONS).not.toMatch(/@[\w.-]+\.\w+/);
   });
 
-  it("points at the injected Space contract instead of duplicating it", () => {
-    expect(ENGENTY_INSTRUCTIONS).toMatch(/## Spaces/);
-    expect(ENGENTY_INSTRUCTIONS).toMatch(
-      /injected runtime `## Space contract`/
-    );
+  it("leaves the Space contract to the runtime instead of duplicating it", () => {
+    // Root agents get the canonical contract appended at assembly time.
+    expect(ENGENTY_INSTRUCTIONS).not.toMatch(/## Space contract/);
     expect(ENGENTY_INSTRUCTIONS).not.toMatch(
-      /engenty_tools_modules.*return catalog contracts, not records/
+      /return catalog contracts, not records/
     );
   });
 });

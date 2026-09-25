@@ -24,8 +24,8 @@ const input = {
 };
 
 describe("resolveTaskCompletionPolicy", () => {
-  it("defaults to review when nothing is configured", async () => {
-    expect(await resolveTaskCompletionPolicy(deps({}), input)).toBe("review");
+  it("defaults to complete (auto) when nothing is configured", async () => {
+    expect(await resolveTaskCompletionPolicy(deps({}), input)).toBe("complete");
   });
 
   it("auto space mode completes without review", async () => {

@@ -14,7 +14,7 @@ function messageHasStreamingReasoning(
   return lastPart != null && isReasoningPart(lastPart);
 }
 
-function messageHasActiveToolParts(
+export function messageHasActiveToolParts(
   parts: readonly unknown[] | undefined
 ): boolean {
   for (const part of parts ?? []) {
@@ -50,26 +50,6 @@ function isUnresolvedDecisionToolPart(part: ToolPartLike): boolean {
   return getToolState(part) === "completed";
 }
 
-function isInteractiveGenerativeToolPart(part: ToolPartLike): boolean {
-  if (getToolState(part) !== "completed") {
-    return false;
-  }
-  const output = part.output;
-  if (
-    !output ||
-    typeof output !== "object" ||
-    (output as { __type?: unknown }).__type !== "generative-ui"
-  ) {
-    return false;
-  }
-  const phase = (output as { phase?: unknown }).phase;
-  const submitted = (output as { submitted?: unknown }).submitted;
-  if (phase === "submitted" || phase === "readonly" || submitted === true) {
-    return false;
-  }
-  return true;
-}
-
 function transcriptHasPendingInteractiveTool(
   parts: readonly unknown[] | undefined
 ) {
@@ -78,9 +58,6 @@ function transcriptHasPendingInteractiveTool(
       continue;
     }
     if (isUnresolvedDecisionToolPart(part)) {
-      return true;
-    }
-    if (isInteractiveGenerativeToolPart(part)) {
       return true;
     }
   }
@@ -110,9 +87,16 @@ function liveTimelineOwnsStatusLine(input: {
   );
 }
 
-/** Whether the trailing “Thinking …” shimmer should show under the transcript. */
+/**
+ * Whether the trailing status line should show under the transcript. For a
+ * person it is the turn's ONE status line — thinking or working, one timer
+ * from start to end — so it stays through reasoning and tool steps; the
+ * developer view keeps its step timeline, which carries its own status.
+ */
 export function shouldShowCopilotThinkingShimmer(input: {
   awaitingInterrupt?: boolean;
+  /** The person view: no step timeline, this line is the whole status. */
+  personDetail?: boolean;
   /** The last assistant turn is also the transcript's last message. */
   lastAssistantIsLastMessage?: boolean;
   lastAssistantParts?: readonly unknown[];
@@ -122,13 +106,12 @@ export function shouldShowCopilotThinkingShimmer(input: {
   if (input.status !== "streaming" && input.status !== "submitted") {
     return false;
   }
-  if (messageHasStreamingReasoning(input.lastAssistantParts)) {
-    return false;
-  }
-  if (messageHasActiveToolParts(input.lastAssistantParts)) {
-    return false;
-  }
-  if (liveTimelineOwnsStatusLine(input)) {
+  if (
+    !input.personDetail &&
+    (messageHasStreamingReasoning(input.lastAssistantParts) ||
+      messageHasActiveToolParts(input.lastAssistantParts) ||
+      liveTimelineOwnsStatusLine(input))
+  ) {
     return false;
   }
   if (input.awaitingInterrupt && input.openInterrupt) {

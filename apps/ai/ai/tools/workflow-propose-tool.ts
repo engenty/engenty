@@ -1,11 +1,11 @@
 // workflow_propose: the agent-side writer for multi-step Workflows.
 //
-// This is the PRIMARY authoring path (PLAN-workflow-designer.md §2.5), not a
-// convenience: a user describes the steps in chat, the model emits the graph
-// JSON, and a human reviews it on the canvas before it can run. Same
-// governance shape as `agent_propose` — nothing goes live from this call. The
-// version is saved unapproved; publishing is a separate, human-only route
-// deliberately NOT exposed as a tool.
+// This is the PRIMARY authoring path (PLAN-workflow-designer.md §2.5): a user
+// describes the steps in chat, the model emits the graph JSON. Whether a save
+// goes live is the Space's approval mode, the same dial routines use: `auto`
+// and `pass-all` publish the saved version at once, as the person in this run
+// and after their capability check; `manual` keeps it a draft behind a
+// Publish card. Versions stay — a running run keeps the one it started on.
 //
 // Capabilities are checked at PUBLISH, not here, and that is the right place:
 // what matters is whether the human who turns this on could perform the calls
@@ -15,6 +15,10 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { createWorkflowStoreFromEnv } from "../../src/ai/index.js";
+import {
+  resolveEffectiveAgentApprovalMode,
+  taskCompletionPolicyDepsFromEnv,
+} from "../../src/ai/jobs/task-completion-policy.js";
 import { executionSpaceId } from "../../src/ai/sessions/execution-lane.js";
 import { scopeCoversCapability } from "../../src/ai/sessions/types.js";
 import {
@@ -203,6 +207,64 @@ export async function publishFromDecision(
   };
 }
 
+/**
+ * Publish a just-saved version when the Space lets agents decide. Null when
+ * a person decides (manual) or nobody in this run can publish; otherwise
+ * whether it went live and, if not, why.
+ */
+export async function publishWhenAuto(input: {
+  agentTypeKey: string | null;
+  spaceId: string | null;
+  tenantId: string;
+  versionId: string;
+}): Promise<{ issues: unknown[]; published: boolean } | null> {
+  const policy = taskCompletionPolicyDepsFromEnv();
+  const mode =
+    policy && input.agentTypeKey
+      ? await resolveEffectiveAgentApprovalMode(policy, {
+          agentTypeKey: input.agentTypeKey,
+          spaceId: input.spaceId,
+          tenantId: input.tenantId,
+        })
+      : "manual";
+  if (mode === "manual") {
+    return null;
+  }
+  const accessToken = getEngentyToolsRunContext().accessToken?.trim();
+  const resolved = accessToken
+    ? await createCoreAiScopeResolver()({
+        authorization: `Bearer ${accessToken}`,
+      })
+    : null;
+  const store = createWorkflowStoreFromEnv();
+  if (!(resolved?.ok && store)) {
+    return null;
+  }
+  const version = await store.getVersion({
+    id: input.versionId,
+    tenantId: input.tenantId,
+  });
+  if (!version) {
+    return null;
+  }
+  // Same gate as the canvas Publish: the person may not hold every
+  // capability the graph uses.
+  const issues = validateGraphAction(version.graph as never, {
+    capabilityForOperation: capabilityForModuleOperation,
+    holdsCapability: (capabilityId: string) =>
+      scopeCoversCapability(resolved.scope, capabilityId),
+  });
+  if (issues.length > 0) {
+    return { issues, published: false };
+  }
+  await store.publishVersion({
+    approvedByUserId: resolved.scope.userId,
+    tenantId: input.tenantId,
+    versionId: input.versionId,
+  });
+  return { issues: [], published: true };
+}
+
 const RUN_BY_VALUES = ["routine", "button", "slash_command", "agent"] as const;
 type RunBy = (typeof RUN_BY_VALUES)[number];
 
@@ -295,10 +357,11 @@ export function liftMisnestedParams(input: {
 export const actionProposeTool = createTool({
   id: WORKFLOW_PROPOSE_TOOL_ID,
   description:
-    "Propose a multi-step Workflow as a declarative graph, for human review. " +
-    "Nothing runs from this call — the version is saved unapproved and a human " +
-    "publishes it on the canvas, so this call alone leaves the user with " +
-    "nothing that runs. Use for a fixed shape (draft → approve → send → wait " +
+    "Save a multi-step Workflow as a declarative graph. Where this Space " +
+    "lets agents decide, the saved version is live at once (the result says " +
+    "`published: true`); where a person decides, it waits on a Publish card " +
+    "or stays a draft. Saving a new version of an existing Workflow " +
+    "(`workflow_id`) is how you fix one. Use for a fixed shape (draft → approve → send → wait " +
     "→ chase), NOT for one-off work and NOT as the answer to a recurring job: " +
     "a job that should keep happening needs an agent that owns it plus a " +
     "routine, and this Workflow is at most the body that routine points at. " +
@@ -553,6 +616,35 @@ export const actionProposeTool = createTool({
         title: { key: "workflow_proposed", params: { name: input.name } },
       });
 
+      const live = await publishWhenAuto({
+        agentTypeKey: ownerAgentId ?? ctx.agentTypeKey?.trim() ?? null,
+        spaceId: executionSpaceId(ctx.space) ?? null,
+        tenantId,
+        versionId: version.id,
+      });
+      if (live?.published) {
+        return {
+          ok: true as const,
+          workflow_id: graphId,
+          version: version.version,
+          surface,
+          published: true,
+          note: [
+            "Live now — this version is published and every new run uses it.",
+            runBy === "routine"
+              ? "If no routine runs it yet, create one (routines_create with this workflow_id" +
+                (ownerAgentId ? ` and agent_id ${ownerAgentId}` : "") +
+                "); a routine that already runs it needs nothing."
+              : null,
+            surface === "wizard"
+              ? "It is listed as a wizard: a slash command and a catalog card open it, and the person answers one page per gate."
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        };
+      }
+
       // Interactive chat: park the run on a Publish card so the human can
       // activate the Workflow right here. The generic decision lane renders it
       // (no bespoke widget); the resume above performs the publish AS THE
@@ -613,7 +705,12 @@ export const actionProposeTool = createTool({
         workflow_id: graphId,
         version: version.version,
         surface,
+        published: false,
+        ...(live && live.issues.length > 0 ? { issues: live.issues } : {}),
         note: [
+          live && live.issues.length > 0
+            ? "Not published: the person in this run may not do everything the graph does — see issues."
+            : null,
           runBy === "routine"
             ? "Saved as a draft. This Workflow runs nothing on its own: " +
               "create the routine now (routines_create with this workflow_id" +

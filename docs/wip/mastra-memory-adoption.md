@@ -67,8 +67,10 @@ therefore do not rewrite the provider's cacheable system prefix. Native
 resource-scope OM remains unused: it is experimental, processes all threads
 together, and can blur unfinished work between simultaneous conversations.
 
-`ENGENTY_AI_OBSERVATIONAL_MEMORY=false` disables both layers. Task-job threads
-remain outside this rollout.
+`ENGENTY_AI_OBSERVATIONAL_MEMORY=false` disables both layers. The shared layer
+is opt-in on top of that (`ENGENTY_AI_SHARED_OBSERVATIONS=true`) and observes
+in the background after the run ends. Task-job threads remain outside this
+rollout.
 
 ## 4. Semantic recall — BUILT, OFF BY DEFAULT
 

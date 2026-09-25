@@ -65,15 +65,12 @@ function deskText(ctx: OutcomeHandlerContext): string {
     const reason = ctx.envelope.reason?.trim();
     return `${heading}\n\nRun failed${reason ? `: ${reason}` : "."}`;
   }
-  const artifactLine = ctx.envelope.artifact
-    ? `\n\n📄 Artifact: **${ctx.envelope.artifact.title}**`
-    : "";
   const reviewLine = ctx.envelope.awaiting_review
     ? "\n\n⏸ Waiting for your review — this routine holds until you mark the run reviewed."
     : "";
   return prose
-    ? `${heading}\n\n${prose}${artifactLine}${reviewLine}`
-    : `${heading}\n\n${ctx.envelope.reason?.trim() ?? "Run finished without a written result."}${artifactLine}${reviewLine}`;
+    ? `${heading}\n\n${prose}${reviewLine}`
+    : `${heading}\n\n${ctx.envelope.reason?.trim() ?? "Run finished without a written result."}${reviewLine}`;
 }
 
 const deskChat: OutcomeHandler = async (ctx) => {
@@ -99,6 +96,9 @@ const deskChat: OutcomeHandler = async (ctx) => {
   }
   await speakOnDesk({
     agentId: ctx.routine.agent_id,
+    ...(ctx.envelope.artifact && ctx.envelope.status !== "failed"
+      ? { artifact: ctx.envelope.artifact }
+      : {}),
     messageId: stableUuid(
       `routine-outcome:${ctx.envelope.run_id}:${ctx.binding.id}`
     ),
@@ -202,11 +202,20 @@ async function emitRoutineOutcome(
     dedupeKey: `routine_outcome:${ctx.envelope.run_id}:${ctx.binding.id}`,
     kind: "routine_outcome",
     metadata: {
+      // The row opens the result itself when the run stored one.
+      ...(ctx.envelope.artifact
+        ? { artifact_id: ctx.envelope.artifact.id }
+        : {}),
       outcome_id: ctx.binding.id,
       provider_id: ctx.binding.provider_id,
       routine_id: ctx.routine.id,
-      run_id: ctx.envelope.run_id,
-      // With the run: the row opens that run's page, where the result is.
+      // The row opens the routine's chat on its Engenty's desk, with this
+      // run open beside it.
+      ...(ctx.envelope.graph_run_id
+        ? { run_id: ctx.envelope.graph_run_id }
+        : {}),
+      thread_agent_id: ctx.routine.agent_id,
+      thread_id: ctx.envelope.thread_id,
       ...(ctx.routine.workflow_id
         ? { workflow_id: ctx.routine.workflow_id }
         : {}),

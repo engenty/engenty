@@ -279,7 +279,7 @@ It runs as uid 1000 (`ENGENTY_SANDBOX_UID`) with `HOME=/opt/sandbox` — *not*
 | `/sandbox` | the run's scratch (per Space on the machine, per run otherwise) |
 | `/space` | the Space commons, writable — see `packages/ai-core/docs/howto-workspaces.md` |
 | `/space/public` | what the Space publishes to the company — bound read-only inside `/space`; file tools write it with approval |
-| `/company` | read-only: `files/` (the company drive) and `spaces/<key>/` (each publishing Space's `public/`) — one host copy per tenant, `<ENGENTY_SPACES_DIR>/tenants/<t>/company/`, refreshed at every run start by `company-mirror.ts`, which also deletes unpublished files and Spaces that stopped publishing. File tools read `/company` straight from object storage |
+| `/company` | read-only: `files/` (the company drive), `spaces/<key>/` (each publishing Space's `public/`) and `apps/<slug>/` (the `src/` of those Spaces' Apps, copied from app-host's tree without `.git`, `node_modules` or symlinks) — one host copy per tenant, `<ENGENTY_SPACES_DIR>/tenants/<t>/company/`, refreshed at every run start by `company-mirror.ts`, which also deletes unpublished files and Spaces that stopped publishing. File tools read `/company` straight from object storage |
 | `/home` | the agent's or person's own mount — per-run sandboxes only, never a space computer |
 | `/data` | the Space's module records, staged (below) — per-run sandboxes only, never a space computer |
 | `/cache/{uv,bun,npm}` | per-Space package caches; each tool's cache env var points here |
@@ -409,7 +409,9 @@ becomes container-aware.
 The shell. `engenty tools list|schema|call` is on every sandbox image
 (`deploy/sandbox/engenty.mjs`) and runs the same sandbox-gated execute as Code
 Mode — `engenty tools call … | jq` from bash, exit 2 when a write needs a
-grant. No token and no network: on the first command apps/ai starts one relay
+grant. It is for scripts that loop over many records: the "Your computer"
+prompt sends agents to their tools for anything else, because every command
+reaches the person as a raw-shell approval card. No token and no network: on the first command apps/ai starts one relay
 per container (`docker exec -i -u 0 … engenty relay`), which listens on a unix
 socket in a fresh root-owned dir under `/tmp` and passes requests over that
 exec's stdio. A socket bound in from the host is not used — Docker Desktop

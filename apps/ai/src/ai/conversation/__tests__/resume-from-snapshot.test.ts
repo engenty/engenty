@@ -581,7 +581,7 @@ describe("the snapshot lane rebuilds the start lane's agent context", () => {
     // `clientTools` — `@ag-ui/mastra` forwards no clientTools on its resume
     // branch, and this is where the START lane merges
     // them. Without it the resumed turn answers "that tool isn't available".
-    expect(extraToolNames).toContain("closeCopilot");
+    expect(extraToolNames).toContain("setCopilotDockMode");
     expect(options.skipSubAgents).toBe(true);
     // The agent-declared ones, which cannot ride `resumeStream({clientTools})`,
     // are in the same place now.

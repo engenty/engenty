@@ -49,7 +49,7 @@ export function CopilotApprovalModeControl() {
   const value: AgentApprovalMode =
     parseAgentApprovalMode(current.agents?.[COPILOT_AGENT_ID]) ??
     DEFAULT_AGENT_APPROVAL_MODES[COPILOT_AGENT_ID] ??
-    "manual";
+    "auto";
   const ActiveIcon = MODE_ICON[value];
 
   const setMode = (next: string) => {

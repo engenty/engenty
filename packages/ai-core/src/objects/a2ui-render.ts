@@ -15,12 +15,13 @@ export interface A2uiLiveInboxDashboard {
   connection_id?: string;
   included: string[];
   kind: "inbox_dashboard";
-  layout: string;
 }
 
 export type A2uiLiveMeta = A2uiLiveInboxDashboard;
 
 export interface A2uiRenderMeta {
+  /** The stored artifact this surface previews; its title line opens it. */
+  artifact_id?: string;
   catalog_id: string;
   live?: A2uiLiveMeta;
   /** Ordered A2UI v0.9 messages, opaque to the host. */
@@ -40,13 +41,11 @@ function readLive(value: unknown): A2uiLiveMeta | undefined {
   const included = Array.isArray(value.included)
     ? value.included.filter((id): id is string => typeof id === "string")
     : [];
-  const layout = typeof value.layout === "string" ? value.layout : "";
   const connectionId =
     typeof value.connection_id === "string" ? value.connection_id : undefined;
   return {
     included,
     kind: "inbox_dashboard",
-    layout,
     ...(connectionId ? { connection_id: connectionId } : {}),
   };
 }
@@ -84,6 +83,9 @@ export function readA2uiRenderMeta(output: unknown): A2uiRenderMeta | null {
     messages,
     surface_id: surfaceId,
     ...(typeof a2ui.title === "string" ? { title: a2ui.title } : {}),
+    ...(typeof a2ui.artifact_id === "string" && a2ui.artifact_id.trim()
+      ? { artifact_id: a2ui.artifact_id.trim() }
+      : {}),
     ...(live ? { live } : {}),
   };
 }

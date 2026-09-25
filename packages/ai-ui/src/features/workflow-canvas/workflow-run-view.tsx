@@ -19,6 +19,11 @@ import {
 } from "./workflow-queries.js";
 
 export interface WorkflowRunViewProps {
+  /**
+   * `pane`: the narrow column beside a chat — the graph on top, the gate's
+   * surface under it instead of beside it.
+   */
+  layout?: "page" | "pane";
   onBack?: () => void;
   runId: string;
 }
@@ -46,7 +51,12 @@ const STATUS_LABEL: Record<string, string> = {
   waiting: "Sleeping",
 };
 
-export function WorkflowRunView({ onBack, runId }: WorkflowRunViewProps) {
+export function WorkflowRunView({
+  layout = "page",
+  onBack,
+  runId,
+}: WorkflowRunViewProps) {
+  const pane = layout === "pane";
   const run = useWorkflowRunQuery(runId);
   const resume = useResumeRunMutation();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -112,9 +122,9 @@ export function WorkflowRunView({ onBack, runId }: WorkflowRunViewProps) {
         ) : null}
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className={cn("flex min-h-0 flex-1", pane && "flex-col")}>
         <WorkflowCanvas
-          className="min-w-0 flex-1"
+          className={cn("min-w-0 flex-1", pane && "h-[340px] flex-none")}
           graph={version.graph}
           mode={gate ? "approve" : "monitor"}
           onSelectNode={setSelectedNodeId}
@@ -123,7 +133,12 @@ export function WorkflowRunView({ onBack, runId }: WorkflowRunViewProps) {
           selectedNodeId={selectedNodeId ?? gate?.stepId ?? null}
         />
         {gate ? (
-          <aside className="w-[380px] shrink-0 overflow-y-auto border-l bg-card p-4">
+          <aside
+            className={cn(
+              "shrink-0 overflow-y-auto bg-card p-4",
+              pane ? "border-t" : "w-[380px] border-l"
+            )}
+          >
             <GateSurfaceCard
               answer={snapshot?.answers?.[gate.stepId] ?? null}
               busy={resume.isPending}

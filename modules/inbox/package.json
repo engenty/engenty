@@ -32,7 +32,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@engenty/ai-core": "workspace:*",
     "@engenty/ai-ui": "workspace:*",
-    "@engenty/a2ui-catalog": "workspace:*",
+    "@engenty/generative-a2ui": "workspace:*",
     "@engenty/api-client": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",

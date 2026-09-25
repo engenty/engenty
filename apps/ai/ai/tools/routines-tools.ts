@@ -58,7 +58,11 @@ import {
   isPromptWorkflowGraph,
   materializePromptWorkflow,
   PROMPT_ROUTINE_MAX_CHARS,
+  PROMPT_ROUTINE_RESULTS,
+  type PromptRoutineResult,
   PromptWorkflowInvalidError,
+  promptOfWorkflowGraph,
+  promptWorkflowDefinition,
 } from "../../src/ai/workflows/prompt-workflow.js";
 import {
   type GraphWorkflowDefinition,
@@ -86,6 +90,7 @@ import type {
 import { emitInboxNotification } from "../../src/notifications/inbox.js";
 import { releaseFrontendToolSuspendSlot } from "../frontend-tools/frontend-tool-suspend-lock.js";
 import { readDecisionChoice } from "./agent-propose-hire.js";
+import { describeCron } from "./describe-schedule.js";
 import {
   type CallerScope,
   callerScope,
@@ -212,9 +217,9 @@ function toToolShape(
     last_fired_at: routine.last_fired_at,
     last_result: routine.last_result,
     name: routine.name,
-    outcome: routine.outcome,
     outcomes: outcomes.map((row) => ({
       config: row.config,
+      description: row.description,
       enabled: row.enabled,
       mode: row.mode,
       outcome_id: row.id,
@@ -242,7 +247,6 @@ const routineOutputSchema = z.object({
   last_fired_at: z.string().nullable(),
   last_result: z.string().nullable(),
   name: z.string(),
-  outcome: z.string().nullable(),
   outcomes: z.array(
     z.object({
       config: z.record(z.string(), z.unknown()),
@@ -362,6 +366,34 @@ function capabilityOptions(scope: RunScope | null) {
  * the run's own capabilities validated against the graph exactly as the
  * canvas Publish route validates the publisher's.
  */
+/**
+ * The graph a routine card draws: the latest version of its Workflow (the one
+ * Approve publishes), or — for a prompt routine, which has no Workflow row
+ * until it is approved — the one-node definition the prompt will become.
+ */
+async function approvalWorkflowGraph(input: {
+  ownerId: string;
+  prompt: string | null;
+  result?: PromptRoutineResult;
+  store: WorkflowStore | null;
+  tenantId: string;
+  workflow: WorkflowRow | null;
+}): Promise<unknown> {
+  if (input.workflow && input.store) {
+    const versions = await input.store
+      .listVersions({ tenantId: input.tenantId, workflowId: input.workflow.id })
+      .catch(() => []);
+    return versions.toSorted((a, b) => b.version - a.version)[0]?.graph ?? null;
+  }
+  return input.prompt?.trim()
+    ? promptWorkflowDefinition({
+        agentId: input.ownerId,
+        prompt: input.prompt,
+        ...(input.result ? { result: input.result } : {}),
+      })
+    : null;
+}
+
 async function publishForRoutine(input: {
   approvedByUserId: string | null;
   scope: RunScope | null;
@@ -553,18 +585,17 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     const schedule = input.triggers.find((t) => t.kind === "schedule");
     const event = input.triggers.find((t) => t.kind === "event");
     const wake = schedule
-      ? `on \`${schedule.cron}\` (${schedule.timezone ?? "UTC"})`
+      ? `${describeCron(schedule.cron).replace(/^At /, "at ")} (${schedule.timezone ?? "UTC"})`
       : event
-        ? `whenever \`${event.resource}\` happens`
+        ? "whenever the event it waits for happens"
         : "when pressed or asked";
     const text = [
       `New routine **${input.routine.name}** — runs ${wake}.`,
-      input.routine.outcome ? `Done means: ${input.routine.outcome}` : null,
       input.workflowName
         ? `It runs the Workflow "${input.workflowName}".`
         : null,
       input.routine.approval_grants.length > 0
-        ? `Approved to run without asking: ${input.routine.approval_grants.join(", ")}.`
+        ? `It may do ${input.routine.approval_grants.length === 1 ? "one action" : `${input.routine.approval_grants.length} actions`} without asking.`
         : null,
     ]
       .filter((line): line is string => line !== null)
@@ -573,7 +604,22 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     if (threads && input.spaceId) {
       await speakOnDesk({
         agentId: input.ownerId,
-        metadata: { routine_id: input.routine.id, source: "routine-created" },
+        metadata: {
+          // The chat words this line in the reader's language from the
+          // marker; `text` stays for history and search.
+          engenty_routine_notice: {
+            event: Boolean(event),
+            grants: input.routine.approval_grants.length,
+            kind: "created",
+            name: input.routine.name,
+            schedule: schedule?.cron
+              ? { cron: schedule.cron, timezone: schedule.timezone ?? null }
+              : null,
+            workflow_name: input.workflowName,
+          },
+          routine_id: input.routine.id,
+          source: "routine-created",
+        },
         notify: false,
         ownerUserId: ctx.userId?.trim() || null,
         spaceId: input.spaceId,
@@ -618,10 +664,22 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         .max(PROMPT_ROUTINE_MAX_CHARS)
         .optional()
         .describe(
-          "The job as a single step — what each run does, written to the " +
-            "owner. The server keeps a one-node Workflow for it; nothing to " +
-            "propose or publish. Not for more than one step, an approval, " +
-            "or a wait: that is a Workflow (workflow_propose, then workflow_id)."
+          "The job — what each run does, written to the owner. The owner " +
+            "does it in one go (research, reading, writing); the server then " +
+            "stores the result and delivers it, so the prompt says nothing " +
+            "about storing or notifying. Nothing to propose or publish. Not " +
+            "for an approval, a wait, a pass over many records or work split " +
+            "across specialists: that is a Workflow (workflow_propose, then " +
+            "workflow_id)."
+        ),
+      result_format: z
+        .enum(PROMPT_ROUTINE_RESULTS)
+        .optional()
+        .describe(
+          "What each run of a `prompt` routine leaves: `page` (a Markdown " +
+            "page in Data, the default), `report` (an HTML report in Data), " +
+            "or `data` (rows the owner writes into a Space table; an App on " +
+            "that table shows them). Pages and reports keep one page per title."
         ),
       workflow_id: z
         .string()
@@ -675,12 +733,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         ),
       kind: triggerKindSchema,
       name: z.string().describe("The visible routine name."),
-      outcome: z
-        .string()
-        .optional()
-        .describe(
-          "What a fire must have achieved to count as done — the promise a run is judged by."
-        ),
       outcomes: outcomesSchema.optional(),
       provider_id: z
         .enum(["module-events", "webhook"])
@@ -805,6 +857,7 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         const bound = await materializePromptWorkflow({
           agentId: prepared.ownerId,
           prompt: body.prompt,
+          ...(body.result_format ? { result: body.result_format } : {}),
           routineName: body.name,
           store: workflows,
           tenantId: prepared.tenantId,
@@ -862,7 +915,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       description: body.description ?? null,
       enabled,
       name: body.name,
-      outcome: body.outcome ?? null,
       quietHours: body.quiet_hours ?? null,
       report: body.report,
       source: "custom",
@@ -1012,9 +1064,10 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     description:
       "Create a routine: a standing job on a mounted Engenty — a wake source " +
       "plus what each run must achieve. Omit `agent_id` to own it yourself. " +
-      "Body: `prompt` for a single-step job (the server keeps a one-node " +
-      "Workflow for it — nothing to propose or publish); `workflow_id` for " +
-      "more than one step, an approval, or a wait — workflow_propose first, " +
+      "Body: `prompt` for a job the owner does in one go (the server runs " +
+      "it, stores the result and delivers it — nothing to propose or " +
+      "publish); `workflow_id` for an approval, a wait, a pass over many " +
+      "records or several specialists — workflow_propose first, " +
       "then target its id here. A `schedule` needs `cron` + IANA `timezone`; " +
       "`event` needs `provider_id` + `resource`; `manual` / `agent` for a job " +
       "that must not run by itself. Say what done looks like in `outcome`. " +
@@ -1107,7 +1160,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
             destinations: input.outcomes ?? [],
             kind: input.kind,
             name: input.name,
-            outcome: input.outcome ?? null,
             prompt: input.prompt ?? null,
             providerId: input.provider_id ?? null,
             report: input.report,
@@ -1121,6 +1173,17 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
                   needsPublish: !prepared.prepared.workflowPublished,
                 }
               : null,
+            ...(input.prompt
+              ? { resultFormat: input.result_format ?? "page" }
+              : {}),
+            workflowGraph: await approvalWorkflowGraph({
+              ownerId: prepared.prepared.ownerId,
+              prompt: input.prompt ?? null,
+              ...(input.result_format ? { result: input.result_format } : {}),
+              store: workflows,
+              tenantId: requireTenant(ROUTINES_CREATE_TOOL_ID),
+              workflow: prepared.prepared.workflow ?? null,
+            }),
           }),
           lockKey: routineSuspendLockKey(),
           suspend: executionContext?.agent?.suspend as (
@@ -1158,8 +1221,18 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         .max(PROMPT_ROUTINE_MAX_CHARS)
         .optional()
         .describe(
-          "New single-step body for a prompt routine (re-briefs its one-node Workflow). Not for a canvas Workflow — revise that with workflow_self_revise."
+          "New body for a prompt routine (re-briefs its Workflow). Not for a canvas Workflow — revise that with workflow_self_revise."
         ),
+      result_format: z
+        .enum(PROMPT_ROUTINE_RESULTS)
+        .optional()
+        .describe(
+          "What each run of a `prompt` routine leaves: `page` (a Markdown " +
+            "page in Data, the default), `report` (an HTML report in Data), " +
+            "or `data` (rows the owner writes into a Space table; an App on " +
+            "that table shows them). Pages and reports keep one page per title."
+        ),
+
       workflow_id: z
         .string()
         .optional()
@@ -1180,7 +1253,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       description: z.string().optional(),
       enabled: z.boolean().optional(),
       name: z.string().optional(),
-      outcome: z.string().optional(),
       outcomes: outcomesSchema
         .optional()
         .describe(
@@ -1320,7 +1392,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
             destinations,
             kind: schedule ? "schedule" : "manual",
             name: input.name ?? existing.name,
-            outcome: input.outcome ?? existing.outcome,
             report: input.report ?? existing.report,
             timezone: input.timezone ?? schedule?.timezone ?? null,
           }),
@@ -1347,7 +1418,7 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       }
       // A new prompt re-briefs the routine's own one-node Workflow — only
       // when it IS one; a canvas graph is revised as a graph.
-      if (input.prompt !== undefined) {
+      if (input.prompt !== undefined || input.result_format !== undefined) {
         if (!workflows) {
           return refused(
             "Workflow storage is unconfigured; the prompt was not changed."
@@ -1368,7 +1439,11 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         try {
           await materializePromptWorkflow({
             agentId: input.agent_id ?? existing.agent_id,
-            prompt: input.prompt,
+            prompt:
+              input.prompt ??
+              promptOfWorkflowGraph(current.version.graph) ??
+              "",
+            ...(input.result_format ? { result: input.result_format } : {}),
             routineName: input.name ?? existing.name,
             store: workflows,
             tenantId,
@@ -1435,7 +1510,6 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
           : { description: input.description }),
         ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
         ...(input.name === undefined ? {} : { name: input.name }),
-        ...(input.outcome === undefined ? {} : { outcome: input.outcome }),
         ...(input.quiet_hours === undefined
           ? {}
           : { quietHours: input.quiet_hours }),
@@ -1487,7 +1561,9 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
   const routinesRunTool = createTool({
     id: ROUTINES_RUN_TOOL_ID,
     description:
-      "Run a routine immediately, without waiting for its schedule. Answers " +
+      "Run a routine immediately, without waiting for its schedule — the " +
+      'answer to "start / run the routine now"; do not do its job in the ' +
+      "chat instead. Answers " +
       "with the started run's id, or with why nothing started — `disabled`, " +
       "`quiet_hours`, or `overlap` (the routine's previous run is still " +
       "active). Those are answers, not errors: report them as what happened.",
@@ -1537,7 +1613,11 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       if (!(flowGraphs && requests)) {
         throw new Error("routine execution storage is not configured.");
       }
+      // The chat that asked gets the result back, not only the routine's log.
+      const callerThreadId =
+        runCtx.userFacingThreadId ?? runCtx.orchestratorThreadId ?? null;
       const fired = await fireRoutine({
+        ...(callerThreadId ? { callerThreadId } : {}),
         flowGraphs,
         // Run-now bypasses quiet hours by design — a person (or their
         // specialist, on their ask) is present right now.

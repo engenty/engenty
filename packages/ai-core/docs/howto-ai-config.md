@@ -62,7 +62,7 @@ itself instead of as an "unknown model" from the wrong gateway.
 Stored under key `ai.config`. Parsed fields include:
 
 - `chat_model_id` — chat agents (copilot, supervisors, specialists) when no effort tier applies
-- `classifier_model_id` — pick-one-of-N questions (effort routing, inbox lanes, guardrails)
+- `classifier_model_id` — pick-one-of-N questions (Auto effort tier changes, inbox lanes, guardrails)
 - `fast_text_model_id` — short prose without tools (titles, summaries, observational memory)
 
 Legacy keys such as `identity_prompt` / `soul_prompt` may still exist in stored JSON but are ignored by the API and UI.

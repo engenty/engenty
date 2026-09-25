@@ -574,6 +574,7 @@ export {
   buildRequestDecisionTool,
   createRequestDecisionArtifact,
   DECISION_RESUME_PREFIXES,
+  type DecisionPreview,
   type RequestDecisionArtifact,
   type RequestDecisionInput,
   type RequestDecisionToolDefinition,
@@ -608,6 +609,9 @@ export {
 } from "./tools/types.js";
 export {
   buildMastraWebSearchTool,
+  type ModelWebToolSource,
+  type ModelWebTools,
+  resolveModelWebTools,
   runWebSearch,
   WEB_SEARCH_TOOL_ID,
   type WebSearchInput,

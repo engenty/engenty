@@ -41,6 +41,7 @@ const deskProvider: OutcomeProviderDto = {
 const row: RoutineOutcomeDto = {
   config: { to: "ops@example.com" },
   created_at: "2026-09-22T00:00:00.000Z",
+  description: "Wochenbericht an das Team",
   enabled: true,
   id: "out-1",
   mode: "agent",
@@ -54,6 +55,7 @@ describe("outcome form value", () => {
   it("round-trips a stored binding into the wire body", () => {
     expect(outcomeFormToInput(outcomeToFormValue(row))).toEqual({
       config: { to: "ops@example.com" },
+      description: "Wochenbericht an das Team",
       enabled: true,
       mode: "agent",
       provider_id: "email",

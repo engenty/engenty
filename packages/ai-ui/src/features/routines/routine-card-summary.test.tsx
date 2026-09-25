@@ -24,7 +24,6 @@ const routine: RoutineDto = {
   module_id: null,
   name: "Morning mail",
   next_due_at: null,
-  outcome: null,
   outcomes: [],
   quiet_hours: null,
   report: "desk_card",
@@ -51,6 +50,7 @@ describe("RoutineCardSummary", () => {
             {
               config: {},
               created_at: routine.created_at,
+              description: null,
               enabled: true,
               id: "o-1",
               mode: "always",

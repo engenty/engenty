@@ -21,12 +21,11 @@ AND its Routine exists. Hiring alone makes nothing run.
 2. Call `registry_agents_list` in this turn; use only returned ids. Reuse a
    mounted Engenty only when its returned description already owns this
    exact job — similar domain knowledge is not enough.
-3. For recurring work, list this Space's Routines (`engenty_tools_search` →
-   `routines_list` → `engenty_tool_execute`). A Routine that covers the job
-   gets updated, not duplicated.
+3. For recurring work, call `routines_list` (it arrives with this skill). A
+   Routine that covers the job gets updated, not duplicated.
 4. If a Workflow may be the Routine body, call `workflows_list` in this turn and
-   use only a returned, published Workflow whose required input the Routine can
-   supply.
+   use only a returned Workflow whose required input the Routine can supply —
+   a draft is fine, creating the routine publishes it.
 
 ## Create and mount an Engenty
 
@@ -38,7 +37,7 @@ Call `agent_propose` with:
 - `description`: a concise summary of the standing mandate;
 - `engenty`: one of the ten blobs that fits the job (`round` cobalt, `drop` amber, `dome` moss, `flame` rose, `oval` ember, `bean` teal, `pebble` slate, `sprout` citron, `tower` violet, `wedge` magenta). Omit only when you have no cue — the id is then hashed to a kind. After hire, the Engenty can change that look (and its name) on its own desk with `agent_look`;
 - `instructions`: what it owns, its boundaries, judgment calls — keep the
-  Routine's step-by-step procedure out of the mandate;
+  Routine's step-by-step procedure out of the mandate. Never write shell commands (`date`, `curl`, scripts) into it: every run already knows today's date and time, web research goes through `web_search` / `web_fetch`, and a command becomes an approval card with raw shell for the person.;
 - `for_work`: `routine` | `tasks` | `chat` (the actual next lane);
 - `agent_scope`: `shared` unless explicitly personal;
 - `tool_ids: []`, `skill_ids: []` by default — the stored agent still gets the
@@ -77,7 +76,9 @@ approved), call `routines_create` — every field flat on the Routine, no
 nested body:
 
 - `name`; `kind`: `schedule` | `event`; `agent_id`: the exact hired id;
-  `outcome`: what a run must have achieved; `report`;
+  `outcomes`: where the result
+  goes — "notify me" is `notification.high` (the notification opens the
+  artifact the run stored); `report` only without destinations;
 - `prompt`: the full operating procedure for a single-step job, written to
   the hire — OR `workflow_id`, exactly one of the two. A job of more than one
   step, an approval, or a wait belongs in a Workflow: `workflow_propose` the
@@ -100,7 +101,7 @@ gets a visible owner and Routine.
 
 Links in your report stay inside this Space: the Engenty's page is
 `/s/<current_space key>/agents/<agent_id>`; its routines and Workflows sit on
-its Manage tab — `/s/<key>/agents/<agent_id>?tab=manage`. Never link
+its Manage tab — `/s/<key>/agents/<agent_id>?panel=manage`. Never link
 `/admin/...`; that navigates the user out of their Space.
 
 ## Revise an existing custom agent
@@ -110,7 +111,7 @@ configuration — always a gated revision; the approved config keeps running
 meanwhile. If the change affects a recurring job, patch the Routine row via
 `routines_list` → `routines_update`: wake fields (`cron`, `timezone`,
 `quiet_hours`, `enabled`) and target fields (`prompt` or `workflow_id`,
-`name`, `description`, `outcome`, `report`) all live flat on it. Moving a job
+`name`, `description`, `outcomes`, `report`) all live flat on it. Moving a job
 to another Engenty = `routines_update` with the new `agent_id`.
 
 ## Remove an Engenty

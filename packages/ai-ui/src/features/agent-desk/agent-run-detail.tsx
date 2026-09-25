@@ -24,7 +24,11 @@ import { TrajectoryGantt } from "../../components/ag-ui-inspector/trajectory-gan
 import { PromptPreviewDialog } from "../../components/copilot/context-usage/prompt-preview-dialog.js";
 import type { AiAgentRunRecord } from "../../lib/admin/ai-runtime-types.js";
 import { getAiRun, getAiRunEvents } from "../../lib/runtime/runs-api.js";
+import { WorkflowRunView } from "../workflow-canvas/workflow-run-view.js";
 import { runDuration, runStamp } from "./run-format.js";
+
+/** A graph run's own row is agent `workflow:<graph id>`. */
+const WORKFLOW_RUN_AGENT_PREFIX = "workflow:";
 
 function tokenLine(run: AiAgentRunRecord, locale: string): string {
   const usage = run.usage_json;
@@ -105,6 +109,19 @@ export function AgentRunDetail({
   }
 
   const { run, summary } = runQuery.data;
+  // A workflow's run (a routine's fire) is the graph filling in: its steps,
+  // where it stands, and the gate to answer when it waits on someone. The
+  // agents' own work is in the chat beside it.
+  if (run.agent_id.startsWith(WORKFLOW_RUN_AGENT_PREFIX)) {
+    return (
+      <div className="space-y-3">
+        {back}
+        <div className="ui-card-panel overflow-hidden">
+          <WorkflowRunView layout="pane" runId={runId} />
+        </div>
+      </div>
+    );
+  }
   const events = eventsQuery.data?.events ?? [];
   const agUi = runEventRecordsToAgUi(events);
   const rows = buildInspectorTrajectory(agUi);

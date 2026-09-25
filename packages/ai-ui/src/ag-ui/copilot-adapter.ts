@@ -1,4 +1,7 @@
-import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
+import type {
+  AgentTurnMessageLike,
+  RoutineNotice,
+} from "@engenty/ag-ui-bridge";
 import {
   agUiMessageText,
   isToolApprovalResumeNudgeText,
@@ -127,6 +130,39 @@ function readAppReleaseMarker(
   }
   const artifactId = marker.artifact_id;
   return typeof artifactId === "string" && artifactId ? { artifactId } : null;
+}
+
+/** A routine line (apps/ai writes it under `engenty_routine_notice`). */
+function readRoutineNotice(
+  metadata: Record<string, unknown>
+): RoutineNotice | null {
+  const marker = metadata.engenty_routine_notice;
+  if (!(isRecord(marker) && typeof marker.name === "string")) {
+    return null;
+  }
+  if (marker.kind === "started") {
+    return { kind: "started", name: marker.name };
+  }
+  if (marker.kind !== "created") {
+    return null;
+  }
+  const schedule = isRecord(marker.schedule) ? marker.schedule : null;
+  return {
+    event: marker.event === true,
+    grants: typeof marker.grants === "number" ? marker.grants : 0,
+    kind: "created",
+    name: marker.name,
+    schedule:
+      schedule && typeof schedule.cron === "string"
+        ? {
+            cron: schedule.cron,
+            timezone:
+              typeof schedule.timezone === "string" ? schedule.timezone : null,
+          }
+        : null,
+    workflowName:
+      typeof marker.workflow_name === "string" ? marker.workflow_name : null,
+  };
 }
 
 function hasToolInputFields(value: unknown): boolean {
@@ -691,6 +727,9 @@ function copilotMessageFromAgUiMessage(
   const appRelease = isRecord(message.metadata)
     ? readAppReleaseMarker(message.metadata)
     : null;
+  const routineNotice = isRecord(message.metadata)
+    ? readRoutineNotice(message.metadata)
+    : null;
   const createdAt =
     isRecord(message.metadata) &&
     typeof message.metadata.created_at === "string"
@@ -712,6 +751,7 @@ function copilotMessageFromAgUiMessage(
     ...(alterEgoUserName ? { alterEgoUserName } : {}),
     ...(agentMessage ? { agentMessage } : {}),
     ...(appRelease ? { appRelease } : {}),
+    ...(routineNotice ? { routineNotice } : {}),
   };
 }
 

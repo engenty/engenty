@@ -30,4 +30,20 @@ export interface AgentTurnMessageLike {
   createdAt?: string | null;
   parts?: readonly unknown[];
   role: string;
+  /**
+   * A line the platform posts about a routine (created, started). The chat
+   * words it in the reader's language; the row's text is the fallback.
+   */
+  routineNotice?: RoutineNotice | null;
 }
+
+export type RoutineNotice =
+  | {
+      event: boolean;
+      grants: number;
+      kind: "created";
+      name: string;
+      schedule: { cron: string; timezone: string | null } | null;
+      workflowName: string | null;
+    }
+  | { kind: "started"; name: string };

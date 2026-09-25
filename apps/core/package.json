@@ -45,7 +45,6 @@
     "@engenty/environment": "workspace:*",
     "@engenty/feature-flags": "workspace:*",
     "@engenty/file-storage": "workspace:*",
-    "@engenty/generative-ui": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/mcp-server": "workspace:*",
     "@engenty/notifications": "workspace:*",

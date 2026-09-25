@@ -108,6 +108,54 @@ describe("notificationTarget", () => {
     ).toBe("/s/ops/workflows/w1/runs/r1");
   });
 
+  it("opens a routine's run in its Engenty's chat with the run beside it", () => {
+    expect(
+      notificationTarget({
+        ...record,
+        kind: "routine_outcome",
+        metadata: {
+          run_id: "r1",
+          space_key: "ops",
+          thread_agent_id: "a1",
+          thread_id: "th1",
+          workflow_id: "w1",
+        },
+      })
+    ).toBe("/s/ops/agents/a1?engagement=conversation%3Ath1&panel=runs&run=r1");
+  });
+
+  it("opens the result a routine's run stored instead of its chat", () => {
+    expect(
+      notificationTarget({
+        ...record,
+        kind: "routine_outcome",
+        metadata: {
+          artifact_id: "art1",
+          run_id: "r1",
+          space_key: "ops",
+          thread_agent_id: "a1",
+          thread_id: "th1",
+        },
+      })
+    ).toBe("/s/ops/data?artifact=art1");
+  });
+
+  it("keeps a wizard's run on the wizard page", () => {
+    expect(
+      notificationTarget({
+        ...record,
+        metadata: {
+          run_id: "r1",
+          space_key: "ops",
+          thread_agent_id: "a1",
+          thread_id: "th1",
+          workflow_id: "w1",
+          workflow_surface: "wizard",
+        },
+      })
+    ).toBe("/s/ops/workflows/w1/runs/r1");
+  });
+
   it("opens a room", () => {
     expect(
       notificationTarget({

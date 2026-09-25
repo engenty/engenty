@@ -4,6 +4,59 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.21] - 2026-09-25
+- ADDED **[ai-ui]** A house-style report follows the app's dark mode
+- ADDED **[ai]** A routine's HTML report carries the house style
+- ADDED **[generative-a2ui]** Surfaces follow the design tokens and wrap to their width
+- ADDED **[ai]** Auto effort asks Jev before leaving a warm thread's tier
+- ADDED **[ai]** The result card reads like a report card
+- ADDED **[ai]** A routine's result card, composed by Jev
+- ADDED **[generative-a2ui]** Jev composes a surface from prepared candidates
+- ADDED **[ai]** A workflow an agent saves goes live in auto mode
+- ADDED **[ai-ui]** Each delivery is its own box on the routine flow; the outcome becomes the goal
+- ADDED **[ai]** Routines ask what each run leaves — page, HTML report or table rows
+- ADDED **[ai]** A prompt routine runs the specialist, then stores its result
+- ADDED **[ai-ui]** A running routine says what it is doing now
+- ADDED **[ai-ui]** Richer result teasers on a card, with a menu for the document
+- ADDED **[ai-ui]** Routine approval shows its workflow; teasers read as one bubble
+- ADDED **[ai]** Results come back as a teaser in the chat that opens in the side pane
+- ADDED **[ai]** Routine runs deliver a result the notification opens
+- ADDED **[engenty-copilot]** Carry fewer tools on every copilot call
+- ADDED **[engenty-copilot]** Cut the copilot prompt to its rules and stop listing every skill
+- ADDED **[ai]** Routine runs open in their Engenty's chat with the workflow beside it
+- ADDED **[ai-ui]** Hire clips show the agent's face and link its desk; note clips open what was kept
+- ADDED **[ai-core]** Runs use their model's own web search and fetch, with fallbacks
+- ADDED **[ai]** The computer prompt keeps Engenty work on tools, not the shell
+- ADDED **[ai]** /company/apps shows the source of every publishing Space's Apps
+- CHANGED **[generative-a2ui]** Rename from a2ui-catalog
+- CHANGED **[global]** Remove the unused generative-ui package
+- CHANGED **[ai]** Drop the routine outcome field
+- DOCS **[ai]** Shorter chat replies, the shell only when tools can't do it
+- DOCS Show the lobby at /docs so the dev gateway reaches it
+- FIXED **[ai]** A neutral result status shows in the info tone
+- FIXED **[ai]** Each result card keeps its own content
+- FIXED **[generative-a2ui]** Chat-sized metric values, a badge that fits its label, facts that wrap
+- FIXED **[generative-a2ui]** A result card's findings wrap in full
+- FIXED **[ai]** Quote the rich-ui skill description
+- FIXED **[ai]** The result card leaves the summary to the report above it
+- FIXED **[ai]** A run summary ends on a sentence, not mid-word
+- FIXED **[ai-ui]** A result card's Open button in the reader's language
+- FIXED **[ai-ui]** Tool rows in the reader's language
+- FIXED **[ai-ui]** Routine lines in the reader's language, and a run card that says what the run did
+- FIXED **[ai]** A routine's agent answers with its result instead of storing it
+- FIXED **[ai-ui]** One status line per turn, and no jump when a run ends
+- FIXED **[ai]** Workflow authors read a specialist step's answer through output
+- FIXED **[engenty-specialists]** Ask what a routine should leave before creating it
+- FIXED **[engenty-specialists]** Starting a routine runs it instead of doing the job in chat
+- FIXED **[ai]** A routine's rerun updates its page instead of adding another
+- FIXED **[ai]** Agents and routine messages speak plain language
+- FIXED **[ai]** Business users no longer approve shell commands; approval defaults to auto
+- FIXED **[copilot]** Keep the docked blob's overhang off the app bar's layer
+- FIXED **[ai-ui]** The wizard page says a run it cannot load is unavailable
+- OTHER The docs lobby moves into the landing hero
+- PERFORMANCE **[ai]** Make shared observations opt-in and observe after the run
+- PERFORMANCE **[ai]** Start the first token sooner
+
 ## [0.2.20] - 2026-09-25
 - ADDED **[ai]** /company read-only company drive and a public folder per Space
 - DOCS **[engenty-remote]** Staff preset comment names /space and /company

@@ -19,6 +19,12 @@ export const engentyWorkspaceMountSpecSchema = z.object({
    * there are no bytes at rest under any prefix and nothing to stage.
    */
   kind: z.enum(["data", "storage"]).optional(),
+  /**
+   * A host folder served as-is instead of an object-store prefix — the
+   * `/company/apps/<slug>` source trees, which live only in app-host's tree.
+   * Always read-only; `fileStorageRelativePath` is then a label.
+   */
+  localPath: z.string().min(1).optional(),
   readOnly: z.boolean().optional(),
   spaceId: z.string().min(1).optional(),
 });

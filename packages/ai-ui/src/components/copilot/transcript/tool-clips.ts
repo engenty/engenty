@@ -24,6 +24,16 @@ import {
 
 export interface ToolClip {
   /**
+   * The clip is about one agent: the line shows its face instead of the
+   * icon and links its desk in the current Space.
+   */
+  agent?: { engenty?: string; id: string };
+  /**
+   * What the tool kept, shown in a popout on hover or click. A folded line
+   * carries every clip's details.
+   */
+  details?: string[];
+  /**
    * Consecutive clips of one group fold into one line — a five-step tour is
    * "Tour: 5 steps shown", not five lines. The key gets `{count}`.
    */
@@ -141,10 +151,18 @@ registerToolClip("show_ui_guide", ({ input }) => ({
 }));
 
 registerToolClip("agent_propose", ({ input, output }) => {
-  const name = text(input.name) || text(output.agent_id);
-  return name && output.status === "active"
-    ? { icon: UserPlus, textKey: "toolClip.agentHired", values: { name } }
-    : null;
+  const id = text(input.id) || text(output.agent_id);
+  const name = text(input.name) || id;
+  if (!(name && output.status === "active")) {
+    return null;
+  }
+  const engenty = text(input.engenty);
+  return {
+    ...(id ? { agent: { id, ...(engenty ? { engenty } : {}) } } : {}),
+    icon: UserPlus,
+    textKey: "toolClip.agentHired",
+    values: { name },
+  };
 });
 
 function moduleNames(input: Record<string, unknown>): string {
@@ -177,8 +195,15 @@ registerToolClip("space_setup", ({ input }) => {
   return null;
 });
 
-registerToolClip("memory_note", ({ output }) =>
-  output.kept === true
-    ? { icon: Bookmark, textKey: "toolClip.remembered" }
-    : null
-);
+registerToolClip("memory_note", ({ input, output }) => {
+  if (output.kept !== true) {
+    return null;
+  }
+  const note = text(input.note);
+  return {
+    ...(note ? { details: [note] } : {}),
+    group: { key: "toolClip.rememberedGroup" },
+    icon: Bookmark,
+    textKey: "toolClip.remembered",
+  };
+});

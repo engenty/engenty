@@ -38,5 +38,9 @@ export {
   type FurStage,
 } from "./fur-stage";
 export { JELLY_FRAGMENT_SHADER } from "./jelly-shader";
+export { LobbyCast, type LobbyMember } from "./lobby/lobby-cast";
+export { LobbyRoom } from "./lobby/lobby-room";
+export { EMBER_ROOM, type RoomPalette } from "./lobby/pixel-room";
+export { ROOM_H, ROOM_W } from "./lobby/pixel-room-geometry";
 export { EngentyLogoMark, EngentyWordmark } from "./logo";
 export { useEngentyGaze } from "./use-engenty-gaze";

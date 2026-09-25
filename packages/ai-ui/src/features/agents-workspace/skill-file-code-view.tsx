@@ -2,7 +2,6 @@
 // enter a compilation via this reference (types -> src consumers included).
 /// <reference path="./react-syntax-highlighter.d.ts" />
 import { cn } from "@engenty/ui-core";
-import { useEffect, useState } from "react";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
 import markdown from "react-syntax-highlighter/dist/esm/languages/prism/markdown";
@@ -12,6 +11,7 @@ import {
   oneDark,
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useDocumentDarkClass } from "../../lib/use-document-dark-class.js";
 
 SyntaxHighlighter.registerLanguage("markdown", markdown);
 SyntaxHighlighter.registerLanguage("yaml", yaml);
@@ -38,25 +38,6 @@ function syntaxLanguageFromPath(path: string): string {
     return "typescript";
   }
   return "markdown";
-}
-
-function useDocumentDarkClass() {
-  const [isDark, setIsDark] = useState(() =>
-    typeof document === "undefined"
-      ? false
-      : document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const sync = () => setIsDark(root.classList.contains("dark"));
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
 }
 
 export interface SkillFileCodeViewProps {

@@ -90,18 +90,39 @@ function mobileCornerStyle(): CSSProperties {
   );
 }
 
+/**
+ * The dock frame fills the rail's mount target exactly, so the blob adds no
+ * layout overflow to the bar. The overhang into the canvas is only a
+ * translate on the blob's own compositor layer: painted on the bar's layer,
+ * Chrome kept an 8px strip beside the rail until a repaint.
+ */
+function dockedFrameClass(
+  position: "bottom" | "left" | "right" | "top"
+): string {
+  switch (position) {
+    case "left":
+      return "absolute inset-0 flex items-center justify-start";
+    case "right":
+      return "absolute inset-0 flex items-center justify-end";
+    case "top":
+      return "absolute inset-0 flex items-end justify-center";
+    case "bottom":
+      return "absolute inset-0 flex items-start justify-center";
+  }
+}
+
 function dockedHangClass(
   position: "bottom" | "left" | "right" | "top"
 ): string {
   switch (position) {
     case "left":
-      return "absolute top-1/2 left-0 -translate-y-1/2 translate-x-2";
+      return "translate-x-2";
     case "right":
-      return "absolute top-1/2 right-0 -translate-y-1/2 -translate-x-2";
+      return "-translate-x-2";
     case "top":
-      return "absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2";
+      return "translate-y-2";
     case "bottom":
-      return "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2";
+      return "-translate-y-2";
   }
 }
 
@@ -326,16 +347,18 @@ export function CopilotFabTrigger({
   );
 
   const trigger = docked ? (
-    <div
-      className={cn(
-        "pointer-events-auto flex scale-90 items-center justify-center overflow-visible transition-transform hover:scale-[1.08]",
-        dockedHangClass(position)
-      )}
-      onPointerEnter={handleContainerPointerEnter}
-      onPointerLeave={handleContainerPointerLeave}
-      style={dockedBox}
-    >
-      {blob}
+    <div className={cn("pointer-events-none", dockedFrameClass(position))}>
+      <div
+        className={cn(
+          "pointer-events-auto flex shrink-0 scale-90 items-center justify-center overflow-visible transition-transform will-change-transform hover:scale-[1.08]",
+          dockedHangClass(position)
+        )}
+        onPointerEnter={handleContainerPointerEnter}
+        onPointerLeave={handleContainerPointerLeave}
+        style={dockedBox}
+      >
+        {blob}
+      </div>
     </div>
   ) : (
     <div

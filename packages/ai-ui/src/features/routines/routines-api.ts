@@ -25,6 +25,8 @@ export type RoutineOutcomeMode = "always" | "agent";
 export interface RoutineOutcomeDto {
   config: Record<string, unknown>;
   created_at: string;
+  /** What this delivery is for, in a few words. */
+  description: string | null;
   enabled: boolean;
   id: string;
   mode: RoutineOutcomeMode;
@@ -37,6 +39,7 @@ export interface RoutineOutcomeDto {
 /** One destination, as the API writes it. */
 export interface RoutineOutcomeInput {
   config?: Record<string, unknown>;
+  description?: string | null;
   enabled?: boolean;
   mode: RoutineOutcomeMode;
   provider_id: string;
@@ -97,12 +100,6 @@ export interface RoutineDto {
   /** Earliest schedule trigger's next fire; computed at read time. */
   next_due_at: string | null;
   /**
-   * The routine's PROMISE — what a fire must have achieved to count as done.
-   * Prose, deliberately not a schema: a specialist answers in prose, and an
-   * Action that needs a typed result already has its own output schema.
-   */
-  outcome: string | null;
-  /**
    * Destinations a fire delivers to. Empty keeps the legacy `report` desk
    * post; any rows replace that post. `report: ask` still holds the run.
    */
@@ -160,8 +157,6 @@ export interface CustomRoutineInput {
   description?: string | null;
   enabled?: boolean;
   name?: string;
-  /** The routine's promise, in prose. */
-  outcome?: string | null;
   /**
    * Destinations. On create, omitted keeps the legacy desk post. On PATCH,
    * present replaces the list (including `[]`); omitted leaves bindings.
@@ -265,7 +260,6 @@ export function toRoutinePayload(body: Partial<CustomRoutineInput>) {
       : { description: body.description }),
     ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
     ...(body.name === undefined ? {} : { name: body.name }),
-    ...(body.outcome === undefined ? {} : { outcome: body.outcome }),
     // Present on PATCH replaces the list, including []. Omitted leaves rows.
     ...(body.outcomes === undefined ? {} : { outcomes: body.outcomes }),
     ...(body.prompt === undefined ? {} : { prompt: body.prompt }),
@@ -389,6 +383,9 @@ export async function listOutcomeProviders(
 function toOutcomePayload(body: Partial<RoutineOutcomeInput>) {
   return {
     ...(body.config === undefined ? {} : { config: body.config }),
+    ...(body.description === undefined
+      ? {}
+      : { description: body.description }),
     ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
     ...(body.mode === undefined ? {} : { mode: body.mode }),
     ...(body.provider_id === undefined

@@ -47,6 +47,9 @@ export const LIVE_HIRE_TOOL_IDS = [
   // whose job is "fetch today's news" is unhirable without it, and the
   // copilot already carries it — the parity rule says the floor follows.
   "web_search",
+  // And reading the page a search found, or a feed it was given — without
+  // it, the one way left to open a URL was curl on the Space computer.
+  "web_fetch",
   // A specialist with a desk chat answers people, and some answers are a
   // surface rather than prose — a term with its explanation, a small set of
   // facts. The A2UI catalog renders in the desk transcript exactly as it does
@@ -130,5 +133,22 @@ export const SPECIALIST_TOOL_GATING: Readonly<
   ],
   // Pages, tables and Apps in the Space. table_write alone is the single
   // heaviest schema on the floor.
-  "space-data": ["table_write", "table_read", "artifact_write", "app_build"],
+  // artifact_write stays out: storing a result is every specialist's
+  // everyday move, not a lane.
+  "space-data": ["table_write", "table_read", "app_build"],
+  // The coordinator's playbook routes recurring work into routines, so it
+  // brings the verbs with it — loading it and still lacking routines_create's
+  // siblings left coordinators unable to finish a routine.
+  "chief-of-staff": [
+    "routines_create",
+    "routines_update",
+    "routines_list",
+    "routines_run",
+    "workflow_propose",
+    "workflows_list",
+  ],
+  // The shell. Every command is an approval card with raw shell in it, and a
+  // business user should see one only after asking for technical work — so
+  // the command tool arrives with the skill that is loaded for that work.
+  "sandbox-code-execution": ["mastra_workspace_execute_command"],
 };

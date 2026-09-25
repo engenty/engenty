@@ -58,10 +58,7 @@ import {
   type ToolPartLike,
 } from "./copilot-message-parts";
 import { MentionInlineText } from "./mention-inline-text.js";
-import {
-  PersonThoughtDisclosure,
-  PersonWorkingLine,
-} from "./person-turn-status.js";
+import { PersonThoughtDisclosure } from "./person-turn-status.js";
 import { ToolClipRows } from "./tool-clip-rows.js";
 import { resolveToolClip } from "./tool-clips.js";
 
@@ -707,9 +704,6 @@ export function CopilotMessageContent({
         </ChainOfThought>
       ) : null}
 
-      {toolDetail === "person" && isThoughtStreaming ? (
-        <PersonWorkingLine elapsedSeconds={thoughtElapsed} />
-      ) : null}
       {toolDetail === "person" && reasoningText && !isThoughtStreaming ? (
         <PersonThoughtDisclosure text={reasoningText} />
       ) : null}

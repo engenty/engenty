@@ -9,7 +9,7 @@ import type { GateDecision } from "./gate-surface-card.js";
 // A stand-in surface exposes the props the card hands down and two buttons
 // that submit the way a Form's actions would.
 const seen = vi.fn();
-vi.mock("@engenty/a2ui-catalog", () => ({
+vi.mock("@engenty/generative-a2ui", () => ({
   buildEngentyA2uiMessages: (params: {
     components: unknown[];
     data?: Record<string, unknown>;

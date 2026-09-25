@@ -1,9 +1,12 @@
+import {
+  LobbyCast,
+  LobbyRoom,
+  ROOM_H,
+  ROOM_W,
+} from "@engenty/ui-core/components/engenty";
 import Link from "next/link";
-import { LobbyCast } from "@/components/brand/lobby-cast";
-import { LobbyRoom } from "@/components/brand/lobby-room";
 import { Mascot } from "@/components/brand/mascot";
 import { pixelFloorDataUri } from "@/components/brand/pixel-floor";
-import { ROOM_H, ROOM_W } from "@/components/brand/pixel-room-geometry";
 import { GITHUB_URL } from "@/lib/layout.shared";
 
 const SCALE = 3.3;

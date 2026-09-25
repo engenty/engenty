@@ -42,7 +42,7 @@ export function CopilotApprovalModeMenuSection() {
   const value =
     parseAgentApprovalMode(current.agents?.[agentId]) ??
     DEFAULT_AGENT_APPROVAL_MODES[agentId] ??
-    "manual";
+    "auto";
 
   return (
     <>

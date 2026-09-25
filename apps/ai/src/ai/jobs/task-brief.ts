@@ -6,6 +6,7 @@
 // the specialist's own tools fetch live detail; this is the framing.
 
 import { TASK_SELF_TOOLS_GUIDANCE } from "../../../ai/tools/task-self-tools.js";
+import { formatRunClock } from "../sessions/run-clock.js";
 
 export interface TaskBriefSource {
   comments?: Array<{
@@ -81,6 +82,8 @@ export function buildTaskBrief(task: TaskBriefSource): string {
   if (comments.length > 0) {
     lines.push("", "## Prior comments", ...comments);
   }
+
+  lines.push("", "## Run context", formatRunClock());
 
   lines.push("", UNATTENDED_RUN_CONTRACT);
   // The task is the run's output channel, so the brief says how to speak on it.

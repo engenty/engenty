@@ -17,6 +17,28 @@ import {
 
 const logger = createLogger({ name: "graph-run-events" });
 
+type GraphRunEmit = (type: string, payload: Record<string, unknown>) => void;
+
+/** The emitter of each graph run being driven here, so steps share its seq. */
+const liveEmitters = new Map<string, GraphRunEmit>();
+
+/**
+ * What a running step is doing right now — its latest tool call — told on the
+ * parent run's stream, so a card watching the workflow can say it in words.
+ * A no-op when this process is not driving that run.
+ */
+export function narrateGraphRunActivity(
+  runId: string,
+  activity: { args: Record<string, string>; step: string; tool_name: string }
+): void {
+  liveEmitters.get(runId)?.("CUSTOM", {
+    name: GRAPH_RUN_ACTIVITY_EVENT,
+    value: activity,
+  });
+}
+
+export const GRAPH_RUN_ACTIVITY_EVENT = "engenty.graph.activity";
+
 interface GraphRunEventTarget {
   runId: string;
   tenantId: string;
@@ -49,7 +71,7 @@ async function nextSeqStart(target: GraphRunEventTarget): Promise<number> {
   }
 }
 
-function makeEmit(target: GraphRunEventTarget, startSeq: number) {
+function makeEmit(target: GraphRunEventTarget, startSeq: number): GraphRunEmit {
   let seq = startSeq;
   const store = createAgentRunStoreFromEnv();
   return (type: string, payload: Record<string, unknown>) => {
@@ -89,6 +111,7 @@ export async function watchGraphRunEvents(
 ): Promise<() => void> {
   const startSeq = await nextSeqStart(target);
   const emit = makeEmit(target, startSeq);
+  liveEmitters.set(target.runId, emit);
   markRunLive(target.runId);
   if (startSeq === 0) {
     emit("RUN_STARTED", { runId: target.runId, threadId: target.threadId });
@@ -139,7 +162,10 @@ export async function watchGraphRunEvents(
       });
     }
   });
-  return unwatch;
+  return () => {
+    liveEmitters.delete(target.runId);
+    unwatch();
+  };
 }
 
 /**

@@ -55,6 +55,7 @@ import {
 } from "./workspace-fs-mode.js";
 import {
   COMMONS_STORAGE_PREFIX,
+  COMPANY_APPS_MOUNT_PATH,
   COMPANY_MOUNT_PATH,
   COMPANY_SPACES_MOUNT_PATH,
   HOME_MOUNT_PATH,
@@ -275,6 +276,11 @@ function createMountFilesystem(
     });
   }
 
+  // An App's source, served from app-host's tree on this host.
+  if (mount.localPath) {
+    return new LocalFilesystem({ basePath: mount.localPath, readOnly: true });
+  }
+
   const isSandboxMount =
     sandboxStagingPath &&
     mount.mountPath === (spec.sandboxConfig?.mountPath ?? "/sandbox");
@@ -385,6 +391,17 @@ export async function createEngentyAgentWorkspace(
             {
               id: mount.spaceId,
               key: mount.mountPath.slice(COMPANY_SPACES_MOUNT_PATH.length + 1),
+            },
+          ]
+        : []
+    );
+    const companyApps = spec.mounts.flatMap((mount) =>
+      mount.mountPath.startsWith(`${COMPANY_APPS_MOUNT_PATH}/`) &&
+      mount.localPath
+        ? [
+            {
+              slug: mount.mountPath.slice(COMPANY_APPS_MOUNT_PATH.length + 1),
+              srcPath: mount.localPath,
             },
           ]
         : []
@@ -539,6 +556,7 @@ export async function createEngentyAgentWorkspace(
       // A stale copy is still the company's files; a failed refresh must not
       // stop the run. File tools read storage directly either way.
       await refreshCompanyMirror({
+        apps: companyApps,
         client: workspaceFsMode === "remote" ? client : null,
         spaces: companySpaces,
         tenantId: spec.sandboxIdentity.tenantId,

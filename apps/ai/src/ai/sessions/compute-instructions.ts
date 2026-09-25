@@ -53,6 +53,14 @@ export function buildComputeInstructions(
   return [
     "## Your computer",
     executionLine(input.lifecycle),
+    // A shell command is an approval card with raw shell in it; the person
+    // should see one only after asking for technical work. The how-to
+    // (installs, CLI sign-in, scripted catalog calls) lives in the skill.
+    "- Only for work we can't accomplish via operations or tools. Use if the person asked for (code, scripts, data " +
+      "processing, a CLI): load **sandbox-code-execution** first. Never for " +
+      "today's date (it is in your run context), Engenty records, Apps, " +
+      "agents or settings (your tools), or web lookups (web_search / " +
+      "web_fetch). Every command is shown to the person as raw shell.",
     `- Your commands start in /sandbox${
       reach.length > 0 ? ` and also reach ${reach.join(", ")}` : ""
     }.`,
@@ -64,27 +72,11 @@ export function buildComputeInstructions(
         ]
       : []),
     onSpaceComputer
-      ? "- $HOME (/opt/sandbox) and /sandbox persist and are shared with the Space's other agents: installs, " +
-        "CLI logins and dotfiles go there and stay. Say what you installed. " +
-        "Skills and MCP servers an installer writes there reach no one " +
-        "until offered: call computer_skills_find and " +
-        "connector_import_request after it runs. A CLI that signs in " +
-        "through a browser (`<cli> login`): run it with background: true, " +
-        "then call browser_sign_in with the URL it prints."
+      ? "- $HOME (/opt/sandbox) and /sandbox persist and are shared with the " +
+        "Space's other agents."
       : "- Nothing on this computer outlasts it — $HOME is a small scratch. " +
         "Anything worth keeping goes to your mounted folders.",
-    "- System paths are read-only and there is no sudo: install into $HOME " +
-      "or /sandbox (`npx`, `uvx`, a project's `npm install` or `uv venv`), " +
-      "never `npm install -g`.",
     networkLine(input.network),
-    "- `engenty tools list`, `engenty tools schema <id>` and " +
-      "`engenty tools call <id> --input '<json>'` (or `@file.json`) call " +
-      "Engenty operations from the shell, with the same permissions as " +
-      "engenty_tool_execute — pipe them through jq and loop in bash. " +
-      "Exit 2 means the write needs approval: call engenty_tools_preapprove, " +
-      "then run it again.",
-    "- Package caches are warm per Space — a second install of the same " +
-      "package is fast.",
   ].join("\n");
 }
 
@@ -96,7 +88,9 @@ function companyLine(mounts: readonly EngentyWorkspaceMountSpec[]): string {
   const hasSpace = mounts.some((mount) => mount.mountPath === SPACE_MOUNT_PATH);
   return (
     "- /company is read-only: /company/files is the company drive, " +
-    "/company/spaces/<key>/ what each Space published. To add to the drive " +
+    "/company/spaces/<key>/ what each Space published, /company/apps/<slug>/ " +
+    "the source of those Spaces' Apps (change an App from its own Space). " +
+    "To add to the drive " +
     "call company_files_publish (someone allowed to publish approves it)." +
     (hasSpace
       ? " To share from this Space, write to /space/public with the file " +
@@ -109,12 +103,8 @@ function executionLine(lifecycle: ComputeInstructionsInput["lifecycle"]) {
   switch (lifecycle) {
     case "space":
       return (
-        `- Execution: this Space's computer (${TOOLCHAIN}) — the Space named ` +
-        "in current_space. One container shared with the Space's other " +
-        "agents and kept between runs, so commands may briefly queue behind " +
-        "theirs. Each Space has its own computer: after the conversation " +
-        "moves to another Space, a different $HOME and /sandbox are expected, " +
-        "not a lost one."
+        `- Execution: this Space's computer (${TOOLCHAIN}), shared with its ` +
+        "other agents. Another Space has another computer."
       );
     case "session":
       return `- Execution: this conversation's sandbox (${TOOLCHAIN}), kept for the conversation.`;

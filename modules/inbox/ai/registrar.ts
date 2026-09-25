@@ -37,14 +37,14 @@ function defineInboxAi(options: InboxAiOptions) {
       [INBOX_SHOW_DASHBOARD_TOOL_ID]: createTool({
         id: INBOX_SHOW_DASHBOARD_TOOL_ID,
         description:
-          "Compose a native inbox dashboard in the chat (KPI tiles, category donut, volume chart, top senders, important-mail list). Jev picks the layout; numbers come from synced threads. Use when the person asks to see important mail, an inbox overview, or a mail dashboard — do not author the UI yourself.",
+          "Compose a native inbox dashboard in the chat (KPI tiles, category donut, volume chart, top senders, important-mail list). Jev picks the blocks; numbers come from synced threads. Use when the person asks to see important mail, an inbox overview, or a mail dashboard — do not author the UI yourself.",
         inputSchema: z.object({
           connection_id: z.string().optional(),
           prompt: z
             .string()
             .max(500)
             .optional()
-            .describe("The person's request, for layout choice."),
+            .describe("The person's request, for choosing the blocks."),
         }),
         execute: async (input) => {
           const listed = (await invoke("inbox_threads_list", {

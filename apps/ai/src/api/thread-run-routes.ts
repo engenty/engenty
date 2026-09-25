@@ -49,6 +49,10 @@ import {
   persistAgentApprovalGrants,
 } from "../ai/sessions/agent-approval-grants.js";
 import {
+  AUTO_EFFORT_JEV_TIMEOUT_MS,
+  type PreviousEffort,
+} from "../ai/sessions/approve-effort-change.js";
+import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
 } from "../ai/sessions/connection-approval-grants.js";
@@ -60,10 +64,7 @@ import {
   resumePayloadToModelContent,
   runInputHasNewUserMessages,
 } from "../ai/sessions/interrupts.js";
-import {
-  AUTO_EFFORT_JEV_TIMEOUT_MS,
-  resolveEffortForRun,
-} from "../ai/sessions/resolve-auto-effort.js";
+import { resolveEffortForRun } from "../ai/sessions/resolve-auto-effort.js";
 import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   getLiveRunEventsSnapshot,
@@ -351,8 +352,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `model_id` rather than replacing it: an expert / self-hosted install may still
  * pin a model, and that pin keeps precedence.
  *
- * `auto` is a first-class choice: sized per turn via heuristics + (only when
- * ambiguous) a cheap router call — see `resolveEffortForRun`.
+ * `auto` is a first-class choice: sized per turn by heuristics — see
+ * `resolveEffortForRun`.
  */
 function resolveEffortChoice(input: RunAgentInput): AiEffortChoice | null {
   const forwardedProps = isRecord(input.forwardedProps)
@@ -387,6 +388,36 @@ async function loadEffortResolutionContext(params: {
     return { allowedEfforts: policy?.allowed_efforts ?? null };
   } catch {
     return { allowedEfforts: null };
+  }
+}
+
+/**
+ * The tier the thread's last turn ran at, and when it last touched the model —
+ * what Auto weighs a tier change against. Null on a new thread or when no run
+ * recorded its tier.
+ */
+async function loadPreviousEffort(params: {
+  runStore: AgentRunStore | null;
+  tenantId: string;
+  threadId: string;
+}): Promise<PreviousEffort | null> {
+  if (!params.runStore) {
+    return null;
+  }
+  try {
+    const [last] = await params.runStore.listRunsForThread({
+      limit: 1,
+      tenantId: params.tenantId,
+      threadId: params.threadId,
+    });
+    const effort = last?.metadata.effort;
+    return last &&
+      typeof effort === "string" &&
+      (AI_EFFORT_LEVELS as readonly string[]).includes(effort)
+      ? { at: last.finished_at ?? last.started_at, effort: effort as AiEffort }
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -1188,8 +1219,58 @@ export function registerThreadRunRoutes(
           });
         }
       }
-      // Workspace prep and Auto effort sizing overlap: heuristics are instant,
-      // and the rare cheap-router call shares wall-clock with workspace IO.
+      // Reads that depend on nothing below start now and share wall-clock with
+      // workspace prep, effort sizing and the model config. A rejection is
+      // held until its await, so a refused run leaves no unhandled promise.
+      const settleLater = <T>(promise: Promise<T>): Promise<T> => {
+        promise.catch(() => undefined);
+        return promise;
+      };
+      // Durable connection-level "always allow" grants (Settings → Connections)
+      // merge with this chat's session grants; both feed the same pre-gate.
+      const hsConnectionGrantsPromise = settleLater(
+        loadConnectionApprovalGrants({
+          accessToken: scopeAccessToken(scope.scope),
+        })
+      );
+      // Standing "approve for this agent" grants — the same set every other
+      // run of this agent spends.
+      const hsAgentGrantsPromise = settleLater(
+        loadAgentApprovalGrants({
+          agentId: session.agent_id,
+          tenantId: scope.scope.tenantId,
+        })
+      );
+      // Tiered attachments: images → multimodal files; PDFs/office stay as
+      // extracted markdown (sidecar + 32 KiB inline). Never attach original
+      // PDF bytes — that blows the token limiter.
+      // Artifact resume carries no new user message, so there is nothing to resolve.
+      const hsTieredAttachmentsPromise = settleLater(
+        isArtifactResume
+          ? Promise.resolve({ contextEntries: [], modelAttachments: [] })
+          : conversationStore
+              .listMessagesOrdered({
+                tenantId: scope.scope.tenantId,
+                threadId,
+              })
+              .then((rows) =>
+                rows.map((row) => ({ parts: row.parts, role: row.role }))
+              )
+              .catch((err) => {
+                console.error("thread attachment history load failed", err);
+                return [];
+              })
+              .then((historyMessages) =>
+                resolveTieredAttachments({
+                  accessToken: scopeAccessToken(scope.scope),
+                  coreBaseUrl: opts.coreBaseUrl,
+                  historyMessages,
+                  input: body.data,
+                })
+              )
+      );
+      // Workspace prep and Auto effort sizing overlap; effort needs the
+      // agent's default tier and the plan's allowed tiers.
       let hsWorkspaces: Awaited<
         ReturnType<typeof opts.aiService.threads.resolveRunWorkspaces>
       > = {};
@@ -1253,8 +1334,8 @@ export function registerThreadRunRoutes(
             agentId: session.agent_id,
             allowedEfforts: effortCtx.allowedEfforts,
             choice: effortChoice,
-            // The tenant's classifier binding, resolved only when the
-            // heuristics cannot size the turn on their own.
+            // The tenant's classifier binding, resolved only when a tier
+            // change would cost the thread its warm prompt cache.
             classifier: async () =>
               createClassifierClient(
                 (
@@ -1269,6 +1350,13 @@ export function registerThreadRunRoutes(
               ? false
               : latestUserAttachmentParts(body.data).length > 0,
             modelIdOverride,
+            previous: isResumeRun
+              ? null
+              : await loadPreviousEffort({
+                  runStore,
+                  tenantId: scope.scope.tenantId,
+                  threadId,
+                }),
             // A resume has no new user turn; sizing effort off the original
             // one re-reads text this thread already answered.
             text: isResumeRun ? "" : latestUserText(body.data),
@@ -1345,43 +1433,12 @@ export function registerThreadRunRoutes(
           429
         );
       }
-      // Durable connection-level "always allow" grants (Settings → Connections)
-      // merge with this chat's session grants; both feed the same pre-gate.
-      const hsConnectionGrants = await loadConnectionApprovalGrants({
-        accessToken: scopeAccessToken(scope.scope),
-      });
-      // Standing "approve for this agent" grants — the same set every other
-      // run of this agent spends.
-      const hsAgentGrants = await loadAgentApprovalGrants({
-        agentId: session.agent_id,
-        tenantId: scope.scope.tenantId,
-      });
-      // Tiered attachments: images → multimodal files; PDFs/office stay as
-      // extracted markdown (sidecar + 32 KiB inline). Never attach original
-      // PDF bytes — that blows the token limiter.
-      // Artifact resume carries no new user message, so there is nothing to resolve.
-      const hsHistoryMessages = isArtifactResume
-        ? []
-        : await conversationStore
-            .listMessagesOrdered({
-              tenantId: scope.scope.tenantId,
-              threadId,
-            })
-            .then((rows) =>
-              rows.map((row) => ({ parts: row.parts, role: row.role }))
-            )
-            .catch((err) => {
-              console.error("thread attachment history load failed", err);
-              return [];
-            });
-      const hsTieredAttachments = isArtifactResume
-        ? { contextEntries: [], modelAttachments: [] }
-        : await resolveTieredAttachments({
-            accessToken: scopeAccessToken(scope.scope),
-            coreBaseUrl: opts.coreBaseUrl,
-            historyMessages: hsHistoryMessages,
-            input: body.data,
-          });
+      const [hsConnectionGrants, hsAgentGrants, hsTieredAttachments] =
+        await Promise.all([
+          hsConnectionGrantsPromise,
+          hsAgentGrantsPromise,
+          hsTieredAttachmentsPromise,
+        ]);
       // Durable transcript parts for this turn (persisted so attachments render
       // on reload); empty on an artifact resume (no new user message).
       const hsAttachmentParts = isArtifactResume

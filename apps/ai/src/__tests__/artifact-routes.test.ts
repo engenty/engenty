@@ -197,6 +197,12 @@ function makeFakeStore(): ArtifactStore {
     mergeMetadata() {
       throw new Error("mergeMetadata is not part of these route tests");
     },
+    findByLastRunId() {
+      throw new Error("findByLastRunId is not part of these route tests");
+    },
+    findByTitle() {
+      throw new Error("findByTitle is not part of these route tests");
+    },
     getStorageBinding() {
       throw new Error("getStorageBinding is not part of these route tests");
     },

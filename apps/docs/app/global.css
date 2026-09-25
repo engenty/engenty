@@ -354,7 +354,8 @@ html body .twoslash-popup-container {
 }
 
 /* --- bubble ---------------------------------------------------------------- */
-.hb-bubble {
+.hb-bubble,
+.lobby-bubble {
   position: relative;
   background: oklch(100% 0 0);
   color: var(--ink);
@@ -365,7 +366,9 @@ html body .twoslash-popup-container {
 }
 
 .hb-bubble::before,
-.hb-bubble::after {
+.hb-bubble::after,
+.lobby-bubble::before,
+.lobby-bubble::after {
   content: "";
   position: absolute;
   left: 22px;
@@ -375,12 +378,14 @@ html body .twoslash-popup-container {
   border-bottom: 0;
 }
 
-.hb-bubble::after {
+.hb-bubble::after,
+.lobby-bubble::after {
   bottom: -9px;
   border-top-color: oklch(100% 0 0);
 }
 
-.hb-bubble-name {
+.hb-bubble-name,
+.lobby-bubble-name {
   display: block;
   font-family: var(--f-chrome);
   font-weight: 700;
@@ -389,10 +394,12 @@ html body .twoslash-popup-container {
   margin-bottom: 2px;
 }
 
-.dark .hb-bubble {
+.dark .hb-bubble,
+.dark .lobby-bubble {
   background: var(--paper-2);
 }
-.dark .hb-bubble::after {
+.dark .hb-bubble::after,
+.dark .lobby-bubble::after {
   border-top-color: var(--paper-2);
 }
 
@@ -1566,7 +1573,7 @@ html body [role="dialog"] {
   filter: drop-shadow(0 18px 0 oklch(0% 0 0 / 0.25));
 }
 
-.docs-avatar {
+.lobby-avatar {
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -1577,34 +1584,34 @@ html body [role="dialog"] {
   pointer-events: none;
 }
 
-.docs-avatar-body {
+.lobby-avatar-body {
   position: relative;
   width: 100%;
   line-height: 0;
 }
 
-.docs-avatar-mark {
+.lobby-avatar-mark {
   line-height: 0;
   width: 100%;
   animation: docs-float 6.5s steps(6) infinite;
 }
 
 /* The mark scales with the room, not with its `size` prop. */
-.docs-avatar svg {
+.lobby-avatar svg {
   width: 100%;
   height: auto;
 }
 
-.docs-avatar:nth-child(3) .docs-avatar-mark {
+.lobby-avatar:nth-child(3) .lobby-avatar-mark {
   animation-delay: -1.3s;
 }
-.docs-avatar:nth-child(4) .docs-avatar-mark {
+.lobby-avatar:nth-child(4) .lobby-avatar-mark {
   animation-delay: -2.6s;
 }
-.docs-avatar:nth-child(5) .docs-avatar-mark {
+.lobby-avatar:nth-child(5) .lobby-avatar-mark {
   animation-delay: -3.9s;
 }
-.docs-avatar:nth-child(6) .docs-avatar-mark {
+.lobby-avatar:nth-child(6) .lobby-avatar-mark {
   animation-delay: -5.2s;
 }
 
@@ -1620,7 +1627,7 @@ html body [role="dialog"] {
 
 /* Contact shadow on the tiles under the feet: a pixel ellipse at the
    floor's 2:1 angle, nudged back-right where the room's light throws it. */
-.docs-avatar-shadow {
+.lobby-avatar-shadow {
   position: absolute;
   left: 53%;
   top: 88%;
@@ -1636,7 +1643,7 @@ html body [role="dialog"] {
 
 /* Name tag, the Habbo way: white pill, ink text, under the feet. Layered
    above the contact shadow, which is positioned and would paint over it. */
-.docs-avatar-tag {
+.lobby-avatar-tag {
   position: relative;
   z-index: 1;
   margin-top: -6px;
@@ -1654,7 +1661,7 @@ html body [role="dialog"] {
 }
 
 /* Greeting bubble hanging in the room's top-left, over the wall. */
-.docs-lobby-bubble {
+.lobby-bubble {
   position: absolute;
   max-width: 230px;
   font-size: 13.5px;
@@ -1667,12 +1674,12 @@ html body [role="dialog"] {
     transform 0.16s steps(2);
 }
 
-.docs-lobby-bubble[data-up="false"] {
+.lobby-bubble[data-up="false"] {
   opacity: 0;
   transform: scale(0.85);
 }
 
-.docs-lobby-bubble kbd {
+.lobby-bubble kbd {
   font-family: var(--f-pixel);
   font-size: 7px;
   border: 1px solid var(--docs-edge);
@@ -1792,7 +1799,7 @@ html body [role="dialog"] {
 
 @media (prefers-reduced-motion: reduce) {
   .docs-title-mascot,
-  .docs-avatar-mark {
+  .lobby-avatar-mark {
     animation: none;
   }
 }

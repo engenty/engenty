@@ -54,6 +54,8 @@ export function ChatAgentsProvider(props: {
 
 export function ChatAgentFace(props: {
   agentId?: string | null;
+  /** Blob to wear while the roster does not know the agent yet (a new hire). */
+  engenty?: string;
   name?: string | null;
   size: number;
 }) {
@@ -78,7 +80,7 @@ export function ChatAgentFace(props: {
         deskAgent
           ? deskAgent.engenty
           : agentId
-            ? resolveAgentEngenty(agentId, agent?.engenty)
+            ? resolveAgentEngenty(agentId, agent?.engenty ?? props.engenty)
             : "round"
       }
       name={props.name ?? deskAgent?.name ?? undefined}

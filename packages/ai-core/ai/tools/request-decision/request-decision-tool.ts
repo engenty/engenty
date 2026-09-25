@@ -16,6 +16,17 @@ export const requestDecisionInputSchema = z.object({
 
 export type RequestDecisionInput = z.infer<typeof requestDecisionInputSchema>;
 
+/**
+ * What the decision is about, drawn beside the words: a workflow graph the
+ * person can open as its diagram before approving it.
+ */
+export interface DecisionPreview {
+  /** The stored graph (`{ id, graph, metadata }`) — frozen at ask time. */
+  graph: unknown;
+  kind: "workflow";
+  title?: string;
+}
+
 export interface RequestDecisionArtifact {
   artifact_id: string;
   artifact_type: "decision";
@@ -25,6 +36,7 @@ export interface RequestDecisionArtifact {
   interrupt_id: string;
   /** Checkbox mode: the user may pick several choices in one answer. */
   multi_select?: boolean;
+  preview?: DecisionPreview;
   title: string;
 }
 

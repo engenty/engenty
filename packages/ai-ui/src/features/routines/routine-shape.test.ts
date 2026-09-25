@@ -44,7 +44,6 @@ const routine: RoutineDto = {
   module_id: null,
   name: "Daily contact import",
   next_due_at: null,
-  outcome: "Every genuine correspondent is a contact, with no duplicates.",
   outcomes: [],
   quiet_hours: null,
   report: "desk_card",
@@ -70,14 +69,14 @@ const singleStepGraph: StoredGraph = {
 };
 
 describe("buildRoutineShape", () => {
-  it("carries the declared promise and its report floor", () => {
+  it("draws what happens with the result, not the goal", () => {
+    // The goal is an instruction to the model; the picture shows deliveries.
     expect(
       buildRoutineShape({ graph: singleStepGraph, routine }).outcome
     ).toEqual({
       bindings: [],
       holdLine: null,
       report: "desk_card",
-      text: "Every genuine correspondent is a contact, with no duplicates.",
     });
   });
 
@@ -90,6 +89,7 @@ describe("buildRoutineShape", () => {
           {
             config: {},
             created_at: "2026-08-01T07:00:00.000Z",
+            description: null,
             enabled: true,
             id: "out-1",
             mode: "always",
@@ -101,6 +101,7 @@ describe("buildRoutineShape", () => {
           {
             config: { agent_id: "chief-of-staff" },
             created_at: "2026-08-01T07:00:00.000Z",
+            description: null,
             enabled: true,
             id: "out-2",
             mode: "agent",
@@ -191,6 +192,7 @@ function outcomeRow(
   return {
     config: {},
     created_at: "2026-08-01T07:00:00.000Z",
+    description: null,
     enabled: true,
     id: `outcome-${providerId}`,
     mode: "always",

@@ -35,8 +35,8 @@ resolved run receives:
 | `custom` | Only the declared mounts whose required bindings resolve |
 
 `/company` is read-only in every run: `/company/files` is the company drive
-(the tenant commons) and `/company/spaces/<key>/` shows each publishing Space's
-`public/` folder. `/space/public` is a folder inside `/space`, not a mount of
+(the tenant commons), `/company/spaces/<key>/` shows each publishing Space's
+`public/` folder and `/company/apps/<slug>/` the source of those Spaces' Apps. `/space/public` is a folder inside `/space`, not a mount of
 its own; file-tool writes there ask for approval.
 
 Use only mounts present in the run. In particular, never tell a run to write

@@ -5,6 +5,7 @@ import {
   type EngentyWorkspaceContext,
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
+import { formatRunClock } from "./run-clock.js";
 import type { RunSpaceResolution } from "./run-space.js";
 import {
   formatSpaceRuntimeBlock,
@@ -31,6 +32,7 @@ export async function buildRuntimeContextInstructions(input: {
 }) {
   const lines = [
     "Engenty runtime context for this request:",
+    formatRunClock(),
     `- thread_id: ${input.threadId}`,
     `- tenant_id: ${input.scope.tenantId}`,
     `- user_id: ${input.scope.userId}`,

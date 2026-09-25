@@ -56,6 +56,29 @@ describe("shouldShowCopilotThinkingShimmer", () => {
     ).toBe(true);
   });
 
+  it("stays through reasoning and running tools for a person — the turn's one status line", () => {
+    const runningTool = {
+      input: {},
+      state: "input-available",
+      toolCallId: "t-1",
+      toolName: "routines_create",
+      type: "dynamic-tool",
+    };
+    for (const parts of [
+      [{ type: "reasoning", text: "Still thinking…" }],
+      [runningTool],
+    ]) {
+      expect(
+        shouldShowCopilotThinkingShimmer({
+          lastAssistantIsLastMessage: true,
+          lastAssistantParts: parts,
+          personDetail: true,
+          status: "streaming",
+        })
+      ).toBe(true);
+    }
+  });
+
   it("hides when an open decision interrupt is active", () => {
     expect(
       shouldShowCopilotThinkingShimmer({

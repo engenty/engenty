@@ -147,8 +147,25 @@ describe("observational memory", () => {
     });
   });
 
+  it("leaves shared observations off unless opted in", () => {
+    vi.stubEnv("ENGENTY_AI_OBSERVATIONAL_MEMORY", "true");
+    vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
+    const runtime = createEngentySessionMemoryRuntime({
+      agentId: "engenty.copilot",
+      scope: { tenantId, userId },
+      sharedObservations: "personal",
+      store: {} as ThreadStore,
+      threadId: "00000000-0000-4000-8000-000000000004",
+    });
+
+    expect(hasSharedObservationalProcessor(runtime.memoryProcessors)).toBe(
+      false
+    );
+  });
+
   it("attaches the shared processor to personal chat memory", () => {
     vi.stubEnv("ENGENTY_AI_OBSERVATIONAL_MEMORY", "true");
+    vi.stubEnv("ENGENTY_AI_SHARED_OBSERVATIONS", "true");
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "engenty.copilot",
@@ -181,6 +198,7 @@ describe("observational memory", () => {
 
   it("attaches shared staff memory inside a space", () => {
     vi.stubEnv("ENGENTY_AI_OBSERVATIONAL_MEMORY", "true");
+    vi.stubEnv("ENGENTY_AI_SHARED_OBSERVATIONS", "true");
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "contacts.manager",

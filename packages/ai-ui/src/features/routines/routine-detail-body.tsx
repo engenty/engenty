@@ -253,25 +253,13 @@ export function RoutineDetailBody({
         </SectionHeading>
         <div className="ui-card-panel p-3.5">
           {routine.prompt ? (
-            // A prompt routine IS its prompt — the one-node workflow behind
-            // it is a storage detail, not something to draw. The canvas
-            // outcome node is skipped too, so the promise renders here.
+            // A prompt routine IS its prompt — the workflow behind it is a
+            // storage detail, not something to draw.
             <div className="space-y-3">
-              {/* A long prompt scrolls inside the card; the promise below
-                  stays in view. */}
+              {/* A long prompt scrolls inside the card. */}
               <p className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words pr-1 text-sm leading-relaxed">
                 {routine.prompt}
               </p>
-              {routine.outcome ? (
-                <div className="space-y-1 border-border-soft border-t pt-3">
-                  <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
-                    {t("routines.form.outcome")}
-                  </span>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {routine.outcome}
-                  </p>
-                </div>
-              ) : null}
             </div>
           ) : (
             <RoutineCanvas

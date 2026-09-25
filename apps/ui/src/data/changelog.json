@@ -1,7 +1,319 @@
 [
   {
+    "version": "v0.2.21",
+    "timestamp": 1790358373,
+    "commits": [
+      {
+        "id": "dd473fa",
+        "message": "shorter chat replies, the shell only when tools can't do it",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "17d13f3",
+        "message": "a house-style report follows the app's dark mode",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bb2275c",
+        "message": "a routine's HTML report carries the house style",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d9757e8",
+        "message": "a neutral result status shows in the info tone",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "163f549",
+        "message": "surfaces follow the design tokens and wrap to their width",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "27ed4df",
+        "message": "each result card keeps its own content",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3d4aa20",
+        "message": "Auto effort asks Jev before leaving a warm thread's tier",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9955cbf",
+        "message": "the result card reads like a report card",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "432b59f",
+        "message": "chat-sized metric values, a badge that fits its label, facts that wrap",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1029bd5",
+        "message": "a result card's findings wrap in full",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7a5e1af",
+        "message": "quote the rich-ui skill description",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ab1d91a",
+        "message": "the result card leaves the summary to the report above it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f74caae",
+        "message": "a run summary ends on a sentence, not mid-word",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "dbde9ce",
+        "message": "a routine's result card, composed by Jev",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fb45ef7",
+        "message": "Jev composes a surface from prepared candidates",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3d91b7c",
+        "message": "rename from a2ui-catalog",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "56b6bb0",
+        "message": "a result card's Open button in the reader's language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7eac9e6",
+        "message": "remove the unused generative-ui package",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "7fe2c42",
+        "message": "tool rows in the reader's language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "466ba65",
+        "message": "routine lines in the reader's language, and a run card that says what the run did",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c782514",
+        "message": "a routine's agent answers with its result instead of storing it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3ee712b",
+        "message": "drop the routine outcome field",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "7b2b90b",
+        "message": "a workflow an agent saves goes live in auto mode",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5148ba7",
+        "message": "each delivery is its own box on the routine flow; the outcome becomes the goal",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fd5e507",
+        "message": "one status line per turn, and no jump when a run ends",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d97e865",
+        "message": "workflow authors read a specialist step's answer through output",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "132cde8",
+        "message": "ask what a routine should leave before creating it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8729a99",
+        "message": "routines ask what each run leaves — page, HTML report or table rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "54c6e6f",
+        "message": "starting a routine runs it instead of doing the job in chat",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "06c9071",
+        "message": "a routine's rerun updates its page instead of adding another",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bf22785",
+        "message": "a prompt routine runs the specialist, then stores its result",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cdd1037",
+        "message": "a running routine says what it is doing now",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1302902",
+        "message": "richer result teasers on a card, with a menu for the document",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "50b901e",
+        "message": "routine approval shows its workflow; teasers read as one bubble",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c3b47cb",
+        "message": "agents and routine messages speak plain language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "779536a",
+        "message": "results come back as a teaser in the chat that opens in the side pane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fbdab71",
+        "message": "routine runs deliver a result the notification opens",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "277d387",
+        "message": "business users no longer approve shell commands; approval defaults to auto",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "914cbef",
+        "message": "make shared observations opt-in and observe after the run",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "3a5e5b0",
+        "message": "start the first token sooner",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "c5e90a5",
+        "message": "carry fewer tools on every copilot call",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f6251e8",
+        "message": "cut the copilot prompt to its rules and stop listing every skill",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "aeba8b4",
+        "message": "the docs lobby moves into the landing hero",
+        "group": "Other",
+        "breaking": false
+      },
+      {
+        "id": "7b85eaf",
+        "message": "keep the docked blob's overhang off the app bar's layer",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b901a81",
+        "message": "show the lobby at /docs so the dev gateway reaches it",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "cf2ed7a",
+        "message": "routine runs open in their Engenty's chat with the workflow beside it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "235e35e",
+        "message": "the wizard page says a run it cannot load is unavailable",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "05a6da4",
+        "message": "hire clips show the agent's face and link its desk; note clips open what was kept",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "37ee6b5",
+        "message": "runs use their model's own web search and fetch, with fallbacks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1b69dba",
+        "message": "the computer prompt keeps Engenty work on tools, not the shell",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "462729f",
+        "message": "/company/apps shows the source of every publishing Space's Apps",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.20",
-    "timestamp": 1790317918,
+    "timestamp": 1790317921,
     "commits": [
       {
         "id": "fc5131b",

@@ -12,7 +12,10 @@ export {
   encodeAgUiSseEvent,
   parseAgUiSseChunk,
 } from "./ag-ui-sse.js";
-export type { AgentTurnMessageLike } from "./agent-turn-message.js";
+export type {
+  AgentTurnMessageLike,
+  RoutineNotice,
+} from "./agent-turn-message.js";
 export type {
   AgentUiDomEntryPoints,
   AgentUiDomRegionId,

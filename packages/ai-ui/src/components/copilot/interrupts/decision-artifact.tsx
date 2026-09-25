@@ -3,8 +3,17 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, Input } from "@engenty/ui-core";
+import {
+  Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Input,
+} from "@engenty/ui-core";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import type { StoredGraph } from "../../../features/workflow-canvas/graph-model.js";
+import { WorkflowCanvas } from "../../../features/workflow-canvas/workflow-canvas.js";
 import { InterruptCardBody } from "./interrupt-card-body.js";
 import { InterruptCardDismissButton } from "./interrupt-card-dismiss-button.js";
 import { parseToolApprovalArtifactId } from "./tool-approval-artifact-id.js";
@@ -51,7 +60,63 @@ export interface DecisionArtifact {
   interruptId?: string;
   /** Checkbox mode: several choices (plus an optional custom answer) at once. */
   multiSelect?: boolean;
+  /** What is being decided, as a diagram the person can open first. */
+  preview?: DecisionPreview;
   title: string;
+}
+
+export interface DecisionPreview {
+  graph: unknown;
+  kind: "workflow";
+  title?: string;
+}
+
+function readDecisionPreview(raw: unknown): DecisionPreview | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  const graph = record.graph as { graph?: unknown } | null | undefined;
+  if (record.kind !== "workflow" || !Array.isArray(graph?.graph)) {
+    return null;
+  }
+  return {
+    graph,
+    kind: "workflow",
+    ...(typeof record.title === "string" ? { title: record.title } : {}),
+  };
+}
+
+/** The workflow a decision puts live, drawn read-only in a dialog. */
+function DecisionWorkflowPreview(props: { preview: DecisionPreview }) {
+  const { t } = useTranslation("common");
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        onClick={() => setOpen(true)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {t("copilot.decisionShowWorkflow")}
+      </Button>
+      <Dialog onOpenChange={setOpen} open={open}>
+        <DialogContent className="flex h-[70vh] max-w-[calc(100%-2rem)] flex-col gap-3 p-4 sm:max-w-[min(92vw,960px)]">
+          <DialogTitle className="truncate font-semibold text-base">
+            {props.preview.title ?? t("copilot.decisionShowWorkflow")}
+          </DialogTitle>
+          <div className="min-h-0 flex-1">
+            <WorkflowCanvas
+              className="h-full"
+              graph={props.preview.graph as StoredGraph}
+              mode="approve"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 export function decisionArtifactFromOpenInterrupt(
@@ -69,6 +134,9 @@ export function decisionArtifactFromOpenInterrupt(
     choices: open.choices,
     interruptId: open.interrupt_id,
     ...(open.multi_select ? { multiSelect: true } : {}),
+    ...(readDecisionPreview(open.preview)
+      ? { preview: readDecisionPreview(open.preview) as DecisionPreview }
+      : {}),
     title: open.title,
   };
 }
@@ -221,6 +289,7 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
     choices?: unknown;
     interrupt_id?: unknown;
     multi_select?: unknown;
+    preview?: unknown;
     title?: unknown;
   };
   if (
@@ -241,6 +310,9 @@ export function parseDecisionArtifact(value: unknown): DecisionArtifact | null {
     interruptId:
       typeof raw.interrupt_id === "string" ? raw.interrupt_id : undefined,
     ...(raw.multi_select === true ? { multiSelect: true } : {}),
+    ...(readDecisionPreview(raw.preview)
+      ? { preview: readDecisionPreview(raw.preview) as DecisionPreview }
+      : {}),
     title: typeof raw.title === "string" ? raw.title : "Decision needed",
   };
 }
@@ -530,6 +602,9 @@ export function DecisionArtifactCard(props: {
             {displayTitle}
           </h3>
           {displayBody ? <InterruptCardBody body={displayBody} /> : null}
+          {props.artifact.preview ? (
+            <DecisionWorkflowPreview preview={props.artifact.preview} />
+          ) : null}
         </div>
         {props.onDismiss ? (
           <InterruptCardDismissButton

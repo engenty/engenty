@@ -1,9 +1,18 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listCompanyApps } from "../../workspace/company-apps.js";
 import type { EngentyCoreFileStorageClient } from "../../workspace/core-file-storage-client.js";
 import {
   refreshCompanyMirror,
@@ -136,5 +145,41 @@ describe("refreshCompanyMirror", () => {
       existsSync(path.join(resolveCompanyMirrorPath(T), "..", "escape.txt"))
     ).toBe(false);
     expect(existsSync(path.join(root, "tenants", T, "escape.txt"))).toBe(false);
+  });
+
+  it("copies an App's source without its history, installs or links, and drops a removed App", async () => {
+    // The App lives in app-host's tree on the host, not in storage.
+    const src = path.join(
+      root,
+      "tenants",
+      T,
+      "spaces",
+      A,
+      "apps",
+      "crm",
+      "src"
+    );
+    mkdirSync(path.join(src, ".git"), { recursive: true });
+    mkdirSync(path.join(src, "node_modules", "left-pad"), { recursive: true });
+    writeFileSync(path.join(src, "index.ts"), "export {}");
+    writeFileSync(path.join(src, ".git", "HEAD"), "ref");
+    writeFileSync(path.join(src, "node_modules", "left-pad", "i.js"), "x");
+    symlinkSync("/etc/hosts", path.join(src, "hosts"));
+    const { client } = fakeStorage({});
+    const spaces = [{ id: A, key: "marketing" }];
+
+    const apps = listCompanyApps(T, spaces);
+    expect(apps.map((app) => app.slug)).toEqual(["crm"]);
+    // An App of a Space that does not publish is not listed.
+    expect(listCompanyApps(T, [])).toEqual([]);
+
+    await refreshCompanyMirror({ apps, client, spaces, tenantId: T });
+    expect(read("apps/crm/index.ts")).toBe("export {}");
+    expect(has("apps/crm/.git")).toBe(false);
+    expect(has("apps/crm/node_modules")).toBe(false);
+    expect(has("apps/crm/hosts")).toBe(false);
+
+    await refreshCompanyMirror({ apps: [], client, spaces, tenantId: T });
+    expect(has("apps/crm")).toBe(false);
   });
 });

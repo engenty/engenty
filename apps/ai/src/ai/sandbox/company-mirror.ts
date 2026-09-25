@@ -9,9 +9,15 @@
 // thing this view must not do — so every refresh also removes what is gone:
 // files no longer in storage and whole folders of Spaces that stopped
 // publishing.
+//
+// `apps/<slug>/` is copied from the App's source on this host (app-host's
+// tree, never in object storage), without `.git`, `node_modules` or symlinks:
+// the history and the installs are the owning Space's, and a link could
+// point anywhere on the host.
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -49,13 +55,16 @@ function manifestPath(tenantId: string): string {
 }
 
 interface MirrorSource {
-  /** Folder under `/company`: `files` or `spaces/<key>`. */
+  /** Folder under `/company`: `files`, `spaces/<key>` or `apps/<slug>`. */
   dir: string;
-  /** Host staging dir that holds the bytes when storage is local. */
+  /** Host dir that holds the bytes when storage is local (always, for Apps). */
   localPath: string;
-  /** Full object-key prefix, ending in `/`. */
-  prefix: string;
+  /** Full object-key prefix, ending in `/`; absent for a host-only source. */
+  prefix?: string;
 }
+
+// Never copied out of an App's source tree.
+const SKIPPED_DIRS = new Set([".git", "node_modules"]);
 
 type Manifest = Record<string, string>;
 
@@ -67,6 +76,7 @@ function readManifest(tenantId: string): Manifest {
   }
 }
 
+/** Regular files under `root`, relative; symlinks and skipped dirs left out. */
 function listFiles(root: string, prefix = ""): string[] {
   let entries: string[];
   try {
@@ -77,10 +87,12 @@ function listFiles(root: string, prefix = ""): string[] {
   const files: string[] = [];
   for (const entry of entries) {
     const relative = prefix ? `${prefix}/${entry}` : entry;
-    const full = path.join(root, relative);
-    if (statSync(full).isDirectory()) {
-      files.push(...listFiles(root, relative));
-    } else {
+    const stat = lstatSync(path.join(root, relative));
+    if (stat.isDirectory()) {
+      if (!SKIPPED_DIRS.has(entry)) {
+        files.push(...listFiles(root, relative));
+      }
+    } else if (stat.isFile()) {
       files.push(relative);
     }
   }
@@ -132,15 +144,16 @@ async function mirrorSource(input: {
   const target = path.join(input.root, input.source.dir);
   mkdirSync(target, { recursive: true });
   const wanted = new Set<string>();
-  if (input.client) {
-    const listed = await input.client.list(input.source.prefix, {
+  const prefix = input.source.prefix;
+  if (input.client && prefix) {
+    const listed = await input.client.list(prefix, {
       recursive: true,
     });
     for (const file of listed) {
-      if (!file.key.startsWith(input.source.prefix)) {
+      if (!file.key.startsWith(prefix)) {
         continue;
       }
-      const relative = file.key.slice(input.source.prefix.length);
+      const relative = file.key.slice(prefix.length);
       const local = path.join(target, relative);
       if (!relative || relative.endsWith("/") || !isInside(target, local)) {
         continue;
@@ -158,13 +171,19 @@ async function mirrorSource(input: {
       }
     }
   } else {
-    // Local storage mode: the bytes already live in the host staging dirs.
+    // Local storage mode, or an App's source: the bytes are on this host.
     for (const relative of listFiles(input.source.localPath)) {
       wanted.add(relative);
-      writeAtomic(
-        path.join(target, relative),
-        readFileSync(path.join(input.source.localPath, relative))
-      );
+      const from = path.join(input.source.localPath, relative);
+      const to = path.join(target, relative);
+      const { mtimeMs, size } = statSync(from);
+      const manifestKey = `${input.source.dir}/${relative}`;
+      const version = `${mtimeMs}:${size}`;
+      input.next[manifestKey] = version;
+      if (input.manifest[manifestKey] === version && existsSync(to)) {
+        continue;
+      }
+      writeAtomic(to, readFileSync(from));
     }
   }
   for (const relative of listFiles(target)) {
@@ -175,6 +194,15 @@ async function mirrorSource(input: {
   pruneEmptyDirs(target, true);
 }
 
+function removeUnlisted(dir: string, keep: ReadonlySet<string>): void {
+  mkdirSync(dir, { recursive: true });
+  for (const entry of readdirSync(dir)) {
+    if (!keep.has(entry)) {
+      rmSync(path.join(dir, entry), { force: true, recursive: true });
+    }
+  }
+}
+
 const inFlight = new Map<string, Promise<void>>();
 
 /**
@@ -183,6 +211,8 @@ const inFlight = new Map<string, Promise<void>>();
  * just wrote.
  */
 export function refreshCompanyMirror(input: {
+  /** The Apps whose source `/company/apps/<slug>` shows. */
+  apps?: readonly { slug: string; srcPath: string }[];
   /** Null when storage is local (`ENGENTY_WORKSPACE_FS=local`). */
   client: EngentyCoreFileStorageClient | null;
   spaces: readonly { id: string; key: string }[];
@@ -199,6 +229,7 @@ export function refreshCompanyMirror(input: {
 }
 
 async function refreshNow(input: {
+  apps?: readonly { slug: string; srcPath: string }[];
   client: EngentyCoreFileStorageClient | null;
   spaces: readonly { id: string; key: string }[];
   tenantId: string;
@@ -223,20 +254,25 @@ async function refreshNow(input: {
       ),
       prefix: spacePublicPrefix(input.tenantId, space.id),
     })),
+    ...(input.apps ?? []).map((app) => ({
+      dir: `apps/${app.slug}`,
+      localPath: app.srcPath,
+    })),
   ];
   const manifest = readManifest(input.tenantId);
   const next: Manifest = {};
   for (const source of sources) {
     await mirrorSource({ client: input.client, manifest, next, root, source });
   }
-  // A Space that stopped publishing (or was renamed) takes its folder along.
-  const keys = new Set(input.spaces.map((space) => space.key));
-  const spacesDir = path.join(root, "spaces");
-  mkdirSync(spacesDir, { recursive: true });
-  for (const entry of readdirSync(spacesDir)) {
-    if (!keys.has(entry)) {
-      rmSync(path.join(spacesDir, entry), { force: true, recursive: true });
-    }
-  }
+  // A Space that stopped publishing (or was renamed) takes its folder along,
+  // and an App that was removed or whose Space stopped publishing, its source.
+  removeUnlisted(
+    path.join(root, "spaces"),
+    new Set(input.spaces.map((space) => space.key))
+  );
+  removeUnlisted(
+    path.join(root, "apps"),
+    new Set((input.apps ?? []).map((app) => app.slug))
+  );
   writeAtomic(manifestPath(input.tenantId), Buffer.from(JSON.stringify(next)));
 }

@@ -4,7 +4,7 @@ Status: IMPLEMENTED (v1) — 2026-07-18, branch `feat/generative-ui`. G1
 (CommercialDocumentView panels + askAgent seam), G2 (internal MCP Apps:
 `engenty:internal` proxy branch, template registry, `show_widget`), and G3
 (A2UI `engenty:core/v1` catalog via `@a2ui/react`, `show_ui`,
-`packages/a2ui-catalog`) all landed and were browser-verified. Design below
+`packages/generative-a2ui`) all landed and were browser-verified. Design below
 kept as reference; deferred items: first-party template examples, A2UI
 incremental surface updates over the live stream, Q1–Q3/Q5 open questions.
 

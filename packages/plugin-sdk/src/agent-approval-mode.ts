@@ -9,7 +9,7 @@
  * The agent's own mode decides when it is set — also when it is looser than
  * the space or tenant (decided 2026-09-24): the mode is bound to the agent.
  * Unset inherits: agent → the agent's platform default → space → tenant →
- * `manual`. See {@link resolveAgentApprovalMode}.
+ * `auto`. See {@link resolveAgentApprovalMode}.
  */
 
 export const AGENT_APPROVAL_MODES = ["manual", "auto", "pass-all"] as const;
@@ -34,7 +34,8 @@ export const DEFAULT_AGENT_APPROVAL_MODES: Readonly<
 
 /**
  * The effective mode for one agent: its own setting, else its platform
- * default, else the space's, else the tenant's, else `manual`.
+ * default, else the space's, else the tenant's, else `auto` — a new
+ * specialist asks only for the risky and the unmounted, like the copilot.
  */
 export function resolveAgentApprovalMode(input: {
   /** The agent type key (`engenty.copilot`, `<space>.chief-of-staff`). */
@@ -48,7 +49,7 @@ export function resolveAgentApprovalMode(input: {
     (input.agentKey ? DEFAULT_AGENT_APPROVAL_MODES[input.agentKey] : null) ??
     input.spaceMode ??
     input.tenantMode ??
-    "manual"
+    "auto"
   );
 }
 

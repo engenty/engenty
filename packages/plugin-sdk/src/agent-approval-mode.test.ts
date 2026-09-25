@@ -18,8 +18,8 @@ describe("parseAgentApprovalMode", () => {
 describe("resolveAgentApprovalMode", () => {
   const none = { agentMode: null, spaceMode: null, tenantMode: null };
 
-  it("defaults to manual when nothing is set", () => {
-    expect(resolveAgentApprovalMode(none)).toBe("manual");
+  it("defaults to auto when nothing is set", () => {
+    expect(resolveAgentApprovalMode(none)).toBe("auto");
   });
 
   it("inherits space over tenant", () => {
@@ -68,7 +68,11 @@ describe("resolveAgentApprovalMode", () => {
       })
     ).toBe("manual");
     expect(
-      resolveAgentApprovalMode({ ...none, agentKey: "engrd.chief-of-staff" })
+      resolveAgentApprovalMode({
+        ...none,
+        agentKey: "engrd.chief-of-staff",
+        tenantMode: "manual",
+      })
     ).toBe("manual");
   });
 });

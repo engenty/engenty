@@ -3,6 +3,7 @@
 
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isSandboxCommandOpenInterrupt } from "@engenty/ag-ui-bridge";
+import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import {
   memo,
@@ -39,7 +40,10 @@ import {
   softenUserInlineCode,
 } from "./chat-user-bubble.js";
 import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
-import { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
+import {
+  messageHasActiveToolParts,
+  shouldShowCopilotThinkingShimmer,
+} from "./copilot-thinking-shimmer";
 import { MentionInlineText } from "./mention-inline-text.js";
 import {
   layoutTranscriptRows,
@@ -81,14 +85,26 @@ export interface CopilotTranscriptProps {
 
 export { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
 
-/** Centered "thinking" row with a live-ticking elapsed-seconds counter. */
-function ThinkingShimmerRow({ thinkingLabel }: { thinkingLabel: string }) {
+/**
+ * The turn's status line: a dot, what it is doing, one timer. Left-aligned
+ * under the agent's side and the same height whatever it says, so nothing
+ * below it moves while it changes.
+ */
+function ThinkingShimmerRow({ label }: { label: string }) {
   const elapsedSeconds = useElapsedSeconds(true);
   return (
-    <div className="flex items-center justify-center gap-2 py-3 text-muted-foreground text-sm">
+    <div
+      className="flex items-center gap-2 py-2 pl-1 text-muted-foreground text-sm"
+      data-testid="turn-status-line"
+    >
+      <span
+        aria-hidden
+        className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+      />
       <Shimmer as="span" duration={2} spread={2}>
-        {thinkingLabel}
+        {label}
       </Shimmer>
+      <span aria-hidden>·</span>
       <span className="tabular-nums">
         {formatElapsedSeconds(elapsedSeconds)}
       </span>
@@ -181,6 +197,8 @@ export const CopilotTranscript = memo(function CopilotTranscript({
   // A person sees what the agent did as clips; the step list is for
   // developers.
   const toolDetail = useDeveloperModeEnabled() ? "developer" : "person";
+  const { t } = useTranslation("ai-ui");
+  const workingLabel = t("toolClip.working");
   const chatStyle = useChatStyle();
   const filteredMessages = useMemo(
     () => messages.filter(isTranscriptRole),
@@ -215,6 +233,7 @@ export const CopilotTranscript = memo(function CopilotTranscript({
 
   const showThinkingShimmer = shouldShowCopilotThinkingShimmer({
     awaitingInterrupt,
+    personDetail: toolDetail === "person",
     // A pending (not yet echoed) user turn sits after it in the transcript.
     lastAssistantIsLastMessage:
       !showPending &&
@@ -363,7 +382,14 @@ export const CopilotTranscript = memo(function CopilotTranscript({
         <CopilotTranscriptSandboxInterruptInline open={openInterrupt} />
       ) : null}
       {showThinkingShimmer ? (
-        <ThinkingShimmerRow thinkingLabel={thinkingLabel} />
+        <ThinkingShimmerRow
+          label={
+            toolDetail === "person" &&
+            messageHasActiveToolParts(lastAssistantMessage?.parts)
+              ? workingLabel
+              : thinkingLabel
+          }
+        />
       ) : null}
     </ChatAgentsProvider>
   );
