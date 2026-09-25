@@ -430,7 +430,6 @@
     "manage": {
       "allRuns": "All runs",
       "connectorsDescription": "External services this agent can reach.",
-      "idLabel": "Agent ID",
       "managedByLabel": "Owning module",
       "mandateTitle": "What it does",
       "memoryTitle": "Memory",
@@ -620,6 +619,10 @@
       "started": "▸ **Routine · {{name}}** started",
       "whenEvent": "whenever the event it waits for happens",
       "whenPressed": "when pressed or asked"
+    },
+    "routineChat": {
+      "create": "Set up a new routine: ",
+      "edit": "Change the routine {{mention}}: "
     }
   },
   "agentDetail": {
@@ -2181,7 +2184,9 @@
       "autostart": "Let Engentys start it without asking",
       "autostartHint": "Off: an Engenty that needs the web asks in the chat before the browser starts. Space owners only.",
       "unattended": "Let Engentys use it unattended",
-      "unattendedHint": "Routines and tasks may drive the Space's logged-in browser without anyone watching. Off: they stop and ask. Space owners only."
+      "unattendedHint": "Routines and tasks may drive the Space's logged-in browser without anyone watching. Off: they stop and ask. Space owners only.",
+      "autostartShort": "Start without asking",
+      "unattendedShort": "Usable unattended"
     },
     "view": {
       "title": "Your browser",
@@ -2210,6 +2215,11 @@
         "closed": "Disconnected.",
         "error": "The live view failed."
       }
+    },
+    "screen": {
+      "caption": "{{name}}'s browser",
+      "open": "Open the browser",
+      "absentHint": "No browser is running yet. Start it so this engenty can work on the web — you watch live here."
     }
   },
   "gateSurface": {
@@ -2227,7 +2237,11 @@
       "reject": "Reject",
       "next": "Continue",
       "note": "Note (optional)"
-    }
+    },
+    "operationApproval": {
+      "title": "Approval needed"
+    },
+    "enterHint": "press Enter ↵"
   },
   "wizard": {
     "done": "Done",
@@ -2243,7 +2257,15 @@
       "running": "Working…",
       "sleeping": "Sleeping",
       "sleepingUntil": "Sleeping until {{when}}",
-      "starting": "Starting…"
+      "starting": "Starting…",
+      "loading": "Loading…",
+      "runningDetail": "This takes a moment."
+    },
+    "close": "Close",
+    "outcome": {
+      "completed": "Done",
+      "failed": "That didn't work",
+      "cancelled": "Cancelled"
     }
   },
   "a2uiHost": {
@@ -2367,6 +2389,40 @@
     "more": "+{{count}} more",
     "approvalNeeded": "Approval needed",
     "decisionNeeded": "Decision needed",
-    "feedbackRequested": "Feedback requested"
+    "feedbackRequested": "Feedback requested",
+    "running": {
+      "agentAsk": "Asking {{name}}",
+      "discoveredFor": "Looking for tools for \"{{query}}\"",
+      "discoveredTools": "Looking for tools",
+      "listedFiles": "Listing files",
+      "listedModules": "Listing modules",
+      "ran": "Running {{name}}",
+      "ranShell": "Running a shell command",
+      "readFile": "Reading a file",
+      "readNamed": "Reading {{name}}",
+      "searchedFiles": "Searching files",
+      "searchedModuleTools": "Searching {{module}} tools",
+      "searchedTools": "Searching tools",
+      "verb": {
+        "add": "Adding",
+        "backfill": "Backfilling",
+        "create": "Creating",
+        "delete": "Deleting",
+        "discover": "Looking for",
+        "fetch": "Fetching",
+        "get": "Opening",
+        "list": "Listing",
+        "read": "Reading",
+        "remove": "Removing",
+        "search": "Searching",
+        "send": "Sending",
+        "update": "Updating",
+        "write": "Saving"
+      },
+      "webSearch": "Searching the web",
+      "webSearchQuery": "Searching the web: {{query}}",
+      "wroteFile": "Writing a file",
+      "wroteNamed": "Writing {{name}}"
+    }
   }
 }

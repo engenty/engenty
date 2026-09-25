@@ -23,6 +23,7 @@ import { registerActionRun } from "../jobs/action-job-run-record.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { type GraphRunOutcome, startGraphRun } from "./dispatch.js";
 import { assertFlowInput } from "./flow-input.js";
+import { approvalPolicyForRun } from "./run-context.js";
 import { settleGraphRun } from "./run-lifecycle.js";
 
 /** Deterministic UUID from a seed — a retried dispatch lands on the same ids. */
@@ -197,6 +198,12 @@ export async function dispatchPublishedWorkflowRun(
     trigger: input.trigger,
   });
 
+  // A run a person walks asks on its own approval step instead of failing a
+  // gated call silently.
+  const approvalPolicy = approvalPolicyForRun({
+    surface: current.graph.surface,
+    trigger: input.trigger,
+  });
   const runCtx = {
     workflowId: current.graph.id,
     workflowVersion: current.version.version,
@@ -222,6 +229,7 @@ export async function dispatchPublishedWorkflowRun(
       : {}),
     ...(input.space === undefined ? {} : { space: input.space }),
     ...(scope.userId ? { userId: scope.userId } : {}),
+    ...(approvalPolicy ? { approvalPolicy } : {}),
   };
 
   // Fire and forget: a graph can legitimately run for minutes or sleep for

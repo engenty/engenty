@@ -553,6 +553,14 @@ export {
 } from "./features/wizard/press-wizard-command.js";
 export { useWizardRun } from "./features/wizard/use-wizard-run.js";
 export {
+  WIZARD_BAND_CREAM,
+  WizardBackdrop,
+  type WizardBand,
+  WizardBandEngenty,
+  wizardBand,
+  wizardBandTokens,
+} from "./features/wizard/wizard-backdrop.js";
+export {
   spaceWorkflowPath,
   spaceWorkflowRunPath,
 } from "./features/wizard/wizard-paths.js";
@@ -561,6 +569,8 @@ export {
   type WizardRunnerProps,
 } from "./features/wizard/wizard-runner.js";
 export {
+  inputSchemaIsEmpty,
+  useWizardInputSchema,
   WizardStart,
   type WizardStartProps,
 } from "./features/wizard/wizard-start.js";

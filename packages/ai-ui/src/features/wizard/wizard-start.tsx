@@ -11,7 +11,6 @@
 import { formSurfaceFromSchema } from "@engenty/generative-a2ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation } from "@engenty/query-client";
-import { Skeleton } from "@engenty/ui-core";
 import { useEffect, useMemo, useRef } from "react";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { useAiWorkflowsQuery } from "../../lib/admin/ai-runtime-queries.js";
@@ -22,6 +21,7 @@ import {
 } from "../workflow-canvas/workflow-api.js";
 import { useWorkflowQuery } from "../workflow-canvas/workflow-queries.js";
 import { GateSurfaceCard } from "./gate-surface-card.js";
+import { WizardScreen, WizardWorking } from "./wizard-stage.js";
 
 /** True when a schema asks for nothing — the run can start unprompted. */
 export function inputSchemaIsEmpty(
@@ -50,8 +50,8 @@ export interface WizardStartProps {
   workflowId: string;
 }
 
-/** The input schema behind either id shape, once it is known. */
-function useWizardInputSchema(workflowId: string): {
+/** The input schema and title behind either id shape, once it is known. */
+export function useWizardInputSchema(workflowId: string): {
   loading: boolean;
   schema: Record<string, unknown> | null;
   title: string | null;
@@ -122,7 +122,7 @@ export function WizardStart({
   if (loading) {
     return (
       <div className={className}>
-        <Skeleton className="h-48 w-full" />
+        <WizardWorking label={t("wizard.state.loading")} />
       </div>
     );
   }
@@ -130,32 +130,36 @@ export function WizardStart({
   if (!surface) {
     return (
       <div className={className}>
-        <p className="text-muted-foreground text-sm">
-          {start.isError
-            ? start.error instanceof Error
+        {start.isError ? (
+          <p className="text-destructive text-sm">
+            {start.error instanceof Error
               ? start.error.message
-              : t("wizard.error")
-            : t("wizard.state.starting")}
-        </p>
+              : t("wizard.error")}
+          </p>
+        ) : (
+          <WizardWorking label={t("wizard.state.starting")} />
+        )}
       </div>
     );
   }
 
   return (
-    <div className={className}>
+    <WizardScreen className={className}>
       <GateSurfaceCard
         busy={start.isPending}
         gate={{ stepId: "input", surface, title: title ?? undefined }}
         objectSearch={objectSearch}
         onSubmit={(decision) => start.mutate(decision.data)}
+        stepNumber={1}
+        variant="page"
       />
       {start.isError ? (
-        <p className="mt-3 text-destructive text-xs">
+        <p className="mt-3 text-destructive text-sm">
           {start.error instanceof Error
             ? start.error.message
             : t("wizard.error")}
         </p>
       ) : null}
-    </div>
+    </WizardScreen>
   );
 }

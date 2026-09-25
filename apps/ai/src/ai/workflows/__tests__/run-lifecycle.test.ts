@@ -35,7 +35,7 @@ vi.mock("../run-context.js", () => ({
   forgetGraphRunScope: vi.fn(),
 }));
 
-const { settleGraphRun } = await import("../run-lifecycle.js");
+const { fitSummary, settleGraphRun } = await import("../run-lifecycle.js");
 
 const TENANT = "tenant-a";
 
@@ -227,5 +227,24 @@ describe("settleGraphRun contract fields", () => {
         routineId: "routine-1",
       })
     );
+  });
+});
+
+// Fails if: a long closing line cuts the record link in half (the page then
+// has no record to open); the prose is not shortened; a short line changes.
+describe("fitSummary", () => {
+  const link =
+    "[ang-2026-1004 — Angebot Donau Logistik AG](/s/sales/offers/01a0)";
+
+  it("keeps the record link whole and shortens the prose before it", () => {
+    const prose = "Die Aufgabe wurde angelegt. ".repeat(30).trim();
+    const fitted = fitSummary(`${prose}\n\n${link}`) ?? "";
+    expect(fitted.endsWith(`\n\n${link}`)).toBe(true);
+    expect(fitted.length).toBeLessThanOrEqual(500);
+    expect(fitted.length).toBeLessThan(prose.length);
+  });
+
+  it("leaves a short line as it is", () => {
+    expect(fitSummary(`Fertig.\n\n${link}`)).toBe(`Fertig.\n\n${link}`);
   });
 });

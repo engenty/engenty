@@ -21,6 +21,25 @@ export { GRAPH_RUN_CONTEXT } from "./run-context-keys.js";
 /** What a specialist node may do when it reaches a gated operation. */
 export type GraphApprovalPolicy = "deny" | "defer" | "request";
 
+/**
+ * Whether a run's specialist steps may stop and ask. A run a person walks —
+ * pressed, a command, or a wizard started for them — shows the ask as its own
+ * approval step; a schedule, a webhook or a task job has nobody on the page
+ * and keeps the standing-grants-or-decline rule.
+ */
+export function approvalPolicyForRun(input: {
+  surface?: string | null;
+  trigger: string;
+}): GraphApprovalPolicy | undefined {
+  if (input.trigger === "button" || input.trigger === "command") {
+    return "request";
+  }
+  if (input.trigger === "direct" && input.surface === "wizard") {
+    return "request";
+  }
+  return;
+}
+
 export interface GraphRunContext {
   /** Action-level allow list, or undefined when the action doesn't narrow. */
   allowedToolIds?: readonly string[];

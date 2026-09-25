@@ -17,6 +17,86 @@ import {
 } from "./user-browser-api.js";
 import { setUserBrowserPaneOpen } from "./user-browser-pane-store.js";
 
+/**
+ * The Space's two standing consents. `compact` shortens the labels and
+ * moves the hints into a tooltip, for the
+ * agent's screen placeholder; the settings carry the full text.
+ */
+export function UserBrowserConsents({
+  compact = false,
+  target,
+}: {
+  compact?: boolean;
+  target: Pick<BrowserTarget, "spaceId">;
+}) {
+  const { t } = useTranslation("ai-ui");
+  const grantQuery = useUserBrowserGrantQuery(target);
+  const grant = useUserBrowserGrantMutation(target);
+  const rows = [
+    [
+      "autostart",
+      "browser.settings.autostart",
+      "browser.settings.autostartHint",
+      "browser.settings.autostartShort",
+    ],
+    [
+      "unattended",
+      "browser.settings.unattended",
+      "browser.settings.unattendedHint",
+      "browser.settings.unattendedShort",
+    ],
+  ] as const;
+
+  return (
+    <div
+      className={
+        compact
+          ? "flex flex-wrap justify-center gap-x-5 gap-y-1"
+          : "flex flex-col gap-3"
+      }
+    >
+      {rows.map(([key, label, hint, short]) => (
+        <div
+          className={
+            compact
+              ? "flex items-center gap-2 text-left"
+              : "flex items-center gap-3"
+          }
+          key={key}
+          title={compact ? t(hint) : undefined}
+        >
+          <Switch
+            aria-label={t(label)}
+            checked={grantQuery.data?.[key] ?? false}
+            className={compact ? "scale-90" : undefined}
+            disabled={grantQuery.isLoading || grant.isPending}
+            onCheckedChange={(next) => grant.mutate({ [key]: next })}
+          />
+          <span className="flex min-w-0 flex-col">
+            <span
+              className={
+                compact
+                  ? "text-muted-foreground text-xs"
+                  : "text-foreground text-sm"
+              }
+            >
+              {t(compact ? short : label)}
+            </span>
+            {compact ? null : (
+              <span className="text-muted-foreground text-xs">{t(hint)}</span>
+            )}
+          </span>
+        </div>
+      ))}
+      {grant.isError ? (
+        <p className="text-destructive text-xs">
+          {t("browser.settings.failed")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function UserBrowserSection({
   target,
 }: {
@@ -24,13 +104,10 @@ export function UserBrowserSection({
 }) {
   const { t } = useTranslation("ai-ui");
   const statusQuery = useUserBrowserStatusQuery(target, 30_000);
-  const grantQuery = useUserBrowserGrantQuery(target);
   const { signOut, start, stop } = useUserBrowserMutations(target);
-  const grant = useUserBrowserGrantMutation(target);
   const state = statusQuery.data?.state ?? "absent";
-  const busy =
-    start.isPending || stop.isPending || signOut.isPending || grant.isPending;
-  const failed = start.isError || signOut.isError || grant.isError;
+  const busy = start.isPending || stop.isPending || signOut.isPending;
+  const failed = start.isError || signOut.isError;
 
   return (
     <CardSection
@@ -86,7 +163,7 @@ export function UserBrowserSection({
         </div>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 px-4 py-3">
         <p className="text-muted-foreground text-xs">
           {t(`browser.panel.state.${state}`)}
           {signOut.isSuccess ? ` · ${t("browser.settings.signedOut")}` : ""}
@@ -96,38 +173,7 @@ export function UserBrowserSection({
             {t("browser.settings.failed")}
           </p>
         ) : null}
-        <div className="flex items-center gap-3">
-          <Switch
-            aria-label={t("browser.settings.autostart")}
-            checked={grantQuery.data?.autostart ?? false}
-            disabled={grantQuery.isLoading || grant.isPending}
-            onCheckedChange={(next) => grant.mutate({ autostart: next })}
-          />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-foreground text-sm">
-              {t("browser.settings.autostart")}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {t("browser.settings.autostartHint")}
-            </span>
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Switch
-            aria-label={t("browser.settings.unattended")}
-            checked={grantQuery.data?.unattended ?? false}
-            disabled={grantQuery.isLoading || grant.isPending}
-            onCheckedChange={(next) => grant.mutate({ unattended: next })}
-          />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-foreground text-sm">
-              {t("browser.settings.unattended")}
-            </span>
-            <span className="text-muted-foreground text-xs">
-              {t("browser.settings.unattendedHint")}
-            </span>
-          </span>
-        </div>
+        <UserBrowserConsents target={target} />
       </div>
     </CardSection>
   );

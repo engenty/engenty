@@ -16,6 +16,9 @@ vi.mock("../../lib/admin/ai-runtime-queries.js", () => ({
 vi.mock("./agent-work-sections.js", () => ({
   AgentWorkSections: () => null,
 }));
+vi.mock("../browser/agent-screen-preview.js", () => ({
+  AgentScreenPreview: () => null,
+}));
 vi.mock("./agent-connector-rows.js", () => ({
   AgentConnectorRows: () => null,
 }));
@@ -82,7 +85,9 @@ function renderPanel(agent: AgentDeskAgent, moduleLabel?: string) {
         agent={agent}
         canEditPads
         canManage
+        hostKey="agent-desk:space-1:agent-1"
         moduleLabel={moduleLabel}
+        onClosePane={vi.fn()}
         spaceId="space-1"
       />
     </MemoryRouter>

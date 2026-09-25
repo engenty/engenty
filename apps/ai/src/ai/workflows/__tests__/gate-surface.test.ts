@@ -6,6 +6,7 @@ import {
   GATE_SUBMIT_EVENT,
   GateSurfaceError,
   gateSurfaceFor,
+  operationApprovalSurface,
 } from "../gate-surface.js";
 
 function byId(surface: { components: Record<string, unknown>[] }, id: string) {
@@ -80,5 +81,44 @@ describe("gateSurfaceFor", () => {
         components: [{ component: "Nope", id: "root" }],
       })
     ).toThrow(GateSurfaceError);
+  });
+});
+
+describe("operationApprovalSurface", () => {
+  it("names each call with what a person can judge and asks approve/reject", () => {
+    const surface = operationApprovalSurface([
+      {
+        input: {
+          due_date: "2026-09-29",
+          note: "",
+          space_id: "01a0d8be-5bc1-7c3b-bf32-815b6fb0c850",
+          title: "Angebot Donau Logistik AG",
+        },
+        operation_id: "offers_set_status",
+        title: "Angebot freigeben",
+      },
+      { operation_id: "tasks_create" },
+    ]);
+    expect(checkGateSurface(surface)).toBeNull();
+    expect(byId(surface, "call-0")).toMatchObject({
+      component: "Text",
+      text: "Angebot freigeben",
+    });
+    // Empty inputs and bare record ids tell the approver nothing.
+    expect(byId(surface, "call-0-input")).toMatchObject({
+      rows: [
+        { label: "Due date", value: "2026-09-29" },
+        { label: "Title", value: "Angebot Donau Logistik AG" },
+      ],
+    });
+    // A call without a title reads as its operation id, spelled out.
+    expect(byId(surface, "call-1")).toMatchObject({ text: "Tasks create" });
+    expect(byId(surface, "call-1-input")).toBeUndefined();
+    expect(byId(surface, "approve")).toMatchObject({
+      action: { event: { name: GATE_APPROVE_EVENT } },
+    });
+    expect(byId(surface, "reject")).toMatchObject({
+      action: { event: { name: GATE_REJECT_EVENT } },
+    });
   });
 });

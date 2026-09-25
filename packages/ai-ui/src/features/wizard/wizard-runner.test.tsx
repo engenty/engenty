@@ -71,11 +71,6 @@ vi.mock("../../artifacts/workspace-artifact-pane.js", () => ({
     return null;
   },
 }));
-vi.mock("../agents-workspace/workflow-run-status.js", () => ({
-  WorkflowRunStatus: ({ status }: { status: { text: string } }) => (
-    <div data-testid="run-status">{status.text}</div>
-  ),
-}));
 
 const { clearObjectWidgetsForTests, registerObjectWidget } = await import(
   "../../objects/object-widget-registry.js"
@@ -302,7 +297,7 @@ describe("WizardRunner", () => {
     expect(cancelMutate).toHaveBeenCalledWith("run-1", expect.anything());
   });
 
-  it("narrates the running step from the stream", () => {
+  it("says the run is working between two questions", () => {
     mockRun(runData({ status: "running" }), {
       artifactId: null,
       error: null,
@@ -312,7 +307,11 @@ describe("WizardRunner", () => {
       text: "Drafting…",
     } as never);
     render(<WizardRunner runId="run-1" />);
-    expect(screen.getByTestId("run-status").textContent).toBe("Drafting…");
+    expect(screen.getByRole("status").textContent).toContain(
+      "wizard.state.running"
+    );
+    // The streamed text is the run's workings, not the person's page.
+    expect(screen.queryByText("Drafting…")).toBeNull();
   });
 
   it("shows the wake time while asleep", () => {
@@ -427,7 +426,7 @@ describe("WizardRunner", () => {
 
     mockRun(runData({ request: { status: "cancelled" }, status: "suspended" }));
     render(<WizardRunner onRestart={onRestart} runId="run-1" />);
-    expect(screen.getByText("wizard.state.cancelled")).toBeTruthy();
+    expect(screen.getByText("wizard.outcome.cancelled")).toBeTruthy();
   });
 
   it("says it is starting before the first snapshot exists", () => {

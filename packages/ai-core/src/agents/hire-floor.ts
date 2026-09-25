@@ -27,6 +27,7 @@ export const LIVE_HIRE_TOOL_IDS = [
   "routines_list",
   "routines_create",
   "routines_run",
+  "routines_cancel_run",
   "routines_update",
   // Governed deterministic work as one step: a specialist may run a PUBLISHED
   // action (human gates intact) instead of improvising the sequence — and
@@ -128,6 +129,7 @@ export const SPECIALIST_TOOL_GATING: Readonly<
     "routines_update",
     "routines_list",
     "routines_run",
+    "routines_cancel_run",
     "workflow_propose",
     "workflows_list",
   ],
@@ -144,6 +146,7 @@ export const SPECIALIST_TOOL_GATING: Readonly<
     "routines_update",
     "routines_list",
     "routines_run",
+    "routines_cancel_run",
     "workflow_propose",
     "workflows_list",
   ],

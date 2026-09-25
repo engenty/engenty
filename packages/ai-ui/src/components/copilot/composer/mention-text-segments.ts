@@ -53,17 +53,24 @@ export function draftMentionsRef(text: string, ref: ChatReferenceItem) {
 
 /**
  * The pill's look, by what it points at: agents in the primary tint, people
- * and objects in the secondary one. It grows downwards and upwards only —
- * block padding on an inline box paints outside the line without moving it,
- * while any horizontal padding or ring would both drift the composer backdrop
- * off the plain textarea's metrics and paint over the space next to the
- * token, so a mention would read as glued to the word after it.
+ * and objects in the ember tint. In running text it takes real room on both
+ * sides. In the composer it must not: the backdrop has to advance exactly
+ * like the plain textarea above it, or the caret drifts — so there the
+ * padding is cancelled by an equal negative margin and paints 2px into the
+ * spaces around the token; the composer's word spacing keeps a gap.
  */
-export function mentionPillClassName(entity: string): string {
+export function mentionPillClassName(
+  entity: string,
+  placement: "composer" | "text"
+): string {
   return cn(
-    "rounded-sm box-decoration-clone py-[3px]",
+    "rounded-full box-decoration-clone py-0.5",
+    // Bold would widen the glyphs and move the caret off the textarea's.
+    placement === "composer"
+      ? "-mx-[2px] px-[2px]"
+      : "mx-px px-1.5 font-medium",
     entity === "ai:agent"
       ? "bg-primary/15 text-primary"
-      : "bg-secondary text-secondary-foreground"
+      : "bg-ember-tint text-ember-strong"
   );
 }

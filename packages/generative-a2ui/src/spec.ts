@@ -98,7 +98,7 @@ export const ENGENTY_A2UI_INPUT_NAMES = [
 export const ENGENTY_A2UI_PROMPT_GUIDE = [
   "Components (flat list, children reference siblings by id; exactly one component must have id 'root'):",
   "- List { children: string[] } — vertical stack of rows/sections.",
-  "- Row { title, subtitle?, meta?, objectRef?, badge?, action?, wrap?, children?: string[] } — one list row; title and subtitle stay on one line unless wrap: true. Set objectRef to an engenty ref '<module>:<entity>:<id>' to render the LIVE native record row (title/subtitle then ignored); clicking it opens the record.",
+  "- Row { title, subtitle?, meta?, objectRef?, badge?, action?, wrap?, children?: string[] } — one list row; title and subtitle stay on one line unless wrap: true. Set objectRef to an engenty ref '<module>:<entity>:<id>' (or bind it: { path: '/ref' }) to render the LIVE native record row (title/subtitle then ignored); clicking it opens the record.",
   "- DetailGrid { rows: [{ label, value }] } — label/value facts grid.",
   "- Badge { label, tone?: 'default'|'info'|'success'|'warning' }.",
   "- Actions { children: string[] } — horizontal button group.",

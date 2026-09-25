@@ -6,8 +6,10 @@ import { AnimatedSendIcon } from "@engenty/ui-icons";
 import { ImageIcon, Mic, MicOff, XIcon } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useOptionalAgentHost } from "../../../agent-provider/engenty-agent.js";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
+import { registerCopilotComposerRefAdder } from "../../../copilot/copilot-composer-draft-intent.js";
 import type { ChatReferenceItem } from "../../../lib/chat-reference-part.js";
 import {
   resolveCopilotSpeechScopeRoot,
@@ -164,6 +166,23 @@ export function CopilotComposerSection({
       return kept.length === prev.length ? prev : kept;
     });
   }, [draft]);
+  // A surface outside the chat (a routine's Edit) can hand this composer a
+  // reference pill: registered under the host the composer belongs to.
+  const hostKey = useOptionalAgentHost()?.hostKey ?? null;
+  const [refFocusKey, setRefFocusKey] = useState(0);
+  useEffect(() => {
+    if (!hostKey) {
+      return;
+    }
+    return registerCopilotComposerRefAdder(hostKey, (refs) => {
+      const fresh = (prev: ChatReferenceItem[]) =>
+        refs.filter((ref) => !prev.some((p) => p.ref === ref.ref));
+      setPendingRefs((prev) =>
+        fresh(prev).length > 0 ? [...prev, ...fresh(prev)] : prev
+      );
+      setRefFocusKey((key) => key + 1);
+    });
+  }, [hostKey]);
   const mentionBackdropRef = useRef<HTMLDivElement | null>(null);
   const handleComposerMentionRef = useCallback(
     (candidate: MentionRefCandidate) => {
@@ -242,6 +261,25 @@ export function CopilotComposerSection({
       }
     };
   }, [focusComposerKey, mention.mentionComposerWrapRef]);
+
+  // A handed-in reference focuses the composer, caret at the end, so the
+  // person types what to change right after the pill.
+  useEffect(() => {
+    if (refFocusKey === 0) {
+      return;
+    }
+    const frameId = requestAnimationFrame(() => {
+      const textarea =
+        composerRootRef.current?.querySelector("textarea") ??
+        mention.mentionComposerWrapRef.current?.querySelector("textarea");
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.focus();
+        const len = textarea.value.length;
+        textarea.setSelectionRange(len, len);
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [refFocusKey, mention.mentionComposerWrapRef]);
 
   const handleAddAttachments = useCallback(
     (event: Event) => {
@@ -548,9 +586,12 @@ export function CopilotComposerSection({
     // The backdrop paints the draft with mention pills; the textarea above it
     // keeps input, caret and selection but draws its text transparent. Both
     // share the typography classes so they line up glyph for glyph.
-    const textareaTypography = dense
-      ? "px-1 py-0.5 text-sm leading-5"
-      : "px-1 py-1.5 text-sm leading-5";
+    // The word spacing leaves room between a pill and the next word: the
+    // pill reaches a little past its text, into the spaces around it.
+    const textareaTypography = cn(
+      "text-sm leading-5 [word-spacing:0.1em]",
+      dense ? "px-1 py-0.5" : "px-1 py-1.5"
+    );
     const textarea = (
       <>
         {pendingRefs.length > 0 ? (

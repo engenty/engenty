@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@engenty/query-client";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
+import { cancelWorkflowRun } from "../workflow-canvas/workflow-api.js";
 import {
   type CustomRoutineInput,
   createCustomRoutine,
@@ -38,6 +39,7 @@ export const routinesKeys = {
       ? ([...routinesKeys.all, "list", spaceId] as const)
       : ([...routinesKeys.all, "list"] as const),
   outcomeProviders: ["routines", "outcome-providers"] as const,
+  runNow: () => [...routinesKeys.all, "run-now"] as const,
   runs: (routineId: string) =>
     [...routinesKeys.all, "runs", routineId] as const,
 };
@@ -111,6 +113,9 @@ export function useRunRoutineNowMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runRoutineNow(id),
+    // Keyed so a fire from the pane's menu and from the page's button read
+    // as one: the page shows why the last fire was skipped either way.
+    mutationKey: routinesKeys.runNow(),
     onSuccess: (_result, id) => {
       void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
       void queryClient.invalidateQueries({ queryKey: routinesKeys.runs(id) });
@@ -238,6 +243,20 @@ export function useDeleteRoutineOutcomeMutation() {
     mutationFn: (input: { outcomeId: string; routineId: string }) =>
       deleteRoutineOutcome(input.routineId, input.outcomeId),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
+    },
+  });
+}
+
+/** Stop a routine's open run, so its next start is not skipped as overlap. */
+export function useCancelRoutineRunMutation(routineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) => cancelWorkflowRun(runId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: routinesKeys.runs(routineId),
+      });
       void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
     },
   });

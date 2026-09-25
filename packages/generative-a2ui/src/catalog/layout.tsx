@@ -46,7 +46,12 @@ export const Actions = createComponentImplementation(
     schema: z.object({ children: ChildListSchema.optional() }),
   },
   ({ buildChild, context, props }) => (
-    <div className="flex flex-wrap items-center gap-1.5 px-2 py-1.5">
+    // The attribute lets a host style the row — its first button is the
+    // step's primary action (approve, continue), by the gates' convention.
+    <div
+      className="flex flex-wrap items-center gap-1.5 px-2 py-1.5"
+      data-a2ui-actions=""
+    >
       <A2uiChildren
         buildChild={buildChild}
         context={context}

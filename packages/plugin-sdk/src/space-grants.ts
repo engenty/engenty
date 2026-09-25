@@ -106,29 +106,19 @@ export function deriveSpaceAgentCapabilities(input: SpaceGrantInput): string[] {
 }
 
 /**
- * Plan-module caps a locked-down AI service credential must list explicitly.
- * `module.read` / `module.write` do not cover `module.tasks.*` — the matcher
- * has no infix wildcards.
- */
-export const AI_SERVICE_PLAN_CAPABILITIES = capabilitiesForModuleAccess(
-  "tasks",
-  "write"
-);
-
-/**
- * Everything a locked-down AI service credential needs for headless runs
- * (routines, task jobs, remote channels):
- * - module invocation, plus the Plan facets above;
- * - `module.connections.*` — a routine calling a connector action (Gmail,
- *   Slack, …) is checked against these, and `module.read` does not cover them;
+ * Everything the AI service credential needs for headless runs (routines,
+ * workflow steps, task jobs, remote channels):
+ * - `module.*` — every module's data, including the ones that name their own
+ *   capabilities (`module.offers.write`, `module.contacts.read`,
+ *   `module.tasks.*`, `module.connections.*`): `module.read` / `module.write`
+ *   cover none of those, and a run then 403s on the Space's own apps. The
+ *   ceiling is wide on purpose — what a run may reach is the Space's mounts
+ *   (`agent_access`), checked in apps/ai before a step calls and by core's
+ *   agent policy on an agent's calls;
  * - `core.agents.manage` — provisioning an agent's `core.agents` identity on
  *   its first run, without which connection policies cannot see the agent.
  */
 export const AI_SERVICE_CAPABILITIES: readonly string[] = [
-  "module.read",
-  "module.write",
-  "module.execute",
-  ...AI_SERVICE_PLAN_CAPABILITIES,
-  ...capabilitiesForModuleAccess("connections", "write"),
+  "module.*",
   "core.agents.manage",
 ];

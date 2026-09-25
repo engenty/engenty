@@ -297,9 +297,9 @@ export {
   type RoutineOutcomeListProps,
 } from "./features/routines/routine-outcome-list.js";
 export {
-  RoutineOutcomesDialog,
-  type RoutineOutcomesDialogProps,
-} from "./features/routines/routine-outcomes-dialog.js";
+  RoutineOutcomesEditor,
+  type RoutineOutcomesEditorProps,
+} from "./features/routines/routine-outcomes-editor.js";
 export {
   buildRoutineShape,
   type RoutineShape,

@@ -40,6 +40,7 @@ import { AgentEngentyPicker } from "../agent-form/agent-engenty-picker.js";
 import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
 import { AgentIdentityRow } from "../agents-workspace/agent-identity-card.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
+import { AgentScreenPreview } from "../browser/agent-screen-preview.js";
 import { UserBrowserSection } from "../browser/user-browser-section.js";
 import { WorkingMemoryProfileSection } from "../memory/working-memory-profile-section.js";
 import {
@@ -83,8 +84,10 @@ export function AgentManagePanel({
   agent,
   canEditPads,
   canManage,
+  hostKey,
   locale = "en",
   moduleLabel,
+  onClosePane,
   spaceId,
   view = "overview",
 }: {
@@ -95,9 +98,13 @@ export function AgentManagePanel({
    */
   canEditPads: boolean;
   canManage: boolean;
+  /** The desk's chat — routines are created and edited by asking there. */
+  hostKey: string;
   locale?: string;
   /** Display name of `agent.managed_by_module`, as the sidebar labels it. */
   moduleLabel?: string;
+  /** Closes the pane this panel sits in (opening the browser replaces it). */
+  onClosePane: () => void;
   /** Null on the copilot's desk outside a space; its pads are its person's. */
   spaceId: string | null;
   /**
@@ -126,7 +133,9 @@ export function AgentManagePanel({
   const [searchParams] = useSearchParams();
   const subviewOpen = Boolean(searchParams.get("routine"));
 
-  const workSections = <AgentWorkSections agentId={agent.id} locale={locale} />;
+  const workSections = (
+    <AgentWorkSections agentId={agent.id} hostKey={hostKey} locale={locale} />
+  );
   if (subviewOpen) {
     return workSections;
   }
@@ -220,149 +229,155 @@ export function AgentManagePanel({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* One identity card, no heading — who this agent is, at drawer density
-          (offers sidebar: small mascot, text-lg name, compact KV rows). */}
-      <CardSection>
-        <CardSection.Body>
-          <div className="flex items-start gap-3">
-            {editable ? (
-              <Popover onOpenChange={setPickerOpen} open={pickerOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    aria-label={t("agentForm.engentyField")}
-                    className="shrink-0 rounded-lg transition-colors hover:bg-muted/50"
-                    type="button"
-                  >
-                    <AgentFace
-                      avatarUrl={agent.avatarUrl}
-                      kind={agent.engenty}
-                      name={agent.name}
-                      size={40}
-                    />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto max-w-md">
-                  <AgentEngentyPicker
-                    onChange={(kind) => {
-                      update.mutate({
-                        agentId: agent.id,
-                        patch: { engenty: kind },
-                      });
-                      setPickerOpen(false);
-                    }}
-                    value={agent.engenty}
+      {/* Who this agent is, straight on the pane — no card, no heading:
+          small mascot, text-lg name, the description under it. */}
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          {editable ? (
+            <Popover onOpenChange={setPickerOpen} open={pickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  aria-label={t("agentForm.engentyField")}
+                  className="shrink-0 rounded-lg transition-colors hover:bg-muted/50"
+                  type="button"
+                >
+                  <AgentFace
+                    avatarUrl={agent.avatarUrl}
+                    kind={agent.engenty}
+                    name={agent.name}
+                    size={40}
                   />
-                </PopoverContent>
-              </Popover>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto max-w-md">
+                <AgentEngentyPicker
+                  onChange={(kind) => {
+                    update.mutate({
+                      agentId: agent.id,
+                      patch: { engenty: kind },
+                    });
+                    setPickerOpen(false);
+                  }}
+                  value={agent.engenty}
+                />
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <span
+              aria-label={t("agentDesk.engentyLabel", {
+                name: agent.engenty,
+              })}
+              className="shrink-0"
+              role="img"
+            >
+              <AgentFace
+                avatarUrl={agent.avatarUrl}
+                kind={agent.engenty}
+                name={agent.name}
+                size={40}
+              />
+            </span>
+          )}
+          <div className="min-w-0 flex-1 space-y-1">
+            {editable ? (
+              <EditableText
+                aria-label={t("agentDesk.manage.nameLabel")}
+                as="h2"
+                className="w-full min-w-0 font-semibold text-lg tracking-tight"
+                onSave={(text) => {
+                  const next = text.trim();
+                  if (!next || next === agent.name) {
+                    setNameDraft(null);
+                    return;
+                  }
+                  setNameDraft(next);
+                  update.mutate(
+                    { agentId: agent.id, patch: { name: next } },
+                    { onSettled: () => setNameDraft(null) }
+                  );
+                }}
+                placeholder={t("agentDesk.manage.nameLabel")}
+                value={nameDraft ?? agent.name}
+                variant="hover"
+              />
             ) : (
-              <span
-                aria-label={t("agentDesk.engentyLabel", {
-                  name: agent.engenty,
-                })}
-                className="shrink-0"
-                role="img"
-              >
-                <AgentFace
-                  avatarUrl={agent.avatarUrl}
-                  kind={agent.engenty}
-                  name={agent.name}
-                  size={40}
-                />
-              </span>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 className="min-w-0 font-semibold text-lg tracking-tight">
+                  {agent.name}
+                </h2>
+                {agent.source === "module" && agent.managed_by_module ? (
+                  <AgentModuleBadge
+                    label={moduleLabel}
+                    moduleId={agent.managed_by_module}
+                  />
+                ) : null}
+              </div>
             )}
-            <div className="min-w-0 flex-1 space-y-1">
-              {editable ? (
-                <EditableText
-                  aria-label={t("agentDesk.manage.nameLabel")}
-                  as="h2"
-                  className="w-full min-w-0 font-semibold text-lg tracking-tight"
-                  onSave={(text) => {
-                    const next = text.trim();
-                    if (!next || next === agent.name) {
-                      setNameDraft(null);
-                      return;
-                    }
-                    setNameDraft(next);
-                    update.mutate(
-                      { agentId: agent.id, patch: { name: next } },
-                      { onSettled: () => setNameDraft(null) }
-                    );
-                  }}
-                  placeholder={t("agentDesk.manage.nameLabel")}
-                  value={nameDraft ?? agent.name}
-                  variant="hover"
-                />
-              ) : (
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <h2 className="min-w-0 font-semibold text-lg tracking-tight">
-                    {agent.name}
-                  </h2>
-                  {agent.source === "module" && agent.managed_by_module ? (
-                    <AgentModuleBadge
-                      label={moduleLabel}
-                      moduleId={agent.managed_by_module}
-                    />
-                  ) : null}
-                </div>
-              )}
-              {editable ? (
-                <EditableText
-                  aria-label={t("agentDesk.manage.mandateTitle")}
-                  as="p"
-                  className="w-full min-w-0 whitespace-pre-wrap text-sm leading-snug"
-                  onEnter={() => {
-                    // Allow newlines — same as skill/workflow description fields.
-                  }}
-                  onSave={(text) => {
-                    const next = text.trim();
-                    if (next === description) {
-                      setDraft(null);
-                      return;
-                    }
-                    setDraft(next);
-                    update.mutate(
-                      { agentId: agent.id, patch: { description: next } },
-                      { onSettled: () => setDraft(null) }
-                    );
-                  }}
-                  placeholder={t("agentDesk.manage.descriptionPlaceholder")}
-                  value={draft ?? description}
-                  variant="hover"
-                />
-              ) : description ? (
-                <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-snug">
-                  {description}
-                </p>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {t("agentDesk.manage.noDescription")}
-                </p>
-              )}
-              {update.isError ? (
-                <p className="text-destructive text-xs">
-                  {update.error instanceof Error
-                    ? update.error.message
-                    : t("agentDesk.manage.saveFailed")}
-                </p>
-              ) : null}
-            </div>
+            {editable ? (
+              <EditableText
+                aria-label={t("agentDesk.manage.mandateTitle")}
+                as="p"
+                className="w-full min-w-0 whitespace-pre-wrap text-sm leading-snug"
+                onEnter={() => {
+                  // Allow newlines — same as skill/workflow description fields.
+                }}
+                onSave={(text) => {
+                  const next = text.trim();
+                  if (next === description) {
+                    setDraft(null);
+                    return;
+                  }
+                  setDraft(next);
+                  update.mutate(
+                    { agentId: agent.id, patch: { description: next } },
+                    { onSettled: () => setDraft(null) }
+                  );
+                }}
+                placeholder={t("agentDesk.manage.descriptionPlaceholder")}
+                value={draft ?? description}
+                variant="hover"
+              />
+            ) : description ? (
+              <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-snug">
+                {description}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                {t("agentDesk.manage.noDescription")}
+              </p>
+            )}
+            {update.isError ? (
+              <p className="text-destructive text-xs">
+                {update.error instanceof Error
+                  ? update.error.message
+                  : t("agentDesk.manage.saveFailed")}
+              </p>
+            ) : null}
           </div>
+        </div>
+        {agent.managed_by_module ? (
           <dl className="m-0 grid gap-2">
             <AgentIdentityRow
               compact
-              label={t("agentDesk.manage.idLabel")}
-              value={agent.id}
+              label={t("agentDesk.manage.managedByLabel")}
+              value={agent.managed_by_module}
             />
-            {agent.managed_by_module ? (
-              <AgentIdentityRow
-                compact
-                label={t("agentDesk.manage.managedByLabel")}
-                value={agent.managed_by_module}
-              />
-            ) : null}
           </dl>
-        </CardSection.Body>
-      </CardSection>
+        ) : null}
+      </div>
+
+      {/* Its computer: the window it works in, in the Space's browser (the
+          copilot's: the personal Space's). */}
+      {agent.agentScope === "personal" || spaceId ? (
+        <AgentScreenPreview
+          agentName={agent.name}
+          onOpen={onClosePane}
+          target={{
+            agentId: agent.id,
+            spaceId: agent.agentScope === "personal" ? null : spaceId,
+          }}
+        />
+      ) : null}
 
       {workSections}
 

@@ -29,8 +29,12 @@ export type PageTopbarChrome = "default" | "band";
  */
 export type PageTopbarTone = "default" | "flip";
 
-/** Paints the shell column + main for Ember paper stacks (`--paper` / `--paper-2`). */
-export type PageContentStackBackground = "default" | "paper" | "card";
+/**
+ * Paints the shell column + main for Ember paper stacks (`--paper` / `--paper-2`).
+ * `none` paints nothing: the page draws its own background under the whole
+ * stack, the end pane's column included (a wizard's band).
+ */
+export type PageContentStackBackground = "default" | "paper" | "card" | "none";
 
 function isPrimitiveBreadcrumbLabel(
   label: PageBreadcrumb["label"]

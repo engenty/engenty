@@ -1,25 +1,23 @@
 "use client";
 
-// A graph run, viewed one suspension at a time.
+// A graph run, one screen at a time.
 //
 // The runner has no logic of its own beyond next / back / cancel. What it
-// shows is whatever the run is doing: the gate's surface while parked, the
-// running step's label and streamed text between gates, the wake time while
-// asleep, the outcome once settled. "Weiter" resumes, "Zurück" travels back
-// to the previous gate on the rail, "Abbrechen" stops the run — the graph
-// decides what any of it means.
+// shows is whatever the run is doing: the gate's question while parked, the
+// step it is in between gates, the wake time while asleep, how it ended once
+// settled. "Weiter" resumes, "Zurück" travels back to the previous gate,
+// "Abbrechen" stops the run — the graph decides what any of it means.
 
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, Skeleton } from "@engenty/ui-core";
-import { Ban, CheckCircle2, Moon, RotateCcw, XCircle } from "lucide-react";
-import type { ReactNode } from "react";
+import { Button, cn } from "@engenty/ui-core";
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { openObjectPaneTab } from "../../artifacts/artifact-store.js";
 import { WorkspaceArtifactPane } from "../../artifacts/workspace-artifact-pane.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
-import { MessageResponse } from "../../components/presentation.js";
-import { COMPACT_MARKDOWN_PROSE_CLASSNAME } from "../../lib/admin/compact-markdown-prose-classname.js";
-import { WorkflowRunStatus } from "../agents-workspace/workflow-run-status.js";
+import {
+  type ObjectDisplayIntent,
+  ObjectDisplayIntentProvider,
+} from "../../objects/object-display-intent.js";
 import type {
   GraphRunAnswerDto,
   GraphRunSnapshotDto,
@@ -33,11 +31,8 @@ import {
 import { GateSurfaceCard } from "./gate-surface-card.js";
 import { useWizardOutcomeRecord } from "./use-wizard-outcome-record.js";
 import { useWizardRun } from "./use-wizard-run.js";
-import {
-  gateStepsFromGraph,
-  previousGateStep,
-  WizardProgress,
-} from "./wizard-progress.js";
+import { WizardOutcome, WizardScreen, WizardWorking } from "./wizard-stage.js";
+import { gateStepsFromGraph, previousGateStep } from "./wizard-steps.js";
 
 export type WizardRunState =
   | "starting"
@@ -91,27 +86,12 @@ export interface WizardRunnerProps {
   /** "Neu starten" on a failed or cancelled run — back to page 0. */
   onRestart?: () => void;
   runId: string;
+  /**
+   * Questions asked before the run's first gate — 1 when page 0 asked for
+   * the input — so the gates number on from there.
+   */
+  stepNumberOffset?: number;
 }
-
-/**
- * The closing line is markdown, and a wizard that wrote a record links to it
- * — an in-app path stays in the app instead of leaving through a new tab.
- */
-/** The line comes from this run's own graph, not from the open web. */
-const NO_LINK_SAFETY = { enabled: false };
-
-const SUMMARY_MARKDOWN_COMPONENTS = {
-  a: ({ children, href }: { children?: ReactNode; href?: string }) =>
-    href?.startsWith("/") ? (
-      <Link className="underline" to={href}>
-        {children}
-      </Link>
-    ) : (
-      <a href={href} rel="noreferrer" target="_blank">
-        {children}
-      </a>
-    ),
-};
 
 export function WizardRunner({
   artifactPaneHostKey,
@@ -120,6 +100,7 @@ export function WizardRunner({
   onExit,
   onRestart,
   runId,
+  stepNumberOffset = 0,
 }: WizardRunnerProps) {
   const { t } = useTranslation("ai-ui");
   const run = useWizardRun(runId);
@@ -152,6 +133,19 @@ export function WizardRunner({
     (gate && held?.forStepId === gate.stepId
       ? held.answers[gate.stepId]
       : undefined) ?? null;
+
+  // A record a step shows opens in the run's pane, beside the question —
+  // following it would leave the wizard mid-run.
+  const displayIntent = useMemo<ObjectDisplayIntent>(
+    () =>
+      artifactPaneHostKey
+        ? {
+            openInPanel: (ref, opts) =>
+              openObjectPaneTab(artifactPaneHostKey, ref, opts),
+          }
+        : {},
+    [artifactPaneHostKey]
+  );
 
   const afterMutation = useCallback(() => {
     run.reattach();
@@ -186,13 +180,13 @@ export function WizardRunner({
   // skeleton forever.
   if (run.query.isError) {
     return (
-      <div className={cn("space-y-3", className)} role="alert">
-        <p className="text-muted-foreground text-sm">
+      <div className={cn("space-y-5", className)} role="alert">
+        <h1 className="font-semibold text-2xl tracking-tight">
           {t("wizard.runUnavailable")}
-        </p>
+        </h1>
         {onExit ? (
-          <Button onClick={onExit} size="sm" type="button" variant="outline">
-            {t("wizard.done")}
+          <Button onClick={onExit} size="lg" type="button" variant="outline">
+            {t("wizard.close")}
           </Button>
         ) : null}
       </div>
@@ -201,14 +195,13 @@ export function WizardRunner({
 
   if (run.query.isLoading || !data) {
     return (
-      <div className={cn("space-y-3", className)}>
-        <Skeleton className="h-5 w-64" />
-        <Skeleton className="h-48 w-full" />
+      <div className={className}>
+        <WizardWorking label={t("wizard.state.loading")} />
       </div>
     );
   }
 
-  const { request, version } = data;
+  const { request } = data;
   const state = wizardRunState(request, snapshot);
   const busy = resume.isPending || travel.isPending || cancel.isPending;
   const error = resume.error ?? travel.error ?? cancel.error;
@@ -224,16 +217,28 @@ export function WizardRunner({
     />
   ) : null;
 
+  // A gate's number is its place among the gates; a question that is no gate
+  // on the graph (an approval a specialist asked for) goes unnumbered.
+  const gateIndex = gate
+    ? gateSteps.findIndex((step) => step.stepId === gate.stepId)
+    : -1;
+  const gateNumber =
+    gateIndex >= 0 ? gateIndex + 1 + stepNumberOffset : undefined;
+
+  const outcomeMessage =
+    state === "completed"
+      ? (request.summary ?? request.outcome)
+      : request.reason;
+
   let body: React.ReactNode;
+  // What the screen is keyed by: a new key is a new page turning in.
+  let screenKey: string = state;
   switch (state) {
     case "starting":
-      body = (
-        <p className="text-muted-foreground text-sm">
-          {t("wizard.state.starting")}
-        </p>
-      );
+      body = <WizardWorking label={t("wizard.state.starting")} />;
       break;
     case "gate":
+      screenKey = `gate:${gate?.path.join("/") ?? ""}`;
       body = gate ? (
         <GateSurfaceCard
           answer={answer}
@@ -256,126 +261,42 @@ export function WizardRunner({
               { onSuccess: afterMutation }
             );
           }}
+          stepNumber={gateNumber}
+          variant="page"
         />
       ) : null;
       break;
     case "running":
-      body = run.stream ? (
-        <WorkflowRunStatus
-          cancel={null}
-          isCancelling={false}
-          labels={{
-            completed: t("wizard.state.completed"),
-            failed: t("wizard.state.failed"),
-            noOutput: t("actionsRun.statusNoOutput"),
-            paused: t("wizard.state.sleeping"),
-            requiresAction: t("wizard.state.gate"),
-            running: t("wizard.state.running"),
-            step: t("actionsRun.step"),
-            stepResult: t("actionsRun.stepResult"),
-            steps: t("actionsRun.steps"),
-            stop: t("actionsRun.stop"),
-            stopped: t("wizard.state.cancelled"),
-            stopping: t("actionsRun.stopping"),
-          }}
-          status={run.stream}
+      body = (
+        <WizardWorking
+          detail={t("wizard.state.runningDetail")}
+          label={t("wizard.state.running")}
         />
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          {t("wizard.state.running")}
-        </p>
       );
       break;
     case "sleeping":
       body = (
-        <div className="flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm">
-          <Moon
-            aria-hidden
-            className="size-4 shrink-0 text-sky-600 dark:text-sky-400"
-          />
-          <span>
-            {request.wake_at
+        <WizardWorking
+          label={
+            request.wake_at
               ? t("wizard.state.sleepingUntil", {
                   when: new Date(request.wake_at).toLocaleString(),
                 })
-              : t("wizard.state.sleeping")}
-          </span>
-        </div>
+              : t("wizard.state.sleeping")
+          }
+        />
       );
       break;
     case "completed":
-      body = (
-        <div className="space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
-          <div className="flex items-center gap-2 font-medium text-sm">
-            <CheckCircle2
-              aria-hidden
-              className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-            />
-            {t("wizard.state.completed")}
-          </div>
-          {request.summary || request.outcome ? (
-            // The graph's closing line, markdown — a wizard that created a
-            // record links to it from here.
-            <MessageResponse
-              className={COMPACT_MARKDOWN_PROSE_CLASSNAME}
-              components={SUMMARY_MARKDOWN_COMPONENTS}
-              linkSafety={NO_LINK_SAFETY}
-            >
-              {request.summary ?? request.outcome ?? ""}
-            </MessageResponse>
-          ) : null}
-          {onExit ? (
-            <Button onClick={onExit} size="sm" type="button">
-              {t("wizard.done")}
-            </Button>
-          ) : null}
-        </div>
-      );
-      break;
     case "failed":
     case "cancelled":
       body = (
-        <div
-          className={cn(
-            "space-y-3 rounded-md border px-4 py-3",
-            state === "failed"
-              ? "border-destructive/40 bg-destructive/5"
-              : "border-muted-foreground/30 bg-muted/30"
-          )}
-        >
-          <div className="flex items-center gap-2 font-medium text-sm">
-            {state === "failed" ? (
-              <XCircle
-                aria-hidden
-                className="size-4 shrink-0 text-destructive"
-              />
-            ) : (
-              <Ban
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-            )}
-            {state === "failed"
-              ? t("wizard.state.failed")
-              : t("wizard.state.cancelled")}
-          </div>
-          {request.reason ? (
-            <p className="whitespace-pre-wrap text-muted-foreground text-sm">
-              {request.reason}
-            </p>
-          ) : null}
-          {onRestart ? (
-            <Button
-              onClick={onRestart}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <RotateCcw aria-hidden className="mr-1.5 size-3.5" />
-              {t("wizard.restart")}
-            </Button>
-          ) : null}
-        </div>
+        <WizardOutcome
+          kind={state}
+          message={outcomeMessage}
+          onExit={onExit}
+          onRestart={onRestart}
+        />
       );
       break;
     default:
@@ -384,14 +305,11 @@ export function WizardRunner({
 
   return (
     <div className={cn("flex flex-col gap-4", className)} data-state={state}>
-      <WizardProgress
-        currentStepId={currentStepId}
-        graph={version.graph}
-        nodes={snapshot?.nodes}
-      />
-      {body}
+      <ObjectDisplayIntentProvider value={displayIntent}>
+        <WizardScreen key={screenKey}>{body}</WizardScreen>
+      </ObjectDisplayIntentProvider>
       {error ? (
-        <p className="text-destructive text-xs">
+        <p className="text-destructive text-sm">
           {error instanceof Error ? error.message : t("wizard.error")}
         </p>
       ) : null}

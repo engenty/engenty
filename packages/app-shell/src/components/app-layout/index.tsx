@@ -40,6 +40,7 @@ export function AppLayout({
   sections,
   shell,
   fetchResolvedFeatureFlags,
+  focus = false,
   defaultTopbarTitle,
   children,
   currentSpace = null,
@@ -80,6 +81,7 @@ export function AppLayout({
               appMenuActions={appMenuActions}
               defaultTopbarTitle={defaultTopbarTitle}
               fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+              focus={focus}
               modulesReorderable={modulesReorderable}
               onModulesReorder={onModulesReorder}
               railCopilotSlot={railCopilotSlot}

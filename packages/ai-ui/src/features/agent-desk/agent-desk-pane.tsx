@@ -5,7 +5,8 @@ import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 // artifact and browser panes stack in, with the same card chrome and close —
 // not a sheet sliding over the chat. Opened from the toolbar's settings
 // button and from the agent's name in the breadcrumb. The gear opens its
-// settings one level down in the same pane. The URL (`panel=manage|runs`
+// settings one level down in the same pane; an open routine swaps the gear
+// for the routine's own menu. The URL (`panel=manage|runs`
 // plus `view=settings` / `routine` / `workflow` / `run`) is the state, so a
 // deep link opens the pane on the exact view, routine or run it names.
 import {
@@ -21,6 +22,7 @@ import { ChevronLeftIcon, Settings, XIcon } from "lucide-react";
 import { useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
+import { RoutineActionsMenu } from "../routines/routine-actions-menu.js";
 import { routinesListOptionsFor } from "../routines/routines-queries.js";
 import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import { AgentManagePanel } from "./agent-manage-panel.js";
@@ -46,10 +48,35 @@ function OpenRoutineName({
   return <>{name ?? fallback}</>;
 }
 
+/** The open routine's menu — it stands in for the agent's settings gear. */
+function OpenRoutineMenu({
+  hostKey,
+  locale,
+  onDeleted,
+  routineId,
+}: {
+  hostKey: string;
+  locale: string;
+  onDeleted: () => void;
+  routineId: string;
+}) {
+  const routinesQuery = useQuery(routinesListOptionsFor());
+  const routine = routinesQuery.data?.routines.find((r) => r.id === routineId);
+  return routine ? (
+    <RoutineActionsMenu
+      hostKey={hostKey}
+      locale={locale}
+      onDeleted={onDeleted}
+      routine={routine}
+    />
+  ) : null;
+}
+
 export function AgentDeskPane({
   agent,
   canEditPads,
   canManage,
+  hostKey,
   locale,
   moduleLabel,
   onClose,
@@ -59,6 +86,8 @@ export function AgentDeskPane({
   agent: AgentDeskAgent;
   canEditPads: boolean;
   canManage: boolean;
+  /** The desk's chat — a routine's Edit hands its reference to that composer. */
+  hostKey: string;
   locale: string;
   moduleLabel?: string;
   onClose: () => void;
@@ -122,7 +151,14 @@ export function AgentDeskPane({
           <PaneTopBar
             actions={
               <>
-                {panel === "manage" && !settingsOpen ? (
+                {openRoutineId ? (
+                  <OpenRoutineMenu
+                    hostKey={hostKey}
+                    locale={locale}
+                    onDeleted={backToList}
+                    routineId={openRoutineId}
+                  />
+                ) : panel === "manage" && !settingsOpen ? (
                   <Button
                     aria-label={t("agentDesk.drawer.settings")}
                     onClick={openSettings}
@@ -170,8 +206,10 @@ export function AgentDeskPane({
               agent={agent}
               canEditPads={canEditPads}
               canManage={canManage}
+              hostKey={hostKey}
               locale={locale}
               moduleLabel={moduleLabel}
+              onClosePane={onClose}
               spaceId={spaceId}
               view={settingsOpen ? "settings" : "overview"}
             />

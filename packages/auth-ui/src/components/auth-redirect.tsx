@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import {
   evaluateInitialSetupGate,
   gateFailureToNavigationState,
   type ServiceUnavailableNavigationState,
 } from "../lib/initial-setup-gate";
+import { rememberReturnPath } from "../lib/return-path";
 
 type AuthRedirectNav =
   | { to: "/initial_setup" | "/auth/login" }
@@ -15,6 +16,8 @@ type AuthRedirectNav =
 
 export function AuthRedirect() {
   const [target, setTarget] = useState<AuthRedirectNav | null>(null);
+  const location = useLocation();
+  const intended = `${location.pathname}${location.search}${location.hash}`;
 
   useEffect(() => {
     let mounted = true;
@@ -29,6 +32,10 @@ export function AuthRedirect() {
         });
         return;
       }
+      if (!gate.initial_setup_required) {
+        // The link this visitor followed opens once they are signed in.
+        rememberReturnPath(intended);
+      }
       setTarget({
         to: gate.initial_setup_required ? "/initial_setup" : "/auth/login",
       });
@@ -36,7 +43,7 @@ export function AuthRedirect() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [intended]);
 
   if (target === null) {
     return (

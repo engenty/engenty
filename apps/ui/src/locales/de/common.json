@@ -876,7 +876,8 @@
         "artifacts": "Artefakte",
         "people": "Personen",
         "rooms": "Räume",
-        "records": "Datensätze"
+        "records": "Datensätze",
+        "routines": "Routinen"
       },
       "copiedId": "Kopiert",
       "copyId": "Agenten-ID kopieren",
@@ -1680,7 +1681,12 @@
       "intro": "Jede Unterhaltung in diesem Space: Räume, die Desks der Agenten, deine Direktnachrichten."
     },
     "workflows": {
-      "crumb": "Ablauf"
+      "close": "Schließen",
+      "copyLink": "Link kopieren",
+      "linkCopied": "Link kopiert – wer ihn öffnet, startet den Assistenten selbst.",
+      "linkCopyFailed": "Link konnte nicht kopiert werden.",
+      "noAccess": "Kein Zugriff",
+      "noAccessBody": "Dieser Assistent gehört zu einem Space, in dem du nicht Mitglied bist. Bitte die Person, die dir den Link geschickt hat, dich einzuladen."
     },
     "artifacts": {
       "section": "Artefakte",

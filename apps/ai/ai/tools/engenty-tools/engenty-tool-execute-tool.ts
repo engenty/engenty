@@ -352,6 +352,31 @@ export async function executeEngentyTool(
         // a real policy mismatch a re-prompt cannot fix. Say so plainly.
         return approvalUnavailableResult(operationId);
       }
+      const personApproval = getEngentyToolsRunContext().personApproval;
+      if (personApproval?.operationIds.includes(operationId)) {
+        // A person allowed this call on the wizard's approval step; core asks
+        // the run's principal again. Decide core's request as that person and
+        // retry once — same call, same run, recorded under who approved it.
+        const retried = await settleCoreApprovalAndRetry({
+          client,
+          decide: personApproval.decide,
+          err,
+          input: resolvedInputForRetry,
+          operationId,
+          ...(callSpaceId ? { spaceId: callSpaceId } : {}),
+        });
+        if (retried) {
+          const evidence = normalizeExecuteEvidence(operationId, retried.data);
+          if (dedupeKey && evidence.ok) {
+            getEngentyToolsRunContext().executedWriteCalls?.set(
+              dedupeKey,
+              evidence
+            );
+          }
+          return evidence;
+        }
+        return approvalUnavailableResult(operationId);
+      }
       if ((getEngentyToolsRunContext().approvalPolicy ?? "deny") === "defer") {
         const ctx = getEngentyToolsRunContext();
         const details = isRecord(err.details) ? err.details : {};

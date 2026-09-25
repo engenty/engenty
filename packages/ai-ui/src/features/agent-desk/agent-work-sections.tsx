@@ -16,48 +16,33 @@
 // graph inspector, an instruction box for AI edits and Publish — so a hire's
 // proposed workflow is reviewed and turned on without leaving the drawer.
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Badge,
-  Button,
-  CardSection,
-  Skeleton,
-} from "@engenty/ui-core";
-import {
-  CalendarClock,
-  ChevronLeft,
-  ChevronRight,
-  CirclePause,
-  Plus,
-} from "lucide-react";
+import { useTranslation } from "@engenty/i18n/ui";
+import { Badge, Button, CardSection, Skeleton } from "@engenty/ui-core";
+import { CalendarClock, ChevronRight, CirclePause, Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RoutineCardSummary } from "../routines/routine-card-summary.js";
-import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
+import {
+  createRoutineInChat,
+  editRoutineInChat,
+} from "../routines/routine-chat-prompts.js";
+import { RoutineDeleteDialog } from "../routines/routine-delete-dialog.js";
 import { RoutineDetailBody } from "../routines/routine-detail-body.js";
-import { RoutineEditor } from "../routines/routine-editor.js";
 import { routineBelongsToAgent } from "../routines/routine-shape.js";
 import type { RoutineDto } from "../routines/routines-api.js";
-import {
-  useDeleteCustomRoutineMutation,
-  useRoutinesListQuery,
-} from "../routines/routines-queries.js";
+import { useRoutinesListQuery } from "../routines/routines-queries.js";
 import type { WorkflowDto } from "../workflow-canvas/workflow-api.js";
 import { WorkflowModal } from "../workflow-canvas/workflow-modal.js";
 import { useWorkflowListQuery } from "../workflow-canvas/workflow-queries.js";
 
 export function AgentWorkSections({
   agentId,
+  hostKey,
   locale = "en",
 }: {
   agentId: string;
+  /** The desk's chat: a routine is created and edited by asking there. */
+  hostKey: string;
   locale?: string;
 }) {
   const isDe = locale.startsWith("de");
@@ -67,10 +52,8 @@ export function AgentWorkSections({
   // Space, and clicking into its Action must not eject the user to the admin
   // area. URL state, so back/forward and reload land where you were.
   const openActionId = searchParams.get("workflow");
-  const [isEditing, setIsEditing] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const deleteMutation = useDeleteCustomRoutineMutation();
+  const { t } = useTranslation("ai-ui");
   const routinesQuery = useRoutinesListQuery(true, "tenant");
   const graphsQuery = useWorkflowListQuery();
 
@@ -108,7 +91,6 @@ export function AgentWorkSections({
 
   const selectRoutine = useCallback(
     (routineId: string | null) => {
-      setIsEditing(false);
       const next = new URLSearchParams(searchParams);
       if (routineId) {
         next.set("routine", routineId);
@@ -142,15 +124,6 @@ export function AgentWorkSections({
     [openRoutineId, routines]
   );
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!pendingDelete) {
-      return;
-    }
-    await deleteMutation.mutateAsync(pendingDelete);
-    setPendingDelete(null);
-    selectRoutine(null);
-  }, [deleteMutation, pendingDelete, selectRoutine]);
-
   if (routinesQuery.isPending) {
     return (
       <div className="space-y-3">
@@ -161,39 +134,16 @@ export function AgentWorkSections({
   }
 
   const deleteDialog = (
-    <AlertDialog
+    <RoutineDeleteDialog
+      locale={locale}
+      onDeleted={() => selectRoutine(null)}
       onOpenChange={(open) => {
         if (!open) {
           setPendingDelete(null);
         }
       }}
-      open={!!pendingDelete}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {isDe ? "Routine löschen?" : "Delete routine?"}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {isDe
-              ? "Die Routine wacht dann nicht mehr auf. Ihre bisherigen Läufe bleiben erhalten."
-              : "It will stop waking up. Its past runs stay."}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleteMutation.isPending}>
-            {isDe ? "Abbrechen" : "Cancel"}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            disabled={deleteMutation.isPending}
-            onClick={handleConfirmDelete}
-          >
-            {isDe ? "Löschen" : "Delete"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      routineId={pendingDelete}
+    />
   );
 
   // The Action opens as a large modal OVER whatever view is behind it — the
@@ -211,64 +161,24 @@ export function AgentWorkSections({
     />
   ) : null;
 
-  // Mounted only while open: the dialog runs routine mutations.
-  const createDialog = createOpen ? (
-    <RoutineCreateDialog
-      defaultAgentId={agentId}
-      locale={locale}
-      onOpenChange={setCreateOpen}
-      open
-    />
-  ) : null;
-
   if (openRoutine) {
     return (
       <div className="space-y-4">
-        {/* Out of the routine is the drawer's own chevron; out of the FORM is
-            a state of this view, so it gets its own link while editing. */}
-        {isEditing ? (
-          <Button
-            className="-ml-2 gap-1 text-muted-foreground"
-            onClick={() => setIsEditing(false)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <ChevronLeft className="size-4" />
-            {isDe ? "Bearbeiten abbrechen" : "Cancel editing"}
-          </Button>
-        ) : null}
-
-        {/* The name is the drawer's title while a routine is open, and the
-            description is the form's second field — so reading mode prints
-            only the description, editing mode neither. */}
-        {isEditing || !openRoutine.description ? null : (
+        {openRoutine.description ? (
           <p className="text-muted-foreground text-sm">
             {openRoutine.description}
           </p>
-        )}
+        ) : null}
 
-        {isEditing ? (
-          <RoutineEditor
-            defaultAgentId={agentId}
-            key={openRoutine.id}
-            locale={locale}
-            onCancel={() => setIsEditing(false)}
-            onOpenAction={selectAction}
-            onSaved={() => setIsEditing(false)}
-            routineToEdit={openRoutine}
-          />
-        ) : (
-          <RoutineDetailBody
-            // The page is the specialist's; naming it again is noise.
-            hideAgent
-            locale={locale}
-            onDeleteCustom={setPendingDelete}
-            onEditCustom={() => setIsEditing(true)}
-            onOpenAction={selectAction}
-            routine={openRoutine}
-          />
-        )}
+        <RoutineDetailBody
+          // The page is the specialist's; naming it again is noise.
+          hideAgent
+          locale={locale}
+          onDeleteCustom={setPendingDelete}
+          onEditCustom={(routine) => editRoutineInChat(hostKey, routine, t)}
+          onOpenAction={selectAction}
+          routine={openRoutine}
+        />
         {deleteDialog}
         {actionModal}
       </div>
@@ -292,7 +202,7 @@ export function AgentWorkSections({
           <Button
             aria-label={isDe ? "Routine hinzufügen" : "Add routine"}
             className="size-6"
-            onClick={() => setCreateOpen(true)}
+            onClick={() => createRoutineInChat(hostKey, t)}
             size="icon-sm"
             type="button"
             variant="ghost"
@@ -388,7 +298,6 @@ export function AgentWorkSections({
       </CardSection>
       {deleteDialog}
       {actionModal}
-      {createDialog}
     </>
   );
 }

@@ -170,6 +170,8 @@ export const AGENT_REFERENCE_ENTITY = "ai:agent";
 export const ROOM_REFERENCE_ENTITY = "ai:room";
 /** Entity prefix of an @-mentioned artifact (`artifact:<artifact id>`). */
 export const ARTIFACT_REFERENCE_ENTITY = "artifact";
+/** Entity prefix of a referenced routine (`ai:routine:<routine id>`). */
+export const ROUTINE_REFERENCE_ENTITY = "ai:routine";
 
 export interface ChatActionInvocationResult {
   /** An in-flight run for the same subject answered instead of a new one. */
@@ -348,12 +350,16 @@ export async function buildChatTurnContextEntries(params: {
   const artifactRefs = params.refs.filter((ref) =>
     ref.ref.startsWith(`${ARTIFACT_REFERENCE_ENTITY}:`)
   );
+  const routineRefs = params.refs.filter((ref) =>
+    ref.ref.startsWith(`${ROUTINE_REFERENCE_ENTITY}:`)
+  );
   const objectRefs = params.refs.filter(
     (ref) =>
       !(
         agentRefs.includes(ref) ||
         roomRefs.includes(ref) ||
-        artifactRefs.includes(ref)
+        artifactRefs.includes(ref) ||
+        routineRefs.includes(ref)
       )
   );
 
@@ -399,6 +405,23 @@ export async function buildChatTurnContextEntries(params: {
         "The user @-mentioned these artifacts in their message:",
         ...lines,
         "Open one with artifact_read before answering about its content — never describe an artifact you have not read. show_artifact puts it in front of them; artifact_write edits it.",
+      ].join("\n"),
+    });
+  }
+
+  // A routine is edited by asking: the desk's Edit puts the routine here, and
+  // the message says what to change.
+  if (routineRefs.length > 0) {
+    const lines = routineRefs.map(
+      (ref) =>
+        `- "${ref.label}" → routine_id \`${ref.ref.slice(ROUTINE_REFERENCE_ENTITY.length + 1)}\``
+    );
+    entries.push({
+      description: "user_mentioned_routines",
+      value: [
+        "The user means these routines:",
+        ...lines,
+        "When the message asks for a change, load **routines** and change that routine with routines_update and its routine_id — its prompt, result format, schedule, delivery, name, description or whether it runs. Read it with routines_list first when you need its current settings. Change only what they asked for, never create a second routine for an edit, and say in one sentence what changed. A routine bound to a canvas Workflow changes its steps with workflow_self_revise.",
       ].join("\n"),
     });
   }

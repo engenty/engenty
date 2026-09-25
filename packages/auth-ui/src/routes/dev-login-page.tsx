@@ -7,15 +7,8 @@ import {
   readDevLoginPasswordFromEnv,
   resolveDevLoginEmail,
 } from "../lib/dev-login";
+import { sanitizeRedirectPath } from "../lib/return-path";
 import { getSupabaseAuthClient } from "../lib/supabase-auth-client";
-
-function sanitizeRedirectPath(raw: string | null): string {
-  const value = raw?.trim();
-  if (!value?.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-  return value;
-}
 
 /**
  * Dev-only one-shot login for browser agents and local smoke tests.

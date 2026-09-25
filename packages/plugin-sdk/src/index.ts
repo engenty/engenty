@@ -163,7 +163,6 @@ export {
 } from "./space-data-format.js";
 export {
   AI_SERVICE_CAPABILITIES,
-  AI_SERVICE_PLAN_CAPABILITIES,
   capabilitiesForModuleAccess,
   deriveSpaceAgentCapabilities,
   MODULE_FACETS,

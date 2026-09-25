@@ -208,7 +208,10 @@ function A2uiObjectPickerField(
     <div className="relative flex flex-col gap-1 text-xs">
       {label ? <span className="font-medium">{label}</span> : null}
       {value ? (
-        <div className="flex items-center gap-1 rounded-md border bg-background px-2 py-1.5">
+        <div
+          className="flex items-center gap-1 rounded-md border bg-background px-2 py-1.5"
+          data-object-picker-value=""
+        >
           <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
           <Button
             aria-label={t("a2uiHost.objectPicker.clear")}

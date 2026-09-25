@@ -45,7 +45,7 @@ export function registerServiceCredentialCommands(program: Command): void {
     .requiredOption("--name <name>", "Credential name, e.g. ai-service")
     .option(
       "--capability <cap>",
-      `Grant a capability (repeatable, or comma-separated). Default: inherit yours. For apps/ai list ${AI_SERVICE_CAPABILITIES.join(",")}. module.read does not cover module.tasks.read or module.connections.read.`,
+      `Grant a capability (repeatable, or comma-separated). Default: inherit yours. For apps/ai list ${AI_SERVICE_CAPABILITIES.join(",")}. module.read / module.write cover no module that names its own capabilities (module.offers.*, module.tasks.*, …).`,
       (value: string, previous: string[]) => [...previous, ...csv(value)],
       [] as string[]
     )
@@ -78,7 +78,7 @@ export function registerServiceCredentialCommands(program: Command): void {
             );
             if (missing.length > 0) {
               console.error(
-                `Warning: this credential is missing AI service caps (${missing.join(", ")}). Locked-down tokens that only list module.read / module.write will 403 on module.tasks.* and module.connections.* — the matcher has no infix wildcards.\n`
+                `Warning: this credential is missing AI service caps (${missing.join(", ")}). Tokens that only list module.read / module.write 403 on every module that names its own capabilities (module.offers.*, module.tasks.*, module.connections.*).\n`
               );
             }
           }

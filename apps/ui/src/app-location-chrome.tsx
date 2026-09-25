@@ -45,6 +45,7 @@ import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
 import { spaceNavLevel } from "@/lib/space-nav";
 import { spacePlacedModuleIds } from "@/lib/space-route-mirrors";
 import {
+  isSpaceWorkflowPathname,
   parseModulePath,
   parseSpacePath,
   spaceRootPath,
@@ -155,7 +156,9 @@ export function AppLocationChrome({
 
   const isSuperAdmin = workspace.isSuperAdmin;
   const isTenantAdmin = workspace.isTenantAdmin;
+  const focus = isSpaceWorkflowPathname(location.pathname);
   const chromeHidden =
+    focus ||
     isCopilotRiverPathname(location.pathname) ||
     isModuleHubChatRoute(location.pathname);
   const onSettingsChrome =
@@ -194,6 +197,7 @@ export function AppLocationChrome({
         currentUserId={workspace.userId}
         defaultTopbarTitle={t("navigation.dashboard")}
         fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
+        focus={focus}
         isSuperAdmin={isSuperAdmin}
         isTenantAdmin={isTenantAdmin}
         modulesReorderable={isTenantAdmin || isSuperAdmin}

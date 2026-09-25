@@ -38,7 +38,7 @@ export function MentionInlineText({
       {segmentMentionText(body, refs).map((segment, index) =>
         segment.ref ? (
           <span
-            className={mentionPillClassName(segment.ref.entity)}
+            className={mentionPillClassName(segment.ref.entity, "text")}
             key={index}
             title={segment.ref.ref}
           >

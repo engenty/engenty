@@ -7,9 +7,37 @@
  * reaches it through `ObjectDisplayIntent.askAgent`, never directly.
  */
 
+import type { ChatReferenceItem } from "../lib/chat-reference-part.js";
+
 type DraftSetter = (text: string) => void;
+/** Adds reference pills to the composer (none: only focuses it). */
+type RefAdder = (refs: ChatReferenceItem[]) => void;
 
 const settersByHost = new Map<string, DraftSetter[]>();
+const refAddersByHost = new Map<string, RefAdder[]>();
+
+function register<T>(
+  map: Map<string, T[]>,
+  hostKey: string,
+  fn: T
+): () => void {
+  const list = map.get(hostKey) ?? [];
+  list.push(fn);
+  map.set(hostKey, list);
+  return () => {
+    const current = map.get(hostKey);
+    if (!current) {
+      return;
+    }
+    const index = current.indexOf(fn);
+    if (index >= 0) {
+      current.splice(index, 1);
+    }
+    if (current.length === 0) {
+      map.delete(hostKey);
+    }
+  };
+}
 
 /**
  * A draft waiting for its composer to mount.
@@ -28,40 +56,39 @@ export function registerCopilotComposerDraftSetter(
   hostKey: string,
   setter: DraftSetter
 ): () => void {
-  const setters = settersByHost.get(hostKey) ?? [];
-  setters.push(setter);
-  settersByHost.set(hostKey, setters);
+  const off = register(settersByHost, hostKey, setter);
   const pending = pendingByHost.get(hostKey);
   if (pending !== undefined) {
     pendingByHost.delete(hostKey);
     setter(pending);
   }
-  return () => {
-    const current = settersByHost.get(hostKey);
-    if (!current) {
-      return;
-    }
-    const index = current.indexOf(setter);
-    if (index >= 0) {
-      current.splice(index, 1);
-    }
-    if (current.length === 0) {
-      settersByHost.delete(hostKey);
-    }
-  };
+  return off;
 }
 
-/** Prefill the composer bound to a host key. Returns false when none is mounted. */
+/** Register the mounted composer's reference adder. Latest registration wins. */
+export function registerCopilotComposerRefAdder(
+  hostKey: string,
+  adder: RefAdder
+): () => void {
+  return register(refAddersByHost, hostKey, adder);
+}
+
+/**
+ * Prefill the composer bound to a host key and focus it. `refs` become pills
+ * over their `@Label` token, which the text must carry. Returns false when no
+ * composer is mounted.
+ */
 export function setCopilotComposerDraft(
   hostKey: string,
-  text: string
+  text: string,
+  refs: ChatReferenceItem[] = []
 ): boolean {
-  const setters = settersByHost.get(hostKey);
-  const latest = setters?.at(-1);
+  const latest = settersByHost.get(hostKey)?.at(-1);
   if (!latest) {
     return false;
   }
   latest(text);
+  refAddersByHost.get(hostKey)?.at(-1)?.(refs);
   return true;
 }
 

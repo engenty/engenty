@@ -54,6 +54,8 @@ export function ChatAgentsProvider(props: {
 
 export function ChatAgentFace(props: {
   agentId?: string | null;
+  /** Moving while the agent works: the blob wobbles, the copilot thinks. */
+  animated?: boolean;
   /** Blob to wear while the roster does not know the agent yet (a new hire). */
   engenty?: string;
   name?: string | null;
@@ -70,11 +72,13 @@ export function ChatAgentFace(props: {
         character="ember"
         className="[&_.blob-shadow]:hidden"
         size={props.size}
+        state={props.animated ? "thinking" : "idle"}
       />
     );
   }
   return (
     <AgentFace
+      animated={props.animated}
       avatarUrl={agent?.avatarUrl}
       kind={
         deskAgent

@@ -23,6 +23,7 @@ const agentManagementBindings: readonly ModuleLiveBinding[] = [
       "routines_create",
       "routines_update",
       "routines_run",
+      "routines_cancel_run",
     ],
     id: "space-agent-management",
     queryRoot: spaceKeys.all,

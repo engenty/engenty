@@ -153,7 +153,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
 
   {
     description:
-      "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>`. Locally `engenty setup` mints and rewrites it whenever the row is missing from the local Supabase (a `db reset` drops it) — `engenty service-token ensure-local` does the same by hand. On a deployment: `engenty service-token create --name ai-service` after a device-flow `engenty auth login` (not --dev). A locked-down mint must list module.read,module.write,module.execute plus Plan caps (module.tasks.read,module.tasks.write) — module.read does not cover module.tasks.read. apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
+      "The service credential for apps/ai (scheduler, task dispatcher, remote channels), as `<credentialId>.<secret>`. Locally `engenty setup` mints and rewrites it whenever the row is missing from the local Supabase (a `db reset` drops it) — `engenty service-token ensure-local` does the same by hand. On a deployment: `engenty service-token create --name ai-service` after a device-flow `engenty auth login` (not --dev). A locked-down mint must list module.* and core.agents.manage — module.read / module.write cover no module that names its own capabilities (module.offers.*, module.tasks.*, …). apps/ai exchanges it at POST /api/auth/service-token for a 15-minute engenty token per tenant — no Supabase user, revocable with `engenty service-token revoke`, capabilities clamped at creation.",
     group: "API security",
     key: "ENGENTY_AI_SERVICE_SECRET",
     obtain: {

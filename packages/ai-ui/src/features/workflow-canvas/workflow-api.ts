@@ -389,7 +389,21 @@ export interface GateSurfaceDto {
   data?: Record<string, unknown>;
 }
 
-export type GateKind = "confirm" | "field_updates" | "choice" | "surface";
+export type GateKind =
+  | "confirm"
+  | "field_updates"
+  | "choice"
+  | "surface"
+  /** A specialist step wants calls a person has to allow — the approval step. */
+  | "operation_approval"
+  | "question";
+
+/** One call an approval step asks about. */
+export interface PendingOperationCallDto {
+  input?: Record<string, unknown>;
+  operation_id: string;
+  title?: string;
+}
 
 /** A suspended gate as the snapshot reports it. */
 export interface GraphRunGateDto {
@@ -398,6 +412,8 @@ export interface GraphRunGateDto {
   kind: GateKind;
   /** Full resume path — `["draft-loop", "review"]` for a gate inside a loop. */
   path: string[];
+  /** An approval step's calls (`kind: "operation_approval"`). */
+  pending_calls?: PendingOperationCallDto[];
   /** Leaf step id; keys `nodes` and `answers`. */
   stepId: string;
   surface: GateSurfaceDto;

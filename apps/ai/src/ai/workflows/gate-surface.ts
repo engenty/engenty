@@ -72,6 +72,90 @@ function confirmSurface(payload: Record<string, unknown>): GateSurface {
   };
 }
 
+/** One module call a specialist step wanted and a person has to allow. */
+export interface PendingOperationCall {
+  input?: Record<string, unknown>;
+  operation_id: string;
+  title?: string;
+}
+
+/** A value short enough for one row of the approval page. */
+function shortReadable(value: unknown): string {
+  const text = readable(value);
+  return text.length > 160 ? `${text.slice(0, 159)}…` : text;
+}
+
+const BARE_ID_RE =
+  /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+
+/** `due_date` → `Due date` — an input's key as a row label. */
+function readableKey(key: string): string {
+  const words = key.replace(/_+/g, " ").trim();
+  return words ? `${words[0]?.toUpperCase()}${words.slice(1)}` : key;
+}
+
+/**
+ * The inputs a person can judge: nothing empty, and no bare record id — a
+ * uuid says nothing to whoever approves, the rows around it say what it is.
+ */
+function approvalRows(
+  input: Record<string, unknown>
+): { label: string; value: string }[] {
+  return Object.entries(input).flatMap(([key, value]) => {
+    const text = shortReadable(value).trim();
+    if (!text || BARE_ID_RE.test(text)) {
+      return [];
+    }
+    return [{ label: readableKey(key), value: text }];
+  });
+}
+
+/**
+ * The approval step of a wizard: what the step wants to do — each call as a
+ * heading with the inputs a person can judge — a note, approve / reject. The
+ * heading is the title the call carries (the tool's own name for what it
+ * does), the operation id spelled out only when it has none.
+ */
+export function operationApprovalSurface(
+  calls: readonly PendingOperationCall[]
+): GateSurface {
+  const callComponents = calls.flatMap((call, index) => {
+    const rows = approvalRows(call.input ?? {});
+    return [
+      {
+        component: "Text",
+        id: `call-${index}`,
+        text: call.title?.trim() || readableKey(call.operation_id),
+        variant: "h3",
+      },
+      ...(rows.length > 0
+        ? [{ component: "DetailGrid", id: `call-${index}-input`, rows }]
+        : []),
+    ];
+  });
+  const callIds = callComponents.map((component) => component.id);
+  return {
+    components: [
+      {
+        children: [...callIds, "reason", "actions"],
+        component: "Column",
+        id: "root",
+      },
+      ...callComponents,
+      {
+        component: "TextArea",
+        id: "reason",
+        label: "Note (optional)",
+        value: { path: "/reason" },
+      },
+      { children: ["approve", "reject"], component: "Actions", id: "actions" },
+      button("approve", "Approve", GATE_APPROVE_EVENT),
+      button("reject", "Reject", GATE_REJECT_EVENT),
+    ],
+    data: { reason: "" },
+  };
+}
+
 /** `field_updates`: every proposed field editable, prefilled with the patch. */
 function fieldUpdatesSurface(payload: Record<string, unknown>): GateSurface {
   const fieldIds = Object.keys(payload).map((key, index) => `f${index}`);

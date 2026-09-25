@@ -50,7 +50,7 @@ import {
 } from "../agents-workspace/agent-workspace-paths.js";
 import { UserBrowserPaneToggle } from "../browser/user-browser-pane.js";
 import { toggleUserBrowserPane } from "../browser/user-browser-pane-store.js";
-import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
+import { createRoutineInChat } from "../routines/routine-chat-prompts.js";
 import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import {
   AgentRemovalDialog,
@@ -88,7 +88,6 @@ export function AgentDeskActions(props: {
   const { t } = useTranslation("ai-ui");
   const navigate = useNavigate();
   const developerMode = useDeveloperModeEnabled();
-  const [routineOpen, setRoutineOpen] = useState(false);
   const [removal, setRemoval] = useState<AgentRemovalMode | null>(null);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | null>(null);
@@ -227,7 +226,9 @@ export function AgentDeskActions(props: {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {props.canAssignWork ? (
-            <DropdownMenuItem onSelect={() => setRoutineOpen(true)}>
+            <DropdownMenuItem
+              onSelect={() => createRoutineInChat(props.hostKey, t)}
+            >
               <CalendarClock className="mr-2 size-4" />
               {t("agentDesk.actions.addRoutine")}
             </DropdownMenuItem>
@@ -316,16 +317,6 @@ export function AgentDeskActions(props: {
           open
           spaceId={props.spaceId}
           spaceKey={props.spaceKey}
-        />
-      ) : null}
-      {/* Mounted only while open: the dialog runs routine mutations, and the
-          action row lives in the topbar. */}
-      {routineOpen ? (
-        <RoutineCreateDialog
-          defaultAgentId={props.agentId}
-          locale={props.locale}
-          onOpenChange={setRoutineOpen}
-          open
         />
       ) : null}
     </div>

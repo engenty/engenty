@@ -1,15 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getApiBaseUrl } from "../lib/api-client";
+import { sanitizeRedirectPath } from "../lib/return-path";
 import { getSupabaseAuthClient } from "../lib/supabase-auth-client";
-
-function sanitizeRedirectPath(raw: string | null): string {
-  const value = raw?.trim();
-  if (!value?.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-  return value;
-}
 
 interface DevSession {
   access_token: string;

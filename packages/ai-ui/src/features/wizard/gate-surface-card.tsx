@@ -6,9 +6,9 @@
 // resume decision: the submit action's name is the event, the data model is
 // the answer, and `reject` is the one event that reads as "no". Whether a
 // document sits beside it, what free text means, what "no" leads to — all of
-// that is the graph's, visible on the canvas. The wizard page hosts this card
-// full-width, the agent desk docks it above the composer; the card is the
-// same.
+// that is the graph's, visible on the canvas. The wizard page draws it as
+// the page itself, the agent desk docks it above the composer; the step is
+// the same.
 
 import { parseObjectRef } from "@engenty/ai-core/browser";
 import {
@@ -30,8 +30,8 @@ import {
   Button,
   cn,
 } from "@engenty/ui-core";
-import { ArrowLeft, Loader2, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Loader2, X } from "lucide-react";
+import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { EngentyA2uiHostBoundary } from "../../a2ui/engenty-a2ui-host.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { useObjectDisplayIntent } from "../../objects/object-display-intent.js";
@@ -82,7 +82,34 @@ export interface GateSurfaceCardProps {
   onSubmit: (decision: GateDecision) => void;
   /** Preview only — no submit, no inputs (the canvas inspector). */
   readOnly?: boolean;
+  /** The question's number, shown before the page variant's title. */
+  stepNumber?: number;
+  /**
+   * `card` (default): a bordered card for a dock or an inspector. `page`: the
+   * step IS the page — no frame, the title as the question, roomier fields.
+   */
+  variant?: "card" | "page";
 }
+
+/**
+ * The page variant's fields: one size up, so a step reads as a question on
+ * a screen of its own rather than a form in a panel. The surface's own inset
+ * is taken back so the fields line up under the title, and the first button
+ * of the actions row — approve, continue — is the primary one.
+ */
+const PAGE_SURFACE_CLASSNAME = cn(
+  "-mx-2 text-base",
+  "[&_label]:text-sm",
+  // Typeform's field: the answer written on a line, not into a box.
+  "[&_input]:h-12 [&_input]:rounded-none [&_input]:border-0 [&_input]:border-b-2 [&_input]:bg-transparent [&_input]:px-0 [&_input]:text-xl [&_input]:shadow-none [&_input]:focus-visible:border-foreground [&_input]:focus-visible:ring-0",
+  "[&_textarea]:min-h-24 [&_textarea]:rounded-none [&_textarea]:border-0 [&_textarea]:border-b-2 [&_textarea]:bg-transparent [&_textarea]:px-0 [&_textarea]:text-xl [&_textarea]:shadow-none [&_textarea]:focus-visible:border-foreground [&_textarea]:focus-visible:ring-0",
+  "[&_[data-object-picker-value]]:h-12 [&_[data-object-picker-value]]:rounded-none [&_[data-object-picker-value]]:border-0 [&_[data-object-picker-value]]:border-input [&_[data-object-picker-value]]:border-b-2 [&_[data-object-picker-value]]:bg-transparent [&_[data-object-picker-value]]:px-0 [&_[data-object-picker-value]]:text-xl",
+  "[&_[data-a2ui-actions]]:gap-3 [&_[data-a2ui-actions]]:pt-5",
+  "[&_[data-a2ui-actions]>button]:h-11 [&_[data-a2ui-actions]>button]:rounded-md [&_[data-a2ui-actions]>button]:px-6 [&_[data-a2ui-actions]>button]:text-base",
+  "[&_[data-a2ui-actions]>button:first-child:hover]:bg-primary/90 [&_[data-a2ui-actions]>button:first-child]:border-transparent [&_[data-a2ui-actions]>button:first-child]:bg-primary [&_[data-a2ui-actions]>button:first-child]:text-primary-foreground [&_[data-a2ui-actions]>button:first-child]:shadow-sm",
+  // Where Enter submits — a form with a one-line field — the row says so.
+  "[&:has(form_input)_[data-a2ui-actions]]:after:ml-1 [&:has(form_input)_[data-a2ui-actions]]:after:text-muted-foreground [&:has(form_input)_[data-a2ui-actions]]:after:text-xs [&:has(form_input)_[data-a2ui-actions]]:after:content-(--gate-enter-hint)"
+);
 
 export function GateSurfaceCard({
   answer,
@@ -94,11 +121,19 @@ export function GateSurfaceCard({
   onCancel,
   onSubmit,
   readOnly = false,
+  stepNumber,
+  variant = "card",
 }: GateSurfaceCardProps) {
   const { t } = useTranslation("ai-ui");
   const { openInPanel } = useObjectDisplayIntent();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const surfaceId = `gate:${gate.stepId ?? "preview"}`;
+  // An approval step's title is composed server-side, in English and naming
+  // the agent's key; the reader gets the step's name in their language.
+  const title =
+    gate.kind === "operation_approval"
+      ? t("gateSurface.operationApproval.title")
+      : gate.title;
 
   // A shorthand gate's page is composed server-side, where nobody's language
   // is known, so its chrome — the two verdict buttons and the note field —
@@ -182,20 +217,38 @@ export function GateSurfaceCard({
   };
 
   const footer = onBack || onCancel;
+  const page = variant === "page";
 
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card",
+        !page && "rounded-lg border bg-card",
         busy && "opacity-80",
         className
       )}
       data-testid="gate-surface-card"
     >
-      {gate.title || busy ? (
-        <header className="flex items-center gap-2 px-4 pt-3.5 pb-1">
-          {gate.title ? (
-            <p className="min-w-0 flex-1 font-medium text-sm">{gate.title}</p>
+      {title || busy ? (
+        <header
+          className={cn(
+            "flex items-center gap-2",
+            page ? "pb-5" : "px-4 pt-3.5 pb-1"
+          )}
+        >
+          {title ? (
+            page ? (
+              <h1 className="min-w-0 flex-1 text-balance font-heading font-semibold text-3xl leading-tight tracking-tight sm:text-4xl">
+                {stepNumber ? (
+                  <span className="mr-3 inline-flex items-center gap-1 align-middle font-medium text-base text-link">
+                    {stepNumber}
+                    <ArrowRight aria-hidden className="size-4" />
+                  </span>
+                ) : null}
+                {title}
+              </h1>
+            ) : (
+              <p className="min-w-0 flex-1 font-medium text-sm">{title}</p>
+            )
           ) : null}
           {busy ? (
             <Loader2
@@ -205,15 +258,33 @@ export function GateSurfaceCard({
           ) : null}
         </header>
       ) : null}
-      <div className={cn("px-3 py-2", busy && "pointer-events-none")}>
+      <div
+        className={cn(
+          page ? PAGE_SURFACE_CLASSNAME : "px-3 py-2",
+          busy && "pointer-events-none"
+        )}
+        style={
+          page
+            ? ({
+                "--gate-enter-hint": JSON.stringify(t("gateSurface.enterHint")),
+              } as CSSProperties)
+            : undefined
+        }
+      >
         <EngentyA2uiHostBoundary objectSearch={objectSearch}>
           <EngentyA2uiSurfaceView {...viewProps} />
         </EngentyA2uiHostBoundary>
       </div>
       {footer && !readOnly ? (
-        <footer className="flex items-center gap-2 border-t px-4 py-2.5">
+        <footer
+          className={cn(
+            "flex items-center gap-2",
+            page ? "pt-6" : "border-t px-4 py-2.5"
+          )}
+        >
           {onBack ? (
             <Button
+              className={cn(page && "-ml-3")}
               disabled={busy}
               onClick={onBack}
               size="sm"
@@ -227,6 +298,7 @@ export function GateSurfaceCard({
           <span className="flex-1" />
           {onCancel ? (
             <Button
+              className={cn(page && "-mr-3 text-muted-foreground")}
               disabled={busy}
               onClick={() => setConfirmCancel(true)}
               size="sm"

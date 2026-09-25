@@ -3,7 +3,7 @@ name: routines
 title: Your routines — standing jobs that run on their own
 description: A routine is a job that runs without being asked — a wake source (a schedule, a module event, a button) plus what each run must achieve. Load it when someone asks for something on a schedule, whenever something happens, or "from now on"; to list, create, change or run your own routines; or to decide whether a job needs a Workflow.
 license: MIT
-allowed-tools: routines_list routines_create routines_update routines_run workflows_list workflow_propose invoke_workflow requestDecision
+allowed-tools: routines_list routines_create routines_update routines_run routines_cancel_run workflows_list workflow_propose invoke_workflow requestDecision
 metadata:
   engenty:
     category: spaces
@@ -121,13 +121,22 @@ what the note says: hand the job to the named coordinator with
 
 ## Changing and running your routines
 
+- People edit a routine by asking in chat: the message carries the routine as
+  a reference with its `routine_id`. Change exactly that routine, only what
+  they asked for, then say what changed in one sentence. Unclear what they
+  want changed → ask once, do not guess.
 - `routines_update` on your own routine: `prompt` (re-brief), `cron`,
   `timezone`, `enabled`, `name`, `description`, `outcomes`, `report`,
   `quiet_hours`. Rebinding `workflow_id` works for a Workflow you own; a
   canvas Workflow's steps change through `workflow_self_revise`. Handing the
   job to someone else is management work — ask a coordinator.
 - `routines_run` runs one now, skipping quiet hours. `disabled`,
-  `quiet_hours` and `overlap` are answers, not errors.
+  `quiet_hours` and `overlap` are answers, not errors. `overlap` means an
+  earlier run is still open (often one waiting on a person): say so and ask
+  whether to cancel it.
+- `routines_cancel_run` cancels a routine's open run — on the person's ask
+  ("stop it", "cancel the running one", "yes, start fresh"). Then
+  `routines_run` again if they wanted a fresh start.
 - `duplicate` → change the routine the note names; do not retry with a
   shifted schedule or a new name.
 

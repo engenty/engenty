@@ -33,7 +33,7 @@ import { SandboxCommandConfirmCard } from "../interrupts/sandbox-command-confirm
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import { transcriptHasActiveSandboxCommandToolPart } from "../tool-call/sandbox-command-transcript-utils";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
-import { ChatAgentsProvider } from "./chat-agent-face.js";
+import { ChatAgentFace, ChatAgentsProvider } from "./chat-agent-face.js";
 import { useChatStyle } from "./chat-style.js";
 import {
   chatUserBubbleClassName,
@@ -42,6 +42,7 @@ import {
 import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
 import {
   messageHasActiveToolParts,
+  runningStepLabel,
   shouldShowCopilotThinkingShimmer,
 } from "./copilot-thinking-shimmer";
 import { MentionInlineText } from "./mention-inline-text.js";
@@ -90,22 +91,33 @@ export { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
  * under the agent's side and the same height whatever it says, so nothing
  * below it moves while it changes.
  */
-function ThinkingShimmerRow({ label }: { label: string }) {
+function ThinkingShimmerRow({
+  agentId,
+  agentName,
+  label,
+}: {
+  agentId?: string | null;
+  agentName?: string | null;
+  label: string;
+}) {
   const elapsedSeconds = useElapsedSeconds(true);
   return (
     <div
-      className="flex items-center gap-2 py-2 pl-1 text-muted-foreground text-sm"
+      className="flex min-w-0 items-center gap-2 py-2 pl-1 text-muted-foreground text-sm"
       data-testid="turn-status-line"
     >
-      <span
-        aria-hidden
-        className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
-      />
-      <Shimmer as="span" duration={2} spread={2}>
-        {label}
-      </Shimmer>
-      <span aria-hidden>·</span>
-      <span className="tabular-nums">
+      <span aria-hidden className="shrink-0">
+        <ChatAgentFace agentId={agentId} animated name={agentName} size={20} />
+      </span>
+      <span className="min-w-0" title={label}>
+        <Shimmer as="span" className="block truncate" duration={2} spread={2}>
+          {label}
+        </Shimmer>
+      </span>
+      <span aria-hidden className="shrink-0">
+        ·
+      </span>
+      <span className="shrink-0 tabular-nums">
         {formatElapsedSeconds(elapsedSeconds)}
       </span>
     </div>
@@ -383,10 +395,14 @@ export const CopilotTranscript = memo(function CopilotTranscript({
       ) : null}
       {showThinkingShimmer ? (
         <ThinkingShimmerRow
+          agentId={lastAssistantMessage?.authorAgentId}
+          agentName={lastAssistantMessage?.authorName}
           label={
-            toolDetail === "person" &&
-            messageHasActiveToolParts(lastAssistantMessage?.parts)
-              ? workingLabel
+            toolDetail === "person"
+              ? (runningStepLabel(lastAssistantMessage?.parts) ??
+                (messageHasActiveToolParts(lastAssistantMessage?.parts)
+                  ? workingLabel
+                  : thinkingLabel))
               : thinkingLabel
           }
         />

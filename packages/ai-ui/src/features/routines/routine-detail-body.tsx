@@ -9,21 +9,25 @@
 // header, a back link).
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, Switch } from "@engenty/ui-core";
-import { Edit, Loader2, Play, Trash2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Check, Edit, Loader2, Pencil, Play, Trash2 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDeveloperModeEnabled } from "../../components/ag-ui-inspector/ag-ui-inspector-hooks.js";
+import { MessageResponse } from "../../components/presentation.js";
+import { COMPACT_MARKDOWN_PROSE_CLASSNAME } from "../../lib/admin/compact-markdown-prose-classname.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
 import { RoutineCanvas } from "./routine-canvas.js";
 import { RoutineOutcomeList } from "./routine-outcome-list.js";
-import { RoutineOutcomesDialog } from "./routine-outcomes-dialog.js";
+import { RoutineOutcomesEditor } from "./routine-outcomes-editor.js";
+import { RoutinePromptEditor } from "./routine-prompt-editor.js";
+import { skipReasonText, useRoutineRunNow } from "./routine-run-now.js";
+import { RoutineRunRow } from "./routine-run-row.js";
 import { RoutineTriggerList } from "./routine-trigger-list.js";
-import { RoutineTriggersDialog } from "./routine-triggers-dialog.js";
-import type { RoutineDto, RoutineRunDto } from "./routines-api.js";
+import { RoutineTriggersEditor } from "./routine-triggers-editor.js";
+import type { RoutineDto } from "./routines-api.js";
 import {
   usePatchRoutineStateMutation,
   useRoutineRunsQuery,
-  useRunRoutineNowMutation,
 } from "./routines-queries.js";
 
 export interface RoutineDetailBodyProps {
@@ -42,6 +46,37 @@ function SectionHeading({ children }: { children: string }) {
     <h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
       {children}
     </h4>
+  );
+}
+
+/** The pen switches the section to its editor in place; the check switches back. */
+function EditToggle({
+  editing,
+  locale,
+  onToggle,
+}: {
+  editing: boolean;
+  locale: string;
+  onToggle: () => void;
+}) {
+  const isDe = locale.startsWith("de");
+  return (
+    <Button
+      aria-label={
+        editing ? (isDe ? "Fertig" : "Done") : isDe ? "Bearbeiten" : "Edit"
+      }
+      className="size-7 text-muted-foreground"
+      onClick={onToggle}
+      size="icon-sm"
+      type="button"
+      variant="ghost"
+    >
+      {editing ? (
+        <Check className="size-3.5" />
+      ) : (
+        <Pencil className="size-3.5" />
+      )}
+    </Button>
   );
 }
 
@@ -76,46 +111,6 @@ export function RoutineEnabledToggle({
   );
 }
 
-/** A finished run is green unless its status says otherwise. */
-function runToneClass(status: string): string {
-  if (/fail|error|cancel/i.test(status)) {
-    return "bg-red-500/10 text-red-600 dark:text-red-400";
-  }
-  if (/requires_action|paused|sleeping|dispatched|running/i.test(status)) {
-    return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
-  }
-  return "bg-green-500/10 text-green-600 dark:text-green-400";
-}
-
-function RunRow({ run }: { run: RoutineRunDto }) {
-  return (
-    <li className="space-y-1 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="text-muted-foreground tabular-nums">
-          {new Date(run.created_at).toLocaleString()}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {run.trigger ? (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {run.trigger}
-            </span>
-          ) : null}
-          <span
-            className={`rounded-full px-2 py-0.5 font-medium ${runToneClass(run.status)}`}
-          >
-            {run.status}
-          </span>
-        </div>
-      </div>
-      {run.summary || run.reason ? (
-        <p className="break-words text-[11px] text-muted-foreground leading-relaxed">
-          {run.summary ?? run.reason}
-        </p>
-      ) : null}
-    </li>
-  );
-}
-
 export function RoutineDetailBody({
   hideAgent = false,
   locale = "en",
@@ -128,44 +123,26 @@ export function RoutineDetailBody({
   const isDe = locale.startsWith("de");
   // The agent page lives in the /admin/engenty debugging area.
   const developerMode = useDeveloperModeEnabled();
-  const runMutation = useRunRoutineNowMutation();
-  const runsQuery = useRoutineRunsQuery(routine.id, runMutation.isPending);
-  const isCustom = routine.source === "custom";
-  const [triggersOpen, setTriggersOpen] = useState(false);
-  const [outcomesOpen, setOutcomesOpen] = useState(false);
-
   // A fire that changed nothing must not read as "started": the routine is
   // off, it is inside its quiet hours, or its previous run is still active.
-  const [skipped, setSkipped] = useState<string | null>(null);
-  const handleRunNow = useCallback(() => {
-    setSkipped(null);
-    runMutation.mutate(routine.id, {
-      onSuccess: (result) => {
-        if (!result.skipped) {
-          return;
-        }
-        const reasons: Record<string, [string, string]> = {
-          disabled: [
-            "Die Routine ist deaktiviert.",
-            "This routine is switched off.",
-          ],
-          overlap: [
-            "Der vorige Lauf dieser Routine läuft noch.",
-            "This routine's previous run is still active.",
-          ],
-          quiet_hours: [
-            "Die Routine ist gerade in ihren Ruhezeiten.",
-            "This routine is inside its quiet hours.",
-          ],
-        };
-        const [de, en] = reasons[result.skipped] ?? [
-          "Der Lauf wurde übersprungen.",
-          "The run was skipped.",
-        ];
-        setSkipped(isDe ? de : en);
-      },
-    });
-  }, [isDe, routine.id, runMutation]);
+  const runNow = useRoutineRunNow(routine.id);
+  const runsQuery = useRoutineRunsQuery(routine.id, runNow.isPending);
+  const isCustom = routine.source === "custom";
+  const [editingTriggers, setEditingTriggers] = useState(false);
+  const [editingOutcomes, setEditingOutcomes] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState(false);
+  const triggersRef = useRef<HTMLDivElement>(null);
+  const outcomesRef = useRef<HTMLDivElement>(null);
+
+  // The canvas's nodes open the same editors, and bring them into view.
+  const editTriggers = useCallback(() => {
+    setEditingTriggers(true);
+    triggersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  const editOutcomes = useCallback(() => {
+    setEditingOutcomes(true);
+    outcomesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const runs = runsQuery.data?.runs ?? [];
 
@@ -174,12 +151,12 @@ export function RoutineDetailBody({
       <div className="flex flex-wrap items-center gap-2">
         <Button
           className="gap-2 font-medium"
-          disabled={runMutation.isPending || !routine.enabled}
-          onClick={handleRunNow}
+          disabled={runNow.isPending || !routine.enabled}
+          onClick={runNow.run}
           size="sm"
           type="button"
         >
-          {runMutation.isPending ? (
+          {runNow.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <Play className="h-3.5 w-3.5 fill-current" />
@@ -199,82 +176,85 @@ export function RoutineDetailBody({
           </Button>
         ) : null}
 
-        {isCustom && onDeleteCustom ? (
-          <Button
-            className="gap-1.5 text-destructive hover:bg-destructive/10"
-            onClick={() => onDeleteCustom(routine.id)}
-            size="sm"
-            variant="outline"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {isDe ? "Löschen" : "Delete"}
-          </Button>
-        ) : null}
-
         <div className="ml-auto">
           <RoutineEnabledToggle locale={locale} routine={routine} />
         </div>
       </div>
 
-      {skipped ? (
+      {runNow.skipped ? (
         <p
           className="rounded-md bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-400"
           role="status"
         >
-          {skipped}
+          {skipReasonText(runNow.skipped, locale)}
         </p>
       ) : null}
 
       {/* What wakes it comes first — the canvas below shows the same sources
           as nodes, this is the readable inventory. */}
-      <div className="space-y-2">
+      <div className="scroll-mt-3 space-y-2" ref={triggersRef}>
         <div className="flex items-center justify-between gap-2">
           <SectionHeading>{isDe ? "Auslöser" : "Trigger"}</SectionHeading>
           {isCustom ? (
-            <Button
-              onClick={() => setTriggersOpen(true)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              {isDe ? "Bearbeiten" : "Edit"}
-            </Button>
+            <EditToggle
+              editing={editingTriggers}
+              locale={locale}
+              onToggle={() => setEditingTriggers((open) => !open)}
+            />
           ) : null}
         </div>
-        <RoutineTriggerList locale={locale} routine={routine} />
+        {editingTriggers ? (
+          <RoutineTriggersEditor locale={locale} routine={routine} />
+        ) : (
+          <RoutineTriggerList locale={locale} routine={routine} />
+        )}
       </div>
 
       {/* What runs, and what has to be true at the end. */}
       <div className="space-y-2">
-        <SectionHeading>
-          {routine.prompt
-            ? t("routines.detail.prompt")
-            : t("routines.detail.workflow")}
-        </SectionHeading>
-        <div className="ui-card-panel p-3.5">
-          {routine.prompt ? (
-            // A prompt routine IS its prompt — the workflow behind it is a
-            // storage detail, not something to draw.
-            <div className="space-y-3">
-              {/* A long prompt scrolls inside the card. */}
-              <p className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words pr-1 text-sm leading-relaxed">
-                {routine.prompt}
-              </p>
-            </div>
-          ) : (
-            <RoutineCanvas
+        <div className="flex items-center justify-between gap-2">
+          <SectionHeading>
+            {routine.prompt
+              ? t("routines.detail.prompt")
+              : t("routines.detail.workflow")}
+          </SectionHeading>
+          {/* The editor carries its own Save and Cancel. */}
+          {isCustom && routine.prompt && !editingPrompt ? (
+            <EditToggle
+              editing={false}
               locale={locale}
-              onOpenAction={onOpenAction}
-              onOpenOutcomes={
-                isCustom ? () => setOutcomesOpen(true) : undefined
-              }
-              onOpenTriggers={
-                isCustom ? () => setTriggersOpen(true) : undefined
-              }
-              routine={routine}
+              onToggle={() => setEditingPrompt(true)}
             />
-          )}
+          ) : null}
         </div>
+        {routine.prompt && editingPrompt ? (
+          <RoutinePromptEditor
+            locale={locale}
+            onDone={() => setEditingPrompt(false)}
+            routine={routine}
+          />
+        ) : (
+          <div className="ui-card-panel p-3.5">
+            {routine.prompt ? (
+              // A prompt routine IS its prompt — the workflow behind it is a
+              // storage detail, not something to draw. A long prompt scrolls
+              // inside the card.
+              <div className="max-h-72 overflow-y-auto break-words pr-1">
+                <MessageResponse className={COMPACT_MARKDOWN_PROSE_CLASSNAME}>
+                  {routine.prompt}
+                </MessageResponse>
+              </div>
+            ) : (
+              <RoutineCanvas
+                locale={locale}
+                onOpenAction={onOpenAction}
+                onOpenOutcomes={isCustom ? editOutcomes : undefined}
+                onOpenTriggers={isCustom ? editTriggers : undefined}
+                routine={routine}
+              />
+            )}
+          </div>
+        )}
         {routine.next_due_at ? (
           <p className="text-muted-foreground text-xs tabular-nums">
             {isDe
@@ -284,25 +264,26 @@ export function RoutineDetailBody({
         ) : null}
       </div>
 
-      <div className="space-y-2">
+      <div className="scroll-mt-3 space-y-2" ref={outcomesRef}>
         <div className="flex items-center justify-between gap-2">
           <SectionHeading>{t("routines.outcomes.title")}</SectionHeading>
           {isCustom ? (
-            <Button
-              onClick={() => setOutcomesOpen(true)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              {isDe ? "Bearbeiten" : "Edit"}
-            </Button>
+            <EditToggle
+              editing={editingOutcomes}
+              locale={locale}
+              onToggle={() => setEditingOutcomes((open) => !open)}
+            />
           ) : null}
         </div>
-        <RoutineOutcomeList
-          locale={locale}
-          onEdit={isCustom ? () => setOutcomesOpen(true) : undefined}
-          routine={routine}
-        />
+        {editingOutcomes ? (
+          <RoutineOutcomesEditor locale={locale} routine={routine} />
+        ) : (
+          <RoutineOutcomeList
+            locale={locale}
+            onEdit={isCustom ? editOutcomes : undefined}
+            routine={routine}
+          />
+        )}
       </div>
 
       {hideAgent ? null : (
@@ -348,27 +329,31 @@ export function RoutineDetailBody({
         ) : (
           <ul className="ui-card-panel divide-y divide-border">
             {runs.map((run) => (
-              <RunRow key={run.id} run={run} />
+              <RoutineRunRow
+                key={run.id}
+                locale={locale}
+                routineId={routine.id}
+                run={run}
+              />
             ))}
           </ul>
         )}
       </div>
 
-      {isCustom ? (
-        <>
-          <RoutineTriggersDialog
-            locale={locale}
-            onOpenChange={setTriggersOpen}
-            open={triggersOpen}
-            routine={routine}
-          />
-          <RoutineOutcomesDialog
-            locale={locale}
-            onOpenChange={setOutcomesOpen}
-            open={outcomesOpen}
-            routine={routine}
-          />
-        </>
+      {/* Deleting ends the page — last, away from everyday actions. */}
+      {isCustom && onDeleteCustom ? (
+        <div className="border-border-soft border-t pt-4">
+          <Button
+            className="gap-1.5 text-destructive hover:bg-destructive/10"
+            onClick={() => onDeleteCustom(routine.id)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {isDe ? "Routine löschen" : "Delete routine"}
+          </Button>
+        </div>
       ) : null}
     </div>
   );

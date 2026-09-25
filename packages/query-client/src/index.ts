@@ -9,6 +9,7 @@ export {
   queryOptions,
   useInfiniteQuery,
   useMutation,
+  useMutationState,
   useQueries,
   useQuery,
   useQueryClient,

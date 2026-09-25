@@ -1,20 +1,14 @@
-"use client";
-
-// The rail of steps a wizard walks, read straight off the graph.
+// The steps a wizard walks, read straight off the graph.
 //
-// A step is a gate node on the canvas; its state is the run's node state.
-// Nothing is invented for the rail: a gate inside a loop is drawn once and
-// lights up again on every pass, which is what actually happens.
+// A step is a gate node on the canvas.
+// Nothing is invented: "Zurück" travels to the gate before this one, and a
+// question's number is its place among the gates.
 
-import { cn } from "@engenty/ui-core";
-import { Check, Circle, Loader2 } from "lucide-react";
-import { useMemo } from "react";
 import {
   type StoredEntry,
   type StoredGraph,
   storedGraphToCanvas,
 } from "../workflow-canvas/graph-model.js";
-import type { GraphRunSnapshotDto } from "../workflow-canvas/workflow-api.js";
 
 export interface WizardGateStep {
   /** Full resume path — enclosing sub-workflow ids, then the leaf. */
@@ -26,8 +20,9 @@ export interface WizardGateStep {
 const APPROVAL_GATE_TOOL_ID = "approval_gate";
 
 /**
- * A gate title authored as a template ("Angebot „${stepResults.x.title}“
- * anlegen?") is filled at run time; on the rail its placeholders read as "…".
+ * A title authored as a template ("Angebot „${stepResults.x.title}“
+ * anlegen?") is filled at run time; read off the graph its placeholders
+ * read as "…".
  */
 function readableTitle(title: string): string {
   return title
@@ -116,7 +111,7 @@ export function gateStepsFromGraph(graph: StoredGraph): WizardGateStep[] {
   return steps;
 }
 
-/** The step before `stepId` in the rail — what "Zurück" travels to. */
+/** The gate before `stepId` — what "Zurück" travels to. */
 export function previousGateStep(
   steps: readonly WizardGateStep[],
   stepId: string | null
@@ -126,65 +121,4 @@ export function previousGateStep(
   }
   const index = steps.findIndex((step) => step.stepId === stepId);
   return index > 0 ? (steps[index - 1] ?? null) : null;
-}
-
-export interface WizardProgressProps {
-  className?: string;
-  /** The gate currently asking, if any. */
-  currentStepId: string | null;
-  graph: StoredGraph;
-  nodes: GraphRunSnapshotDto["nodes"] | undefined;
-}
-
-export function WizardProgress({
-  className,
-  currentStepId,
-  graph,
-  nodes,
-}: WizardProgressProps) {
-  const steps = useMemo(() => gateStepsFromGraph(graph), [graph]);
-  if (steps.length === 0) {
-    return null;
-  }
-  return (
-    <ol
-      aria-label="progress"
-      className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)}
-    >
-      {steps.map((step, index) => {
-        const state = nodes?.[step.stepId]?.state;
-        const current = step.stepId === currentStepId;
-        const done = state === "done" && !current;
-        return (
-          <li
-            aria-current={current ? "step" : undefined}
-            className={cn(
-              "flex items-center gap-1.5 text-xs",
-              current
-                ? "font-medium text-foreground"
-                : done
-                  ? "text-muted-foreground"
-                  : "text-muted-foreground/70"
-            )}
-            key={`${step.path.join("/")}-${index}`}
-          >
-            {current ? (
-              <Loader2
-                aria-hidden
-                className="size-3.5 animate-pulse text-primary"
-              />
-            ) : done ? (
-              <Check
-                aria-hidden
-                className="size-3.5 text-emerald-600 dark:text-emerald-400"
-              />
-            ) : (
-              <Circle aria-hidden className="size-3" />
-            )}
-            <span className="truncate">{step.title}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
 }

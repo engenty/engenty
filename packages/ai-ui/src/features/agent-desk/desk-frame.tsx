@@ -245,6 +245,7 @@ export function DeskFrame(props: DeskFrameProps) {
         agent={header.agent}
         canEditPads={props.canEditPads}
         canManage={props.canManage}
+        hostKey={props.hostKey}
         locale={props.locale}
         moduleLabel={header.moduleLabel}
         onClose={props.onClosePanel}

@@ -35,6 +35,12 @@ export interface AppLayoutProps {
   currentUserId?: string | null;
   defaultTopbarTitle?: string;
   fetchResolvedFeatureFlags: () => Promise<Record<string, boolean>>;
+  /**
+   * The page and the end pane, nothing else: no rail, no secondary column,
+   * no topbar, no inline copilot. For a page that is the whole task — a
+   * wizard someone was sent a link to.
+   */
+  focus?: boolean;
   /** Published to modules via useWorkspaceContext so they can hide affordances
    * that lead to admin-only routes instead of dead-ending non-admins. */
   isSuperAdmin?: boolean;

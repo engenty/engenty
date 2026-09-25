@@ -55,6 +55,9 @@ function contentStackFillClass(
   if (background === "card") {
     return "bg-card";
   }
+  if (background === "none") {
+    return "bg-transparent";
+  }
   return;
 }
 
@@ -64,6 +67,7 @@ export function AppLayoutFrame({
   sections,
   shell,
   defaultTopbarTitle,
+  focus = false,
   modulesReorderable,
   onModulesReorder,
   secondaryNavHeaderOverride,
@@ -227,58 +231,62 @@ export function AppLayoutFrame({
           )}
           data-app-bar-position={position}
         >
-          <AppBarRail
-            compact={sidebarMode === "compact" || horizontal}
-            contextMenu={contextMenu}
-            extendedAvailable={extendedAvailable}
-            hidden={isSidebarHidden}
-            hovering={isHoveringSidebar}
-            modulesReorderable={modulesReorderable}
-            onCloseContextMenu={closeContextMenu}
-            onContextMenu={handleContextMenu}
-            onHiddenChange={updateSidebarHidden}
-            onItemHoverEnter={openNavItemHover}
-            onItemHoverLeave={closeNavItemHover}
-            onModulesReorder={onModulesReorder}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onOpenAppMenu={() => setAppMenuOpen(true)}
-            onPositionChange={setAppBarPosition}
-            onSidebarModeChange={setSidebarMode}
-            position={position}
-            railCopilotSlot={railCopilotSlot}
-            railEndSlot={railEndSlot}
-            sections={sections}
-            shell={shell}
-            sidebarMode={storedSidebarMode}
-            spacesZone={spacesZone}
-            themes={appBarThemes}
-            thickness={thickness}
-          />
-
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <MobileNavSheet
-              hasSecondaryNav={hasSecondaryNav}
-              mobileOpen={mobileOpen}
-              onMobileOpenChange={setMobileOpen}
+          {focus ? null : (
+            <AppBarRail
+              compact={sidebarMode === "compact" || horizontal}
+              contextMenu={contextMenu}
+              extendedAvailable={extendedAvailable}
+              hidden={isSidebarHidden}
+              hovering={isHoveringSidebar}
+              modulesReorderable={modulesReorderable}
+              onCloseContextMenu={closeContextMenu}
+              onContextMenu={handleContextMenu}
+              onHiddenChange={updateSidebarHidden}
+              onItemHoverEnter={openNavItemHover}
+              onItemHoverLeave={closeNavItemHover}
+              onModulesReorder={onModulesReorder}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
               onOpenAppMenu={() => setAppMenuOpen(true)}
-              pathname={pathname}
+              onPositionChange={setAppBarPosition}
+              onSidebarModeChange={setSidebarMode}
+              position={position}
+              railCopilotSlot={railCopilotSlot}
               railEndSlot={railEndSlot}
-              routeFooterSlot={secondaryNavFooterSlot}
-              routeHeaderSlot={secondaryNavHeaderOverride}
-              routeLeadingSlot={secondaryNavLeadingSlot}
-              routeTransition={secondaryNavRouteTransition}
-              search={search}
-              secondaryItems={shellSecondaryLinks}
               sections={sections}
               shell={shell}
+              sidebarMode={storedSidebarMode}
               spacesZone={spacesZone}
+              themes={appBarThemes}
+              thickness={thickness}
             />
+          )}
+
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            {focus ? null : (
+              <MobileNavSheet
+                hasSecondaryNav={hasSecondaryNav}
+                mobileOpen={mobileOpen}
+                onMobileOpenChange={setMobileOpen}
+                onOpenAppMenu={() => setAppMenuOpen(true)}
+                pathname={pathname}
+                railEndSlot={railEndSlot}
+                routeFooterSlot={secondaryNavFooterSlot}
+                routeHeaderSlot={secondaryNavHeaderOverride}
+                routeLeadingSlot={secondaryNavLeadingSlot}
+                routeTransition={secondaryNavRouteTransition}
+                search={search}
+                secondaryItems={shellSecondaryLinks}
+                sections={sections}
+                shell={shell}
+                spacesZone={spacesZone}
+              />
+            )}
 
             <div className="relative min-h-0 min-w-0 flex-1 p-0 md:pl-0">
               <div className="flex h-full min-h-0 gap-0">
                 <div className="shell-surface relative flex min-w-0 flex-1 flex-row overflow-hidden">
-                  {hasSecondaryNav ? (
+                  {hasSecondaryNav && !focus ? (
                     <div
                       className={cn(
                         "relative z-0 hidden h-full min-h-0 shrink-0 md:flex",
@@ -322,7 +330,7 @@ export function AppLayoutFrame({
                       </div>
                     </div>
                   ) : null}
-                  {showHoverSecondaryColumn ? (
+                  {showHoverSecondaryColumn && !focus ? (
                     <div
                       className={cn(
                         "ui-canvas-floating absolute inset-y-0 left-0 z-30 hidden flex-col md:flex",
@@ -401,28 +409,30 @@ export function AppLayoutFrame({
                       endPaneExpanded && "flex-[0_1_0px]"
                     )}
                   >
-                    <AppTopbar
-                      appMenu={appMenu}
-                      appMenuActions={appMenuActions}
-                      appMenuOpen={appMenuOpen}
-                      defaultTitle={defaultTopbarTitle}
-                      hasSecondaryNav={hasSecondaryNav}
-                      isSidebarHidden={isSidebarHidden}
-                      isSidebarHovering={isHoveringSidebar}
-                      moduleRootNavItem={moduleRootNavItem}
-                      onAppMenuOpenChange={setAppMenuOpen}
-                      onMenuClick={() => setMobileOpen(true)}
-                      onSecondaryNavHoverEnter={openHoverPanel}
-                      onSecondaryNavHoverLeave={closeHoverPanel}
-                      onToggleSecondaryNav={handleToggleSecondaryNav}
-                      onToggleSidebarHidden={() =>
-                        updateSidebarHidden(!isSidebarHidden)
-                      }
-                      routeBreadcrumb={secondaryNavRouteBreadcrumb}
-                      secondaryNavOpen={topbarSecondaryNavOpen}
-                      sections={sections}
-                      shell={shell}
-                    />
+                    {focus ? null : (
+                      <AppTopbar
+                        appMenu={appMenu}
+                        appMenuActions={appMenuActions}
+                        appMenuOpen={appMenuOpen}
+                        defaultTitle={defaultTopbarTitle}
+                        hasSecondaryNav={hasSecondaryNav}
+                        isSidebarHidden={isSidebarHidden}
+                        isSidebarHovering={isHoveringSidebar}
+                        moduleRootNavItem={moduleRootNavItem}
+                        onAppMenuOpenChange={setAppMenuOpen}
+                        onMenuClick={() => setMobileOpen(true)}
+                        onSecondaryNavHoverEnter={openHoverPanel}
+                        onSecondaryNavHoverLeave={closeHoverPanel}
+                        onToggleSecondaryNav={handleToggleSecondaryNav}
+                        onToggleSidebarHidden={() =>
+                          updateSidebarHidden(!isSidebarHidden)
+                        }
+                        routeBreadcrumb={secondaryNavRouteBreadcrumb}
+                        secondaryNavOpen={topbarSecondaryNavOpen}
+                        sections={sections}
+                        shell={shell}
+                      />
+                    )}
 
                     <div
                       className="relative flex min-h-0 flex-1 flex-col"
@@ -442,9 +452,12 @@ export function AppLayoutFrame({
 
                   {/* Workspace end-pane column: one width, one handle; panes
                   portal in and stack vertically (workspace-end-pane.ts). */}
+                  {/* Positioned so it stacks after the content area: a page
+                  that paints its own background (`none`) under the whole
+                  stack must not cover the pane. */}
                   <div
                     className={cn(
-                      "flex h-full min-h-0",
+                      "relative flex h-full min-h-0",
                       contentStackFillClass(contentStackBackground),
                       endPaneExpanded && "min-w-0 flex-1"
                     )}
@@ -472,7 +485,7 @@ export function AppLayoutFrame({
                     />
                   </div>
 
-                  {showInlineCopilotSidebar ? (
+                  {showInlineCopilotSidebar && !focus ? (
                     <div
                       className={cn(
                         "relative hidden h-full min-h-0 shrink-0 overflow-hidden md:block",

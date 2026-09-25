@@ -2,19 +2,14 @@
 //
 // Every trigger row of ONE routine — schedule, event, webhook, manual press,
 // agent invoke — listable, editable, pausable, plus adding a new one, without
-// leaving the card the routine lives on. Editing EXPANDS the row in place
-// (accordion); the list never disappears behind a second view. The routine
-// itself (name, outcome, report) is edited elsewhere; this dialog is only
-// about when and by whom it wakes.
+// leaving the routine's page: its section switches to this editor in place.
+// Editing EXPANDS the row (accordion); the list never disappears behind a
+// second view. The routine itself (name, prompt, report) is edited in the
+// chat; this is only about when and by whom it wakes.
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   Switch,
@@ -29,7 +24,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   defaultTriggerFormValue,
   type RoutineTriggerType,
@@ -62,10 +57,8 @@ const KIND_ICON = {
   schedule: CalendarClock,
 } as const;
 
-export interface RoutineTriggersDialogProps {
+export interface RoutineTriggersEditorProps {
   locale?: string;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
   routine: RoutineDto;
 }
 
@@ -209,12 +202,10 @@ function TriggerFields({
 /** "create" expands the add form; a trigger id expands that row's editor. */
 type ExpandedTarget = string | "create" | null;
 
-export function RoutineTriggersDialog({
+export function RoutineTriggersEditor({
   locale = "en",
-  onOpenChange,
-  open,
   routine,
-}: RoutineTriggersDialogProps) {
+}: RoutineTriggersEditorProps) {
   const { t } = useTranslation("ai-ui");
   const isDe = locale.startsWith("de");
   const [expandedId, setExpandedId] = useState<ExpandedTarget>(null);
@@ -226,15 +217,6 @@ export function RoutineTriggersDialog({
   const createMutation = useCreateRoutineTriggerMutation();
   const updateMutation = useUpdateRoutineTriggerMutation();
   const deleteMutation = useDeleteRoutineTriggerMutation();
-
-  // Re-seed on every open so the last visit's expansion doesn't leak into the
-  // next.
-  useEffect(() => {
-    if (open) {
-      setExpandedId(null);
-      setErrorMsg(null);
-    }
-  }, [open]);
 
   const triggers = routine.triggers ?? [];
 
@@ -339,144 +321,128 @@ export function RoutineTriggersDialog({
   );
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {isDe ? "Auslöser" : "Triggers"}
-            <span className="truncate font-normal text-muted-foreground">
-              · {routine.name}
-            </span>
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            {isDe
-              ? "Wann und von wem diese Routine ausgelöst wird."
-              : "When and by whom this routine is fired."}
-          </DialogDescription>
-        </DialogHeader>
-
-        <ul className="space-y-1.5">
-          {triggers.map((trigger) => {
-            const display = triggerDisplay(trigger, locale);
-            const Icon = KIND_ICON[trigger.kind];
-            const isExpanded = expandedId === trigger.id;
-            return (
-              <li
-                className="rounded-md border border-border-soft bg-muted/20"
-                key={trigger.id}
-              >
-                <div className="flex items-center gap-1.5 pr-1.5">
-                  <button
-                    aria-expanded={isExpanded}
-                    className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
-                    onClick={() => toggleRow(trigger)}
-                    type="button"
-                  >
-                    <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      <span className="font-medium">{display.label}</span>
-                      {display.detail ? (
-                        <span className="text-muted-foreground">
-                          {" · "}
-                          {display.detail}
-                        </span>
-                      ) : null}
-                    </span>
-                    <Badge variant={trigger.enabled ? "default" : "outline"}>
-                      {trigger.enabled
-                        ? isDe
-                          ? "Aktiv"
-                          : "Active"
-                        : isDe
-                          ? "Pausiert"
-                          : "Paused"}
-                    </Badge>
-                    <ChevronDown
-                      className={`size-4 shrink-0 text-muted-foreground transition-transform ${
-                        isExpanded ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-                  {/* Never the last one: a routine with no wake source at all
-                      cannot ever run — pause it instead. */}
-                  {triggers.length > 1 ? (
-                    <Button
-                      aria-label={
-                        isDe ? "Auslöser entfernen" : "Remove this trigger"
-                      }
-                      className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
-                      onClick={() => void handleDelete(trigger)}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  ) : null}
-                </div>
-                {isExpanded ? (
-                  <div className="space-y-3 border-border-soft border-t px-2.5 py-3">
-                    <TriggerFields
-                      idPrefix={`trigger-${trigger.id}`}
-                      locale={locale}
-                      onChange={setDraft}
-                      value={draft}
-                    />
-                    {errorMsg ? (
-                      <p className="text-destructive text-sm" role="alert">
-                        {errorMsg}
-                      </p>
-                    ) : null}
-                    {editorFooter}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-
-          {/* Add — the same accordion, one row further down. */}
-          <li className="rounded-md border border-border-soft border-dashed">
-            <button
-              aria-expanded={expandedId === "create"}
-              className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm"
-              onClick={toggleCreate}
-              type="button"
+    <div className="space-y-2">
+      <ul className="space-y-1.5">
+        {triggers.map((trigger) => {
+          const display = triggerDisplay(trigger, locale);
+          const Icon = KIND_ICON[trigger.kind];
+          const isExpanded = expandedId === trigger.id;
+          return (
+            <li
+              className="rounded-md border border-border-soft bg-muted/20"
+              key={trigger.id}
             >
-              <Plus className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1">
-                {isDe ? "Auslöser hinzufügen" : "Add a trigger"}
-              </span>
-              <ChevronDown
-                className={`size-4 shrink-0 text-muted-foreground transition-transform ${
-                  expandedId === "create" ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-            {expandedId === "create" ? (
-              <div className="space-y-3 border-border-soft border-t px-2.5 py-3">
-                <TriggerFields
-                  idPrefix="trigger-create"
-                  locale={locale}
-                  onChange={setDraft}
-                  value={draft}
-                />
-                {errorMsg ? (
-                  <p className="text-destructive text-sm" role="alert">
-                    {errorMsg}
-                  </p>
+              <div className="flex items-center gap-1.5 pr-1.5">
+                <button
+                  aria-expanded={isExpanded}
+                  className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
+                  onClick={() => toggleRow(trigger)}
+                  type="button"
+                >
+                  <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    <span className="font-medium">{display.label}</span>
+                    {display.detail ? (
+                      <span className="text-muted-foreground">
+                        {" · "}
+                        {display.detail}
+                      </span>
+                    ) : null}
+                  </span>
+                  <Badge variant={trigger.enabled ? "default" : "outline"}>
+                    {trigger.enabled
+                      ? isDe
+                        ? "Aktiv"
+                        : "Active"
+                      : isDe
+                        ? "Pausiert"
+                        : "Paused"}
+                  </Badge>
+                  <ChevronDown
+                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {/* Never the last one: a routine with no wake source at all
+                      cannot ever run — pause it instead. */}
+                {triggers.length > 1 ? (
+                  <Button
+                    aria-label={
+                      isDe ? "Auslöser entfernen" : "Remove this trigger"
+                    }
+                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={isPending}
+                    onClick={() => void handleDelete(trigger)}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 ) : null}
-                {editorFooter}
               </div>
-            ) : null}
-          </li>
-        </ul>
-        {errorMsg && !expandedId ? (
-          <p className="text-destructive text-sm" role="alert">
-            {errorMsg}
-          </p>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+              {isExpanded ? (
+                <div className="space-y-3 border-border-soft border-t px-2.5 py-3">
+                  <TriggerFields
+                    idPrefix={`trigger-${trigger.id}`}
+                    locale={locale}
+                    onChange={setDraft}
+                    value={draft}
+                  />
+                  {errorMsg ? (
+                    <p className="text-destructive text-sm" role="alert">
+                      {errorMsg}
+                    </p>
+                  ) : null}
+                  {editorFooter}
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+
+        {/* Add — the same accordion, one row further down. */}
+        <li className="rounded-md border border-border-soft border-dashed">
+          <button
+            aria-expanded={expandedId === "create"}
+            className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm"
+            onClick={toggleCreate}
+            type="button"
+          >
+            <Plus className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="flex-1">
+              {isDe ? "Auslöser hinzufügen" : "Add a trigger"}
+            </span>
+            <ChevronDown
+              className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                expandedId === "create" ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {expandedId === "create" ? (
+            <div className="space-y-3 border-border-soft border-t px-2.5 py-3">
+              <TriggerFields
+                idPrefix="trigger-create"
+                locale={locale}
+                onChange={setDraft}
+                value={draft}
+              />
+              {errorMsg ? (
+                <p className="text-destructive text-sm" role="alert">
+                  {errorMsg}
+                </p>
+              ) : null}
+              {editorFooter}
+            </div>
+          ) : null}
+        </li>
+      </ul>
+      {errorMsg && !expandedId ? (
+        <p className="text-destructive text-sm" role="alert">
+          {errorMsg}
+        </p>
+      ) : null}
+    </div>
   );
 }

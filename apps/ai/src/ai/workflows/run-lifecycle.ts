@@ -138,26 +138,53 @@ function nestedOutput(result: unknown): Record<string, unknown> | null {
     : null;
 }
 
-/**
- * A summary within {@link SUMMARY_MAX}: whole sentences when one ends inside
- * the limit, else cut at a word with an ellipsis — never mid-word.
- */
-function fitSummary(text: string): string | null {
-  const flat = text.trim();
-  if (flat.length <= SUMMARY_MAX) {
-    return flat || null;
+/** Prose within `max`: whole sentences when one ends inside it, else cut at
+ * a word with an ellipsis — never mid-word. */
+function fitProse(text: string, max: number): string {
+  if (text.length <= max) {
+    return text;
   }
-  const head = flat.slice(0, SUMMARY_MAX);
+  const head = text.slice(0, max);
   const sentenceEnd = Math.max(
     head.lastIndexOf(". "),
     head.lastIndexOf("! "),
     head.lastIndexOf("? ")
   );
-  if (sentenceEnd > SUMMARY_MAX / 2) {
+  if (sentenceEnd > max / 2) {
     return head.slice(0, sentenceEnd + 1);
   }
   const wordEnd = head.lastIndexOf(" ");
-  return `${head.slice(0, wordEnd > 0 ? wordEnd : SUMMARY_MAX - 1).trimEnd()}…`;
+  return `${head.slice(0, wordEnd > 0 ? wordEnd : max - 1).trimEnd()}…`;
+}
+
+/** A paragraph that is only markdown links — the record a run made. */
+const LINK_PARAGRAPH_RE = /^(?:\s*\[[^\]\n]+\]\([^)\s]+\)\s*)+$/;
+
+/**
+ * A summary within {@link SUMMARY_MAX}. A closing paragraph of links (a
+ * wizard's "here is the offer") is kept whole — cut, it is a broken link and
+ * the record it names is lost — and the prose before it is what gets
+ * shortened.
+ */
+export function fitSummary(text: string): string | null {
+  const flat = text.trim();
+  if (flat.length <= SUMMARY_MAX) {
+    return flat || null;
+  }
+  const paragraphs = flat.split(/\n{2,}/);
+  const links: string[] = [];
+  while (
+    paragraphs.length > 1 &&
+    LINK_PARAGRAPH_RE.test(paragraphs.at(-1) ?? "")
+  ) {
+    links.unshift(paragraphs.pop() ?? "");
+  }
+  const tail = links.join("\n\n");
+  const prose = fitProse(
+    paragraphs.join("\n\n"),
+    Math.max(SUMMARY_MAX - tail.length - 2, SUMMARY_MAX / 2)
+  );
+  return [prose, tail].filter(Boolean).join("\n\n") || null;
 }
 
 /**

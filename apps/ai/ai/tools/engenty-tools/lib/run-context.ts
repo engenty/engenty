@@ -101,6 +101,13 @@ export interface EngentyToolsRunContext {
     input?: Record<string, unknown>;
   }) => void;
   orchestratorThreadId?: string | null;
+  // Calls a person allowed on a wizard's approval step, and how to record
+  // that answer on core's own approval request when core gates the call too:
+  // the run's service credential may not decide it, the person may.
+  personApproval?: {
+    decide: (approvalRequestId: string) => Promise<void>;
+    operationIds: readonly string[];
+  };
   /**
    * Re-mint this run's bearer after core answers 401 — the retry-once seam
    * for headless runs whose 15-minute service token expires mid-run (a task

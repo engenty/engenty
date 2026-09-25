@@ -12,19 +12,70 @@ import {
  * (the adapter bakes them into each part), so this reads the app's shared
  * translator; without one — tests, tools — the English stays.
  */
-function say(
+function translate(
   key: string,
   english: string,
-  values: Record<string, unknown> = {}
+  values: Record<string, unknown>
 ): string {
   const t = getEngentyI18nApi()?.t;
   if (t) {
-    return t(`ai-ui:toolRow.${key}`, { ...values, defaultValue: english });
+    return t(`ai-ui:${key}`, { ...values, defaultValue: english });
   }
   return english.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>
     String(values[name] ?? "")
   );
 }
+
+type Say = (
+  key: string,
+  english: string,
+  values?: Record<string, unknown>
+) => string;
+
+/** A finished step: "Created …", "Read …". */
+const say: Say = (key, english, values = {}) =>
+  translate(`toolRow.${key}`, english, values);
+
+/** The same step while it runs: "Creating …", "Reading …". */
+const RUNNING_ENGLISH: Record<string, string> = {
+  agentAsk: "Asking {{name}}",
+  discoveredFor: 'Looking for tools for "{{query}}"',
+  discoveredTools: "Looking for tools",
+  listedFiles: "Listing files",
+  listedModules: "Listing modules",
+  ran: "Running {{name}}",
+  ranShell: "Running a shell command",
+  readFile: "Reading a file",
+  readNamed: "Reading {{name}}",
+  searchedFiles: "Searching files",
+  searchedModuleTools: "Searching {{module}} tools",
+  searchedTools: "Searching tools",
+  "verb.add": "Adding",
+  "verb.backfill": "Backfilling",
+  "verb.create": "Creating",
+  "verb.delete": "Deleting",
+  "verb.discover": "Looking for",
+  "verb.fetch": "Fetching",
+  "verb.get": "Opening",
+  "verb.list": "Listing",
+  "verb.read": "Reading",
+  "verb.remove": "Removing",
+  "verb.search": "Searching",
+  "verb.send": "Sending",
+  "verb.update": "Updating",
+  "verb.write": "Saving",
+  webSearch: "Searching the web",
+  webSearchQuery: "Searching the web: {{query}}",
+  wroteFile: "Writing a file",
+  wroteNamed: "Writing {{name}}",
+};
+
+const sayRunning: Say = (key, english, values = {}) => {
+  const running = RUNNING_ENGLISH[key];
+  return running
+    ? translate(`toolRow.running.${key}`, running, values)
+    : say(key, english, values);
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -219,10 +270,10 @@ export function formatTranscriptToolRow(params: {
   };
 }
 
-function verbForAction(action: string): string {
+function verbForAction(action: string, s: Say): string {
   const normalized = action.replace(/[_-]+/g, "").toLowerCase();
   const english = ACTION_VERB_MAP[normalized];
-  return english ? say(`verb.${normalized}`, english) : titleCaseAction(action);
+  return english ? s(`verb.${normalized}`, english) : titleCaseAction(action);
 }
 
 /** Whether the parsed action maps to a curated verb (vs. titlecase fallback). */
@@ -244,10 +295,11 @@ function readExecutePayloadInput(inputRecord: Record<string, unknown> | null) {
 
 function resolveOperationTranscript(
   operationId: string,
-  input: unknown
+  input: unknown,
+  s: Say
 ): { displayLabel: string; metadata?: string } {
   const { action, scope } = parseOperationId(operationId);
-  const verb = verbForAction(action);
+  const verb = verbForAction(action, s);
   const payloadInput = isRecord(input) ? readExecutePayloadInput(input) : null;
   const quoted = readQuotedArg(payloadInput);
   // Unknown compound tool names (imported connectors, e.g.
@@ -338,7 +390,8 @@ function truncateCommandPreview(command: string): string {
 
 function resolveMastraWorkspaceToolDisplay(
   toolName: string,
-  input: Record<string, unknown> | null
+  input: Record<string, unknown> | null,
+  s: Say
 ): { displayLabel: string; metadata?: string } {
   const action = toolName.replace(/^mastra_workspace_/, "");
   const path = readString(input, ["path", "file", "filePath", "file_path"]);
@@ -351,31 +404,31 @@ function resolveMastraWorkspaceToolDisplay(
     case "read_file":
       return {
         displayLabel: basename
-          ? say("readNamed", "Read {{name}}", { name: basename })
-          : say("readFile", "Read file"),
+          ? s("readNamed", "Read {{name}}", { name: basename })
+          : s("readFile", "Read file"),
         metadata: lineRange ?? undefined,
       };
     case "write_file":
       return {
         displayLabel: basename
-          ? say("wroteNamed", "Wrote {{name}}", { name: basename })
-          : say("wroteFile", "Wrote file"),
+          ? s("wroteNamed", "Wrote {{name}}", { name: basename })
+          : s("wroteFile", "Wrote file"),
       };
     case "execute_command":
       return {
-        displayLabel: say("ranShell", "Ran shell command"),
+        displayLabel: s("ranShell", "Ran shell command"),
         metadata: command ? truncateCommandPreview(command) : undefined,
       };
     case "list_files":
     case "list_dir":
       return {
-        displayLabel: say("listedFiles", "Listed files"),
+        displayLabel: s("listedFiles", "Listed files"),
         metadata: path ? basenamePath(path) || path : undefined,
       };
     case "search_files":
     case "grep":
       return {
-        displayLabel: say("searchedFiles", "Searched files"),
+        displayLabel: s("searchedFiles", "Searched files"),
         metadata: query ?? basename ?? undefined,
       };
     default:
@@ -440,6 +493,8 @@ function readDecisionResolutionLabel(output: unknown): string | null {
 export interface ResolveTranscriptToolDisplayInput {
   input?: unknown;
   output?: unknown;
+  /** Word the step as still running ("Creating …") instead of done. */
+  running?: boolean;
   toolName: string;
 }
 
@@ -454,6 +509,7 @@ export function resolveTranscriptToolDisplay(
 ): ResolvedTranscriptToolDisplay {
   const wireToolName = params.toolName.trim() || "tool";
   const inputRecord = isRecord(params.input) ? params.input : null;
+  const s = params.running ? sayRunning : say;
 
   if (wireToolName === "invoke_frontend_tool") {
     const resolvedToolName =
@@ -465,7 +521,7 @@ export function resolveTranscriptToolDisplay(
       const { action, scope } = parseOperationId(resolvedToolName);
       const quoted = payloadInput ? readQuotedArg(payloadInput) : null;
       const row = formatTranscriptToolRow({
-        verb: verbForAction(action),
+        verb: verbForAction(action, s),
         quoted: quoted ?? undefined,
         metadata: scope ?? undefined,
         metadataMode: "always",
@@ -490,12 +546,12 @@ export function resolveTranscriptToolDisplay(
     const resolvedToolName =
       readString(inputRecord, [...EXECUTE_ID_KEYS]) ?? wireToolName;
     if (isStructuredToolId(resolvedToolName)) {
-      const row = resolveOperationTranscript(resolvedToolName, inputRecord);
+      const row = resolveOperationTranscript(resolvedToolName, inputRecord, s);
       return { resolvedToolName, ...row };
     }
     return {
       resolvedToolName,
-      displayLabel: say("ran", "Ran {{name}}", { name: resolvedToolName }),
+      displayLabel: s("ran", "Ran {{name}}", { name: resolvedToolName }),
     };
   }
 
@@ -504,7 +560,7 @@ export function resolveTranscriptToolDisplay(
     const moduleId = readString(inputRecord, ["moduleId", "module_id"]);
     if (query) {
       const row = formatTranscriptToolRow({
-        verb: say("verb.search", "Searched"),
+        verb: s("verb.search", "Searched"),
         quoted: query,
         metadata: moduleId ?? undefined,
         metadataMode: "when-quoted",
@@ -514,14 +570,14 @@ export function resolveTranscriptToolDisplay(
     if (moduleId) {
       return {
         resolvedToolName: wireToolName,
-        displayLabel: say("searchedModuleTools", "Searched {{module}} tools", {
+        displayLabel: s("searchedModuleTools", "Searched {{module}} tools", {
           module: moduleId,
         }),
       };
     }
     return {
       resolvedToolName: wireToolName,
-      displayLabel: say("searchedTools", "Searched tools"),
+      displayLabel: s("searchedTools", "Searched tools"),
     };
   }
 
@@ -531,7 +587,7 @@ export function resolveTranscriptToolDisplay(
     const moduleId = readString(inputRecord, ["moduleId", "module_id"]);
     if (query && moduleId) {
       const row = formatTranscriptToolRow({
-        verb: say("verb.discover", "Discovered"),
+        verb: s("verb.discover", "Discovered"),
         quoted: query,
         metadata: moduleId,
         metadataMode: "when-quoted",
@@ -541,21 +597,21 @@ export function resolveTranscriptToolDisplay(
     if (query) {
       return {
         resolvedToolName: wireToolName,
-        displayLabel: say("discoveredFor", 'Discovered tools for "{{query}}"', {
+        displayLabel: s("discoveredFor", 'Discovered tools for "{{query}}"', {
           query,
         }),
       };
     }
     return {
       resolvedToolName: wireToolName,
-      displayLabel: say("discoveredTools", "Discovered tools"),
+      displayLabel: s("discoveredTools", "Discovered tools"),
     };
   }
 
   if (wireToolName === "engenty_tools_modules") {
     return {
       resolvedToolName: wireToolName,
-      displayLabel: say("listedModules", "Listed modules"),
+      displayLabel: s("listedModules", "Listed modules"),
     };
   }
 
@@ -564,8 +620,8 @@ export function resolveTranscriptToolDisplay(
     return {
       resolvedToolName: wireToolName,
       displayLabel: query
-        ? say("webSearchQuery", "Web search: {{query}}", { query })
-        : say("webSearch", "Web search"),
+        ? s("webSearchQuery", "Web search: {{query}}", { query })
+        : s("webSearch", "Web search"),
     };
   }
 
@@ -633,17 +689,17 @@ export function resolveTranscriptToolDisplay(
   }
 
   if (wireToolName.startsWith("mastra_workspace_")) {
-    const row = resolveMastraWorkspaceToolDisplay(wireToolName, inputRecord);
+    const row = resolveMastraWorkspaceToolDisplay(wireToolName, inputRecord, s);
     return { resolvedToolName: wireToolName, ...row };
   }
 
   if (wireToolName.startsWith("agent-")) {
-    const row = resolveAgentToolDisplay(wireToolName);
+    const row = resolveAgentToolDisplay(wireToolName, params.running === true);
     return { resolvedToolName: wireToolName, ...row };
   }
 
   if (isStructuredToolId(wireToolName)) {
-    const row = resolveOperationTranscript(wireToolName, inputRecord);
+    const row = resolveOperationTranscript(wireToolName, inputRecord, s);
     return { resolvedToolName: wireToolName, ...row };
   }
 
@@ -657,7 +713,7 @@ export function resolveTranscriptToolDisplay(
 
   return {
     resolvedToolName: wireToolName,
-    displayLabel: say("ran", "Ran {{name}}", { name: wireToolName }),
+    displayLabel: s("ran", "Ran {{name}}", { name: wireToolName }),
   };
 }
 
@@ -681,11 +737,15 @@ export function resolveAgentDisplayName(agentId: string): string {
   );
 }
 
-function resolveAgentToolDisplay(wireToolName: string): {
+function resolveAgentToolDisplay(
+  wireToolName: string,
+  running: boolean
+): {
   displayLabel: string;
   metadata?: string;
 } {
-  const agentId = wireToolName.slice("agent-".length);
-  const displayLabel = resolveAgentDisplayName(agentId);
-  return { displayLabel };
+  const name = resolveAgentDisplayName(wireToolName.slice("agent-".length));
+  return {
+    displayLabel: running ? sayRunning("agentAsk", name, { name }) : name,
+  };
 }

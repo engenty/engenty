@@ -32,6 +32,7 @@ import {
   taskCompletionPolicyDepsFromEnv,
 } from "../../src/ai/jobs/task-completion-policy.js";
 import { createDefaultModuleCapabilityLoader } from "../../src/ai/module-capability-loader.js";
+import { cancelActiveRoutineRun } from "../../src/ai/routines/cancel-routine-run.js";
 import { fireRoutine } from "../../src/ai/routines/fire-routine.js";
 import {
   assertOutcomeBinding,
@@ -118,6 +119,7 @@ export const ROUTINES_LIST_TOOL_ID = "routines_list";
 export const ROUTINES_CREATE_TOOL_ID = "routines_create";
 export const ROUTINES_UPDATE_TOOL_ID = "routines_update";
 export const ROUTINES_RUN_TOOL_ID = "routines_run";
+export const ROUTINES_CANCEL_RUN_TOOL_ID = "routines_cancel_run";
 
 /** The run's own capabilities — what a Workflow it publishes may perform. */
 type RunScope = Pick<AiSessionScope, "capabilities" | "userId">;
@@ -1566,7 +1568,9 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       "chat instead. Answers " +
       "with the started run's id, or with why nothing started — `disabled`, " +
       "`quiet_hours`, or `overlap` (the routine's previous run is still " +
-      "active). Those are answers, not errors: report them as what happened.",
+      "active). Those are answers, not errors: report them as what happened. " +
+      "On `overlap`, ask the person whether to cancel the open run " +
+      "(`routines_cancel_run`) and start fresh; never cancel it unasked.",
     inputSchema: z.object({
       routine_id: z.string().describe("The routine to run. Use routines_list."),
     }),
@@ -1644,7 +1648,79 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     },
   });
 
+  const routinesCancelRunTool = createTool({
+    id: ROUTINES_CANCEL_RUN_TOOL_ID,
+    description:
+      "Cancel a routine's open run — one still working or waiting on a " +
+      'person — the answer to "cancel / stop the running routine". It is ' +
+      "also what unblocks a start that `routines_run` skipped with " +
+      "`overlap`. Only on the person's ask: what the run already wrote stays, " +
+      "the rest of it never happens.",
+    inputSchema: z.object({
+      routine_id: z
+        .string()
+        .describe("The routine whose open run to cancel. Use routines_list."),
+    }),
+    outputSchema: z.object({
+      note: z.string().nullable(),
+      run_id: z.string().nullable(),
+      status: z.enum([
+        "cancelled",
+        "none_active",
+        "refused",
+        "not_found",
+        "version_missing",
+      ]),
+    }),
+    execute: async (input) => {
+      const tenantId = requireTenant(ROUTINES_CANCEL_RUN_TOOL_ID);
+      const store = requireStore(deps);
+      const existing = await store.get({ id: input.routine_id, tenantId });
+      if (!existing) {
+        return {
+          note: `No routine ${input.routine_id} in this Space.`,
+          run_id: null,
+          status: "not_found" as const,
+        };
+      }
+      if (!visibleTo(callerScope(), existing)) {
+        return {
+          note: `Routine ${input.routine_id} belongs to ${existing.agent_id}, not to you.`,
+          run_id: null,
+          status: "refused" as const,
+        };
+      }
+      const flowGraphs = (deps.workflows ?? createWorkflowStoreFromEnv)();
+      const requests = (deps.workflowRuns ?? createWorkflowRunStoreFromEnv)();
+      if (!(flowGraphs && requests)) {
+        throw new Error("routine execution storage is not configured.");
+      }
+      const result = await cancelActiveRoutineRun({
+        flowGraphs,
+        requests,
+        routineId: existing.id,
+        tenantId,
+      });
+      if (result.status === "none_active") {
+        return {
+          note: "No run of this routine is open.",
+          run_id: null,
+          status: "none_active" as const,
+        };
+      }
+      return {
+        note:
+          result.status === "version_missing"
+            ? "The run's workflow version is gone; it cannot be stopped here."
+            : null,
+        run_id: result.runId,
+        status: result.status,
+      };
+    },
+  });
+
   return {
+    [ROUTINES_CANCEL_RUN_TOOL_ID]: routinesCancelRunTool,
     [ROUTINES_CREATE_TOOL_ID]: routinesCreateTool,
     [ROUTINES_LIST_TOOL_ID]: routinesListTool,
     [ROUTINES_RUN_TOOL_ID]: routinesRunTool,

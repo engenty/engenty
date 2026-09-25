@@ -131,6 +131,13 @@ describe("registerOffersApi", () => {
     expect(create).toMatchObject({
       moduleId: "offers",
       requiredCapabilities: ["module.offers.write"],
+      riskLevel: "medium",
+    });
+    expect(create?.requiresApproval).not.toBe(true);
+    const setStatus = serverOperations.find(
+      (operation) => operation.operationId === "offers_set_status"
+    );
+    expect(setStatus).toMatchObject({
       riskLevel: "high",
       requiresApproval: true,
     });

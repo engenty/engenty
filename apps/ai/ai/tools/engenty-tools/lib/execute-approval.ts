@@ -131,6 +131,11 @@ export async function settleCoreApprovalAndRetry(params: {
     { ok: true }
   >;
   err: EngentyCoreHttpError;
+  /**
+   * Who decides core's request, when not the run's own principal — a wizard
+   * run's service credential may not, the person who approved the step may.
+   */
+  decide?: (approvalRequestId: string) => Promise<void>;
   input: Record<string, unknown>;
   operationId: string;
   /** The Space the original call named (`callSpaceIdFor`). */
@@ -149,10 +154,14 @@ export async function settleCoreApprovalAndRetry(params: {
   // Same mapping the resume route uses, so both paths agree.
   const always = params.choiceId === "approve_always";
   try {
-    await params.client.client.decideApproval(approvalRequestId, {
-      decision: always ? "allow_policy" : "allow_once",
-      ...(always && ctx.goalId ? { subject_id: ctx.goalId } : {}),
-    });
+    if (params.decide) {
+      await params.decide(approvalRequestId);
+    } else {
+      await params.client.client.decideApproval(approvalRequestId, {
+        decision: always ? "allow_policy" : "allow_once",
+        ...(always && ctx.goalId ? { subject_id: ctx.goalId } : {}),
+      });
+    }
     const data = await params.client.client.invokeTool(
       params.operationId,
       params.input,

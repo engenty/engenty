@@ -32,6 +32,11 @@ export {
   type ServiceUnavailableNavigationState,
 } from "./lib/initial-setup-gate";
 export {
+  clearReturnPath,
+  peekReturnPath,
+  rememberReturnPath,
+} from "./lib/return-path";
+export {
   getOptionalSupabaseAuthClient,
   getSupabaseAuthClient,
 } from "./lib/supabase-auth-client";

@@ -332,8 +332,9 @@ export function registerOffersGatewayMethods(
     moduleId: "offers",
     spacePolicy: { kind: "tenant_shared" },
     requiredCapabilities: ["module.offers.write"],
-    riskLevel: "high",
-    requiresApproval: true,
+    // A draft changes nothing the customer sees; approving or sending one
+    // (offers_set_status) is the high-risk step that asks a person.
+    riskLevel: "medium",
     inputSchema: offerAgentCreateWithBlocksSchema,
     outputSchema: offerSchema,
     handler: async (input, ctx) => {

@@ -430,7 +430,6 @@
     "manage": {
       "allRuns": "Alle Läufe",
       "connectorsDescription": "Externe Dienste, die dieser Agent erreichen kann.",
-      "idLabel": "Agenten-ID",
       "managedByLabel": "Zuständiges Modul",
       "mandateTitle": "Was er macht",
       "memoryTitle": "Gedächtnis",
@@ -620,6 +619,10 @@
       "started": "▸ **Routine · {{name}}** gestartet",
       "whenEvent": "sobald das Ereignis eintritt",
       "whenPressed": "auf Knopfdruck oder auf Zuruf"
+    },
+    "routineChat": {
+      "create": "Lege eine neue Routine an: ",
+      "edit": "Ändere die Routine {{mention}}: "
     }
   },
   "agentDetail": {
@@ -2181,7 +2184,9 @@
       "autostart": "Engentys dürfen ihn ohne Nachfrage starten",
       "autostartHint": "Aus: Ein Engenty, der ins Web muss, fragt im Chat, bevor der Browser startet. Nur Space-Owner.",
       "unattended": "Engentys dürfen ihn unbeaufsichtigt nutzen",
-      "unattendedHint": "Routinen und Aufgaben dürfen den angemeldeten Browser des Spaces ohne Aufsicht steuern. Aus: sie halten an und fragen. Nur Space-Owner."
+      "unattendedHint": "Routinen und Aufgaben dürfen den angemeldeten Browser des Spaces ohne Aufsicht steuern. Aus: sie halten an und fragen. Nur Space-Owner.",
+      "autostartShort": "Ohne Nachfrage starten",
+      "unattendedShort": "Unbeaufsichtigt nutzbar"
     },
     "view": {
       "title": "Dein Browser",
@@ -2210,6 +2215,11 @@
         "closed": "Getrennt.",
         "error": "Die Live-Ansicht ist fehlgeschlagen."
       }
+    },
+    "screen": {
+      "caption": "Browser von {{name}}",
+      "open": "Browser öffnen",
+      "absentHint": "Noch kein Browser läuft. Starte ihn, damit dieser Engenty im Web arbeiten kann – du siehst hier live zu."
     }
   },
   "gateSurface": {
@@ -2227,7 +2237,11 @@
       "reject": "Ablehnen",
       "next": "Weiter",
       "note": "Notiz (optional)"
-    }
+    },
+    "operationApproval": {
+      "title": "Zustimmung nötig"
+    },
+    "enterHint": "Enter ↵ drücken"
   },
   "wizard": {
     "done": "Fertig",
@@ -2243,7 +2257,15 @@
       "running": "Arbeitet…",
       "sleeping": "Schläft",
       "sleepingUntil": "Schläft bis {{when}}",
-      "starting": "Startet…"
+      "starting": "Startet…",
+      "loading": "Lädt…",
+      "runningDetail": "Das dauert einen Moment."
+    },
+    "close": "Schließen",
+    "outcome": {
+      "completed": "Erledigt",
+      "failed": "Das hat nicht geklappt",
+      "cancelled": "Abgebrochen"
     }
   },
   "a2uiHost": {
@@ -2367,6 +2389,40 @@
     "more": "+{{count}} weitere",
     "approvalNeeded": "Freigabe nötig",
     "decisionNeeded": "Entscheidung nötig",
-    "feedbackRequested": "Rückmeldung erbeten"
+    "feedbackRequested": "Rückmeldung erbeten",
+    "running": {
+      "agentAsk": "Fragt {{name}}",
+      "discoveredFor": "Sucht Werkzeuge für „{{query}}“",
+      "discoveredTools": "Sucht Werkzeuge",
+      "listedFiles": "Listet Dateien auf",
+      "listedModules": "Listet Module auf",
+      "ran": "Führt {{name}} aus",
+      "ranShell": "Führt einen Befehl aus",
+      "readFile": "Liest eine Datei",
+      "readNamed": "Liest {{name}}",
+      "searchedFiles": "Durchsucht Dateien",
+      "searchedModuleTools": "Sucht Werkzeuge in {{module}}",
+      "searchedTools": "Sucht Werkzeuge",
+      "verb": {
+        "add": "Fügt hinzu",
+        "backfill": "Trägt nach",
+        "create": "Erstellt",
+        "delete": "Löscht",
+        "discover": "Sucht",
+        "fetch": "Ruft ab",
+        "get": "Öffnet",
+        "list": "Listet auf",
+        "read": "Liest",
+        "remove": "Entfernt",
+        "search": "Sucht",
+        "send": "Sendet",
+        "update": "Aktualisiert",
+        "write": "Speichert"
+      },
+      "webSearch": "Sucht im Web",
+      "webSearchQuery": "Sucht im Web: {{query}}",
+      "wroteFile": "Schreibt eine Datei",
+      "wroteNamed": "Schreibt {{name}}"
+    }
   }
 }

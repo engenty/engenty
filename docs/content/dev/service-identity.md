@@ -66,21 +66,20 @@ loopback. One local stack serves every worktree, so after a reset run it once
 and copy the value into each checkout's `.env.local`.
 
 Grant only what the service calls. For the AI service that is
-`AI_SERVICE_CAPABILITIES` (`@engenty/plugin-sdk`): module invocation, the Plan
-module facets (`module.tasks.*`), the connections facets
-(`module.connections.*` — a routine calling Gmail or Slack is checked against
-them), and `core.agents.manage` (an agent's `core.agents` identity is
-provisioned on its first run). `module.read` does **not** cover
-`module.tasks.read` or `module.connections.read`; the matcher has no infix
-wildcards. If remote channels are in use, add `core.users.impersonate` — the
-capability `POST /api/auth/actor-token` checks before it will mint a
-user-scoped actor token:
+`AI_SERVICE_CAPABILITIES` (`@engenty/plugin-sdk`): `module.*` and
+`core.agents.manage` (an agent's `core.agents` identity is provisioned on its
+first run). `module.*` is the ceiling, not the grant: `module.read` /
+`module.write` cover no module that names its own capabilities
+(`module.offers.write`, `module.tasks.*`, `module.connections.*`, …), so a
+narrower list 403s a workflow step on the Space's own apps. What a run may
+actually reach is the Space's mounts (`agent_access`). If remote channels are
+in use, add `core.users.impersonate` — the capability
+`POST /api/auth/actor-token` checks before it will mint a user-scoped actor
+token:
 
 ```bash
 pnpm engenty service-token create --name ai-service \
-  --capability module.read,module.write,module.execute \
-  --capability module.tasks.read,module.tasks.write \
-  --capability module.connections.read,module.connections.write \
+  --capability 'module.*' \
   --capability core.agents.manage \
   --capability core.users.impersonate
 ```

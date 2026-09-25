@@ -1,6 +1,9 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
+import { resolveTranscriptToolDisplay } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import { isChainOfThoughtToolPart } from "./copilot-message-content";
 import {
+  getToolName,
+  getToolResolvedName,
   getToolState,
   isReasoningPart,
   isToolPart,
@@ -27,6 +30,34 @@ export function messageHasActiveToolParts(
     }
   }
   return false;
+}
+
+/** Asking the person is its own card, not a step the agent is "doing". */
+const INTERACTIVE_TOOL_NAMES = new Set(["requestDecision", "requestFeedback"]);
+
+/**
+ * The step the agent is on, in words — "Erstellt: „Neues Angebot“" — for the
+ * turn's status line. Null between steps, where it is thinking.
+ */
+export function runningStepLabel(
+  parts: readonly unknown[] | undefined
+): string | null {
+  for (let index = (parts?.length ?? 0) - 1; index >= 0; index--) {
+    const part = parts?.[index];
+    if (!isToolPart(part) || getToolState(part) !== "running") {
+      continue;
+    }
+    const toolName = getToolName(part);
+    if (INTERACTIVE_TOOL_NAMES.has(toolName)) {
+      continue;
+    }
+    return resolveTranscriptToolDisplay({
+      input: part.input,
+      running: true,
+      toolName: getToolResolvedName(part, toolName),
+    }).displayLabel;
+  }
+  return null;
 }
 
 function isUnresolvedDecisionToolPart(part: ToolPartLike): boolean {

@@ -25,6 +25,7 @@ import {
   toolsSpaceFromResolution,
 } from "../sessions/run-space.js";
 import { setTraceContext } from "../trace-context.js";
+import type { PendingOperationCall } from "./gate-surface.js";
 import { serializeGraphSpace } from "./graph-space.js";
 import { createGraphActionPrimitives } from "./primitives/index.js";
 import { GRAPH_RUN_CONTEXT, type GraphRunContext } from "./run-context.js";
@@ -270,6 +271,11 @@ export interface GraphRunGate {
   kind?: string;
   /** The full step path — `["draftLoop", "review"]` for a gate inside a loop body. */
   path: string[];
+  /**
+   * An approval step's calls — what a specialist step wanted and a person has
+   * to allow. The resume replays or declines exactly these.
+   */
+  pending_calls?: PendingOperationCall[];
   /** The gate's own id (the last path element), what the canvas and progress key on. */
   stepId: string;
   /** What the person sees: an A2UI surface with inputs and outputs. */
@@ -303,9 +309,16 @@ function readGate(path: string[], suspendPayload: unknown): GraphRunGate {
   const surface = envelope.surface as
     | { components?: unknown; data?: unknown }
     | undefined;
+  const payload = (envelope.payload ?? {}) as { pending_calls?: unknown };
+  const pendingCalls =
+    envelope.kind === "operation_approval" &&
+    Array.isArray(payload.pending_calls)
+      ? (payload.pending_calls as PendingOperationCall[])
+      : null;
   return {
     accepts_text: envelope.accepts_text === true,
     ...(typeof envelope.kind === "string" ? { kind: envelope.kind } : {}),
+    ...(pendingCalls ? { pending_calls: pendingCalls } : {}),
     path,
     stepId: path.at(-1) ?? "",
     surface: {

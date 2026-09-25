@@ -4,6 +4,27 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.22] - 2026-09-25
+- ADDED **[ai-ui]** Run wizards full screen on the space's band
+- ADDED **[ai]** An approval step a person can read
+- ADDED **[app-shell]** A focus layout and a page-painted background
+- ADDED **[auth-ui]** Return to the link followed before login
+- ADDED **[ai-ui]** Name the wizard's approval step in the reader's language
+- ADDED **[ai]** Ask for approvals as a step of the wizard
+- ADDED **[offers]** Creating a draft offer is medium risk, no approval
+- ADDED **[ai]** Cancel a routine's open run from its page or the chat
+- ADDED **[ai-ui]** Name the running step in a turn's status line
+- ADDED **[ui]** Mention a Space's routines with @
+- ADDED **[ai-ui]** Open the browser in place of the agent pane at desktop width
+- ADDED **[ai-ui]** Show the agent's browser on its pane
+- ADDED **[ai-ui]** Edit a routine's triggers, delivery and prompt in place
+- ADDED **[ai-ui]** Create and edit a routine by asking in the chat
+- FIXED **[ai]** Keep a run summary's record link whole
+- FIXED **[generative-a2ui]** Show text and record rows bound to the page's data
+- FIXED **[plugin-sdk]** Let workflow runs reach every module the Space mounts
+- FIXED **[ai-ui]** Keep a gap after an @-mention pill in the composer
+- FIXED **[ai-ui]** No bubble for a text part with nothing readable
+
 ## [0.2.21] - 2026-09-25
 - ADDED **[ai-ui]** A house-style report follows the app's dark mode
 - ADDED **[ai]** A routine's HTML report carries the house style

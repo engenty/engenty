@@ -876,7 +876,8 @@
         "artifacts": "Artifacts",
         "people": "People",
         "rooms": "Rooms",
-        "records": "Records"
+        "records": "Records",
+        "routines": "Routines"
       },
       "copiedId": "Copied",
       "copyId": "Copy agent ID",
@@ -1674,7 +1675,12 @@
       "intro": "Every conversation held in this space: rooms, the agents' desks, your direct messages."
     },
     "workflows": {
-      "crumb": "Workflow"
+      "close": "Close",
+      "copyLink": "Copy link",
+      "linkCopied": "Link copied — whoever opens it starts the wizard themselves.",
+      "linkCopyFailed": "Could not copy the link.",
+      "noAccess": "No access",
+      "noAccessBody": "This wizard belongs to a Space you are not a member of. Ask the person who sent you the link to invite you."
     },
     "artifacts": {
       "section": "Artifacts",

@@ -38,6 +38,15 @@ export const SPACE_WORKFLOW_ROUTE_PATTERN = "workflows/:workflowId";
 export const SPACE_WORKFLOW_RUN_ROUTE_PATTERN =
   "workflows/:workflowId/runs/:runId";
 
+/**
+ * A wizard page — page 0 or a run. It runs full screen: the wizard and its
+ * artifact pane, no shell around them, so the link someone was sent opens
+ * the task and nothing else.
+ */
+export function isSpaceWorkflowPathname(pathname: string): boolean {
+  return parseSpacePath(pathname)?.segment === "workflows";
+}
+
 /** The space's own home — its Apps tab. */
 export function spaceRootPath(spaceKey: string): string {
   return `${SPACE_ROUTE_PREFIX}/${encodeURIComponent(spaceKey)}`;

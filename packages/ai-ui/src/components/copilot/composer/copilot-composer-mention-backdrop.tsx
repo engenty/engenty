@@ -48,7 +48,7 @@ export function CopilotComposerMentionBackdrop({
       {segmentMentionText(text, refs).map((segment, index) =>
         segment.ref ? (
           <span
-            className={mentionPillClassName(segment.ref.entity)}
+            className={mentionPillClassName(segment.ref.entity, "composer")}
             key={index}
           >
             {segment.text}

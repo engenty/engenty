@@ -1,7 +1,127 @@
 [
   {
+    "version": "v0.2.22",
+    "timestamp": 1790376583,
+    "commits": [
+      {
+        "id": "128b1f5",
+        "message": "run wizards full screen on the space's band",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8f78df6",
+        "message": "an approval step a person can read",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d7d68ec",
+        "message": "keep a run summary's record link whole",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0180150",
+        "message": "a focus layout and a page-painted background",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "45ee9b3",
+        "message": "return to the link followed before login",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "575b2f1",
+        "message": "name the wizard's approval step in the reader's language",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a8f5b80",
+        "message": "show text and record rows bound to the page's data",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b062033",
+        "message": "ask for approvals as a step of the wizard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dbffb2e",
+        "message": "creating a draft offer is medium risk, no approval",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "42dc80f",
+        "message": "let workflow runs reach every module the Space mounts",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "42346a1",
+        "message": "cancel a routine's open run from its page or the chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "706a341",
+        "message": "keep a gap after an @-mention pill in the composer",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0b81951",
+        "message": "no bubble for a text part with nothing readable",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "640befe",
+        "message": "name the running step in a turn's status line",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ddfbe83",
+        "message": "mention a Space's routines with @",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a6704fe",
+        "message": "open the browser in place of the agent pane at desktop width",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "85c54ed",
+        "message": "show the agent's browser on its pane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b498c85",
+        "message": "edit a routine's triggers, delivery and prompt in place",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0c330ff",
+        "message": "create and edit a routine by asking in the chat",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.21",
-    "timestamp": 1790358373,
+    "timestamp": 1790358375,
     "commits": [
       {
         "id": "dd473fa",

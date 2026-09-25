@@ -58,6 +58,8 @@ const MOD_ALT = 1;
 const MOD_CTRL = 2;
 const MOD_META = 4;
 const MOD_SHIFT = 8;
+/** The page is laid out as a desktop window, whatever the pane's width. */
+const VIEWPORT_WIDTH = 1280;
 
 /** What a tab chip says: the title, else the host, else "new tab". */
 function tabLabel(tab: TabInfo, untitled: string): string {
@@ -96,6 +98,7 @@ export function UserBrowserView({
   className,
   onSeatChange,
   onStop,
+  preview = false,
   stopPending,
   target,
 }: {
@@ -109,6 +112,11 @@ export function UserBrowserView({
   onSeatChange?: (seat: Seat) => void;
   /** Present = the toolbar carries a Stop (sleep) button. */
   onStop?: () => void;
+  /**
+   * Watch only: the page without tab strip or toolbar, for a thumbnail of
+   * the agent's screen. The person takes over in the full view.
+   */
+  preview?: boolean;
   stopPending?: boolean;
   /** The Space's browser and the agent window to show. */
   target: BrowserTarget;
@@ -225,20 +233,24 @@ export function UserBrowserView({
     };
   }, [connectMutate]);
 
-  // The page takes the size of the box it is shown in, so frames map 1:1
-  // onto the canvas — a real resolution, not a thumbnail. Re-sent whenever
-  // the box changes (pane resize, split, expand) and once the stream is up.
+  // The page is always a desktop-wide window; its height follows the box's
+  // shape, and the canvas scales it down to fit. Re-sent whenever the box
+  // changes (pane resize, split, expand) and once the stream is up. A preview
+  // only watches — it never resizes the page.
   const requestViewport = useCallback(() => {
     const box = boxRef.current;
-    if (!box) {
+    if (!box || preview) {
       return;
     }
-    const width = Math.floor(box.clientWidth);
-    const height = Math.floor(box.clientHeight);
-    if (width > 0 && height > 0) {
-      send({ height, type: "viewport", width });
+    const { clientHeight, clientWidth } = box;
+    if (clientWidth > 0 && clientHeight > 0) {
+      send({
+        height: Math.round((VIEWPORT_WIDTH * clientHeight) / clientWidth),
+        type: "viewport",
+        width: VIEWPORT_WIDTH,
+      });
     }
-  }, [send]);
+  }, [preview, send]);
   useEffect(() => {
     const box = boxRef.current;
     if (!box) {
@@ -483,8 +495,8 @@ export function UserBrowserView({
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
-      {chromeSlot ? createPortal(tabStrip, chromeSlot) : null}
-      {embedded ? (
+      {chromeSlot && !preview ? createPortal(tabStrip, chromeSlot) : null}
+      {preview ? null : embedded ? (
         toolbar
       ) : (
         /* Browser chrome: a tab strip on top of a toolbar, one surface. */
@@ -500,7 +512,11 @@ export function UserBrowserView({
       <div
         className={cn(
           "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black",
-          embedded ? null : "rounded-b-lg border"
+          preview
+            ? "pointer-events-none"
+            : embedded
+              ? null
+              : "rounded-b-lg border"
         )}
         ref={boxRef}
       >

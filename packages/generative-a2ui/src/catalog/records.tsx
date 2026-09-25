@@ -15,6 +15,7 @@ import {
   asText,
   resolveA2uiActionHandler,
   useEngentyA2uiHost,
+  useResolvedProp,
 } from "./host.js";
 
 const RowApi = {
@@ -24,7 +25,7 @@ const RowApi = {
     badge: DynamicStringSchema.optional(),
     children: ChildListSchema.optional(),
     meta: DynamicStringSchema.optional(),
-    objectRef: z.string().optional(),
+    objectRef: DynamicStringSchema.optional(),
     subtitle: DynamicStringSchema.optional(),
     title: DynamicStringSchema.optional(),
     wrap: z.boolean().optional(),
@@ -35,8 +36,10 @@ export const Row = createComponentImplementation(
   RowApi,
   ({ buildChild, context, props }) => {
     const host = useEngentyA2uiHost();
+    // A ref bound to the page's data — the record an earlier step wrote.
     const objectRef =
-      typeof props.objectRef === "string" ? props.objectRef : undefined;
+      asText(useResolvedProp(context, "objectRef", props.objectRef)) ||
+      undefined;
     if (objectRef && host.renderObjectRef) {
       // Bridge property: the native record row renders instead — live data,
       // viewer authz, panel/menu affordances from the tier-1 machinery.
@@ -172,17 +175,22 @@ export const Text = createComponentImplementation(
       variant: z.enum(["h3", "h4", "body", "muted"]).optional(),
     }),
   },
-  ({ props }) => (
-    <p
-      className={
-        TEXT_VARIANT_CLASSES[
-          typeof props.variant === "string" ? props.variant : "body"
-        ] ?? TEXT_VARIANT_CLASSES.body
-      }
-    >
-      {asText(props.text)}
-    </p>
-  )
+  // Text bound to the page's data (`{ path }`) can arrive unresolved; read
+  // it off the data model then, the same as Table's rows.
+  ({ context, props }) => {
+    const text = useResolvedProp(context, "text", props.text);
+    return (
+      <p
+        className={
+          TEXT_VARIANT_CLASSES[
+            typeof props.variant === "string" ? props.variant : "body"
+          ] ?? TEXT_VARIANT_CLASSES.body
+        }
+      >
+        {asText(text)}
+      </p>
+    );
+  }
 );
 
 const CALLOUT_TONE_CLASSES: Record<string, string> = {
@@ -200,19 +208,26 @@ export const Callout = createComponentImplementation(
       tone: z.enum(["info", "success", "warning", "danger"]).optional(),
     }),
   },
-  ({ props }) => (
-    <div
-      className={cn(
-        "mx-2 my-1 rounded-r-md border-l-[3px] px-3 py-2 text-foreground text-sm",
-        CALLOUT_TONE_CLASSES[
-          typeof props.tone === "string" ? props.tone : "info"
-        ] ?? CALLOUT_TONE_CLASSES.info
-      )}
-      role="note"
-    >
-      {asText(props.text)}
-    </div>
-  )
+  ({ context, props }) => {
+    const text = asText(useResolvedProp(context, "text", props.text));
+    // Nothing to say is no box: an empty bound note drew a bare stripe.
+    if (!text) {
+      return null;
+    }
+    return (
+      <div
+        className={cn(
+          "mx-2 my-1 rounded-r-md border-l-[3px] px-3 py-2 text-foreground text-sm",
+          CALLOUT_TONE_CLASSES[
+            typeof props.tone === "string" ? props.tone : "info"
+          ] ?? CALLOUT_TONE_CLASSES.info
+        )}
+        role="note"
+      >
+        {text}
+      </div>
+    );
+  }
 );
 
 export const Markdown = createComponentImplementation(
@@ -220,11 +235,14 @@ export const Markdown = createComponentImplementation(
     name: "Markdown",
     schema: z.object({ text: DynamicStringSchema.optional() }),
   },
-  ({ props }) => (
-    <div className="flex flex-col gap-2 px-2 py-1">
-      {renderMarkdown(asText(props.text))}
-    </div>
-  )
+  ({ context, props }) => {
+    const text = useResolvedProp(context, "text", props.text);
+    return (
+      <div className="flex flex-col gap-2 px-2 py-1">
+        {renderMarkdown(asText(text))}
+      </div>
+    );
+  }
 );
 
 export const Image = createComponentImplementation(

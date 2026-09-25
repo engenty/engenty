@@ -32,6 +32,7 @@ import {
 } from "../ai/sessions/run-space.js";
 import {
   type AiSessionScope,
+  scopeAccessToken,
   scopeCoversCapability,
 } from "../ai/sessions/types.js";
 import { capabilityForModuleOperation } from "../ai/workflows/capabilities.js";
@@ -53,6 +54,11 @@ import {
   FlowInputShapeError,
 } from "../ai/workflows/flow-input.js";
 import { generateWorkflowTitle } from "../ai/workflows/generate-workflow-title.js";
+import { resumeAnswererAls } from "../ai/workflows/resume-answerer.js";
+import {
+  approvalPolicyForRun,
+  type GraphApprovalPolicy,
+} from "../ai/workflows/run-context.js";
 import { settleGraphRun } from "../ai/workflows/run-lifecycle.js";
 import { mirrorFlowDecisionToTask } from "../ai/workflows/task-mirror.js";
 import { translateAgentEntries } from "../ai/workflows/translate-agent-entries.js";
@@ -267,19 +273,43 @@ async function pressedRunSpace(
   return { ok: true, space: toolsSpaceFromResolution(resolution) };
 }
 
-/** Where the run speaks: the workflow's owner, as the dispatch recorded it. */
-async function deskAgentOfRun(
+/**
+ * What a parked run continues with besides its Space: where it speaks (the
+ * workflow's owner, decided at dispatch), whether its specialist steps may
+ * ask on an approval step (the same rule dispatch applied), and its routine's
+ * standing grants — without them every write after the first gate re-asked.
+ */
+async function runFootingOf(
   ctx: { scope: { tenantId: string }; store: WorkflowStore },
   request: WorkflowRunRow
-): Promise<string | null> {
-  if (!request.workflow_id) {
-    return null;
-  }
-  const graph = await ctx.store.getGraph({
-    id: request.workflow_id,
-    tenantId: ctx.scope.tenantId,
+): Promise<{
+  approvalGrants: readonly string[];
+  approvalPolicy?: GraphApprovalPolicy;
+  deskAgentId: string | null;
+  routineId: string | null;
+}> {
+  const graph = request.workflow_id
+    ? await ctx.store.getGraph({
+        id: request.workflow_id,
+        tenantId: ctx.scope.tenantId,
+      })
+    : null;
+  const routine = request.routine_id
+    ? await createRoutineStoreFromEnv()?.get({
+        id: request.routine_id,
+        tenantId: ctx.scope.tenantId,
+      })
+    : null;
+  const approvalPolicy = approvalPolicyForRun({
+    surface: graph?.surface ?? null,
+    trigger: request.trigger,
   });
-  return graph?.owner_agent_id ?? null;
+  return {
+    approvalGrants: routine?.approval_grants ?? [],
+    ...(approvalPolicy ? { approvalPolicy } : {}),
+    deskAgentId: graph?.owner_agent_id ?? null,
+    routineId: request.routine_id ?? null,
+  };
 }
 
 /**
@@ -297,7 +327,7 @@ function runContextFor(
   request: WorkflowRunRow,
   version: WorkflowVersionRow,
   space: SpaceGateContext | null,
-  deskAgentId?: string | null
+  footing: Awaited<ReturnType<typeof runFootingOf>>
 ) {
   return {
     workflowId: request.workflow_id ?? "",
@@ -308,7 +338,14 @@ function runContextFor(
     ...(version.allowed_tools ? { allowedToolIds: version.allowed_tools } : {}),
     ...(request.context_type ? { contextType: request.context_type } : {}),
     ...(request.context_id ? { contextId: request.context_id } : {}),
-    ...(deskAgentId ? { deskAgentId } : {}),
+    ...(footing.deskAgentId ? { deskAgentId: footing.deskAgentId } : {}),
+    ...(footing.routineId ? { routineId: footing.routineId } : {}),
+    ...(footing.approvalGrants.length > 0
+      ? { approvalGrants: footing.approvalGrants }
+      : {}),
+    ...(footing.approvalPolicy
+      ? { approvalPolicy: footing.approvalPolicy }
+      : {}),
     space,
   };
 }
@@ -1276,31 +1313,49 @@ export function registerWorkflowRoutes(
           ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
         });
       }
-      const deskAgentId = await deskAgentOfRun(ctx, request);
-      continueInBackground({
-        continue: () =>
-          resumeGraphRun({
-            ctx: runContextFor(
-              ctx.scope.tenantId,
-              request,
-              version,
-              answerer.space,
-              deskAgentId
-            ),
-            resumeData: {
-              approved: body.approved === true,
-              ...(body.data
-                ? { data: body.data as Record<string, unknown> }
-                : {}),
-              ...(typeof body.event === "string" ? { event: body.event } : {}),
-              ...(typeof body.reason === "string"
-                ? { reason: body.reason }
-                : {}),
-            },
-            runId,
+      const footing = await runFootingOf(ctx, request);
+      // An approval step answers for the calls the run parked with — read
+      // from the run, never from the request body.
+      const snapshot = await readGraphRunSnapshot({ runId, version });
+      const pendingCalls =
+        snapshot?.gate?.kind === "operation_approval"
+          ? (snapshot.gate.pending_calls ?? [])
+          : [];
+      const approved = body.approved === true;
+      const accessToken = scopeAccessToken(ctx.scope);
+      const resume = () =>
+        resumeGraphRun({
+          ctx: runContextFor(
+            ctx.scope.tenantId,
+            request,
             version,
-            ...stepTarget(body),
-          }),
+            answerer.space,
+            footing
+          ),
+          resumeData: {
+            approved,
+            ...(body.data
+              ? { data: body.data as Record<string, unknown> }
+              : {}),
+            ...(typeof body.event === "string" ? { event: body.event } : {}),
+            ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
+            ...(pendingCalls.length > 0
+              ? approved
+                ? { approved_calls: pendingCalls }
+                : { declined_calls: pendingCalls }
+              : {}),
+          },
+          runId,
+          version,
+          ...stepTarget(body),
+        });
+      continueInBackground({
+        // The approver's bearer rides the resume in memory, so the replay can
+        // answer core's own request for the calls they allowed.
+        continue: () =>
+          pendingCalls.length > 0 && approved && accessToken
+            ? resumeAnswererAls.run({ accessToken }, resume)
+            : resume(),
         initiatorUserId: ctx.scope.userId ?? null,
         request,
         runId,
@@ -1349,7 +1404,7 @@ export function registerWorkflowRoutes(
       if (!answerer.ok) {
         return c.json({ error: answerer.error }, 403);
       }
-      const deskAgentId = await deskAgentOfRun(ctx, request);
+      const footing = await runFootingOf(ctx, request);
       continueInBackground({
         continue: () =>
           timeTravelGraphRun({
@@ -1358,7 +1413,7 @@ export function registerWorkflowRoutes(
               request,
               version,
               answerer.space,
-              deskAgentId
+              footing
             ),
             runId,
             stepId: target,

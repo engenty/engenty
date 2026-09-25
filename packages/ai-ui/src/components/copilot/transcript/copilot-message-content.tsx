@@ -208,10 +208,23 @@ function classifyPart(part: unknown): PartKind {
 
   if (p.type === "text") {
     const text = (p.text ?? "").trim();
-    return text ? { kind: "text", text } : { kind: "skip" };
+    return saysSomething(text) ? { kind: "text", text } : { kind: "skip" };
   }
 
   return { kind: "skip" };
+}
+
+/** Tags the markdown renderer drops, and what is left of `<nummer> — `. */
+const TAG_RE = /<\/?[a-z][\w-]*[^>]*>/gi;
+const WORD_OR_EMOJI_RE = /[\p{L}\p{N}\p{Extended_Pictographic}]/u;
+
+/**
+ * Whether a text part has anything to read once rendered. A model sometimes
+ * streams a stray fragment between two tool calls — `<nummer> — ` — whose
+ * tag the renderer swallows, leaving a bubble with a lone dash.
+ */
+function saysSomething(text: string): boolean {
+  return WORD_OR_EMOJI_RE.test(text.replace(TAG_RE, ""));
 }
 
 // A message's parts are classified once per parts array: the transcript asks

@@ -2,12 +2,12 @@
  * `@` candidates for a Space desk composer: everything in the Space a message
  * can point at — its people, every agent on its roster (the desk's own agent
  * included, since in a room the host is one participant among the others), the
- * rooms it holds, and the artifacts it has produced.
+ * rooms it holds, its routines, and the artifacts it has produced.
  *
- * All four are references, never a lane switch — the desk belongs to one
+ * All five are references, never a lane switch — the desk belongs to one
  * agent, and a mentioned colleague, room or artifact rides the turn as an
  * `engenty_refs` item (`core:user:<id>` / `ai:agent:<id>` / `ai:room:<id>` /
- * `artifact:<id>`) the agent can act on.
+ * `ai:routine:<id>` / `artifact:<id>`) the agent can act on.
  */
 import {
   AgentFace,
@@ -18,9 +18,10 @@ import {
   useContainerArtifactsQuery,
   useSpaceConversationsQuery,
 } from "@engenty/ai-ui";
+import { useRoutinesListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { EngentyKind } from "@engenty/ui-core";
-import { MessagesSquare } from "lucide-react";
+import { CalendarClock, MessagesSquare } from "lucide-react";
 import { type ComponentType, useCallback, useMemo } from "react";
 import { request } from "./api/client";
 import type { Space } from "./api/spaces-client";
@@ -31,10 +32,13 @@ export const AGENT_MENTION_ENTITY = "ai:agent";
 const USER_MENTION_ENTITY = "core:user";
 const ROOM_MENTION_ENTITY = "ai:room";
 const ARTIFACT_MENTION_ENTITY = "artifact";
+/** Same entity and ref the routine page's "edit in chat" puts in the draft. */
+const ROUTINE_MENTION_ENTITY = "routine";
 
 /** Rooms and artifacts both grow without bound; the picker shows the newest. */
 const ROOM_LIMIT = 12;
 const ARTIFACT_LIMIT = 12;
+const ROUTINE_LIMIT = 12;
 
 /**
  * The picker draws an agent as its own face — generated portrait when it
@@ -86,6 +90,8 @@ export function useSpaceMentionRefSearch(
     [space?.id]
   );
   const artifactsQuery = useContainerArtifactsQuery(container);
+  // The desk page is inside the Space, so "current" is this Space.
+  const routinesQuery = useRoutinesListQuery();
   const agentsGroup = t("spaces.agents.mentions.agents");
   const peopleGroup = t("spaces.agents.mentions.people");
   const roomsGroup = t("spaces.agents.mentions.rooms", {
@@ -97,12 +103,16 @@ export function useSpaceMentionRefSearch(
   const artifactsGroup = t("spaces.agents.mentions.artifacts", {
     defaultValue: "Artifacts",
   });
+  const routinesGroup = t("spaces.agents.mentions.routines", {
+    defaultValue: "Routines",
+  });
   const agentNameById = useMemo(
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents]
   );
   const rooms = conversationsQuery.data?.rooms;
   const artifacts = artifactsQuery.data;
+  const routines = routinesQuery.data?.routines;
 
   return useCallback<MentionRefSearch>(
     async (rawQuery) => {
@@ -158,6 +168,24 @@ export function useSpaceMentionRefSearch(
               : {}),
           })
         );
+      // Its owner says whose routine it is when two carry similar names.
+      const routineRows = (routines ?? [])
+        .map((routine) => ({
+          owner: agentNameById.get(routine.agent_id) ?? null,
+          routine,
+        }))
+        .filter(({ owner, routine }) => matches(query, routine.name, owner))
+        .slice(0, ROUTINE_LIMIT)
+        .map(
+          ({ owner, routine }): MentionRefCandidate => ({
+            entity: ROUTINE_MENTION_ENTITY,
+            group: routinesGroup,
+            icon: CalendarClock,
+            label: routine.name,
+            ref: `ai:routine:${routine.id}`,
+            ...(owner ? { sublabel: owner } : {}),
+          })
+        );
       const artifactRows = (artifacts ?? [])
         .filter((artifact) => matches(query, artifact.title, artifact.type))
         .slice(0, ARTIFACT_LIMIT)
@@ -180,6 +208,7 @@ export function useSpaceMentionRefSearch(
         ...agentRows,
         ...peopleRows,
         ...roomRows,
+        ...routineRows,
         ...artifactRows,
         ...recordRows,
       ];
@@ -195,6 +224,8 @@ export function useSpaceMentionRefSearch(
       recordsGroup,
       rooms,
       roomsGroup,
+      routines,
+      routinesGroup,
     ]
   );
 }

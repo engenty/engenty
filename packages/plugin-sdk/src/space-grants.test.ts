@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { capabilityCovers } from "./capability-match.js";
 import {
-  AI_SERVICE_PLAN_CAPABILITIES,
   capabilitiesForModuleAccess,
   deriveSpaceAgentCapabilities,
 } from "./space-grants.js";
@@ -121,12 +120,6 @@ describe("deriveSpaceAgentCapabilities", () => {
       "module.tasks.read",
       "module.tasks.write",
     ]);
-  });
-
-  it("names Plan caps a locked-down AI credential must list explicitly", () => {
-    expect(AI_SERVICE_PLAN_CAPABILITIES).toEqual(
-      capabilitiesForModuleAccess("tasks", "write")
-    );
   });
 
   it("ignores blank ids rather than emitting `module..read`", () => {

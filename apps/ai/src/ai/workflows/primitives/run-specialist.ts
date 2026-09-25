@@ -45,6 +45,7 @@ import {
   TASK_SELF_TOOLS_GUIDANCE,
 } from "../../../../ai/tools/task-self-tools.js";
 import { createDefaultAiRegistry } from "../../agents.js";
+import { persistCoreApprovalDecision } from "../../approval-decision.js";
 import { inheritChildSpace } from "../../conversation/child-space.js";
 import { runDelegatedConversation } from "../../conversation/delegate-run.js";
 import {
@@ -61,8 +62,10 @@ import { serviceScopeTokenRefresher } from "../../service-credential.js";
 import { formatRunClock } from "../../sessions/run-clock.js";
 import { createScopeModuleOperationInvoker } from "../../sessions/task-workspace-hook.js";
 import { scopeAccessToken } from "../../sessions/types.js";
+import { operationApprovalSurface } from "../gate-surface.js";
 import { resolveGraphRunModelConfig } from "../model-config.js";
 import { RUN_SPECIALIST_PRIMITIVE_ID } from "../primitive-ids.js";
+import { resumeAnswererAls } from "../resume-answerer.js";
 import {
   intersectAllowedToolIds,
   readGraphRunContext,
@@ -300,13 +303,32 @@ const suspendSchema = z.object({
     question: z.string().optional(),
   }),
   request_id: z.string(),
+  /** The wizard's approval step, drawn like any gate's page. */
+  surface: z
+    .object({
+      components: z.array(z.record(z.string(), z.unknown())),
+      data: z.record(z.string(), z.unknown()),
+    })
+    .optional(),
   title: z.string(),
 });
 
-/** What a resume hands back: the calls a human said yes to. */
+/** What a resume hands back: the calls a human said yes — or no — to. */
 const resumeSchema = z.object({
   approved_calls: z.array(gatedCallSchema).optional(),
+  declined_calls: z.array(gatedCallSchema).optional(),
 });
+
+/** Told to the resumed agent, so it neither retries nor waits for them. */
+function declinedCallsSection(calls: readonly ApprovedGatedCall[]): string {
+  const lines = calls.map(
+    (call) => `- ${call.title?.trim() || call.operation_id}`
+  );
+  return [
+    "A person declined these calls on the approval step. Do not make them again; finish the rest of the brief without them and say what is left undone:",
+    ...lines,
+  ].join("\n");
+}
 
 /**
  * A gated operation an agent asked for and did not have. Same shape as the
@@ -439,9 +461,33 @@ export function createRunSpecialistPrimitive() {
         // gets a turn, so the agent continues from the work already done rather
         // than re-deciding it.
         const resumed = ctx.workflow?.resumeData as
-          | { approved_calls?: ApprovedGatedCall[] }
+          | {
+              approved_calls?: ApprovedGatedCall[];
+              declined_calls?: ApprovedGatedCall[];
+            }
           | undefined;
         const approvedResumeCalls = resumed?.approved_calls ?? [];
+        const declinedCalls = resumed?.declined_calls ?? [];
+        const declinedOperationIds = new Set(
+          declinedCalls.map((call) => call.operation_id)
+        );
+        const approvedOperationIds = approvedResumeCalls.map(
+          (call) => call.operation_id
+        );
+        // The person who approved them answers core's own request too — the
+        // run's service credential may not (resume-answerer.ts).
+        const answerer = resumeAnswererAls.getStore();
+        if (approvedOperationIds.length > 0 && answerer) {
+          toolsContext.personApproval = {
+            decide: (approvalRequestId) =>
+              persistCoreApprovalDecision({
+                accessToken: answerer.accessToken,
+                approvalRequestId,
+                decision: "once",
+              }),
+            operationIds: approvedOperationIds,
+          };
+        }
 
         // The task's own tools, when this run works ON a task. Without them a
         // graph node could not comment or ask — so a FLOW routine's agent node
@@ -592,8 +638,15 @@ export function createRunSpecialistPrimitive() {
           approvalPolicy,
           // Standing grants, so a fire that needs to run a script or write to a
           // gated module does it instead of parking for an absent human.
-          ...(runCtx.approvalGrants?.length
-            ? { approvalGrants: [...runCtx.approvalGrants] }
+          // Plus the calls a person just approved on the approval step, so
+          // their replay passes the pre-gate.
+          ...(runCtx.approvalGrants?.length || approvedOperationIds.length > 0
+            ? {
+                approvalGrants: [
+                  ...(runCtx.approvalGrants ?? []),
+                  ...approvedOperationIds,
+                ],
+              }
             : {}),
           ...(headlessWorkspace
             ? { workspace: headlessWorkspace.workspace }
@@ -639,6 +692,9 @@ export function createRunSpecialistPrimitive() {
             // about is a tool it does not use.
             [
               input.brief,
+              ...(declinedCalls.length > 0
+                ? [declinedCallsSection(declinedCalls)]
+                : []),
               ...(previousRunsSection ? [previousRunsSection] : []),
               ...(routineResultSection ? [routineResultSection] : []),
               ...(runCtx.taskId ? [TASK_SELF_TOOLS_GUIDANCE] : []),
@@ -710,6 +766,10 @@ export function createRunSpecialistPrimitive() {
         // here so a human can decide, and carry the calls in the suspend payload
         // — Mastra clears that payload atomically when a resume claims the run,
         // which is what makes the replay single-use.
+        // A call the person already declined does not ask again.
+        for (const operationId of declinedOperationIds) {
+          pending.delete(operationId);
+        }
         if (pending.size > 0 && ctx.workflow) {
           await createWorkflowRunStoreFromEnv()
             ?.setStatus({
@@ -720,10 +780,12 @@ export function createRunSpecialistPrimitive() {
             .catch(() => {
               // best-effort — agent_run status is the authority for the UI
             });
+          const pendingCalls = [...pending.values()];
           await ctx.workflow.suspend({
             kind: "operation_approval",
-            payload: { pending_calls: [...pending.values()] },
+            payload: { pending_calls: pendingCalls },
             request_id: runCtx.requestId,
+            surface: operationApprovalSurface(pendingCalls),
             title: `${input.agent_type_key} needs approval`,
             ...(runCtx.contextType ? { context_type: runCtx.contextType } : {}),
             ...(runCtx.contextId ? { context_id: runCtx.contextId } : {}),

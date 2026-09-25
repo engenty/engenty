@@ -61,6 +61,7 @@ const TOOL_ADMIN_DESCRIPTIONS: Record<string, string> = {
   routines_list: "List the routines this agent owns.",
   routines_create:
     "Give itself a standing job — a prompt or a Workflow plus a wake source; the Space's approval mode decides whether a person confirms first.",
+  routines_cancel_run: "Cancel the open run of one of its own routines.",
   routines_run: "Fire one of its own routines now.",
   routines_update: "Adjust an owned routine's schedule or brief.",
   workflows_list: "Look up published Workflows by name.",
